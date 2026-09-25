@@ -42,6 +42,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
       entries={data.entries}
       nowIso={data.now.toISOString()}
       routines={data.routines}
+      demoMode={data.demoMode}
     />
   );
 }

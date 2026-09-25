@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/components/cme/cme-allocation-field";
@@ -10,12 +10,17 @@ import { TextField } from "@/components/ui/text-field";
 import { cn, fieldControlPlain, fieldControlWithIcon, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
-import type { CmeAllocation, CmeEntry } from "@/lib/cme/types";
+import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory, type CmeEntry } from "@/lib/cme/types";
 
 /**
  * One activity, captured on one sheet: what it was, when, how many hours it
- * ran for, how those hours split across categories, a reflection in the
- * owner's own words, and what it cost.
+ * ran for, which category those hours count toward, a reflection in the
+ * owner's own words, and — behind "More details" — the source link, formal
+ * peer-review credit, practice domains and cost.
+ *
+ * Most activities belong to one category, so the usual path is one tap: the
+ * category chip puts every stated hour there. "Split hours" opens the
+ * three-way split for the activity that genuinely spans categories.
  *
  * `statedHours` never reaches `onSubmit`. It exists only so the owner has a
  * figure to check the category split against while entering it — the number
@@ -26,6 +31,86 @@ import type { CmeAllocation, CmeEntry } from "@/lib/cme/types";
 
 /** Common CME durations. Typing an exact figure into "Hours for this activity" always works too. */
 const HOUR_PRESETS = [0.5, 1, 1.5, 2, 3, 4, 6, 8] as const;
+
+/** Short chip names. Deliberately not the full category labels, which name the split fields. */
+const CATEGORY_CHIP_LABELS: Record<CmeCategory, string> = {
+  educational: "Educational",
+  reviewing: "Reviewing",
+  measuring: "Outcomes",
+};
+
+type CategoryMode = CmeCategory | "split" | null;
+
+function initialCategoryMode(allocations: readonly CmeAllocation[] | undefined): CategoryMode {
+  if (!allocations || allocations.length === 0) return null;
+  if (allocations.length === 1) return allocations[0].category;
+  return "split";
+}
+
+/**
+ * The unsaved new entry, kept in this tab's session storage so a reload, a
+ * dropped connection or an accidental back-swipe does not lose it. Session
+ * storage rather than local storage on purpose: it ends with the tab, so a
+ * half-written reflection is never left on a shared device for the next person
+ * who signs in.
+ */
+type StoredDraft = {
+  title: string;
+  date: string;
+  statedHoursText: string;
+  mode: CategoryMode;
+  allocations: CmeAllocation[];
+  reflection: string;
+  sourceUrl: string;
+  formalPeerReviewText: string;
+  buckets: string[];
+  costText: string;
+};
+
+function readStoredDraft(key: string): StoredDraft | null {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredDraft>;
+    if (typeof parsed.title !== "string" || typeof parsed.date !== "string") return null;
+    const mode = parsed.mode;
+    return {
+      title: parsed.title,
+      date: parsed.date,
+      statedHoursText: typeof parsed.statedHoursText === "string" ? parsed.statedHoursText : "1",
+      mode:
+        mode === "split" || (typeof mode === "string" && (cmeCategories as readonly string[]).includes(mode))
+          ? (mode as CategoryMode)
+          : null,
+      allocations: Array.isArray(parsed.allocations)
+        ? parsed.allocations.filter(
+            (item): item is CmeAllocation =>
+              Boolean(item) &&
+              (cmeCategories as readonly string[]).includes((item as CmeAllocation).category) &&
+              typeof (item as CmeAllocation).hours === "number",
+          )
+        : [],
+      reflection: typeof parsed.reflection === "string" ? parsed.reflection : "",
+      sourceUrl: typeof parsed.sourceUrl === "string" ? parsed.sourceUrl : "",
+      formalPeerReviewText: typeof parsed.formalPeerReviewText === "string" ? parsed.formalPeerReviewText : "",
+      buckets: Array.isArray(parsed.buckets)
+        ? parsed.buckets.filter((item): item is string => typeof item === "string")
+        : [],
+      costText: typeof parsed.costText === "string" ? parsed.costText : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredDraft(key: string, draft: StoredDraft | null) {
+  try {
+    if (draft) window.sessionStorage.setItem(key, JSON.stringify(draft));
+    else window.sessionStorage.removeItem(key);
+  } catch {
+    // Storage blocked or full: the form still works, it just cannot survive a reload.
+  }
+}
 
 export type CmeEntryDraft = z.infer<typeof cmeEntryCreateSchema>;
 
@@ -48,6 +133,18 @@ export type CmeEntryFormProps = {
   availableDomains?: readonly string[];
   submitLabel?: string;
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Where an unsaved NEW entry is kept for this tab (see `StoredDraft`). Only
+   * pass it for a new entry: an edit must never be overwritten by a draft.
+   * A draft is restored only into a form that opened without a prefilled
+   * title, so a routine or learning-source prefill always wins.
+   */
+  draftStorageKey?: string;
+  /**
+   * Pin Save to the bottom of the screen while the form scrolls. On by default
+   * for the full-page form; a sheet passes false because it has its own frame.
+   */
+  stickySave?: boolean;
 };
 
 /**
@@ -78,18 +175,30 @@ export function CmeEntryForm({
   availableDomains = [],
   submitLabel = "Save entry",
   onDirtyChange,
+  draftStorageKey,
+  stickySave = true,
 }: CmeEntryFormProps) {
   // Bumped after every successful save to remount CmeAllocationField, which
   // otherwise has no way to clear its own typed-text state from outside.
   const [formKey, setFormKey] = useState(0);
-  const initialHours =
-    initialStatedHours ?? initialEntry?.allocations.reduce((sum, allocation) => sum + allocation.hours, 0) ?? 1;
+  // A brand-new entry (no hours carried in) starts at 1 hour, the commonest
+  // single activity, rather than 0, which could never be saved as it stands.
+  const carriedHours = initialEntry?.allocations.reduce((sum, allocation) => sum + allocation.hours, 0) ?? 0;
+  const initialHours = initialStatedHours ?? (carriedHours > 0 ? carriedHours : 1);
   const [date, setDate] = useState(() => initialEntry?.date ?? perthCalendarDate(new Date()));
   const [sourceUrl, setSourceUrl] = useState(initialEntry?.sourceUrl ?? "");
   const [title, setTitle] = useState(initialEntry?.title ?? "");
   const [statedHoursText, setStatedHoursText] = useState(String(initialHours));
-  const [allocations, setAllocations] = useState<CmeAllocation[]>(() => [...(initialEntry?.allocations ?? [])]);
-  const [allocatedTotal, setAllocatedTotal] = useState(initialHours === 1 && !initialEntry ? 0 : initialHours);
+  const [mode, setMode] = useState<CategoryMode>(() => initialCategoryMode(initialEntry?.allocations));
+  // The split field's own figures. Used only in "split" mode; a single-category
+  // choice derives its allocation from the stated hours instead.
+  const [splitAllocations, setSplitAllocations] = useState<CmeAllocation[]>(() => [
+    ...(initialEntry?.allocations ?? []),
+  ]);
+  const [splitTotal, setSplitTotal] = useState(() =>
+    (initialEntry?.allocations ?? []).reduce((sum, allocation) => sum + allocation.hours, 0),
+  );
+  const [splitSeed, setSplitSeed] = useState<readonly CmeAllocation[] | undefined>(initialEntry?.allocations);
   const [formalPeerReviewText, setFormalPeerReviewText] = useState(String(initialEntry?.formalPeerReviewHours ?? ""));
   const [buckets, setBuckets] = useState<string[]>(() => [...(initialEntry?.buckets ?? [])]);
   const [reflection, setReflection] = useState(initialEntry?.reflection ?? "");
@@ -100,8 +209,24 @@ export function CmeEntryForm({
   );
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [restoredDraft, setRestoredDraft] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(
+    () =>
+      Boolean(initialEntry?.sourceUrl) ||
+      (initialEntry?.formalPeerReviewHours ?? 0) > 0 ||
+      (initialEntry?.buckets.length ?? 0) > 0 ||
+      (initialEntry?.costCents !== null && initialEntry?.costCents !== undefined),
+  );
+  const draftRestoreChecked = useRef(false);
 
   const statedHours = parsePositiveHours(statedHoursText);
+  const allocations: CmeAllocation[] =
+    mode === "split"
+      ? splitAllocations
+      : mode !== null && statedHours > 0
+        ? [{ category: mode, hours: statedHours }]
+        : [];
+  const allocatedTotal = mode === "split" ? splitTotal : mode !== null ? statedHours : 0;
   const balanced = isAllocationBalanced(allocatedTotal, statedHours);
   const costTrimmed = costText.trim();
   const costValid = costTrimmed === "" || centsFromDollarText(costTrimmed) !== null;
@@ -133,19 +258,21 @@ export function CmeEntryForm({
       ? "Add what the activity was to save it."
       : firstDraftIssue === "date"
         ? "Choose a valid date to save it."
-        : statedHours <= 0 || allocations.length === 0
-          ? "Enter the hours and split them across the categories to save it."
-          : !balanced
-            ? "Split every hour across the categories to save it."
-            : !formalPeerReviewValid
-              ? "Peer-review credit cannot be more than the reviewing-performance hours."
-              : firstDraftIssue === "reflection"
-                ? "Shorten the reflection to 2000 characters to save it."
-                : firstDraftIssue === "sourceUrl"
-                  ? "Check the learning source link, or leave it blank."
-                  : !costValid
-                    ? "Fix the cost, or leave it blank."
-                    : "Check the details above to save it.";
+        : statedHours <= 0
+          ? "Enter how many hours it took to save it."
+          : mode === null
+            ? "Choose which category the hours count toward to save it."
+            : allocations.length === 0 || !balanced
+              ? "Split every hour across the categories to save it."
+              : !formalPeerReviewValid
+                ? "Peer-review credit cannot be more than the reviewing-performance hours."
+                : firstDraftIssue === "reflection"
+                  ? "Shorten the reflection to 2000 characters to save it."
+                  : firstDraftIssue === "sourceUrl"
+                    ? "Check the learning source link, or leave it blank."
+                    : !costValid
+                      ? "Fix the cost, or leave it blank."
+                      : "Check the details above to save it.";
   const initialFingerprint = useMemo(
     () =>
       JSON.stringify({
@@ -173,7 +300,10 @@ export function CmeEntryForm({
     const guardLink = (event: MouseEvent) => {
       if (!dirty || saving || !(event.target instanceof Element)) return;
       const link = event.target.closest("a[href]");
-      if (!link || window.confirm("Discard your unsaved changes?")) return;
+      // A link marked to keep the draft (the quick-log sheet's "Open the full
+      // page") carries the unsaved entry with it, so there is nothing to discard.
+      if (!link || (draftStorageKey && link.hasAttribute("data-cme-keeps-draft"))) return;
+      if (window.confirm("Discard your unsaved changes?")) return;
       event.preventDefault();
       event.stopPropagation();
     };
@@ -183,11 +313,98 @@ export function CmeEntryForm({
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", guardLink, true);
     };
-  }, [dirty, onDirtyChange, saving]);
+  }, [dirty, draftStorageKey, onDirtyChange, saving]);
+
+  // Restore once, after mount: session storage does not exist on the server,
+  // and reading it during render would make the first client render disagree
+  // with the server's. The read is scheduled as a callback, the way any other
+  // external source hands state to React.
+  useEffect(() => {
+    if (!draftStorageKey || draftRestoreChecked.current) return;
+    const timer = window.setTimeout(() => {
+      draftRestoreChecked.current = true;
+      if (initialEntry?.title) return;
+      const stored = readStoredDraft(draftStorageKey);
+      if (!stored || (!stored.title.trim() && !stored.reflection.trim())) return;
+      setTitle(stored.title);
+      setDate(stored.date);
+      setStatedHoursText(stored.statedHoursText);
+      setMode(stored.mode);
+      setSplitAllocations(stored.allocations);
+      setSplitTotal(stored.allocations.reduce((sum, allocation) => sum + allocation.hours, 0));
+      setSplitSeed(stored.allocations);
+      setReflection(stored.reflection);
+      setSourceUrl(stored.sourceUrl);
+      setFormalPeerReviewText(stored.formalPeerReviewText);
+      setBuckets(stored.buckets);
+      setCostText(stored.costText);
+      if (stored.sourceUrl || stored.formalPeerReviewText || stored.buckets.length > 0 || stored.costText) {
+        setDetailsOpen(true);
+      }
+      setFormKey((key) => key + 1);
+      setRestoredDraft(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [draftStorageKey, initialEntry?.title]);
+
+  useEffect(() => {
+    if (!draftStorageKey || !draftRestoreChecked.current || saving) return;
+    if (!title.trim() && !reflection.trim()) {
+      writeStoredDraft(draftStorageKey, null);
+      return;
+    }
+    writeStoredDraft(draftStorageKey, {
+      title,
+      date,
+      statedHoursText,
+      mode,
+      allocations: splitAllocations,
+      reflection,
+      sourceUrl,
+      formalPeerReviewText,
+      buckets,
+      costText,
+    });
+  }, [
+    buckets,
+    costText,
+    date,
+    draftStorageKey,
+    formalPeerReviewText,
+    mode,
+    reflection,
+    saving,
+    sourceUrl,
+    splitAllocations,
+    statedHoursText,
+    title,
+  ]);
+
+  function resetFields() {
+    setDate(perthCalendarDate(new Date()));
+    setTitle("");
+    setSourceUrl("");
+    setStatedHoursText("1");
+    setMode(null);
+    setSplitAllocations([]);
+    setSplitTotal(0);
+    setSplitSeed(undefined);
+    setFormalPeerReviewText("");
+    setBuckets([]);
+    setReflection("");
+    setCostText("");
+    setFormKey((key) => key + 1);
+  }
+
+  function discardDraft() {
+    if (draftStorageKey) writeStoredDraft(draftStorageKey, null);
+    resetFields();
+    setRestoredDraft(false);
+  }
 
   function handleAllocationChange(nextAllocations: readonly CmeAllocation[], total: number) {
-    setAllocations([...nextAllocations]);
-    setAllocatedTotal(total);
+    setSplitAllocations([...nextAllocations]);
+    setSplitTotal(total);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -197,17 +414,9 @@ export function CmeEntryForm({
     setSaving(true);
     try {
       await onSubmit(parsedDraft.data);
-      setDate(perthCalendarDate(new Date()));
-      setTitle("");
-      setSourceUrl("");
-      setStatedHoursText("1");
-      setAllocations([]);
-      setAllocatedTotal(0);
-      setFormalPeerReviewText("");
-      setBuckets([]);
-      setReflection("");
-      setCostText("");
-      setFormKey((key) => key + 1);
+      if (draftStorageKey) writeStoredDraft(draftStorageKey, null);
+      setRestoredDraft(false);
+      resetFields();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Could not save this entry.");
     } finally {
@@ -215,17 +424,57 @@ export function CmeEntryForm({
     }
   }
 
+  const chipClass = (selected: boolean) =>
+    cn(
+      "min-h-tap rounded-lg border px-3 text-sm font-semibold transition motion-reduce:transition-none",
+      selected
+        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+        : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+    );
+
+  const saveControl = (
+    <>
+      <Button
+        type="submit"
+        variant="primary"
+        disabled={!canSave}
+        busy={saving}
+        busyLabel="Saving…"
+        block
+        aria-describedby={saveBlockedReason ? "cme-entry-save-blocked" : undefined}
+      >
+        {submitLabel}
+      </Button>
+      {saveBlockedReason ? (
+        <p
+          id="cme-entry-save-blocked"
+          data-testid="cme-entry-save-blocked"
+          className={cn("mt-2 text-center text-xs", textMuted)}
+        >
+          {saveBlockedReason}
+        </p>
+      ) : null}
+    </>
+  );
+
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-5" noValidate>
       {submitError ? <InlineNotice tone="neutral">{submitError}</InlineNotice> : null}
+      {restoredDraft ? (
+        <div data-testid="cme-entry-draft-restored">
+          <InlineNotice tone="neutral">
+            <span>We kept the entry you had not saved yet.</span>{" "}
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="inline-flex min-h-tap items-center font-semibold text-[color:var(--clinical-accent)] underline underline-offset-2"
+            >
+              Start again
+            </button>
+          </InlineNotice>
+        </div>
+      ) : null}
 
-      <TextField
-        label="Learning source URL (optional)"
-        value={sourceUrl}
-        maxLength={2000}
-        onChange={(event) => setSourceUrl(event.target.value)}
-        hint="A source link is not evidence of participation. Record only what you completed."
-      />
       <TextField
         label="What was it"
         id="cme-entry-title"
@@ -261,12 +510,7 @@ export function CmeEntryForm({
                 type="button"
                 aria-pressed={selected}
                 onClick={() => setStatedHoursText(String(preset))}
-                className={cn(
-                  "min-h-tap rounded-lg border px-3 text-sm font-semibold transition",
-                  selected
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                )}
+                className={chipClass(selected)}
               >
                 {String(preset)}
               </button>
@@ -275,51 +519,43 @@ export function CmeEntryForm({
         </div>
       </div>
 
-      <CmeAllocationField
-        key={formKey}
-        statedHours={statedHours}
-        onChange={handleAllocationChange}
-        idPrefix="cme-entry-allocation"
-        initialAllocations={initialEntry?.allocations}
-      />
+      <fieldset data-testid="cme-entry-category">
+        <legend className="text-sm font-semibold text-[color:var(--text)]">Counts toward</legend>
+        <p className={cn(textMuted, "mt-1 text-xs")}>
+          One tap puts every hour in that category. Choose Split hours if it genuinely covered more than one.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {cmeCategories.map((category) => (
+            <button
+              key={category}
+              type="button"
+              aria-pressed={mode === category}
+              title={cmeCategoryLabels[category]}
+              onClick={() => setMode(category)}
+              className={chipClass(mode === category)}
+            >
+              {CATEGORY_CHIP_LABELS[category]}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-pressed={mode === "split"}
+            onClick={() => setMode("split")}
+            className={chipClass(mode === "split")}
+          >
+            Split hours
+          </button>
+        </div>
+      </fieldset>
 
-      <TextField
-        label="Formal peer-review credit"
-        id="cme-entry-peer-review-hours"
-        type="text"
-        inputMode="decimal"
-        value={formalPeerReviewText}
-        onChange={(event) => setFormalPeerReviewText(event.target.value)}
-        hint="Credit within reviewing-performance hours; it does not add extra hours."
-      />
-      {!formalPeerReviewValid ? (
-        <p className={cn("-mt-4 text-xs font-medium", textMuted)}>Use a positive plain number, such as 1 or 1.5.</p>
-      ) : null}
-
-      {availableDomains.length > 0 ? (
-        <fieldset>
-          <legend className="text-sm font-semibold text-[color:var(--text)]">Practice domains</legend>
-          <p className={cn(textMuted, "mt-1 text-xs")}>Select only the domains this activity actually addressed.</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {availableDomains.map((domain) => (
-              <label
-                key={domain}
-                className="flex min-h-tap items-center gap-3 rounded-lg border border-[color:var(--border)] px-3 text-sm text-[color:var(--text)]"
-              >
-                <input
-                  type="checkbox"
-                  checked={buckets.includes(domain)}
-                  onChange={(event) =>
-                    setBuckets((current) =>
-                      event.target.checked ? [...current, domain] : current.filter((item) => item !== domain),
-                    )
-                  }
-                />
-                {domain}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+      {mode === "split" ? (
+        <CmeAllocationField
+          key={formKey}
+          statedHours={statedHours}
+          onChange={handleAllocationChange}
+          idPrefix="cme-entry-allocation"
+          initialAllocations={splitSeed}
+        />
       ) : null}
 
       <FormField
@@ -344,60 +580,118 @@ export function CmeEntryForm({
         identifiers.
       </InlineNotice>
 
-      <FormField label="What it cost" id="cme-entry-cost" describedBy="cme-entry-cost-optional">
-        {(field) => (
-          <>
-            <div className="relative">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium",
-                  textMuted,
-                )}
-              >
-                $
-              </span>
-              <input
-                id={field.id}
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                aria-describedby={field.describedBy}
-                value={costText}
-                onChange={(event) => setCostText(event.target.value)}
-                className={fieldControlWithIcon}
-              />
-            </div>
-            <p id="cme-entry-cost-optional" data-testid="cme-cost-optional" className={cn("mt-1.5 text-xs", textMuted)}>
-              Optional — leave this blank if it did not cost you anything.
-            </p>
-            {!costValid ? (
-              <p className={cn("mt-1 text-xs font-medium", textMuted)}>Numbers only, like 45 or 45.50.</p>
-            ) : null}
-          </>
-        )}
-      </FormField>
-
-      <Button
-        type="submit"
-        variant="primary"
-        disabled={!canSave}
-        busy={saving}
-        busyLabel="Saving…"
-        block
-        aria-describedby={saveBlockedReason ? "cme-entry-save-blocked" : undefined}
+      <details
+        data-testid="cme-entry-more-details"
+        open={detailsOpen}
+        onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+        className="rounded-lg border border-[color:var(--border)]"
       >
-        {submitLabel}
-      </Button>
-      {saveBlockedReason ? (
-        <p
-          id="cme-entry-save-blocked"
-          data-testid="cme-entry-save-blocked"
-          className={cn("-mt-2 text-center text-xs", textMuted)}
+        <summary className="flex min-h-tap cursor-pointer items-center px-3 text-sm font-semibold text-[color:var(--text)]">
+          More details
+          <span className={cn(textMuted, "ml-2 text-xs font-normal")}>source, peer review, domains, cost</span>
+        </summary>
+        <div className="flex flex-col gap-5 border-t border-[color:var(--border)] p-3">
+          <TextField
+            label="Learning source URL (optional)"
+            value={sourceUrl}
+            maxLength={2000}
+            onChange={(event) => setSourceUrl(event.target.value)}
+            hint="A source link is not evidence of participation. Record only what you completed."
+          />
+
+          <TextField
+            label="Formal peer-review credit"
+            id="cme-entry-peer-review-hours"
+            type="text"
+            inputMode="decimal"
+            value={formalPeerReviewText}
+            onChange={(event) => setFormalPeerReviewText(event.target.value)}
+            hint="Credit within reviewing-performance hours; it does not add extra hours."
+          />
+          {!formalPeerReviewValid ? (
+            <p className={cn("-mt-4 text-xs font-medium", textMuted)}>Use a positive plain number, such as 1 or 1.5.</p>
+          ) : null}
+
+          {availableDomains.length > 0 ? (
+            <fieldset>
+              <legend className="text-sm font-semibold text-[color:var(--text)]">Practice domains</legend>
+              <p className={cn(textMuted, "mt-1 text-xs")}>Select only the domains this activity actually addressed.</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {availableDomains.map((domain) => (
+                  <label
+                    key={domain}
+                    className="flex min-h-tap cursor-pointer items-center gap-3 rounded-lg border border-[color:var(--border)] px-3 text-sm text-[color:var(--text)]"
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-5 shrink-0 accent-[color:var(--clinical-accent)]"
+                      checked={buckets.includes(domain)}
+                      onChange={(event) =>
+                        setBuckets((current) =>
+                          event.target.checked ? [...current, domain] : current.filter((item) => item !== domain),
+                        )
+                      }
+                    />
+                    {domain}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
+          <FormField label="What it cost" id="cme-entry-cost" describedBy="cme-entry-cost-optional">
+            {(field) => (
+              <>
+                <div className="relative">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium",
+                      textMuted,
+                    )}
+                  >
+                    $
+                  </span>
+                  <input
+                    id={field.id}
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    aria-describedby={field.describedBy}
+                    value={costText}
+                    onChange={(event) => setCostText(event.target.value)}
+                    className={fieldControlWithIcon}
+                  />
+                </div>
+                <p
+                  id="cme-entry-cost-optional"
+                  data-testid="cme-cost-optional"
+                  className={cn("mt-1.5 text-xs", textMuted)}
+                >
+                  Optional — leave this blank if it did not cost you anything.
+                </p>
+                {!costValid ? (
+                  <p className={cn("mt-1 text-xs font-medium", textMuted)}>Numbers only, like 45 or 45.50.</p>
+                ) : null}
+              </>
+            )}
+          </FormField>
+        </div>
+      </details>
+
+      {stickySave ? (
+        // Pinned while the form scrolls, so Save is never a long scroll away on
+        // a phone. The page's own background sits behind it so text scrolling
+        // underneath never shows through.
+        <div
+          data-testid="cme-entry-save-bar"
+          className="sticky bottom-0 z-[var(--z-raised)] -mx-4 border-t border-[color:var(--border)] bg-[color:var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:border-t-0 sm:bg-transparent sm:px-0"
         >
-          {saveBlockedReason}
-        </p>
-      ) : null}
+          {saveControl}
+        </div>
+      ) : (
+        <div>{saveControl}</div>
+      )}
     </form>
   );
 }

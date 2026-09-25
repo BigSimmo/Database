@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function CmeNewEntryPageRoute({
   searchParams,
 }: {
-  searchParams: Promise<{ routine?: string; year?: string; title?: string; sourceUrl?: string }>;
+  searchParams: Promise<{ routine?: string; year?: string; title?: string; sourceUrl?: string; repeat?: string }>;
 }) {
   const query = await searchParams;
   const requestedYear = query.year ? Number(query.year) : undefined;
@@ -29,10 +29,14 @@ export default async function CmeNewEntryPageRoute({
   }
   const learningPrefill = parseCmeLearningPrefill(query);
   const routine = data.routines.find((candidate) => candidate.id === query.routine) ?? null;
+  // Only an entry already loaded for this owner and year can be copied, so a
+  // guessed id copies nothing rather than reaching another record.
+  const repeatOf = query.repeat ? (data.entries.find((candidate) => candidate.id === query.repeat) ?? null) : null;
   return (
     <CmeNewEntryRoute
-      key={`${data.year}:${routine?.id ?? "manual"}:${learningPrefill.title ?? ""}:${learningPrefill.sourceUrl ?? ""}`}
+      key={`${data.year}:${routine?.id ?? "manual"}:${repeatOf?.id ?? ""}:${learningPrefill.title ?? ""}:${learningPrefill.sourceUrl ?? ""}`}
       routine={routine}
+      repeatOf={repeatOf}
       learningPrefill={learningPrefill}
       set={data.set}
       demoMode={data.demoMode}

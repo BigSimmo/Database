@@ -7,6 +7,22 @@ import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
 import { activeCmeYearEntries } from "@/lib/cme/export";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
+/**
+ * The phone's own print screen is the PDF maker: iOS offers Share and Save to
+ * Files from it, Android and desktop browsers offer Save as PDF. The page title
+ * becomes the suggested file name, so it is set for the duration of the print.
+ */
+function savePdf(year: number) {
+  const previousTitle = document.title;
+  document.title = `CPD annual summary ${year}`;
+  const restore = () => {
+    document.title = previousTitle;
+    window.removeEventListener("afterprint", restore);
+  };
+  window.addEventListener("afterprint", restore);
+  window.print();
+}
+
 export function CmeAnnualSummary({
   set,
   entries,
@@ -41,11 +57,18 @@ export function CmeAnnualSummary({
         <Link href={`/cme/log?year=${set.year}`} className={buttonFaceClass({ variant: "secondary" })}>
           Back to log
         </Link>
-        <Button onClick={() => window.print()}>Print annual summary</Button>
+        <Button testId="cme-summary-save-pdf" onClick={() => savePdf(set.year)}>
+          Save as PDF
+        </Button>
         <a href={`/api/cme/export?year=${set.year}`} className={buttonFaceClass({ variant: "secondary" })}>
           Download CSV
         </a>
       </div>
+
+      <p className={cn(textMuted, "cme-print-controls -mt-3 mb-5 text-xs")}>
+        Opens your device&apos;s print screen. Choose Save as PDF, or Share on a phone, to send it to your college or
+        keep a copy.
+      </p>
 
       <header className="grid gap-1">
         <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">CPD annual summary — {set.year}</h1>

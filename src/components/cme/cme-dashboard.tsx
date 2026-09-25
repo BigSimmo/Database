@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
+import { CmeCategoryBar, CmePaceChart, CmeRequirementMeter } from "@/components/cme/cme-progress-visuals";
 import { Progress } from "@/components/ui/progress";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import {
@@ -330,11 +331,18 @@ export function CmeDashboard({
     requirements: (
       <ul className="space-y-2">
         {sortedStatuses.map((status) => (
-          <li key={status.requirementId} className={cn(cardSurface, "p-3")}>
-            <p className={cn("text-sm text-[color:var(--text)]", !status.met && "font-semibold")}>
-              {requirementLabel(status.requirementId)}
-            </p>
-            <p className={cn(textMuted, "text-sm")}>{status.summary}</p>
+          <li
+            key={status.requirementId}
+            data-met={status.met ? "true" : "false"}
+            className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}
+          >
+            <div className="min-w-0">
+              <p className={cn("text-sm text-[color:var(--text)]", !status.met && "font-semibold")}>
+                {requirementLabel(status.requirementId)}
+              </p>
+              <p className={cn(textMuted, "text-sm")}>{status.summary}</p>
+            </div>
+            <CmeRequirementMeter progress={status.progress} met={status.met} />
           </li>
         ))}
       </ul>
@@ -381,7 +389,7 @@ export function CmeDashboard({
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-xl font-semibold text-[color:var(--text)]">CME</h1>
         <Button variant="toolbar" size="sm" icon={Settings2} onClick={onOpenCustomise}>
@@ -397,6 +405,19 @@ export function CmeDashboard({
         <div className="mt-3">
           <Progress value={progressValue} label="Hours toward this year's target" mark={mark} />
         </div>
+        <div className="mt-4">
+          <CmeCategoryBar entries={entries} targetHours={set.totalHours} />
+        </div>
+        {pace && entries.length > 0 ? (
+          <div className="mt-4">
+            <CmePaceChart
+              entries={entries}
+              year={set.year}
+              targetHours={set.totalHours}
+              todayIndex={daysElapsedInCpdYear(now, set.year) - 1}
+            />
+          </div>
+        ) : null}
         {pace ? (
           <p data-testid="cme-pace-sentence" className={cn(textMuted, "mt-3 text-sm")}>
             {paceSentence(pace, set.totalHours, endLabel)}
