@@ -208,6 +208,35 @@ describe("favourites auth gate DOM", () => {
     expect(screen.queryByTestId("favourites-open-account-setup")).toBeNull();
   });
 
+  it("labels demo-mode fixture favourites as examples (#358YM0)", () => {
+    authSession.status = "signed_out";
+    render(<FavouritesCommandLibraryPage query="" demoMode={true} />);
+
+    expect(screen.getByText("Example favourites shown in demo mode")).toBeVisible();
+    const fixture = favouriteItems[0];
+    // Every surface that names a fixture item carries the tag beside its title.
+    const tags = screen.getAllByText("Example", { exact: true });
+    expect(tags.length).toBeGreaterThanOrEqual(favouriteItems.length);
+    expect(screen.getAllByText(fixture.title).length).toBeGreaterThan(0);
+  });
+
+  it("never labels a clinician's own saved favourites as examples (#358YM0)", () => {
+    authSession.status = "authenticated";
+    authSession.session = { user: { email: "clinician@clinic.example" } };
+    savedRegistry.items = [
+      {
+        ...favouriteItems[0],
+        id: "saved-own-item",
+        title: "My own saved favourite",
+      },
+    ];
+    render(<FavouritesCommandLibraryPage query="" demoMode={false} />);
+
+    expect(screen.getAllByText("My own saved favourite").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Example", { exact: true })).toBeNull();
+    expect(screen.queryByText("Example favourites shown in demo mode")).toBeNull();
+  });
+
   it("uses favourites intent copy on the account setup dialog", () => {
     render(<AccountSetupDialog open onClose={() => undefined} intent="favourites" />);
 
