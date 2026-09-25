@@ -98,7 +98,7 @@ describe("CME capture routes", () => {
     expect(navigation.push).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: /save entry/i }));
-    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/cme/log?year=2025"));
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/cme/log?year=2025&saved=1"));
     expect(navigation.refresh).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
 

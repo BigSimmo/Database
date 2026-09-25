@@ -6,7 +6,10 @@ import { useState } from "react";
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import type { CmeRoutine } from "@/lib/cme/routines";
-import type { CmeRequirementSet } from "@/lib/cme/types";
+import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+
+/** One key for every new-entry form, so the quick-log sheet and this page continue the same draft. */
+export const CME_NEW_ENTRY_DRAFT_KEY = "cme-entry-draft:new";
 
 /**
  * Reads the message the API actually sent, so the form shows the reason rather
@@ -45,11 +48,19 @@ async function entrySaveError(response: Response): Promise<string> {
 export function CmeNewEntryRoute({
   routine,
   learningPrefill,
+  repeatOf,
   set,
   demoMode = false,
 }: {
   readonly learningPrefill?: import("@/lib/cme/learning-source").CmeLearningPrefill;
   readonly routine?: CmeRoutine | null;
+  /**
+   * "Log it again": an earlier entry to copy. Its title, hours, categories,
+   * source, domains and peer-review credit carry over; the date becomes today
+   * and the reflection and cost start empty, because those belong to the new
+   * occasion, not the old one.
+   */
+  readonly repeatOf?: CmeEntry | null;
   readonly set?: CmeRequirementSet | null;
   readonly demoMode?: boolean;
 }) {
@@ -61,18 +72,31 @@ export function CmeNewEntryRoute({
     ) ?? [];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" });
   const initialDate = set && !today.startsWith(`${set.year}-`) ? `${set.year}-01-01` : today;
-  const initialEntry = {
-    date: initialDate,
-    title: routine?.title ?? learningPrefill?.title ?? "",
-    sourceUrl: learningPrefill?.sourceUrl ?? null,
-    allocations: routine?.usualAllocations ?? [],
-    reflection: "",
-    costCents: null,
-    routineId: routine?.id ?? null,
-    documentId: null,
-    buckets: [],
-    formalPeerReviewHours: 0,
-  };
+  const initialEntry = repeatOf
+    ? {
+        date: initialDate,
+        title: repeatOf.title,
+        sourceUrl: repeatOf.sourceUrl ?? null,
+        allocations: repeatOf.allocations,
+        reflection: "",
+        costCents: null,
+        routineId: repeatOf.routineId,
+        documentId: repeatOf.documentId,
+        buckets: repeatOf.buckets,
+        formalPeerReviewHours: repeatOf.formalPeerReviewHours ?? 0,
+      }
+    : {
+        date: initialDate,
+        title: routine?.title ?? learningPrefill?.title ?? "",
+        sourceUrl: learningPrefill?.sourceUrl ?? null,
+        allocations: routine?.usualAllocations ?? [],
+        reflection: "",
+        costCents: null,
+        routineId: routine?.id ?? null,
+        documentId: null,
+        buckets: [],
+        formalPeerReviewHours: 0,
+      };
 
   async function saveEntry(entry: CmeEntryDraft) {
     if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
@@ -82,7 +106,7 @@ export function CmeNewEntryRoute({
       body: JSON.stringify({ ...entry, requestId }),
     });
     if (!response.ok) throw new Error(await entrySaveError(response));
-    router.push(`/cme/log?year=${entry.date.slice(0, 4)}`);
+    router.push(`/cme/log?year=${entry.date.slice(0, 4)}&saved=1`);
     router.refresh();
   }
 
@@ -90,10 +114,16 @@ export function CmeNewEntryRoute({
     <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Log an activity</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
-        What it was, when, how long it ran for, and how those hours split across categories. Nothing is recorded until
-        you save it.
+        What it was, when, how long it ran for, and which category the hours count toward. Nothing is recorded until you
+        save it.
       </p>
 
+      {repeatOf ? (
+        <p data-testid="cme-entry-repeat-notice" className={cn(textMuted, "mt-3 text-sm")}>
+          Copied from an earlier entry and dated today. Check the date and hours, and write this occasion&apos;s own
+          reflection, before saving.
+        </p>
+      ) : null}
       {learningPrefill?.title || learningPrefill?.sourceUrl ? (
         <p className={cn(textMuted, "mt-3 text-sm")}>
           Source details are prefilled. Confirm the time you actually spent and its allocation before saving. Opening
@@ -112,8 +142,9 @@ export function CmeNewEntryRoute({
         <CmeEntryForm
           onSubmit={saveEntry}
           initialEntry={initialEntry}
-          initialStatedHours={routine?.usualHours}
+          initialStatedHours={repeatOf ? undefined : routine?.usualHours}
           availableDomains={domains}
+          draftStorageKey={CME_NEW_ENTRY_DRAFT_KEY}
         />
       </div>
     </main>

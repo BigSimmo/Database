@@ -132,7 +132,10 @@ test.describe("CME core screens at phone widths", () => {
     await expect(page).toHaveURL(/\/cme\/new\?routine=/);
     await expect(page.getByLabel("What was it", { exact: false })).toHaveValue("Demo journal club");
     await expect(page.getByLabel("Hours for this activity", { exact: true })).toHaveValue("1");
-    await expect(page.getByLabel("Educational activities", { exact: true })).toHaveValue("1");
+    await expect(page.getByRole("button", { name: "Educational", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
     await expect(page.getByTestId("cme-entry-demo-notice")).toContainText("Saving is available only");
   });
@@ -280,8 +283,36 @@ test.describe("CME annual records and explicit learning handoff", () => {
     await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeDisabled();
     expect(writes).toEqual([]);
     await page.getByLabel("Hours for this activity", { exact: true }).fill("1");
-    await page.getByLabel("Educational activities", { exact: true }).fill("1");
+    await page.getByRole("button", { name: "Educational", exact: true }).click();
     await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
     expect(writes).toEqual([]);
+  });
+});
+
+test.describe("CME phone design", () => {
+  test("the Log button opens a quick panel over the dashboard without recording anything", async ({ page }) => {
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/api/cme/entries")) writes.push(request.url());
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cme");
+    await expect(page.getByTestId("cme-category-bar")).toBeVisible();
+    await page.getByTestId("cme-quick-log-button").click();
+    const sheet = page.getByTestId("cme-quick-log-sheet");
+    await expect(sheet.getByLabel("What was it", { exact: false })).toBeVisible();
+    await sheet.getByLabel("What was it", { exact: false }).fill("Synthetic grand round");
+    await sheet.getByRole("button", { name: "Educational", exact: true }).click();
+    await expect(sheet.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
+    expect(writes).toEqual([]);
+  });
+
+  test("the new-entry Save stays on screen while the form scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cme/new");
+    const bar = page.getByTestId("cme-entry-save-bar");
+    await expect(bar).toBeInViewport();
+    await page.getByLabel("What was it", { exact: false }).focus();
+    await expect(bar).toBeInViewport();
   });
 });

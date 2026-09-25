@@ -41,4 +41,20 @@ describe("Claude review workflow", () => {
     const review = yamlBlock(job, "- name: Review the pull request", 6);
     expect(review).toContain("continue-on-error: true");
   });
+
+  it("names the reason a review failed from the saved transcript without printing the transcript", () => {
+    const raw = readFileSync(WORKFLOW, "utf8");
+    const report = yamlBlock(raw, "- name: Report a review that could not run", 6);
+    // Reads the action's own saved output, passed through env rather than
+    // interpolated into the script.
+    expect(report).toContain("EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}");
+    const script = report.slice(report.search(/^\s+run:\s*\|/m));
+    expect(script).not.toContain("${{ steps.review.outputs.execution_file }}");
+    // Anything long enough to be a credential is replaced before printing,
+    // and the printed reason is capped.
+    expect(report).toContain("[redacted]");
+    expect(report).toContain("cut -c1-300");
+    // The whole-transcript remedy stays off in a public repository.
+    expect(raw).not.toMatch(/^\s*show_full_output:\s*true/m);
+  });
 });

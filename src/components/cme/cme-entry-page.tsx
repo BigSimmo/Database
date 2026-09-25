@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, FileQuestion, Pencil, Repeat } from "lucide-react";
+import { ChevronLeft, CopyPlus, FileQuestion, Pencil, Repeat } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -73,7 +73,7 @@ export function CmeEntryPage({
 
   if (!entry) {
     return (
-      <main data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+      <main data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
         <EmptyState
           testId="cme-entry-not-found"
           icon={FileQuestion}
@@ -117,7 +117,7 @@ export function CmeEntryPage({
   const totalHours = Math.round(entry.allocations.reduce((sum, allocation) => sum + allocation.hours, 0) * 100) / 100;
 
   return (
-    <main data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <Link
         href={`/cme/log?year=${set.year}`}
         className="inline-flex min-h-tap items-center gap-1.5 text-sm font-semibold text-[color:var(--clinical-accent)]"
@@ -139,15 +139,27 @@ export function CmeEntryPage({
             </Chip>
           </span>
         ) : null}
-        {editHref ? (
-          <Link
-            href={editHref}
-            className="mt-2 inline-flex min-h-tap items-center gap-2 self-start text-sm font-semibold text-[color:var(--clinical-accent)]"
-          >
-            <Pencil aria-hidden="true" className="size-icon-sm" />
-            Edit entry
-          </Link>
-        ) : null}
+        <div className="mt-2 flex flex-wrap gap-x-5">
+          {editHref ? (
+            <Link
+              href={editHref}
+              className="inline-flex min-h-tap items-center gap-2 text-sm font-semibold text-[color:var(--clinical-accent)]"
+            >
+              <Pencil aria-hidden="true" className="size-icon-sm" />
+              Edit entry
+            </Link>
+          ) : null}
+          {!readOnly ? (
+            <Link
+              data-testid="cme-entry-log-again"
+              href={`/cme/new?year=${entry.date.slice(0, 4)}&repeat=${encodeURIComponent(entry.id)}`}
+              className="inline-flex min-h-tap items-center gap-2 text-sm font-semibold text-[color:var(--clinical-accent)]"
+            >
+              <CopyPlus aria-hidden="true" className="size-icon-sm" />
+              Log it again
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <section data-testid="cme-entry-allocations" className="mt-5">

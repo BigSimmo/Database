@@ -116,7 +116,7 @@ describe("Archive, annual record and learning journeys", () => {
     expect(screen.queryByText(/Wrong year/)).toBeNull();
     expect(screen.queryByText("2026-09-01 — Archived")).toBeNull();
     expect(screen.getByText(/1 active activities/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Print annual summary" }));
+    await user.click(screen.getByRole("button", { name: "Save as PDF" }));
     expect(print).toHaveBeenCalledOnce();
   });
 });

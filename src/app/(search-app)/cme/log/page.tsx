@@ -16,7 +16,11 @@ function placeholderSet(year: number): CmeRequirementSet {
   return { year, confirmedOn: "", confirmedSource: "", totalHours: 0, requirements: [] };
 }
 
-export default async function CmeLogRoute({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+export default async function CmeLogRoute({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string; saved?: string }>;
+}) {
   const query = await searchParams;
   const requestedYear = query.year ? Number(query.year) : undefined;
   const data = await loadCmePageData(
@@ -36,6 +40,8 @@ export default async function CmeLogRoute({ searchParams }: { searchParams: Prom
       entries={data.entries}
       set={data.set ?? placeholderSet(data.year)}
       navigationYears={[currentYear, currentYear - 1, data.year]}
+      justSaved={query.saved === "1"}
+      demoMode={data.demoMode}
     />
   );
 }

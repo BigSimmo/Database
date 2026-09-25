@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { cardInteractive, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
+import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { buttonFaceClass } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
@@ -28,6 +29,9 @@ export type CmeLogPageProps = {
   readonly set: CmeRequirementSet;
   /** Server-backed year destinations. Omit in isolated component tests with a multi-year entry fixture. */
   readonly navigationYears?: readonly number[];
+  /** Set by the new-entry page after a save, so the owner sees it landed. */
+  readonly justSaved?: boolean;
+  readonly demoMode?: boolean;
 };
 
 type CategoryFilter = "all" | CmeCategory;
@@ -162,7 +166,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
  * standing way to add to the log, not only something reached from the
  * dashboard.
  */
-export function CmeLogPage({ entries, set, navigationYears }: CmeLogPageProps) {
+export function CmeLogPage({ entries, set, navigationYears, justSaved = false, demoMode = false }: CmeLogPageProps) {
   const availableYears = useMemo(() => {
     const years = new Set<number>(entries.map((entry) => Number(entry.date.slice(0, 4))));
     years.add(set.year);
@@ -212,9 +216,17 @@ export function CmeLogPage({ entries, set, navigationYears }: CmeLogPageProps) {
   ];
 
   return (
-    <main data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Log</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>Every activity you have recorded, by year.</p>
+      <div role="status" data-testid="cme-log-saved">
+        {justSaved ? (
+          <p className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-semibold text-[color:var(--clinical-accent)]">
+            <Check aria-hidden="true" className="size-icon-sm" />
+            Saved to your log.
+          </p>
+        ) : null}
+      </div>
 
       {navigationYears && navigationYears.length > 1 ? (
         <nav aria-label="Select year" data-testid="cme-log-year-tabs" className="mt-4 flex flex-wrap gap-2">
@@ -380,6 +392,7 @@ export function CmeLogPage({ entries, set, navigationYears }: CmeLogPageProps) {
           <span>New entry</span>
         </Link>
       </div>
+      {set.totalHours > 0 ? <CmeQuickLog set={set} demoMode={demoMode} /> : null}
     </main>
   );
 }

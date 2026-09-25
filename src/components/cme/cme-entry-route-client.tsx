@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
+import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { CmeEntryPage } from "@/components/cme/cme-entry-page";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
@@ -125,65 +126,68 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode }: CmeEntryRout
   }
 
   return (
-    <CmeEntryPage
-      entryId={loadedEntry.id}
-      entries={[loadedEntry]}
-      set={set}
-      editHref={!readOnly ? `/cme/log/${loadedEntry.id}?edit=1` : undefined}
-      readOnly={readOnly}
-      actions={
-        <section className="mt-4" aria-label="Archive activity">
-          {readOnly ? (
-            <p className={cn(textMuted, "mb-2 text-sm")}>
-              {set.closedAt
-                ? "This CPD year is closed. Records and evidence are view-only."
-                : "Archived: excluded from totals, copies, exports and annual summaries. Sources and evidence are retained."}
-            </p>
-          ) : null}
-          <Button
-            disabled={demoMode || Boolean(set.closedAt) || archivePending}
-            // Archiving asks first; restoring does not. Both are reversible,
-            // but archiving takes the activity out of this year's totals and
-            // was one stray tap away from the top of the page.
-            onClick={() => (archived ? void setArchived(false) : setConfirmArchiveOpen(true))}
-          >
-            {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
-          </Button>
-          <ConfirmDialog
-            open={confirmArchiveOpen}
-            onCancel={() => setConfirmArchiveOpen(false)}
-            onConfirm={() => {
-              setConfirmArchiveOpen(false);
-              void setArchived(true);
-            }}
-            title="Archive this activity?"
-            description="It stops counting toward this year's hours and is left out of copies, exports and the annual summary. Its sources and evidence are kept, and you can restore it at any time."
-            confirmLabel="Archive activity"
-            tone="primary"
-          />
-          {archiveError ? (
-            <p role="alert" className="mt-2 text-sm">
-              {archiveError}
-            </p>
-          ) : null}
-        </section>
-      }
-      onCopied={async () => {
-        if (demoMode) throw new Error("Demo mode is read-only.");
-        const response = await fetch(`/api/cme/entries/${loadedEntry.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcribed: true }),
-        });
-        if (!response.ok) throw new Error(await responseError(response));
-      }}
-    >
-      <CmeEvidencePanel
-        key={loadedEntry.id}
+    <>
+      <CmeEntryPage
         entryId={loadedEntry.id}
-        readOnly={demoMode || readOnly}
-        demoMode={demoMode}
-      />
-    </CmeEntryPage>
+        entries={[loadedEntry]}
+        set={set}
+        editHref={!readOnly ? `/cme/log/${loadedEntry.id}?edit=1` : undefined}
+        readOnly={readOnly}
+        actions={
+          <section className="mt-4" aria-label="Archive activity">
+            {readOnly ? (
+              <p className={cn(textMuted, "mb-2 text-sm")}>
+                {set.closedAt
+                  ? "This CPD year is closed. Records and evidence are view-only."
+                  : "Archived: excluded from totals, copies, exports and annual summaries. Sources and evidence are retained."}
+              </p>
+            ) : null}
+            <Button
+              disabled={demoMode || Boolean(set.closedAt) || archivePending}
+              // Archiving asks first; restoring does not. Both are reversible,
+              // but archiving takes the activity out of this year's totals and
+              // was one stray tap away from the top of the page.
+              onClick={() => (archived ? void setArchived(false) : setConfirmArchiveOpen(true))}
+            >
+              {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
+            </Button>
+            <ConfirmDialog
+              open={confirmArchiveOpen}
+              onCancel={() => setConfirmArchiveOpen(false)}
+              onConfirm={() => {
+                setConfirmArchiveOpen(false);
+                void setArchived(true);
+              }}
+              title="Archive this activity?"
+              description="It stops counting toward this year's hours and is left out of copies, exports and the annual summary. Its sources and evidence are kept, and you can restore it at any time."
+              confirmLabel="Archive activity"
+              tone="primary"
+            />
+            {archiveError ? (
+              <p role="alert" className="mt-2 text-sm">
+                {archiveError}
+              </p>
+            ) : null}
+          </section>
+        }
+        onCopied={async () => {
+          if (demoMode) throw new Error("Demo mode is read-only.");
+          const response = await fetch(`/api/cme/entries/${loadedEntry.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcribed: true }),
+          });
+          if (!response.ok) throw new Error(await responseError(response));
+        }}
+      >
+        <CmeEvidencePanel
+          key={loadedEntry.id}
+          entryId={loadedEntry.id}
+          readOnly={demoMode || readOnly}
+          demoMode={demoMode}
+        />
+      </CmeEntryPage>
+      {!set.closedAt ? <CmeQuickLog set={set} demoMode={demoMode} /> : null}
+    </>
   );
 }

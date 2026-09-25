@@ -9,6 +9,12 @@ import { CmeLogPage } from "@/components/cme/cme-log-page";
 import { DEMO_CME_YEAR } from "@/lib/cme/demo-year";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
+// The quick-log button refreshes the page after a save.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => "/cme",
+}));
+
 afterEach(cleanup);
 
 const CLINICAL_STATUS_CLASS = /\b(?:bg|text|border|ring)-(?:red|amber|green|orange|rose|emerald|yellow)-/;

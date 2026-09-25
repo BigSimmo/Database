@@ -154,6 +154,44 @@ jobs:
         # step with `unexpected EOF while looking for matching '"'` and paints
         # the red X this workflow was meant to stop — measured 2026-09-22 on
         # #2982 and codex/pr-ci-adaptive-audit after #2981 landed.
+        #
+        # It also names WHY. The action hides Claude's own output ("full output
+        # hidden for security"), and every failure since 2026-09-20 has looked
+        # identical: one call, no cost, `is_error: true`, no reason — so the
+        # leading theory (a lapsed login token) has never been confirmed. The
+        # action's own remedy, `show_full_output: true`, prints the whole
+        # transcript to a public log and stays off. Instead this reads ONE
+        # thing from the saved transcript — the final error sentence — strips
+        # anything long enough to be a credential, caps it at 300 characters
+        # and prints only that. GitHub also masks the secret's value in any
+        # log line. That sentence is what turns "it failed" into "renew the
+        # token" or "that model isn't on this plan".
         if: ${{ env.CLAUDE_CODE_OAUTH_TOKEN != '' && steps.review.outcome == 'failure' }}
+        env:
+          EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}
         run: |
-          echo "::warning title=Claude review::The automated review did not run on this PR, so this PR has no Claude review. Advisory only; it does not block the merge. Read the review step's log above. If the OAuth token has lapsed, mint a new one with 'claude setup-token' and update the CLAUDE_CODE_OAUTH_TOKEN secret. Tracked as #NNAWDT."
+          reason=""
+          if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
+            reason=$(jq -r '
+              [ (if type == "array" then .[] else . end)
+                | select(type == "object")
+                | if .type == "result" then (.result // empty)
+                  elif .type == "assistant" then (.message.content[]? | select(.type == "text") | .text)
+                  else empty end ]
+              | map(select(type == "string" and length > 0)) | last // ""' "$EXECUTION_FILE" 2>/dev/null || true)
+          fi
+          reason=$(printf '%s' "$reason" | tr '\r\n' '  ' | sed -E 's/[A-Za-z0-9_.+/=-]{24,}/[redacted]/g; s/%/%25/g' | cut -c1-300)
+          lowered=$(printf '%s' "$reason" | tr '[:upper:]' '[:lower:]')
+          case "$lowered" in
+            *expired*|*invalid*|*401*|*403*|*authenticat*|*unauthori*|*/login*|*oauth*)
+              hint="Most likely the login token has lapsed: on a computer signed in to the Claude subscription, run 'claude setup-token' and paste the new token into the CLAUDE_CODE_OAUTH_TOKEN repository secret." ;;
+            *model*|*404*|*"not found"*)
+              hint="The model this run asked for is not available to the account behind the token." ;;
+            *limit*|*429*|*quota*|*"rate "*|*overloaded*|*529*)
+              hint="A usage or capacity limit was hit; it clears on its own, and the next opened or undrafted PR will be reviewed." ;;
+            "")
+              hint="No reason was recorded in the transcript." ;;
+            *)
+              hint="The reason above is not one this step recognises." ;;
+          esac
+          echo "::warning title=Claude review::The automated review did not run on this PR, so this PR has no Claude review. Advisory only; it does not block the merge. Reason reported: ${reason:-none}. ${hint} Tracked as #NNAWDT."

@@ -34,6 +34,12 @@ import { cmeModuleOrderStorageKey } from "@/lib/cme/module-order-keys";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
+// The quick-log button refreshes the page after a save.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => "/cme",
+}));
+
 /**
  * Design decision §12, "What this deliberately does not do": "No red." — and,
  * by the same rule, no amber and no green. This mode reads shortfall through
