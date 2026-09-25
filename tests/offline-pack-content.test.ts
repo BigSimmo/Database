@@ -14,6 +14,7 @@ import {
 } from "../scripts/build-offline-pack";
 import { removePathSync } from "../scripts/retryable-fs.mjs";
 import { WA_CRISIS_CONTACTS } from "../src/lib/crisis-contacts";
+import { timeframeContentSha256, type MhaTimeframeEntry } from "../src/lib/mha-timeline";
 
 /**
  * These tests exercise the generator's logic directly (pure functions plus a
@@ -34,6 +35,22 @@ afterEach(() => {
     tempDir = undefined;
   }
 });
+
+/**
+ * Signs a synthetic fixture the way `npm run clinical:review` would — a matching
+ * content pin — so it passes the app's own `isReviewedTimeframe` rule. The
+ * quotes are invented: these tests exercise rendering, not statutory content.
+ */
+function signed(entry: Record<string, unknown>): Record<string, unknown> {
+  const base = {
+    status: "reviewed",
+    reviewedBy: "Dr Example",
+    reviewedAt: "2026-09-20T00:00:00.000Z",
+    ...entry,
+    reviewedContentSha256: null,
+  };
+  return { ...base, reviewedContentSha256: timeframeContentSha256(base as unknown as MhaTimeframeEntry) };
+}
 
 function writeTimeframesFixture(entries: unknown[]): string {
   tempDir = mkdtempSync(join(tmpdir(), "mha-timeframes-"));
@@ -92,14 +109,11 @@ describe("build-offline-pack: crisis numbers", () => {
 describe("build-offline-pack: reviewed MHA timeframes", () => {
   it("includes a reviewed entry's quote, section and signed-off date", () => {
     const path = writeTimeframesFixture([
-      {
+      signed({
         id: "SYN-TIMEFRAME-001",
         section: "26",
         quote: "may be detained for up to 24 hours",
-        status: "reviewed",
-        reviewedBy: "Dr Example",
-        reviewedAt: "2026-09-20T00:00:00.000Z",
-      },
+      }),
     ]);
 
     const markup = buildOfflinePackMarkup(path);
@@ -163,14 +177,12 @@ describe("build-offline-pack: reviewed MHA timeframes", () => {
         reviewedBy: null,
         reviewedAt: null,
       },
-      {
+      signed({
         id: "SYN-TIMEFRAME-006",
         section: "33",
         quote: "reviewed quote signed off by the owner",
-        status: "reviewed",
-        reviewedBy: "Dr Example",
-        reviewedAt: "2026-09-21",
-      },
+        reviewedAt: "2026-09-21T00:00:00.000Z",
+      }),
     ]);
 
     const markup = buildOfflinePackMarkup(path);
@@ -178,6 +190,54 @@ describe("build-offline-pack: reviewed MHA timeframes", () => {
     expect(markup).not.toContain("drafted quote not yet signed off");
     expect(markup).toContain("reviewed quote signed off by the owner");
     expect(markup).toContain("Section 33");
+  });
+
+  it("uses the app's own sign-off rule: a reviewed entry whose pin is wrong, missing or stale, or whose sign-off time is not a UTC timestamp, is excluded", () => {
+    const good = signed({ id: "SYN-TIMEFRAME-PIN", section: "34", quote: "pinned fixture quote" });
+    const path = writeTimeframesFixture([
+      { ...good, id: "bad-pin", quote: "wrong pin quote", reviewedContentSha256: "0".repeat(64) },
+      { ...good, id: "no-pin", quote: "missing pin quote", reviewedContentSha256: null },
+      // Edited after sign-off: the pin was computed over the old quote.
+      { ...good, quote: "edited after sign-off quote" },
+      signed({ id: "date-only", section: "35", quote: "date-only sign-off quote", reviewedAt: "2026-09-21" }),
+      good,
+    ]);
+
+    const markup = buildOfflinePackMarkup(path);
+
+    expect(markup).not.toContain("wrong pin quote");
+    expect(markup).not.toContain("missing pin quote");
+    expect(markup).not.toContain("edited after sign-off quote");
+    expect(markup).not.toContain("date-only sign-off quote");
+    expect(markup).toContain("pinned fixture quote");
+  });
+
+  it("shows a reviewed entry's trigger, form codes, condition, lead-in and caveat with the quote, escaped", () => {
+    const path = writeTimeframesFixture([
+      signed({
+        id: "SYN-TIMEFRAME-FULL",
+        formCodes: ["3A", "3B & C"],
+        trigger: "Fixture trigger <b>",
+        condition: "Only if the fixture condition applies",
+        section: "28",
+        leadIn: "fixture stem —",
+        quote: "fixture limb stating 72 hours",
+        caveat: { section: "28", quote: "fixture caveat <i>ends</i> the period" },
+        computeAllowed: false,
+      }),
+    ]);
+
+    const markup = buildOfflinePackMarkup(path);
+
+    expect(markup).toContain("Fixture trigger &lt;b&gt;");
+    expect(markup).toContain("Forms 3A, 3B &amp; C");
+    expect(markup).toContain('<p class="act-condition">Only if the fixture condition applies</p>');
+    expect(markup).toContain("&ldquo;fixture stem — &hellip; fixture limb stating 72 hours&rdquo;");
+    expect(markup).toContain(
+      "The Act also says (s 28): &ldquo;fixture caveat &lt;i&gt;ends&lt;/i&gt; the period&rdquo;",
+    );
+    // A never-calculated (computeAllowed: false) entry still shows as a quote; no time is ever shown here.
+    expect(markup).not.toContain("<time");
   });
 
   it("handles a missing timeframes file by omitting the Act section entirely, without throwing", () => {
@@ -197,14 +257,11 @@ describe("build-offline-pack: reviewed MHA timeframes", () => {
 
   it("escapes HTML-significant characters in a reviewed quote instead of emitting them raw (injection guard)", () => {
     const path = writeTimeframesFixture([
-      {
+      signed({
         id: "SYN-TIMEFRAME-INJECT",
         section: '26"><script>alert(1)</script>',
         quote: 'Tom & Jerry said "run" <script>alert(1)</script>',
-        status: "reviewed",
-        reviewedBy: "Dr Example",
-        reviewedAt: "2026-09-20T00:00:00.000Z",
-      },
+      }),
     ]);
 
     const markup = buildOfflinePackMarkup(path);

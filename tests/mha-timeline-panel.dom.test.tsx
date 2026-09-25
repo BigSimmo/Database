@@ -37,6 +37,7 @@ vi.mock("@/components/account-data-provider", () => ({
 import { FormDetailPage, formNavSections } from "@/components/forms/form-detail-page";
 import {
   MHA_TIMELINE_AWAITING_REVIEW,
+  MHA_TIMELINE_AWAITING_REVIEW_SHORT,
   MHA_TIMELINE_NOT_CALCULABLE,
   MHA_TIMELINE_REFERENCE_NOTE,
   MhaTimelinePanel,
@@ -74,8 +75,18 @@ describe("MhaTimelinePanel with the shipped (drafted) entries", () => {
       );
     }
     // No s 28 limit is ever calculated: each also ends when the referral expires (s 28(11)).
-    for (const item of items) expect(within(item).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
+    // Drafted, so each also says it is awaiting clinical review (the short form, not the
+    // "time not calculated" wording twice).
+    for (const item of items) {
+      expect(within(item).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
+      expect(within(item).getByText(MHA_TIMELINE_AWAITING_REVIEW_SHORT)).toBeInTheDocument();
+    }
     expect(within(panel).queryByText(MHA_TIMELINE_AWAITING_REVIEW)).toBeNull();
+    expect(
+      within(panel).getByText(
+        "Perth time (AWST). No time is calculated yet: every limit below is awaiting clinical review.",
+      ),
+    ).toBeInTheDocument();
     // The non-metropolitan ceiling shows its stem, elided, before its own limb.
     expect(items[2].querySelector("blockquote")?.textContent).toMatch(
       /^“The person cannot be detained under orders made under this section for a continuous period of more than — … \(b\)if/,
@@ -148,6 +159,37 @@ describe("MhaTimelinePanel with a signed-off entry", () => {
     expect(time).toHaveAttribute("dateTime", "2026-09-26T02:00:00.000Z");
     expect(draftedItem.querySelector("time")).toBeNull();
     expect(within(draftedItem).getByText(MHA_TIMELINE_AWAITING_REVIEW)).toBeInTheDocument();
+  });
+});
+
+describe("MhaTimelinePanel with a signed-off entry that is never calculated", () => {
+  it("drops the awaiting-review line and the form-level awaiting-review hint once every entry is signed off", () => {
+    const blocked: MhaTimeframeEntry = {
+      id: "fixture-blocked",
+      formCodes: ["3A"],
+      trigger: "Signed-off, not calculable fixture",
+      section: "28",
+      sourceTextSha256: "a".repeat(64),
+      quote: "fixture quote stating 24 hours",
+      duration: { value: 24, unit: "hours" },
+      anchor: "Fixture anchor",
+      computeAllowed: false,
+      status: "reviewed",
+      reviewedBy: "Fixture Reviewer",
+      reviewedAt: "2026-09-25T02:00:00Z",
+      reviewedContentSha256: null,
+    };
+    control.fixtureEntries = [{ ...blocked, reviewedContentSha256: timeframeContentSha256(blocked) }];
+    render(<MhaTimelinePanel formCode="3A" />);
+    const panel = screen.getByRole("region", { name: "Timeline" });
+
+    expect(within(panel).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
+    expect(within(panel).queryByText(MHA_TIMELINE_AWAITING_REVIEW_SHORT)).toBeNull();
+    expect(within(panel).queryByText(MHA_TIMELINE_AWAITING_REVIEW)).toBeNull();
+    expect(panel).not.toHaveTextContent(/awaiting clinical review/i);
+    expect(
+      within(panel).getByText("Perth time (AWST). No time is calculated for the limits below."),
+    ).toBeInTheDocument();
   });
 });
 

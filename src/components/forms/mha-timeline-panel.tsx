@@ -11,14 +11,31 @@ import { formatPerthDateTime, parsePerthDateTimeInput, timelineFor, type MhaTime
 /** Fixed wording, owner-approved. Do not paraphrase. */
 export const MHA_TIMELINE_REFERENCE_NOTE = "Reference only — check against the Act and your service's procedure.";
 export const MHA_TIMELINE_AWAITING_REVIEW = "Awaiting clinical review — time not calculated";
+/** The opening words of MHA_TIMELINE_AWAITING_REVIEW, shown above MHA_TIMELINE_NOT_CALCULABLE. */
+export const MHA_TIMELINE_AWAITING_REVIEW_SHORT = "Awaiting clinical review";
 export const MHA_TIMELINE_NOT_CALCULABLE =
   "Time not calculated — this limit can also end earlier, as the quoted Act words below explain";
 
 function DeadlineLine({ item }: { item: MhaTimelineItem }) {
   if (item.quoteOnly) {
+    const lineClass = "text-sm font-semibold leading-6 text-[color:var(--text-muted)]";
+    if (item.reason === "not-calculable") {
+      return (
+        <>
+          {item.awaitingReview ? (
+            <p className={lineClass} data-testid="mha-timeline-awaiting">
+              {MHA_TIMELINE_AWAITING_REVIEW_SHORT}
+            </p>
+          ) : null}
+          <p className={lineClass} data-testid="mha-timeline-not-calculable">
+            {MHA_TIMELINE_NOT_CALCULABLE}
+          </p>
+        </>
+      );
+    }
     return (
-      <p className="text-sm font-semibold leading-6 text-[color:var(--text-muted)]" data-testid="mha-timeline-awaiting">
-        {item.reason === "not-calculable" ? MHA_TIMELINE_NOT_CALCULABLE : MHA_TIMELINE_AWAITING_REVIEW}
+      <p className={lineClass} data-testid="mha-timeline-awaiting">
+        {MHA_TIMELINE_AWAITING_REVIEW}
       </p>
     );
   }
@@ -26,7 +43,7 @@ function DeadlineLine({ item }: { item: MhaTimelineItem }) {
     return <p className={cn("text-sm leading-6", textMuted)}>Enter when this was made to see the Perth time.</p>;
   }
   return (
-    <p className="text-sm leading-6 text-[color:var(--text-body)]">
+    <p className="text-sm leading-6 text-[color:var(--text)]">
       <span className="font-semibold text-[color:var(--text-heading)]">Ends: </span>
       <time dateTime={item.deadline.toISOString()} data-testid="mha-timeline-deadline">
         {formatPerthDateTime(item.deadline)}
@@ -51,7 +68,13 @@ export function MhaTimelinePanel({ formCode }: { formCode: string }) {
   const items = useMemo(() => timelineFor(formCode, start), [formCode, start]);
 
   if (items.length === 0) return null;
-  const anyReviewed = items.some((item) => !item.quoteOnly);
+  const anyCalculated = items.some((item) => !item.quoteOnly);
+  const allAwaitingReview = items.every((item) => item.quoteOnly && item.awaitingReview);
+  const hint = anyCalculated
+    ? "Perth time (AWST)."
+    : allAwaitingReview
+      ? "Perth time (AWST). No time is calculated yet: every limit below is awaiting clinical review."
+      : "Perth time (AWST). No time is calculated for the limits below.";
 
   return (
     <section id="form-timeline" aria-labelledby={headingId} className={cn(inPageAnchor, "space-y-3")}>
@@ -76,9 +99,7 @@ export function MhaTimelinePanel({ formCode }: { formCode: string }) {
           className="min-h-12 w-full max-w-sm rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         />
         <p id={hintId} className={cn("text-xs leading-5", textMuted)}>
-          {anyReviewed
-            ? "Perth time (AWST)."
-            : "Perth time (AWST). No time is calculated yet: every limit below is awaiting clinical review."}
+          {hint}
         </p>
       </div>
 
@@ -102,7 +123,7 @@ export function MhaTimelinePanel({ formCode }: { formCode: string }) {
               ) : null}
               <blockquote
                 cite={mhaActMetadata.sourceUrl}
-                className="border-l-2 border-[color:var(--clinical-accent-border)] pl-3 text-sm italic leading-6 text-[color:var(--text-body)]"
+                className="border-l-2 border-[color:var(--clinical-accent-border)] pl-3 text-sm italic leading-6 text-[color:var(--text)]"
               >
                 {entry.leadIn ? `“${entry.leadIn} … ${entry.quote}”` : `“${entry.quote}”`}
               </blockquote>
@@ -116,7 +137,7 @@ export function MhaTimelinePanel({ formCode }: { formCode: string }) {
                   </p>
                   <blockquote
                     cite={mhaActMetadata.sourceUrl}
-                    className="text-sm italic leading-6 text-[color:var(--text-body)]"
+                    className="text-sm italic leading-6 text-[color:var(--text)]"
                   >
                     {`“${entry.caveat.quote}”`}
                   </blockquote>

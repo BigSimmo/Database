@@ -76,8 +76,13 @@ export type MhaTimeframesFile = {
 
 export type MhaTimelineQuoteOnlyReason = "awaiting-review" | "not-calculable";
 
+/**
+ * `awaitingReview` is separate from `reason` because a `computeAllowed: false` entry is
+ * "not-calculable" whether or not it is signed off, and the page must still say it is awaiting
+ * clinical review until it is.
+ */
 export type MhaTimelineItem =
-  | { entry: MhaTimeframeEntry; quoteOnly: true; reason: MhaTimelineQuoteOnlyReason }
+  | { entry: MhaTimeframeEntry; quoteOnly: true; reason: MhaTimelineQuoteOnlyReason; awaitingReview: boolean }
   | { entry: MhaTimeframeEntry; quoteOnly: false; deadline: Date | null };
 
 export type MhaActSourceSection = { section: string; text: string; textSha256: string };
@@ -386,7 +391,7 @@ function durationHours(entry: MhaTimeframeEntry): number {
 /**
  * A form's timeline, shortest period first (file order breaks ties). An entry that is not
  * signed off, or may never be calculated (`computeAllowed: false`), comes back quote-only with a
- * reason and no `deadline` key; a calculable, signed-off one carries the computed instant, or
+ * reason, an `awaitingReview` flag and no `deadline` key; a calculable, signed-off one carries the computed instant, or
  * `null` until a start is known.
  */
 export function timelineFor(
@@ -400,8 +405,11 @@ export function timelineFor(
     .filter(({ entry }) => entry.formCodes.some((candidate) => normaliseFormCode(candidate) === code))
     .sort((a, b) => durationHours(a.entry) - durationHours(b.entry) || a.index - b.index)
     .map(({ entry }): MhaTimelineItem => {
-      if (entry.computeAllowed === false) return { entry, quoteOnly: true, reason: "not-calculable" };
-      if (!isReviewedTimeframe(entry)) return { entry, quoteOnly: true, reason: "awaiting-review" };
+      const reviewed = isReviewedTimeframe(entry);
+      if (entry.computeAllowed === false) {
+        return { entry, quoteOnly: true, reason: "not-calculable", awaitingReview: !reviewed };
+      }
+      if (!reviewed) return { entry, quoteOnly: true, reason: "awaiting-review", awaitingReview: true };
       return { entry, quoteOnly: false, deadline: start ? computeDeadline(entry, start) : null };
     });
 }

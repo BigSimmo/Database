@@ -173,7 +173,9 @@ describe("timelineFor", () => {
     ];
     for (const candidate of unsigned) expect(isReviewedTimeframe(candidate), JSON.stringify(candidate)).toBe(false);
     for (const item of timelineFor("X1", start, unsigned)) {
-      expect(item).toEqual(expect.objectContaining({ quoteOnly: true, reason: "awaiting-review" }));
+      expect(item).toEqual(
+        expect.objectContaining({ quoteOnly: true, reason: "awaiting-review", awaitingReview: true }),
+      );
     }
   });
 
@@ -181,7 +183,14 @@ describe("timelineFor", () => {
     const blocked = reviewed({ id: "blocked", computeAllowed: false });
     expect(isReviewedTimeframe(blocked)).toBe(true);
     const [item] = timelineFor("X1", start, [blocked]);
-    expect(item).toEqual(expect.objectContaining({ quoteOnly: true, reason: "not-calculable" }));
+    expect(item).toEqual(expect.objectContaining({ quoteOnly: true, reason: "not-calculable", awaitingReview: false }));
+    // The same entry unsigned is still not calculable, and says it is awaiting review too.
+    const [drafted] = timelineFor("X1", start, [
+      { ...blocked, status: "drafted" as const, reviewedBy: null, reviewedAt: null, reviewedContentSha256: null },
+    ]);
+    expect(drafted).toEqual(
+      expect.objectContaining({ quoteOnly: true, reason: "not-calculable", awaitingReview: true }),
+    );
     expect(item).not.toHaveProperty("deadline");
     // computeAllowed: true is the same as leaving it out.
     const [allowed] = timelineFor("X1", start, [reviewed({ id: "allowed", computeAllowed: true })]);

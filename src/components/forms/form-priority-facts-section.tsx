@@ -374,11 +374,11 @@ function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
   return (
     <section
       id="form-cultural-notes"
-      aria-label="Interpreter and Aboriginal liaison notes"
+      aria-label="Interpreter, Aboriginal liaison and Act notes"
       className={cn(inPageAnchor, "space-y-2")}
     >
       <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
-        Interpreter and Aboriginal liaison
+        Interpreter, Aboriginal liaison and Act notes
       </h2>
       <p className={cn("text-xs leading-5", textMuted)}>
         Drafted from the Mental Health Act 2014 and WA Health guidance — awaiting clinical review.
@@ -478,7 +478,7 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
       >
         {activeFact ? (
           <div className="space-y-3">
-            <p className="text-sm leading-6 text-[color:var(--text-body)]">{activeFact.body}</p>
+            <p className="text-sm leading-6 text-[color:var(--text)]">{activeFact.body}</p>
             {contentAwaitingReview ? (
               <p className={cn("text-xs leading-5", textMuted)}>
                 Drafted from the Act text and the approved form, and awaiting clinical review. Confirm against the
@@ -503,7 +503,7 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
         {activeSection ? (
           <div className="space-y-3">
             {hasText(activeSection.summary) ? (
-              <p className="text-sm leading-6 text-[color:var(--text-body)]">{activeSection.summary}</p>
+              <p className="text-sm leading-6 text-[color:var(--text)]">{activeSection.summary}</p>
             ) : (
               <PendingSectionBody formCode={details?.form} pdfHref={pdfHref} />
             )}
@@ -526,7 +526,7 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
                 <button
                   type="button"
                   onClick={() => setActSheet({ mode: "section", section: entry.section })}
-                  className="w-full min-h-12 rounded-md px-2 py-1.5 text-left text-sm leading-6 text-[color:var(--text-body)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="w-full min-h-12 rounded-md px-2 py-1.5 text-left text-sm leading-6 text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 >
                   <span className="font-semibold text-[color:var(--text-heading)]">{`Section ${entry.section}`}</span>
                   {` — ${entry.title}`}
