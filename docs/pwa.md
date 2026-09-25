@@ -126,6 +126,40 @@ Because every owned cache entry is public and user-independent, sign-out does no
 confidentiality. If user-scoped caching were ever introduced, logout, revocation, multi-tab cleanup, and storage
 partition behavior would become mandatory design inputs; that broader cache policy is currently prohibited.
 
+### The offline pocket pack (owner decision, 2026-09-25)
+
+`public/offline.html` carries one narrow exception to "generic offline shell only": a small,
+generated block of public, non-patient reference information. The owner approved this scope,
+recorded here verbatim and dated:
+
+> The offline page may hold only public, non-patient information: WA crisis numbers and Act
+> deadlines the owner has signed off, shown as quotes. Each item shows its source and the date it
+> was checked. Nothing else is stored on the device: no searches, answers, documents or patient
+> data.
+
+What ships, and how:
+
+- **WA crisis numbers.** Every entry of `WA_CRISIS_CONTACTS` (`src/lib/crisis-contacts.ts`) —
+  name, phone number as a `tel:` link, availability window, any stated caveat, its source, and
+  "Checked `<verifiedOn>`".
+- **Mental Health Act deadlines.** Only entries of `data/mha-timeframes.json` with
+  `status: "reviewed"` and both `reviewedBy` and `reviewedAt` set — i.e. only what the owner has
+  actually signed off from their own computer, never a drafted entry. Each shows its quote, its
+  section, and "Signed off `<reviewedAt>`". `data/mha-timeframes.json` may not exist yet (a
+  different task owns it); when it is absent, this section is simply omitted.
+- **Nothing else.** No search, no generated answer, no document, no upload, no account state, and
+  no patient data of any kind is written into this page or into CacheStorage. The explicit
+  allowlist and denylist above are otherwise unchanged.
+
+This block is generated, not hand-written: `scripts/build-offline-pack.ts` writes it between the
+`<!-- offline-pack:start -->` / `<!-- offline-pack:end -->` sentinels in `public/offline.html`,
+reading `WA_CRISIS_CONTACTS` and the reviewed entries of `data/mha-timeframes.json` and nothing
+else. `npm run offline:build` regenerates it; `npm run check:offline-pack` fails if the committed
+block has drifted from those sources (wired the same way as `npm run brand:check` above it).
+Because this changes `public/offline.html`, every regeneration still needs the `CACHE_VERSION` /
+`tests/pwa-manifest.test.ts` pairing bump described below — `build-offline-pack.ts` and
+`generate-brand-assets.ts` share that one page and that one obligation.
+
 ## Offline semantics
 
 Offline support means **clear failure handling**, not offline clinical operation:
@@ -338,13 +372,13 @@ explicitly authorized.
 
 These omissions are deliberate and must not be added as generic PWA enhancements:
 
-| Capability                                 | Status and reason                                                                                                                                                                                                                                                                                  |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Push notifications                         | Deferred. It requires a permission and subscription UX, backend key/subscription lifecycle, revocation, and a clinical privacy policy for lock-screen content. No safe notification payload or product need is currently defined.                                                                  |
-| Background Sync / Periodic Background Sync | Deferred. Queuing or replaying clinical queries, uploads, answers, or mutations risks sensitive local persistence, duplicate writes, stale auth, and actions occurring after the user's context changed. Browser support is also not a correctness guarantee.                                      |
-| Web Share Target / inbound sharing         | Deferred. Accepting text, URLs, or documents from another app needs an explicit consent, validation, auth, provenance, malware/file-safety, and retention flow. The manifest intentionally has no `share_target`.                                                                                  |
-| File handlers                              | Deferred. Associating PsychSift with clinical document types could import sensitive files without the existing upload review and validation context. The manifest intentionally has no `file_handlers`.                                                                                            |
-| Offline clinical data, search, or answers  | Prohibited by the current privacy model. Cached clinical guidance can become stale, lose revocation/auth guarantees, separate answers from source provenance, and expose private content to durable same-origin storage. Only the generic offline shell and public application assets are allowed. |
+| Capability                                 | Status and reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Push notifications                         | Deferred. It requires a permission and subscription UX, backend key/subscription lifecycle, revocation, and a clinical privacy policy for lock-screen content. No safe notification payload or product need is currently defined.                                                                                                                                                                                                                                                                                                                     |
+| Background Sync / Periodic Background Sync | Deferred. Queuing or replaying clinical queries, uploads, answers, or mutations risks sensitive local persistence, duplicate writes, stale auth, and actions occurring after the user's context changed. Browser support is also not a correctness guarantee.                                                                                                                                                                                                                                                                                         |
+| Web Share Target / inbound sharing         | Deferred. Accepting text, URLs, or documents from another app needs an explicit consent, validation, auth, provenance, malware/file-safety, and retention flow. The manifest intentionally has no `share_target`.                                                                                                                                                                                                                                                                                                                                     |
+| File handlers                              | Deferred. Associating PsychSift with clinical document types could import sensitive files without the existing upload review and validation context. The manifest intentionally has no `file_handlers`.                                                                                                                                                                                                                                                                                                                                               |
+| Offline clinical data, search, or answers  | Prohibited by the current privacy model, with one narrow, owner-approved exception (2026-09-25, see "The offline pocket pack" above): the generated crisis-number and signed-off Act-deadline pack in `public/offline.html`, which is public and non-patient. Everything else stays prohibited — cached clinical guidance can become stale, lose revocation/auth guarantees, separate answers from source provenance, and expose private content to durable same-origin storage. No search, answer, document, upload, or patient data is ever cached. |
 
 Any proposal to enable one of these capabilities needs a product decision, threat model, privacy review, data lifecycle,
 revocation and logout behavior, browser-support fallback, accessible consent UX, and targeted offline/update tests before

@@ -119,10 +119,14 @@ describe("repository source providers", () => {
     );
 
     const factsheetReferences = provider("factsheets").references();
-    expect(factsheetReferences).toHaveLength(factsheets.reduce((total, sheet) => total + sheet.sources.length, 0));
+    const factsheetOwnReferenceCount = (sheet: (typeof factsheets)[number]) =>
+      sheet.sources.length + (sheet.translatedResources?.length ?? 0);
+    expect(factsheetReferences).toHaveLength(
+      factsheets.reduce((total, sheet) => total + factsheetOwnReferenceCount(sheet), 0),
+    );
     for (const sheet of factsheets) {
       expect(factsheetReferences.filter((reference) => reference.usage.recordId === sheet.slug)).toHaveLength(
-        sheet.sources.length,
+        factsheetOwnReferenceCount(sheet),
       );
     }
 

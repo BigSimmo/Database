@@ -14,10 +14,10 @@ function roundTrip(record: ServiceRecord): ServiceRecord {
 }
 
 describe("registry service facet payloads", () => {
-  it("preserves all seven tag dimensions for the 244 default service records", () => {
+  it("preserves all seven tag dimensions for the 246 default service records", () => {
     const records = defaultServiceRecords();
 
-    expect(records).toHaveLength(244);
+    expect(records).toHaveLength(246);
     for (const record of records) {
       const row = recordToRow(record, ownerId, "service");
       const restored = rowToServiceRecord(row as RegistryRecordRow);

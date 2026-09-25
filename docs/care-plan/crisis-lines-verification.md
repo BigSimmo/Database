@@ -8,8 +8,13 @@
 > checked online while this document was written** — there was no network access in that session.
 
 **Status:** first draft, 2026-09-04. Unreviewed.
-**Subject:** every telephone number printed by the Care Plan prototype's fixtures,
-`src/components/care-plan/mockups/fixtures.ts`.
+**Subject:** every telephone number printed by the Care Plan prototype's fixtures. As of the
+2026-09-25 WA safety fixes, the array itself is defined once in
+`src/lib/crisis-contacts.ts` (`WA_CRISIS_CONTACTS`) and re-exported unchanged as
+`publicCrisisContacts` from `src/components/care-plan/mockups/fixtures.ts`, so every consumer
+listed in this document still reads the same values under the same name. Three more real
+numbers (Lifeline, Suicide Call Back Service, 13YARN) were added there in that change; this
+record still covers only the original four.
 **No number in this document has been changed.** This record was written alongside a
 verification-record comment in the fixture; the values themselves are untouched.
 
@@ -31,27 +36,42 @@ this sheet home today. The risk materialises if these fixtures are copied into a
 
 Every source URL below is already present in this repository. Nothing was looked up to write this.
 
-| #   | Service                                                            | Number as printed | Source used to check it                                                                                                                  | Where that source is recorded in this repository                                                                                                | `verifiedOn` in the fixture | Fixture lines                                                                                        |
-| --- | ------------------------------------------------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 1   | Emergency services                                                 | `000`             | https://www.triplezero.gov.au/ (organisation root — no deep link, and `sdd-ledger.md` records that a slug was deliberately not invented) | `src/components/care-plan/mockups/fixtures.ts:257`; the organisation-root decision at `docs/care-plan/sdd-ledger.md:609`                        | `2026-08-20`                | `fixtures.ts:251`, and in safety-plan prose at `:787`, `:818`, `:847`, `:876`                        |
-| 2   | Mental Health Emergency Response Line (MHERL) — Perth metropolitan | `1300 555 788`    | https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL            | `fixtures.ts:269`; also `docs/care-plan/claude-build-handover-2026-08-21.md:157` and `docs/superpowers/specs/2026-08-20-care-plan-design.md:31` | `2026-08-20`                | `fixtures.ts:263` (the record), `:201` (North River after-hours), `:786`, `:875` (safety-plan prose) |
-| 3   | Mental Health Emergency Response Line (MHERL) — Peel               | `1800 676 822`    | the same WA Health MHERL page as #2                                                                                                      | `fixtures.ts:282`                                                                                                                               | `2026-08-20`                | `fixtures.ts:276` (the record), `:218` (Coastal Plains after-hours), `:817` (safety-plan prose)      |
-| 4   | Rurallink                                                          | `1800 552 002`    | https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink        | `fixtures.ts:296`; also `docs/care-plan/claude-build-handover-2026-08-21.md:158`                                                                | `2026-08-20`                | `fixtures.ts:289` (the record), `:235` (Wandoo after-hours), `:846` (safety-plan prose)              |
+| #   | Service                                                            | Number as printed | Source used to check it                                                                                                                  | Where that source is recorded in this repository                                                                                                      | `verifiedOn` in the fixture | Definition and other call sites                                                                                                       |
+| --- | ------------------------------------------------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Emergency services                                                 | `000`             | https://www.triplezero.gov.au/ (organisation root — no deep link, and `sdd-ledger.md` records that a slug was deliberately not invented) | `src/lib/crisis-contacts.ts:34`; the organisation-root decision at `docs/care-plan/sdd-ledger.md:609`                                                 | `2026-08-20`                | `crisis-contacts.ts:34` (the record). Also printed in `patient-safety-plan.tsx`'s prose, sourced from the module rather than retyped. |
+| 2   | Mental Health Emergency Response Line (MHERL) — Perth metropolitan | `1300 555 788`    | https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL            | `crisis-contacts.ts:46`; also `docs/care-plan/claude-build-handover-2026-08-21.md:157` and `docs/superpowers/specs/2026-08-20-care-plan-design.md:31` | `2026-08-20`                | `crisis-contacts.ts:46` (the record), `fixtures.ts:200` (North River after-hours)                                                     |
+| 3   | Mental Health Emergency Response Line (MHERL) — Peel               | `1800 676 822`    | the same WA Health MHERL page as #2                                                                                                      | `crisis-contacts.ts:59`                                                                                                                               | `2026-08-20`                | `crisis-contacts.ts:59` (the record), `fixtures.ts:217` (Coastal Plains after-hours)                                                  |
+| 4   | Rurallink                                                          | `1800 552 002`    | https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink        | `crisis-contacts.ts:72`; also `docs/care-plan/claude-build-handover-2026-08-21.md:158`                                                                | `2026-08-20`                | `crisis-contacts.ts:72` (the record), `fixtures.ts:234` (Wandoo after-hours)                                                          |
+
+The safety-plan-prose line references this table used to carry (`patient-safety-plan.tsx:787`,
+`:818`, `:847`, `:876`) were already stale before this update — that file has grown well past
+those line numbers since 2026-09-04 from unrelated work. As of 2026-09-25 the prose no longer
+hand-types any of these numbers at all: it reads them from `WA_CRISIS_CONTACTS` by id (see
+`patient-safety-plan.tsx`'s `crisisContact()` helper and the `EMERGENCY_CONTACT` /
+`MHERL_METRO_CONTACT` / `MHERL_PEEL_CONTACT` / `RURALLINK_CONTACT` constants near the top of the
+file), so no further line-number chase is needed there — the identity guarantee in
+`tests/crisis-contacts.test.ts` (`publicCrisisContacts` is `WA_CRISIS_CONTACTS` itself) covers it.
 
 ### What is verified, and by what
 
-- **The values are pinned.** `tests/care-plan-domain.test.ts:413` asserts the exact four names,
-  numbers and emergency-service flags, and `:435-437` asserts that every entry carries
-  `verifiedOn: "2026-08-20"`, an `https://` source URL, and — for both MHERL entries — a caveat
-  matching "not an emergency service".
-- **The after-hours pathway must stay real.** `tests/care-plan-domain.test.ts:484-485` fails if any
+- **The values are pinned.** `tests/care-plan-domain.test.ts:414` asserts the exact seven names,
+  numbers and emergency-service flags (the four covered by this record, plus Lifeline, Suicide
+  Call Back Service and 13YARN added 2026-09-25), and `:443-452` asserts that every entry carries
+  an `https://` source URL, the correct `verifiedOn` for its cohort, and — for both MHERL
+  entries — a caveat matching "not an emergency service".
+- **The after-hours pathway must stay real.** `tests/care-plan-domain.test.ts:498` fails if any
   of the three WA numbers disappears from the fixtures, so a later change cannot quietly swap a
   working crisis line for a dead fictional one. The reasoning is `docs/care-plan/sdd-ledger.md:634`:
   the after-hours pathway prints on the patient-facing safety plan under "who to call at 2am", so a
   reader who dials it must reach a real service.
-- **There is one source of truth.** `src/components/care-plan/mockups/patient-plan-fixtures.ts:68`
-  builds the patient's own resource sheet from `publicCrisisContacts` rather than retyping the
-  numbers, precisely so a mistyped crisis number cannot leave the building.
+- **There is one source of truth, now one level deeper.** `src/lib/crisis-contacts.ts` defines
+  `WA_CRISIS_CONTACTS` once; `src/components/care-plan/mockups/fixtures.ts` re-exports it
+  unchanged as `publicCrisisContacts` (`export { WA_CRISIS_CONTACTS as publicCrisisContacts }`,
+  an identity re-export, not a copy — pinned by `tests/crisis-contacts.test.ts`'s
+  `toBe(WA_CRISIS_CONTACTS)` assertion), and both
+  `src/components/care-plan/mockups/patient-plan-fixtures.ts:68` and
+  `src/components/patient-safety-plan.tsx` read from that same re-export, so a correction in
+  `crisis-contacts.ts` reaches every printed surface without retyping anything.
 
 ### What is NOT verified
 
@@ -91,12 +111,16 @@ surfaces.
 
 1. Open each source URL in the table above.
 2. Confirm the number, the coverage area, and the availability window still match what
-   `publicCrisisContacts` holds (`src/components/care-plan/mockups/fixtures.ts:247`).
-3. **If a value has changed, correct it in `fixtures.ts` and nowhere else.** The safety-plan prose
-   and the after-hours entries in `syntheticCmhtContacts` repeat these numbers in text, so a change
-   means correcting those lines too — they are listed per number in the table above.
+   `WA_CRISIS_CONTACTS` holds (`src/lib/crisis-contacts.ts`).
+3. **If a value has changed, correct it in `src/lib/crisis-contacts.ts` and nowhere else.**
+   `fixtures.ts` only re-exports the array by identity, and `patient-safety-plan.tsx` reads the
+   same array by id — neither hand-types a number, so neither needs a matching edit. The
+   after-hours entries in `syntheticCmhtContacts` (`fixtures.ts`) still repeat the three WA
+   numbers as plain strings and must be corrected separately — they are listed per number in the
+   table above.
 4. Update `verifiedOn` for every entry checked, and update the matching assertion in
-   `tests/care-plan-domain.test.ts:436`, which pins the exact date.
+   `tests/care-plan-domain.test.ts:414` (and, for the year-2026-09-25 cohort, the corresponding
+   check in `tests/crisis-contacts.test.ts`), which pin the exact date.
 5. Update the "Last verified" and "Next due" rows in this document, and record who checked.
 6. Run `npx vitest run tests/care-plan-domain.test.ts`.
 

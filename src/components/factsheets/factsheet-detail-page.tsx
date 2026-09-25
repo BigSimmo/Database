@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Globe,
   HeartHandshake,
   Printer,
   Share2,
@@ -228,6 +229,40 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                 })}
               </div>
             </section>
+
+            {/* official translated information */}
+            {factsheet.translatedResources?.length ? (
+              <section id="factsheet-translated" className={cn(inPageAnchor, "mt-7")}>
+                <Heading>Official translated information</Heading>
+                <p className={cn("mt-1 text-xs leading-5", "text-[color:var(--text-muted)]")}>
+                  Official translated information, published by the organisation named in each link — we never translate
+                  anything ourselves.
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {factsheet.translatedResources.map((resource) => (
+                    <a
+                      key={resource.url}
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3.5 py-3 transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    >
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+                        <Globe className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-[color:var(--text-heading)]">{resource.title}</p>
+                        <p className="text-xs text-[color:var(--text-muted)]">{resource.language}</p>
+                      </div>
+                      <ArrowUpRight
+                        className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]"
+                        aria-hidden="true"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             {/* more in topic */}
             {moreInTopic.length ? (

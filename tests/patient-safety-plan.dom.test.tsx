@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { PatientSafetyPlan } from "@/components/patient-safety-plan";
+import { WA_CRISIS_CONTACTS } from "@/lib/crisis-contacts";
 
 // The tool header renders a NavigationBackButton that reads the router/pathname.
 vi.mock("next/navigation", () => ({
@@ -213,6 +214,58 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();
+    }
+  });
+
+  it("prints every WA/national crisis number from the shared module, on screen and in the copied plan", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<PatientSafetyPlan />);
+
+    // Every one of the seven numbers appears exactly as WA_CRISIS_CONTACTS holds it.
+    for (const contact of WA_CRISIS_CONTACTS) {
+      expect(screen.getAllByText(new RegExp(contact.telephoneDisplay.replace(/\s/g, "\\s"))).length).toBeGreaterThan(0);
+    }
+
+    // A crisis number's stated limitation (e.g. "not an emergency service") must never be
+    // shown separated from that number — a printed/copied plan is the one place this
+    // prototype's "everything is synthetic" framing does not protect the reader.
+    const contactsWithCaveat = WA_CRISIS_CONTACTS.filter((contact) => contact.caveat !== null);
+    expect(contactsWithCaveat.length).toBeGreaterThan(0);
+    for (const contact of contactsWithCaveat) {
+      const numberNode = screen.getByText(new RegExp(contact.telephoneDisplay.replace(/\s/g, "\\s")));
+      const listItem = numberNode.closest("li");
+      expect(listItem, `${contact.name}'s number is not inside a list item with its caveat`).not.toBeNull();
+      expect(within(listItem as HTMLElement).getByText(contact.caveat as string)).toBeTruthy();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const copied = String(writeText.mock.calls[0]?.[0] ?? "");
+    for (const contact of WA_CRISIS_CONTACTS) {
+      expect(copied, `${contact.name} (${contact.telephoneDisplay}) is missing from the copied plan`).toContain(
+        contact.telephoneDisplay,
+      );
+    }
+
+    // Adjacency in the copied plain text too: the caveat is the very next line after its
+    // number's line, never separated by a blank line or another entry.
+    const copiedLines = copied.split("\n");
+    for (const contact of contactsWithCaveat) {
+      const numberLineIndex = copiedLines.findIndex((line) => line.includes(contact.telephoneDisplay));
+      expect(numberLineIndex, `${contact.name}'s number line is missing from the copied plan`).toBeGreaterThanOrEqual(
+        0,
+      );
+      expect(
+        copiedLines[numberLineIndex + 1]?.trim(),
+        `${contact.name}'s caveat is not on the line immediately after its number in the copied plan`,
+      ).toBe(contact.caveat);
     }
   });
 });
