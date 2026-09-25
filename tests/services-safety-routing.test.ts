@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { catalogToServiceRecord } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot } from "@/lib/service-catalog";
-import { detectServiceUrgentIntents } from "@/lib/service-urgent-routing";
+import { detectClockTimeUrgency, detectServiceUrgentIntents } from "@/lib/service-urgent-routing";
 import { rankServiceRecords } from "@/lib/service-ranker";
 import { serviceRecords } from "@/lib/services";
 import { serviceCatalogTags } from "@/lib/service-facets";
@@ -88,6 +88,20 @@ describe("regional WA daytime versus after-hours routing", () => {
     expect(resultTitles[0]).not.toBe("Rurallink");
   });
 
+  it("still pins the Kimberley WACHS record first for an explicit mid-afternoon time", () => {
+    // Regression for the "bare pm" bug: 2pm is well inside WACHS regional clinic
+    // hours (8.30am-4.30pm), so it must resolve to the daytime route, not RuralLink.
+    const intents = detectServiceUrgentIntents("Kununurra crisis 2pm");
+    expect(intents).toContain("regional_daytime");
+    // The Rule (controller ruling): keep RuralLink pinned second since the time is
+    // still only a stated clock time, not a live clock — never drop it outright.
+    expect(intents).toContain("regional_after_hours");
+    expect(intents.indexOf("regional_daytime")).toBeLessThan(intents.indexOf("regional_after_hours"));
+
+    const resultTitles = titles("Kununurra crisis 2pm", 8);
+    expect(resultTitles[0]).toBe("WACHS Kimberley Adult Mental Health Service");
+  });
+
   it("pins Rurallink, and only Rurallink, for an after-hours regional crisis query", () => {
     const intents = detectServiceUrgentIntents("Busselton crisis 11pm");
     expect(intents).not.toContain("regional_daytime");
@@ -102,6 +116,28 @@ describe("regional WA daytime versus after-hours routing", () => {
     const intents = detectServiceUrgentIntents("Kalgoorlie crisis 10am Tuesday");
     expect(intents).not.toContain("regional_daytime");
     expect(intents.every((intent) => !intent.startsWith("regional"))).toBe(true);
+  });
+});
+
+describe("detectClockTimeUrgency — clock time vs WACHS regional clinic hours (8.30am-4.30pm)", () => {
+  it.each([
+    ["2pm", "daytime"],
+    ["4:30pm", "after_hours"],
+    ["4:29pm", "daytime"],
+    ["8am", "after_hours"],
+    ["8:30am", "daytime"],
+    ["11pm", "after_hours"],
+    ["11 pm", "after_hours"],
+    ["4:45pm", "after_hours"],
+    ["7am", "after_hours"],
+    ["midnight", "after_hours"],
+    ["noon", "daytime"],
+    ["midday", "daytime"],
+    ["07:30", "after_hours"],
+    ["2230", "after_hours"],
+    ["no time mentioned at all", "unknown"],
+  ] as const)("classifies %j as %s", (phrase, expected) => {
+    expect(detectClockTimeUrgency(`crisis at ${phrase} please help`)).toBe(expected);
   });
 });
 

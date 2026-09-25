@@ -20,12 +20,10 @@ const CHILD_OR_YOUTH =
   /\b(?:child|teen(?:ager)?|adolescent|young person|(?:[0-9]|1[0-7])\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
 const REGIONAL_WA =
   /\b(?:regional|rural|remote|bunbury|albany|geraldton|kalgoorlie|karratha|broome|port hedland|esperance|great southern|pilbara|kimberley|south west|wheatbelt|mid west|goldfields|kununurra|busselton|carnarvon|northam|derby|newman|katanning|merredin|exmouth)\b/i;
-// A specific clock time in the afternoon/evening ("11pm") is as much an after-hours
-// signal as the word "tonight" — the regex just has no notion of business hours, so a
-// bare "pm" time is treated the same conservative way "overnight" already is. Morning
-// times ("10am") are left alone: they fall inside every WACHS regional clinic's
-// published weekday hours and must not be misread as after-hours.
-const AFTER_HOURS = /\b(?:after[- ]?hours|tonight|overnight|weekend|public holiday|\d{1,2}(?::\d{2})?\s*pm)\b/i;
+// Keyword-only signal. A stated clock time is judged separately, by
+// `detectClockTimeUrgency` below — a bare "pm" match here previously misclassified
+// genuine business-hours times such as "2pm" as after-hours.
+const AFTER_HOURS_KEYWORDS = /\b(?:after[- ]?hours|tonight|overnight|weekend|public holiday)\b/i;
 const METRO_OR_PEEL = /\b(?:perth|metro(?:politan)?|peel|mandurah)\b/i;
 const ADULT = /\b(?:adult|18\s*[- ]?\s*(?:year|yr)s?[- ]?old|[2-9][0-9]\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
 const AFTERCARE =
@@ -40,6 +38,65 @@ const FAMILY_VIOLENCE_NAMED = /\b(?:domestic violence|family violence|intimate p
 const FAMILY_VIOLENCE_DESCRIBED =
   /\b(?:partner|husband|wife|boyfriend|girlfriend|ex[- ]?partner)\b[\s\S]{0,40}\b(?:hit(?:ting)?|hits|assault\w*|abus\w*|violent|violence|threat\w*|control(?:ling)?|strangl\w*|chok(?:ing|ed))\b/i;
 const SEXUAL_ASSAULT = /\b(?:raped?|sexual(?:ly)?\s*assault(?:ed)?|molested|non[- ]?consensual)\b/i;
+
+// WACHS regional clinics publish 8.30am-4.30pm weekday hours (see the SVC-REG-* records'
+// own `hours.display`). A stated clock time counts as after-hours only outside that
+// window — at or after 4.30pm, or before 8.30am — never from the bare presence of "pm".
+const DAYTIME_START_MINUTE = 8 * 60 + 30; // 8:30am
+const AFTER_HOURS_START_MINUTE = 16 * 60 + 30; // 4:30pm
+
+const CLOCK_TIME_AMPM = /\b(1[0-2]|0?[1-9])(?::([0-5][0-9]))?\s*([ap])\.?\s*m\.?\b/i;
+// A bare 24-hour clock time, either "HH:MM" or four-digit military ("2230"). Checked
+// only when no am/pm marker is present, since "0730" military and "7:30" (no am/pm,
+// read as 24-hour) are otherwise ambiguous with a plain am/pm time already handled above.
+const CLOCK_TIME_24H = /\b([01][0-9]|2[0-3]):([0-5][0-9])\b|\b([01][0-9]|2[0-3])([0-5][0-9])\b/;
+
+function minutesToUrgency(totalMinutes: number): "after_hours" | "daytime" {
+  return totalMinutes >= DAYTIME_START_MINUTE && totalMinutes < AFTER_HOURS_START_MINUTE ? "daytime" : "after_hours";
+}
+
+/**
+ * Classifies a stated clock time (12-hour "11pm"/"4:45pm"/"7am", 24-hour "07:30", four-digit
+ * military "2230", or the words "noon"/"midday"/"midnight") against WACHS regional clinic
+ * hours (8.30am to 4.30pm weekdays). Returns "unknown" when the query names no clock time at
+ * all — callers must not treat "unknown" as either daytime or after-hours.
+ */
+export function detectClockTimeUrgency(query: string): "after_hours" | "daytime" | "unknown" {
+  const text = query.toLowerCase();
+
+  if (/\bmidnight\b/.test(text)) return "after_hours";
+  if (/\b(?:noon|midday)\b/.test(text)) return "daytime";
+
+  const ampm = text.match(CLOCK_TIME_AMPM);
+  if (ampm) {
+    let hour = Number.parseInt(ampm[1], 10);
+    const minute = ampm[2] ? Number.parseInt(ampm[2], 10) : 0;
+    const meridiem = ampm[3];
+    if (meridiem === "a") {
+      if (hour === 12) hour = 0;
+    } else if (hour !== 12) {
+      hour += 12;
+    }
+    return minutesToUrgency(hour * 60 + minute);
+  }
+
+  const clock24 = text.match(CLOCK_TIME_24H);
+  if (clock24) {
+    const hour = Number.parseInt(clock24[1] ?? clock24[3], 10);
+    const minute = Number.parseInt(clock24[2] ?? clock24[4], 10);
+    return minutesToUrgency(hour * 60 + minute);
+  }
+
+  return "unknown";
+}
+
+/** True when the query's words or a stated clock time mark it as outside WACHS regional
+ * clinic hours. A keyword ("weekend", "public holiday", ...) always wins outright, since
+ * those describe the clinic being shut regardless of what time of day is also named. */
+function queryIndicatesAfterHours(clean: string): boolean {
+  if (AFTER_HOURS_KEYWORDS.test(clean)) return true;
+  return detectClockTimeUrgency(clean) === "after_hours";
+}
 
 // WACHS regional adult mental health clinics only exist for these four regions
 // (SVC-REG-001..004). Goldfields, Wheatbelt and Mid West (including the Gascoyne
@@ -92,7 +149,7 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
   if (ABORIGINAL.test(clean) && crisis) intents.push("aboriginal_crisis");
   if (FAMILY_VIOLENCE_NAMED.test(clean) || FAMILY_VIOLENCE_DESCRIBED.test(clean)) intents.push("family_violence");
   if (SEXUAL_ASSAULT.test(clean)) intents.push("sexual_assault");
-  if (crisis && REGIONAL_WA.test(clean) && (AFTER_HOURS.test(clean) || immediateDanger)) {
+  if (crisis && REGIONAL_WA.test(clean) && (queryIndicatesAfterHours(clean) || immediateDanger)) {
     intents.push("regional_after_hours");
   } else if (crisis && REGIONAL_WA.test(clean)) {
     // The place is named and the query is urgent, but nothing marks it as
