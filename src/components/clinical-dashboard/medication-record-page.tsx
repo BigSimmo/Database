@@ -495,8 +495,10 @@ export function MedicationRecordPage({
           )}
         </div>
         <InformationPageFooter className="mt-4 pb-1">
-          PsychSift is a clinical reference prototype, not validated decision support. Verify every dose and interaction
-          against the linked source before acting on it.
+          {/* No medication record carries a source link yet (ledger #05WXHX), so this must not promise one. */}
+          PsychSift is a clinical reference prototype, not validated decision support. This record does not yet link to
+          its sources: verify every dose and interaction against the current Australian product information or your
+          local guideline before acting on it.
         </InformationPageFooter>
       </InformationPageShell>
     </>
