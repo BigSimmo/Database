@@ -78,8 +78,11 @@ export function parseSectionCue(cue) {
 /**
  * Every section number cited by any form, in numeric order.
  *
- * Two sources: the archive rows' own `sourceFacts.sectionCue`, and the supplemental
- * map covering the seven official forms the archive never indexed.
+ * Three sources: the archive rows' own `sourceFacts.sectionCue`, the supplemental
+ * map covering the seven official forms the archive never indexed, and the
+ * supplemental `referenceTopics` the Forms "Act and Standards" page lists without any
+ * form citing them (s 25 criteria, Tribunal review, ECT approval and the like). All
+ * three pass through the same extraction and the same --check gate.
  */
 export function citedSections(catalog, supplemental) {
   const cited = new Set();
@@ -88,6 +91,9 @@ export function citedSections(catalog, supplemental) {
   }
   for (const form of supplemental?.forms ?? []) {
     for (const section of form?.sections ?? []) cited.add(section);
+  }
+  for (const topic of supplemental?.referenceTopics ?? []) {
+    for (const section of topic?.sections ?? []) cited.add(section);
   }
   return [...cited].sort(compareSections);
 }
@@ -247,7 +253,10 @@ function citingForms(catalog, supplemental, section) {
   const fromSupplemental = (supplemental?.forms ?? [])
     .filter((form) => (form.sections ?? []).includes(section))
     .map((form) => `Form ${form.code}`);
-  return [...new Set([...fromCatalog, ...fromSupplemental])];
+  const fromTopics = (supplemental?.referenceTopics ?? [])
+    .filter((topic) => (topic.sections ?? []).includes(section))
+    .map((topic) => `Act and Standards page (${topic.title})`);
+  return [...new Set([...fromCatalog, ...fromSupplemental, ...fromTopics])];
 }
 
 function reviewSheet(source, sections, catalog, supplemental) {
@@ -388,6 +397,19 @@ export function checkProblems({ source, curated, catalog, supplemental }) {
         `Form ${form.code} has both a catalogue section cue and a supplemental one — remove the supplemental entry.`,
       );
     }
+  }
+
+  // Reference topics carry no form, so their basis is the only thing that makes the
+  // topic-to-section mapping checkable; the ids key the page's anchors.
+  const topicIds = new Set();
+  for (const topic of supplemental?.referenceTopics ?? []) {
+    const label = topic?.id ?? "(no id)";
+    if (!topic?.id?.trim()) problems.push("A reference topic has no id.");
+    else if (topicIds.has(topic.id)) problems.push(`Reference topic id ${topic.id} is used more than once.`);
+    else topicIds.add(topic.id);
+    if (!topic?.title?.trim()) problems.push(`Reference topic ${label} has no title.`);
+    if (!topic?.sections?.length) problems.push(`Reference topic ${label} lists no sections.`);
+    if (!topic?.basis?.trim()) problems.push(`Reference topic ${label} has no stated basis.`);
   }
 
   const sourceMeta = source.exportMetadata;

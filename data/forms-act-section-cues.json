@@ -2,7 +2,8 @@
   "exportMetadata": {
     "format": "forms-act-section-cues",
     "formatVersion": 1,
-    "note": "Draft form-to-section mappings for the seven official forms that data/forms-catalog.json never indexed, so they carry no sourceFacts.sectionCue of their own. Each entry states the basis for review; none is derived from the password-protected form PDF. Drafted mappings remain unavailable in the clinical UI until a named reviewer records sign-off."
+    "note": "Draft form-to-section mappings for the seven official forms that data/forms-catalog.json never indexed, so they carry no sourceFacts.sectionCue of their own. Each entry states the basis for review; none is derived from the password-protected form PDF. Drafted mappings remain unavailable in the clinical UI until a named reviewer records sign-off.",
+    "referenceTopicsNote": "referenceTopics lists Act sections the Forms 'Act and Standards' page covers without any form citing them. Sections were located from the Act's own headings in the pinned consolidation; each topic's basis states why its sections belong to it. They pass through the same extraction and --check gate as form-cited sections."
   },
   "forms": [
     {
@@ -46,6 +47,44 @@
       "sections": ["201"],
       "status": "drafted",
       "basis": "s 201 is the ECT statistics duty: the person in charge of a mental health service where ECT is performed must report monthly to the Chief Psychiatrist."
+    }
+  ],
+  "referenceTopics": [
+    {
+      "id": "involuntary-treatment-criteria",
+      "title": "Criteria for an involuntary treatment order",
+      "sections": ["25"],
+      "basis": "s 25 is headed 'Criteria for involuntary treatment order': s 25(1) sets the criteria for an inpatient treatment order and s 25(2) the criteria for a community treatment order."
+    },
+    {
+      "id": "community-treatment-orders",
+      "title": "Community treatment orders: making and duration",
+      "sections": ["114", "115", "116"],
+      "basis": "Part 8 ('Community treatment orders'): s 114 lists what a psychiatrist must be satisfied of before making the order, s 115 sets its terms including the maximum treatment period, and s 116 is headed 'Duration of order'."
+    },
+    {
+      "id": "mental-health-tribunal-review",
+      "title": "Mental Health Tribunal review of involuntary treatment orders",
+      "sections": ["386", "387", "388", "389", "390", "391", "395"],
+      "basis": "Part 21 Division 3 ('Involuntary treatment orders: review'): initial review (s 386), periodic reviews (s 387), continuous period (s 388), extension of review period (s 389), application for review (s 390), review on the Tribunal's own initiative (s 391), and what the Tribunal may do on completing a review (s 395)."
+    },
+    {
+      "id": "mental-health-advocacy",
+      "title": "Mental health advocates: notification and contact",
+      "sections": ["145", "348", "356", "357", "358"],
+      "basis": "s 145 requires the Chief Mental Health Advocate to be given a copy of an involuntary treatment order and told of its revocation or expiry; Part 20 defines 'identified person' (s 348) and sets the request, duty and own-initiative rules for an advocate contacting an identified person (ss 356 to 358)."
+    },
+    {
+      "id": "personal-support-persons",
+      "title": "Notifying carers, close family members and other personal support persons",
+      "sections": ["139", "140", "141", "142", "143"],
+      "basis": "Part 9 Division 2 is headed 'Notification of carers, close family members and other personal support persons' and comprises ss 139 to 143."
+    },
+    {
+      "id": "ect-approval",
+      "title": "Electroconvulsive therapy (ECT) approval",
+      "sections": ["194", "195", "196", "197", "198", "199", "410", "412", "415"],
+      "basis": "Part 14 Division 1 ('Electroconvulsive therapy') sets when ECT can be performed for each patient group (ss 194 to 199), and Part 21 Division 6 ('Electroconvulsive therapy approvals') governs the Tribunal's approval: the application (s 410), what the Tribunal must be satisfied of (s 412) and its decision (s 415)."
     }
   ]
 }
