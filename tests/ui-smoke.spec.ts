@@ -6073,6 +6073,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await page.getByRole("button", { name: "Open document actions" }).click();
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible();
+    // Opening search moves focus into the input two animation frames later. Wait for that
+    // before blurring: headless WebKit runs frames only when something asks for one, so
+    // blurring early let the deferred focus land mid-scroll and pin the composer open.
+    await expect(composer.locator("input")).toBeFocused();
     await composer.locator("input").evaluate((element) => element.blur());
     // The chunk deep link intentionally scrolls the highlighted passage into
     // view, which can initially hide the phone composer. Returning to the top
