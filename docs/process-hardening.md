@@ -775,24 +775,18 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   blocks until then. Neither read a line of code — they verified that an author had typed the right seven
   sentences — while `clinicalRiskPatterns` matches most meaningful paths in the repository, so the block fired
   on nearly all real work and cost a round trip every time. They now emit warnings. The gates that still fail
-  closed here are unchanged: migration-history immutability, the owner-approval hold on `supabase/` PRs,
-  required-check forgery, and the `PR_POLICY_BODY.md` transport check. The clinical safeguards that actually
+  closed here are unchanged: migration-history immutability, required-check forgery, and the
+  `PR_POLICY_BODY.md` transport check. The clinical safeguards that actually
   inspect behaviour — owner-scope, query-privacy, the live eval-canary, `tests/rag-imputation-contract.test.ts`
   — were never part of this file and are untouched.
   `scripts/pr-policy.mjs` also flags operational risk bundled with clinical or UI risk (#178),
   warning authors to split infrastructure/tooling from clinical/UI features for independent revertibility.
   The `pull_request_target` job checks out the trusted `github.workflow_sha` revision and never executes
-  PR-head code. Its permissions are exactly `contents: read`, `pull-requests: write` (used solely to remove
-  the `owner-approved` label when new commits land), `statuses: write` (used solely for the `Owner approval`
-  commit status) and `actions: read` (to list this workflow's own run records). Two further blocking controls (C0, 2026-09-17): an edit, removal or rename of an applied
+  PR-head code. Its permissions are exactly `contents: read` and `pull-requests: read`. A further blocking
+  control (C0, 2026-09-17): an edit, removal or rename of an applied
   migration, a new migration dated at or before the newest one on main, or one dated more than 2 days in
-  the future, fails the check (applied migrations never re-run on live); and database, clinical-risk and
-  RAG-ranking PRs are held by the required `Owner approval` status, pending (yellow) until the owner applies
-  `owner-approved`, which agents must never add (#2842; not a red `PR policy` failure since step 2). The
-  label counts only when applied by the repository owner (not a collaborator or GitHub App) after the
-  earliest PR policy run whose run record names the current PR head SHA (cancelled runs included; bind
-  via `run.head_sha`, never `GITHUB_SHA` alone under `pull_request_target`), so a label from before a
-  push never covers the new head. A `Migration history edit approved:` override additionally requires
+  the future, fails the check (applied migrations never re-run on live). A
+  `Migration history edit approved:` override additionally requires
   an accompanying fail-fast validation guard migration in the same change. Drafts remain non-blocking
   until marked ready; merge-queue runs emit the same stable `PR policy` check name.
 - **Repository permission baseline (applied 2026-07-17):** Actions receive read-only tokens by default,

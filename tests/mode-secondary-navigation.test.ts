@@ -51,7 +51,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Service",
     "Pocket card",
   ],
-  cme: ["This year", "Log", "Routines", "Plan", "Programme", "Set up"],
+  cme: ["This year", "Log", "Year check", "Calendar", "Routines", "Plan", "Programme", "Set up"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
