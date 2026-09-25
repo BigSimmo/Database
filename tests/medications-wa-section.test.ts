@@ -305,10 +305,11 @@ describe("WA prescribing rules — medications catalogue (task t6a)", () => {
       expect(JSON.stringify(record)).not.toContain("Prescribing on the ward is extremely restricted");
     });
 
-    it("still carries the unsourced 'Private script only in most states' line (flagged for the owner, not deleted)", () => {
+    it("no longer carries the unsourced 'Private script only in most states' line (owner ruling 2026-09-25: delete)", () => {
       const form = record.sections.find((section) => section.type === "form")!;
       const row = form.rows.find((r) => r.key === "Prescribing & PBS")!;
-      expect(row.val).toContain("Private script only in most states");
+      expect(row.val).toBe("Highly Restricted (S8).");
+      expect(JSON.stringify(record)).not.toContain("Private script only in most states");
     });
   });
 
