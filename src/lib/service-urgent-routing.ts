@@ -35,8 +35,7 @@ const POSTVENTION =
 const ABORIGINAL = /\b(?:aboriginal|torres strait islander|atsi|indigenous|first nations)\b/i;
 const AOD_TERMS =
   /\b(?:alcohol|drink(?:ing)?|drunk|intoxicated|substance (?:use|abuse)|drugs?|ice|meth(?:amphetamine)?|opioid|overdose|detox(?:ification)?)\b/i;
-const AOD_HELP_SEEKING =
-  /\b(?:advice|help|support|counsel(?:ling)?|navigat\w*|withdrawal|rehab(?:ilitation)?)\b/i;
+const AOD_HELP_SEEKING = /\b(?:advice|help|support|counsel(?:ling)?|navigat\w*|withdrawal|rehab(?:ilitation)?)\b/i;
 const FAMILY_VIOLENCE_NAMED = /\b(?:domestic violence|family violence|intimate partner violence|dfv|fdv)\b/i;
 const FAMILY_VIOLENCE_DESCRIBED =
   /\b(?:partner|husband|wife|boyfriend|girlfriend|ex[- ]?partner)\b[\s\S]{0,40}\b(?:hit(?:ting)?|hits|assault\w*|abus\w*|violent|violence|threat\w*|control(?:ling)?|strangl\w*|chok(?:ing|ed))\b/i;

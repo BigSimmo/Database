@@ -120,8 +120,7 @@ function ServiceCard({
   savePending: boolean;
   onToggleSaved: (slug: string) => void;
 }) {
-  const showBestFit =
-    relevanceRank !== null && relevanceRank <= 2 && serviceMatchesEveryQueryToken(service, query);
+  const showBestFit = relevanceRank !== null && relevanceRank <= 2 && serviceMatchesEveryQueryToken(service, query);
 
   return (
     <article
