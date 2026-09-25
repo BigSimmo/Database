@@ -253,11 +253,16 @@ async function proveRenderedRoute(
 test.describe("previously uncovered production routes", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test.beforeEach(async ({ page, baseURL }) => {
+  test.beforeEach(async ({ page, baseURL, browserName }) => {
     const problems: string[] = [];
     problemsByPage.set(page, problems);
     if (!baseURL) throw new Error("ui-route-coverage requires the verified Playwright base URL.");
-    page.on("pageerror", (error) => problems.push(`pageerror ${error.message}`));
+    page.on("pageerror", (error) => {
+      // WebKit reports a Next.js route prefetch (?_rsc=) aborted by navigation as an
+      // uncaught "access control checks" error; it is not an application fault.
+      if (browserName === "webkit" && /\?_rsc=\S* due to access control checks\.$/.test(error.message)) return;
+      problems.push(`pageerror ${error.message}`);
+    });
     await blockExternalRequests(page, problems, baseURL);
     await proveExternalRequestGuard(page, problems);
     await installOfflineApiFixtures(page, problems);

@@ -312,6 +312,8 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   expect(new Set(darkTheme.borderColors).size, "dark mode complete blue frame").toBe(1);
   expect(darkTheme.borderColors[0], "dark mode frame uses the clinical blue").toBe(darkTheme.tabColor);
   await expectNoHorizontalOverflow(page);
+  // Let the light-to-dark colour transition settle; WebKit sampled a mid-transition colour.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
   await expectNoBlockingAxeViolations(page, testInfo);
   await testInfo.attach("specifier-result-card-phone-dark", {
     body: await topMatch.screenshot(),
