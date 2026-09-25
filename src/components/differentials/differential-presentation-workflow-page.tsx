@@ -93,6 +93,19 @@ const rowTone: Record<DifferentialSection["tone"], string> = {
   overlap: "bg-[color:var(--surface)]",
 };
 
+// The sticky criteria column needs the same tint as its row but OPAQUE: the
+// translucent row tones let horizontally scrolled cells show through the
+// red-flag labels (#0FT00E). Each value mixes the tone over the surface at the
+// same strength the row uses, so the colour matches without the transparency.
+const stickyRowTone: Record<DifferentialSection["tone"], string> = {
+  fit: "bg-[color:var(--surface)]",
+  warning: "bg-[color-mix(in_srgb,var(--danger-soft)_75%,var(--surface))]",
+  question: "bg-[color:var(--surface)]",
+  action: "bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))]",
+  test: "bg-[color:var(--surface)]",
+  overlap: "bg-[color:var(--surface)]",
+};
+
 function statusLabel(status: DifferentialRecord["status"]) {
   if (status === "emergent") return "Emergency";
   if (status === "urgent") return "Urgent";
@@ -231,6 +244,9 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
         {candidate.record.title}
       </span>
       <EmergencyBadge status={candidate.record.status} />
+      {candidate.selected ? null : (
+        <span className="text-2xs font-bold text-[color:var(--text-muted)]">Not selected</span>
+      )}
     </Link>
   );
 }
@@ -246,6 +262,19 @@ function DesktopComparisonTable({
   candidates: CandidateView[];
   editSelectionHref: string;
 }) {
+  // Emergency diagnoses lead the table so a must-not-miss column is never the one
+  // left past the right edge of the scroll (#0FT00E). Array sort is stable, so the
+  // workflow's own order holds within each group.
+  const columns = [...candidates].sort(
+    (left, right) => Number(right.record.status === "emergent") - Number(left.record.status === "emergent"),
+  );
+  const emergencyCount = columns.filter((candidate) => candidate.record.status === "emergent").length;
+  const emergencyNote =
+    emergencyCount === 0
+      ? ""
+      : emergencyCount === columns.length
+        ? ` All ${columns.length} are emergency diagnoses.`
+        : " Emergency diagnoses are shown first.";
   return (
     <section className="hidden md:block" aria-label="Differential comparison table">
       <div className="mb-2 flex min-h-tap flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
@@ -253,7 +282,7 @@ function DesktopComparisonTable({
           <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
           <p className="text-sm font-semibold text-[color:var(--text-muted)]">
             <span className="font-extrabold text-[color:var(--text-heading)]">{workflow.selectedCount}</span> of{" "}
-            {workflow.totalCount} diagnoses compared
+            {workflow.totalCount} diagnoses selected · all {columns.length} shown below
           </p>
         </div>
         <Link
@@ -266,6 +295,12 @@ function DesktopComparisonTable({
         </Link>
       </div>
 
+      <p
+        data-testid="differential-comparison-scroll-cue"
+        className="mb-2 text-xs font-semibold text-[color:var(--text-heading)]"
+      >
+        Scroll sideways to see all {columns.length} diagnoses.{emergencyNote}
+      </p>
       <div
         data-testid="differential-comparison-scroll"
         className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
@@ -285,7 +320,7 @@ function DesktopComparisonTable({
                   Comparison detail
                 </span>
               </th>
-              {candidates.map((candidate) => (
+              {columns.map((candidate) => (
                 <th
                   scope="col"
                   key={candidate.record.slug}
@@ -301,12 +336,15 @@ function DesktopComparisonTable({
           </thead>
           <tbody>
             {workflow.criteria.map((criterion) => {
-              const shared = groupScopedValue(criterion, candidates);
+              const shared = groupScopedValue(criterion, columns);
               return (
                 <tr key={criterion.id} className={rowTone[criterion.tone]}>
                   <th
                     scope="row"
-                    className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-inherit px-3.5 py-3 align-top"
+                    className={cn(
+                      "sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] px-3.5 py-3 align-top",
+                      stickyRowTone[criterion.tone],
+                    )}
                   >
                     <CriteriaLabel criterion={criterion} />
                   </th>
@@ -314,7 +352,7 @@ function DesktopComparisonTable({
                     // One cell across every column: this answer belongs to the
                     // group, so it must not sit under any one diagnosis.
                     <td
-                      colSpan={candidates.length}
+                      colSpan={columns.length}
                       className="border-b border-r border-[color:var(--border)] bg-[color:var(--surface-subtle)]/60 px-3 py-3 align-top text-2xs font-semibold leading-normal text-[color:var(--text-muted)]"
                     >
                       <span className="mb-1 block text-2xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -327,7 +365,7 @@ function DesktopComparisonTable({
                       />
                     </td>
                   ) : (
-                    candidates.map((candidate) => (
+                    columns.map((candidate) => (
                       <td
                         key={`${candidate.record.slug}-${criterion.id}`}
                         className={cn(
