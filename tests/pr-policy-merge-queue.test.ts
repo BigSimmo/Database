@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
  * base. These cases run the workflow's own script against a fake GitHub API.
  */
 const require = createRequire(import.meta.url);
-const workflow = require("js-yaml").load(
+// Same inline form as ci-cache-safety.test.ts: js-yaml is transitive, and knip flags a bare require().
+const workflow = createRequire(import.meta.url)("js-yaml").load(
   readFileSync(new URL("../.github/workflows/pr-policy.yml", import.meta.url), "utf8"),
 ) as { jobs: { policy: { steps: Array<{ name: string; if?: string; with?: { script?: string } }> } } };
 const step = workflow.jobs.policy.steps.find(
