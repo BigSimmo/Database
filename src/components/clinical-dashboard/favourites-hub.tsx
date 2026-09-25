@@ -601,7 +601,7 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: HubFavouriteItem; onBr
       </span>
       <div className="min-w-0">
         <p className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-bold text-[color:var(--text-heading)]">{item.title}</span>
+          <span className="min-w-0 truncate font-bold text-[color:var(--text-heading)]">{item.title}</span>
           {item.example ? <FavouriteExampleTag /> : null}
         </p>
         <p className="mt-0.5 truncate text-sm font-medium text-[color:var(--text-muted)]">{item.meta}</p>
@@ -663,7 +663,7 @@ function FavouriteSetRow({
         <span className="flex min-w-0 items-center gap-1.5">
           <span
             className={cn(
-              "block truncate font-bold",
+              "block min-w-0 truncate font-bold",
               selected ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
             )}
           >

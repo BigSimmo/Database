@@ -218,6 +218,14 @@ describe("favourites auth gate DOM", () => {
     const tags = screen.getAllByText("Example", { exact: true });
     expect(tags.length).toBeGreaterThanOrEqual(favouriteItems.length);
     expect(screen.getAllByText(fixture.title).length).toBeGreaterThan(0);
+    // A truncating title beside the tag must be able to shrink (min-w-0), or it
+    // widens the row instead of ellipsing.
+    for (const tag of tags) {
+      for (const sibling of Array.from(tag.parentElement?.children ?? [])) {
+        const classes = (sibling.getAttribute("class") ?? "").split(/\s+/);
+        if (classes.includes("truncate")) expect(classes).toContain("min-w-0");
+      }
+    }
   });
 
   it("never labels a clinician's own saved favourites as examples (#358YM0)", () => {

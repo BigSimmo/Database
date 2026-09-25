@@ -141,4 +141,23 @@ describe("demo favourites are labelled Example (#358YM0)", () => {
     expect(setRows.length).toBeGreaterThan(0);
     for (const row of setRows) expect(within(row).queryByText("Example", { exact: true })).toBeNull();
   });
+
+  // A truncating flex child needs min-w-0, or it refuses to shrink and the title
+  // pushes the Example tag (and the row) wider instead of ellipsing.
+  function expectTruncatingTitlesShrink(root: HTMLElement) {
+    const tags = within(root).getAllByText("Example", { exact: true });
+    expect(tags.length).toBeGreaterThan(0);
+    for (const tag of tags) {
+      const truncating = Array.from(tag.parentElement?.children ?? []).filter((node) =>
+        (node.getAttribute("class") ?? "").split(/\s+/).includes("truncate"),
+      );
+      expect(truncating.length).toBeGreaterThan(0);
+      for (const node of truncating) expect((node.getAttribute("class") ?? "").split(/\s+/)).toContain("min-w-0");
+    }
+  }
+
+  it("lets hub item and set titles truncate beside the Example tag", () => {
+    const { container } = render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode />);
+    expectTruncatingTitlesShrink(container);
+  });
 });
