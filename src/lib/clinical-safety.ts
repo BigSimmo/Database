@@ -99,12 +99,15 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // <one to three words>" ("Transfer of lithium across the placenta"), plus
     // (trans)placental transfer. Any other object -- "transfer into ICU",
     // "transfer of care to the community team" -- is a patient transfer and
-    // keeps Escalation. The trailing `\b` stops the optional suffix
+    // keeps Escalation, and so does a named destination that starts with one
+    // of those objects ("transfer to the placenta accreta service", "the CSF
+    // shunt clinic"): a service word after the object re-arms the chip, because
+    // a patient transfer must never lose it. The trailing `\b` stops the optional suffix
     // backtracking round the lookahead ("transfer|red into"). The lookahead
     // stays linear: the word count is bounded and `[\w-]` and `\s` are
     // disjoint, so each word has exactly one way to match.
     pattern:
-      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:of(?:\s+[\w-]+){1,3}\s+)?(?:into|across|via|to)\s+(?:the\s+)?(?:(?:breast|human)\s+)?(?:milk|placenta|fo?etus|csf|blood[-\s]brain\s+barrier)\b))\b/i,
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:of(?:\s+[\w-]+){1,3}\s+)?(?:into|across|via|to)\s+(?:the\s+)?(?:(?:breast|human|maternal)\s+)?(?:milk|breastmilk|placenta|fo?etus|csf|blood[-\s]brain\s+barrier)\b(?!\s+(?:accreta|pr(?:a)?evia|shunt|clinics?|services?|units?|teams?|cent(?:re|er)s?|wards?|departments?)\b)))\b/i,
   },
   {
     kind: "dose_limit",

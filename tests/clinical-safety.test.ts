@@ -928,6 +928,22 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor("Transference and countertransference should be explored in supervision.")).toBeUndefined();
   });
 
+  it("keeps Escalation for a patient transfer to a service named after a drug-passage object (#GHC4XZ, owner decision 16)", () => {
+    // Re-review 2026-09-25: "to the placenta / CSF" also reads as the start of a named destination.
+    // A patient transfer must never lose its chip, so a service word after the object keeps it.
+    expect(labelFor("Transfer to the placenta accreta spectrum service.")).toBe("Escalation");
+    expect(labelFor("Transfer to Placenta Accreta Service.")).toBe("Escalation");
+    expect(labelFor("Transfer of women to placenta accreta centres.")).toBe("Escalation");
+    expect(labelFor("Transfer to the CSF shunt clinic.")).toBe("Escalation");
+    expect(labelFor("Transfer to the placenta praevia unit.")).toBe("Escalation");
+    // One-word "breastmilk" and "maternal milk" are drug passage too (common in Australian guidance).
+    expect(labelFor("Transfer into the breastmilk is minimal.")).toBeUndefined();
+    expect(labelFor("Transfer into maternal milk is low.")).toBeUndefined();
+    // The plain drug-passage forms are unchanged.
+    expect(labelFor("Transfer of lithium across the placenta is complete.")).toBeUndefined();
+    expect(labelFor("Little of the drug is transferred into the CSF.")).toBeUndefined();
+  });
+
   it("keeps the transfer exclusion linear-time on hostile input (#GHC4XZ)", () => {
     // The `transfer of <1-3 words>` lookahead is bounded and its word and space classes are
     // disjoint, so no input can make it backtrack super-linearly. Pin that with inputs shaped

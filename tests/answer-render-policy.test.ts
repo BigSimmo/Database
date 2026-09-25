@@ -442,6 +442,8 @@ describe("answer render policy", () => {
     const withoutLabel = (model: ReturnType<typeof buildAnswerRenderModel>) => ({
       ...model,
       supportLabelTrust: "ignored",
+      // The copied text carries the label too, so pasted notes never read stronger than the screen.
+      copyText: model.copyText.replace(/\nSupport label: [^\n]*/, ""),
     });
 
     it.each([
@@ -467,9 +469,13 @@ describe("answer render policy", () => {
         expect(model.visualEvidence).toHaveLength(1);
         expect(model.allowedBlocks).toEqual(expect.arrayContaining(["quoteCards", "relatedDocuments"]));
         expect(model.copyText).toContain("Render trust: high");
+        expect(model.copyText).toContain(
+          "Support label: Supported (not every claim is checked against a reviewed source)",
+        );
         // Nothing but the label differs from the opted-out (main) model.
         const mainModel = buildAnswerRenderModel(optedOut, { includeDebugReasons: true });
         expect(mainModel.supportLabelTrust).toBe("high");
+        expect(mainModel.copyText).not.toContain("Support label:");
         expect(withoutLabel(model)).toEqual(withoutLabel(mainModel));
       },
     );
