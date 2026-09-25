@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "844f5153-e7bc-41f8-83f2-fa1d5b3274ed",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#G8R8GT",
+    "outcome": "Resolved 2026-09-19 by commit dab2e2ea7: tests/ui-tools.spec.ts now reads the service-detail footer only while the page is asserted at its scroll endpoint on both sides. Closed as stale in the 2026-09-25 ledger sweep.",
+    "baseRowFingerprint": "0d97114306513d33df45005a672acef64d9e7e541dc7162db0e6605f42ef7e5e"
+  }
+}
