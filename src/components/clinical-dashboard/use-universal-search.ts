@@ -62,7 +62,7 @@ const minQueryLength = 2;
 // Mirrors the `q` bound in the universal search route (`z.string().trim().min(2).max(200)`).
 // A longer query would only earn a 400, so it is reported locally instead of fetched.
 export const universalSearchMaxQueryLength = 200;
-const requestFailedMessage = "Could not load matches from other areas. Try again in a moment.";
+const requestFailedMessage = "Could not load matches from other areas. Edit the search to try again.";
 
 // Small client-side LRU so backspace/retype and revisited prefixes resolve instantly instead of
 // re-hitting the server. Module-scoped so the phone and tablet+ command surfaces share it. The

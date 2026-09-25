@@ -77,7 +77,7 @@ describe("command surface cross-search notices (#HXC4D4)", () => {
       groups: [],
       loading: false,
       query: "sertraline",
-      error: "Could not load matches from other areas. Try again in a moment.",
+      error: "Could not load matches from other areas. Edit the search to try again.",
     };
     render(<Surface query="sertraline" />);
 

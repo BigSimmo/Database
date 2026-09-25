@@ -234,7 +234,8 @@ describe("useUniversalSearch too-long and failed requests (#HXC4D4)", () => {
     await flushStream();
 
     expect(result.current).toMatchObject({ groups: [], loading: false });
-    expect(result.current.error).toBeTruthy();
+    // Nothing retries the same query on its own, so the notice must not promise it.
+    expect(result.current.error).toBe("Could not load matches from other areas. Edit the search to try again.");
     expect(result.current.tooLong).toBeFalsy();
 
     // Leave and come back to the same query: an error is not a cached answer, so it
