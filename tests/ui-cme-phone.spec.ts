@@ -241,13 +241,14 @@ test.describe("CME annual records and explicit learning handoff", () => {
     await page.goto("/cme/summary?year=2026");
     const link = page.getByTestId("cme-annual-summary").getByRole("link", { name: "Download CSV" });
     await expect(link).toHaveAttribute("href", "/api/cme/export?year=2026");
-    const [download, response] = await Promise.all([
-      page.waitForEvent("download"),
-      page.waitForResponse((response) => response.url().includes("/api/cme/export?year=2026")),
-      link.click(),
-    ]);
+    // A download is not a page response in every engine: WebKit never reported one here, so
+    // waiting for it timed out the whole test on both Safari projects. Take the file from the
+    // download event and the privacy headers from a direct request for the same URL.
+    const [download] = await Promise.all([page.waitForEvent("download"), link.click()]);
     expect(download.suggestedFilename()).toBe("cme-2026-demo.csv");
-    expect(response.headers()["cache-control"]).toContain("no-store");
+    const exported = await page.request.get("/api/cme/export?year=2026");
+    expect(exported.status()).toBe(200);
+    expect(exported.headers()["cache-control"]).toContain("no-store");
     const stream = await download.createReadStream();
     expect(stream).not.toBeNull();
     const chunks: Buffer[] = [];
@@ -297,7 +298,7 @@ test.describe("CME phone design", () => {
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/cme");
-    await expect(page.getByTestId("cme-category-bar")).toBeVisible();
+    await expect(page.getByTestId("cme-category-bar").filter({ visible: true })).toBeVisible();
     await page.getByTestId("cme-quick-log-button").click();
     const sheet = page.getByTestId("cme-quick-log-sheet");
     await expect(sheet.getByLabel("What was it", { exact: false })).toBeVisible();

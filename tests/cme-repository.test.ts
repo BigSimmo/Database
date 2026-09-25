@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { PublicApiError } from "@/lib/http";
 import {
   CME_MAX_ENTRIES,
+  assertValidCmeLinkedIds,
   cmeEntryToRow,
+  cmeRepositoryError,
   fetchOwnerCmeEntries,
   fetchOwnerCmeYear,
   insertCmeEntry,
@@ -353,5 +355,62 @@ describe("insertCmeEntry", () => {
       status: 409,
     });
     expect(client.rpc.mock.calls[0][1].p_request_id).toBe("same-request");
+  });
+});
+
+describe("assertValidCmeLinkedIds", () => {
+  const DOCUMENT_ID = "44444444-4444-4444-8444-444444444444";
+  const ROUTINE_ID = "55555555-5555-4555-8555-555555555555";
+
+  it("does not query when nothing is linked", async () => {
+    const client = fakeClient({});
+    await assertValidCmeLinkedIds(client as never, "owner-1", { routineId: null, documentId: null });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("refuses to run without an owner", async () => {
+    const client = fakeClient({});
+    await expect(
+      assertValidCmeLinkedIds(client as never, "", { routineId: ROUTINE_ID, documentId: DOCUMENT_ID }),
+    ).rejects.toThrow(/owner/i);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("accepts a document and routine the caller owns, filtering both lookups by owner", async () => {
+    const client = fakeClient({
+      documents: [{ data: { id: DOCUMENT_ID }, error: null }],
+      cme_routines: [{ data: { id: ROUTINE_ID }, error: null }],
+    });
+    await assertValidCmeLinkedIds(client as never, "owner-1", { routineId: ROUTINE_ID, documentId: DOCUMENT_ID });
+    for (const call of client.calls) {
+      expect(call.chain.eq).toHaveBeenCalledWith("owner_id", "owner-1");
+    }
+    expect(client.calls.map((call) => call.table)).toEqual(["documents", "cme_routines"]);
+  });
+
+  it("rejects another owner's document with a 400 validation error, the same as a missing one", async () => {
+    // The owner-filtered lookup finds nothing for a foreign id, exactly as for a missing id,
+    // so the response cannot be used to learn whether another owner's document exists.
+    const client = fakeClient({ documents: [{ data: null, error: null }] });
+    const promise = assertValidCmeLinkedIds(client as never, "owner-1", { routineId: null, documentId: DOCUMENT_ID });
+    await expect(promise).rejects.toThrow(PublicApiError);
+    await expect(promise).rejects.toMatchObject({ status: 400 });
+    expect(client.calls[0].chain.eq).toHaveBeenCalledWith("owner_id", "owner-1");
+  });
+
+  it("rejects another owner's routine with a 400 validation error", async () => {
+    const client = fakeClient({ cme_routines: [{ data: null, error: null }] });
+    const promise = assertValidCmeLinkedIds(client as never, "owner-1", { routineId: ROUTINE_ID, documentId: null });
+    await expect(promise).rejects.toThrow(PublicApiError);
+    await expect(promise).rejects.toMatchObject({ status: 400 });
+    expect(client.calls[0].chain.eq).toHaveBeenCalledWith("owner_id", "owner-1");
+  });
+
+  it("maps the database's own link refusal to the same 400 validation error", () => {
+    // cme_save_entry re-checks both links inside its transaction and raises cme_invalid_link,
+    // closing the gap between this pre-check and the write.
+    const error = cmeRepositoryError({ message: "cme_invalid_link" });
+    expect(error).toBeInstanceOf(PublicApiError);
+    expect(error).toMatchObject({ status: 400 });
   });
 });

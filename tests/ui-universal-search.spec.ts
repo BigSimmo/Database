@@ -521,7 +521,12 @@ test.describe("universal search smart affordances", () => {
     const universalRequests: string[] = [];
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       const requestUrl = new URL(route.request().url());
-      universalRequests.push(requestUrl.searchParams.get("domains") ?? "");
+      // Only the library line's own request is under test. It asks for two per domain
+      // (cross-mode-links.tsx); the desktop command palette asks for three across every domain
+      // while the question is typed, and WebKit reliably sent one before Generate was pressed.
+      if (requestUrl.searchParams.get("limit") === "2") {
+        universalRequests.push(requestUrl.searchParams.get("domains") ?? "");
+      }
       await fulfillUniversalSearch(route, {
         ...universalPayload,
         query: requestUrl.searchParams.get("q") ?? "",
