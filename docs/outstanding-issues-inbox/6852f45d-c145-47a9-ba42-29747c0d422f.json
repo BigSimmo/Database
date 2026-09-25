@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "6852f45d-c145-47a9-ba42-29747c0d422f",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#358YM0",
+    "pri": "P3",
+    "summary": "Demo mode's Favourites fixtures are not labelled as examples (production never shows them)",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The premise was wrong for production: prototype items and 'Today 08:44' are used only when demoMode is true (favourites-command-library-page.tsx, favourites-hub.tsx, universal-search-command-surface.tsx), gated since #871 (541da7b4e), and the page resolves demoMode with authUnavailableFallback false. The audit almost certainly ran in local demo mode. Residual: label demo favourites as examples. PRIOR DETAIL: favourites-prototype-data.ts is imported by the production favourites-hub.tsx:31 and favourites-command-library-page.tsx:46, not only by mockups. The page asserts '5 favourites' and 'last opened Today 08:44' with no demo label. 'Last opened' is a factual claim about the clinician's own behaviour. Needs one line of owner confirmation on whether this is an accepted prototype surface.",
+    "baseRowFingerprint": "e699a4cf7423f0c81e01cd4a39020e57f3f9c2918e4e5eba4f8296833324f838"
+  }
+}

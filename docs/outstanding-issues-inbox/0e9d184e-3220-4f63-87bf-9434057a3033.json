@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0e9d184e-3220-4f63-87bf-9434057a3033",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "aa16bf5c-875d-4d77-9efa-85eec964a9c1",
+    "reason": "Stale on review 2026-09-25: the owner has ruled (cme-design-decisions.md, owner decision 23 September 2026: explicit capture only, no passive reading history). Automatic capture is off the table, not awaiting a ruling."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6a09a9eb-7596-44fa-ad34-4a5dbd9c1ff7",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c6003be8-da4e-413a-83b0-84207424cd67",
+    "reason": "Replaced on review 2026-09-25 by a reworded request: the free text is kept on purpose because it carries the time."
+  }
+}

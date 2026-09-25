@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2d7abfa3-99ff-451d-8a4d-2bd5ba63a62d",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#NTAV3D",
+    "outcome": "Resolved 2026-09-25 (ledger review). Merged into #C2D9JF: both are pinned with the same pinsSourceBackedReviewFallback shape, both fixtures expect refuse with zero citations, and this row itself said 'same open question as #C2D9JF'.",
+    "baseRowFingerprint": "aa96814930ac3746e65210c5d60ed39378ea7dc30750295bc607c5752ef1bc4e"
+  }
+}

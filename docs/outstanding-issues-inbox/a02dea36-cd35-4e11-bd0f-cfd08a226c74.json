@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "a02dea36-cd35-4e11-bd0f-cfd08a226c74",
+  "createdOn": "2026-09-25",
+  "action": "queue",
+  "payload": {
+    "id": "#001",
+    "acuity": "Optional",
+    "when": "Only after the answer canary is green again (#J8SJQ9) and a rollout is approved",
+    "baseRowFingerprint": "ee3e68e86d6ff9664b571a35d65135c9d9f57940f1a01aa2db3e047f5316a7a1"
+  }
+}

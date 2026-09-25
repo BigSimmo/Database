@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "7c60abaa-63af-4dbb-8a9d-2e6c1a208535",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#B6JP6F",
+    "pri": "P1",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Raised to P1: this webhook is the deploy-failure alert (docs/webhooks.md section 1) and it was being rejected throughout the unexplained 27-hour production deploy stall of 2026-09-21/22. Whether the owner has since changed the token is not verifiable offline. Also tracked in operator-backlog.md. PRIOR DETAIL: NOT A CODE DEFECT, and PR #2884 (merged 2026-09-18) records that in the runbook rather than changing anything. The receiver code is correct; the ?token= on the Railway webhook URL has drifted from the RAILWAY_WEBHOOK_SECRET service variable, so every deploy notification is rejected at the door. THE FIX IS AN OWNER ACTION IN THE RAILWAY DASHBOARD: rotate the token so the URL and the service variable match. Nothing in this repository can do it, and no agent should try — Railway mutations fall under the provider confirmation boundary. This row stays open until the owner rotates it and one deploy notification is accepted.",
+    "baseRowFingerprint": "8fe5cbbaf50b4919f24a5df4d5d494cc9579e269d74359ed31abfa831042ce6a"
+  }
+}

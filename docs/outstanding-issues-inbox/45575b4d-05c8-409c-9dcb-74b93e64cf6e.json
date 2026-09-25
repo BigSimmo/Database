@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "45575b4d-05c8-409c-9dcb-74b93e64cf6e",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4452ff15-9714-4f15-8a41-c4c4ba8d76b1",
+    "reason": "Stale on review 2026-09-25: already fixed on main. CME year close built in PR #3005 (0865c411c, 99527b31f; migration 20260925064000_cme_year_close.sql)."
+  }
+}

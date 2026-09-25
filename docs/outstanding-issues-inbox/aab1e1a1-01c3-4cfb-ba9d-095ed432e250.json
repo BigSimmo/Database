@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "aab1e1a1-01c3-4cfb-ba9d-095ed432e250",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#08W0F7",
+    "outcome": "Resolved 2026-09-25 (ledger review). Migration 20260918120000_evaluate_bootstrap_digest_once_per_health_read.sql (PR #2886) folded both digest pairs; the four call sites no longer exist. The residual duplicated release digest (about 3%) is tracked in #458SAC.",
+    "baseRowFingerprint": "ee904217e6f2939134d26a90fce2ef428ed0aa2b0dc60d52277b5ec651c610a6"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "d1a518c1-509a-466f-bff9-9d882ac8e874",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#001",
+    "pri": "P3",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Accurate (env.ts defaults it off). Lowered to P3 and queue Optional: an optional feature that is off by default, and its canary comparison cannot be attributed cleanly while the answer canary is red (#J8SJQ9). PRIOR DETAIL: `RAG_SEMANTIC_RERANK_ENABLED=false` from PR #901. Do not enable until the provider-backed 36/36 retrieval-quality gate **and** an ambiguity-focused canary are explicitly approved and recorded.",
+    "baseRowFingerprint": "cc2d109a5543112441423caa59e781850ecfa55c5ec01628ccc72fcad7f4da92"
+  }
+}

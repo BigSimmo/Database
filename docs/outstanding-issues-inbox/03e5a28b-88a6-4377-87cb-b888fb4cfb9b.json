@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "03e5a28b-88a6-4377-87cb-b888fb4cfb9b",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#8RWKA0",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Ward chip w-32 still present (now on-call-home.tsx:243). The services 150-character compactText cap is still present. The acamprosate case is a deliberate <details> disclosure (medication-record-page.tsx) that expands in place, so it is dropped from this row. /on-call/contacts not re-verified; On Call changed heavily since 2026-09-22. PRIOR DETAIL: Three instances sharing one cause. on-call-home.tsx:211 ward chips are a hard w-32 at every viewport, truncating 'Demo Emergenc...' at 320 through 1920 where ~1180px of the row is empty. services-navigator-page.tsx:160-166 applies a 150-character cap identically at 320 and 1920; on the 13YARN crisis line the cut lands on 'Immedia...', removing the availability statement. /on-call/contacts squeezes the name column to two words at 390. Also /medications/acamprosate clamps dose strings (dose, frequency and daily total) to two lines.",
+    "baseRowFingerprint": "da503536e0b1bc0f3f996027f4f1925e195ffbe133bca57faecb1cff2e2e2064"
+  }
+}

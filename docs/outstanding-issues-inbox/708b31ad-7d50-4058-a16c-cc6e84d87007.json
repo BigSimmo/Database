@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "708b31ad-7d50-4058-a16c-cc6e84d87007",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#61GQYY",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Blocker counts are stale: PR #2880 (0bf2488d5) registered Centre for Clinical Interventions, Phoenix Australia and Monash University, so 'publisher not resolved (33)' needs re-measuring; the CCI and Phoenix host-allowlist blockers probably remain. PR #2824 added four formulation-* ledger rows, not five; WHO CDDR is already covered by ps-diff-src-who-icd11-cddr-2024. PRIOR DETAIL: The 2026-09-16 Formulation handover proposed 55 source identities. Five cleared the current native gates and were registered as unverified link-only candidates in PR #2824; nine reused existing native identities. The remaining 41 are held. Blockers, several per source: publisher not resolved in the current authority registry (33), fresh source check incomplete (20), publication or edition date unknown (15), version unknown (15), canonical host not on the governed allowlist (8), restricted pointer that is not an importable work (1). Eight sit on ungoverned hosts, including ACSQHC, OAIC, Springer, Frontiers, Phoenix Australia, and CCI's non-www host where the allowlist carries the www variant. Registering a publisher moves retrieval selection, so each is an owner decision, not a bulk fix. Their citations currently render with issuer and identifier and the link withheld.",
+    "baseRowFingerprint": "58c895d76730b2102aa302f3e6cdadd8e33e797dd5f672323a594b7c27cf2cb3"
+  }
+}

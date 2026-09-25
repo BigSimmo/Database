@@ -484,25 +484,20 @@ export function deployDeferralClaim(title, body) {
 }
 
 // ---------------------------------------------------------------------------
-// Owner-merge hold and migration history guard (C0, 2026-09-17).
+// Migration history guard (C0, 2026-09-17).
 //
 // Agents acting as the owner's GitHub identity repeatedly merged clinical and database
 // PRs, and PRs #2814 and #2821 MODIFIED already-applied migrations (20260824122000,
 // 20260824123000, 20260830121000). Supabase records each version once and never re-runs
 // it, so the edits reached the repository but never the live database, and live drifted.
-// Two mechanical controls follow, both evaluated inside the required `PR policy` check:
+// The mechanical control evaluated inside the required `PR policy` check:
 //
-//   1. migrationHistoryViolations — an applied migration is immutable history. Editing,
+//   migrationHistoryViolations — an applied migration is immutable history. Editing,
 //      removing or renaming one, or adding a migration dated at or before the newest one
-//      already on main, is a blocking error.
-//   2. ownerMergeReasons — `supabase/` PRs are held until the owner applies the
-//      `owner-approved` label, which the workflow removes on any push. The workflow reports the
-//      hold as the yellow `Owner approval` status (ownerHoldViaStatus); callers that do not opt
-//      in (the batch runner) still get it as a red error. Clinical-risk and RAG-ranking PRs were
-//      held here too until the 2026-09-17 owner ruling narrowed it — see ownerMergeReasons.
+//      already on main, is a blocking error. The only override is a body line
+//      `Migration history edit approved: <reason>` together with an accompanying
+//      fail-fast validation guard migration in the same change.
 // ---------------------------------------------------------------------------
-
-export const OWNER_APPROVED_LABEL = "owner-approved";
 
 // Supabase CLI reads top-level `<version>_<name>.sql` files only. This repository's
 // versions are 14-digit UTC timestamps, and every file on main follows that shape.
@@ -654,69 +649,6 @@ function migrationVersionTime(version) {
   return Date.UTC(year, month - 1, day, hour, minute, second);
 }
 
-/**
- * Binds the owner's approval to the PR's CURRENT head, without relying on any run
- * completing. `headRunCreatedAt` lists the `created_at` of every PR policy workflow run
- * whose run record names the current PR head SHA — cancelled runs included, since a
- * cancelled run still leaves a record, and the evaluating run is always one of them. The
- * earliest is the moment GitHub first saw this head. The label covers the head only when
- * it was applied strictly after that moment; a label applied earlier was applied to an
- * older head.
- *
- * For `pull_request_target`, `GITHUB_SHA` is the trusted base commit. Callers must collect
- * run times from data that records the PR head (the run object's `head_sha`, and when
- * present the run's `pull_requests[].head.sha`), never from `GITHUB_SHA` alone.
- *
- * Fails closed: no label timestamp, no runs (or the lookup failed: pass null), an
- * unparseable timestamp, or an equal timestamp all reject.
- */
-export function ownerApprovalCoversHead({ labeledAt, headRunCreatedAt }) {
-  const labeledMs = Date.parse(String(labeledAt ?? ""));
-  if (!Number.isFinite(labeledMs)) {
-    return { covered: false, headFirstSeenAt: null, reason: "the owner-approved label has no usable labeled time" };
-  }
-  if (!Array.isArray(headRunCreatedAt) || headRunCreatedAt.length === 0) {
-    return {
-      covered: false,
-      headFirstSeenAt: null,
-      reason: "no PR policy runs could be found for the current head, so the approval cannot be bound to it",
-    };
-  }
-  const runTimes = headRunCreatedAt.map((createdAt) => Date.parse(String(createdAt ?? "")));
-  if (runTimes.some((time) => !Number.isFinite(time))) {
-    return {
-      covered: false,
-      headFirstSeenAt: null,
-      reason: "a PR policy run for the current head has no usable created time",
-    };
-  }
-  const headFirstSeenMs = Math.min(...runTimes);
-  const headFirstSeenAt = new Date(headFirstSeenMs).toISOString();
-  if (labeledMs <= headFirstSeenMs) {
-    return {
-      covered: false,
-      headFirstSeenAt,
-      reason: `the owner-approved label was applied at ${new Date(labeledMs).toISOString()}, not after the current head was first seen at ${headFirstSeenAt}, so it approved an earlier head; Josh re-applies it`,
-    };
-  }
-  return { covered: true, headFirstSeenAt, reason: "" };
-}
-
-/**
- * The `owner-approved` label counts only when the labeled actor is the configured
- * repository owner. A human collaborator with label permission must not unblock
- * owner-only gates; GitHub Apps are rejected separately via performed_via_github_app.
- */
-export function ownerActorMatches({ actorLogin, ownerLogin }) {
-  const actor = String(actorLogin ?? "")
-    .trim()
-    .toLowerCase();
-  const owner = String(ownerLogin ?? "")
-    .trim()
-    .toLowerCase();
-  return Boolean(actor && owner && actor === owner);
-}
-
 /** Strip SQL comments and single-quoted literals so CREATE INDEX inside pin strings is ignored. */
 function stripSqlCommentsAndStrings(sql) {
   return String(sql ?? "")
@@ -781,26 +713,9 @@ export function migrationHistoryOverrideGuard({ fileStatuses, addedMigrationCont
 }
 
 /**
- * True when a workflow run record names the given PR head SHA.
- *
- * For `pull_request_target`, `GITHUB_SHA` is the trusted base commit. The run object's
- * `head_sha` is the PR-head-bearing field we bind approval to. `pull_requests[].head.sha`
- * can be rewritten to a later tip, so it is never used alone — when PR metadata is present
- * we only require that this PR number is named.
- */
-export function workflowRunRecordsPrHead(run, { headSha, prNumber }) {
-  const expected = String(headSha ?? "");
-  if (!expected || String(run?.head_sha ?? "") !== expected) return false;
-  const prs = run?.pull_requests;
-  if (!Array.isArray(prs) || prs.length === 0) return true;
-  if (prNumber == null) return true;
-  return prs.some((pr) => Number(pr?.number) === Number(prNumber));
-}
-
-/**
  * The only override for a migration-history violation: a body line
- * `Migration history edit approved: <reason>`. It takes effect only together with the
- * owner's approval, so neither the line nor the label is sufficient alone.
+ * `Migration history edit approved: <reason>` together with an accompanying fail-fast
+ * validation guard migration in the same change. The body line alone is not enough.
  */
 export function migrationHistoryEditApproval(body) {
   const withoutComments = String(body ?? "").replace(/<!--[^]*?-->/g, "");
@@ -811,144 +726,13 @@ export function migrationHistoryEditApproval(body) {
   return { declared: true, satisfied: !placeholder && reason.length >= 12, reason };
 }
 
-/**
- * Why a PR may be merged only by the owner. Empty when an agent-driven merge is allowed.
- *
- * Narrowed to `supabase/` on 2026-09-17 (owner ruling), from the 2026-09-16 set of database +
- * clinical-risk + RAG-ranking. `clinicalRiskPatterns` matches most of `src/lib/**`, so nearly
- * every PR — pure refactors included — came to rest on a yellow `Owner approval`, and a label
- * applied that often stops being a review. Merging a `supabase/` change is the one action here
- * with no undo: the integration applies it to the live clinical database within seconds, with no
- * deploy step in between, so that hold stays exactly as it was.
- *
- * Clinical and RAG-ranking PRs keep every other control — the governance preflight, the
- * `RAG impact:` body line, the canary-pair requirement, and the migration-history guard below,
- * whose owner override is unaffected because editing history means touching `supabase/`.
- */
-export function ownerMergeReasons(classification, filenames) {
-  const reasons = [];
-  if ((filenames ?? []).some((file) => normalizePath(file).startsWith("supabase/"))) reasons.push("database");
-  return reasons;
-}
-
-// ---------------------------------------------------------------------------
-// `Owner approval` commit status (2026-09-17, step 1 of 2).
-//
-// The owner reads a red ✗ as a broken PR. The hold is not a defect in the PR, it is a wait,
-// so it is ALSO reported as its own commit status: `pending` (yellow) while Josh's approval
-// is outstanding, `success` when the PR needs no owner merge or he has approved this head.
-// A required commit status blocks the merge for as long as it is anything but `success`, and
-// statuses are stored per commit SHA, so a new push starts with no status at all ("Expected",
-// also blocking) until this workflow evaluates it. A `neutral`/`skipped` check-run conclusion
-// would count as PASSING for a required check, so it is deliberately not used.
-//
-// Step 1 (#2842) posted this status alongside the red `Owner merge required` error. Step 2,
-// after ruleset 18011271 began requiring `Owner approval`, lets the workflow opt out of that
-// error (ownerHoldViaStatus). The ruleset entry must never be removed without reverting step 2,
-// or held PRs become mergeable. See docs/agents/pull-request-workflow.md "Merge authority".
-// ---------------------------------------------------------------------------
-
-export const OWNER_APPROVAL_CONTEXT = "Owner approval";
-export const OWNER_APPROVAL_CHECKING_DESCRIPTION = "Checking whether this pull request needs Josh's approval…";
-const COMMIT_STATUS_DESCRIPTION_LIMIT = 140;
-
-function commitStatusDescription(text) {
-  const value = String(text ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return value.length <= COMMIT_STATUS_DESCRIPTION_LIMIT
-    ? value
-    : `${value.slice(0, COMMIT_STATUS_DESCRIPTION_LIMIT - 1).trimEnd()}…`;
-}
-
-/**
- * The `Owner approval` commit status for one evaluated head. Only `pending` and `success` are
- * ever produced: `pending` blocks a required context and shows yellow; `success` is the only
- * state that satisfies it. Anything unrecognised fails closed to `pending`.
- */
-export function ownerApprovalCommitStatus({ otherPrsSharingHead, ...verdictInputs }) {
-  const verdict = ownerApprovalVerdict(verdictInputs);
-  if (verdict.state !== "success") return verdict;
-  // A commit status belongs to the commit, and every PR whose head is this commit shares it,
-  // so one PR's verdict may never clear it while another open PR shares the head (that PR
-  // may be held). An unknown list fails closed.
-  if (!Array.isArray(otherPrsSharingHead)) {
-    return {
-      state: "pending",
-      description: commitStatusDescription("Could not confirm no other open PR shares this commit; rerun PR policy."),
-    };
-  }
-  if (otherPrsSharingHead.length > 0) {
-    return {
-      state: "pending",
-      description: commitStatusDescription(
-        `This commit also heads open PR ${otherPrsSharingHead.map((number) => `#${number}`).join(", ")}; Josh approves before it merges.`,
-      ),
-    };
-  }
-  return verdict;
-}
-
-/** A short, plain reason why an `owner-approved` label did not count, for a 140-character status. */
-export function rejectedOwnerLabelSummary(rejectedReason) {
-  const reason = String(rejectedReason ?? "");
-  if (/applied by a GitHub App/i.test(reason)) return "the label was added by an app, not by Josh";
-  if (/not by the repository owner/i.test(reason)) return "the label was not added by Josh";
-  if (/approved an earlier head/i.test(reason)) return "the label was added before the latest push";
-  return "the label could not be confirmed as Josh's approval of this commit";
-}
-
-function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, ownerApproved, rejectedReason }) {
-  if (draft) {
-    return {
-      state: "pending",
-      description: commitStatusDescription("Draft pull request: checked again when it is marked ready for review."),
-    };
-  }
-  if (!Array.isArray(reasons)) {
-    return { state: "pending", description: commitStatusDescription(OWNER_APPROVAL_CHECKING_DESCRIPTION) };
-  }
-  if (reasons.length === 0) {
-    // Name the control that actually exists. Until 2026-09-19 this read "no clinical, database
-    // or RAG-ranking change", which the 2026-09-17 narrowing made false: `ownerMergeReasons`
-    // now returns `[]` for every path outside `supabase/`, so a PR rewriting
-    // `src/lib/clinical-safety.ts` or `src/lib/rag/rag.ts` — both `clinicalRisk: true`, and
-    // `rag.ts` `ragRanking: true`, pinned in the self-test below — carried a green badge
-    // asserting it changed no clinical or RAG-ranking code. Those PRs are still governed, by
-    // the preflight, the `RAG impact:` line and the canary pair; they are simply not owner-held.
-    // This status speaks only for the owner hold, so it names only the owner hold's trigger.
-    return {
-      state: "success",
-      description: commitStatusDescription(
-        "Not needed: no supabase/ change — only those reach the live database on merge.",
-      ),
-    };
-  }
-  const why = reasons.join(", ");
-  if (ownerApproved === true && !rejectedReason) {
-    return { state: "success", description: commitStatusDescription(`Josh approved this commit (${why}).`) };
-  }
-  if (rejectedReason) {
-    return {
-      state: "pending",
-      description: commitStatusDescription(
-        `Waiting for Josh's approval (${why}): ${rejectedOwnerLabelSummary(rejectedReason)}.`,
-      ),
-    };
-  }
-  return {
-    state: "pending",
-    description: commitStatusDescription(`Waiting for Josh to review and add the owner-approved label (${why}).`),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Required-check forgery tripwire.
 //
 // Every required context here is pinned to GitHub Actions (integration 15368). ANY workflow
 // that runs PR-controlled code with a GITHUB_TOKEN is also GitHub Actions: a same-repository
 // branch can add a job named `PR policy` to a `pull_request` workflow, or grant itself
-// `statuses: write` and post `Owner approval: success`, and both are attributed to the same
+// `statuses: write` and post a forged success, and both are attributed to the same
 // integration as the real check. The integration pin excludes a personal access token; it does
 // not exclude this. This tripwire fails `PR policy` when a changed workflow that can execute
 // branch code names a protected context or can write commit statuses. It is a TRIPWIRE, not a
@@ -956,7 +740,7 @@ function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, owner
 // later still gets past it. The boundary needs a live setting — see pull-request-workflow.md.
 // ---------------------------------------------------------------------------
 
-export const PROTECTED_REQUIRED_CONTEXTS = ["PR policy", OWNER_APPROVAL_CONTEXT];
+export const PROTECTED_REQUIRED_CONTEXTS = ["PR policy"];
 
 // Triggers whose workflow definition is always read from the default branch, so a PR's edit
 // to the file cannot run before it merges. Anything else — or a file whose triggers cannot be
@@ -1061,13 +845,11 @@ export function evaluatePullRequestPolicy({
   files,
   fileStatuses,
   baseMigrationVersions,
-  ownerApproval,
   addedMigrationContents,
   changedWorkflowContents,
-  enforceOwnerMerge = false,
-  // true only for the PR policy workflow, which reports the hold through the required
-  // `Owner approval` commit status. Left false, the hold stays a red error (batch runner).
-  ownerHoldViaStatus = false,
+  // true for the PR policy workflow (and other enforcing callers): fail closed when a
+  // migration-touching PR cannot supply the inputs needed to verify applied-migration history.
+  enforceMigrationHistory = false,
   now = new Date(),
 }) {
   // Three conditions block the PR (hard failure): a clinical-risk diff without a
@@ -1211,11 +993,8 @@ export function evaluatePullRequestPolicy({
     );
   }
 
-  // Owner approval counts only when it is explicitly true AND nothing rejected it.
-  const ownerApproved = ownerApproval?.approved === true && !ownerApproval?.rejectedReason;
-
   // Blocking gate: applied migrations are immutable history. The only override is the
-  // body line AND the owner's approval together — never a label alone, never a line alone.
+  // body line together with an accompanying fail-fast validation guard migration.
   let historyViolations = [];
   const migrationInputsSupplied =
     Array.isArray(fileStatuses) && Array.isArray(baseMigrationVersions) && baseMigrationVersions.length > 0;
@@ -1223,11 +1002,11 @@ export function evaluatePullRequestPolicy({
     historyViolations = migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions, now });
     if (historyViolations.length > 0) {
       const override = migrationHistoryEditApproval(body);
-      if (override.satisfied && ownerApproved) {
+      if (override.satisfied) {
         const guard = migrationHistoryOverrideGuard({ fileStatuses, addedMigrationContents });
         if (guard.satisfied) {
           warnings.push(
-            `Migration history edit approved by the owner (${override.reason}); validation guard ${guard.guardPaths.join(", ")}; ${historyViolations.length} violation(s) accepted: ${historyViolations.map((violation) => violation.path).join(", ")}.`,
+            `Migration history edit approved (${override.reason}); validation guard ${guard.guardPaths.join(", ")}; ${historyViolations.length} violation(s) accepted: ${historyViolations.map((violation) => violation.path).join(", ")}.`,
           );
         } else {
           for (const violation of historyViolations) errors.push(violation.message);
@@ -1239,41 +1018,12 @@ export function evaluatePullRequestPolicy({
           errors.push(
             "`Migration history edit approved:` needs a specific reason (at least 12 characters, not a placeholder).",
           );
-        } else if (override.declared && !ownerApproved) {
-          errors.push(
-            `\`Migration history edit approved:\` takes effect only after the owner approves this PR with the \`${OWNER_APPROVED_LABEL}\` label. The body line alone does not override the migration history guard.`,
-          );
         }
       }
     }
-  } else if (enforceOwnerMerge && classification.migration) {
+  } else if (enforceMigrationHistory && classification.migration) {
     errors.push(
       "This PR touches supabase/migrations, but migration history could not be verified (file statuses or the trusted base migration versions were not supplied). Rerun the check; the policy fails closed until it can verify history.",
-    );
-  }
-
-  // Blocking gate (opt-in via enforceOwnerMerge): owner-only merge for database,
-  // clinical-risk and RAG-ranking PRs.
-  const mergeReasons = ownerMergeReasons(classification, classification.files);
-  if (enforceOwnerMerge && mergeReasons.length > 0 && ownerHoldViaStatus === true) {
-    // The hold is a wait, not a defect: the required `Owner approval` status carries it
-    // (pending until Josh approves this head). A label that does not count is surfaced as a
-    // warning and keeps that status pending; it never turns PR policy red.
-    if (ownerApproval?.rejectedReason) {
-      warnings.push(
-        `Ignored \`${OWNER_APPROVED_LABEL}\` label: ${ownerApproval.rejectedReason}. Owner approval stays pending; agents must never add this label.`,
-      );
-    }
-  } else if (enforceOwnerMerge && mergeReasons.length > 0) {
-    if (ownerApproval?.rejectedReason) errors.push(`Owner approval rejected: ${ownerApproval.rejectedReason}.`);
-    if (!ownerApproved) {
-      errors.push(
-        `Owner merge required (${mergeReasons.join(", ")}). Josh reviews this PR and adds the \`${OWNER_APPROVED_LABEL}\` label; any new push removes it. Agents must never add this label.`,
-      );
-    }
-  } else if (enforceOwnerMerge && ownerApproval?.rejectedReason) {
-    warnings.push(
-      `Ignored \`${OWNER_APPROVED_LABEL}\` label: ${ownerApproval.rejectedReason}. Agents must never add this label.`,
     );
   }
 
@@ -1299,8 +1049,6 @@ export function evaluatePullRequestPolicy({
     errors,
     warnings,
     ok: errors.length === 0,
-    ownerMergeReasons: mergeReasons,
-    ownerApproved,
     migrationHistoryViolations: historyViolations,
   };
 }
@@ -2092,8 +1840,7 @@ function migrationHistoryAndOwnerMergeSelfTest(completeBody) {
       files: ["supabase/migrations/20260301000000_future.sql"],
       fileStatuses: added("20260301000000"),
       baseMigrationVersions: ["20251201000000"],
-      ownerApproval: { approved: true },
-      enforceOwnerMerge: true,
+      enforceMigrationHistory: true,
       now,
     });
   assert.equal(
@@ -2103,49 +1850,6 @@ function migrationHistoryAndOwnerMergeSelfTest(completeBody) {
   );
   assert.equal(clockedPr(new Date("2026-03-01T00:00:00Z")).ok, true, "the same PR passes once the clock catches up");
 
-  // --- Owner approval bound to the current head (limit #2) ---------------------------
-  const headRuns = ["2026-09-17T01:00:05Z", "2026-09-17T01:00:00Z", "2026-09-17T01:02:00Z"];
-  const labelBefore = ownerApprovalCoversHead({ labeledAt: "2026-09-17T00:59:59Z", headRunCreatedAt: headRuns });
-  assert.equal(labelBefore.covered, false, "label before head → rejected");
-  assert.match(labelBefore.reason, /approved an earlier head/);
-  assert.equal(
-    labelBefore.headFirstSeenAt,
-    "2026-09-17T01:00:00.000Z",
-    "the EARLIEST run defines when the head appeared",
-  );
-  const labelAfter = ownerApprovalCoversHead({ labeledAt: "2026-09-17T01:00:01Z", headRunCreatedAt: headRuns });
-  assert.equal(labelAfter.covered, true, "label after head → approved");
-  assert.equal(labelAfter.reason, "");
-  assert.equal(
-    ownerApprovalCoversHead({ labeledAt: "2026-09-17T01:01:00Z", headRunCreatedAt: headRuns }).covered,
-    true,
-    "a label after the earliest run but before later runs (e.g. its own labeled run) still covers the head",
-  );
-  for (const [runs, why] of [
-    [[], "empty"],
-    [null, "lookup failed"],
-    [undefined, "missing"],
-  ]) {
-    const missing = ownerApprovalCoversHead({ labeledAt: "2026-09-17T09:00:00Z", headRunCreatedAt: runs });
-    assert.equal(missing.covered, false, `missing runs (${why}) → rejected`);
-    assert.match(missing.reason, /no PR policy runs could be found/);
-  }
-  assert.equal(
-    ownerApprovalCoversHead({ labeledAt: "2026-09-17T01:00:00Z", headRunCreatedAt: headRuns }).covered,
-    false,
-    "equal timestamps → rejected",
-  );
-  assert.equal(
-    ownerApprovalCoversHead({ labeledAt: "2026-09-17T09:00:00Z", headRunCreatedAt: ["garbage", ...headRuns] }).covered,
-    false,
-    "an unparseable run time fails closed rather than being skipped",
-  );
-  assert.equal(
-    ownerApprovalCoversHead({ labeledAt: undefined, headRunCreatedAt: headRuns }).covered,
-    false,
-    "no label time → rejected",
-  );
-
   const historyError = migrationHistoryViolations({
     files: [{ filename: applied, status: "modified" }],
     baseMigrationVersions: base,
@@ -2153,7 +1857,6 @@ function migrationHistoryAndOwnerMergeSelfTest(completeBody) {
   assert.match(historyError, /Applied migrations never re-run on live/);
   assert.match(historyError, /NEW migration whose version is newer than 20260916160000/);
 
-  const docsBody = completeBody;
   const editApproved = `${completeBody}\n\nMigration history edit approved: repairing a no-statements history row per the guard-migration contract`;
   const guardPath = "supabase/migrations/20260917120000_validate_site_content_repair.sql";
   const guardSql = `set local statement_timeout = '30s';
@@ -2175,53 +1878,20 @@ $migration$;
     ],
     baseMigrationVersions: base,
     addedMigrationContents: { [guardPath]: guardSql },
-    enforceOwnerMerge: true,
+    enforceMigrationHistory: true,
   };
   assert.equal(isValidationGuardSql(guardSql), true, "fixture guard SQL matches the validation predicate");
   assert.equal(isValidationGuardSql(nonGuardSql), false, "a CREATE INDEX migration is not a validation guard");
-  assert.equal(ownerActorMatches({ actorLogin: "BigSimmo", ownerLogin: "BigSimmo" }), true);
-  assert.equal(ownerActorMatches({ actorLogin: "collaborator", ownerLogin: "BigSimmo" }), false);
-  assert.equal(ownerActorMatches({ actorLogin: "", ownerLogin: "BigSimmo" }), false);
+  // The override needs the body line AND a validation guard — no owner-approved label.
   assert.equal(
-    workflowRunRecordsPrHead(
-      { head_sha: "abc", pull_requests: [{ number: 1, head: { sha: "abc" } }] },
-      { headSha: "abc", prNumber: 1 },
-    ),
+    evaluatePullRequestPolicy({ ...modifiedApplied, body: editApproved }).ok,
     true,
-    "run head_sha matching the PR head counts",
-  );
-  assert.equal(
-    workflowRunRecordsPrHead(
-      { head_sha: "base", pull_requests: [{ number: 1, head: { sha: "abc" } }] },
-      { headSha: "abc", prNumber: 1 },
-    ),
-    false,
-    "pull_requests[].head.sha alone must not count — it can be rewritten to a later tip",
-  );
-  assert.equal(
-    workflowRunRecordsPrHead({ head_sha: "abc", pull_requests: [] }, { headSha: "abc", prNumber: 1 }),
-    true,
-    "empty pull_requests still counts when head_sha matches",
-  );
-  assert.equal(
-    workflowRunRecordsPrHead(
-      { head_sha: "abc", pull_requests: [{ number: 9, head: { sha: "abc" } }] },
-      { headSha: "abc", prNumber: 1 },
-    ),
-    false,
-    "head_sha match still requires this PR number when pull_requests is present",
-  );
-  // The override needs the body line, the owner's approval, AND a validation guard.
-  assert.equal(
-    evaluatePullRequestPolicy({ ...modifiedApplied, body: editApproved, ownerApproval: { approved: true } }).ok,
-    true,
-    "override line + owner approval + validation guard → no error",
+    "override line + validation guard → no error",
   );
   assert.equal(
     evaluatePullRequestPolicy({
       ...modifiedApplied,
       body: editApproved,
-      ownerApproval: { approved: true },
       addedMigrationContents: undefined,
     }).ok,
     false,
@@ -2231,7 +1901,6 @@ $migration$;
     evaluatePullRequestPolicy({
       ...modifiedApplied,
       body: editApproved,
-      ownerApproval: { approved: true },
       addedMigrationContents: { [guardPath]: nonGuardSql },
     }).ok,
     false,
@@ -2244,34 +1913,20 @@ $migration$;
       files: [applied],
       fileStatuses: [{ filename: applied, status: "modified", previous_filename: null }],
       baseMigrationVersions: base,
-      enforceOwnerMerge: true,
+      enforceMigrationHistory: true,
       body: editApproved,
-      ownerApproval: { approved: true },
       addedMigrationContents: {},
     }).ok,
     false,
     "override without an accompanying added guard migration still errors",
   );
-  const lineOnly = evaluatePullRequestPolicy({ ...modifiedApplied, body: editApproved });
-  assert.equal(lineOnly.ok, false, "override line without approval → still error");
-  assert.match(lineOnly.errors.join(" "), /Applied migrations never re-run on live/);
-  assert.match(lineOnly.errors.join(" "), /takes effect only after the owner approves/);
-  const labelOnly = evaluatePullRequestPolicy({
-    ...modifiedApplied,
-    body: docsBody,
-    ownerApproval: { approved: true },
-  });
-  assert.equal(
-    labelOnly.ok,
-    false,
-    "owner approval without the override line → still error (not bypassable by label alone)",
-  );
-  assert.equal(labelOnly.migrationHistoryViolations.length, 1);
+  const noOverride = evaluatePullRequestPolicy({ ...modifiedApplied, body: completeBody });
+  assert.equal(noOverride.ok, false, "history edit without the override line → still error");
+  assert.match(noOverride.errors.join(" "), /Applied migrations never re-run on live/);
   assert.equal(
     evaluatePullRequestPolicy({
       ...modifiedApplied,
       body: `${completeBody}\n\nMigration history edit approved: <reason>`,
-      ownerApproval: { approved: true },
     }).ok,
     false,
     "a placeholder reason does not satisfy the override",
@@ -2280,22 +1935,9 @@ $migration$;
     evaluatePullRequestPolicy({
       ...modifiedApplied,
       body: `${completeBody}\n\n<!-- Migration history edit approved: copied from a template comment -->`,
-      ownerApproval: { approved: true },
     }).ok,
     false,
     "an override inside an HTML comment does not count",
-  );
-  assert.equal(
-    evaluatePullRequestPolicy({
-      ...modifiedApplied,
-      body: editApproved,
-      ownerApproval: {
-        approved: true,
-        rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
-      },
-    }).ok,
-    false,
-    "an App-applied label is not approval, even with the override line",
   );
   // Fail closed: an enforcing caller that cannot supply history inputs is blocked.
   assert.match(
@@ -2303,7 +1945,6 @@ $migration$;
       ...modifiedApplied,
       body: editApproved,
       fileStatuses: undefined,
-      ownerApproval: { approved: true },
     }).errors.join(" "),
     /migration history could not be verified/,
   );
@@ -2312,133 +1953,40 @@ $migration$;
       ...modifiedApplied,
       body: editApproved,
       baseMigrationVersions: [],
-      ownerApproval: { approved: true },
     }).errors.join(" "),
     /migration history could not be verified/,
   );
 
-  ownerApprovalStatusAndForgerySelfTest(completeBody);
+  requiredCheckForgerySelfTest(completeBody);
 
-  // --- Owner-merge hold --------------------------------------------------------------
-  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["docs/a.md"]), ["docs/a.md"]), []);
-  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["supabase/schema.sql"]), ["supabase/schema.sql"]), [
-    "database",
-  ]);
-  // Narrowed by the 2026-09-17 owner ruling: clinical content and RAG ranking are no longer
-  // reasons on their own, so a PR that touches neither database file nor migration is free.
-  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), []);
-  // ...and the green badge must say only that, because the PRs it clears routinely DO change
-  // clinical and RAG-ranking code. Nothing pinned this sentence before 2026-09-19 (#9Y6MKN),
-  // which is how it went on asserting the opposite of the truth after the narrowing.
-  const noHoldStatus = ownerApprovalCommitStatus({
-    ownerMergeReasons: [],
-    ownerApproved: false,
-    otherPrsSharingHead: [],
-  });
-  assert.equal(noHoldStatus.state, "success");
-  assert.equal(
-    noHoldStatus.description,
-    "Not needed: no supabase/ change — only those reach the live database on merge.",
-  );
-  assert.doesNotMatch(
-    noHoldStatus.description,
-    /clinical|RAG/i,
-    "the cleared status must not claim the PR changed no clinical or RAG-ranking code; these files do, and are still cleared",
-  );
-  for (const file of [
-    "src/lib/clinical-safety.ts",
-    "src/components/clinical-dashboard/patient-profile-panel.tsx",
-    "src/lib/rag/rag.ts",
-  ]) {
-    assert.equal(classifyPullRequestFiles([file]).clinicalRisk, true, `${file} is clinical-risk`);
-    assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles([file]), [file]), [], `${file} is not owner-held`);
-  }
-  assert.equal(classifyPullRequestFiles(["src/lib/rag/rag.ts"]).ragRanking, true);
-  const clinical = {
-    title: "fix: adjust clinical search tie-break",
-    body: completeBody,
-    headRef: "claude/clinical-fix",
-    files: ["src/lib/answer-synthesis.ts"],
-  };
+  // --- supabase/ PRs are no longer held for an owner label ---------------------------
   const database = {
     title: "feat(db): add a retrieval health view",
     body: completeBody,
     headRef: "claude/db-view",
     files: ["supabase/schema.sql"],
   };
-  const databaseHeld = evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true });
-  assert.equal(databaseHeld.ok, false, "database + no approval + enforce → error");
-  assert.match(databaseHeld.errors.join(" "), /Owner merge required \(database\)/);
-  assert.match(databaseHeld.errors.join(" "), /any new push removes it\. Agents must never add this label\./);
-  assert.deepEqual(databaseHeld.ownerMergeReasons, ["database"]);
-  assert.equal(databaseHeld.ownerApproved, false);
   assert.equal(
-    evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true, ownerApproval: { approved: true } }).ok,
+    evaluatePullRequestPolicy({ ...database, enforceMigrationHistory: true }).ok,
     true,
-    "database + owner approval → ok",
+    "database schema PR passes without an owner-approved label",
   );
-  const clinicalFree = evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true });
-  assert.deepEqual(clinicalFree.ownerMergeReasons, [], "clinical alone no longer needs the owner's label");
-  assert.equal(clinicalFree.ok, true, "clinical + no approval + enforce → ok since 2026-09-17");
-  assert.equal(
-    evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true, ownerApproval: { approved: "true" } }).ok,
-    false,
-    "approval must be the boolean true, not a truthy value",
-  );
-  const appLabel = evaluatePullRequestPolicy({
-    ...database,
-    enforceOwnerMerge: true,
-    ownerApproval: {
-      approved: true,
-      rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
-    },
-  });
-  assert.equal(appLabel.ok, false, "rejectedReason → error even when approved is claimed");
-  assert.match(
-    appLabel.errors.join(" "),
-    /Owner approval rejected: owner-approved label was applied by a GitHub App \(codex\)/,
-  );
+  const clinical = {
+    title: "fix: adjust clinical search tie-break",
+    body: completeBody,
+    headRef: "claude/clinical-fix",
+    files: ["src/lib/answer-synthesis.ts"],
+  };
+  assert.equal(evaluatePullRequestPolicy({ ...clinical, enforceMigrationHistory: true }).ok, true);
   const docsPr = {
     title: "docs: explain the review process",
     body: completeBody,
     headRef: "claude/docs",
     files: ["docs/process-hardening.md"],
   };
-  assert.equal(evaluatePullRequestPolicy({ ...docsPr, enforceOwnerMerge: true }).ok, true, "non-clinical docs PR → ok");
-  assert.equal(
-    evaluatePullRequestPolicy({
-      ...docsPr,
-      enforceOwnerMerge: true,
-      ownerApproval: {
-        approved: false,
-        rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
-      },
-    }).ok,
-    true,
-    "a rejected label on a PR that needs no owner merge is a warning, not a block",
-  );
-  // enforceOwnerMerge defaults to false, so existing callers keep today's behaviour.
-  assert.equal(evaluatePullRequestPolicy(database).ok, true, "enforce false → today's behaviour");
-  assert.equal(evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: false }).ok, true);
-  // A rename's previous path is classified: moving a file out of supabase/ still needs the owner.
-  assert.deepEqual(
-    evaluatePullRequestPolicy({
-      ...docsPr,
-      files: ["docs/archive/drift-manifest.json"],
-      fileStatuses: [
-        {
-          filename: "docs/archive/drift-manifest.json",
-          status: "renamed",
-          previous_filename: "supabase/drift-manifest.json",
-        },
-      ],
-      baseMigrationVersions: base,
-      enforceOwnerMerge: true,
-    }).ownerMergeReasons,
-    ["database"],
-  );
+  assert.equal(evaluatePullRequestPolicy({ ...docsPr, enforceMigrationHistory: true }).ok, true);
 
-  // --- Replay: PR #2814 must fail, and must fail on history even with owner approval ----
+  // --- Replay: PR #2814 must fail on migration history ----
   const trustedVersions = migrationVersionsFromEntries(
     readdirSync(new URL("../supabase/migrations/", import.meta.url)),
   );
@@ -2451,23 +1999,16 @@ $migration$;
     files: pr2814FileStatuses.map((file) => file.filename),
     fileStatuses: pr2814FileStatuses,
     baseMigrationVersions: trustedVersions,
-    enforceOwnerMerge: true,
+    enforceMigrationHistory: true,
   };
-  const replayUnapproved = evaluatePullRequestPolicy(replay);
-  assert.equal(replayUnapproved.ok, false, "PR #2814 replay must fail");
+  const replayResult = evaluatePullRequestPolicy(replay);
+  assert.equal(replayResult.ok, false, "PR #2814 replay must fail");
   assert.deepEqual(
-    replayUnapproved.migrationHistoryViolations.map((violation) => violation.version),
+    replayResult.migrationHistoryViolations.map((violation) => violation.version),
     ["20260824122000", "20260824123000", "20260830121000"],
   );
-  assert.deepEqual(replayUnapproved.ownerMergeReasons, ["database"]);
-  assert.match(replayUnapproved.errors.join(" "), /Owner merge required \(database\)/);
-  const replayApproved = evaluatePullRequestPolicy({ ...replay, ownerApproval: { approved: true } });
-  assert.equal(replayApproved.ok, false, "PR #2814 replay must fail on migration history even with owner approval");
-  assert.equal(
-    replayApproved.errors.filter((error) => /Applied migrations never re-run on live/.test(error)).length,
-    3,
-  );
-  assert.doesNotMatch(replayApproved.errors.join(" "), /Owner merge required/);
+  assert.equal(replayResult.errors.filter((error) => /Applied migrations never re-run on live/.test(error)).length, 3);
+  assert.doesNotMatch(replayResult.errors.join(" "), /Owner merge required/);
 
   // --- PR_POLICY_BODY.md must never land on main (transport file, see the comment above
   // prPolicyBodyTransportViolation) --------------------------------------------------------
@@ -2523,166 +2064,7 @@ $migration$;
   );
 }
 
-function ownerApprovalStatusAndForgerySelfTest(completeBody) {
-  // --- Owner approval commit status: only pending or success, never neutral ----------
-  const states = new Set();
-  const status = (input) => {
-    const result = ownerApprovalCommitStatus(input);
-    states.add(result.state);
-    assert.ok(result.description.length > 0 && result.description.length <= 140, "status description fits 140");
-    return result;
-  };
-  assert.equal(
-    status({ draft: true, ownerMergeReasons: [], ownerApproved: false }).state,
-    "pending",
-    "draft → pending",
-  );
-  assert.equal(
-    status({ draft: true, ownerMergeReasons: ["database"], ownerApproved: true }).state,
-    "pending",
-    "draft never reports success, even when approved",
-  );
-  assert.equal(
-    status({ ownerMergeReasons: [], ownerApproved: false, otherPrsSharingHead: [] }).state,
-    "success",
-    "no hold → success",
-  );
-  const waiting = status({ ownerMergeReasons: ["database"], ownerApproved: false });
-  assert.equal(waiting.state, "pending", "hold without approval → pending (yellow), not failure");
-  assert.match(waiting.description, /Waiting for Josh.*\(database\)/);
-  assert.equal(
-    status({ ownerMergeReasons: ["database"], ownerApproved: true, otherPrsSharingHead: [] }).state,
-    "success",
-    "approved → success",
-  );
-  // One commit heading two open PRs: neither PR's verdict may clear the shared status.
-  const shared = status({ ownerMergeReasons: [], ownerApproved: false, otherPrsSharingHead: [2843] });
-  assert.equal(shared.state, "pending", "a head shared with another open PR never reports success");
-  assert.match(shared.description, /#2843/);
-  assert.equal(
-    status({ ownerMergeReasons: ["database"], ownerApproved: true, otherPrsSharingHead: [7, 9] }).state,
-    "pending",
-    "even an approved PR cannot clear a head another open PR shares",
-  );
-  assert.equal(
-    status({ ownerMergeReasons: [], ownerApproved: false }).state,
-    "pending",
-    "an unknown sharing list fails closed to pending",
-  );
-  assert.equal(
-    status({ ownerMergeReasons: ["database"], ownerApproved: "true" }).state,
-    "pending",
-    "approval must be boolean true",
-  );
-  const rejected = status({
-    ownerMergeReasons: ["database"],
-    ownerApproved: true,
-    rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
-  });
-  assert.equal(rejected.state, "pending", "a rejected label never yields success");
-  assert.match(
-    status({ ownerMergeReasons: Array(20).fill("database"), ownerApproved: false }).description,
-    /…$/,
-    "an over-long description is truncated to 140 characters",
-  );
-  assert.equal(status({ ownerMergeReasons: undefined }).state, "pending", "unknown reasons fail closed to pending");
-  assert.deepEqual([...states].sort(), ["pending", "success"], "only pending and success are ever produced");
-
-  // The status mirrors the policy result it is built from.
-  const databasePr = {
-    title: "feat(db): add a retrieval health view",
-    body: completeBody,
-    headRef: "claude/db-view",
-    files: ["supabase/schema.sql"],
-    enforceOwnerMerge: true,
-  };
-  const held = evaluatePullRequestPolicy(databasePr);
-  assert.equal(
-    ownerApprovalCommitStatus({ ownerMergeReasons: held.ownerMergeReasons, ownerApproved: held.ownerApproved }).state,
-    "pending",
-  );
-  assert.match(
-    held.errors.join(" "),
-    /Owner merge required/,
-    "without the opt-in (the batch runner's call) the hold is still a red error",
-  );
-  // Step 2: the workflow opts in, so the hold is carried only by the yellow status.
-  const viaStatus = evaluatePullRequestPolicy({ ...databasePr, ownerHoldViaStatus: true });
-  assert.equal(viaStatus.ok, true, "opted in: an unapproved database PR is not red in PR policy");
-  assert.deepEqual(viaStatus.errors, []);
-  assert.equal(viaStatus.ownerApproved, false);
-  assert.equal(
-    ownerApprovalCommitStatus({
-      ownerMergeReasons: viaStatus.ownerMergeReasons,
-      ownerApproved: viaStatus.ownerApproved,
-      otherPrsSharingHead: [],
-    }).state,
-    "pending",
-    "opted in: the hold is still carried by a pending Owner approval status",
-  );
-  assert.equal(
-    evaluatePullRequestPolicy({ ...databasePr, ownerHoldViaStatus: "true" }).ok,
-    false,
-    "the opt-in must be the boolean true",
-  );
-  // A label that does not count: yellow with a named reason plus a warning, never red, never success.
-  for (const [rejectedReason, expected] of [
-    ["owner-approved label was applied by a GitHub App (codex), not by the owner", /added by an app, not by Josh/],
-    ["owner-approved label was applied by collaborator, not by the repository owner (BigSimmo)", /not added by Josh/],
-    [
-      "the owner-approved label was applied at 2026-09-17T00:59:59.000Z, not after the current head was first seen at 2026-09-17T01:00:00.000Z, so it approved an earlier head; Josh re-applies it",
-      /added before the latest push/,
-    ],
-    [
-      "no PR policy runs could be found for the current head, so the approval cannot be bound to it",
-      /could not be confirmed/,
-    ],
-  ]) {
-    const rejectedPr = evaluatePullRequestPolicy({
-      ...databasePr,
-      ownerHoldViaStatus: true,
-      ownerApproval: { approved: false, rejectedReason },
-    });
-    assert.equal(rejectedPr.ok, true, `a rejected label is not red when opted in: ${rejectedReason}`);
-    assert.match(rejectedPr.warnings.join(" "), /Ignored `owner-approved` label/);
-    const rejectedStatus = ownerApprovalCommitStatus({
-      ownerMergeReasons: rejectedPr.ownerMergeReasons,
-      ownerApproved: rejectedPr.ownerApproved,
-      rejectedReason,
-      otherPrsSharingHead: [],
-    });
-    assert.equal(rejectedStatus.state, "pending", "a label that does not count never yields success");
-    assert.match(rejectedStatus.description, expected);
-    assert.match(rejectedStatus.description, /^Waiting for Josh's approval \(database\)/);
-  }
-  // Real policy failures stay red even when opted in. PR-body prose is no longer one of
-  // them (2026-09-17), so this uses a gate that still fails closed: the PR_POLICY_BODY.md
-  // transport file, which must never land on main.
-  const transportViolation = evaluatePullRequestPolicy({
-    ...databasePr,
-    files: [...databasePr.files, "PR_POLICY_BODY.md"],
-    ownerHoldViaStatus: true,
-  });
-  assert.equal(transportViolation.ok, false, "a genuine blocking gate stays red when opted in");
-  assert.match(transportViolation.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
-  assert.doesNotMatch(transportViolation.errors.join(" "), /Owner merge required/);
-  // ...while a thin body on the same PR is now advisory only.
-  const thinBody = evaluatePullRequestPolicy({
-    ...databasePr,
-    body: "## Summary\n\nx",
-    ownerHoldViaStatus: true,
-  });
-  assert.equal(thinBody.ok, true, "PR-body prose gaps no longer block a database PR");
-  const approvedPr = evaluatePullRequestPolicy({ ...databasePr, ownerApproval: { approved: true } });
-  assert.equal(
-    ownerApprovalCommitStatus({
-      ownerMergeReasons: approvedPr.ownerMergeReasons,
-      ownerApproved: approvedPr.ownerApproved,
-      otherPrsSharingHead: [],
-    }).state,
-    "success",
-  );
-
+function requiredCheckForgerySelfTest(completeBody) {
   // --- Workflow trigger parsing ------------------------------------------------------
   assert.deepEqual(workflowTriggers("on:\n  pull_request_target:\n    types: [opened]\n  merge_group:\n"), [
     "pull_request_target",
@@ -2704,8 +2086,8 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
   );
   assert.equal(
     forge(".github/workflows/ci.yml", branchWorkflow('  fake:\n    name: "Owner approval"\n')).length,
-    1,
-    "a quoted Owner approval name is flagged",
+    0,
+    "Owner approval is no longer a protected required context",
   );
   assert.equal(
     forge(
@@ -2728,7 +2110,7 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
   assert.equal(
     forge(
       ".github/workflows/pr-policy.yml",
-      "on:\n  pull_request_target:\n  merge_group:\npermissions:\n  statuses: write\njobs:\n  policy:\n    name: PR policy\n",
+      "on:\n  pull_request_target:\n  merge_group:\npermissions:\n  contents: read\njobs:\n  policy:\n    name: PR policy\n",
     ).length,
     0,
     "a workflow that only runs the default-branch copy is inert until merged",
@@ -2768,7 +2150,7 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
   assert.equal(evaluatePullRequestPolicy(workflowPr).ok, true, "no changedWorkflowContents → tripwire not run");
   const forged = evaluatePullRequestPolicy({
     ...workflowPr,
-    changedWorkflowContents: { ".github/workflows/ci.yml": branchWorkflow("  fake:\n    name: Owner approval\n") },
+    changedWorkflowContents: { ".github/workflows/ci.yml": branchWorkflow("  fake:\n    name: PR policy\n") },
   });
   assert.equal(forged.ok, false, "a forging workflow fails PR policy");
   assert.match(forged.errors.join(" "), /names a required check/);

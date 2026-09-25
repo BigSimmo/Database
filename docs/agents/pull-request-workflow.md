@@ -11,7 +11,7 @@ The stages, in the order a pull request lives through them:
 2. [Follow CI](#follow-ci) — follow while useful, stop when it settles, never park a cron on it
 3. [Review threads](#review-threads) — one rule for fixing, replying, and resolving
 4. [Records](#records) — review records and ledger PRs
-5. [Merge authority](#merge-authority) — who may merge what, and the owner-merge rule
+5. [Merge authority](#merge-authority) — who may merge what, and the supabase merge caution
 6. [Landed](#landed) — proving the merge carried the work
 7. [Branch sync](#branch-sync) — staleness versus real conflict
 8. [Run PR](#run-pr) — the open-PR maintenance sweep
@@ -73,8 +73,9 @@ applies to PR titles and bodies.
 
 **Arming auto-merge at open (owner ruling 2026-09-16).** An agent that opens an **ordinary** PR
 may arm squash auto-merge as part of opening it (`gh pr merge --squash --auto`), with no further
-confirmation. Never arm it on an [owner-merge PR](#merge-authority). Once a PR exists, its
-auto-merge state is user-owned — see [Merge authority](#merge-authority) for what that forbids.
+confirmation. Once a PR exists, its auto-merge state is user-owned — see
+[Merge authority](#merge-authority) for what that forbids. Merging a `supabase/` change is a live
+clinical-database deploy; treat that merge as production.
 
 **Drafts.** Marking a PR ready for review escalates CI to the full heavy set — build and all
 browser shards — even for a diff with no executable file, and undrafting mid-CI cancels the
@@ -255,88 +256,37 @@ matched literally (see [Open](#open)).
 
 ## Merge authority
 
-**Owner-merge rule (owner ruling 2026-09-17, narrowing the 2026-09-16 ruling).** One kind of PR is
-**owner-merged, not agent-merged**: any PR touching `supabase/`.
+**Supabase merge caution.** Merging a PR that touches `supabase/` applies its migrations to the
+live clinical database within seconds — there is no separate deploy step. Treat that merge as a
+production deploy. There is no `owner-approved` label gate and no `Owner approval` commit status;
+the GitHub ruleset no longer requires that context.
 
-The 2026-09-16 ruling also held clinical-content PRs (`scripts/pr-policy.mjs`
-`classifyPullRequestFiles` → `clinicalRisk: true`) and RAG-ranking PRs. **It no longer does.**
-`clinicalRiskPatterns` matches most of `src/lib/**`, so the hold came to rest on nearly every PR,
-refactors included; a label applied that often stops being a review, and the owner asked for it
-back. Those PRs keep every other control — the clinical governance preflight, the `RAG impact:`
-body line, the canary-pair requirement, CODEOWNERS review, and exclusion from the unattended
-`Clear PRs` batch, where `scripts/pr-batch-core.mjs` now carries its own
-`clinical-review-required` rule rather than inheriting one from `ownerMergeReasons`. `supabase/`
-stays held because merging it is the one action here with no undo: it reaches the live clinical
-database within seconds, with no deploy step in between.
+`PR policy` still blocks an edit, deletion, or rename of an applied migration, and an added
+migration dated at or before the newest one on `main` (out-of-order or future-dated). A migration
+already on `main` is never edited; ship a new migration with the newest timestamp
+(`AGENTS.md` `# Supabase project safety`). The only override is a body line
+`Migration history edit approved: <reason>` together with an accompanying fail-fast validation
+guard migration in the same change.
 
-For an owner-merge PR, the required `Owner approval` status stays yellow (pending) until Josh adds the
-`owner-approved` label himself; any new push to the branch removes that label. This is enforced
-by the `PR policy` workflow (#2830, #2842): the label counts only when the repository owner
-applied it — not through a GitHub App — after the PR's latest push. A label that does not count
-leaves the status pending with the reason in its description, and a warning in `PR policy`. `PR policy` also blocks an edit, deletion, or rename of an applied
-migration, and an added migration dated at or before the newest one on `main` (out-of-order or
-future-dated). A migration already on `main` is never edited; ship a new migration with the
-newest timestamp (`AGENTS.md` `# Supabase project safety`).
-
-Agents must never, on an owner-merge PR:
-
-- add the `owner-approved` label — not even with a blanket go-ahead from Josh; it is his control;
-- merge it directly;
-- arm or re-arm auto-merge on it, or bundle work onto it.
-
-If you find an owner-merge PR already armed, **report it rather than disarming it**: the required
-`Owner approval` status already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs
-explicit authorization.
-
-**The `Owner approval` status (2026-09-17, rolled out in two steps, both done).** Josh reads a
-red ✗ as a broken PR, so the hold is no longer a red `PR policy` failure but its own yellow
-commit status.
-`PR policy` posts `Owner approval` on the PR head: `pending` (yellow — "Waiting for Josh…")
-while his approval is outstanding or the PR is a draft, and `success` when the PR needs no owner
-merge or he has approved that head. A required context blocks merge until it is `success`, and
-statuses are per commit, so a new push is unreported (also blocking) until its own run decides.
-A status belongs to the commit, so when one commit heads several open PRs it stays `pending`
-until only one remains. Runs for one PR queue rather than cancel, so an older run's write cannot
-land after a newer verdict. `neutral` is not used because GitHub counts it as passing. Genuine policy failures (governance
-preflight, `RAG impact:`, migration history, the forgery tripwire below) stay red in `PR policy`.
-
-**Order mattered, and still does.** If `PR policy` stopped failing on held PRs while the ruleset
-did not require `Owner approval`, every held PR would be mergeable. The sequence was:
-
-1. **Step 1 (#2842, merged).** `PR policy` posted `Owner approval` in shadow and still failed
-   red on the hold.
-2. **Live ruleset change (done 2026-09-17, read back).** Ruleset `Protections` (18011271) → required status
-   checks → add context **`Owner approval`** with source **GitHub Actions (integration 15368)**, keeping `Gitleaks`, `PR required` and `PR policy`. Before adding it, confirm open
-   ordinary PRs already carry a green `Owner approval` (each gets one on its next push, edit,
-   label change or ready-for-review; re-running an old run does not, because a re-run uses the
-   workflow revision it started with) — otherwise they show "Expected" and wait. `PR policy`
-   posts no `Owner approval` for `merge_group` events: this repository has no merge queue, but
-   if one is ever enabled, add a `merge_group` status path to `pr-policy.yml` **before** (or
-   together with) requiring `Owner approval`, or every queued PR waits on "Expected".
-3. **Step 2 (done).** The workflow calls `evaluatePullRequestPolicy` with
-   `ownerHoldViaStatus: true`, so it no longer pushes the red `Owner merge required (…)` error;
-   the hold is carried only by `Owner approval`. Without that option the error is still raised,
-   which is what keeps the batch runner (`pr-batch-core.mjs`) excluding owner-merge PRs.
-
-**Never remove `Owner approval` from ruleset 18011271 without first reverting step 2** (the
-`ownerHoldViaStatus: true` line in `pr-policy.yml`). With step 2 in place and the ruleset entry
-gone, every held PR is mergeable. Reverting step 2 on its own is always safe — it only brings the
-red error back.
+Clinical-content and RAG-ranking PRs keep every other control — the clinical governance
+preflight, the `RAG impact:` body line, the canary-pair requirement, CODEOWNERS review, and
+exclusion from the unattended `Clear PRs` batch, where `scripts/pr-batch-core.mjs` carries
+`clinical-review-required` and `rag-evidence-required` (and excludes `supabase/` via
+`protectedPath`).
 
 **Who can forge a required check.** The integration pin excludes a personal access token acting
 as BigSimmo, but not a workflow: any workflow that runs this branch's own code (`pull_request`,
-`push`, `workflow_dispatch`) is also GitHub Actions, so a job named `PR policy`, or a step with
-`statuses: write` posting `Owner approval`, would be attributed to integration 15368. That gap
-applies equally to `PR policy`. `PR policy` now fails when a changed workflow or composite
-action that can run branch code names a protected context or can write commit statuses. This is
-a tripwire, not a boundary — an expression-built name or a later re-post gets past it. The
-boundary needs live settings: post `Owner approval` from a dedicated GitHub App whose key lives
+`push`, `workflow_dispatch`) is also GitHub Actions, so a job named `PR policy` would be
+attributed to integration 15368. `PR policy` fails when a changed workflow or composite action
+that can run branch code names a protected context or can write commit statuses. This is a
+tripwire, not a boundary — an expression-built name or a later re-post gets past it. The
+boundary needs live settings: post required checks from a dedicated GitHub App whose key lives
 in an environment secret limited to `main`, and pin the ruleset to that app.
 
 **Ordinary PRs.** An agent may arm squash auto-merge when it opens the PR (see [Open](#open)).
 Merging a PR directly into `main` or any protected branch still needs the user's explicit
-request; the only standing batch authority is [`Clear PRs`](#clear-prs), which never overrides
-the owner-merge rule. [`Run PR`](#run-pr) never merges and never arms.
+request; the only standing batch authority is [`Clear PRs`](#clear-prs). [`Run PR`](#run-pr)
+never merges and never arms.
 
 **Auto-merge state is user-owned once the PR exists.** Automation must not disable or re-enable
 it. Ordinary fast-forward commits and pushes to fix CI or review findings, bundled additions, and an `update-branch` /
@@ -472,8 +422,7 @@ Hard guardrails (never, even during a sweep):
 
 - Never merge a pull request into `main` or any protected branch, and never enable auto-merge;
   the sweep fixes and reports, the user merges. Auto-merge state stays user-owned (see
-  [Merge authority](#merge-authority)); an owner-merge PR found armed is reported, not disarmed.
-- Never add the `owner-approved` label.
+  [Merge authority](#merge-authority)).
 - Never close a pull request, delete or rename branches, force-push (no `--force`, no
   `--force-with-lease`), or rebase.
 - Never mark a draft ready for review, and never edit PR titles or bodies.
@@ -525,11 +474,10 @@ no longer bound anything.
 
 The shortcut preserves every exclusion and protection in
 [`../pr-batch-runner.md`](../pr-batch-runner.md), including migrations, sensitive
-controller/policy/provider changes, and missing clinical/RAG evidence. It does not override the
-[owner-merge rule](#merge-authority): those PRs stay blocked by `PR policy` until Josh approves
-them. It never authorizes force-pushes, admin bypass, live canaries, Supabase operations,
-changing repository protections, adding `owner-approved`, or disabling another actor's
-auto-merge. `Run PR` retains its existing maintenance-only authority.
+controller/policy/provider changes, and missing clinical/RAG evidence. It never authorizes
+force-pushes, admin bypass, live canaries, Supabase operations, changing repository
+protections, or disabling another actor's auto-merge. `Run PR` retains its existing
+maintenance-only authority.
 
 The only branch update this runner ever performs is the single, late "merge-main" sync of the one
 active PR, issued right before merge once it has no conflicts, failing checks, unresolved threads,
@@ -584,8 +532,7 @@ every commit before that PR's first push (pushes mid-run cancel and restart CI).
 
 **If the target PR has auto-merge armed, an ordinary fast-forward push is still safe to bundle
 onto** — GitHub re-validates required checks against the new head before merging. The
-auto-merge ownership rules in [Merge authority](#merge-authority) still apply. **Exception:**
-never bundle onto an owner-merge PR; those merge only when Josh adds `owner-approved`.
+auto-merge ownership rules in [Merge authority](#merge-authority) still apply.
 
 Bundle only when every item being combined is:
 

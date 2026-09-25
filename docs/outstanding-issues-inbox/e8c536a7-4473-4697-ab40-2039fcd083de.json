@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "e8c536a7-4473-4697-ab40-2039fcd083de",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#8FXXVE",
+    "summary": "Tools truncation: the description clamp and six-column launcher grid are still present",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Both remain (tools-search-results-page.tsx line-clamp-2; applications-launcher-page.tsx xl:grid-cols-6). Provenance correction: the clamp existed when the file was created in c0364b790; PR #2317 moved it rather than reintroducing it. PRIOR DETAIL: Two distinct instances. (a) tools-search-results-page.tsx:141 line-clamp-2 on tool descriptions, added by PR #2317 on 2026-08-23, five weeks after the July audit removed exactly that clamp; bites at 320/390. (b) applications-launcher-page.tsx:287 xl:grid-cols-6 packs six category tiles into a ~780px column at 1440/1920, truncating titles ('Ask evi...', 'Prescri...') and breaking descriptions mid-word ('prescribin/g'); clean at 768. Dropping the xl step fixes (b).",
+    "baseRowFingerprint": "598615bc0b4c00df8d091f760962b534f4fe04e9856deeb12f0e304bd4e65a5e"
+  }
+}

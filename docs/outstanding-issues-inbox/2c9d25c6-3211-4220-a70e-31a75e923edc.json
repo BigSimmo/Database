@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2c9d25c6-3211-4220-a70e-31a75e923edc",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#Z9NS6H",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): All named inconsistencies still present. Recount over diagnosis records: 86 of 374 multi-item sections use a space-joined summary (1,200 sections total), not 87 of 556; re-derive or drop the figure. PRIOR DETAIL: ui-copy.ts:84 titles the prescribing mode 'Medication Guidance' in a product whose banners read 'not clinical guidance' and 'not validated decision support'; suggest 'Medication Reference'. ui-copy.ts:65 gives Differentials the subtitle 'Match your catalogue to your library.', which says nothing about differential diagnosis. A conservative refusal still advertises 'CITED DOCUMENTS - 3 cited'; suggest 'Documents searched'. A 'DO NOW' card numbers four teaching observations as if they were actions, and 87 of 556 multi-item sections have a summary that is a space-join of their items with no punctuation. All clinical wording - for a human.",
+    "baseRowFingerprint": "4de6d3f6fb00ee96b833a13d0d69992ff34ce54b44b8629c3f47c93bfda6ee30"
+  }
+}

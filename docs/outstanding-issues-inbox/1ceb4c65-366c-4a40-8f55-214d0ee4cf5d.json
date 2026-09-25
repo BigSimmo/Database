@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1ceb4c65-366c-4a40-8f55-214d0ee4cf5d",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call Teaching: the 'Next' pill prints a stale relative phrase beside the calculated date, and undated rows sort by new Date(freeText)",
+    "detail": "Reworded on review 2026-09-25: only the demo data was fixed in PR #2997. on-call-education-section.tsx:78 still joins the computed date with the owner's free text, deliberately (a Codex P2 review on PR #2806 kept it because it carries the time). Fix: show the computed date plus the time only, or drop a stale relative phrase such as 'Later this month'. Undated rows still sort by new Date(freeText) (line 55), which entry-model.ts forbids.",
+    "source": "On Call + CME audit 2026-09-24; reworded by ledger review 2026-09-25",
+    "issueUlid": "01M3CB4CGKFNPHYN8AH1YWVKFG"
+  }
+}

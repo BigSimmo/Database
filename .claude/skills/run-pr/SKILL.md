@@ -16,8 +16,8 @@ canonical Claude Code procedure and does not restate that policy.
 
 What `Run PR` authorizes, and every guardrail, is in [Run PR](../../../docs/agents/pull-request-workflow.md#run-pr). Read it
 before the sweep. The two that most often go wrong: never merge or arm auto-merge — per-PR
-auto-merge state is user-owned, so automation must not disable or re-enable it, and an armed
-owner-merge PR is reported, not disarmed ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)); and
+auto-merge state is user-owned, so automation must not disable or re-enable it
+([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)); and
 never run provider-backed gates.
 
 ## Sweep setup (once per sweep)

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "40418eeb-2ee2-4589-b7ac-b3193eb01269",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#W98GR7",
+    "outcome": "Resolved 2026-09-25 (ledger review). Shipped by PR #2702 (0177bed18): migration 20260907041700, scripts/repair-strict-enrichment-gate.ts (repair:enrichment-gate) and check:enrichment-health. The health check is deliberately manual and provider-backed; live application was not re-verified offline.",
+    "baseRowFingerprint": "0edabdba295f498a7784892b8776272652199d20392f14913e8496109593243c"
+  }
+}
