@@ -1630,6 +1630,13 @@ function DocumentSearchResultsPanelImpl({
                   // surface (no fill), so a top hit showing both "Best match"
                   // and "Strong match" still has a single filled accent.
                   const relevanceVariant = relevanceLabel === "Strong match" ? "high" : "neutral";
+                  // Owner decision 11 (2026-09-25): "Best match" is a quality
+                  // claim, so the first card earns it only on a strong or
+                  // partial verdict. Otherwise it is just the first result.
+                  const topBadgeLabel =
+                    relevanceLabel === "Strong match" || relevanceLabel === "Partial match"
+                      ? "Best match"
+                      : "Top result";
                   const openHref = documentOpenHref(document);
                   return (
                     <article
@@ -1684,7 +1691,7 @@ function DocumentSearchResultsPanelImpl({
                                 icon={Sparkles}
                                 className="min-h-7 rounded-lg px-2.5 text-2xs"
                               >
-                                Best match
+                                {topBadgeLabel}
                               </DocumentBadge>
                             ) : null}
                             <DocumentBadge

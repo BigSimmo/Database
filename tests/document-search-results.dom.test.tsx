@@ -202,4 +202,26 @@ describe("DocumentSearchResultsPanel relevance chip (#1M22X5)", () => {
       "Unassessed Document",
     ]);
   });
+
+  // Owner decision 11 (Josh, 2026-09-25): "Best match" is a quality claim, so the top card
+  // earns it only when its verdict is a strong or partial match. Otherwise it is only the
+  // first result, and the badge says so: "Top result".
+  it.each([
+    ["direct", "Best match"],
+    ["partial", "Best match"],
+    ["nearby", "Top result"],
+    ["none", "Top result"],
+    [null, "Top result"],
+  ])("labels a top result with verdict %s as %s", (verdict, badge) => {
+    window.history.replaceState(null, "", "/documents/search");
+    const top = withVerdict("88888888-8888-4888-8888-888888888888", "Top Document", verdict, 0.9);
+    const second = withVerdict("99999999-9999-4999-8999-999999999999", "Second Document", "direct", 0.8);
+    render(<DocumentSearchResultsPanel {...baseProps} matches={[top, second]} />);
+    const cards = screen.getAllByTestId("document-result-card");
+    expect(cards[0]!.textContent).toContain(badge);
+    const other = badge === "Best match" ? "Top result" : "Best match";
+    expect(cards[0]!.textContent).not.toContain(other);
+    // Only the first card carries either badge, whatever the later cards' verdicts.
+    expect(cards[1]!.textContent).not.toMatch(/Best match|Top result/);
+  });
 });
