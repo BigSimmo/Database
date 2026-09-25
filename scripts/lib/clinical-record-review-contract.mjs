@@ -248,7 +248,14 @@ export function recordPinState(record, kind, context = {}) {
   }
 }
 
-/** Every sign-off problem in one kind's records, without mutating them. */
+/**
+ * Every sign-off problem in one kind's records, without mutating them.
+ *
+ * @param {unknown} records
+ * @param {string | object} kind
+ * @param {{ now?: Date, catalog?: unknown, [key: string]: unknown }} [options]
+ * @returns {string[]}
+ */
 export function reviewProblems(records, kind, { now = new Date(), ...context } = {}) {
   const resolved = resolveKind(kind);
   if (!Array.isArray(records)) return [`${resolved.path}: ${resolved.collectionKey} must be an array.`];

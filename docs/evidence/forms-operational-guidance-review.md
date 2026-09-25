@@ -8,14 +8,19 @@ Each entry below is what the Forms mode actually displays for that form, togethe
 the basis it was drafted from and a link to the approved form. None of it carries
 clinician sign-off, and the app says so on every form until it does.
 
-A reviewer signs one form off by checking the guidance against the approved form and the
-sections named, then setting `status` to `reviewed` with `reviewedBy` and `reviewedAt`
-for that code in `data/forms-content-review.json`. The caveat drops for that form and
-stays up for the rest, so this can be done a few forms at a time.
+The clinical owner signs forms off with `npm run clinical:review` (walk mode steps
+through the queue one form at a time; see `docs/clinical-sign-off-how-to.md`). It
+writes `status`, `reviewedBy`, `reviewedAt` and a content pin for that code in
+`data/forms-content-review.json`. The caveat drops for that form and stays up for the
+rest, so this can be done a few forms at a time. Never set those fields by hand.
 
-Highest consequence first is a reasonable order: 3C, 10B, 10E, 11B, 11E, 6C,
-12C attachment, 5A, 2. Those are the clocks where a wrong reading changes whether a
-person is lawfully detained, restrained or secluded.
+The walk order is highest consequence first: 3C, 10B, 10E, 11B, 11E, 6C, then the rest
+in catalogue order. Those first six are the clocks where a wrong reading changes whether
+a person is lawfully detained, restrained or secluded.
+
+The content pin covers the drafted basis and sections below plus the form's operational
+guidance. If any of it is edited after sign-off, the pin line says so and
+`npm run check:forms-review-sheet` fails until the form is signed again.
 
 Official register: <https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/legislation/mental-health-act-2014-forms/>
 
@@ -24,6 +29,8 @@ Official register: <https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/legi
 ### Form 1A — Referral for examination by a psychiatrist
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM1A_MHA2014__public.pdf)
 
@@ -91,6 +98,8 @@ Drafted from Mental Health Act 2014 (WA) s 26, s 36, s 40, s 41, s 42, s 43, s 4
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM1A_attachment_MHA2014__public.pdf)
 
 **Operational sections** s 41 (Form of referral); s 42 (Providing information contained in referral to person referred)
@@ -154,6 +163,8 @@ Drafted from Mental Health Act 2014 (WA) s 41, s 42 with s 26, s 36 as context, 
 ### Form 1B — Variation of referral
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM1B_MHA2014__public.pdf)
 
@@ -219,6 +230,8 @@ Drafted from Mental Health Act 2014 (WA) s 45, s 46 with s 26, s 41, s 44 as con
 ### Form 2 — Order to detain voluntary inpatient in authorised hospital for assessment
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM2_MHA2014__public.pdf)
 
@@ -286,6 +299,8 @@ Drafted from Mental Health Act 2014 (WA) s 34, s 35 with s 25, s 36 as context, 
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3A_MHA2014__public.pdf)
 
 **Operational sections** s 28 (Detention to enable person to be taken to authorised hospital or other place); s 62 (Detention to enable person to be taken to hospital)
@@ -352,6 +367,8 @@ Drafted from Mental Health Act 2014 (WA) s 28, s 62 with s 26, s 61 as context, 
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3B_MHA2014__public.pdf)
 
 **Operational sections** s 28 (Detention to enable person to be taken to authorised hospital or other place); s 59 (Detention at place outside metropolitan area); s 62 (Detention to enable person to be taken to hospital)
@@ -415,6 +432,8 @@ Drafted from Mental Health Act 2014 (WA) s 28, s 59, s 62 with s 26, s 58, s 61 
 ### Form 3C — Continuation of detention to enable a further examination by a psychiatrist
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3C_MHA2014__public.pdf)
 
@@ -480,6 +499,8 @@ Drafted from Mental Health Act 2014 (WA) s 55, s 56 with s 52, s 53 as context, 
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3D_MHA2014__public.pdf)
 
 **Operational sections** s 61 (What psychiatrist must do on completing examination)
@@ -544,6 +565,8 @@ Drafted from Mental Health Act 2014 (WA) s 61 with s 62, s 63, s 69 as context, 
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3E_MHA2014__public1.pdf)
 
 **Operational sections** s 55 (What psychiatrist must do on completing examination); s 56 (Effect of order for continuation of detention); s 61 (What psychiatrist must do on completing examination); s 72 (What psychiatrist must do on completing examination)
@@ -606,6 +629,8 @@ Drafted from Mental Health Act 2014 (WA) s 55, s 56, s 61, s 72, and from the ap
 ### Form 4A — Transport order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM4A_MHA2014__public.pdf)
 
@@ -673,6 +698,8 @@ Drafted from Mental Health Act 2014 (WA) s 29, s 63, s 67, s 92, s 112, s 129, s
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM4B_MHA2014__public.pdf)
 
 **Operational sections** s 152 (Extension of other transport orders)
@@ -736,6 +763,8 @@ Drafted from Mental Health Act 2014 (WA) s 152 with s 148, s 150 as context, and
 ### Form 4C — Transfer order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM4C_MHA2014__public.pdf)
 
@@ -802,6 +831,8 @@ Drafted from Mental Health Act 2014 (WA) s 66, s 91 with s 67, s 92 as context, 
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** unavailable · no published PDF
 
 **Operational sections** s 555 (Transfer from hospital to interstate mental health service)
@@ -866,6 +897,8 @@ Drafted from Mental Health Act 2014 (WA) s 555 with s 551 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** unavailable · no published PDF
 
 **Operational sections** s 557 (Transfer from interstate mental health service to hospital)
@@ -929,6 +962,8 @@ Drafted from Mental Health Act 2014 (WA) s 557 with s 551 as context, and from t
 ### Form 5A — Community Treatment Order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5A_MHA2014__public.pdf)
 
@@ -995,6 +1030,8 @@ Drafted from Mental Health Act 2014 (WA) s 55, s 56, s 61, s 72, s 75, s 76 with
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5B_MHA2014__public.pdf)
 
 **Operational sections** s 121 (Continuation order)
@@ -1059,6 +1096,8 @@ Drafted from Mental Health Act 2014 (WA) s 121 with s 118, s 120 as context, and
 ### Form 5C — Variation of terms of Community Treatment Order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5C_MHA2014__public.pdf)
 
@@ -1126,6 +1165,8 @@ Drafted from Mental Health Act 2014 (WA) s 122 with s 115, s 135, s 137 as conte
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5D_MHA2014__public.pdf)
 
 **Operational sections** s 118 (Monthly examination of patient); s 119 (Supervising psychiatrist may request practitioner to examine involuntary community patient)
@@ -1187,6 +1228,8 @@ Drafted from Mental Health Act 2014 (WA) s 118, s 119, and from the approved For
 ### Form 5E — Notice and record of breach of Community Treatment Order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5E_MHA2014__public.pdf)
 
@@ -1253,6 +1296,8 @@ Drafted from Mental Health Act 2014 (WA) s 127 with s 126 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5F_MHA2014__public.pdf)
 
 **Operational sections** s 128 (Order to attend if non-compliance continues)
@@ -1317,6 +1362,8 @@ Drafted from Mental Health Act 2014 (WA) s 128 with s 127, s 129 as context, and
 ### Form 6A — Inpatient treatment order in authorised hospital
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6A_MHA2014__public.pdf)
 
@@ -1383,6 +1430,8 @@ Drafted from Mental Health Act 2014 (WA) s 55, s 56, s 72, s 87 with s 25, s 89,
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6B_MHA2014__public.pdf)
 
 **Operational sections** s 61 (What psychiatrist must do on completing examination); s 87
@@ -1448,6 +1497,8 @@ Drafted from Mental Health Act 2014 (WA) s 61, s 87 with s 65, s 66, s 68, s 89,
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6B_attachment_MHA2014__public.pdf)
 
 **Operational sections** s 65 (Treating psychiatrist must report regularly to Chief Psychiatrist)
@@ -1511,6 +1562,8 @@ Drafted from Mental Health Act 2014 (WA) s 65 with s 61, s 87, s 89 as context, 
 ### Form 6C — Continuation of inpatient treatment order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6C_MHA2014__public.pdf)
 
@@ -1577,6 +1630,8 @@ Drafted from Mental Health Act 2014 (WA) s 89 with s 87, s 90 as context, and fr
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6D_MHA2014__public.pdf)
 
 **Operational sections** s 68 (Confirmation of inpatient treatment order); s 124 (Confirmation of inpatient treatment order)
@@ -1640,6 +1695,8 @@ Drafted from Mental Health Act 2014 (WA) s 68, s 124 with s 61, s 66, s 120, s 1
 ### Form 7A — Grant of leave to involuntary inpatient
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7A_MHA2014__public.pdf)
 
@@ -1707,6 +1764,8 @@ Drafted from Mental Health Act 2014 (WA) s 105 with s 90 as context, and from th
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7B_MHA2014__public.pdf)
 
 **Operational sections** s 106 (Extending or varying leave granted)
@@ -1771,6 +1830,8 @@ Drafted from Mental Health Act 2014 (WA) s 106 with s 105, s 110 as context, and
 ### Form 7C — Cancellation of grant of leave
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7C_MHA2014__public.pdf)
 
@@ -1837,6 +1898,8 @@ Drafted from Mental Health Act 2014 (WA) s 110 with s 112 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7D_MHA2014__public.pdf)
 
 **Operational sections** s 98 (Making apprehension and return order); s 101 (Revocation of apprehension and return order)
@@ -1902,6 +1965,8 @@ Drafted from Mental Health Act 2014 (WA) s 98, s 101 with s 97, s 99, s 100 as c
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM8A_MHA2014__public.pdf)
 
 **Operational sections** s 165 (Record of search and seizure)
@@ -1965,6 +2030,8 @@ Drafted from Mental Health Act 2014 (WA) s 165 with s 159, s 162, s 166 as conte
 ### Form 8B — Record dealing with seized article
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM8B_MHA2014__public.pdf)
 
@@ -2031,6 +2098,8 @@ Drafted from Mental Health Act 2014 (WA) s 167 with s 162, s 166 as context, and
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM9A_MHA2014__public.pdf)
 
 **Operational sections** s 204 (Record of emergency psychiatric treatment)
@@ -2096,6 +2165,8 @@ Drafted from Mental Health Act 2014 (WA) s 204 with s 202, s 203 as context, and
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM9B_MHA2014__public.pdf)
 
 **Operational sections** s 242 (Provision of urgent non-psychiatric treatment: report to Chief Psychiatrist)
@@ -2159,6 +2230,8 @@ Drafted from Mental Health Act 2014 (WA) s 242 with s 240, s 241 as context, and
 ### Form 10A — Record of oral authorisation of bodily restraint
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10A_MHA2014__public.pdf)
 
@@ -2225,6 +2298,8 @@ Drafted from Mental Health Act 2014 (WA) s 230 with s 232 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10B_MHA2014__public.pdf)
 
 **Operational sections** s 231 (Making bodily restraint order)
@@ -2289,6 +2364,8 @@ Drafted from Mental Health Act 2014 (WA) s 231 with s 232 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10C_MHA2014__public.pdf)
 
 **Operational sections** s 230 (Giving oral authorisation); s 231 (Making bodily restraint order); s 233 (Treating psychiatrist (if any) must be informed)
@@ -2350,6 +2427,8 @@ Drafted from Mental Health Act 2014 (WA) s 230, s 231, s 233, and from the appro
 ### Form 10D — Record of observations made of restrained person
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10D_MHA2014__public.pdf)
 
@@ -2413,6 +2492,8 @@ Drafted from Mental Health Act 2014 (WA) s 238, and from the approved Form 10D a
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10E_MHA2014__public.pdf)
 
 **Operational sections** s 234 (Varying bodily restraint order); s 238 (Requirements relating to bodily restraint)
@@ -2475,6 +2556,8 @@ Drafted from Mental Health Act 2014 (WA) s 234, s 238, and from the approved For
 ### Form 10F — Variation of bodily restraint order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10F_MHA2014__public.pdf)
 
@@ -2541,6 +2624,8 @@ Drafted from Mental Health Act 2014 (WA) s 234 with s 238 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10G_MHA2014__public.pdf)
 
 **Operational sections** s 235 (Revoking bodily restraint order); s 237 (Record of bodily restraint order expiring)
@@ -2606,6 +2691,8 @@ Drafted from Mental Health Act 2014 (WA) s 235, s 237 with s 239 as context, and
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10H_MHA2014__public.pdf)
 
 **Operational sections** s 238 (Requirements relating to bodily restraint)
@@ -2667,6 +2754,8 @@ Drafted from Mental Health Act 2014 (WA) s 238, and from the approved Form 10H a
 ### Form 10I — Record of post-bodily restraint examination
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10I_MHA2014__public.pdf)
 
@@ -2730,6 +2819,8 @@ Drafted from Mental Health Act 2014 (WA) s 239, and from the approved Form 10I a
 ### Form 11A — Record of oral authorisation of seclusion
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11A_MHA2014__public.pdf)
 
@@ -2797,6 +2888,8 @@ Drafted from Mental Health Act 2014 (WA) s 214 with s 216 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11B_MHA2014__public.pdf)
 
 **Operational sections** s 215 (Making seclusion order)
@@ -2861,6 +2954,8 @@ Drafted from Mental Health Act 2014 (WA) s 215 with s 216 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11C_MHA2014__public.pdf)
 
 **Operational sections** s 214 (Giving oral authorisation); s 215 (Making seclusion order); s 217 (Treating psychiatrist (if any) to be informed)
@@ -2922,6 +3017,8 @@ Drafted from Mental Health Act 2014 (WA) s 214, s 215, s 217, and from the appro
 ### Form 11D — Record of observations made of secluded person
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11D_MHA2014__public.pdf)
 
@@ -2985,6 +3082,8 @@ Drafted from Mental Health Act 2014 (WA) s 222, and from the approved Form 11D a
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11E_MHA2014__public.pdf)
 
 **Operational sections** s 218 (Extending seclusion order); s 222 (Requirements relating to seclusion)
@@ -3046,6 +3145,8 @@ Drafted from Mental Health Act 2014 (WA) s 218, s 222, and from the approved For
 ### Form 11F — Revocation or expiry of seclusion order
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11F_MHA2014__public.pdf)
 
@@ -3112,6 +3213,8 @@ Drafted from Mental Health Act 2014 (WA) s 219, s 221 with s 223 as context, and
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11G_MHA2014__public.pdf)
 
 **Operational sections** s 223 (Examination of person released from seclusion)
@@ -3174,6 +3277,8 @@ Drafted from Mental Health Act 2014 (WA) s 223, and from the approved Form 11G a
 ### Form 12A — Nomination of nominated person
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12A_MHA2014__public.pdf)
 
@@ -3242,6 +3347,8 @@ Drafted from Mental Health Act 2014 (WA) s 275 with s 263, s 266, s 273, s 274, 
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12B_MHA2014__public.pdf)
 
 **Operational sections** s 248 (Right to access medical record and other documents); s 249
@@ -3304,6 +3411,8 @@ Drafted from Mental Health Act 2014 (WA) s 248, s 249, and from the approved For
 ### Form 12C — Restriction on freedom of communication
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12C_MHA2014__public.pdf)
 
@@ -3371,6 +3480,8 @@ Drafted from Mental Health Act 2014 (WA) s 262 with s 261 as context, and from t
 
 **Status** awaiting clinical review
 
+**Sign-off pin** not signed yet
+
 **Availability** downloadable · [approved form PDF](https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12C_attachment_MHA2014__public.pdf)
 
 **Operational sections** s 262 (Restrictions on freedom of communication)
@@ -3436,6 +3547,8 @@ Drafted from Mental Health Act 2014 (WA) s 262 with s 261 as context, and from t
 ### Form 13 — Statistics about ECT
 
 **Status** awaiting clinical review
+
+**Sign-off pin** not signed yet
 
 **Availability** contact_ocp · no published PDF
 
