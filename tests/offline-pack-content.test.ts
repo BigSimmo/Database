@@ -193,6 +193,30 @@ describe("build-offline-pack: reviewed MHA timeframes", () => {
     const path = writeTimeframesFixture([]);
     expect(loadReviewedTimeframes(path)).toEqual([]);
   });
+
+  it("escapes HTML-significant characters in a reviewed quote instead of emitting them raw (injection guard)", () => {
+    const path = writeTimeframesFixture([
+      {
+        id: "SYN-TIMEFRAME-INJECT",
+        section: '26"><script>alert(1)</script>',
+        quote: 'Tom & Jerry said "run" <script>alert(1)</script>',
+        status: "reviewed",
+        reviewedBy: "Dr Example",
+        reviewedAt: "2026-09-20T00:00:00.000Z",
+      },
+    ]);
+
+    const markup = buildOfflinePackMarkup(path);
+
+    // The escaped entities are present, in the quote and the section label alike.
+    expect(markup).toContain("Tom &amp; Jerry said &quot;run&quot; &lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(markup).toContain("Section 26&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;");
+
+    // No raw markup or unescaped quote/ampersand ever reaches the page.
+    expect(markup).not.toContain("<script>alert(1)</script>");
+    expect(markup).not.toContain('"run"');
+    expect(markup).not.toContain("Tom & Jerry");
+  });
 });
 
 describe("build-offline-pack: marker replacement and staleness detection", () => {
