@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3b27cb72-555a-4941-81a9-836619f9b214",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Clinical hazard-control content drift only warns and never fails the governance gate (audit F13)",
+    "detail": "Verified offline: scripts/check-clinical-hazard-controls.mjs detects reviewedPathDigests drift and console.warns 'This is not a failure'. Warning-only was a deliberate choice after #D7K71C (squash-orphaned reviewedCommit turned CI red). Next action: make safety-semantic drift blocking but allow an explicit reviewed exception with an expiry date, so an intended edit does not red every branch. Do not revert to the reviewedCommit check.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC1YSCYYRA7QW3E5ZKR4R"
+  }
+}

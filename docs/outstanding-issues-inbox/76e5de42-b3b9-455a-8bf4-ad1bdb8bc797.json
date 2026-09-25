@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "76e5de42-b3b9-455a-8bf4-ad1bdb8bc797",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Triage Supabase unindexed-FK advisor notices against realistic workload before adding indexes (audit F23)",
+    "detail": "Audit saw ~48 unindexed-FK notices; some are covered by composite indexes and CME/On Call volumes are tiny. Do not fix mechanically: use realistic synthetic data and EXPLAIN ANALYZE first. Any index is a migration (merge = production deploy). Not verified offline.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC3JF3CW29TDRXG21E1RP"
+  }
+}
