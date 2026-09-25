@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import formsCatalog from "../data/forms-catalog.json";
 import formsContentReview from "../data/forms-content-review.json";
+import { buildSheet } from "../scripts/build-forms-content-review-sheet";
+import { finalizeClinicalReview, reviewProblems } from "../scripts/lib/clinical-record-review-contract.mjs";
 
 import { FORMS_AWAITING_REVIEW_NOTE, formCatalogDetails, formContentReviewStatus } from "@/lib/form-catalog";
 import { formRecords, getFormRecord } from "@/lib/forms";
@@ -134,7 +136,42 @@ describe("forms catalogue operational content", () => {
     for (const entry of review.forms) {
       expect(registerCodes.has(entry.code.trim().toLowerCase()), entry.code).toBe(true);
       expect(entry.basis.length, entry.code).toBeGreaterThan(40);
-      expect(entry.status, entry.code).toBe("drafted");
+      // The only way out of "drafted" is an owner sign-off through `npm run clinical:review`,
+      // and the pin test below holds every reviewed row to a complete, current attestation.
+      expect(["drafted", "reviewed"], entry.code).toContain(entry.status);
     }
+  });
+
+  /**
+   * A sign-off attests specific text. The content pin (`reviewedContentSha256`) covers the
+   * review row and the form's operational guidance in data/forms-catalog.json, so a later
+   * edit to either fails here -- in the unit suite, not only in `check:forms-review-sheet`.
+   */
+  it("holds every reviewed form row to a complete, current sign-off pin", () => {
+    expect(reviewProblems(formsContentReview.forms, "form", { catalog: formsCatalog })).toEqual([]);
+  });
+
+  it("fails the pin once a signed form's guidance is edited after sign-off", () => {
+    const row = formsContentReview.forms.find((entry) => entry.code === "3C")!;
+    const signed = finalizeClinicalReview(row, "form", {
+      reviewedBy: "Dr Alex Morgan",
+      reviewedAt: "2026-09-24T12:00:00.000Z",
+      context: { catalog: formsCatalog },
+      now: new Date("2026-09-25T00:00:00.000Z"),
+    });
+    expect(reviewProblems([signed], "form", { catalog: formsCatalog, now: new Date("2026-09-25") })).toEqual([]);
+
+    const edited = structuredClone(formsCatalog) as { forms: { form: string; clock: string }[] };
+    const entry = edited.forms.find((form) => form.form === "3C")!;
+    entry.clock = `${entry.clock} Resets when the form is signed.`;
+    expect(reviewProblems([signed], "form", { catalog: edited, now: new Date("2026-09-25") }).join("\n")).toContain(
+      "content changed since sign-off",
+    );
+  });
+
+  it("shows each form's sign-off pin state on the review sheet", () => {
+    const sheet = buildSheet();
+    expect(sheet.match(/\*\*Sign-off pin\*\*/g)?.length).toBe(formsContentReview.forms.length);
+    expect(sheet).toContain("npm run clinical:review");
   });
 });

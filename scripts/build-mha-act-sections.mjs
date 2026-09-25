@@ -26,6 +26,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { reviewProblems } from "./lib/clinical-record-review-contract.mjs";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const catalogPath = join(root, "data", "forms-catalog.json");
 const supplementalCuePath = join(root, "data", "forms-act-section-cues.json");
@@ -352,6 +354,12 @@ export function checkProblems({ source, curated, catalog, supplemental }) {
     if (!entry.reviewedBy?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedBy.`);
     if (!entry.reviewedAt?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedAt.`);
   }
+
+  // The sign-off contract (npm run clinical:review): a public, non-placeholder reviewer, a
+  // past UTC timestamp, no partial attestation on an unreviewed entry, and a
+  // reviewedContentSha256 pin over the title, summary and sourceTextSha256. Editing a
+  // reviewed summary after sign-off breaks the pin and fails this gate, forcing re-review.
+  problems.push(...reviewProblems(curated.sections, "section"));
 
   // A form is only a conflict when the catalogue row carries a cue of its OWN. Catalogue
   // membership is not a cue: the seven forms the archive never indexed now have catalogue
