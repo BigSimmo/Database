@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9a750cbc-8c58-4374-8ee8-518911ea3c35",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#8FXXVE",
+    "outcome": "Fixed in 10dcd1000 (dropped line-clamp-2 on tool descriptions; dropped xl:grid-cols-6 on both shortcut grids, applications-launcher-page.tsx and tools/tool-quick-actions.tsx); pinned by tests/tools-truncation.dom.test.tsx.",
+    "baseRowFingerprint": "792a976e6e0169de370a079a420a5aac516cd3c74791cf2cd7de54efa642a32e"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "755100f8-0ca0-4d16-b20b-819a9bdb899f",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#W0T66R",
+    "outcome": "Fixed in da10cebd4 (medication page shows RouteNotFoundPanel only for code medication_not_found after sign-in resolves, state reset on auth-header change; 401/429/5xx stay errors); pinned by tests/medication-detail-not-found.dom.test.tsx and tests/medication-record-page.dom.test.tsx.",
+    "baseRowFingerprint": "4182ac68e69200bd8c71e1b373a9679c03b4c9c0e65bf2f6d5b3aa41bf453a3d"
+  }
+}
