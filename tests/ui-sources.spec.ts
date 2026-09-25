@@ -74,7 +74,9 @@ test("@critical Sources catalogue filters and opens traceability", async ({ page
   await expect(page.getByRole("button", { name: "Remove Used in: Dictionary filter" })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("source");
 
-  await page.getByTestId("sources-filter-trigger-desktop").click();
+  // Below the sm breakpoint the toolbar swaps the desktop trigger for its phone twin.
+  const phoneWidth = (page.viewportSize()?.width ?? 1280) < 640;
+  await page.getByTestId(phoneWidth ? "sources-filter-trigger-phone" : "sources-filter-trigger-desktop").click();
   const sheet = page.getByTestId("sources-filter-sheet");
   await expect(sheet).toBeVisible();
   // Sources hands the sheet four facet groups, which is past the density

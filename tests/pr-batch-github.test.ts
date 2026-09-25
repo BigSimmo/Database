@@ -249,6 +249,25 @@ describe("GitHub state and safety adapter", () => {
       false,
     );
   });
+  it("refuses a branch sync when main has a merge queue and keeps it when it does not", async () => {
+    const syncAttempt = async (queue: boolean) => {
+      const updateBranch = vi.fn(async () => ({ data: {} }));
+      const api = new GitHubBatch({ rest: { pulls: { updateBranch } } }, repo);
+      Object.assign(api, {
+        assertMutation: async () => undefined,
+        protections: async () => ({ required: [], queue, mergeMethod: "squash" }),
+      });
+      const state = initial();
+      const pending = { id: "op-1", kind: "sync", number: 1, head, base };
+      const outcome = api.execute(state, pending, {}).then(
+        () => "sent",
+        (error: Error) => error.message,
+      );
+      return { outcome: await outcome, calls: updateBranch.mock.calls.length };
+    };
+    expect(await syncAttempt(true)).toEqual({ outcome: "Merge queue is enabled; branch sync refused", calls: 0 });
+    expect(await syncAttempt(false)).toEqual({ outcome: "sent", calls: 1 });
+  });
 });
 
 describe("journaled worker effects", () => {

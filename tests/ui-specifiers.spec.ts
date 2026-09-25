@@ -142,7 +142,11 @@ test("searches clinical language without provenance fields and carries a result 
   }
   await expect(page).toHaveURL(/scope=guides/);
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
-  const filterTrigger = page.getByTestId("specifier-filter-trigger-desktop");
+  // Below the sm breakpoint the results band swaps the desktop trigger for its phone twin.
+  const phoneWidth = (page.viewportSize()?.width ?? 1280) < 640;
+  const filterTrigger = page.getByTestId(
+    phoneWidth ? "specifier-filter-trigger-phone" : "specifier-filter-trigger-desktop",
+  );
   await filterTrigger.click();
   const filterPanel = page.getByTestId("specifier-filter-panel");
   await expect(filterPanel).toBeVisible();
@@ -313,7 +317,18 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   expect(darkTheme.borderColors[0], "dark mode frame uses the clinical blue").toBe(darkTheme.tabColor);
   await expectNoHorizontalOverflow(page);
   // Let the light-to-dark colour transition settle; WebKit sampled a mid-transition colour.
-  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
+  // One round is not enough: inherited colours start fresh transitions as their parents
+  // finish, so WebKit still had hundreds running after the first batch resolved.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () => {
+          await Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+          return document.getAnimations().length;
+        }),
+      { message: "light-to-dark colour transitions settle" },
+    )
+    .toBe(0);
   await expectNoBlockingAxeViolations(page, testInfo);
   await testInfo.attach("specifier-result-card-phone-dark", {
     body: await topMatch.screenshot(),
