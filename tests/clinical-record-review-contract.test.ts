@@ -310,7 +310,15 @@ describe("form sign-off", () => {
   });
 
   it("rejects an email or placeholder reviewer", () => {
-    for (const reviewer of ["josh@example.com", "TBD", "Placeholder", "Dr Placeholder", "AHPRA MED0001234567"]) {
+    for (const reviewer of [
+      "josh@example.com",
+      "TBD",
+      "Placeholder",
+      "Dr Placeholder",
+      "AHPRA MED0001234567",
+      "<your name>",
+      "Dr Your Name",
+    ]) {
       expect(() =>
         finalizeClinicalReview(formRow(), "form", {
           reviewedBy: reviewer,

@@ -30,7 +30,7 @@ import {
   clinicalReviewConfirmation,
   collectionOf,
   finalizeClinicalReview,
-  publicReviewerAttributionProblem,
+  reviewerAttributionProblem,
   recordId,
   recordKinds,
   recordPinState,
@@ -210,7 +210,7 @@ export async function conductClinicalReview({
   now = () => new Date(),
   output,
 }) {
-  const attributionProblem = publicReviewerAttributionProblem(reviewedBy);
+  const attributionProblem = reviewerAttributionProblem(reviewedBy);
   if (attributionProblem) throw new Error(attributionProblem);
   const eligibility = signOffEligibilityProblem(record, kind, context);
   if (eligibility) throw new Error(eligibility);
@@ -423,7 +423,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
 
   if (!args.write) {
     if (args.reviewedBy !== undefined) {
-      const problem = publicReviewerAttributionProblem(args.reviewedBy);
+      const problem = reviewerAttributionProblem(args.reviewedBy);
       if (problem) throw new Error(problem);
     }
     if (args.code !== undefined) {
@@ -450,7 +450,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     throw new Error("--write needs --code for one record, or --walk to step through the queue one record at a time.");
   }
   if (!args.reviewedBy) throw new Error("--write needs --reviewed-by with your public display name.");
-  const attributionProblem = publicReviewerAttributionProblem(args.reviewedBy);
+  const attributionProblem = reviewerAttributionProblem(args.reviewedBy);
   if (attributionProblem) throw new Error(attributionProblem);
 
   const kind = args.kind;

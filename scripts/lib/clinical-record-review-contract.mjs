@@ -41,7 +41,19 @@ import { publicReviewerAttributionProblem } from "./therapy-review-contract.mjs"
  * `--check` scripts and the unit suite, never at render time.
  */
 
-export { publicReviewerAttributionProblem };
+/**
+ * The therapy attribution rule, plus a guard for this tool's own documentation: the how-to
+ * guide shows `--reviewed-by "<your name>"`, so a copied-but-unedited placeholder must never
+ * become a sign-off.
+ */
+export function reviewerAttributionProblem(value) {
+  const problem = publicReviewerAttributionProblem(value);
+  if (problem) return problem;
+  if (/[<>[\]{}]/.test(value) || /\byour\s+(?:own\s+)?name\b/i.test(value)) {
+    return "reviewedBy still holds the placeholder from the guide; replace it with your own public name.";
+  }
+  return null;
+}
 
 /** Review metadata. Everything else in a record is content, and content is pinned. */
 export const REVIEW_METADATA_KEYS = Object.freeze(["status", "reviewedBy", "reviewedAt", "reviewedContentSha256"]);
@@ -288,7 +300,7 @@ export function reviewProblems(records, kind, { now = new Date(), ...context } =
       continue;
     }
 
-    const attributionProblem = publicReviewerAttributionProblem(record.reviewedBy);
+    const attributionProblem = reviewerAttributionProblem(record.reviewedBy);
     if (attributionProblem) problems.push(`${label}: ${attributionProblem}`);
     const timestampProblem = utcTimestampProblem(record.reviewedAt, now);
     if (timestampProblem) problems.push(`${label}: ${timestampProblem}`);
@@ -364,7 +376,7 @@ export function signOffQueue(kind, records, context = {}) {
 export function finalizeClinicalReview(record, kind, { reviewedBy, reviewedAt, context = {}, now = new Date() }) {
   const resolved = resolveKind(kind);
   if (!isPlainRecord(record)) throw new TypeError("A clinical record must be an object.");
-  const attributionProblem = publicReviewerAttributionProblem(reviewedBy);
+  const attributionProblem = reviewerAttributionProblem(reviewedBy);
   if (attributionProblem) throw new Error(attributionProblem);
   const timestampProblem = utcTimestampProblem(reviewedAt, now);
   if (timestampProblem) throw new Error(timestampProblem);
