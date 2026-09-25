@@ -429,10 +429,10 @@ describe("timeframe sign-off", () => {
     }
   });
 
-  it("reads the entries from either a bare array or a timeframes list", () => {
+  it("reads the entries from either a bare array or an entries list", () => {
     const entry = timeframeEntry();
     expect(collectionOf("timeframe", [entry])).toEqual([entry]);
-    expect(collectionOf("timeframe", { exportMetadata: {}, timeframes: [entry] })).toEqual([entry]);
+    expect(collectionOf("timeframe", { exportMetadata: {}, entries: [entry] })).toEqual([entry]);
   });
 });
 

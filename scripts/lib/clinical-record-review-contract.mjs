@@ -370,7 +370,7 @@ export const recordKinds = Object.freeze({
     noun: "Timeframe",
     heading: "Timeframes",
     path: "data/mha-timeframes.json",
-    collectionKey: "timeframes",
+    collectionKey: "entries",
     idField: "id",
     optional: true,
     statuses: Object.freeze(["drafted", "reviewed"]),
@@ -390,7 +390,7 @@ function resolveKind(kind) {
 export const recordId = (record, kind) => String(record?.[resolveKind(kind).idField] ?? "").trim();
 export const sameRecordId = (left, right) => normalizeCode(left) === normalizeCode(right);
 
-/** The records inside a kind's data file. Timeframes may be a bare array or `{ timeframes }`. */
+/** The records inside a kind's data file. Timeframes may be a bare array or `{ entries }`. */
 export function collectionOf(kind, document) {
   const resolved = resolveKind(kind);
   const records = Array.isArray(document) ? document : document?.[resolved.collectionKey];
