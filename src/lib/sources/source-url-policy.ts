@@ -26,6 +26,7 @@ export const GOVERNED_SOURCE_HOSTS = [
   "www.health.gov.au",
   "www.health.wa.gov.au",
   "www.healthdirect.gov.au",
+  "www.healthtranslations.vic.gov.au",
   "www.healthywa.wa.gov.au",
   "www.ihacpa.gov.au",
   "www.kemh.health.wa.gov.au",

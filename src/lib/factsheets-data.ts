@@ -147,6 +147,24 @@ type FactsheetBase = {
   icon: FactsheetIconKey;
   summary: string;
   sources: FactsheetSource[];
+  /**
+   * Official translated versions of this sheet's topic, published by a
+   * governed multicultural-health source (e.g. Health Translations Victoria,
+   * HealthyWA, Beyond Blue). We never translate anything ourselves — every
+   * entry links to publisher-owned translated material only, and its `url`
+   * host must be in `GOVERNED_SOURCE_HOSTS`
+   * (`src/lib/sources/source-url-policy.ts`), exactly like `FactsheetSource.url`.
+   * Optional: most sheets have none, because no matching official translated
+   * material was found for their topic.
+   */
+  translatedResources?: FactsheetTranslatedResource[];
+};
+
+export type FactsheetTranslatedResource = {
+  /** The resource's language, or "Multiple languages" for a hub page that lists several. */
+  language: string;
+  title: string;
+  url: string;
 };
 
 type MedRichContent = {
@@ -548,6 +566,13 @@ export const factsheets: Factsheet[] = [
     icon: "cloudRain",
     summary: "What depression is, the signs to look for, and the treatments and support that help.",
     sources: SOURCES.depression,
+    translatedResources: [
+      {
+        language: "Multiple languages",
+        title: "Depression fact sheet (EMBRACE Multicultural Mental Health) — Health Translations Victoria",
+        url: "https://www.healthtranslations.vic.gov.au/resources/depression-factsheet",
+      },
+    ],
     kind: "condition",
     intro:
       "Depression is more than a low mood — it is a health condition that affects both your body and mind, and it can last for weeks, months or longer. It is common, and it is treatable. Doctors usually look for low mood or loss of interest, together with other symptoms, lasting most of the day on most days for about two weeks or more. That two-week mark is a guide for assessment, not a waiting period: if symptoms are severe, if you are losing touch with reality, or if you are thinking of suicide, get help straight away, however long it has been going on.",
@@ -591,6 +616,13 @@ export const factsheets: Factsheet[] = [
     icon: "worry",
     summary: "Persistent, hard-to-control worry — what it feels like and the therapies and medicines that help.",
     sources: SOURCES.gad,
+    translatedResources: [
+      {
+        language: "Multiple languages",
+        title: "Anxiety fact sheet (headspace) — Health Translations Victoria",
+        url: "https://www.healthtranslations.vic.gov.au/resources/anxiety-fact-sheet",
+      },
+    ],
     kind: "condition",
     intro:
       "Generalised anxiety disorder (GAD) is when worry happens most of the time and across many situations, often about everyday things. Everyone feels anxious sometimes, but in GAD the worry is harder to control and gets in the way of daily life.",
@@ -743,6 +775,13 @@ export const factsheets: Factsheet[] = [
     icon: "swings",
     summary: "Periods of depression and periods of high mood (mania) — how it is recognised and managed.",
     sources: SOURCES.bipolar,
+    translatedResources: [
+      {
+        language: "Multiple languages",
+        title: "What is a bipolar mood disorder? (EMBRACE Multicultural Mental Health) — Health Translations Victoria",
+        url: "https://www.healthtranslations.vic.gov.au/resources/what-is-a-bipolar-mood-disorder",
+      },
+    ],
     kind: "condition",
     intro:
       "Bipolar disorder involves distinct episodes of elevated mood and energy — mania or hypomania — usually with periods of depression and more settled periods in between. Bipolar I is defined by a manic episode: depression is common but is not required for the diagnosis. Bipolar II involves hypomanic episodes together with major depressive episodes, and is assessed differently. Only a full clinical assessment can make either diagnosis.",
