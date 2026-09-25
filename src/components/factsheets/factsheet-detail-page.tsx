@@ -235,7 +235,8 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               <section id="factsheet-translated" className={cn(inPageAnchor, "mt-7")}>
                 <Heading>Official translated information</Heading>
                 <p className={cn("mt-1 text-xs leading-5", "text-[color:var(--text-muted)]")}>
-                  Published by the organisation named below — we never translate anything ourselves.
+                  Official translated information, published by the organisation named in each link — we never translate
+                  anything ourselves.
                 </p>
                 <div className="mt-3 grid gap-2">
                   {factsheet.translatedResources.map((resource) => (
