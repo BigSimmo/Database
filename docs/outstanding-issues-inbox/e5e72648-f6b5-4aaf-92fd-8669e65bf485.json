@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e5e72648-f6b5-4aaf-92fd-8669e65bf485",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#SZA102",
+    "outcome": "Resolved 2026-09-25 (ledger review). Fixed by 7cdc3bcaf: an empty forms search now lists the whole register and 'View all forms' uses registerTotal (forms-search-results-page.tsx). Pinned by tests/forms-search-register-listing.dom.test.tsx.",
+    "baseRowFingerprint": "4f27dfefb949d9626881484ea39f8a39e0992e2c9bd0685921230a0b869f09ff"
+  }
+}

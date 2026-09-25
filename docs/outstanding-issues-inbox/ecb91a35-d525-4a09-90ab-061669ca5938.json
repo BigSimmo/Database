@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ecb91a35-d525-4a09-90ab-061669ca5938",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "620cd381-1313-4e68-a4eb-68f21cb05023",
+    "reason": "Replaced on review 2026-09-25 by a narrowed request: PR #2997 fixed the repeated panels and the loading flash."
+  }
+}

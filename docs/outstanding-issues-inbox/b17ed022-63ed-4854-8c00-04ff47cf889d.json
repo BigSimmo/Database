@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b17ed022-63ed-4854-8c00-04ff47cf889d",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#WE7CHW",
+    "outcome": "Resolved 2026-09-25 (ledger review). Fixed by 13a1f2eee: mayContainOnCallCompliance (src/lib/on-call/compliance.ts) withholds any logistics row with a compliance category, marker key, or schema-failing details, and rowMayBeComplianceRequirement delegates to it, so the row's {category:'Registration'} example is withheld. The side note about a compliance-like page in another section was not filed.",
+    "baseRowFingerprint": "802878b88348b9a48d6d020ee568e04048bc6d11476318f09fa1a8eb62fed95e"
+  }
+}

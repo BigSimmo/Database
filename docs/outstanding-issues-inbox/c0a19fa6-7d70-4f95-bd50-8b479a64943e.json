@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c0a19fa6-7d70-4f95-bd50-8b479a64943e",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#N9XFVN",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Absorbs closed #DF1DFT: the committed snapshot's rows are unscoped at rest, and the re-import writes scope into it. New option: the pin in tests/site-content-publication-route.test.ts now checks shape only, so applying scope inside loadDifferentialSnapshot may be possible without the workstation. The 'byte-for-byte' comment at differentials.ts:79-83 is stale. PRIOR DETAIL: scripts/lib/parse-differentials-export.ts now emits presentation scope directly (commit 4628295f5), but the committed data/differentials-snapshot.json predates it and cannot be regenerated in a cloud session: scripts/import-differentials-export.ts reads a Windows workstation path (C:/Users/joshs/AppData/Local/Temp/differentials-data.zip). Until then withPresentationScope() in src/lib/differentials.ts derives the same labels at load time, which keeps the app correct but means the file and the runtime describe the record differently. Next action: re-run npm-equivalent 'node scripts/run-tsx.mjs scripts/import-differentials-export.ts --zip=<path> --write' on the workstation, confirm the emitted scope matches the derivation, then consider retiring the derivation. PARKED 2026-09-18: the import script reads a zip at a Windows workstation path that exists only on the owner's machine, so no cloud session can regenerate the snapshot. The app stays correct meanwhile because withPresentationScope() derives the same labels at load time. TO UNBLOCK: run the import on the workstation with the zip, confirm the emitted scope matches the derivation, then consider retiring the derivation.",
+    "baseRowFingerprint": "c88efac2266ecbe99f355967bed9e4b00f14b309ba5c972872a04d8a6590ae50"
+  }
+}

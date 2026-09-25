@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "87cfc3fe-ce02-4233-8e9d-0c3012ed8d78",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#HXC4D4",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Long-query half confirmed (limit in the universal search route; use-universal-search.ts turns a non-OK response into empty results). The single-character half is wrong: the client never sends a query under 2 characters (minQueryLength = 2), so users never see that 400; dropped. Creatinine NumberField still has no unit while CrCl passes mL/min. The two halves are unrelated and could be split. PRIOR DETAIL: (a) api/search/universal/route.ts:36 is z.string().trim().min(2).max(200); a 614-char query 400s with no message anywhere on screen, and a single character 400s the same way. (b) The Serum creatinine field rejects 1.02 with 'Enter 15-3000.' - the only numeric field whose range message carries no unit (CrCl says mL/min, QTc says ms). 1.02 is an ordinary mg/dL value and the bound shown is the umol/L one. Carried forward from the refutation of #WFARS3.",
+    "baseRowFingerprint": "0fa7af2d452b9474e4fb4e9535c74d67efdda6bacbbaec052357a7abaaf3d015"
+  }
+}

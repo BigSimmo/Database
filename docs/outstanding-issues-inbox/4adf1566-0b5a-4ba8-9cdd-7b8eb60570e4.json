@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4adf1566-0b5a-4ba8-9cdd-7b8eb60570e4",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#191",
+    "outcome": "Resolved 2026-09-25 (ledger review). Closed as not doable as written: applied migrations are immutable (check:migration-immutability and pr-policy), so X5 could only ever add another reassert migration. The repair/reassert churn ended with 20260719070000_align_existing_acls, later grant migrations are single-purpose, and check:function-grants has enforced the convention since 2026-07-17.",
+    "baseRowFingerprint": "47f47b96f8729e348c1e1df626a8a1f2d8f05897c324530c9866585d9ec5f993"
+  }
+}

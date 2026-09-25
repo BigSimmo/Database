@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "6cf6afd1-7fc9-4eae-9a28-0ca2f49036bd",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#6APN03",
+    "pri": "P3",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Still unverifiable offline (needs a live admin session). A developer-hub panel with no clinical impact, so P3. PRIOR DETAIL: Both merged (#2504, #2512) and both were built in a cloud container with no live database and no browser, so every test uses stand-in data. Confirmation needs a machine with live Supabase config and a signed-in administrator: run npm run ensure, open /mockups/development and check the environment strip shows a real document count rather than 'document count unavailable', then open /mockups/development/corpus-health and check the four status tiles show numbers rather than 'Not read'. Then record which of the five spread cases resolveQualitySpread reports for extraction quality. An unverified report says every document may carry an identical placeholder quality_score. A uniform reading is a prompt to investigate and NOT a confirmed fault: assessDocumentIndexQuality starts the score at 1 and only subtracts penalties before rounding to three decimals, so a cleanly extracted corpus legitimately scores 1.000 for every document. Treat a uniform 0.00 as the suspicious case, since 0 is the column default and extraction_quality defaults to unknown, and corroborate against the issues array and metrics JSON on the same rows before recording anything against the scoring pipeline. Full context in docs/corpus-health-panel-handover.md.",
+    "baseRowFingerprint": "9211f8216ed4807907159cd7817c2b69d06733625d0621bdd2b376a17ceaebea"
+  }
+}

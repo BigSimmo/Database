@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "38e2dd42-0ff0-464a-b377-be1cf221ddab",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#SCYQAE",
+    "outcome": "Resolved 2026-09-25 (ledger review). Split and merged: action 1 (re-ingest documents with interleaved table columns) into #GJHKYC; action 2 (clinician check of the RKPG ANC/WBC labels) into #7VQ5RC, which holds the fuller analysis.",
+    "baseRowFingerprint": "6a9714383785fc5bfd37c1f426a987f1b9c45caf662f7dc1a65728c4e0751d75"
+  }
+}

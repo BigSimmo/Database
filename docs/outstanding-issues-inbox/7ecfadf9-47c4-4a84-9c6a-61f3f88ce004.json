@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7ecfadf9-47c4-4a84-9c6a-61f3f88ce004",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#WGMB4Z",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Core claim holds (trust 'high' comes from answer.confidence, answer-render-policy.ts; 'Strong support' wording in answer-card.tsx). 'Does not consider governance at all' is overstated: authorityTrustCapRequired (answer-client-payload.ts) caps trust at medium when a high-risk claim cites unapproved authority, for all claims only if NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is set. The gap is answers without high-risk claims. PRIOR DETAIL: answer-render-policy.ts:144-162 reaches trust 'high' from answer.confidence plus source-backing and no faithfulness warning; it does not consider whether any cited document's governance status is current or validated. The same card shows 'Status unknown' on every cited row and a limitations dialog saying the sources are not locally validated. The clipboard output states both: 'Render trust: high' and 'Validation: Not locally validated'. In psychiatry 'strong support' is the language of evidence strength. Wording at answer-card.tsx:67-72.",
+    "baseRowFingerprint": "b0b436b750c52c06ed6f81e5b2f06646e28b1939ccb53aa9fcb7ec0ebe6b13f9"
+  }
+}

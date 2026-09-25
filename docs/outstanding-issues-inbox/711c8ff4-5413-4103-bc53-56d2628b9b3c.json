@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "711c8ff4-5413-4103-bc53-56d2628b9b3c",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#N8REV9",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Still accurate. src/lib/on-call/notifications.ts:104 is now a second consumer of summariseOnCallFreshness (reads only .stale), so the problem remains dormant. PRIOR DETAIL: src/lib/on-call/freshness-summary.ts keys its per-section stale counts off entry.section, so a compliance requirement is counted under Admin (logistics). DORMANT TODAY: the only consumer, src/components/developer-area/hub/on-call-freshness-panel.tsx, reads staleCount, neverVerifiedCount and stale, and never touches bySection or sections. It is still worth a row because bySection is typed ReadonlyMap<OnCallSection, number> and sections is readonly OnCallSection[] -- compliance is not a value either type can hold, so a future caller cannot repair the count at the call site and would have to change this module anyway. BLOCKED ON the On Call view refactor (moving onCallViewForEntry into src/lib/on-call/view.ts): this module is section-keyed only because tests/lib-layering.test.ts stops src/lib importing the helper from src/components. Close it inside that refactor by re-keying bySection and sections to OnCallPageView. NEXT ACTION: none until the view refactor lands; do not patch it in isolation.",
+    "baseRowFingerprint": "faaf76889b5b6c5afa1c67799a7ec9e99650f0e4d25ffc15d1b6cd0e048adaf5"
+  }
+}

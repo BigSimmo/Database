@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3b7ae166-a2f0-4ccd-bc28-e67757453c25",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#8KXPKK",
+    "outcome": "Resolved 2026-09-25 (ledger review). The row's own recommendation (rebaseline, do not change loading.tsx) was done by PR #2897 (0ac4b32a3): pinned-runner refresh run 35391043867 moved desktop-root lcpMs 785.6 -> 891.47 in lighthouse-budget.json.",
+    "baseRowFingerprint": "154f84f5307fba171ed02a1acf945fdf60a1bb1284c3be735222e6dc67df8c83"
+  }
+}

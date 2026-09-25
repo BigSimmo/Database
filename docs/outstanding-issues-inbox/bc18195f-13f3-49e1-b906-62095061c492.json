@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "bc18195f-13f3-49e1-b906-62095061c492",
+  "createdOn": "2026-09-25",
+  "action": "queue",
+  "payload": {
+    "id": "#231",
+    "when": "Before diagnosing #J8SJQ9 and #E9F5GW",
+    "estimate": "1-2 hours offline switch-and-wire; live probe separately approved",
+    "baseRowFingerprint": "703f83c4434a2a85ef371b7c3c31517157059b5f20fa4ae0ede42d1cbdfa7fa1"
+  }
+}

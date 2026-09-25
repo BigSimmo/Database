@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "29647ca8-44db-43db-91d1-44536217de2d",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#03ARD6",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Logic unchanged (ClinicalSidebar.tsx). CME became a mode (ac89ba18e), so with the default 6 of 16 pinnable modes, 10 of 16 light only 'More modes' (not 9 of 15). Calculators and favourites cannot be pinned. PRIOR DETAIL: On 9 of 15 modes the only lit rail item is the generic four-square More modes opener (ClinicalSidebar.tsx:333-349); on /?mode=calculators nothing is lit at all. Default pin set is 6 of 15 (use-sidebar-pins.ts:10-29). Confirmed at 768 and 1440. The rail is the one element surviving every route change, so it is the natural 'where am I' anchor and for most modes it answers with a menu button.",
+    "baseRowFingerprint": "9a8ce0104b5b99e2c2ecf5f833962d2c2e18db29b911e51b7bc1628ccee75ee6"
+  }
+}

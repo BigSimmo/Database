@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "99e98aed-70e3-47ca-b442-d2664f75ce45",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#HWYCPF",
+    "pri": "P3",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Toast host still never mounted. Recount: 3 files use CopyButton and about 24 non-mockup .tsx files hand-roll 'Copied', not 35. A consistency recommendation, so P3. PRIOR DETAIL: grep -rn 'ui/toast' src returns nothing; on-call-copy-number.tsx:36-37 states it in a comment. 35 in-scope files implement their own copy confirmation against 2 using ui/copy-button.tsx, with four different wordings. The 2026-07-07 fix for single-slot notifications overwriting each other exists as a primitive but nothing mounts it. Copying a dose or citation is high-frequency here and the confirmation differs by mode.",
+    "baseRowFingerprint": "35156864b3f14c3fc139322240fae277daf783a869f46b803303a9be748a815f"
+  }
+}

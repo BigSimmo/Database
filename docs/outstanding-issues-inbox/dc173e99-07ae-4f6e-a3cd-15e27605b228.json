@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dc173e99-07ae-4f6e-a3cd-15e27605b228",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#E6142T",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Part 2 confirmed: modeSearchWords (smart-search-intent.ts) has calculators, factsheets and dictionary only, no services entry. Part 1: line numbers drifted; 746a56422 and fb5bd9d3f pin the notice stack to the top on screens >=1280 wide and <900 tall, removing the short-desktop case but not phone or narrow ones. The two parts are unrelated and could be split. PRIOR DETAIL: BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. Nothing about part 1 changed: the row's own 2026-09-18 measurement already refuted the audit's stated mechanism and recorded that anchoring the stack to the top traded five blocked controls for two. What remains is a design decision -- whether a floating notice may cover page content at all, or the corner must be reserved, or the card made smaller -- not a CSS guess, and the pointer-events:none invariant is already guarded by tests/ui-pwa.spec.ts:428. Line drift recorded: the rule the row quotes is now src/app/globals.css:3782-3787, and the pointer-events:none declaration is at :3491. Part 2 (services mode has no mode-noun stop list) is unchanged and untouched.",
+    "baseRowFingerprint": "6120dc030e2f9f4569a9eced7743f2427f4084b62e4b1a1831598d74b2f4d716"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0037a8bd-5f1b-449d-8c7a-53531131927b",
+  "createdOn": "2026-09-25",
+  "action": "queue",
+  "payload": {
+    "id": "#018",
+    "outcome": "ADHD only: get the expected CAMHS ADHD guideline (CG.MHSP.ADHD.pdf) into the corpus or record why not. Lithium is resolved and metabolic monitoring now lives in #J8SJQ9.",
+    "baseRowFingerprint": "e0d3b217152c93c114dfd35eb9058179c484bd7136b9c2203d388af5a4e800b1"
+  }
+}

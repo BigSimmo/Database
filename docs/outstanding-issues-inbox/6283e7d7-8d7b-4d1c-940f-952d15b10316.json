@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6283e7d7-8d7b-4d1c-940f-952d15b10316",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5ed64875-a2cf-49b9-820c-8d4dcde67a99",
+    "reason": "Stale on review 2026-09-25: already fixed on main. insertCmeEntry now saves through the single plpgsql function cme_save_entry (migration 20260922163920)."
+  }
+}

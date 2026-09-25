@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "637da0ec-1109-4103-8ffc-f5b943f4382d",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#MTY1J2",
+    "outcome": "Resolved 2026-09-25 (ledger review). Premise was wrong: commit 41b57407b found no real catalogueIdentityOnly block, only an unrecognised publisher code; the article was admitted under the register's own AUSPRES code. Remaining work is ordinary source sign-off, covered by #QP7H3X.",
+    "baseRowFingerprint": "f8cec5292bd39776cdef7c3442ae1c4571e724cfc1c557242d9cb19edb0eab44"
+  }
+}

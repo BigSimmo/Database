@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6bdace45-dcc5-4b8e-83d1-4e3cb237ae56",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#WFSMMT",
+    "outcome": "Resolved 2026-09-25 (ledger review). Fixed by PR #2943 (519b7b76b, one retry on a cold read) and PR #2967 (543f652d7, 3c26cd1ba: cold reads serialised, forms, services and medications caches pre-warmed at boot via src/instrumentation.ts). The optional narrower search payload idea was not re-filed.",
+    "baseRowFingerprint": "e0affcd0e7f51855cc77fbf63bbae29ced9e7aaf22883b9f3b4a976578a8c4f3"
+  }
+}

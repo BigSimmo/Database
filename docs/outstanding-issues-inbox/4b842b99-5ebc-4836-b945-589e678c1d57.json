@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4b842b99-5ebc-4836-b945-589e678c1d57",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#PG6SGZ",
+    "outcome": "Resolved 2026-09-25 (ledger review). Closed as not needed: supabase/admin.ts and openai.ts both import @/lib/env, which begins with import 'server-only', so any client import already fails the build; no 'use client' file imports either. An explicit line would only guard against removing the env import.",
+    "baseRowFingerprint": "66be322b9cf1798acd443bc77468455320737168ffd22d0e8048e2af9e251452"
+  }
+}

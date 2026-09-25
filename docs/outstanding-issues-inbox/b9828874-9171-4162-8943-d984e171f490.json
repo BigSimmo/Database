@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "b9828874-9171-4162-8943-d984e171f490",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "847e63ab-bae4-452a-985f-0fc914c90803",
+    "reason": "Stale on review 2026-09-25: already fixed on main. PR #2997 fixed items 1, 2, 3, 5, 6 and 7-8; item 4 (ragged contact rows) is carried by the pending On Call/CME smaller-items request."
+  }
+}
