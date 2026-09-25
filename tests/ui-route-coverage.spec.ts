@@ -253,11 +253,16 @@ async function proveRenderedRoute(
 test.describe("previously uncovered production routes", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test.beforeEach(async ({ page, baseURL }) => {
+  test.beforeEach(async ({ page, baseURL, browserName }) => {
     const problems: string[] = [];
     problemsByPage.set(page, problems);
     if (!baseURL) throw new Error("ui-route-coverage requires the verified Playwright base URL.");
-    page.on("pageerror", (error) => problems.push(`pageerror ${error.message}`));
+    page.on("pageerror", (error) => {
+      // WebKit reports a Next.js route prefetch (?_rsc=) aborted by navigation as an
+      // uncaught "access control checks" error; it is not an application fault.
+      if (browserName === "webkit" && /\?_rsc=\S* due to access control checks\.$/.test(error.message)) return;
+      problems.push(`pageerror ${error.message}`);
+    });
     await blockExternalRequests(page, problems, baseURL);
     await proveExternalRequestGuard(page, problems);
     await installOfflineApiFixtures(page, problems);
@@ -557,7 +562,16 @@ test.describe("previously uncovered production routes", () => {
       const text = message.text();
       const isWebKitViewportDiagnostic =
         browserName === "webkit" && text === 'Viewport argument key "interactive-widget" not recognized and ignored.';
-      if (message.type() === "error" && !isWebKitViewportDiagnostic) consoleErrors.push(text);
+      // The offline test environment points Supabase at http://127.0.0.1:1 (scripts/test-environment.mjs), and the
+      // app preconnects to its Supabase origin. WebKit refuses port 1 as a restricted port and logs that refusal
+      // as a console error; no request of the page's own failed.
+      const isWebKitOfflineSupabasePreconnect =
+        browserName === "webkit" &&
+        text.startsWith("Failed to preconnect to http://127.0.0.1:1/") &&
+        text.includes("restricted network port");
+      if (message.type() === "error" && !isWebKitViewportDiagnostic && !isWebKitOfflineSupabasePreconnect) {
+        consoleErrors.push(text);
+      }
     });
     await proveRenderedRoute(
       page,

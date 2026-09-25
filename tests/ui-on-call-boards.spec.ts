@@ -49,9 +49,12 @@ const TAP_FLOOR = 48;
 test("search opens and focuses the exact contact on a narrow phone", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto("/on-call");
-  await page.getByRole("searchbox", { name: "Search On Call" }).fill("Demo Ward One");
   const result = page.getByTestId("on-call-search-row-demo-ward-one");
-  await expect(result).toBeVisible();
+  // Text typed before hydration is dropped (mobile WebKit, release matrix 2026-09-25).
+  await expect(async () => {
+    await page.getByRole("searchbox", { name: "Search On Call" }).fill("Demo Ward One");
+    await expect(result).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
   const destination = await result.getAttribute("href");
   expect(destination).toMatch(/^\/on-call\/contacts#on-call-entry-/);
   await result.click();

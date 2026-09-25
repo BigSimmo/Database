@@ -118,6 +118,15 @@ async function collectHeaderOverlaps(page: Page): Promise<OverlapReport> {
   });
 }
 
+// The settled mode-home stack is 160px for a mouse or trackpad. On a touch screen the prompt chips
+// meet the 48px tap floor instead of 32px (`@media (pointer: coarse)` on `.answer-suggestion-chip`
+// in globals.css), so the same one-row stack is 16px taller. The iPhone projects run these wide
+// viewports with a touch pointer, which is why they measured 176 and failed against a bare 160.
+async function expectedModeHomeStackHeight(page: Page) {
+  const coarsePointer = await page.evaluate(() => window.matchMedia("(pointer: coarse)").matches);
+  return coarsePointer ? 176 : 160;
+}
+
 test.describe("Header element overlap coverage", () => {
   for (const width of headerWidths) {
     test(`header controls do not overlap at ${width}px`, async ({ page }) => {
@@ -344,7 +353,9 @@ test.describe("Header element overlap coverage", () => {
         expect(geometry!.chipRows, `${label}: prompt chips must share one row`).toBe(1);
         // 160px is the settled stack every mode home shares: 24px ticker line,
         // the pill, gaps, the one-line rail and the privacy line.
-        expect(geometry!.composerHeight, `${label}: home composer must be the shared 160px stack`).toBe(160);
+        expect(geometry!.composerHeight, `${label}: home composer must be the shared 160px stack`).toBe(
+          await expectedModeHomeStackHeight(page),
+        );
       }
     }
   });
@@ -498,7 +509,10 @@ test.describe("Tablet usability regressions", () => {
       await expect(page.getByTestId("smart-search-prompt-row")).toBeVisible();
     }).toPass({ timeout: 30_000 });
 
-    const promptRow = page.getByTestId("smart-search-prompt-row");
+    // WebKit can stream a hidden duplicate of the page root (#093), so a bare
+    // document.querySelector may read the clone's rail, which never scrolls.
+    // Read the rail from the same visible owner the control is clicked in.
+    const promptRow = page.getByTestId("smart-search-prompt-row").filter({ visible: true });
     const forward = promptRow.getByTestId("answer-suggestion-scroll-forward");
     await expect(forward, "the rail overflows at 820px, so the control must be offered").toBeVisible();
 
@@ -509,11 +523,11 @@ test.describe("Tablet usability regressions", () => {
     expect(box!.height, "scroll control must meet the 48px tap floor").toBeGreaterThanOrEqual(48);
     expect(box!.width, "scroll control must meet the 48px tap floor").toBeGreaterThanOrEqual(48);
 
-    const railSelector = '[data-testid="smart-search-prompt-row"] .answer-suggestion-chips';
-    const before = await page.evaluate((selector) => document.querySelector(selector)!.scrollLeft, railSelector);
+    const rail = promptRow.locator(".answer-suggestion-chips");
+    const before = await rail.evaluate((node) => node.scrollLeft);
     await forward.click();
     await expect
-      .poll(async () => page.evaluate((selector) => document.querySelector(selector)!.scrollLeft, railSelector), {
+      .poll(async () => rail.evaluate((node) => node.scrollLeft), {
         message: "the control must actually move the rail",
         timeout: 5_000,
       })
@@ -522,20 +536,21 @@ test.describe("Tablet usability regressions", () => {
 
     // The contract the affordance had to be designed around: one row of chips,
     // and a composer still the settled 160px with the control rendered.
-    const geometry = await page.evaluate((selector) => {
-      const slot = document.getElementById("mode-home-desktop-composer-slot");
-      const chips = document.querySelector(selector);
-      if (!slot || !chips) return null;
-      return {
-        chipRows: new Set([...chips.children].map((chip) => Math.round(chip.getBoundingClientRect().top))).size,
-        chipCount: chips.children.length,
-        composerHeight: Math.round(slot.getBoundingClientRect().height),
-      };
-    }, railSelector);
+    const chipGeometry = await rail.evaluate((chips) => ({
+      chipRows: new Set([...chips.children].map((chip) => Math.round(chip.getBoundingClientRect().top))).size,
+      chipCount: chips.children.length,
+    }));
+    const composerHeight = await page
+      .locator("#mode-home-desktop-composer-slot")
+      .filter({ visible: true })
+      .evaluate((slot) => Math.round(slot.getBoundingClientRect().height));
+    const geometry = { ...chipGeometry, composerHeight };
     expect(geometry, "home composer and prompt rail must render").not.toBeNull();
     expect(geometry!.chipCount, "the rail must carry prompts to be worth measuring").toBeGreaterThan(1);
     expect(geometry!.chipRows, "prompt chips must still share one row").toBe(1);
-    expect(geometry!.composerHeight, "the control must not grow the shared 160px stack").toBe(160);
+    expect(geometry!.composerHeight, "the control must not grow the shared 160px stack").toBe(
+      await expectedModeHomeStackHeight(page),
+    );
   });
 
   // #SFFGYD. These three carried `min-h-12 … sm:min-h-10`, so they met the floor

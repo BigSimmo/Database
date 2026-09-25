@@ -870,7 +870,9 @@ test("calculator results stay usable across the responsive and accessibility mat
     await page.setViewportSize({ width, height });
     await gotoPhoneSurface(page, "/calculators?q=depression&run=1", 112);
 
-    const pageSurface = page.getByTestId("calculators-search-page");
+    // WebKit briefly holds a hidden streaming clone of the page root (#093 / #JAEKM4), so wait for
+    // the one settled owner before measuring it.
+    const pageSurface = await expectSingleSettledOwner(page.getByTestId("calculators-search-page"));
     const geometry = await pageSurface.evaluate((element) => ({
       clientWidth: element.clientWidth,
       scrollWidth: element.scrollWidth,

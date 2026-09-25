@@ -42,8 +42,23 @@ test.describe("Invited handbook phone experience", () => {
     await expect(entry.locator('a[href^="tel:"]')).toHaveCount(0);
   });
 
-  test("copies only a blank structure and opens explicit learning capture", async ({ page, context }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  test("copies only a blank structure and opens explicit learning capture", async ({ page }) => {
+    // Clipboard permissions are Chromium-only names: Firefox rejects "clipboard-read" and WebKit
+    // "clipboard-write", so granting them failed this test before it started on every non-Chromium
+    // project. The question here is what the page writes, so capture it with the same in-page
+    // clipboard the answer Copy journeys in ui-smoke.spec.ts use.
+    await page.addInitScript(() => {
+      let clipboardText = "";
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          readText: async () => clipboardText,
+          writeText: async (value: string) => {
+            clipboardText = value;
+          },
+        },
+      });
+    });
     await page.goto("/on-call/service");
     const telephone = page
       .locator("div")
