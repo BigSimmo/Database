@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2e046c05-e98e-49f7-931b-ef2c93d53187",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Owner sign-off: 109 drafted MHA Act-section summaries and 9 drafted timeline deadlines, after the 54 form guides",
+    "detail": "Tool: npm run clinical:review -- --write --walk --kind section / --kind timeframe (guide docs/clinical-sign-off-how-to.md; sign on a dated clinical-signoff-<date> branch cut from main, main is protected). After signing any timeframe: npm run offline:build, bump CACHE_VERSION in public/sw.js, update the offline.html hash pin in tests/pwa-manifest.test.ts. Only the owner may sign.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBNH76VPJ99NZ29Y91FG3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "52c12379-8c63-4301-8711-121a1de49af0",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "WA Health Language Services Guidelines recorded with publication date 2025-01-01 from a copyright line",
+    "detail": "The PDF shows only (c) 2025; day and month were assumed, which bends the never-infer-a-date rule. Two form 1A interpreter notes in data/forms-cultural-notes.json cite it. Next action: owner accepts, or the source is rejected with a reason and those two notes are dropped.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBP5DCYE4B96911R61Z4Z"
+  }
+}

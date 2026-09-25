@@ -1,3 +1,5 @@
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
+
 /**
  * Western Australian public holidays, as published by the WA Government
  * ("Public holidays in Western Australia", wa.gov.au, page last updated
@@ -48,13 +50,13 @@ export const WA_PUBLIC_HOLIDAYS: ReadonlySet<string> = new Set([
 /** The last year the list covers, so a test can fail loudly once it runs out. */
 export const WA_PUBLIC_HOLIDAYS_LAST_YEAR = 2027;
 
-const perthDate = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Australia/Perth",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
+/**
+ * Read in the viewer's own zone, like `isOnCallOutOfHours` beside it in "Who do
+ * I call now?": the two answers combine into one "in hours or not", so they
+ * must read the same clock. A Perth zone here against a device-local hour there
+ * would disagree for the eight hours either side of midnight on any device not
+ * set to Perth.
+ */
 export function isWaPublicHoliday(now: Date): boolean {
-  return WA_PUBLIC_HOLIDAYS.has(perthDate.format(now));
+  return WA_PUBLIC_HOLIDAYS.has(onCallLocalDateKey(now));
 }

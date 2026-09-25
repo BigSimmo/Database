@@ -71,10 +71,16 @@ describe("who do I call now", () => {
 });
 
 describe("WA public holidays", () => {
-  it("reads the date in Perth, not UTC", () => {
-    // 16:30Z on 27 September is 00:30 on 28 September in Perth.
-    expect(isWaPublicHoliday(new Date("2026-09-27T16:30:00Z"))).toBe(true);
-    expect(isWaPublicHoliday(new Date("2026-09-27T15:30:00Z"))).toBe(false);
+  it("reads the date on the same clock as the in-hours rule: the viewer's own", () => {
+    // Local fields, as isOnCallOutOfHours uses: 00:30 on the King's Birthday
+    // is a holiday, 23:30 the night before is not, whatever zone runs the test.
+    expect(isWaPublicHoliday(new Date(2026, 8, 28, 0, 30))).toBe(true);
+    expect(isWaPublicHoliday(new Date(2026, 8, 27, 23, 30))).toBe(false);
+  });
+
+  it("never mixes clocks: a weekday morning is in hours unless that local date is a holiday", () => {
+    expect(onCallCallNowPeriod(new Date(2026, 8, 29, 10, 0))).toBe("in-hours");
+    expect(onCallCallNowPeriod(new Date(2026, 8, 28, 10, 0))).toBe("after-hours");
   });
 
   it("covers every year up to the last listed one", () => {
