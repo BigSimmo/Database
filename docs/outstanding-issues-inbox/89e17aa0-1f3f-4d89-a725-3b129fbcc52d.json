@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "89e17aa0-1f3f-4d89-a725-3b129fbcc52d",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#Z9NS6H",
+    "detail": "UPDATE 2026-09-25: the prescribing mode is now titled 'Medication Reference' (c6b74fb93, pinned by tests/ui-copy.test.ts, tests/shared-home-empty-state.dom.test.tsx and the /?mode=prescribing heading in tests/ui-tools.spec.ts). STILL OPEN: (1) 'Cited documents' -> 'Documents searched' on refusals is approved wording but NOT done: the client payload carries no refusal flag, and the candidate triggers (grounded === false, answerState kind 'no_answer' or 'ungrounded', fallbackReasonCode such as coverage_gap/no_candidates/low_signal) each cover different answers, so which answers count as a refusal needs an owner decision before the source-rail heading (answer-source-rail.tsx) can switch. (2) The Differentials subtitle 'Match your catalogue to your library.' (ui-copy.ts) says nothing about differential diagnosis. (3) A 'Do now' card numbers teaching observations as if they were actions. (4) 86 of 374 multi-item diagnosis sections (1,200 sections total) have a summary that is a space-join of their items with no punctuation. Items 2-4 are clinical wording for a human.",
+    "baseRowFingerprint": "230aede22a5e223aa965d9974e0865dc75a43cf369feb0492476ceb0b502a5ad"
+  }
+}

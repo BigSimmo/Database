@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5b67eb96-5edf-4ea6-9a2c-5c1fe642e7c4",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#1M22X5",
+    "outcome": "Fixed in 8693bd70e (document results show the verdict in words: Strong match / Partial match / Nearby only, and the existing 'No direct support' below nearby; the hard-coded percentage is gone from visible and screen-reader text; result order untouched and pinned). The top result still carries 'Best match' whatever its verdict; that was outside the owner decision. Pinned by tests/document-search-results.dom.test.tsx and tests/document-relevance-score.test.ts.",
+    "baseRowFingerprint": "836486ed0ae400ca6e069710ae8ce19d6b2daa411121f5898f12778db4763e68"
+  }
+}
