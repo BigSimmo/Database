@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0052beae-cb2e-46d2-875a-d91dc7846a1f",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#05WXHX",
+    "detail": "UPDATE 2026-09-25 (owner chose rewording in the project thread): the false promise is removed. The medication footer now reads 'Verify every dose and interaction against the original source and current prescribing information before acting on it.' and the therapy footer 'verify the record against its original source before clinical use.' tests/record-footer-source-promise.test.ts fails if either footer says 'linked source' again. STILL OPEN: the pages still render no source link at all. Real links need a database change to carry a governed URL or document id per record (medication-records.ts derives governance from a free-text src section), plus capturing and signing off each source through the sources skill; the cloud session could not do that because its network refuses every publisher host. Restore the 'linked source' wording only together with real links. PRIOR DETAIL: /medications/[slug] has 0 anchors in <main> on all four tabs; /therapy-compass/[slug] the same. Footer on every tab: 'verify every dose and interaction against the linked source'. acamprosate states Max 1998 mg/day, a serum creatinine >120 micromol/L contraindication, Half-life 13-28.4 h and an unattributed EFFICACY: MODERATE tile; the only provenance is one prose sentence on tab 4 below the fold. Root cause: medication-records.ts:118-126 derives governance from a free-text src section with no URL or document id. /dictionary and /factsheets do this correctly. Fixing properly is a database migration plus clinical governance.",
+    "baseRowFingerprint": "d018f909da97b39fcad101889ab5a9816e525b77df651b9ba803688ff3b9e36f"
+  }
+}
