@@ -28,6 +28,7 @@ import {
   type OnCallEntry,
   type OnCallRecurrenceFrequency,
   type OnCallSection,
+  type OnCallStepHours,
 } from "@/lib/on-call/entry-model";
 import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
 
@@ -338,7 +339,7 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
       key: "escalationSteps",
       label: "Escalation steps",
       kind: "textarea",
-      hint: "One step per line: who to call | when | phone (optional).",
+      hint: 'One step per line: who to call | when | phone (optional) | "in hours" or "after hours" (optional).',
     },
   ],
   referrals: [
@@ -441,7 +442,7 @@ function listPhrase(items: readonly string[]): string {
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
-type EscalationStep = { order: number; whoToCall: string; when: string; phone?: string };
+type EscalationStep = { order: number; whoToCall: string; when: string; phone?: string; hours?: OnCallStepHours };
 
 function detailStringValue(details: unknown, key: string): string {
   if (!details || typeof details !== "object") return "";
@@ -469,14 +470,28 @@ function escalationStepsToText(details: unknown): string {
   return steps
     .map((step) => {
       if (!step || typeof step !== "object") return "";
-      const record = step as { whoToCall?: unknown; when?: unknown; phone?: unknown };
+      const record = step as { whoToCall?: unknown; when?: unknown; phone?: unknown; hours?: unknown };
       const who = typeof record.whoToCall === "string" ? record.whoToCall : "";
       const when = typeof record.when === "string" ? record.when : "";
-      const phone = typeof record.phone === "string" && record.phone ? ` | ${record.phone}` : "";
-      return who || when ? `${who} | ${when}${phone}` : "";
+      const phoneValue = typeof record.phone === "string" ? record.phone : "";
+      const hours = record.hours === "in-hours" ? "in hours" : record.hours === "after-hours" ? "after hours" : "";
+      const tail = hours ? ` | ${phoneValue} | ${hours}` : phoneValue ? ` | ${phoneValue}` : "";
+      return who || when ? `${who} | ${when}${tail}` : "";
     })
     .filter(Boolean)
     .join("\n");
+}
+
+/** "in hours" / "after hours" / blank or "any". Anything else is a typo, and null says so. */
+function parseStepHours(raw: string | undefined): OnCallStepHours | null {
+  const value = (raw ?? "")
+    .toLowerCase()
+    .replace(/[-\s]+/g, " ")
+    .trim();
+  if (value === "" || value === "any" || value === "any time") return "any";
+  if (value === "in hours") return "in-hours";
+  if (value === "after hours" || value === "out of hours") return "after-hours";
+  return null;
 }
 
 /** Returns `null` on a malformed line so the caller can surface one FieldError
@@ -488,9 +503,17 @@ function parseEscalationSteps(raw: string): EscalationStep[] | null {
     .filter((line) => line.length > 0);
   const steps: EscalationStep[] = [];
   for (const line of lines) {
-    const [whoToCall, when, phone] = line.split("|").map((part) => part.trim());
+    const [whoToCall, when, phone, hoursText] = line.split("|").map((part) => part.trim());
     if (!whoToCall || !when) return null;
-    steps.push({ order: steps.length + 1, whoToCall, when, ...(phone ? { phone } : {}) });
+    const hours = parseStepHours(hoursText);
+    if (hours === null) return null;
+    steps.push({
+      order: steps.length + 1,
+      whoToCall,
+      when,
+      ...(phone ? { phone } : {}),
+      ...(hours !== "any" ? { hours } : {}),
+    });
   }
   return steps;
 }
@@ -892,7 +915,8 @@ export function OnCallEntryEditor({
       if (field.key === "escalationSteps") {
         const steps = parseEscalationSteps(raw);
         if (steps === null) {
-          nextErrors[field.key] = "Each step needs at least a who and a when, separated by |.";
+          nextErrors[field.key] =
+            'Each step needs at least a who and a when, separated by |. The optional fourth part is "in hours" or "after hours".';
         } else {
           formDetails[field.key] = steps;
         }

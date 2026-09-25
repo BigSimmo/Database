@@ -3,6 +3,10 @@
 import {
   CalendarClock,
   CalendarDays,
+  CalendarRange,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardCopy,
   ListChecks,
   NotebookPen,
   Settings2,
@@ -28,6 +32,9 @@ import {
   perthCalendarDate,
 } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
+import { addDays, expandEvents } from "@/lib/calendar/calendar-event";
+import { cmeCalendarEvents } from "@/lib/cme/calendar-events";
+import { buildCmeYearCheck } from "@/lib/cme/year-check";
 import { cmeDashboardModuleLabels, useCmeModuleOrder, type CmeDashboardModuleId } from "@/lib/cme/module-order";
 import {
   cmeRoutineCadenceLabels,
@@ -126,6 +133,18 @@ export type CmeDashboardProps = {
    * screen still renders sensibly wherever it is not yet wired to a route.
    */
   readonly onOpenCustomise?: () => void;
+  /**
+   * Last year's activities not yet copied to the CPD home, shown from
+   * 1 January until the college's reporting date. Null outside that window.
+   */
+  readonly reportingReminder?: CmeReportingReminder | null;
+};
+
+export type CmeReportingReminder = {
+  readonly year: number;
+  readonly notCopied: number;
+  /** Perth date the claim closes, `YYYY-MM-DD`. */
+  readonly closesOn: string;
 };
 
 /**
@@ -243,6 +262,7 @@ export function CmeDashboard({
   routines = [],
   onLogRoutine = () => {},
   onOpenCustomise = () => {},
+  reportingReminder = null,
 }: CmeDashboardProps) {
   const { moduleIds } = useCmeModuleOrder();
   const { totalHours, statuses, unmet } = evaluateYear({ set, entries });
@@ -284,6 +304,12 @@ export function CmeDashboard({
   // Stable sort: unmet first. Position is one of the three channels this mode uses for
   // shortfall instead of colour — see the file-level note above.
   const sortedStatuses = [...statuses].sort((a, b) => Number(a.met) - Number(b.met));
+
+  const yearCheck = buildCmeYearCheck(set, entries);
+  const nextDate = expandEvents(cmeCalendarEvents({ set, entries, routines }).exported, {
+    start: today,
+    end: addDays(today, 400),
+  })[0];
 
   function requirementLabel(requirementId: string): string {
     return set.requirements.find((requirement) => requirement.id === requirementId)?.label ?? requirementId;
@@ -409,6 +435,24 @@ export function CmeDashboard({
         </Button>
       </div>
 
+      {reportingReminder && reportingReminder.notCopied > 0 ? (
+        <Link
+          href={`/cme/log?year=${reportingReminder.year}&copy=todo`}
+          data-testid="cme-reporting-reminder"
+          className={cn(cardSurface, "mt-4 flex min-h-tap items-center gap-3 p-4")}
+        >
+          <ClipboardCopy aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+          <span className="min-w-0 flex-1 text-sm text-[color:var(--text)]">
+            <span className="font-semibold">
+              {reportingReminder.notCopied} {reportingReminder.notCopied === 1 ? "activity" : "activities"} from{" "}
+              {reportingReminder.year} not yet copied to MyCPD.
+            </span>{" "}
+            Your {reportingReminder.year} claim closes on {formatDayFullMonth(reportingReminder.closesOn)}.
+          </span>
+          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+        </Link>
+      ) : null}
+
       <section className={cn(cardSurface, "mt-4 p-4")}>
         <p data-testid="cme-total-hours" className="flex flex-wrap items-baseline gap-1">
           <span className="nums text-3xl font-semibold text-[color:var(--text)]">{formatCmeHours(totalHours)}</span>
@@ -437,6 +481,35 @@ export function CmeDashboard({
         ) : null}
         <div className="mt-3">{nextActionControl}</div>
       </section>
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <Link
+          href={`/cme/check?year=${set.year}`}
+          data-testid="cme-year-check-link"
+          className={cn(cardSurface, "flex min-h-tap flex-col gap-1 p-3")}
+        >
+          <span className={cn(eyebrowText, "flex items-center gap-1.5")}>
+            <ClipboardCheck aria-hidden="true" className="size-icon-sm" />
+            Year check
+          </span>
+          <span className="text-sm font-semibold text-[color:var(--text)]">
+            {yearCheck.readyCount} of {yearCheck.rows.length} ready
+          </span>
+        </Link>
+        <Link
+          href={`/cme/calendar?year=${set.year}`}
+          data-testid="cme-calendar-link"
+          className={cn(cardSurface, "flex min-h-tap flex-col gap-1 p-3")}
+        >
+          <span className={cn(eyebrowText, "flex items-center gap-1.5")}>
+            <CalendarRange aria-hidden="true" className="size-icon-sm" />
+            Calendar
+          </span>
+          <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">
+            {nextDate ? `${formatRoutineDueDate(nextDate.date)}: ${nextDate.title}` : "Nothing coming up"}
+          </span>
+        </Link>
+      </div>
 
       <div className="mt-6 space-y-6">
         {moduleIds.map((moduleId) => {
