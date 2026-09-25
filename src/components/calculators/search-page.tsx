@@ -70,11 +70,26 @@ const subscribeNoop = () => () => undefined;
  * state held in the closing instance would be gone by the time the tile exists
  * again. It expires quickly so a later, unrelated visit never inherits it.
  */
-let pendingCalculatorFocusReturn: { id: string; expiresAt: number } | null = null;
+let pendingCalculatorFocusReturn: { id: string; target: string; expiresAt: number } | null = null;
 const calculatorFocusReturnTtlMs = 5_000;
 
-function queueCalculatorFocusReturn(id: string) {
-  pendingCalculatorFocusReturn = { id, expiresAt: Date.now() + calculatorFocusReturnTtlMs };
+/** Path plus query, the part of a URL the close navigation decides. */
+function locationKey(href: string) {
+  const url = new URL(href, window.location.origin);
+  return `${url.pathname}${url.search}`;
+}
+
+/**
+ * Remember which tile to refocus, and exactly which URL the close navigates to. The
+ * restore only lands on that URL, so a later mount somewhere else (a new search, or
+ * a return after the reader left) never inherits it.
+ */
+function queueCalculatorFocusReturn(id: string, targetHref: string) {
+  pendingCalculatorFocusReturn = {
+    id,
+    target: locationKey(targetHref),
+    expiresAt: Date.now() + calculatorFocusReturnTtlMs,
+  };
 }
 
 const progressOptions: ReadonlyArray<{ value: CalculatorProgressFilter; label: string }> = [
@@ -346,9 +361,10 @@ export function CalculatorsSearchPage({
   }
 
   function closeCalculator() {
-    if (activeCalc) queueCalculatorFocusReturn(activeCalc.id);
+    const href = calculatorSearchHref(query);
+    if (activeCalc) queueCalculatorFocusReturn(activeCalc.id, href);
     setOpenId(null);
-    router.push(calculatorSearchHref(query));
+    router.push(href);
   }
 
   // WCAG 2.4.3: return focus to the calculator's tile once the URL change that
@@ -360,9 +376,23 @@ export function CalculatorsSearchPage({
     if (!pending || initialCalculatorId || activeCalc) return;
     pendingCalculatorFocusReturn = null;
     if (pending.expiresAt < Date.now()) return;
+    if (locationKey(window.location.href) !== pending.target) return;
     const target = document.querySelector<HTMLElement>(`[data-calculator-open="${CSS.escape(pending.id)}"]`);
     restoreFocusUnlessMoved(target);
   }, [activeCalc, initialCalculatorId]);
+
+  // Leaving for another route before the close lands abandons the restore. The
+  // check runs after the navigation has moved the address bar, so the remount that
+  // the close itself causes (same target URL) keeps it.
+  useEffect(
+    () => () => {
+      window.setTimeout(() => {
+        const pending = pendingCalculatorFocusReturn;
+        if (pending && locationKey(window.location.href) !== pending.target) pendingCalculatorFocusReturn = null;
+      }, 0);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!activeCalc) return;
@@ -371,9 +401,10 @@ export function CalculatorsSearchPage({
       if (!isTopmostSheet(calculatorSheetId)) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        queueCalculatorFocusReturn(activeCalc.id);
+        const href = calculatorSearchHref(query);
+        queueCalculatorFocusReturn(activeCalc.id, href);
         setOpenId(null);
-        router.push(calculatorSearchHref(query));
+        router.push(href);
       }
     };
     window.addEventListener("keydown", onKey);
