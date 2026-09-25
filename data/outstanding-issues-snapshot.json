@@ -1,13 +1,13 @@
 {
   "version": "outstanding-issues-snapshot-v2",
   "ledger_revision": {
-    "committed_at": "2026-09-21"
+    "committed_at": "2026-09-25"
   },
   "counts": {
-    "open": 157,
-    "p1": 30,
-    "p2": 76,
-    "p3": 51,
+    "open": 181,
+    "p1": 34,
+    "p2": 89,
+    "p3": 58,
     "queued": 6,
     "pending": 0,
     "resolved": 626
@@ -455,7 +455,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "release-browser-matrix Firefox/WebKit failures: four of six Firefox ones fixed (three sub-pixel artefacts merged, dark-mode test ordering merged), two Firefox and all eight WebKit still open, and the job is not in PR required so it never blocks a merge",
-      "detail": "UPDATE 2026-09-20 (six Firefox failures read from the job log of main run 35503893104; four now addressed, two open; no Firefox was run - see the egress row). THE COUNT AND THE CLASSIFICATION IN THIS ROW WERE BOTH WRONG. Firefox failed SIX, not five, and only THREE were tolerance, not five. FIXED AND MERGED (PR #2932): three sub-pixel artefacts - a 16px card gap measured 15.999969482421875, a 12px column gap measured 11.999954223632812, and a 48px tap target measured 47.98333740234375 against its existing 2px allowance. The first two are float error from subtracting two client rects; the third is Firefox storing layout in app units of 1/60 CSS px, so 47.98333740234375 is exactly 2879/60 - one app unit short, the smallest miss the engine can express. tests/helpers/layout-tolerance.ts holds one 0.05px tolerance, mutation-tested from both sides. No floor lowered, nothing skipped or quarantined. FIXED, MERGED as PR #2933 at 0cfdd250e on 2026-09-20, verified as an ancestor of this reconciliation - originally recorded as AWAITING MERGE because the request was queued before it landed: the fourth, ui-on-call-boards dark mode, was TEST ORDERING and not an app bug. It set the colour-scheme override while the page was still on about:blank, and Playwright Firefox does not carry that into the first navigation; the theme is resolved once pre-paint by the bootstrap in src/lib/theme.ts, so a late preference is already missed. PROOF IT IS NOT THE APP: the twelve dark assertions in ui-caring-contacts-workspace.spec.ts PASS on Firefox in this same run (tests 48, 53, 59, 65, 72, 79, 85, 100, 138, 152, 159, 169) and every one navigates first and switches scheme after. An earlier reading blamed color-scheme: light on :root and concluded dark mode was broken for every Firefox and Safari user; those twelve passes refute it. Do not reopen the design-system dark contract on this evidence. STILL OPEN: the remaining two Firefox failures are tracked separately - see the row for the document-viewer hit counter and the tools Forms panel. The eight WebKit failures are UNCHANGED and still unexamined; the six phone-chrome ones remain the likely-real-iPhone-bug reading recorded above. UPDATE 2026-09-20 (read from the GitHub job logs of the latest main release-browser-matrix run; still no local browser run, provisioning fails here as described below). THE COUNT IS 13, NOT 15: Chromium green in ~8 min; Firefox 700 passed / 5 failed in ~28 min; WebKit 696 passed / 8 failed in ~40 min. THE 2026-09-06 CONCLUSION IS HALF WRONG AND THE CORRECTION IS THE POINT OF THIS UPDATE. The Firefox half is tolerance work as recorded — one failure is provably a measurement artefact, Expected >= 12 / Received 11.999954223632812, a sub-pixel rounding difference and nothing more. THE WEBKIT HALF IS NOT. Six of the eight WebKit failures are phone scroll, header, footer and composer behaviour. WebKit is Safari engine, so on an iPhone those are candidate real user-visible bugs, not engine-geometry tolerance, and must be read as a bug report rather than assertion-loosening work. ORDER: fix the five Firefox tolerances first because they are cheap and provably artefacts, then treat the six WebKit phone-chrome failures as a defect investigation, and do that before the tablet row #6GR6B8 because the two are plausibly the same root cause. QUARANTINING IS STILL THE WRONG ANSWER, and more so now: quarantining a phone-chrome failure on Safari engine would hide a defect, not a flake. tests/flake-ledger.json is for REPRODUCED flakes, requires @quarantine in the test title, and expires every entry within 31 days — and it is currently empty by design. NOT FIXED 2026-09-18. WHY IT WAS NOT DONE: the failures are only visible by running Firefox and WebKit, and browser provisioning fails in this environment — scripts/setup-claude-cloud.sh browsers returns 403, no allowlist entry for cdn.playwright.dev. A substitute Chromium exists at /opt/pw-browsers and playwright.config.ts honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so Chromium work is possible here; the other two engines are not. Sizing this needs a machine that can run all three. Note also that this is the one thing keeping main red, so it will be the first failure the new red-main reporting (#T82ND3) raises. Historical note only: an earlier 2026-09-06 write-up used a 15-failure count and treated the whole set as deterministic geometry differences to loosen; that count and that blanket remedy are superseded by this update and must not be reapplied.",
+      "detail": "UPDATE 2026-09-25 from the owner-supplied Ultimate Audit Master Report (audit F10), not reproduced offline: the WebKit phone-chrome failures include header overlay, composer visibility, scroll animation and narrow settings geometry, with one settings position measured at -140 px. Audit recommendation: audit the shared scroll controller, safe-area geometry and scroll-container ownership rather than per-test fixes. The audit duplicate-<main> finding (F08) is already resolved as the hidden streaming clone (#TWS2GD); the Specifiers mobile Axe failure and the Differentials ChunkLoadError are separate rows queued the same day. PRIOR DETAIL: UPDATE 2026-09-20 (six Firefox failures read from the job log of main run 35503893104; four now addressed, two open; no Firefox was run - see the egress row). THE COUNT AND THE CLASSIFICATION IN THIS ROW WERE BOTH WRONG. Firefox failed SIX, not five, and only THREE were tolerance, not five. FIXED AND MERGED (PR #2932): three sub-pixel artefacts - a 16px card gap measured 15.999969482421875, a 12px column gap measured 11.999954223632812, and a 48px tap target measured 47.98333740234375 against its existing 2px allowance. The first two are float error from subtracting two client rects; the third is Firefox storing layout in app units of 1/60 CSS px, so 47.98333740234375 is exactly 2879/60 - one app unit short, the smallest miss the engine can express. tests/helpers/layout-tolerance.ts holds one 0.05px tolerance, mutation-tested from both sides. No floor lowered, nothing skipped or quarantined. FIXED, MERGED as PR #2933 at 0cfdd250e on 2026-09-20, verified as an ancestor of this reconciliation - originally recorded as AWAITING MERGE because the request was queued before it landed: the fourth, ui-on-call-boards dark mode, was TEST ORDERING and not an app bug. It set the colour-scheme override while the page was still on about:blank, and Playwright Firefox does not carry that into the first navigation; the theme is resolved once pre-paint by the bootstrap in src/lib/theme.ts, so a late preference is already missed. PROOF IT IS NOT THE APP: the twelve dark assertions in ui-caring-contacts-workspace.spec.ts PASS on Firefox in this same run (tests 48, 53, 59, 65, 72, 79, 85, 100, 138, 152, 159, 169) and every one navigates first and switches scheme after. An earlier reading blamed color-scheme: light on :root and concluded dark mode was broken for every Firefox and Safari user; those twelve passes refute it. Do not reopen the design-system dark contract on this evidence. STILL OPEN: the remaining two Firefox failures are tracked separately - see the row for the document-viewer hit counter and the tools Forms panel. The eight WebKit failures are UNCHANGED and still unexamined; the six phone-chrome ones remain the likely-real-iPhone-bug reading recorded above. UPDATE 2026-09-20 (read from the GitHub job logs of the latest main release-browser-matrix run; still no local browser run, provisioning fails here as described below). THE COUNT IS 13, NOT 15: Chromium green in ~8 min; Firefox 700 passed / 5 failed in ~28 min; WebKit 696 passed / 8 failed in ~40 min. THE 2026-09-06 CONCLUSION IS HALF WRONG AND THE CORRECTION IS THE POINT OF THIS UPDATE. The Firefox half is tolerance work as recorded — one failure is provably a measurement artefact, Expected >= 12 / Received 11.999954223632812, a sub-pixel rounding difference and nothing more. THE WEBKIT HALF IS NOT. Six of the eight WebKit failures are phone scroll, header, footer and composer behaviour. WebKit is Safari engine, so on an iPhone those are candidate real user-visible bugs, not engine-geometry tolerance, and must be read as a bug report rather than assertion-loosening work. ORDER: fix the five Firefox tolerances first because they are cheap and provably artefacts, then treat the six WebKit phone-chrome failures as a defect investigation, and do that before the tablet row #6GR6B8 because the two are plausibly the same root cause. QUARANTINING IS STILL THE WRONG ANSWER, and more so now: quarantining a phone-chrome failure on Safari engine would hide a defect, not a flake. tests/flake-ledger.json is for REPRODUCED flakes, requires @quarantine in the test title, and expires every entry within 31 days — and it is currently empty by design. NOT FIXED 2026-09-18. WHY IT WAS NOT DONE: the failures are only visible by running Firefox and WebKit, and browser provisioning fails in this environment — scripts/setup-claude-cloud.sh browsers returns 403, no allowlist entry for cdn.playwright.dev. A substitute Chromium exists at /opt/pw-browsers and playwright.config.ts honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so Chromium work is possible here; the other two engines are not. Sizing this needs a machine that can run all three. Note also that this is the one thing keeping main red, so it will be the first failure the new red-main reporting (#T82ND3) raises. Historical note only: an earlier 2026-09-06 write-up used a 15-failure count and treated the whole set as deterministic geometry differences to loosen; that count and that blanket remedy are superseded by this update and must not be reapplied.",
       "source": "Codex review on PR #2942; PR #2933 merge verified at 0cfdd250e as an ancestor, 2026-09-20",
       "added": "2026-09-07"
     },
@@ -635,7 +635,7 @@
       "priority": "P2",
       "type": "task",
       "summary": "Twenty-one dictionary sources need a publication date",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Dispositions now show 40 held and 18 admitted (row said 41 held). The 'publisher registered, date still required' blocker applies to 12 sources, not 17. The AIHW premise is stale: PR #2819 (8cdadc445) read the AIHW pages; AIHW-OAT-2026 is admitted, and AOD, NASS and SUICIDE are held because the publisher gives only an update stamp or undated page, not because of a 403. The count of 21 needing a date is correct. PRIOR DETAIL: After the 2026-09-16 register work, 41 of the 58 dictionary-handover sources remain held and the binding constraint is now a date rather than governance. None of the 41 carries a publication or review date in the handover. Seventeen have a publisher that is now registered and need only a date read from the publisher's own page. Four AIHW pages (alcohol and other drug treatment glossary, suicide and self-harm monitoring glossary, ambulance attendances, opioid agonist therapy in the prisons report) returned HTTP 403 to automated fetch; AIHW is registered and ledger-eligible, so a release date is the only thing missing for all four. A WA Health PDF and the national recovery framework also need a browser read. Per-source blockers and next actions are in src/data/dictionary-source-dispositions.json.",
+      "detail": "RECHECKED 2026-09-25: no dates added. The cloud session's network egress refuses every publisher host (wa.gov.au, mhc.wa.gov.au, aihw.gov.au, ruah.org.au, youthfocus.com.au, passages.org.au, healthdirect.gov.au and others all returned connect_rejected on 2026-09-25), and the sources skill forbids taking a publisher, date or contact detail from anywhere but the publisher's own page, so this cannot be done from a cloud session. TO UNBLOCK: run it from an unrestricted network, for example a Remote Control session on the owner's PC, or have the owner approve each page fetch. Never infer a date from a search summary. PRIOR DETAIL: REVIEW 2026-09-25 (offline audit of current main; no provider access): Dispositions now show 40 held and 18 admitted (row said 41 held). The 'publisher registered, date still required' blocker applies to 12 sources, not 17. The AIHW premise is stale: PR #2819 (8cdadc445) read the AIHW pages; AIHW-OAT-2026 is admitted, and AOD, NASS and SUICIDE are held because the publisher gives only an update stamp or undated page, not because of a 403. The count of 21 needing a date is correct. PRIOR DETAIL: After the 2026-09-16 register work, 41 of the 58 dictionary-handover sources remain held and the binding constraint is now a date rather than governance. None of the 41 carries a publication or review date in the handover. Seventeen have a publisher that is now registered and need only a date read from the publisher's own page. Four AIHW pages (alcohol and other drug treatment glossary, suicide and self-harm monitoring glossary, ambulance attendances, opioid agonist therapy in the prisons report) returned HTTP 403 to automated fetch; AIHW is registered and ledger-eligible, so a release date is the only thing missing for all four. A WA Health PDF and the national recovery framework also need a browser read. Per-source blockers and next actions are in src/data/dictionary-source-dispositions.json.",
       "source": "Claude session 2026-09-16",
       "added": "2026-09-16"
     },
@@ -653,7 +653,7 @@
       "priority": "P2",
       "type": "task",
       "summary": "Five curated WA services remain unwritten after the sexual assault, family violence, postvention and youth batches",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Five of the original ten were added in PR #2814 (c68c6ff41, part-05.ts): KEMH Mother Baby Unit, PCH Eating Disorders Service, PCH Gender Diversity Service, MHC My Services directory, Bunbury MHOA (held as planned). Still absent: Ruah Engagement Hub, Links Court Program, Legal Yarn, and Passages Perth, Passages Peel and Youth Focus (see #YDENFM). The Ruah Mental Health Law Centre adjudication is still open. PRIOR DETAIL: The 2026-09-14 Services handover package holds 88 curated records. Reconciled against the repository on 2026-09-16: 15 already existed as canonical records, 22 are genuinely new, and the remaining 50 are updates to records already held. Twelve of the 22 are now written on branch claude/relaxed-lamport-nkowqs. The ten still to write are Ruah Engagement Hub, the Mental Health Commission My Services online directory, Links Court Program, Legal Yarn, PCH Eating Disorders Service, PCH Gender Diversity Service, Bunbury Regional Hospital Mental Health Observation Area, the KEMH Mother Baby Unit (which is a split of the existing conflated S115 record), plus Passages Perth, Passages Peel and Youth Focus, which are blocked on the publisher-registration decision. Two need adjudication before writing: PCH Gender Diversity Service against the existing Gender Pathways Service under NMHS YouthLink, and Ruah Mental Health Law Centre against the existing Ruah specialist legal services entry, which is probably a rename rather than a new record. NEXT: write the unblocked records in one batch so a single bootstrap refresh covers every addition rather than one per batch. The package's own crosswalk file is unusable for this: it never read the repository, so it marks all 88 as do-not-auto-insert, and its first record is corrupted, carrying the entire guide text in its name field.",
+      "detail": "RECHECKED 2026-09-25 on main 2c787a506: Ruah Engagement Hub, Links Court Program and Legal Yarn are still absent (Passages and Youth Focus tracked in #YDENFM), and the Ruah Mental Health Law Centre adjudication is still open. The cloud session's network egress refuses every publisher host (wa.gov.au, mhc.wa.gov.au, aihw.gov.au, ruah.org.au, youthfocus.com.au, passages.org.au, healthdirect.gov.au and others all returned connect_rejected on 2026-09-25), and the sources skill forbids taking a publisher, date or contact detail from anywhere but the publisher's own page, so this cannot be done from a cloud session. TO UNBLOCK: run it from an unrestricted network, for example a Remote Control session on the owner's PC, or have the owner approve each page fetch. PRIOR DETAIL: REVIEW 2026-09-25 (offline audit of current main; no provider access): Five of the original ten were added in PR #2814 (c68c6ff41, part-05.ts): KEMH Mother Baby Unit, PCH Eating Disorders Service, PCH Gender Diversity Service, MHC My Services directory, Bunbury MHOA (held as planned). Still absent: Ruah Engagement Hub, Links Court Program, Legal Yarn, and Passages Perth, Passages Peel and Youth Focus (see #YDENFM). The Ruah Mental Health Law Centre adjudication is still open. PRIOR DETAIL: The 2026-09-14 Services handover package holds 88 curated records. Reconciled against the repository on 2026-09-16: 15 already existed as canonical records, 22 are genuinely new, and the remaining 50 are updates to records already held. Twelve of the 22 are now written on branch claude/relaxed-lamport-nkowqs. The ten still to write are Ruah Engagement Hub, the Mental Health Commission My Services online directory, Links Court Program, Legal Yarn, PCH Eating Disorders Service, PCH Gender Diversity Service, Bunbury Regional Hospital Mental Health Observation Area, the KEMH Mother Baby Unit (which is a split of the existing conflated S115 record), plus Passages Perth, Passages Peel and Youth Focus, which are blocked on the publisher-registration decision. Two need adjudication before writing: PCH Gender Diversity Service against the existing Gender Pathways Service under NMHS YouthLink, and Ruah Mental Health Law Centre against the existing Ruah specialist legal services entry, which is probably a rename rather than a new record. NEXT: write the unblocked records in one batch so a single bootstrap refresh covers every addition rather than one per batch. The package's own crosswalk file is unusable for this: it never read the repository, so it marks all 88 as do-not-auto-insert, and its first record is corrupted, carrying the entire guide text in its name field.",
       "source": "Session work on branch claude/relaxed-lamport-nkowqs, 2026-09-16",
       "added": "2026-09-16"
     },
@@ -662,7 +662,7 @@
       "priority": "P3",
       "type": "rec",
       "summary": "Re-import the differentials corpus once the fixed export parser can read the source zip",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Absorbs closed #DF1DFT: the committed snapshot's rows are unscoped at rest, and the re-import writes scope into it. New option: the pin in tests/site-content-publication-route.test.ts now checks shape only, so applying scope inside loadDifferentialSnapshot may be possible without the workstation. The 'byte-for-byte' comment at differentials.ts:79-83 is stale. PRIOR DETAIL: scripts/lib/parse-differentials-export.ts now emits presentation scope directly (commit 4628295f5), but the committed data/differentials-snapshot.json predates it and cannot be regenerated in a cloud session: scripts/import-differentials-export.ts reads a Windows workstation path (C:/Users/joshs/AppData/Local/Temp/differentials-data.zip). Until then withPresentationScope() in src/lib/differentials.ts derives the same labels at load time, which keeps the app correct but means the file and the runtime describe the record differently. Next action: re-run npm-equivalent 'node scripts/run-tsx.mjs scripts/import-differentials-export.ts --zip=<path> --write' on the workstation, confirm the emitted scope matches the derivation, then consider retiring the derivation. PARKED 2026-09-18: the import script reads a zip at a Windows workstation path that exists only on the owner's machine, so no cloud session can regenerate the snapshot. The app stays correct meanwhile because withPresentationScope() derives the same labels at load time. TO UNBLOCK: run the import on the workstation with the zip, confirm the emitted scope matches the derivation, then consider retiring the derivation.",
+      "detail": "UPDATE 2026-09-25 (offline): the offline option (apply scope inside loadDifferentialSnapshot) was evaluated and NOT done. The format-only pin would allow it, but that loader also feeds buildDefaultDifferentialRows, so every one of the 201 diagnosis payloads would change on the next differentials:seed or publication, widening the #H6HPTF lithium republish from one record to all of them. It also needs the scope code moved out of differentials.ts to avoid an import cycle. Do it deliberately, after or together with the #H6HPTF republish, not as a side effect. The workstation re-import commands are unchanged. PRIOR DETAIL: REVIEW 2026-09-25 (offline audit of current main; no provider access): Absorbs closed #DF1DFT: the committed snapshot's rows are unscoped at rest, and the re-import writes scope into it. New option: the pin in tests/site-content-publication-route.test.ts now checks shape only, so applying scope inside loadDifferentialSnapshot may be possible without the workstation. The 'byte-for-byte' comment at differentials.ts:79-83 is stale. PRIOR DETAIL: scripts/lib/parse-differentials-export.ts now emits presentation scope directly (commit 4628295f5), but the committed data/differentials-snapshot.json predates it and cannot be regenerated in a cloud session: scripts/import-differentials-export.ts reads a Windows workstation path (C:/Users/joshs/AppData/Local/Temp/differentials-data.zip). Until then withPresentationScope() in src/lib/differentials.ts derives the same labels at load time, which keeps the app correct but means the file and the runtime describe the record differently. Next action: re-run npm-equivalent 'node scripts/run-tsx.mjs scripts/import-differentials-export.ts --zip=<path> --write' on the workstation, confirm the emitted scope matches the derivation, then consider retiring the derivation. PARKED 2026-09-18: the import script reads a zip at a Windows workstation path that exists only on the owner's machine, so no cloud session can regenerate the snapshot. The app stays correct meanwhile because withPresentationScope() derives the same labels at load time. TO UNBLOCK: run the import on the workstation with the zip, confirm the emitted scope matches the derivation, then consider retiring the derivation.",
       "source": "PsychSift Differentials handover reconciliation 2026-09-16",
       "added": "2026-09-16"
     },
@@ -671,7 +671,7 @@
       "priority": "P1",
       "type": "issue",
       "summary": "The Rockingham Peel clozapine guideline appears to state WBC below 1.5 for neutropenia, which is an ANC figure, and the evidence points at the source PDF rather than our extraction",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Now also the canonical home for the RKPG ANC/WBC label check formerly listed as action 2 of closed #SCYQAE. PRIOR DETAIL: CLINICAL GOVERNANCE, NOT A SOFTWARE DEFECT, and it is the reason the extraction fix alone does not close this out. ANALYSIS 2026-09-16 from live public-corpus evidence. The served chunk of Clozapine Therapy - Initiation, Continuation and Ceasing Policy and Procedure (RKPG).pdf p16 states 'Neutropenia ... WBC < 1.5 x 10 9/L' and 'Agranulocytosis ... WBC < 0.5 x 10 9/L'. Those are ANC figures. Australian practice: ANC below 1.5 x10^9/L is the red result requiring cessation, ANC below 0.5 defines agranulocytosis, and the WBC red threshold is 3.0 with green at WBC at or above 3.5 and ANC at or above 2.0. WHY THIS IS PROBABLY THE DOCUMENT AND NOT OUR PIPELINE, which is the whole point of this row: the line-major interleaving fixed in extract_pdf_assets splices whole LINES between columns, so it can move a line to the wrong place but it can never rewrite a word or split within a line. In the live text the run 'WBC < 1.5 x 10 9/L. Flu-like symptoms such' appears uninterrupted, bounded by 'Contact' before it and '3.2%' after it, both of which are fragments from other columns. That makes it a single source line from a single cell, so the label WBC and the value 1.5 were adjacent in the PDF itself. CORROBORATION from three other WA guidelines in the same corpus, extracted by the same pipeline: Clozapine Prescribing (NMHS) gives neutrophils at or above 2.0 and WBC at or above 3.5; Clozapine Prescribing, Administration and Monitoring (AKG) gives WBC at or above 3.5; Clozapine Therapy - Initiation and Continuation (FSH) gives neutrophils above 2.0, WBC above 3.5 and WBC below 3.0. Every one of them pairs WBC with 3.0 or 3.5 and neutrophils with 2.0. NONE pairs WBC with 1.5. RKPG is the outlier. CONFIDENCE: high, not certain. This is reasoning from extracted text of a document nobody on this side has opened. A clinician must read the source PDF before anything is escalated. NEXT STEPS: (1) read RKPG p16 in the original; (2) if it does say WBC below 1.5, raise it with Rockingham Peel Group as a clinical document error, because clinicians are reading that PDF directly and independently of this system; (3) only then decide what this knowledge base should do about the document, options being flag it, supersede it, or restrict it. DO NOT hand-edit corpus text to correct a source document. DO NOT relax the clozapine eval cases. The system refusing to answer clozapine threshold questions from this passage is the correct and protective behaviour, and it stays correct even after the re-index if the underlying document is genuinely wrong.",
+      "detail": "OWNER RULING 2026-09-25: keep this guideline excluded from the medication clozapine WA reference panel (PR #3019 sources that panel from the WA Health statewide documents only). The question about this document in the search corpus stays open as below. REVIEW 2026-09-25 (offline audit of current main; no provider access): Now also the canonical home for the RKPG ANC/WBC label check formerly listed as action 2 of closed #SCYQAE. PRIOR DETAIL: CLINICAL GOVERNANCE, NOT A SOFTWARE DEFECT, and it is the reason the extraction fix alone does not close this out. ANALYSIS 2026-09-16 from live public-corpus evidence. The served chunk of Clozapine Therapy - Initiation, Continuation and Ceasing Policy and Procedure (RKPG).pdf p16 states 'Neutropenia ... WBC < 1.5 x 10 9/L' and 'Agranulocytosis ... WBC < 0.5 x 10 9/L'. Those are ANC figures. Australian practice: ANC below 1.5 x10^9/L is the red result requiring cessation, ANC below 0.5 defines agranulocytosis, and the WBC red threshold is 3.0 with green at WBC at or above 3.5 and ANC at or above 2.0. WHY THIS IS PROBABLY THE DOCUMENT AND NOT OUR PIPELINE, which is the whole point of this row: the line-major interleaving fixed in extract_pdf_assets splices whole LINES between columns, so it can move a line to the wrong place but it can never rewrite a word or split within a line. In the live text the run 'WBC < 1.5 x 10 9/L. Flu-like symptoms such' appears uninterrupted, bounded by 'Contact' before it and '3.2%' after it, both of which are fragments from other columns. That makes it a single source line from a single cell, so the label WBC and the value 1.5 were adjacent in the PDF itself. CORROBORATION from three other WA guidelines in the same corpus, extracted by the same pipeline: Clozapine Prescribing (NMHS) gives neutrophils at or above 2.0 and WBC at or above 3.5; Clozapine Prescribing, Administration and Monitoring (AKG) gives WBC at or above 3.5; Clozapine Therapy - Initiation and Continuation (FSH) gives neutrophils above 2.0, WBC above 3.5 and WBC below 3.0. Every one of them pairs WBC with 3.0 or 3.5 and neutrophils with 2.0. NONE pairs WBC with 1.5. RKPG is the outlier. CONFIDENCE: high, not certain. This is reasoning from extracted text of a document nobody on this side has opened. A clinician must read the source PDF before anything is escalated. NEXT STEPS: (1) read RKPG p16 in the original; (2) if it does say WBC below 1.5, raise it with Rockingham Peel Group as a clinical document error, because clinicians are reading that PDF directly and independently of this system; (3) only then decide what this knowledge base should do about the document, options being flag it, supersede it, or restrict it. DO NOT hand-edit corpus text to correct a source document. DO NOT relax the clozapine eval cases. The system refusing to answer clozapine threshold questions from this passage is the correct and protective behaviour, and it stays correct even after the re-index if the underlying document is genuinely wrong.",
       "source": "Claude Code session 2026-09-16 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), live public-corpus searches of psychiatry.tools; follows the extraction fix merged as db7432a9b",
       "added": "2026-09-16"
     },
@@ -680,7 +680,7 @@
       "priority": "P2",
       "type": "task",
       "summary": "Write the Passages, Youth Focus and related WA service records now that their publishers are registered",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The publisher blocker is gone: PR #2880 (0bf2488d5) registered them (source-authority-registry.ts, catalogueIdentityOnly). The claim that Passages Youth Engagement Hub and the two others 'now appear in the clinical sign-off queue' is false: no Passages record exists in src/lib/services-canonical-data/ or source-acquisitions.json, and c68c6ff41 says they were deliberately absent. Next action: capture those service records and their sources. Lowered to P2 because nothing is blocked any more. PRIOR DETAIL: BLOCKER REMOVED 2026-09-18 (PR #2880, merged); THE DECISION IS STILL THE OWNER'S, which is why this row stays open. Both publishers the three WA services depend on are now registered in source-authority-registry.ts as named agencies: Department of Communities (WA) and City of Vincent. They are deliberately NOT the 'Government of Western Australia' catch-all an earlier block refused — a catch-all resolves every WA government document to one authority, whereas these two resolve only their own material. Both are catalogueIdentityOnly: true, so they are excluded from runtime retrieval classification and ranking is unchanged. WHAT IS LEFT IS THE OWNER DECISION THIS ROW ASKS FOR: registering a publisher admits no source. Passages Youth Engagement Hub and the two others still enter as unreviewed candidates at D band and cite nothing until signed off. They now appear in the clinical sign-off queue at /mockups/development/clinical-sign-off under Sources, which is where that decision can be worked.",
+      "detail": "RECHECKED 2026-09-25 on main 2c787a506: still no Passages Perth, Passages Peel or Youth Focus record in src/lib/services-canonical-data/ or source-acquisitions.json. The cloud session's network egress refuses every publisher host (wa.gov.au, mhc.wa.gov.au, aihw.gov.au, ruah.org.au, youthfocus.com.au, passages.org.au, healthdirect.gov.au and others all returned connect_rejected on 2026-09-25), and the sources skill forbids taking a publisher, date or contact detail from anywhere but the publisher's own page, so this cannot be done from a cloud session. TO UNBLOCK: run it from an unrestricted network, for example a Remote Control session on the owner's PC, or have the owner approve each page fetch. PRIOR DETAIL: REVIEW 2026-09-25 (offline audit of current main; no provider access): The publisher blocker is gone: PR #2880 (0bf2488d5) registered them (source-authority-registry.ts, catalogueIdentityOnly). The claim that Passages Youth Engagement Hub and the two others 'now appear in the clinical sign-off queue' is false: no Passages record exists in src/lib/services-canonical-data/ or source-acquisitions.json, and c68c6ff41 says they were deliberately absent. Next action: capture those service records and their sources. Lowered to P2 because nothing is blocked any more. PRIOR DETAIL: BLOCKER REMOVED 2026-09-18 (PR #2880, merged); THE DECISION IS STILL THE OWNER'S, which is why this row stays open. Both publishers the three WA services depend on are now registered in source-authority-registry.ts as named agencies: Department of Communities (WA) and City of Vincent. They are deliberately NOT the 'Government of Western Australia' catch-all an earlier block refused — a catch-all resolves every WA government document to one authority, whereas these two resolve only their own material. Both are catalogueIdentityOnly: true, so they are excluded from runtime retrieval classification and ranking is unchanged. WHAT IS LEFT IS THE OWNER DECISION THIS ROW ASKS FOR: registering a publisher admits no source. Passages Youth Engagement Hub and the two others still enter as unreviewed candidates at D band and cite nothing until signed off. They now appear in the clinical sign-off queue at /mockups/development/clinical-sign-off under Sources, which is where that decision can be worked.",
       "source": "Session work on branch claude/relaxed-lamport-nkowqs, 2026-09-16",
       "added": "2026-09-16"
     },
@@ -698,7 +698,7 @@
       "priority": "P2",
       "type": "task",
       "summary": "Republish site_content so the stored lithium row no longer holds the withheld text",
-      "detail": "Data hygiene, not a live safety gap. The lithium-physiological-withdrawal-tremor record's generated body (clinical hinge, sections, immediate actions, current presentation) describes akathisia and drug-induced parkinsonism. Every read path now withholds it: loadDifferentialSnapshot covers the seed path, scopeDifferentialRecord covers the canonical read used by the three differentials API routes and differential-page-records, and differentialRowsToCorpusEntries covers the corpus projection that feeds embedding and published site content. The stored site_content and differential_records rows, seeded from the epoch-zero population frozen in supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql, still contain the raw text. Nothing serves it, but any future consumer that reads a row without the projection would reintroduce the exposure, which is the reason to clean it up rather than leave it. Closing it needs an operator run of scripts/sync-site-content-corpus.ts with --write, which requires --project-ref/--confirm-project-ref sjrfecxgysukkwxsowpy, --recovery-evidence, --provider-authorization and the expected state/plan/reconciliation digests. That is a governed live clinical database write behind the provider confirmation boundary, so it is the owner's to schedule. Dry-run first and confirm the plan touches only this record. If RAG_REGISTRY_CORPUS_EMBEDDING is or was true in production, also confirm the old chunk is no longer retrievable after the republish.",
+      "detail": "UPDATE 2026-09-25 (offline, no provider access): the republish is TWO separate live writes, and neither can be scoped to this one record. (1) The legacy differential_records row: npm run differentials:seed -- --owner-id <owner uuid> (dry run), then --write --confirm, upserts ALL 232 differential rows for that owner from the already-withheld snapshot, preserving reviewed governance, and also re-embeds them through OpenAI if RAG_REGISTRY_CORPUS_EMBEDDING is on. (2) The site_content row: scripts/sync-site-content-corpus.ts cannot run yet, because the publication pipeline has never been initialized (site_content_sync_state initialized=false, one epoch-zero release; see #HTZPQ8), so this is blocked on the owner decision in #ZPHK2F. The seed step (1) is the only part that can run now, and it needs owner approval as a live clinical database write. PRIOR DETAIL: Data hygiene, not a live safety gap. The lithium-physiological-withdrawal-tremor record's generated body (clinical hinge, sections, immediate actions, current presentation) describes akathisia and drug-induced parkinsonism. Every read path now withholds it: loadDifferentialSnapshot covers the seed path, scopeDifferentialRecord covers the canonical read used by the three differentials API routes and differential-page-records, and differentialRowsToCorpusEntries covers the corpus projection that feeds embedding and published site content. The stored site_content and differential_records rows, seeded from the epoch-zero population frozen in supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql, still contain the raw text. Nothing serves it, but any future consumer that reads a row without the projection would reintroduce the exposure, which is the reason to clean it up rather than leave it. Closing it needs an operator run of scripts/sync-site-content-corpus.ts with --write, which requires --project-ref/--confirm-project-ref sjrfecxgysukkwxsowpy, --recovery-evidence, --provider-authorization and the expected state/plan/reconciliation digests. That is a governed live clinical database write behind the provider confirmation boundary, so it is the owner's to schedule. Dry-run first and confirm the plan touches only this record. If RAG_REGISTRY_CORPUS_EMBEDDING is or was true in production, also confirm the old chunk is no longer retrievable after the republish.",
       "source": "Session 2026-09-16/17, PR #2838 differentials withhold work",
       "added": "2026-09-17"
     },
@@ -743,7 +743,7 @@
       "priority": "P1",
       "type": "task",
       "summary": "Clinical sign-off outstanding on all 54 WA MHA form guidance records",
-      "detail": "data/forms-content-review.json carries 54 rows, every one status=drafted. The Forms UI labels them 'Drafted from the Act and the approved form, awaiting clinical review'. Sign-off is a named WA clinician or legal reviewer setting status=reviewed with reviewedBy and reviewedAt, per form, after checking the text against the Act provision and the approved form. Suggested order by consequence: 3C (72-hour ceiling that does not reset), 10B, 10E, 11B, 11E (restraint and seclusion extension clocks), 6C (adult 3 months vs child 28 days), 12C attachment (24-hour review lapse), 5A, 2, 3B, 3D, 4B, 10A, 10H, 11A. Until then the caveat must stay. Package hold H01/H03.",
+      "detail": "UPDATE 2026-09-25 (PR #3019): the sign-off tool now exists — npm run clinical:review -- --write --walk --kind form, guide docs/clinical-sign-off-how-to.md (sign on a dated clinical-signoff-<date> branch cut from main). Recommended order 3C, 10B, 10E, 11B, 11E, 6C, then the rest. If the owner already pushed sign-offs to the frozen claude/sweet-carson-e7ur0s-wa-signoff branch, merge data/forms-content-review.json from it into main first (form pins carry over unchanged). Only the owner may sign.",
       "source": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
       "added": "2026-09-16"
     },
@@ -779,7 +779,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Most of the legacy WA service catalogue carries no source URL or hours yet is marked high confidence",
-      "detail": "Measured on data/services-snapshot.json, 2026-09-16: of 219 legacy service records, 100 carry no public source URL at all, 98 state no opening hours, and 100 were extracted from an earlier research document without ever being checked against a live page. Despite that, 159 are marked confidence High. Examples with no source link and High confidence: Armadale Community Mental Health Service, Bentley Older Adult, Butler CMHS, Child Protection Central Intake, and the Childbirth and Mental Illness Service at KEMH. The read-time ageing fix on this branch makes the deficiency visible rather than hiding it, because a record with no recorded review now reads as unknown instead of current, but it does not supply the missing evidence. A separate data error found while reconciling: the Mother and Baby Unit record (S115) conflates KEMH and Fiona Stanley into one entry, listing the Fiona Stanley number under a provider field naming both. NEXT: verify in risk order rather than alphabetically, per docs/services-mode-governance.md, taking crisis and urgent contacts first, then common referral routes, then descriptive content. Page checking and record drafting can be done per batch; telephone confirmation and sign-off cannot.",
+      "detail": "RECHECKED 2026-09-25: no verification batch done. The cloud session's network egress refuses every publisher host (wa.gov.au, mhc.wa.gov.au, aihw.gov.au, ruah.org.au, youthfocus.com.au, passages.org.au, healthdirect.gov.au and others all returned connect_rejected on 2026-09-25), and the sources skill forbids taking a publisher, date or contact detail from anywhere but the publisher's own page, so this cannot be done from a cloud session. TO UNBLOCK: run it from an unrestricted network, for example a Remote Control session on the owner's PC, or have the owner approve each page fetch. Telephone confirmation and sign-off stay with the owner regardless. PRIOR DETAIL: Measured on data/services-snapshot.json, 2026-09-16: of 219 legacy service records, 100 carry no public source URL at all, 98 state no opening hours, and 100 were extracted from an earlier research document without ever being checked against a live page. Despite that, 159 are marked confidence High. Examples with no source link and High confidence: Armadale Community Mental Health Service, Bentley Older Adult, Butler CMHS, Child Protection Central Intake, and the Childbirth and Mental Illness Service at KEMH. The read-time ageing fix on this branch makes the deficiency visible rather than hiding it, because a record with no recorded review now reads as unknown instead of current, but it does not supply the missing evidence. A separate data error found while reconciling: the Mother and Baby Unit record (S115) conflates KEMH and Fiona Stanley into one entry, listing the Fiona Stanley number under a provider field naming both. NEXT: verify in risk order rather than alphabetically, per docs/services-mode-governance.md, taking crisis and urgent contacts first, then common referral routes, then descriptive content. Page checking and record drafting can be done per batch; telephone confirmation and sign-off cannot.",
       "source": "Session work on branch claude/relaxed-lamport-nkowqs, 2026-09-16",
       "added": "2026-09-16"
     },
@@ -1238,7 +1238,7 @@
       "priority": "P1",
       "type": "issue",
       "summary": "Catalogue search ORs query tokens, so services search returns the wrong specialty badged 'Best fit'",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Reproduced offline: searchServiceRecords keeps any record scoring > 0 on any term (catalog-search.ts:211-295). 'panic disorder' returns 23 results with five eating-disorder or attention-disorder services in the top 5; 'panic disorder criteria' returns 206. 'Best fit' is ranks 1-2 (services-navigator-page.tsx). Correction: catalog-search.ts and service-ranker.ts are not in ragRankingPatterns and the retrieval eval-canary does not exercise catalogue search, so replace 'flag and canary before editing' with a requirement for catalogue-search unit tests. PRIOR DETAIL: 'panic disorder' returns eating-disorder services in positions 1-5, top two badged 'Best fit'. Counts: services empty 244, nonsense 0, 'panic disorder criteria' 206 of 244, 'lithium' 0. Therapy Compass: empty 205, 'panic disorder criteria' 105. The badge is the part that lies; an unranked list would be honest. Ranking surface: flag and canary before editing.",
+      "detail": "UPDATE 2026-09-25 (PR #3019): the dishonest badge is fixed — Best fit now shows only when every non-stopword query token (plural-normalised) matches the record (src/lib/service-best-fit.ts). Ranking was deliberately not touched (src/lib/catalog-search.ts is a flagged ranking surface), so an eating-disorder record can still appear for panic disorder, unbadged. Remaining: the OR-token ranking itself, which needs the ranking-protection process and a canary.",
       "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
@@ -1493,6 +1493,222 @@
       "detail": "Tables: clinical_quality_feedback_triage, clinical_quality_feedback_triage_events, document_corpus_access_snapshots, document_corpus_access_state, public_source_activation_guards, public_source_cleanup_mutation_guards. Deferred post-Codex. See docs/supabase-remediation-closeout-notes.md §1.3 / §2 (PR #2959).",
       "source": "PR #2959 docs closeout review 2026-09-21 — queue deferred security/DB work into canonical ledger",
       "added": "2026-09-21"
+    },
+    {
+      "id": "#28ECMG",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Agent/crawler readiness: canonical tags, JSON-LD and Markdown discovery are missing on the public surface (audit F26)",
+      "detail": "Audit agent-readiness review found missing canonical/JSON-LD/Markdown-discovery features and a JS-heavy public surface. Park until clinical, security and release priorities are done. Not verified offline.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#WGH5YF",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Owner decision: TGA/SaMD classification for the MHA quoted timeline, the app's first surface that computes a statutory deadline",
+      "detail": "The timeline on form pages turns a trigger time plus a statutory duration into a Perth deadline, but only for owner-signed entries (quote-only otherwise; three s 28 Form 3A limits permanently quote-only). docs/samd-classification-medication-considerations.md is open and covers a different surface. Next action: owner either extends that note to cover the timeline or records a short ruling that it sits outside its scope. Until then, do not sign off timeframes whose computed time would be relied on.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#Q3MS19",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Source-conflict and jurisdiction behaviour has no deliberate tests; owner to confirm the tier rule (audit F16)",
+      "detail": "A rule already exists: src/lib/australian-source-priority.ts ranks wa_validated < australian_national < australian_state < supplementary WITHIN a relevance band, and tracks authorityConflictCount. Only 3 eval cases touch conflict/superseded sources. Owner recommendation (2026-09-25): confirm that order, add (a) superseded versions never used as evidence and (b) disclose both sources when WA and national disagree on something clinically material. Next action: owner confirms the rule, then add conflict/currentness/attribution cases. Ranking is RAG-protected: flag before editing and require a canary pair for any ordering change.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#8H383K",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "check:offline-pack is not run by CI or any verify gate, so the offline page can silently fall behind signed-off timeline deadlines",
+      "detail": "public/offline.html is generated by scripts/build-offline-pack.ts from WA_CRISIS_CONTACTS and reviewed mha-timeframes entries. After a sign-off it silently omits the new entry (safe direction) until someone rebuilds it and bumps CACHE_VERSION. Wire check:offline-pack into static-pr / verify:pr-local, or make the sign-off tool rebuild the pack.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#6VPJ99",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Owner sign-off: 109 drafted MHA Act-section summaries and 9 drafted timeline deadlines, after the 54 form guides",
+      "detail": "Tool: npm run clinical:review -- --write --walk --kind section / --kind timeframe (guide docs/clinical-sign-off-how-to.md; sign on a dated clinical-signoff-<date> branch cut from main, main is protected). After signing any timeframe: npm run offline:build, bump CACHE_VERSION in public/sw.js, update the offline.html hash pin in tests/pwa-manifest.test.ts. Only the owner may sign.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#KRB96T",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Three places still describe hand-editing sign-off fields now that the sign-off tool enforces content pins",
+      "detail": "The note inside data/forms-content-review.json, the developer-area sign-off queue page text, and the MHA section review sheet header still tell a reviewer to set reviewedBy/reviewedAt by hand. A hand edit now fails the --check pin gates, so nothing slips through, but the wording should point at npm run clinical:review.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#CYYRA7",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Clinical hazard-control content drift only warns and never fails the governance gate (audit F13)",
+      "detail": "Verified offline: scripts/check-clinical-hazard-controls.mjs detects reviewedPathDigests drift and console.warns 'This is not a failure'. Warning-only was a deliberate choice after #D7K71C (squash-orphaned reviewedCommit turned CI red). Next action: make safety-semantic drift blocking but allow an explicit reviewed exception with an expiry date, so an intended edit does not red every branch. Do not revert to the reviewedCommit check.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#TN5ZMG",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Specifiers mobile journey fails the Axe WCAG A/AA check with serious/critical violations (audit F09)",
+      "detail": "Audit F09 reports serious/critical Axe violations on the Specifiers mobile journey in the release browser matrix (WebKit/mobile). Verified offline only that tests/ui-specifiers.spec.ts runs AxeBuilder with wcag2a/2aa/21a/21aa tags and blocks on serious+critical; the failure itself was NOT reproduced here (browser provisioning unavailable). Next action: read the axe-violations attachment from the failing release-browser-matrix run, fix the named rule/node, keep the test blocking. Do not loosen the impact set. Related: #9Z197J (matrix failures).",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#XE4D6D",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Differentials ChunkLoadError under network fault: recovery is not proven (audit F11)",
+      "detail": "Audit F11 observed a dynamic ChunkLoadError on Differentials under network-fault conditions. Verified offline only that route error boundaries exist (src/app/error.tsx, (search-app)/error.tsx, global-error.tsx); no test proves chunk-load recovery. Next action: define the recovery (clear reload/retry message, clean state, telemetry) and add a test for it.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#F9HZEG",
+      "priority": "P1",
+      "type": "task",
+      "summary": "CME and On Call have no two-user staging isolation proof; the cross-tenant harness covers documents/search/answer only (audit F17)",
+      "detail": "Verified offline: scripts/test-cross-tenant-staging.ts exercises /api/answer, /api/documents, /api/health, /api/search and /api/search/universal and has zero CME or On Call references. Unit-level root-bundle isolation tests exist (cme-root-bundle-isolation, on-call-root-bundle-isolation) but are not endpoint attacks. Next action: extend the existing two-user harness to CME records/evidence/storage signed URLs and On Call services/invitations/membership/reports/orientation, including revocation and concurrency races. Staging execution is provider-backed and needs explicit approval. Related: #057 (runs the existing harness; does not widen it).",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#99N903",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Alprazolam medication record carries an unsourced line: Private script only in most states",
+      "detail": "data/medications-snapshot.json alprazolam record. Reviewer checked it against the WA Monitored Medicines Prescribing Code (Dec 2024) and found no support; left in place for the owner. Next action: owner keeps, sources (PBS listing) or deletes it.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#CYE4B9",
+      "priority": "P3",
+      "type": "task",
+      "summary": "WA Health Language Services Guidelines recorded with publication date 2025-01-01 from a copyright line",
+      "detail": "The PDF shows only (c) 2025; day and month were assumed, which bends the never-infer-a-date rule. Two form 1A interpreter notes in data/forms-cultural-notes.json cite it. Next action: owner accepts, or the source is rejected with a reason and those two notes are dropped.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#2CRP5C",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Move withSentryConfig import to @sentry/nextjs/config before Sentry v11 (audit F25)",
+      "detail": "Verified offline: next.config.ts imports withSentryConfig from @sentry/nextjs (installed 10.74.0), which prints 'Importing withSentryConfig from @sentry/nextjs is deprecated and will stop working in v11. Import it from @sentry/nextjs/config instead'. One-line change; do it before any Sentry major upgrade.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#F3SGCM",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Hostile-document ingestion has design coverage but no end-to-end executable matrix (audit F18)",
+      "detail": "Design covers rotated, password-protected, truncated, oversized, hidden-text, image-heavy and prompt-injected documents. Verified offline: prompt-injection tests exist (tests/rag-injection.test.ts) and forms handle passwordProtected, but no upload-to-answer matrix runs all classes. Next action: build the matrix, prompt-injected and password-protected first.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#3CW29T",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Triage Supabase unindexed-FK advisor notices against realistic workload before adding indexes (audit F23)",
+      "detail": "Audit saw ~48 unindexed-FK notices; some are covered by composite indexes and CME/On Call volumes are tiny. Do not fix mechanically: use realistic synthetic data and EXPLAIN ANALYZE first. Any index is a migration (merge = production deploy). Not verified offline.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#FVF58M",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Table parser fixtures are not adversarial enough; add wrapped/merged/multi-column clinically relational tables (audit F20)",
+      "detail": "Partly done: PR #2810 added worker/python/test_extract_pdf_assets_table_reading_order.py for the clozapine-class line-major interleaving. The historical table-heavy benchmark used easy ruled tables. Next action: add a handful of harder fixtures (merged cells, wrapped multi-line cells, multi-column threshold/action tables) and require semantic non-inferiority for extractor changes. Text-producer surface: RAG-protected.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#M5MHK2",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Clinical eval battery misses high-risk scenarios: no hepatic, older-adult, interaction or false-premise cases (audit F14 + F15)",
+      "detail": "Verified offline by topic count over src/lib/rag/rag-eval-cases.ts (101 cases): hepatic 0, older adult/elderly 0, drug interaction 0, unsafe/false premise 0, Mental Health Act 1, QTc 2, pregnancy 3, paediatric 2. Owner recommendation (2026-09-25): start with ~20 clinician-reviewed cases (3 pregnancy/breastfeeding, 3 renal/hepatic, 2 older adults, 2 QTc, 2 lithium/clozapine monitoring, 2 overdose, 2 interactions, 2 MHA, 2 false-premise where the right answer corrects the premise); engineering drafts expected key facts + source, owner reviews. Adding golden cases touches the eval harness (RAG-protected surface): flag before editing, and live canary dispatches need approval.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#XD5BHM",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Add sign-off kinds with content pins for the Chief Psychiatrist Standards and the forms cultural notes",
+      "detail": "data/chief-psychiatrist-standards.json (8 drafted) and data/forms-cultural-notes.json (23 drafted) have no path through npm run clinical:review; today they could only be marked reviewed by hand-editing JSON, with no pin. Extend scripts/lib/clinical-record-review-contract.mjs with standard and cultural-note kinds, pin the rendered text, add --check enforcement and tests.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#2F8K1V",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Extractor/parser/OCR/table-strategy/chunker version is not persisted per document, so a parser defect cannot be traced to affected documents (audit F04)",
+      "detail": "Verified offline: only a coarse indexing_version ('rag-deep-memory-v1') is stored; no extractor/OCR/table-strategy/chunker provenance exists in schema or worker. The clozapine interleaving defect (#GJHKYC) had no deterministic way to list affected documents. Next action: persist per-document extraction provenance and support version-based invalidation/re-extraction. Touches text producers (extract_pdf_assets.py, chunking) and likely a migration: RAG-protected and Supabase-deploy rules apply. Not a prerequisite for the #GJHKYC re-index.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#MT3PZ9",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Owner decisions for the MHA timeline: Form 1A (s 44) entry, a second start input, and how day-based periods are counted",
+      "detail": "(1) Form 1A 72-hour examination limit is absent because s 44 was not in the pinned Act text when drafted; s 44 may now be pinned. (2) Limits that run from an event other than making the form (3C, 3B, 1B, 4B, 6D, seclusion, restraint, review windows) were dropped rather than counted from the wrong time; adding them needs a second start-time input. (3) The contract rejects unit days until the owner rules whether within N days means same clock time N days later or end of the Nth day (WA Interpretation Act s 61). Owner rules; then a builder implements with verbatim quotes only.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#HEN4EX",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "MHA s 357 drafted summary refers to paragraphs (g) to (j) without saying who they cover",
+      "detail": "data/mha-2014-sections.json s 357 summary (drafted). Reviewer confirmed the rest is faithful to the pinned text. Next action: rewrite that clause strictly from the section text before the owner signs it.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#X98D7J",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Release reporting should make per-case canary evidence first-class so an aggregate green cannot hide a failing case (audit F24)",
+      "detail": "Historical issue #628 kept a residual case open despite an aggregate green run; #2947 reinforces it. Next action: surface each eval case's verdict in the release/canary report, not only the aggregate thresholds. Not verified offline.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#2TRAJA",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Owner decision: register Lifeline, Suicide Call Back Service, 13YARN, Legal Yarn and TIS National as publishers in the source authority register",
+      "detail": "Their provider pages carry no publisher date and their publishers are absent from src/lib/source-authority-registry.ts, a protected RAG ranking surface, so their rows were omitted from src/data/source-acquisitions.json. Numbers are verified in src/lib/crisis-contacts.ts (verifiedOn) and in the part-08 service records. Registering changes retrieval selection: needs owner approval and the RAG ranking protection process.",
+      "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#J9F1ZM",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Represent relational table facts and require semantic non-inferiority for extraction changes (audit F19)",
+      "detail": "Words/numbers can be extracted correctly while parameter-threshold-action relationships are wrong. Revisit after the #GJHKYC re-index shows whether the reading-order fix was sufficient. First check what worker/table-facts.ts already produces before designing anything new. Structured-evidence producer: RAG-protected.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
     }
   ],
   "pending": []
