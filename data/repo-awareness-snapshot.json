@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-22"
+    "committed_at": "2026-09-25"
   },
   "routes": {
     "modes": [
@@ -1575,6 +1575,10 @@
       {
         "path": "/api/upload",
         "file": "src/app/api/upload/route.ts"
+      },
+      {
+        "path": "/api/cme/year/close",
+        "file": "src/app/api/cme/year/close/route.ts"
       },
       {
         "path": "/api/search/universal",
@@ -20898,6 +20902,22 @@
         "scope": "review-followup",
         "outcome": "One P2 SLO-classification defect was confirmed: the broad source-only `degraded` flag also included healthy extractive answers. Fixed by persisting and counting a separate `provider_generation_degraded` flag derived only from `generation_fallback`.",
         "checks": "GitHub connector plus UTF-8 thread-aware review inspection; focused ESLint; 45/45 targeted Vitest tests; TypeScript; offline RAG 36 fixtures and 277/277 contract tests; `git diff --check`."
+      },
+      {
+        "date": "2026-09-22",
+        "ref": "codex/chat-selective-railway-previews-b95c",
+        "head": "aa2cd55447786f490a88a46cb4b02a48cccd8aba",
+        "scope": "Railway selective previews and safe iteration policy",
+        "outcome": "P1: production-connected PR previews; contained by disabling automatic previews, stopping four deployments and disconnecting their branch sources. Revised policy requires opt-in isolated app previews.",
+        "checks": "Live Railway project settings, service configurations, redacted target inspection and deployment status; PR diff and empty review threads. No database-content or provider-usage audit."
+      },
+      {
+        "date": "2026-09-22",
+        "ref": "codex/chat-selective-railway-previews-b95c",
+        "head": "aa2cd55447786f490a88a46cb4b02a48cccd8aba",
+        "scope": "Railway selective previews and safe iteration policy (supersedes 2026-09-22)",
+        "outcome": "Correction: automatic PR environments disabled and four preview deployments stopped. CLI source disconnect affected shared production sources; restored both to main. Reconnect attempts skipped by watch paths; original production deployments remain SUCCESS. Retained preview auto-deploy is disabled, not verified source removal.",
+        "checks": "Railway dashboard, exact deployment IDs and source restoration. PR 2985 independently merged and its preview was automatically cleaned up. No secrets logged or database-content audit performed."
       },
       {
         "date": "2026-07-31",
