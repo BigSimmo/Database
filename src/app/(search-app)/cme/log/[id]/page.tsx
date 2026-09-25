@@ -36,6 +36,7 @@ export default async function CmeEntryRoute({ params, searchParams }: CmeEntryRo
       set={data.set ?? placeholderSet(data.year)}
       edit={query.edit === "1"}
       demoMode={data.demoMode}
+      goals={data.goals}
     />
   );
 }

@@ -8,12 +8,19 @@ const mocks = vi.hoisted(() => ({
   entry: vi.fn(),
   routines: vi.fn(),
   evidenceCounts: vi.fn(),
+  planGoals: vi.fn(),
+  entryGoals: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ isDemoMode: mocks.demo }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: mocks.server }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
 vi.mock("@/lib/cme/evidence-repository", () => ({ fetchCmeEvidenceCounts: mocks.evidenceCounts }));
+// Plan goals are read beside the entries; an empty plan leaves every assertion below unchanged.
+vi.mock("@/lib/cme/plan-goals-repository", () => ({
+  fetchOwnerCmePlanGoals: mocks.planGoals,
+  fetchOwnerCmeEntryGoals: mocks.entryGoals,
+}));
 vi.mock("@/lib/cme/repository", () => ({
   fetchOwnerCmeYear: mocks.year,
   fetchOwnerCmeEntries: mocks.entries,
@@ -35,6 +42,8 @@ beforeEach(() => {
   mocks.routines.mockResolvedValue([]);
   mocks.entry.mockResolvedValue(null);
   mocks.evidenceCounts.mockResolvedValue({});
+  mocks.planGoals.mockResolvedValue([]);
+  mocks.entryGoals.mockResolvedValue({});
 });
 describe("CME page state is honest and owner-scoped", () => {
   it("distinguishes signed-out from unconfigured", async () => {
