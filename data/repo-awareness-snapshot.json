@@ -1525,6 +1525,10 @@
         "file": "src/app/api/eval-cases/route.ts"
       },
       {
+        "path": "/api/cme/plan",
+        "file": "src/app/api/cme/plan/route.ts"
+      },
+      {
         "path": "/api/cme/entries/[id]",
         "file": "src/app/api/cme/entries/[id]/route.ts"
       },
@@ -1723,6 +1727,10 @@
       {
         "path": "/api/caring-contacts/assignments/[planId]",
         "file": "src/app/api/caring-contacts/assignments/[planId]/route.ts"
+      },
+      {
+        "path": "/api/cme/entries/[id]/goal",
+        "file": "src/app/api/cme/entries/[id]/goal/route.ts"
       },
       {
         "path": "/api/caring-contacts/training",
