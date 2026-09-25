@@ -39,6 +39,7 @@
         "section": "28",
         "quote": "The person cannot continue to be detained if the referral expires before the person is taken to the authorised hospital or other place"
       },
+      "computeAllowed": false,
       "status": "drafted",
       "reviewedBy": null,
       "reviewedAt": null,

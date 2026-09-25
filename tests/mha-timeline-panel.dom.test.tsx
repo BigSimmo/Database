@@ -73,10 +73,9 @@ describe("MhaTimelinePanel with the shipped (drafted) entries", () => {
         "The person cannot continue to be detained if the referral expires",
       );
     }
-    // The 24-hour order awaits review; the two continuous ceilings are never calculated.
-    expect(within(items[0]).getByText(MHA_TIMELINE_AWAITING_REVIEW)).toBeInTheDocument();
-    expect(within(items[1]).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
-    expect(within(items[2]).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
+    // No s 28 limit is ever calculated: each also ends when the referral expires (s 28(11)).
+    for (const item of items) expect(within(item).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
+    expect(within(panel).queryByText(MHA_TIMELINE_AWAITING_REVIEW)).toBeNull();
     // The non-metropolitan ceiling shows its stem, elided, before its own limb.
     expect(items[2].querySelector("blockquote")?.textContent).toMatch(
       /^“The person cannot be detained under orders made under this section for a continuous period of more than — … \(b\)if/,

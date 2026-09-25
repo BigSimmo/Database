@@ -105,10 +105,16 @@ describe("data/mha-timeframes.json contract", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("keeps the s 28 continuous-detention ceilings quote-only, with the s 28(11) referral-expiry caveat", () => {
-    const ceilings = file.entries.filter((entry) => entry.id.startsWith("form-3a-continuous-limit-"));
-    expect(ceilings).toHaveLength(2);
-    for (const entry of ceilings) {
+  it("keeps every s 28 limit (the 24-hour order and both ceilings) quote-only, with the s 28(11) caveat", () => {
+    // Controller ruling: each is also ended by referral expiry (s 28(11)), which the single
+    // "When was this made?" time cannot see. The owner may relax this later.
+    const s28 = file.entries.filter((entry) => entry.section === "28");
+    expect(s28.map((entry) => entry.id).sort()).toEqual([
+      "form-3a-continuous-limit-metropolitan",
+      "form-3a-continuous-limit-non-metropolitan",
+      "form-3a-detention-to-take-person",
+    ]);
+    for (const entry of s28) {
       expect(entry.computeAllowed).toBe(false);
       expect(entry.caveat?.quote).toMatch(/^The person cannot continue to be detained if the referral expires/);
     }
