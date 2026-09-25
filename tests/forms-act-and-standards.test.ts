@@ -77,13 +77,16 @@ describe("Chief Psychiatrist's Standards", () => {
     ]);
   });
 
-  it("loads every committed standard from the bundled JSON, none marked reviewed", () => {
+  it("loads every committed standard from the bundled JSON, with no standard counted as reviewed without both a reviewer and a review date", () => {
     // A JSON import, not a disk read: the runtime image does not ship data/.
     const loaded = loadChiefPsychiatristStandards();
+    const rawById = new Map(chiefPsychiatristStandards.standards.map((entry) => [entry.id, entry]));
     expect(loaded?.map((entry) => entry.id)).toEqual(chiefPsychiatristStandards.standards.map((entry) => entry.id));
     for (const entry of loaded ?? []) {
       expect(entry.sourceUrl, entry.id).toMatch(/^https:\/\/www\.chiefpsychiatrist\.wa\.gov\.au\//);
-      expect(entry.reviewed, entry.id).toBe(false);
+      const raw = rawById.get(entry.id);
+      const attested = raw?.status === "reviewed" && Boolean(raw.reviewedBy) && Boolean(raw.reviewedAt);
+      expect(entry.reviewed, entry.id).toBe(attested);
     }
   });
 
