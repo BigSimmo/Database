@@ -139,7 +139,7 @@ describe("MedicationRecordPage source link (#05WXHX)", () => {
 
   it("offers no TGA link when there is no record to name", () => {
     mockDetail({ data: null, loading: false, error: "Medication not found." });
-    render(<MedicationRecordPage slug="missing" fallbackRecord={null} />);
+    render(<MedicationRecordPage slug="missing" />);
     expect(screen.queryByRole("link", { name: /TGA Product Information/ })).not.toBeInTheDocument();
   });
 });

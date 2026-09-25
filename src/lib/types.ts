@@ -1454,11 +1454,20 @@ export type ExtractedImage = {
   metadata?: Record<string, unknown>;
 };
 
+export type ExtractionProvenance = {
+  name: string;
+  version: string;
+  pymupdf?: string;
+  tableStrategy?: string;
+};
+
 export type ExtractedDocument = {
   pages: ExtractedPage[];
   images: ExtractedImage[];
   warnings?: string[];
   temporaryPaths?: string[];
+  /** Which reader produced this output (audit F04). Absent for extractors that do not report it. */
+  extractor?: ExtractionProvenance;
   budgetUsage?: {
     pages: number;
     artifacts: number;

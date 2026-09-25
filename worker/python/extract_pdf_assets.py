@@ -13,6 +13,13 @@ except Exception as exc:
     sys.exit(2)
 
 
+# Behaviour version of this extractor, recorded on every document it produces (audit F04) so a
+# parser defect can be traced to the documents it touched. Bump the date and label whenever a
+# change alters the text, tables or images produced for the same PDF. 2026-09-16 is PR #2810,
+# which replaced line-major table text with table_aware_page_text (#GJHKYC).
+EXTRACTOR_VERSION = "2026-09-16.table-aware-v1"
+TABLE_STRATEGY = "table_aware_page_text"
+
 # IDX-H6: caps on serialized table size. Raised from the previous 80/120-row and 8000-char
 # limits so realistic long clinical tables (dose/threshold grids) are not silently truncated
 # mid-table. When a cap is still hit we record rows_truncated/row_count so the truncation is
@@ -1491,6 +1498,12 @@ def extract(pdf_path, output_dir, budget=None):
         "images": images,
         "warnings": warnings,
         "budgetUsage": budget.usage(),
+        "extractor": {
+            "name": "extract_pdf_assets",
+            "version": EXTRACTOR_VERSION,
+            "pymupdf": str(getattr(fitz, "VersionBind", "") or getattr(fitz, "__version__", "")),
+            "tableStrategy": TABLE_STRATEGY,
+        },
     }
 
 
