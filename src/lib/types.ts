@@ -456,6 +456,7 @@ export const SOURCE_GOVERNANCE_CODES = {
   WEAK_EVIDENCE: "weak_evidence",
   WEAK_TABLE_EXTRACTION: "weak_table_extraction",
   REGISTRY_RECORD: "registry_record_source",
+  DOCUMENT_CAUTION: "document_caution",
 } as const;
 
 export type SourceGovernanceCode = (typeof SOURCE_GOVERNANCE_CODES)[keyof typeof SOURCE_GOVERNANCE_CODES];
@@ -1458,11 +1459,20 @@ export type ExtractedImage = {
   metadata?: Record<string, unknown>;
 };
 
+export type ExtractionProvenance = {
+  name: string;
+  version: string;
+  pymupdf?: string;
+  tableStrategy?: string;
+};
+
 export type ExtractedDocument = {
   pages: ExtractedPage[];
   images: ExtractedImage[];
   warnings?: string[];
   temporaryPaths?: string[];
+  /** Which reader produced this output (audit F04). Absent for extractors that do not report it. */
+  extractor?: ExtractionProvenance;
   budgetUsage?: {
     pages: number;
     artifacts: number;

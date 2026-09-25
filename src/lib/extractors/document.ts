@@ -48,6 +48,14 @@ const extractedDocumentSchema = z.object({
   images: z.array(extractedImageSchema),
   warnings: z.array(z.string()).optional(),
   temporaryPaths: z.array(z.string()).optional(),
+  extractor: z
+    .object({
+      name: z.string().min(1).max(100),
+      version: z.string().min(1).max(100),
+      pymupdf: z.string().max(100).optional(),
+      tableStrategy: z.string().max(100).optional(),
+    })
+    .optional(),
   budgetUsage: z
     .object({
       pages: z.number().int().nonnegative(),

@@ -70,6 +70,7 @@ type Calls = {
   created: Array<RepositoryCoordinates & { title: string; labels: string[]; body: string }>;
   listed: Array<RepositoryCoordinates & { labels: string; state: string }>;
   updatedBodies: Array<RepositoryCoordinates & { issue_number: number; body: string }>;
+  assigned: Array<RepositoryCoordinates & { issue_number: number; assignees: string[] }>;
   warnings: string[];
 };
 
@@ -80,13 +81,31 @@ async function runRoutingScript(options: {
   projectRef?: string;
   checkedSha?: string;
   openIssues?: Issue[];
+  refuseAssignment?: boolean;
   result: string;
 }) {
-  const calls: Calls = { closed: [], comments: [], created: [], listed: [], updatedBodies: [], warnings: [] };
+  const calls: Calls = {
+    assigned: [],
+    closed: [],
+    comments: [],
+    created: [],
+    listed: [],
+    updatedBodies: [],
+    warnings: [],
+  };
 
   const github = {
     rest: {
       issues: {
+        addAssignees: async (request: RepositoryCoordinates & { assignees: string[]; issue_number: number }) => {
+          if (options.refuseAssignment) throw new Error("Validation Failed");
+          calls.assigned.push({
+            assignees: request.assignees,
+            issue_number: request.issue_number,
+            owner: request.owner,
+            repo: request.repo,
+          });
+        },
         create: async (request: RepositoryCoordinates & { body: string; labels: string[]; title: string }) => {
           calls.created.push({
             body: request.body,
@@ -337,6 +356,25 @@ describe("live-drift failure routing", () => {
     expect(calls.listed).toEqual([{ ...repositoryCoordinates, labels: "live-drift-failure", state: "open" }]);
   });
 
+  it("assigns the repository owner so the alert reaches a person, on open and on repeat", async () => {
+    const opened = await runRoutingScript({ findings: sampleFindings, result: "failure" });
+    expect(opened.assigned).toEqual([{ ...repositoryCoordinates, assignees: ["BigSimmo"], issue_number: 4242 }]);
+
+    const repeated = await runRoutingScript({ findings: sampleFindings, openIssues: [pinnedIssue], result: "failure" });
+    expect(repeated.assigned).toEqual([{ ...repositoryCoordinates, assignees: ["BigSimmo"], issue_number: 1234 }]);
+
+    const green = await runRoutingScript({ openIssues: [pinnedIssue], result: "success" });
+    expect(green.assigned).toHaveLength(0);
+  });
+
+  it("still opens the alert when GitHub refuses the assignment", async () => {
+    const calls = await runRoutingScript({ findings: sampleFindings, refuseAssignment: true, result: "failure" });
+
+    expect(calls.created).toHaveLength(1);
+    expect(calls.assigned).toHaveLength(0);
+    expect(calls.warnings.join(" ")).toContain("Could not assign @BigSimmo to #4242");
+  });
+
   it("writes nothing when the check is green and no issue is open", async () => {
     const calls = await runRoutingScript({ result: "success" });
 
@@ -451,4 +489,20 @@ describe("live-drift diagnostics artifact", () => {
     // edits sit in the same steps.
     expect(workflow.indexOf("npm run check:migration-history")).toBeLessThan(workflow.indexOf("npm run check:drift"));
   });
+});
+
+describe("production alert workflows route to a person (#TN512M)", () => {
+  // The live monitor, CI on main, the eval canary, live drift and ingestion autopilot all
+  // detected real failures and reported them only to a label. Each must assign the owner
+  // both when it opens its issue and when it updates an existing one.
+  it.each(["live-domain-monitor.yml", "ci.yml", "eval-canary.yml", "live-drift.yml", "ingestion-autopilot.yml"])(
+    "%s assigns its failure issue",
+    (file) => {
+      const source = readFileSync(path.join(repoRoot, ".github", "workflows", file), "utf8");
+      expect(source).toContain("github.rest.issues.addAssignees(");
+      expect(source).toContain("const alertAssignee = context.repo.owner;");
+      expect(source).toContain("await assignAlert(created.data.number);");
+      expect(source.match(/await assignAlert\(/g)?.length).toBe(2);
+    },
+  );
 });

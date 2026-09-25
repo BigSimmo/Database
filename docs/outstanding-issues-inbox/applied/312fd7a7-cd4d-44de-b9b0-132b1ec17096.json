@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "312fd7a7-cd4d-44de-b9b0-132b1ec17096",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2bc20234-809f-46f0-baa5-56c4c9465a24",
+    "reason": "Duplicate done for #0FT00E; text combined verbatim into 08a5b607 (from #3031) when merging main into #3021"
+  }
+}
