@@ -89,13 +89,18 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // group, never `transfer\w*`, which would claim "transferrin" (an iron
     // study) and "transference" (a psychotherapy term) as escalations.
     //
-    // `(?!\s+(?:into|across)\b)` (#GHC4XZ, owner decision 2026-09-25): a drug
-    // that "transfers into breast milk" or is "transferred across the placenta"
-    // is pharmacokinetics, not an instruction to move the patient, so those
-    // passages get no Escalation chip. The trailing `\b` stops the optional
+    // Drug-passage exclusion (#GHC4XZ, owner decisions 9 and 16, 2026-09-25):
+    // a drug that "transfers into breast milk" or is "transferred across the
+    // placenta" is pharmacokinetics, not an instruction to move the patient,
+    // so those passages get no Escalation chip. Decision 16 narrowed the
+    // exclusion to the drug-passage objects only -- into (the) (breast) milk,
+    // across the placenta, (trans)placental transfer, into / to / across the
+    // fetus or foetus, across the blood-brain barrier, into the CSF. Any other
+    // "transfer into ICU" or "transferred across to the ward" is a patient
+    // transfer and keeps Escalation. The trailing `\b` stops the optional
     // suffix backtracking round the lookahead ("transfer|red into").
     pattern:
-      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|transfer(?:s|red|ring)?(?!\s+(?:into|across)\b))\b/i,
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:into\s+(?:the\s+)?(?:(?:breast\s+)?milk|csf|fo?etus)|to\s+(?:the\s+)?fo?etus|across\s+(?:the\s+)?(?:placenta|fo?etus|blood[-\s]brain\s+barrier))\b))\b/i,
   },
   {
     kind: "dose_limit",

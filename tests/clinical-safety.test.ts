@@ -599,7 +599,8 @@ describe("clinical point tones", () => {
  * Three such decisions have been taken so far, and all are recorded in the cases below rather than
  * in a changelog: #GHC4XZ (stop instructions, `immediate(?:ly)?`), #9XRDF7 (`escalat` and
  * `monitor`, owner-approved 2026-09-19) and #GHC4XZ again (`urgent(?:ly)?`, `seizures?` and
- * `transfer(?:s|red|ring)?`, signed off by Josh on 2026-09-25). Each moved labels a clinician
+ * `transfer(?:s|red|ring)?`, signed off by Josh on 2026-09-25, with the drug-passage exclusion
+ * narrowed by owner decision 16 the same day). Each moved labels a clinician
  * sees, which is why each needed the owner and not a reviewer.
  */
 describe("safety finding precision (characterisation)", () => {
@@ -853,32 +854,47 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor("Transferrin saturation was low.")).toBeUndefined();
     expect(labelFor("Transference is common in long-term psychotherapy.")).toBeUndefined();
     expect(labelFor("Countertransference shaped the therapeutic alliance.")).toBeUndefined();
+    // Nor the enzyme or the adjective (#GHC4XZ, owner decision 16 restated the list).
+    expect(labelFor("Glutathione S-transferase activity was reduced.")).toBeUndefined();
+    expect(labelFor("The prescription is transferable to another pharmacy.")).toBeUndefined();
     // Nor is the widened red-flag entry a prefix match on longer words.
     expect(labelFor("Seizureless intervals lengthened over the year.")).toBeUndefined();
     expect(labelFor("The urgentness of the tone was noted.")).toBeUndefined();
   });
 
-  it("does not read a drug crossing into milk or across the placenta as a transfer (#GHC4XZ, owner decision 2026-09-25)", () => {
-    // Josh (psychiatrist, product owner) decided on 2026-09-25 that `transfer` must not match when
-    // followed by "into" or "across". Those are pharmacokinetic passages (a drug moving between
-    // body compartments), not an instruction to move the patient, and would otherwise arrive
-    // painted with the amber `act` tone. Before the widening, the first two passages below carried
-    // no chip at all (bare `\btransfer\b` missed "transfers" and "transferred") and they keep that.
-    // The bare noun "transfer across" WAS labelled Escalation before; the exclusion now clears it.
+  it("does not read a drug passing into milk, across the placenta or into the fetus, brain or CSF as a transfer (#GHC4XZ, owner decisions 9 and 16, 2026-09-25)", () => {
+    // Josh (psychiatrist, product owner) decided on 2026-09-25 (decision 9) that a drug moving
+    // between body compartments is pharmacokinetics, not an instruction to move the patient, and
+    // must not arrive painted with the amber `act` tone. Decision 9 first excluded every `transfer`
+    // followed by "into" or "across"; decision 16 (same day) narrowed that to the DRUG-PASSAGE
+    // phrases only: into (the) (breast) milk, across the placenta / (trans)placental transfer,
+    // into / to / across the fetus or foetus, across the blood-brain barrier, and into the CSF.
+    // Every other "transfer into" or "transfer across" is a patient transfer and keeps Escalation.
+    // Before the widening, the first two passages below carried no chip at all (bare
+    // `\btransfer\b` missed "transfers" and "transferred") and they keep that.
     expect(labelFor("Sertraline transfers into breast milk.")).toBeUndefined();
     expect(labelFor("Lithium is transferred across the placenta.")).toBeUndefined();
     expect(labelFor("Placental transfer across the membrane is rapid.")).toBeUndefined();
     expect(labelFor("Drug transferring into breast milk was minimal.")).toBeUndefined();
-    // A patient transfer is still an escalation, and urgency still outranks it.
+    expect(labelFor("Lamotrigine transfers into the milk in small amounts.")).toBeUndefined();
+    expect(labelFor("Transplacental transfer of valproate is well documented.")).toBeUndefined();
+    expect(labelFor("Lithium transfers to the fetus.")).toBeUndefined();
+    expect(labelFor("The drug is transferred into the foetus.")).toBeUndefined();
+    expect(labelFor("Valproate transfers across the fetus's circulation.")).toBeUndefined();
+    expect(labelFor("Clozapine transfers across the blood-brain barrier.")).toBeUndefined();
+    expect(labelFor("Little of the drug is transferred into the CSF.")).toBeUndefined();
+    // A patient transfer is still an escalation, whatever preposition follows it (decision 16),
+    // and urgency still outranks it.
+    expect(labelFor("Transfer into ICU was arranged.")).toBe("Escalation");
+    expect(labelFor("The patient was transferred into the care of the inpatient team.")).toBe("Escalation");
+    expect(labelFor("Transferring the patient across to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transferred across to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transferred urgently into ICU.")).toBe("Red flag");
     expect(labelFor("Transferring the patient to ICU.")).toBe("Escalation");
     expect(labelFor("Transferred to the medical ward urgently.")).toBe("Red flag");
     expect(labelFor("Transferred to the medical ward.")).toBe("Escalation");
-    // The exclusion is a whole-word lookahead: "intolerance" is not "into".
+    // The exclusion is whole-word: "intolerance" is not "into".
     expect(labelFor("Transferred given intolerance of the ward.")).toBe("Escalation");
-    // KNOWN CONSEQUENCE, pinned so it is deliberate rather than discovered later: the exclusion
-    // reads the next word only, so a patient transfer phrased "into" also loses its chip. The
-    // decision did not weigh this case; revisit it first if the exclusion is ever narrowed.
-    expect(labelFor("Transfer into ICU was arranged.")).toBeUndefined();
   });
 
   it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {
