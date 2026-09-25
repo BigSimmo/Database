@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
+import { visibleByTestId } from "./playwright-settlement";
+
 /**
  * The eleven artboards, checked against the screen the app actually renders.
  *
@@ -102,7 +104,9 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   // rather than on the shell. The hub has no page header, so the two wait on
   // different things: the hub on its tile grid, a section page on its header.
   if (route === ROUTES.home) {
-    await expect(page.getByTestId("on-call-home-sections")).toBeVisible({ timeout: 20_000 });
+    // Visible owner only: a full load can briefly leave Next's hidden streamed
+    // copy of the page in the DOM, which a bare testid counts twice (#093).
+    await expect(visibleByTestId(page, "on-call-home-sections")).toBeVisible({ timeout: 20_000 });
     return;
   }
   // The list, not the header: a section page renders a header only when it has
@@ -111,7 +115,7 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   // either way — the header used to render before the fetch resolved, so
   // waiting on it measured the loading state.
   const listTestId = SECTION_LIST_TEST_IDS[route];
-  if (listTestId) await expect(page.getByTestId(listTestId)).toBeVisible({ timeout: 20_000 });
+  if (listTestId) await expect(visibleByTestId(page, listTestId)).toBeVisible({ timeout: 20_000 });
 }
 
 /**
@@ -285,7 +289,7 @@ test.describe("01 Home", () => {
 
   test("gives every section a tile, and gives Who's who no count", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    const tiles = page.getByTestId("on-call-home-sections").locator('[data-testid^="on-call-home-tile-"]');
+    const tiles = visibleByTestId(page, "on-call-home-sections").locator('[data-testid^="on-call-home-tile-"]');
     // Eight, and the list underneath is the reason rather than the number.
     // The grid draws the six STORED sections, then Compliance, then Who's who.
     // Compliance earned its place by being wired: a tile pointing at
@@ -387,7 +391,7 @@ test.describe("01 Home", () => {
 
   test("holds together at the site's narrow width, which the drawing never shows", async ({ page }) => {
     await openBoard(page, ROUTES.home, NARROW);
-    await expect(page.getByTestId("on-call-home-sections")).toBeVisible();
+    await expect(visibleByTestId(page, "on-call-home-sections")).toBeVisible();
     await expectNoHorizontalOverflow(page, "the home at 320px");
   });
 });
