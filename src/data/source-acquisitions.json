@@ -639,7 +639,7 @@
     "publisherCode": "WAHEALTH",
     "canonicalUrl": "https://www.health.wa.gov.au/Improving-WA-Health/About-Aboriginal-Health/WA-Aboriginal-Health-and-Wellbeing-Framework-2015-2030",
     "jurisdiction": "Australia/WA",
-    "version": "WA Aboriginal Health and Wellbeing Framework 2015\u20132030",
+    "version": "WA Aboriginal Health and Wellbeing Framework 2015–2030",
     "publicationDate": null,
     "datePrecision": "day",
     "reviewDate": null,
@@ -1187,7 +1187,7 @@
   },
   {
     "id": "therapy-au-ranzcp-ltpp-clarification-2026",
-    "title": "President\u2019s update: Anna Freud Centre Mood Disorders Evidence Review moving to open access",
+    "title": "President’s update: Anna Freud Centre Mood Disorders Evidence Review moving to open access",
     "publisher": "Royal Australian and New Zealand College of Psychiatrists",
     "publisherCode": "RANZCP",
     "canonicalUrl": "https://www.ranzcp.org/news-analysis/president-s-update-anna-freud-centre-mood-disorders-evidence-review-moving-to-open-access",
@@ -1975,7 +1975,7 @@
     "publisherCode": "AUSPRES",
     "canonicalUrl": "https://australianprescriber.tg.org.au/articles/drug-induced-movement-disorders.html",
     "jurisdiction": "Australia",
-    "version": "Aust Prescr 2019;42:56\u201361",
+    "version": "Aust Prescr 2019;42:56–61",
     "publicationDate": "2019-04-01",
     "datePrecision": "day",
     "reviewDate": null,
@@ -2000,7 +2000,7 @@
     "publisherCode": "AUSPRES",
     "canonicalUrl": "https://australianprescriber.tg.org.au/articles/lithium-therapy-and-its-interactions.html",
     "jurisdiction": "Australia",
-    "version": "Aust Prescr 2020;43:91\u20133; corrected 12 June 2020",
+    "version": "Aust Prescr 2020;43:91–3; corrected 12 June 2020",
     "publicationDate": "2020-06-02",
     "datePrecision": "day",
     "reviewDate": "2020-06-12",
@@ -2020,7 +2020,7 @@
   },
   {
     "id": "formulation-wa-ocp-risk",
-    "title": "Chief Psychiatrist\u2019s Standard for Clinical Care: Risk Assessment and Management",
+    "title": "Chief Psychiatrist’s Standard for Clinical Care: Risk Assessment and Management",
     "publisher": "Office of the Chief Psychiatrist WA",
     "publisherCode": "OCP WA",
     "canonicalUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-risk-assessment-and-management/",
@@ -2095,7 +2095,7 @@
   },
   {
     "id": "formulation-ranzcp-suicide",
-    "title": "Suicide prevention \u2013 the role of psychiatry",
+    "title": "Suicide prevention – the role of psychiatry",
     "publisher": "Royal Australian and New Zealand College of Psychiatrists",
     "publisherCode": "RANZCP",
     "canonicalUrl": "https://www.ranzcp.org/clinical-guidelines-publications/clinical-guidelines-publications-library/suicide-prevention-the-role-of-psychiatry",
@@ -2149,7 +2149,7 @@
     "disposition": "candidate",
     "dispositionReason": "Fetched 2026-09-25 from the publisher's filestore; document SHA-256 921a5174712405a8298ec350e1be275e0664c62092519d87ae3886a135dd2d0c matches the pinned 02-b0-02 extraction, so no existing section text changed. Candidate only: every summary drawn from it is drafted and awaiting the owner's clinical review.",
     "supersededBy": [],
-    "notes": "The consolidated HTML carries no as-at line of its own. The version (02-b0-02) and the date (currency start 25 Sep 2025, listed as Current with no later consolidation) were read from the publisher's All Versions page on 2026-09-25 \u2014 see mental-health-act-2014-wa-all-versions. The id matches the sourceId the Forms provider already emits for this Act (src/lib/sources/repository-providers.ts)."
+    "notes": "The consolidated HTML carries no as-at line of its own. The version (02-b0-02) and the date (currency start 25 Sep 2025, listed as Current with no later consolidation) were read from the publisher's All Versions page on 2026-09-25 — see mental-health-act-2014-wa-all-versions. The id matches the sourceId the Forms provider already emits for this Act (src/lib/sources/repository-providers.ts)."
   },
   {
     "id": "mental-health-act-2014-wa-all-versions",
@@ -2378,11 +2378,11 @@
     ],
     "rung": 2,
     "capturedAt": "2026-09-25",
-    "capturedFor": "WA prescribing rules for the Medications catalogue 'wa' sections \u2014 task t6a (psychostimulant authorisation under Part 3, S8 benzodiazepine authorisation under Part 6, opioid substitution therapy/CPOP under Part 7, and gabapentinoid Schedule 4 monitoring under Part 8); also used to replace the unsourced alprazolam discharge-permit pearl and to confirm the pregabalin Schedule 8 claim was never accurate for WA.",
+    "capturedFor": "WA prescribing rules for the Medications catalogue 'wa' sections — task t6a (psychostimulant authorisation under Part 3, S8 benzodiazepine authorisation under Part 6, opioid substitution therapy/CPOP under Part 7, and gabapentinoid Schedule 4 monitoring under Part 8); also used to replace the unsourced alprazolam discharge-permit pearl and to confirm the pregabalin Schedule 8 claim was never accurate for WA.",
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Full text (51 pages) fetched from the official health.wa.gov.au PDF on 2026-09-25 and read in full via PyMuPDF extraction before drafting any clinical claim (the direct WebFetch summarisation tool could not parse this PDF's binary stream, so the file was extracted and read as plain text instead). The cover page and table of contents date the document December 2024. Every WA-prescribing row cites a section of this Code that was read directly: Part 3 (S8 stimulant medicines, Sections 3.4\u20133.5.4), Part 6 (S8 benzodiazepines, Sections 6.2 and 6.5\u20136.5.2.1), Part 7 (opioid pharmacotherapy/CPOP, Sections 7.4\u20137.4.3.1), Part 8 (S4 Monitored Medicines, Sections 8.5), and Section 1.2.1 (ScriptCheckWA registration is mandatory under Regulation 22A of the Medicines and Poisons Regulations 2016)."
+    "notes": "Full text (51 pages) fetched from the official health.wa.gov.au PDF on 2026-09-25 and read in full via PyMuPDF extraction before drafting any clinical claim (the direct WebFetch summarisation tool could not parse this PDF's binary stream, so the file was extracted and read as plain text instead). The cover page and table of contents date the document December 2024. Every WA-prescribing row cites a section of this Code that was read directly: Part 3 (S8 stimulant medicines, Sections 3.4–3.5.4), Part 6 (S8 benzodiazepines, Sections 6.2 and 6.5–6.5.2.1), Part 7 (opioid pharmacotherapy/CPOP, Sections 7.4–7.4.3.1), Part 8 (S4 Monitored Medicines, Sections 8.5), and Section 1.2.1 (ScriptCheckWA registration is mandatory under Regulation 22A of the Medicines and Poisons Regulations 2016)."
   },
   {
     "id": "wa-health-scriptcheckwa",
@@ -2409,7 +2409,7 @@
     ],
     "rung": 2,
     "capturedAt": "2026-09-25",
-    "capturedFor": "WA prescribing rules for the Medications catalogue 'wa' sections \u2014 task t6a; this is the source for the WA-authorised statement that gabapentin and pregabalin are among the Schedule 4 Monitored Medicines tracked on ScriptCheckWA (the Monitored Medicines Prescribing Code itself only points to Schedule 6 of the Regulations by number, without naming the individual drugs), and for plain-language framing of what ScriptCheckWA covers for S8 medicines (opioids, stimulants, benzodiazepines including alprazolam, opioid substitution treatments).",
+    "capturedFor": "WA prescribing rules for the Medications catalogue 'wa' sections — task t6a; this is the source for the WA-authorised statement that gabapentin and pregabalin are among the Schedule 4 Monitored Medicines tracked on ScriptCheckWA (the Monitored Medicines Prescribing Code itself only points to Schedule 6 of the Regulations by number, without naming the individual drugs), and for plain-language framing of what ScriptCheckWA covers for S8 medicines (opioids, stimulants, benzodiazepines including alprazolam, opioid substitution treatments).",
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
@@ -2436,7 +2436,7 @@
     "capturedAt": "2026-09-25",
     "capturedFor": "Round-1 fix review flagged that the plan bullet's 'SMF restrictions' phrase might mean the Statewide Medicines Formulary's own drug-specific restriction level for the psychostimulants, distinct from the CPOP client-number caps already captured under wa-monitored-medicines-prescribing-code.",
     "disposition": "rejected",
-    "dispositionReason": "The interactive formulary database (formulary.health.wa.gov.au, 'Formulary One') redirects with an HTTP 302 straight to a login.microsoftonline.com WA Health SSO sign-in page \u2014 confirmed on 2026-09-25 \u2014 so no drug-specific SMF restriction level is publicly readable. The general WA Health landing article at health.wa.gov.au/Articles/U_Z/WA-Statewide-Medicines-Formulary explains what the SMF is but was not fetched for a specific restriction claim, because it does not carry per-drug formulary status; only the login-walled database does. No claim about SMF restriction status was written into any medication record for this reason.",
+    "dispositionReason": "The interactive formulary database (formulary.health.wa.gov.au, 'Formulary One') redirects with an HTTP 302 straight to a login.microsoftonline.com WA Health SSO sign-in page — confirmed on 2026-09-25 — so no drug-specific SMF restriction level is publicly readable. The general WA Health landing article at health.wa.gov.au/Articles/U_Z/WA-Statewide-Medicines-Formulary explains what the SMF is but was not fetched for a specific restriction claim, because it does not carry per-drug formulary status; only the login-walled database does. No claim about SMF restriction status was written into any medication record for this reason.",
     "supersededBy": [],
     "notes": "Kept so the same ground (an SMF-sourced restriction-level claim for dexamfetamine, methylphenidate or lisdexamfetamine) is not searched again without WA Health SSO access. If SMF status is ever wanted here, it needs an operator with formulary.health.wa.gov.au login access to pull the specific entry, not another public-web search."
   },
@@ -2469,7 +2469,7 @@
     "disposition": "candidate",
     "dispositionReason": "Fetched and read in full this session (all 46 pages, including Appendices 4 and 5). Rung-2 WA Department of Health statewide clozapine guideline, published by the Medicines and Technology Unit, Patient Safety and Clinical Quality Division. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Cover states 'Version 2, June 2024'; approval page records approval by the Executive Director, Patient Safety and Clinical Quality on 9 July 2024, effective from July 2024, next review due 3 years from the effective date. publicationDate recorded at month precision because only 'June 2024' is printed on the cover; no exact day is given for the version itself. The document's own Appendix 5 (community titration table) states it is '*Adapted from The Maudsley Prescribing Guidelines in Psychiatry 14th Edition (2021)' \u2014 quoted content sourced from this WA guideline still carries that attribution verbatim in the clozapine record. The separate 'WA Clozapine Initiation and Titration Chart' (Appendix 1.1, a graphic/table PDF referenced by this guideline) was also fetched this session but could not be extracted as reliable text, so it was not used as a quote source; only the fully text-extractable Appendix 5 community titration table, Table 1 (re-titration after discontinuation) and Appendix 4 (myocarditis commencement-phase monitoring protocol) were quoted."
+    "notes": "Cover states 'Version 2, June 2024'; approval page records approval by the Executive Director, Patient Safety and Clinical Quality on 9 July 2024, effective from July 2024, next review due 3 years from the effective date. publicationDate recorded at month precision because only 'June 2024' is printed on the cover; no exact day is given for the version itself. The document's own Appendix 5 (community titration table) states it is '*Adapted from The Maudsley Prescribing Guidelines in Psychiatry 14th Edition (2021)' — quoted content sourced from this WA guideline still carries that attribution verbatim in the clozapine record. The separate 'WA Clozapine Initiation and Titration Chart' (Appendix 1.1, a graphic/table PDF referenced by this guideline) was also fetched this session but could not be extracted as reliable text, so it was not used as a quote source; only the fully text-extractable Appendix 5 community titration table, Table 1 (re-titration after discontinuation) and Appendix 4 (myocarditis commencement-phase monitoring protocol) were quoted."
   },
   {
     "id": "rkpg-clozapine-policy-rejected-anc-wbc-mislabel",
