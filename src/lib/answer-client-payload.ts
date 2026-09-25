@@ -931,7 +931,7 @@ export function authorityTrustCapRequired(answer: RagAnswer): boolean {
  * counts and styling stay with authorityTrustCapRequired. An explicit
  * NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS="false" opts out, so the word follows trust as before.
  */
-export function strongSupportLabelCapped(answer: RagAnswer): boolean {
+function strongSupportLabelCapped(answer: RagAnswer): boolean {
   if (answer.strongSupportLabelCapped === true) return true;
   if (process.env.NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS === "false") return false;
   const claims = answer.supportedClaims ?? [];
