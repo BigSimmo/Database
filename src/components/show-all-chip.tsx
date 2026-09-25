@@ -32,7 +32,7 @@ export function ShowAllChip({
         aria-label={ariaLabel}
         data-testid={testId}
         className={cn(
-          "group inline-flex min-h-tap items-center justify-center text-[color:var(--clinical-accent)] lg:min-h-compact-meta",
+          "group inline-flex min-h-tap items-center justify-center text-[color:var(--clinical-accent-strong)] lg:min-h-compact-meta",
           focusRing,
         )}
       >

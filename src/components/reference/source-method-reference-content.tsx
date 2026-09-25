@@ -88,12 +88,16 @@ function RatingDimensions() {
     >
       <dl className="mt-4 divide-y divide-[color:var(--border)]">
         {SOURCE_RATING_DIMENSIONS.map((dimension) => (
-          <div key={dimension.key} className="grid gap-1.5 py-3 sm:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] sm:gap-6">
-            <div className="min-w-0">
-              <dt className="text-sm font-semibold text-[color:var(--text-heading)]">{dimension.label}</dt>
-              <dd className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">{dimension.description}</dd>
-            </div>
-            <div className="flex min-w-0 items-center gap-3 sm:pt-1">
+          // One wrapper, holding only the dt and its dds (#Q80S8B); the grid puts
+          // the weight bar in the second column beside the term and description.
+          <div key={dimension.key} className="grid py-3 sm:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] sm:gap-x-6">
+            <dt className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)] sm:col-start-1 sm:row-start-1">
+              {dimension.label}
+            </dt>
+            <dd className="mt-0.5 min-w-0 text-xs leading-5 text-[color:var(--text-muted)] sm:col-start-1 sm:row-start-2">
+              {dimension.description}
+            </dd>
+            <dd className="mt-1.5 flex min-w-0 items-center gap-3 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:self-start sm:pt-1">
               <div
                 aria-hidden="true"
                 className="h-2 w-full min-w-0 overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
@@ -106,7 +110,7 @@ function RatingDimensions() {
               <span className="nums w-20 shrink-0 whitespace-nowrap text-right text-xs font-semibold text-[color:var(--text-heading)]">
                 {dimension.points} points
               </span>
-            </div>
+            </dd>
           </div>
         ))}
       </dl>
