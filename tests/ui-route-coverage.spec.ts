@@ -5,7 +5,7 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { getDifferentialDetailContext, getDifferentialRecord } from "../src/lib/differentials";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
-import { visibleByTestId } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 const routeViewports = [
   { name: "desktop", width: 1280, height: 900 },
@@ -24,6 +24,18 @@ const readySetupChecks = [
 ];
 
 const problemsByPage = new WeakMap<Page, string[]>();
+
+/**
+ * WebKit's report of a load cancelled by navigation names the URL without its scheme,
+ * e.g. "/localhost:4342/api/differentials/delirium?kind=diagnosis due to access control
+ * checks." True only when that URL is on the app's own host.
+ */
+function sameOriginLoadAbortedByNavigation(message: string, appHost: string) {
+  const reported = /(?:^|\s)(\S+) due to access control checks\.$/.exec(message)?.[1];
+  if (!reported) return false;
+  const withoutScheme = reported.replace(/^[a-z]+:/i, "").replace(/^\/+/, "");
+  return withoutScheme === appHost || withoutScheme.startsWith(`${appHost}/`);
+}
 
 function externalHttpUrlPattern(baseURL: string) {
   const localOrigin = new URL(baseURL).origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -257,10 +269,14 @@ test.describe("previously uncovered production routes", () => {
     const problems: string[] = [];
     problemsByPage.set(page, problems);
     if (!baseURL) throw new Error("ui-route-coverage requires the verified Playwright base URL.");
+    const appHost = new URL(baseURL).host;
     page.on("pageerror", (error) => {
-      // WebKit reports a Next.js route prefetch (?_rsc=) aborted by navigation as an
-      // uncaught "access control checks" error; it is not an application fault.
-      if (browserName === "webkit" && /\?_rsc=\S* due to access control checks\.$/.test(error.message)) return;
+      // WebKit reports a same-origin load that navigation aborted as an uncaught "access
+      // control checks" error: first seen for Next.js route prefetches (?_rsc=), then for
+      // the differential detail fetch when the next goto landed before it settled (run
+      // 36156676861). A same-origin request cannot fail an access-control check, so only
+      // this app's own host is excused; anything cross-origin still fails.
+      if (browserName === "webkit" && sameOriginLoadAbortedByNavigation(error.message, appHost)) return;
       problems.push(`pageerror ${error.message}`);
     });
     await blockExternalRequests(page, problems, baseURL);
@@ -636,6 +652,14 @@ test.describe("previously uncovered production routes", () => {
           currentPage.waitForURL((url) => url.pathname === entryHref, { timeout: 30_000 }),
           entry.click(),
         ]);
+        // The URL changes before the entry's page has loaded its code. Leaving at that point
+        // cancels the chunk load, and WebKit's error boundary logged the cancelled load as a
+        // ChunkLoadError. Wait until the entry has actually opened.
+        await expectSingleSettledOwner(currentPage.getByTestId("differential-detail-page"), {
+          message: "differential entry opened",
+          timeout: 30_000,
+        });
+        await expect(currentPage.getByRole("heading", { level: 1 })).toBeVisible();
       },
     );
 

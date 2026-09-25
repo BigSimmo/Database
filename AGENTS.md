@@ -414,6 +414,8 @@ it out of date: the ruleset's strict up-to-date rule blocks the merge until then
 its CI is still running or while it has failing checks or open review work; sync earlier only for a
 real conflict (`git merge-tree --write-tree origin/main <tip>` is dirty) or when the owner asks.**
 
+When the merge queue is on for `main`, do not sync PR branches at all; the queue tests each PR against the latest `main` itself.
+
 For the rest of the anti-churn branch-sync mitigations, see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync).
 <!-- END:pr-branch-sync -->
 
