@@ -117,7 +117,9 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+              // The one inline script is allowed by its hash only (On Call essentials;
+              // tests/pwa-manifest.test.ts recomputes it). It never fetches, so no network source is allowed.
+              `default-src 'none'; script-src 'sha256-hR1cX86yKUagJtiik/uWaiH1CQQo+GjJYByHcdmHTsU='; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
           },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },

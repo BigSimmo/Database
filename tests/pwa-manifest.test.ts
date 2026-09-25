@@ -77,13 +77,40 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(appManifest).not.toHaveProperty("protocol_handlers");
   });
 
-  it("ships a script-free, generic offline document with an explicit privacy boundary", () => {
+  it("ships a generic offline document with an explicit privacy boundary and one hash-pinned script", () => {
     const offlineHtml = readFileSync(join(process.cwd(), "public", "offline.html"), "utf8");
+    const nextConfig = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
 
-    expect(offlineHtml).not.toMatch(/<script\b/i);
+    // Exactly one script, inline, with no src: nothing is loaded from anywhere.
+    const scripts = [...offlineHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+    expect(scripts).toHaveLength(1);
+    const [, attributes, body] = scripts[0];
+    expect(attributes.trim()).toBe("");
+    // The offline CSP allows that script by its hash and nothing else runs.
+    const hash = createHash("sha256").update(body).digest("base64");
+    expect(nextConfig).toContain(`script-src 'sha256-${hash}'`);
+    expect(nextConfig).not.toMatch(/source: "\/offline\.html"[\s\S]{0,600}connect-src/);
+    // It reads the On Call copy the app already keeps, and only reads it: no
+    // network, no writes, no markup parsing.
+    expect(body).toContain('"clinical-kb-on-call-entries-cache"');
+    for (const forbidden of [
+      /\bfetch\s*\(/,
+      /XMLHttpRequest/,
+      /sendBeacon/,
+      /\bsetItem\s*\(/,
+      /\bremoveItem\s*\(/,
+      /innerHTML|outerHTML|insertAdjacentHTML|document\.write/,
+      /\beval\s*\(|new Function/,
+      /indexedDB|caches\./,
+    ]) {
+      expect(body, `offline script must not use ${forbidden}`).not.toMatch(forbidden);
+    }
+    expect(body).toMatch(/isPersonal !== true/);
+
     expect(offlineHtml).toMatch(/private clinical documents/i);
     expect(offlineHtml).toMatch(/does not store or\s+replay/i);
     expect(offlineHtml).toMatch(/queries, answers, documents, uploads, signed URLs, or API responses/i);
+    expect(offlineHtml).toMatch(/never your\s+personal entries/i);
   });
 
   it("keeps offline browser chrome and surfaces on the canonical v2 palette", () => {
@@ -155,8 +182,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-09-19-v1",
-      offlineHtmlSha256: "40b46a606bf0a366d623091395097cfe3dad5a8c530434072ef0905f86e083bb",
+      cacheVersion: "2026-09-25-v1",
+      offlineHtmlSha256: "1653d22507ac59437b806aea63fb8e71285ac26c8cf1dc7c47e73dcc348b27d6",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");

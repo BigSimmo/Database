@@ -130,6 +130,70 @@
         outline-offset: 3px;
       }
 
+      /* On Call essentials: shown only when this browser already holds a fresh,
+         shared (never personal) copy of the On Call entries. */
+      .on-call {
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--page-border);
+      }
+      .on-call[hidden] {
+        display: none;
+      }
+      .on-call h2 {
+        margin: 0;
+        color: var(--page-heading);
+        font-size: 1.15rem;
+      }
+      .on-call h3 {
+        margin: 1.25rem 0 0.5rem;
+        color: var(--page-muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .on-call .warning {
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+      }
+      .on-call ul,
+      .on-call ol {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .on-call li {
+        padding: 0.6rem 0;
+        border-bottom: 1px solid var(--page-border);
+      }
+      .on-call .name {
+        display: block;
+        margin: 0.75rem 0 0;
+        color: var(--page-text);
+        font-weight: 700;
+      }
+      .on-call li .name {
+        margin: 0;
+      }
+      .on-call .meta {
+        display: block;
+        margin: 0.15rem 0 0;
+        color: var(--page-muted);
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+      .on-call .calls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.4rem;
+      }
+      .on-call a.call {
+        min-height: 3rem;
+        margin-top: 0;
+        padding: 0.5rem 0.9rem;
+        font-variant-numeric: tabular-nums;
+      }
       @media (prefers-color-scheme: dark) {
         :root {
           --page-background: #0b0e11; /* dark --background */
@@ -150,7 +214,9 @@
 
       @media (forced-colors: active) {
         main,
-        .privacy-note {
+        .privacy-note,
+        .on-call,
+        .on-call li {
           border-color: CanvasText;
         }
 
@@ -189,9 +255,186 @@
       <p>Reconnect to search, generate answers, or open private clinical documents and account data.</p>
       <p class="privacy-note">
         For privacy, the PWA cache stores only this offline screen and public application assets. It does not store or
-        replay clinical queries, answers, documents, uploads, signed URLs, or API responses.
+        replay clinical queries, answers, documents, uploads, signed URLs, or API responses. If you use On Call, this
+        screen can show the shared On Call numbers your browser already saved in the last seven days, never your
+        personal entries; they are cleared when you sign out.
       </p>
       <a href="/">Try again</a>
+      <section class="on-call" id="on-call-offline" aria-labelledby="on-call-offline-title" hidden>
+        <h2 id="on-call-offline-title">On Call, saved on this phone</h2>
+        <p class="warning" id="on-call-offline-saved"></p>
+        <div id="on-call-offline-lists"></div>
+      </section>
     </main>
+    <script>
+      // On Call essentials with no signal.
+      //
+      // Reads ONE key: the shared On Call copy the app already keeps in this
+      // browser (src/lib/on-call/entry-store.ts). It never fetches, never
+      // writes, and builds every node with textContent, so nothing it reads is
+      // ever parsed as markup. Personal entries are never in that copy, and it is
+      // removed on sign-out; this script also refuses personal rows, a copy
+      // older than seven days, a demo preview, and anything malformed, showing
+      // nothing rather than guessing. Editing this script changes its CSP hash:
+      // update next.config.ts (the offline.html header) in the same change.
+      (function () {
+        var CACHE_KEY = "clinical-kb-on-call-entries-cache";
+        var DEMO_KEY = "clinical-kb-on-call-demo-preview";
+        var MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+        var MAX_CONTACTS = 40;
+        var MAX_LADDERS = 12;
+
+        function read() {
+          try {
+            if (window.localStorage.getItem(DEMO_KEY) === "1") return null;
+            var raw = window.localStorage.getItem(CACHE_KEY);
+            if (!raw) return null;
+            var data = JSON.parse(raw);
+            if (!data || typeof data.savedAt !== "string" || !Array.isArray(data.entries)) return null;
+            var savedAt = Date.parse(data.savedAt);
+            var age = Date.now() - savedAt;
+            if (!isFinite(age) || age < 0 || age >= MAX_AGE_MS) return null;
+            return { savedAt: new Date(savedAt), entries: data.entries };
+          } catch (error) {
+            return null;
+          }
+        }
+
+        function text(value) {
+          return typeof value === "string" && value.trim() ? value.trim() : "";
+        }
+
+        function telHref(value) {
+          var digits = text(value).replace(/[^0-9+]/g, "");
+          return digits.replace(/\D/g, "").length >= 3 ? "tel:" + digits : "";
+        }
+
+        function el(tag, className, content) {
+          var node = document.createElement(tag);
+          if (className) node.className = className;
+          if (content) node.textContent = content;
+          return node;
+        }
+
+        function callButton(label, number) {
+          var href = telHref(number);
+          if (!href) return null;
+          var link = el("a", "call", label + " " + text(number));
+          link.href = href;
+          return link;
+        }
+
+        function row(name, metaParts, calls) {
+          var item = el("li");
+          item.appendChild(el("span", "name", name));
+          var meta = metaParts.filter(Boolean).join(" · ");
+          if (meta) item.appendChild(el("span", "meta", meta));
+          var buttons = calls.filter(Boolean);
+          if (buttons.length) {
+            var holder = el("div", "calls");
+            buttons.forEach(function (button) {
+              holder.appendChild(button);
+            });
+            item.appendChild(holder);
+          }
+          return item;
+        }
+
+        var saved = read();
+        if (!saved) return;
+        var shared = saved.entries.filter(function (entry) {
+          return entry && typeof entry === "object" && entry.isPersonal !== true && text(entry.title);
+        });
+
+        var contacts = shared
+          .filter(function (entry) {
+            var details = entry.details || {};
+            return entry.section === "contacts" && details.kind !== "role-explainer";
+          })
+          .sort(function (a, b) {
+            function rank(entry) {
+              var details = entry.details || {};
+              if (/switchboard/i.test(text(entry.title) + " " + text(details.role))) return 0;
+              return entry.includeOnCard === true ? 1 : 2;
+            }
+            return rank(a) - rank(b) || (a.sortOrder || 0) - (b.sortOrder || 0);
+          })
+          .slice(0, MAX_CONTACTS);
+
+        var ladders = shared
+          .filter(function (entry) {
+            var details = entry.details || {};
+            return (
+              entry.section === "playbook" && Array.isArray(details.escalationSteps) && details.escalationSteps.length
+            );
+          })
+          .sort(function (a, b) {
+            return (b.includeOnCard === true) - (a.includeOnCard === true) || (a.sortOrder || 0) - (b.sortOrder || 0);
+          })
+          .slice(0, MAX_LADDERS);
+
+        if (!contacts.length && !ladders.length) return;
+
+        var lists = document.getElementById("on-call-offline-lists");
+        if (contacts.length) {
+          lists.appendChild(el("h3", "", "Numbers"));
+          var numberList = el("ul");
+          numberList.setAttribute("data-testid", "on-call-offline-contacts");
+          contacts.forEach(function (entry) {
+            var details = entry.details || {};
+            numberList.appendChild(
+              row(
+                text(entry.title),
+                [
+                  text(details.role),
+                  text(details.contactName),
+                  text(details.extension) && "ext " + text(details.extension),
+                  text(details.pager) && "pager " + text(details.pager),
+                  text(details.availability),
+                ],
+                [callButton("Call", details.phone), callButton("After hours", details.afterHoursPhone)],
+              ),
+            );
+          });
+          lists.appendChild(numberList);
+        }
+
+        if (ladders.length) {
+          lists.appendChild(el("h3", "", "Escalation"));
+          ladders.forEach(function (entry) {
+            lists.appendChild(el("p", "name", text(entry.title)));
+            var steps = el("ol");
+            steps.setAttribute("data-testid", "on-call-offline-ladder");
+            entry.details.escalationSteps
+              .slice()
+              .sort(function (a, b) {
+                return (a.order || 0) - (b.order || 0);
+              })
+              .forEach(function (step, index) {
+                if (!step || !text(step.whoToCall)) return;
+                var hours = step.hours === "in-hours" ? "in hours" : step.hours === "after-hours" ? "after hours" : "";
+                steps.appendChild(
+                  row(
+                    index + 1 + ". " + text(step.whoToCall),
+                    [text(step.when), hours],
+                    [callButton("Call", step.phone)],
+                  ),
+                );
+              });
+            lists.appendChild(steps);
+          });
+        }
+
+        var when = saved.savedAt.toLocaleString("en-AU", {
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        document.getElementById("on-call-offline-saved").textContent =
+          "Saved copy from " + when + ". Numbers may have changed since. If one does not work, call switchboard.";
+        document.getElementById("on-call-offline").hidden = false;
+      })();
+    </script>
   </body>
 </html>
