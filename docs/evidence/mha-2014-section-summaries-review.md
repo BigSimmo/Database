@@ -13,6 +13,70 @@ signs off by confirming the summary against the Act text quoted here, then setti
 
 ---
 
+### s25 — Criteria for involuntary treatment order
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)A person is in need of an inpatient treatment order only if all of these criteria are satisfied —
+>
+> (a)that the person has a mental illness for which the person is in need of treatment;
+>
+> (b)that, because of the mental illness, there is —
+>
+> (i)a significant risk to the health or safety of the person or to the safety of another person; or
+>
+> (ii)a significant risk of serious harm to the person or to another person;
+>
+> (c)that the person does not demonstrate the capacity required by section 18 to make a treatment decision about the provision of the treatment to himself or herself;
+>
+> (d)that treatment in the community cannot reasonably be provided to the person;
+>
+> (e)that the person cannot be adequately provided with treatment in a way that would involve less restriction on the person’s freedom of choice and movement than making an inpatient treatment order.
+>
+> (2)A person is in need of a community treatment order only if all of these criteria are satisfied —
+>
+> (a)that the person has a mental illness for which the person is in need of treatment;
+>
+> (b)that, because of the mental illness, there is —
+>
+> (i)a significant risk to the health or safety of the person or to the safety of another person; or
+>
+> (ii)a significant risk of serious harm to the person or to another person; or
+>
+> (iii)a significant risk of the person suffering serious physical or mental deterioration;
+>
+> (c)that the person does not demonstrate the capacity required by section 18 to make a treatment decision about the provision of the treatment to himself or herself;
+>
+> (d)that treatment in the community can reasonably be provided to the person;
+>
+> (e)that the person cannot be adequately provided with treatment in a way that would involve less restriction on the person’s freedom of choice and movement than making a community treatment order.
+>
+> (3)A decision whether or not a person is in need of an inpatient treatment order or a community treatment order must be made having regard to the guidelines published under section 547(1)(a) for that purpose.
+>
+> Note for this Division:
+>
+> Part 21 Division 3 confers jurisdiction on the Mental Health Tribunal to conduct reviews relating to involuntary patients.
+>
+> Division 2
+>
+> —
+>
+> Referrals for examination
+>
+> Subdivision 1 — Person suspected of needing involuntary treatment order
+
+**Drafted summary** (status: drafted)
+
+> A person needs an inpatient treatment order only if all five criteria are met: (a) a mental illness for which they need treatment; (b) because of that illness, a significant risk to the health or safety of the person or to the safety of another person, or a significant risk of serious harm to the person or another person; (c) they do not demonstrate the capacity required by s 18 to make a treatment decision about that treatment; (d) treatment in the community cannot reasonably be provided; and (e) they cannot be adequately treated in a way that is less restrictive of their freedom of choice and movement than an inpatient treatment order. A community treatment order requires the same illness and capacity criteria. Its risk criterion also includes a significant risk of the person suffering serious physical or mental deterioration, and it requires that treatment in the community can reasonably be provided and that the person cannot be adequately treated in a less restrictive way than a community treatment order. Either decision must be made having regard to the guidelines published under s 547(1)(a).
+
+Cited by: Act and Standards page (Criteria for an involuntary treatment order)
+
+Source text SHA-256: `32ea60ae9183c28428a2e9e5d8b8d9402a54c950028e94211488f951afffb7ad`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
 ### s26 — Referral for examination at authorised hospital or other place
 
 **Act text (02-b0-02, as at 2025-09-25)**
@@ -1483,6 +1547,120 @@ Reviewed by: ______________________ Date: ______________
 
 ---
 
+### s114 — Things psychiatrist must be satisfied of before making order
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> A psychiatrist cannot make a community treatment order in respect of a person unless satisfied of these things —
+>
+> (a)treatment of the person in the community would not be inconsistent with the person’s need to be provided with treatment for a reason specified in section 25(2)(b);
+>
+> (b)suitable arrangements can be made for the treatment and care of the person in the community, including —
+>
+> (i)arrangements for a psychiatrist to be the supervising psychiatrist under the order; and
+>
+> (ii)arrangements for a medical practitioner or mental health practitioner to be the treating practitioner under the order.
+>
+> Note for this section:
+>
+> The supervising psychiatrist can also be the treating practitioner (see section 136(2)(b)).
+
+**Drafted summary** (status: drafted)
+
+> A psychiatrist cannot make a community treatment order unless satisfied of two things: that treating the person in the community would not be inconsistent with their need for treatment for a reason in s 25(2)(b); and that suitable arrangements can be made for their treatment and care in the community, including a psychiatrist to be the supervising psychiatrist and a medical practitioner or mental health practitioner to be the treating practitioner. The supervising psychiatrist can also be the treating practitioner (s 136(2)(b)).
+
+Cited by: Act and Standards page (Community treatment orders: making and duration)
+
+Source text SHA-256: `3b43ef6f683d6306f33e9baf75f0f9530e8e071cc7bf1e39cf5d61c907e5b0c9`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s115 — Terms of order
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)The terms of a community treatment order must include these things —
+>
+> (a)the name of the psychiatrist who is the supervising psychiatrist under the order;
+>
+> (b)a requirement that the involuntary community patient comply with all of the supervising psychiatrist’s directions to the patient about treatment to be provided to the patient under the order;
+>
+> (c)the name of the medical practitioner or mental health practitioner who is the treating practitioner under the order;
+>
+> (d)the date and time when the order is made;
+>
+> (e)the date and time when the order comes into force, which must be within 7 days after the date and time when the order is made;
+>
+> (f)the treatment period for which the order remains in force as specified under subsection (2);
+>
+> (g)a requirement that the involuntary community patient notify the supervising psychiatrist or treating practitioner of any change in the patient’s residential address;
+>
+> (h)a requirement that the involuntary community patient notify the supervising psychiatrist or treating practitioner of any interstate or overseas travel by the patient —
+>
+> (i)at least 7 days before the day of the patient’s departure; or
+>
+> (ii)if the patient cannot comply with subparagraph (i) because the patient needs to travel urgently — as soon as it is practicable for the patient to give notice of the travel.
+>
+> (2)For subsection (1)(f), the treatment period specified in a community treatment order when it is made cannot exceed 3 months from the day on which it is made.
+>
+> Notes for this section:
+>
+> 1.The supervising psychiatrist can also be the treating practitioner (see section 136(2)(b)).
+>
+> 2.The terms of a community treatment order may require the involuntary community patient to be provided with treatment by a mental health service in another State or a Territory (see section 559).
+>
+> Division 3
+>
+> —
+>
+> Operation of order
+
+**Drafted summary** (status: drafted)
+
+> A community treatment order must name the supervising psychiatrist and the treating practitioner; require the patient to comply with all of the supervising psychiatrist's directions about treatment under the order; record the date and time it is made and the date and time it comes into force, which the Act says “must be within 7 days after the date and time when the order is made”; state its treatment period; and require the patient to notify the supervising psychiatrist or treating practitioner of any change of residential address and of any interstate or overseas travel — “at least 7 days before the day of the patient’s departure”, or as soon as practicable if the travel is urgent. The treatment period specified when the order is made “cannot exceed 3 months from the day on which it is made”. The terms may require treatment by a mental health service in another State or a Territory (s 559).
+
+Cited by: Act and Standards page (Community treatment orders: making and duration)
+
+Source text SHA-256: `ca88a006d55e75b19b1f5a9273e35f60375c5f3170136d9265d55ebb06218b6d`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s116 — Duration of order
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> A community treatment order remains in force until the first of these things occurs —
+>
+> (a)the supervising psychiatrist makes an inpatient treatment order under section 120(2)(a), 123(1)(a) or 131(2)(a) in respect of the involuntary community patient;
+>
+> (b)a psychiatrist makes an inpatient treatment order under any other provision of this Act in respect of the involuntary community patient;
+>
+> (c)the supervising psychiatrist revokes the order under section 120(2)(b) or 131(2)(b);
+>
+> (d)the expiry of the treatment period for the order unless the order has been continued under a continuation order.
+>
+> Notes for this section:
+>
+> 1.In addition to the provisions referred to in section 116(a), an inpatient treatment order authorising a person’s detention at an authorised hospital can be made under section 55(1)(a), 56(1)(a)(i) or 72(1)(a) or at a general hospital under section 61(1)(a).
+>
+> 2.A community treatment order may be suspended under section 30 or 33.
+
+**Drafted summary** (status: drafted)
+
+> A community treatment order stays in force until the first of these happens: the supervising psychiatrist makes an inpatient treatment order under s 120(2)(a), 123(1)(a) or 131(2)(a); any psychiatrist makes an inpatient treatment order under another provision of the Act; the supervising psychiatrist revokes it under s 120(2)(b) or 131(2)(b); or its treatment period expires, unless it has been continued under a continuation order. A community treatment order may also be suspended under s 30 or 33.
+
+Cited by: Act and Standards page (Community treatment orders: making and duration)
+
+Source text SHA-256: `98ed3c31b85d47a4463b6a69ed3fb94d60443705f619142955089af978bdb760`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
 ### s118 — Monthly examination of patient
 
 **Act text (02-b0-02, as at 2025-09-25)**
@@ -2095,6 +2273,206 @@ Reviewed by: ______________________ Date: ______________
 
 ---
 
+### s139 — Right of any carer, close family member or other personal support person to be notified
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)Any carer, close family member or other personal support person of a person is entitled to be notified, as soon as practicable, that a notifiable event has occurred in respect of the person.
+>
+> (2)However, the entitlement of a carer, close family member or other personal support person to be notified under subsection (1) is subject to section 142.
+
+**Drafted summary** (status: drafted)
+
+> Any carer, close family member or other personal support person of a person is entitled to be notified, “as soon as practicable”, that a notifiable event has occurred for that person. The entitlement is subject to the best-interests exceptions in s 142.
+
+Cited by: Act and Standards page (Notifying carers, close family members and other personal support persons)
+
+Source text SHA-256: `422c1c487d4cbc665f98ffee047e0d0fc3746213e1e6dffdc7741f11ea0a83c2`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s140 — Person responsible required to notify any carer, close family member or other personal support person
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)The person responsible under this Part for notification of a notifiable event must ensure that, as soon as practicable after the event occurs in respect of a person, any carer, close family member or other personal support person of the person is notified of the event.
+>
+> (2)However, the person responsible is not required to notify a carer, close family member or other personal support person of a notifiable event if the carer, close family member or other personal support person is not entitled, for a reason referred to in section 142(1) or (2), to be notified of the event.
+>
+> Note for this section:
+>
+> Any notification provided under section 140(1) must be provided in accordance with section 9(2).
+
+**Drafted summary** (status: drafted)
+
+> The person responsible under Part 9 for notifying a notifiable event must ensure that any carer, close family member or other personal support person of the person is notified “as soon as practicable after the event occurs”. They need not notify someone who is not entitled to be notified for a reason in s 142(1) or (2). The notification must be given in accordance with s 9(2).
+
+Cited by: Act and Standards page (Notifying carers, close family members and other personal support persons)
+
+Source text SHA-256: `a71a65ce5b732fce78bf7e2597f586903b5fb1aaa5f4b79fe0aff0dc016d7de6`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s141 — Reasonable efforts to notify carer, close family member or other personal support person
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)Without limiting the requirement under section 140(1), the requirement is taken to have been complied with if the person responsible for notification ensures that reasonable efforts to notify any carer, close family member or other personal support person of the notifiable event continue to be made until the first of these things occurs —
+>
+> (a)at least one carer, close family member or other personal support person is notified of the notifiable event; or
+>
+> (b)it is reasonable for the person responsible to conclude that no carer, close family member or other personal support person can be notified of the notifiable event.
+>
+> (2)The person responsible must ensure that one of the following is filed —
+>
+> (a)a record of when and how any carer, close family member or other personal support person was notified under section 140(1) of the notifiable event;
+>
+> (b)if no carer, close family member or other personal support person has been notified under section 140(1) of the notifiable event — a record of the reasons for that and any efforts made to do so.
+
+**Drafted summary** (status: drafted)
+
+> The duty to notify under s 140(1) is taken to be met if reasonable efforts to notify continue until at least one carer, close family member or other personal support person has been notified, or until it is reasonable to conclude that none can be. The person responsible must file either a record of when and how each was notified or, if nobody was notified, a record of the reasons and of the efforts made.
+
+Cited by: Act and Standards page (Notifying carers, close family members and other personal support persons)
+
+Source text SHA-256: `776b42d6d16b91c8dad71c247e4d94ff1ec2d4b6791a0a605763caa8fb74e4bf`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s142 — Notification not in person’s best interests
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)A carer, close family member or other personal support person is not entitled to be notified under section 140(1) of the making of an order under section 28(1) or (2) for the detention or further detention of a person, or the making of a transport order under section 29(1) in respect of a person, if the medical practitioner or authorised mental health practitioner who makes the order reasonably believes that it is not in the best interests of the person for the carer, close family member or other personal support person to be notified of the making of the order.
+>
+> (2)A carer, close family member or other personal support person is not entitled to be notified under section 140(1) of any other notifiable event that occurs in respect of a person if a psychiatrist believes that it is not in the best interests of the person for the carer, close family member or other personal support person to be notified of the event.
+>
+> (3)A practitioner or psychiatrist who decides under subsection (1) or (2) that a carer, close family member or other personal support person is not entitled to be notified of a notifiable event must, as soon as practicable —
+>
+> (a)file a record of the decision and the reasons for it; and
+>
+> (b)give a copy to the Chief Mental Health Advocate.
+>
+> Note for this section:
+>
+> For the purpose of deciding under section 142(1) or (2) what is or is not in the best interests of a person, Part 2 Division 3 applies.
+
+**Drafted summary** (status: drafted)
+
+> A carer, close family member or other personal support person is not entitled to be notified of a detention order under s 28(1) or (2), or a transport order under s 29(1), if the medical practitioner or authorised mental health practitioner who made the order reasonably believes notifying them is not in the person's best interests. For any other notifiable event, they are not entitled to be notified if a psychiatrist believes it is not in the person's best interests. A practitioner or psychiatrist who decides this must, as soon as practicable, file a record of the decision and the reasons and give a copy to the Chief Mental Health Advocate. Best interests are decided under Part 2 Division 3.
+
+Cited by: Act and Standards page (Notifying carers, close family members and other personal support persons)
+
+Source text SHA-256: `e1d7e2d7807cb6d86126b63ea9d9a05f797cc8641f3c6a9b9844b8c6eb1d0bf0`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s143 — Advising carer, close family member or other personal support person of decision
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)A practitioner or psychiatrist who decides under section 142 that a carer, close family member or other personal support person is not entitled to be notified of a notifiable event must, if the carer, close family member or other personal support person requests to be notified of the event —
+>
+> (a)advise the carer, close family member or other personal support person of the decision and the reasons for it; and
+>
+> (b)file a record of the advice and give a copy to the person in respect of whom the notifiable event occurs.
+>
+> (2)A carer, close family member or other personal support person to whom advice is provided orally under subsection (1)(a) may request the practitioner or psychiatrist who provided the advice to confirm the advice in writing.
+>
+> (3)The practitioner or psychiatrist must —
+>
+> (a)comply with the request; and
+>
+> (b)file a copy of the confirmation and give another copy to the person in respect of whom the notifiable event occurs.
+>
+> Note for this section:
+>
+> Any advice provided under section 143(1)(a) or (3)(a) must be provided in accordance with section 9(2).
+
+**Drafted summary** (status: drafted)
+
+> If a carer, close family member or other personal support person who is not entitled to notification under s 142 asks to be notified of the event, the practitioner or psychiatrist who made that decision must advise them of the decision and the reasons, file a record of that advice, and give a copy to the person the event concerns. If the advice was given orally, the carer, family member or support person may ask for it to be confirmed in writing; the practitioner or psychiatrist must do so, file a copy and give another copy to the person. The advice must be given in accordance with s 9(2).
+
+Cited by: Act and Standards page (Notifying carers, close family members and other personal support persons)
+
+Source text SHA-256: `743b0a0b6c35a2930e3e49e38fc19c33a72f33e26b13b08d1aeeab330892fcb3`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s145 — Making, revocation or expiry of involuntary treatment order
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)The person responsible under this Part for notification of the making of an involuntary treatment order must ensure that, as soon as practicable, each of the persons and bodies specified in subsection (4) is —
+>
+> (a)given a copy of the involuntary treatment order; and
+>
+> (b)either —
+>
+> (i)given the name and contact details of any carer, close family member or other personal support person who has been notified under section 140(1) of the making of the involuntary treatment order, to the extent that information is known to the person responsible; or
+>
+> (ii)if no carer, close family member or other personal support person has been notified under section 140(1) of the making of the involuntary treatment order — advised of that and the reasons for it.
+>
+> (2)The person responsible under this Part for notification of the making of an order revoking an involuntary treatment order must ensure that, as soon as practicable, each of the persons and bodies specified in subsection (4) is given a copy of the order.
+>
+> (3)The person responsible under this Part for notification of the expiry of an involuntary treatment order must ensure that, as soon as practicable, each of the persons and bodies specified in subsection (4) is advised in writing of the expiry.
+>
+> (4)For subsections (1), (2) and (3), each of these persons and bodies is specified —
+>
+> (a)the Chief Mental Health Advocate;
+>
+> (b)the Mental Health Tribunal;
+>
+> (c)if the involuntary patient is a supervised person — the Mental Impairment Review Tribunal.
+>
+> (5)The person responsible must ensure that the following are filed —
+>
+> (a)a record of —
+>
+> (i)each person or body to whom a copy of an order is given under subsection (1)(a) or (2) or advice is provided under subsection (3); and
+>
+> (ii)the date on which the copy is given or the advice provided to that person or body;
+>
+> (b)a record of —
+>
+> (i)each person or body to whom any information referred to in subsection (1)(b) is provided; and
+>
+> (ii)details of the information provided to that person or body; and
+>
+> (iii)the date on which the information is provided to that person or body.
+>
+> [Section 145 amended: No. 10 of 2023 s. 359.]
+>
+> Division 4
+>
+> —
+>
+> Notification of Mental Impairment Review Tribunal about absence of supervised persons
+>
+> [Heading inserted: No. 10 of 2023 s. 360.]
+
+**Drafted summary** (status: drafted)
+
+> When an involuntary treatment order is made, the person responsible for notification must ensure, as soon as practicable, that the Chief Mental Health Advocate, the Mental Health Tribunal and, if the patient is a supervised person, the Mental Impairment Review Tribunal are each given a copy of the order, together with the name and contact details of any carer, close family member or other personal support person notified under s 140(1) (so far as known) or, if none was notified, advice of that and the reasons. The same people and bodies must be given a copy of any order revoking an involuntary treatment order, and advised in writing when one expires. Records must be filed of who was given each copy, advice or piece of information, what was provided, and the date.
+
+Cited by: Act and Standards page (Mental health advocates: notification and contact)
+
+Source text SHA-256: `8693156d8e75640097c74563a1c4188afe7b1bb856b8c22515667cae5d4f735f`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
 ### s148 — Making transport order
 
 **Act text (02-b0-02, as at 2025-09-25)**
@@ -2374,6 +2752,188 @@ Reviewed by: ______________________ Date: ______________
 Cited by: Form 8B
 
 Source text SHA-256: `bdd98897338d046629babda875aa755ef59c3288517e2a3473d24c4524dbe6d8`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s194 — ECT on child under 14 years prohibited
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> A person cannot perform electroconvulsive therapy on a child under 14 years of age.
+
+**Drafted summary** (status: drafted)
+
+> No one may perform electroconvulsive therapy on a child under 14 years of age.
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `68c2637a0dced873046a5abcb406b6ff55ba41f35708100fdc8871f85f025a52`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s195 — ECT on child over 14 years who is voluntary patient
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)This section applies in relation to a child who has reached 14 years of age but is under 18 years of age and is a voluntary patient.
+>
+> (2)A medical practitioner can perform electroconvulsive therapy on the child if —
+>
+> (a)informed consent is given to the electroconvulsive therapy being performed; and
+>
+> (b)the Mental Health Tribunal approves under Part 21 Division 6 the electroconvulsive therapy being performed; and
+>
+> (c)in performing the electroconvulsive therapy, the medical practitioner has regard to the guidelines published under section 547(1)(f) for that purpose.
+>
+> Note for this section:
+>
+> For section 195(2)(a), the child or the child’s parent or guardian can give informed consent (see sections 14 and 15).
+
+**Drafted summary** (status: drafted)
+
+> For a voluntary patient who is at least 14 but under 18 years of age, a medical practitioner can perform ECT only if informed consent is given, the Mental Health Tribunal approves it under Part 21 Division 6, and the practitioner has regard to the guidelines published under s 547(1)(f). The child, or the child's parent or guardian, can give the informed consent (ss 14 and 15).
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `190177e2391391f510f5a09d91013bf0d6ec24015c91e4e952e2fc09b6fcdd3b`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s196 — ECT on child over 14 years who is involuntary patient or supervised person
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)This section applies in relation to a child who has reached 14 years of age but is under 18 years of age and is —
+>
+> (a)an involuntary patient; or
+>
+> (b)a patient who is a supervised person required under the CLMI Act to be detained at an authorised hospital.
+>
+> (2)A medical practitioner can perform electroconvulsive therapy on the child if —
+>
+> (a)the Mental Health Tribunal approves under Part 21 Division 6 the electroconvulsive therapy being performed; and
+>
+> (b)in performing the electroconvulsive therapy, the medical practitioner has regard to the guidelines published under section 547(1)(f) for that purpose.
+>
+> [Section 196 amended: No. 10 of 2023 s. 363.]
+
+**Drafted summary** (status: drafted)
+
+> For a child who is at least 14 but under 18 years of age and is an involuntary patient, or a supervised person required under the CLMI Act to be detained at an authorised hospital, a medical practitioner can perform ECT only if the Mental Health Tribunal approves it under Part 21 Division 6 and the practitioner has regard to the guidelines published under s 547(1)(f).
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `d229556cb00ff382d4ed4aad89b157e2443763c76823c2142b695dd4672f18eb`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s197 — ECT on adult voluntary patient
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)This section applies in relation to an adult who is a voluntary patient.
+>
+> (2)A medical practitioner can perform electroconvulsive therapy on the patient if —
+>
+> (a)informed consent is given to the electroconvulsive therapy being performed; and
+>
+> (b)the electroconvulsive therapy is performed at a mental health service approved under section 544 for that purpose; and
+>
+> (c)in performing the electroconvulsive therapy, the medical practitioner has regard to the guidelines published under section 547(1)(f) for that purpose.
+>
+> Notes for this section:
+>
+> 1.For section 197(2)(a), an adult can give informed consent in an advance health directive (see the GAA Act section 110ZJ(2)) or an adult’s enduring guardian or guardian or the person responsible for the adult can give informed consent on the adult’s behalf (see the GAA Act section 110ZJ(3) to (5)).
+>
+> 2.The GAA Act sections 110ZI and 110ZIA do not apply in relation to the performance of ECT on an adult who is a voluntary patient.
+
+**Drafted summary** (status: drafted)
+
+> For an adult voluntary patient, a medical practitioner can perform ECT only if informed consent is given, it is performed at a mental health service approved under s 544 for that purpose, and the practitioner has regard to the guidelines published under s 547(1)(f). Informed consent can be given in an advance health directive, or on the adult's behalf by their enduring guardian, guardian or person responsible (GAA Act s 110ZJ). GAA Act ss 110ZI and 110ZIA do not apply to ECT on an adult voluntary patient.
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `ed7bc294eec9e089addea27617daaedc1681a987b092c604a98d85190da6a833`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s198 — ECT on adult involuntary patient or supervised person
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)This section applies in relation to an adult who is —
+>
+> (a)an involuntary patient; or
+>
+> (b)a patient who is a supervised person required under the CLMI Act to be detained at an authorised hospital.
+>
+> (2)A medical practitioner can perform electroconvulsive therapy on the patient if —
+>
+> (a)the Mental Health Tribunal approves under Part 21 Division 6 the electroconvulsive therapy being performed; and
+>
+> (b)in performing the electroconvulsive therapy, the medical practitioner has regard to the guidelines published under section 547(1)(f) for that purpose.
+>
+> [Section 198 amended: No. 10 of 2023 s. 364.]
+
+**Drafted summary** (status: drafted)
+
+> For an adult involuntary patient, or a supervised person required under the CLMI Act to be detained at an authorised hospital, a medical practitioner can perform ECT only if the Mental Health Tribunal approves it under Part 21 Division 6 and the practitioner has regard to the guidelines published under s 547(1)(f).
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `15c0a8645a477808be512a8c6384031d705268d4c2b66cbdeba7a242b3ed9066`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s199 — Emergency ECT on adult involuntary patient or supervised person
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)This section applies in relation to an adult who is —
+>
+> (a)an involuntary patient; or
+>
+> (b)a patient who is a supervised person required under the CLMI Act to be detained at an authorised hospital.
+>
+> (2)A medical practitioner can perform electroconvulsive therapy on the patient if —
+>
+> (a)the patient needs to be provided with electroconvulsive therapy —
+>
+> (i)to save the patient’s life; or
+>
+> (ii)because there is an imminent risk of the patient behaving in a way that is likely to result in serious physical injury to the patient or another person;
+>
+> and
+>
+> (b)the electroconvulsive therapy is performed at a mental health service approved under section 544 for that purpose; and
+>
+> (c)the Chief Psychiatrist approves the electroconvulsive therapy being performed; and
+>
+> (d)in performing the electroconvulsive therapy, the medical practitioner has regard to the guidelines published under section 547(1)(f) for that purpose.
+>
+> (3)In approving the electroconvulsive therapy being performed, the Chief Psychiatrist must have regard to the guidelines published under section 547(1)(f) for that purpose.
+>
+> [Section 199 amended: No. 10 of 2023 s. 365.]
+
+**Drafted summary** (status: drafted)
+
+> Emergency ECT on an adult involuntary patient, or a supervised person required under the CLMI Act to be detained at an authorised hospital, can be performed only if it is needed to save the patient's life, or because there is an imminent risk of the patient behaving in a way likely to result in serious physical injury to the patient or another person; it is performed at a mental health service approved under s 544 for that purpose; the Chief Psychiatrist approves it; and the practitioner has regard to the guidelines published under s 547(1)(f). The Chief Psychiatrist must also have regard to those guidelines when approving it.
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `c1bad1717841710210dece20d8ed83d0b095ca2c9efa8ed82ebde13e92109b9f`
 
 Reviewed by: ______________________ Date: ______________
 
@@ -3434,6 +3994,588 @@ Reviewed by: ______________________ Date: ______________
 Cited by: Form 12A
 
 Source text SHA-256: `07dbdf7f9569e9ad1f31595d7c7236f7c2562020f6697430a871e2c71cabb768`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s348 — Terms used
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> In this Part —
+>
+> accused
+>
+> has the meaning given in the CLMI Act section 9(1);
+>
+> identified person
+>
+> means any of these people —
+>
+> (a)a person who is referred under section 26(2) or (3)(a) or 36(2) for an examination to be conducted by a psychiatrist;
+>
+> (b)a voluntary inpatient who is under an order made under section 34(1) for the assessment of the voluntary patient;
+>
+> (c)a person who is under an order made under section 55(1)(c) or 61(1)(c) to enable an examination to be conducted by a psychiatrist;
+>
+> (d)an involuntary patient;
+>
+> (e)an accused required under the CLMI Act section 19 to be detained at an authorised hospital;
+>
+> (f)a supervised person required under the CLMI Act to be detained at an authorised hospital;
+>
+> (g)a supervised person required to undergo treatment (as defined in section 4 of this Act) as a condition of one of the following under the CLMI Act —
+>
+> (i)a community supervision order;
+>
+> (ii)an interim community supervision order;
+>
+> (iii)an extended community supervision order;
+>
+> (iv)a leave of absence order of the kind described in the CLMI Act section 79(2);
+>
+> (v)an interim disposition under the CLMI Act section 205(1)(b);
+>
+> (h)a person who is, for the purposes of the
+>
+> Private Hospitals and Health Services Act 1927
+>
+> Part IIIB, a resident of a private psychiatric hostel;
+>
+> (i)a person who —
+>
+> (i)has or may have a mental illness; and
+>
+> (ii)is being provided with treatment or care by a body or organisation that is prescribed by the regulations for this paragraph;
+>
+> (j)a voluntary patient who is not a person referred to in paragraph (a), (b), (c), (e), (g), (h) or (i), but only if the voluntary patient is in a class that the Minister directs under section 354 is a class of identified person for the purposes of this paragraph;
+>
+> Note for this definition:
+>
+> Mental health advocacy services can also be provided under the CLMI Act Part 8. The CLMI Act section 139 provides for continuity of the provision of advocacy services between that Act and this Act.
+>
+> mental health service
+>
+> includes a private psychiatric hostel.
+>
+> [Section 348 amended: No. 11 of 2016 s. 296(5); No. 10 of 2023 s. 379.]
+>
+> Division 2
+>
+> —
+>
+> Mental health advocates: appointment or engagement, functions and powers
+>
+> Subdivision 1 — Appointment or engagement, functions and powers
+
+**Drafted summary** (status: drafted)
+
+> Defines terms for Part 20 (mental health advocacy services). An “identified person” — the people mental health advocates serve — includes: a person referred for examination by a psychiatrist under s 26(2) or (3)(a) or 36(2); a voluntary inpatient under an assessment order under s 34(1); a person under an order under s 55(1)(c) or 61(1)(c) enabling a psychiatrist's examination; any involuntary patient; an accused required under the CLMI Act s 19 to be detained at an authorised hospital; a supervised person required under the CLMI Act to be detained at an authorised hospital, or required to undergo treatment as a condition of one of the listed CLMI Act orders; a resident of a private psychiatric hostel; a person who has or may have a mental illness and is being treated or cared for by a body prescribed by the regulations; and a voluntary patient in a class the Minister directs under s 354. A “mental health service” in this Part includes a private psychiatric hostel.
+
+Cited by: Act and Standards page (Mental health advocates: notification and contact)
+
+Source text SHA-256: `ba13376516e33569f584c0db61767d53ce4f19f2fc02f3cec9c60b3060cad68a`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s356 — Request to contact identified person
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)A request for an identified person to be contacted by a mental health advocate may be made by —
+>
+> (a)the identified person; or
+>
+> (b)the identified person’s psychiatrist; or
+>
+> (c)a person who has a sufficient interest in the identified person.
+>
+> (2)The request may be made to —
+>
+> (a)the mental health service where the identified person is being detained or that is providing treatment or care to the identified person; or
+>
+> (b)the Chief Mental Health Advocate.
+>
+> (3)If the request is made to the mental health service, the person in charge of the mental health service must ensure that the Chief Mental Health Advocate is notified of the request as soon as practicable and, in any event, within 24 hours after the time when the request was made.
+
+**Drafted summary** (status: drafted)
+
+> A request for a mental health advocate to contact an identified person may be made by the person, their psychiatrist, or someone with a sufficient interest in them. It may be made to the mental health service detaining or treating the person, or to the Chief Mental Health Advocate. If it is made to the service, the person in charge must ensure the Chief Mental Health Advocate is notified of the request as soon as practicable and, in any event, “within 24 hours after the time when the request was made”.
+
+Cited by: Act and Standards page (Mental health advocates: notification and contact)
+
+Source text SHA-256: `0e87c7352fa690a6bd8b62160a42dfb86d0fcff8b5a9f7a23bc92e68e5a1d737`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s357 — Duty to contact identified person
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)An identified person under paragraph (a), (b), (c) or (e) of the definition of
+>
+> identified person
+>
+> in section 348 who is detained under section 28(1) or (2), 34(1), 52(1)(b), 53(1), 58(1)(b), 59(2), 62(1) or (2) or 70(1)(b) must be visited or otherwise contacted by a mental health advocate as soon as practicable and, in any event, on or within 3 days after the day on which the Chief Mental Health Advocate receives a request under section 356(2)(b), or is notified of a request under section 356(3), for the person to be contacted.
+>
+> (2)An identified person under paragraph (d) of the definition of
+>
+> identified person
+>
+> in section 348 who is under an involuntary treatment order made on or after the day on which this section commences must be visited or otherwise contacted by a mental health advocate —
+>
+> (a)if, when the order is made, the person is an adult — on or within 7 days after the day on which the involuntary treatment order is made; or
+>
+> (b)if, when the order is made, the person is a child — within 24 hours after the time when the involuntary treatment order is made.
+>
+> (3)An identified person under paragraph (d) of the definition of
+>
+> identified person
+>
+> in section 348 who is under an involuntary treatment order made —
+>
+> (a)before the day on which this section commences; or
+>
+> (b)on or after the day on which this section commences that has been in force for more than 7 days from the day on which the order is made,
+>
+> must be visited or otherwise contacted by a mental health advocate on or as soon as practicable after the day on which the Chief Mental Health Advocate receives a request under section 356(2)(b), or is notified of a request under section 356(3), for the person to be contacted.
+>
+> (4)An identified person under paragraph (f) of the definition of
+>
+> identified person
+>
+> in section 348 must be visited or otherwise contacted by a mental health advocate —
+>
+> (a)if, when detained, the person is an adult — within 7 days after the day on which the person is detained; or
+>
+> (b)if, when detained, the person is a child — within 24 hours after the person is detained.
+>
+> (5)An identified person under paragraph (g) of the definition of
+>
+> identified person
+>
+> in section 348 must be visited or otherwise contacted by a mental health advocate within 7 days (or 24 hours if the person is a child) after the day on which the Chief Mental Health Advocate —
+>
+> (a)receives a request for the person to be contacted under section 356(2)(b); or
+>
+> (b)is notified of a request for the person to be contacted under section 356(3).
+>
+> (6)An identified person under paragraph (h) or (i) of the definition of
+>
+> identified person
+>
+> in section 348 must be visited or otherwise contacted by a mental health advocate on or as soon as practicable after the day on which the Chief Mental Health Advocate receives a request under section 356(2)(b), or is notified of a request under section 356(3), for the person to be contacted and, in any event, within 7 days after that day.
+>
+> (7)An identified person under paragraph (j) of the definition of
+>
+> identified person
+>
+> in section 348 must be visited or otherwise contacted by a mental health advocate on or within a reasonable time after the day on which the Chief Mental Health Advocate receives a request under section 356(2)(b), or is notified of a request under section 356(3), for the person to be contacted.
+>
+> (8)Despite subsections (6) and (7), an identified person under paragraph (h), (i) or (j) of the definition of
+>
+> identified person
+>
+> in section 348 who is a child must be visited or otherwise contacted by a mental health advocate on or within 24 hours after the day on which the Chief Mental Health Advocate receives a request under section 356(2)(b), or is notified of a request under section 356(3), for the person to be contacted.
+>
+> [Section 357 amended: No. 10 of 2023 s. 380.]
+
+**Drafted summary** (status: drafted)
+
+> Sets when a mental health advocate must visit or otherwise contact an identified person; the deadline depends on which paragraph of the s 348 definition the person falls under. A person in paragraph (a), (b), (c) or (e) who is detained under one of the listed provisions (including s 28(1) or (2) and s 34(1)) must be contacted as soon as practicable and in any event “on or within 3 days after the day on which the Chief Mental Health Advocate receives a request” for contact, or is notified of one. An involuntary patient under an involuntary treatment order made on or after the section commenced must be contacted “on or within 7 days after the day on which the involuntary treatment order is made” if an adult, or “within 24 hours after the time when the involuntary treatment order is made” if a child. An involuntary patient whose order was made before the section commenced, or “has been in force for more than 7 days from the day on which the order is made”, must be contacted on or as soon as practicable after the Chief Mental Health Advocate receives, or is notified of, a request. A supervised person required under the CLMI Act to be detained at an authorised hospital must be contacted “within 7 days after the day on which the person is detained” if an adult, or “within 24 hours after the person is detained” if a child. A supervised person under paragraph (g) must be contacted “within 7 days (or 24 hours if the person is a child) after the day on which the Chief Mental Health Advocate” receives or is notified of a request. A person under paragraph (h) or (i) must be contacted on or as soon as practicable after a request is received or notified and, in any event, “within 7 days after that day”; a person under paragraph (j), within a reasonable time. Despite that, a child under paragraph (h), (i) or (j) must be contacted “on or within 24 hours after the day on which the Chief Mental Health Advocate receives a request” or is notified of one.
+
+Cited by: Act and Standards page (Mental health advocates: notification and contact)
+
+Source text SHA-256: `5ccf389aef3328b52308477db07edfdc1536268af10bc65160d023ff870aaf15`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s358 — Contact on mental health advocate’s own initiative
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> In addition to any requirement under section 357 to contact an identified person, a mental health advocate may, subject to any direction of the Chief Mental Health Advocate under section 359(3), visit or otherwise contact an identified person at any time.
+>
+> Subdivision 3 — Specific powers of mental health advocates
+
+**Drafted summary** (status: drafted)
+
+> In addition to the contact required by s 357, a mental health advocate may visit or otherwise contact an identified person at any time, subject to any direction of the Chief Mental Health Advocate under s 359(3).
+
+Cited by: Act and Standards page (Mental health advocates: notification and contact)
+
+Source text SHA-256: `0e44f4ac1e8d97a8a20ae6dc273da7176a42ca9e4c05202048e349ed9c022176`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s386 — Initial review after order made
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)In this section —
+>
+> initial review period
+>
+> , for an involuntary treatment order, means —
+>
+> (a)if, when the order is made, the involuntary patient is an adult — the period of 35 days from the day on which the order is made; or
+>
+> (b)if, when the order is made, the involuntary patient is a child — the period of 10 days from the day on which the order is made.
+>
+> (2)Unless subsection (4) or (5) applies, as soon as practicable after an involuntary treatment order is made and, in any event, by the end of the initial review period, the Tribunal must review the order to decide whether or not the involuntary patient is still in need of the involuntary treatment order having regard to the criteria specified in section 25.
+>
+> (3)It is sufficient for compliance with subsection (2) if the review is commenced in accordance with that provision and is completed as soon as practicable.
+>
+> (4)The Tribunal is not required to review the order under subsection (2) if the involuntary patient has not, under section 388, been an involuntary patient continuously since the order was made.
+>
+> (5)The Tribunal is not required to review the order under subsection (2) if —
+>
+> (a)the Tribunal has —
+>
+> (i)previously reviewed under this Division an involuntary treatment order made in respect of the involuntary patient; or
+>
+> (ii)previously reviewed under this Division the terms of a community treatment order that a psychiatrist has been directed under section 395(2)(b) to make in respect of the involuntary patient;
+>
+> and
+>
+> (b)the involuntary patient has, under section 388, been an involuntary patient continuously since the previous review.
+
+**Drafted summary** (status: drafted)
+
+> The Mental Health Tribunal must review each involuntary treatment order as soon as practicable after it is made, and in any event by the end of the initial review period, to decide whether the patient still needs the order having regard to the s 25 criteria. The initial review period is “the period of 35 days from the day on which the order is made” for an adult and “the period of 10 days from the day on which the order is made” for a child. It is enough that the review starts within that period and is completed as soon as practicable. No initial review is required if the person has not been an involuntary patient continuously (s 388) since the order was made, or if the Tribunal has already reviewed an earlier order for them (or the terms of a community treatment order it directed under s 395(2)(b)) and they have been continuously involuntary since that review.
+
+Cited by: Act and Standards page (Mental Health Tribunal review of involuntary treatment orders)
+
+Source text SHA-256: `65e3453e467fa4fc6b0bcbee5be01cf11ae614ba740a32b91bf1c64f70fa8f46`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s387 — Periodic reviews while order in force
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)In this section —
+>
+> last review
+>
+> , of an involuntary treatment order, means —
+>
+> (a)the last review of the order under section 386(2) or subsection (2); or
+>
+> (b)if the order has not been reviewed under either of those provisions because it was made after another involuntary treatment order was last reviewed under one or other of those provisions — the last review of that other order;
+>
+> last review day
+>
+> , for an involuntary treatment order, means the day on which the decision on the last review of the order is made;
+>
+> periodic review period
+>
+> means —
+>
+> (a)for an inpatient treatment order or for a community treatment order in respect of a patient who, on the last review day, has been an involuntary community patient continuously for not more than 12 months —
+>
+> (i)if, on the last review day, the involuntary patient is an adult — the period of 3 months from that day; or
+>
+> (ii)if, on the last review day, the involuntary patient is a child — the period of 28 days from that day;
+>
+> or
+>
+> (b)for a community treatment order in respect of a patient who, on the last review day, has been an involuntary community patient continuously for more than 12 months — the period of 6 months from that day;
+>
+> prescribed number of days
+>
+> , before the end of a periodic review period, means —
+>
+> (a)if, when the involuntary treatment order that is the subject of the proceeding was made, the involuntary patient is an adult — 21 days before the day on which that period ends; or
+>
+> (b)if, when the involuntary treatment order that is the subject of the proceeding was made, the involuntary patient was a child — 7 days before the day on which that period ends.
+>
+> (2)Unless subsection (4) applies, the Tribunal must, on or within the prescribed number of days before the day on which a periodic review period for an involuntary treatment order ends, review the order to decide whether or not the involuntary patient is still in need of the involuntary treatment order having regard to the criteria specified in section 25.
+>
+> (3)It is sufficient for compliance with subsection (2) if a review is commenced in accordance with that provision and is completed as soon as practicable.
+>
+> (4)The Tribunal is not required to review the order under subsection (2) if the involuntary patient has not, under section 388, been an involuntary patient continuously since the last review day.
+
+**Drafted summary** (status: drafted)
+
+> While an involuntary treatment order stays in force, the Tribunal must review it periodically — on or within the prescribed number of days before each periodic review period ends — to decide whether the patient still needs it having regard to the s 25 criteria. The periodic review period runs from the last review day. For an inpatient treatment order, or a community treatment order where on the last review day the patient “has been an involuntary community patient continuously for not more than 12 months”, it is “the period of 3 months from that day” for an adult and “the period of 28 days from that day” for a child. For a community treatment order where the patient “has been an involuntary community patient continuously for more than 12 months”, it is “the period of 6 months from that day”. The prescribed number of days is “21 days before the day on which that period ends” if the patient was an adult when the order was made, and “7 days before the day on which that period ends” if they were a child. Starting in time and finishing as soon as practicable is enough, and no periodic review is required if the patient has not been continuously involuntary (s 388) since the last review day.
+
+Cited by: Act and Standards page (Mental Health Tribunal review of involuntary treatment orders)
+
+Source text SHA-256: `aefc4e5d6a3faff9c5469c6977c87779fdba723337808b85dab17395d1ad5491`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s388 — Involuntary patient for continuous period
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> For sections 386(4) and (5)(b) and 387(4), a person has been an involuntary patient continuously for a period if —
+>
+> (a)one, or a series of 2 or more, involuntary treatment orders were in force in respect of the person for the whole period; or
+>
+> (b)during the period, an involuntary treatment order ceased to be in force in respect of the person and another involuntary treatment order came into force in respect of the person on or within 7 days after the day of the cessation.
+
+**Drafted summary** (status: drafted)
+
+> For the review rules in ss 386(4), 386(5)(b) and 387(4), a person has been an involuntary patient continuously for a period if one or more involuntary treatment orders were in force for the whole of it, or if, when an order ceased, another came into force “on or within 7 days after the day of the cessation”.
+
+Cited by: Act and Standards page (Mental Health Tribunal review of involuntary treatment orders)
+
+Source text SHA-256: `7686ce7b8d4e1fac743e1e4672abc4395034f964fafeaabb03dcc75a1545fef7`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s389 — Review period may be extended
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)In this section —
+>
+> maximum extension period
+>
+> means —
+>
+> (a)if, on the day on which the relevant decision is made, the involuntary patient is an adult — the period of 21 days; or
+>
+> (b)if, on the day on which the relevant decision is made, the involuntary patient is a child — the period of 7 days;
+>
+> prescribed period
+>
+> means —
+>
+> (a)if, on the day on which the relevant decision is made, the involuntary patient is an adult — the period of 28 days; or
+>
+> (b)if, on the day on which the relevant decision is made, the involuntary patient is a child — the period of 7 days;
+>
+> relevant decision
+>
+> , in relation to the review of an involuntary treatment order under section 386(2) or 387(2), means a decision of the Tribunal the making of which involves a consideration of substantially the same issues as would be raised in the review;
+>
+> review period
+>
+> , for an involuntary treatment order, means —
+>
+> (a)the initial review period under section 386(1) for the involuntary treatment order; or
+>
+> (b)a periodic review period under section 387(1) for the involuntary treatment order.
+>
+> (2)If the Tribunal makes a relevant decision within the prescribed period before the day on which a review period for an involuntary treatment order ends, the Tribunal may make an order extending the review period from the day on which it would otherwise have ended for the further period (not exceeding the maximum extension period) specified in the order.
+
+**Drafted summary** (status: drafted)
+
+> If, within the prescribed period before a review period (initial or periodic) ends, the Tribunal makes a decision that involved considering substantially the same issues as the review would, it may order the review period extended by a further period no longer than the maximum extension period. Judged on the day of that decision, the prescribed period is “the period of 28 days” for an adult and “the period of 7 days” for a child; the maximum extension period is “the period of 21 days” for an adult and “the period of 7 days” for a child.
+
+Cited by: Act and Standards page (Mental Health Tribunal review of involuntary treatment orders)
+
+Source text SHA-256: `3f83dc102135f919bb3587e31a165bc71939ccaa5651c4d80f1d2840533f4d75`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s390 — Application for review
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)A person specified in subsection (2) may apply to the Tribunal for a review of any of these things —
+>
+> (a)an involuntary treatment order, to decide whether or not the involuntary patient is still in need of an involuntary treatment order having regard to the criteria specified in section 25;
+>
+> (b)an inpatient treatment order, to decide whether or not the involuntary inpatient is still in need of an inpatient treatment order having regard to the criteria specified in section 25(1);
+>
+> (c)a community treatment order, to decide whether or not the terms of the order are appropriate;
+>
+> (d)a transfer order made under section 66(1) or 91(2) in respect of an involuntary inpatient, or a refusal to make such an order, to decide whether or not the making of the order or the refusal to do so is appropriate;
+>
+> (e)the transfer under section 135(1)(a) of a psychiatrist’s responsibility as the supervising psychiatrist under a community treatment order, or a refusal to transfer that responsibility, to decide whether or not the transfer of responsibility or the refusal to do so is appropriate;
+>
+> (f)the transfer under section 137(a) of a practitioner’s responsibility as the treating practitioner under a community treatment order, or a refusal to transfer that responsibility, to decide whether or not the transfer of responsibility or the refusal to do so is appropriate;
+>
+> (g)a transfer order made under section 555(1) in respect of a State inpatient, or a refusal to make such an order, to decide whether or not the making of the order or the refusal to do so is appropriate.
+>
+> (2)An application may be made under subsection (1) by any of these people —
+>
+> (a)the involuntary patient;
+>
+> (b)a carer, close family member or other personal support person of the involuntary patient;
+>
+> (c)a mental health advocate;
+>
+> (d)any other person who, in the Tribunal’s opinion, has a sufficient interest in the matter.
+>
+> (3)The application must be in writing and, unless subsection (4) applies, may be made at any time.
+>
+> (4)The application cannot be made within the prescribed period after the day on which the Tribunal makes a decision that involves a consideration of substantially the same issues as would be raised by the application unless there has been a material change in the involuntary patient’s circumstances since that day.
+>
+> (5)For subsection (4), the prescribed period is —
+>
+> (a)if, on the day on which the decision is made, the involuntary patient is an adult — the period of 28 days; or
+>
+> (b)if, on the day on which the decision is made, the involuntary patient is a child — the period of 7 days.
+
+**Drafted summary** (status: drafted)
+
+> The involuntary patient, a carer, close family member or other personal support person, a mental health advocate, or anyone else the Tribunal considers has a sufficient interest may apply in writing to the Tribunal for review of: an involuntary treatment order (against the s 25 criteria); an inpatient treatment order (against s 25(1)); whether a community treatment order's terms are appropriate; a transfer order under s 66(1), 91(2) or 555(1), or a refusal to make one; or a transfer of, or refusal to transfer, responsibility as supervising psychiatrist (s 135(1)(a)) or treating practitioner (s 137(a)). An application may be made at any time, except that once the Tribunal has decided substantially the same issues, a fresh application cannot be made within the prescribed period — “the period of 28 days” for an adult, “the period of 7 days” for a child — unless the patient's circumstances have materially changed.
+
+Cited by: Act and Standards page (Mental Health Tribunal review of involuntary treatment orders)
+
+Source text SHA-256: `1587d2c22e09e834512fcbbd24e3de8ed05ba13312b800e2b399ad2125e04e7e`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s391 — Review on Tribunal’s own initiative
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> The Tribunal may, on its own initiative whenever it considers it appropriate, review —
+>
+> (a)an involuntary treatment order referred to in section 390(1)(a) to (c) to decide the matter referred in that provision; or
+>
+> (b)a transfer order referred to in section 390(1)(d) or (g) to decide the matter referred in that provision; or
+>
+> (c)a transfer of responsibility under section 390(1)(e) or (f) to decide the matter referred to in that provision.
+
+**Drafted summary** (status: drafted)
+
+> The Tribunal may, on its own initiative whenever it considers it appropriate, review any matter that could be the subject of an application under s 390(1): an involuntary treatment order, an inpatient treatment order or the terms of a community treatment order; a transfer order or a refusal to make one; or a transfer of supervising-psychiatrist or treating-practitioner responsibility, or a refusal to transfer it.
+
+Cited by: Act and Standards page (Mental Health Tribunal review of involuntary treatment orders)
+
+Source text SHA-256: `935ddfa177ca8fab05931502fbe82b139d4c8c77aaf9d412ac0a4184a072b699`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s395 — What Tribunal may do on completing review
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)On completing a review under this Division, the Tribunal may make any orders, and give any directions, the Tribunal considers appropriate.
+>
+> (2)Those orders and directions include the following —
+>
+> (a)an order revoking an involuntary treatment order;
+>
+> (b)a direction to the psychiatrist named in the order to make, within a reasonable period specified in the direction, a community treatment order in terms that are consistent with section 115 and specified in the direction;
+>
+> (c)an order varying the terms of a community treatment order in any way that is consistent with section 115.
+>
+> (3)The Tribunal cannot make an order or give a direction under subsection (1) in relation to an involuntary patient’s treatment, support or discharge plan, but may make —
+>
+> (a)a recommendation that the patient’s psychiatrist review the treatment, support or discharge plan; and
+>
+> (b)if such a recommendation is made — a recommendation about the amendments that could be made to the treatment, support and discharge plan.
+>
+> (4)The Tribunal may give a copy of any recommendation made under subsection (3) to the Chief Psychiatrist.
+
+**Drafted summary** (status: drafted)
+
+> On completing a review, the Tribunal may make any orders and give any directions it considers appropriate, including revoking an involuntary treatment order, directing the psychiatrist named in the order to make a community treatment order in specified terms (consistent with s 115) within a specified reasonable period, or varying the terms of a community treatment order consistently with s 115. It cannot make orders or give directions about a patient's treatment, support or discharge plan, but it may recommend that the patient's psychiatrist review the plan, recommend amendments to it, and give a copy of any such recommendation to the Chief Psychiatrist.
+
+Cited by: Act and Standards page (Mental Health Tribunal review of involuntary treatment orders)
+
+Source text SHA-256: `10452afe8d2cbc0d53645930fe7609c76a021d435875f6c3f974d425d02ebb71`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s410 — Application for approval
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)The patient’s psychiatrist may apply for approval to perform electroconvulsive therapy on the patient.
+>
+> (2)The application must be in writing and must set out —
+>
+> (a)the reasons why the patient’s psychiatrist is recommending that the electroconvulsive therapy be performed; and
+>
+> (b)a treatment plan in relation to the electroconvulsive therapy, including —
+>
+> (i)the mental health service at which it is proposed to perform the electroconvulsive therapy; and
+>
+> (ii)the maximum number of treatments with electroconvulsive therapy that it is proposed will be performed; and
+>
+> (iii)the maximum period over which it is proposed to perform that number of treatments; and
+>
+> (iv)the minimum period that it is proposed will elapse between any 2 treatments.
+
+**Drafted summary** (status: drafted)
+
+> The patient's psychiatrist may apply to the Tribunal for approval to perform ECT. The application must be in writing and set out the reasons for recommending ECT and a treatment plan stating the mental health service where it is proposed to be performed, the maximum number of treatments, the maximum period over which they will be given, and the minimum period between any two treatments.
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `04ec2ccad47b51222a14ebcc7e6aaff65453ca6b69b4f890a5ab24fe0f8371fe`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s412 — Things Tribunal must be satisfied of
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> (1)The Tribunal cannot approve electroconvulsive therapy being performed on a patient unless satisfied that the mental health service at which it is proposed to perform the electroconvulsive therapy is approved under section 544 for that purpose.
+>
+> (2)The Tribunal cannot approve electroconvulsive therapy being performed on a patient to whom section 195 applies unless satisfied that informed consent to it being performed on the patient is given as required by section 195(2)(a).
+
+**Drafted summary** (status: drafted)
+
+> The Tribunal cannot approve ECT unless satisfied that the mental health service where it is proposed to be performed is approved under s 544 for that purpose and, for a voluntary patient aged at least 14 but under 18 (s 195), that informed consent has been given as s 195(2)(a) requires.
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `d5d37dc61fef59043861a9e477ed2ac927fca8c00c48dd84b2b36b232cdafd94`
+
+Reviewed by: ______________________ Date: ______________
+
+---
+
+### s415 — Decision on application
+
+**Act text (02-b0-02, as at 2025-09-25)**
+
+> The Tribunal may decide the application by —
+>
+> (a)approving the electroconvulsive therapy being performed in accordance with the treatment plan set out in the application; or
+>
+> (b)approving the electroconvulsive therapy being performed in accordance with the treatment plan set out in the application subject to the maximum number of treatments with electroconvulsive therapy to be performed being reduced to the number specified by the Tribunal; or
+>
+> (c)refusing to approve the electroconvulsive therapy being performed.
+>
+> Division 7
+>
+> —
+>
+> Psychosurgery approvals
+
+**Drafted summary** (status: drafted)
+
+> The Tribunal decides an ECT application by approving ECT in accordance with the treatment plan in the application, approving it on that plan but with the maximum number of treatments reduced to a number the Tribunal specifies, or refusing to approve it.
+
+Cited by: Act and Standards page (Electroconvulsive therapy (ECT) approval)
+
+Source text SHA-256: `80168c6a5c5ccbabe9e7e9ed5bf07384448607bb361c1795f4b14666653c4365`
 
 Reviewed by: ______________________ Date: ______________
 

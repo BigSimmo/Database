@@ -1,8 +1,8 @@
 {
   "version": "clinical-kb-site-static-manifest-v1",
-  "gitSha": "a98cfc20ff57942bcf8289a0499f38689841c3b5",
+  "gitSha": "3724f3c841586b773a6a6658d4ceebda54f0a4b5",
   "registryVersion": "site-content-registry-v1",
-  "generatedAt": "2026-09-16T14:30:33.973Z",
+  "generatedAt": "2026-09-25T15:15:33.679Z",
   "records": [
     {
       "logicalId": "calculators:auditc",
@@ -2726,7 +2726,7 @@
       "domain": "factsheets",
       "route": "/factsheets/bipolar",
       "contentHash": "a92159da9b9b41939644e2c86ac0166722a3e7cffd6f55f87f69ce9887fb7efd",
-      "lineageDigest": "874c1c7649c933cbef4f52ae4175084f3d0918296ec8d913a76e1c9bdcb31997",
+      "lineageDigest": "2d4b2afae02c62d3880f6c802c6b38484038842eaf444f8dcfb6447fc0a78219",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -2748,7 +2748,7 @@
       "domain": "factsheets",
       "route": "/factsheets/depression",
       "contentHash": "d40a9b04bda2ef36c57b97deefb93e050ea8f88a25ef245ec72e2871803959f0",
-      "lineageDigest": "ef70133b391ad53e70986ad39368d438c68cdff9de34a037e965df488db9fc34",
+      "lineageDigest": "dac713b7f938eb021429cc79e8327161023fac6757322be77a72174c2ac8f74c",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -2770,7 +2770,7 @@
       "domain": "factsheets",
       "route": "/factsheets/gad",
       "contentHash": "74efb9e5959a492e49f16cf27c498a861c27e19d258803b597b2e1a7ecfdeedd",
-      "lineageDigest": "f8b0ca28a8f4fc304e2daa0331dcb7f65308299bf9bdc07211f37856bcaa8fa3",
+      "lineageDigest": "25db1350b99ae8a773813751dd749714d16cbb1161afa27be1e47bcdfc95cb71",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -11833,8 +11833,8 @@
       "logicalId": "tools:calculators",
       "domain": "tools",
       "route": "/?mode=calculators",
-      "contentHash": "d58a32f33183f9166d3170204bb79f02c2db979547d687b85d8fbf8b85e21f57",
-      "lineageDigest": "93790530d119fd9cffe2ea72e708569be03c83f0f28f1367498dafb78435cec6",
+      "contentHash": "e54fbefca7021b3e6d041e757cd8764ea087d94ee8e300adf53c6dc109a8f3df",
+      "lineageDigest": "5768cbe83da22f64d7631278f9162e5fdf9dc8f477060c8a6188aaa724c56251",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -11907,5 +11907,5 @@
       "exclusionReason": null
     }
   ],
-  "staticManifestDigest": "a99f25199705bd96066ecb5d8a8e2ce698c48fd392275a8fe863865dbc875fb2"
+  "staticManifestDigest": "48c95b41b1daf73ab269b5af60d433e384fbc5d2e1d413b778a257a53ba3104d"
 }

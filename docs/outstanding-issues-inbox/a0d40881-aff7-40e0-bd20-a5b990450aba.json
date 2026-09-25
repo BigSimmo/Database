@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a0d40881-aff7-40e0-bd20-a5b990450aba",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Owner decisions for the MHA timeline: Form 1A (s 44) entry, a second start input, and how day-based periods are counted",
+    "detail": "(1) Form 1A 72-hour examination limit is absent because s 44 was not in the pinned Act text when drafted; s 44 may now be pinned. (2) Limits that run from an event other than making the form (3C, 3B, 1B, 4B, 6D, seclusion, restraint, review windows) were dropped rather than counted from the wrong time; adding them needs a second start-time input. (3) The contract rejects unit days until the owner rules whether within N days means same clock time N days later or end of the Nth day (WA Interpretation Act s 61). Owner rules; then a builder implements with verbatim quotes only.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBNP8MT3PZ9WGJ44YVST4"
+  }
+}

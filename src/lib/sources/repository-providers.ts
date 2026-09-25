@@ -8,7 +8,7 @@ import dsmClinicalContent from "../../data/dsm-clinical-content.json";
 import therapiesSource from "../../data/therapies-source.json";
 import { calculatorEvidence, type CalculatorEvidenceSource } from "@/lib/calculators/calculator-evidence";
 import { allCalculatorFixtures } from "@/lib/calculators/calculator-fixtures";
-import { factsheets, type FactsheetSource } from "@/lib/factsheets-data";
+import { factsheets, type FactsheetSource, type FactsheetTranslatedResource } from "@/lib/factsheets-data";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -187,12 +187,31 @@ function factsheetPublicationDate(source: FactsheetSource): string | null {
   return strictSourceDate(exact) ?? null;
 }
 
+/**
+ * A translated resource is always a governed outbound link (its `url` is
+ * required, unlike `FactsheetSource.url`), so it always projects as
+ * `link_only` with a real `canonicalUrl` — there is no metadata-only case to
+ * branch on the way `factsheetProvider`'s main citations do.
+ */
+function translatedResourceReference(sheet: (typeof factsheets)[number], resource: FactsheetTranslatedResource) {
+  return reference(
+    { modeId: "factsheets", recordId: sheet.slug, recordLabel: sheet.title, field: "translatedResources" },
+    {
+      title: resource.title,
+      canonicalUrl: resource.url,
+      evidenceType: "consumer_reference",
+      contentMode: "link_only",
+      topics: [sheet.category],
+    },
+  );
+}
+
 const factsheetProvider: ClinicalSourceProvider = {
   id: "factsheets",
   sourcePaths: ["src/lib/factsheets-data.ts"],
   references: () =>
-    factsheets.flatMap((sheet) =>
-      sheet.sources.map((source) =>
+    factsheets.flatMap((sheet) => [
+      ...sheet.sources.map((source) =>
         reference(
           { modeId: "factsheets", recordId: sheet.slug, recordLabel: sheet.title, field: "sources" },
           {
@@ -207,7 +226,8 @@ const factsheetProvider: ClinicalSourceProvider = {
           },
         ),
       ),
-    ),
+      ...(sheet.translatedResources ?? []).map((resource) => translatedResourceReference(sheet, resource)),
+    ]),
 };
 
 const formulationProvider: ClinicalSourceProvider = {

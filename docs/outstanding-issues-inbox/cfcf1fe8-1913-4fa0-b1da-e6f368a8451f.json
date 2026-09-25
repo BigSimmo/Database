@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "cfcf1fe8-1913-4fa0-b1da-e6f368a8451f",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Owner decision: register Lifeline, Suicide Call Back Service, 13YARN, Legal Yarn and TIS National as publishers in the source authority register",
+    "detail": "Their provider pages carry no publisher date and their publishers are absent from src/lib/source-authority-registry.ts, a protected RAG ranking surface, so their rows were omitted from src/data/source-acquisitions.json. Numbers are verified in src/lib/crisis-contacts.ts (verifiedOn) and in the part-08 service records. Registering changes retrieval selection: needs owner approval and the RAG ranking protection process.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBP0S2TRAJAAYZWHCF683"
+  }
+}

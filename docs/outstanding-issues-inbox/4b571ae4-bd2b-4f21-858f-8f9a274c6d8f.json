@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4b571ae4-bd2b-4f21-858f-8f9a274c6d8f",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Alprazolam medication record carries an unsourced line: Private script only in most states",
+    "detail": "data/medications-snapshot.json alprazolam record. Reviewer checked it against the WA Monitored Medicines Prescribing Code (Dec 2024) and found no support; left in place for the owner. Next action: owner keeps, sources (PBS listing) or deletes it.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBNVF99N903CRGBG97DST"
+  }
+}
