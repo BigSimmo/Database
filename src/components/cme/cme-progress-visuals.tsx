@@ -58,6 +58,7 @@ export function CmeCategoryBar({ entries, targetHours }: { entries: readonly Cme
 
   return (
     <div data-testid="cme-category-bar">
+      <p className="mb-1.5 text-sm font-medium text-[color:var(--text)]">By category</p>
       <div
         aria-hidden="true"
         className="flex h-2.5 w-full gap-px overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"

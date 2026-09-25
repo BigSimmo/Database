@@ -53,22 +53,23 @@ export function CmeAnnualSummary({
       .cme-annual-summary .cme-print-controls { display: none !important; }
       .cme-annual-summary section { break-inside: avoid; }
     }`}</style>
-      <div className="cme-print-controls mb-5 flex flex-wrap items-center gap-2">
-        <Link href={`/cme/log?year=${set.year}`} className={buttonFaceClass({ variant: "secondary" })}>
-          Back to log
-        </Link>
-        <Button testId="cme-summary-save-pdf" onClick={() => savePdf(set.year)}>
-          Save as PDF
-        </Button>
-        <a href={`/api/cme/export?year=${set.year}`} className={buttonFaceClass({ variant: "secondary" })}>
-          Download CSV
-        </a>
+      <div className="cme-print-controls mb-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/cme/log?year=${set.year}`} className={buttonFaceClass({ variant: "secondary" })}>
+            Back to log
+          </Link>
+          <Button testId="cme-summary-save-pdf" onClick={() => savePdf(set.year)}>
+            Save as PDF
+          </Button>
+          <a href={`/api/cme/export?year=${set.year}`} className={buttonFaceClass({ variant: "secondary" })}>
+            Download CSV
+          </a>
+        </div>
+        <p className={cn(textMuted, "mt-2 text-xs")}>
+          Opens your device&apos;s print screen. Choose Save as PDF, or Share on a phone, to send it to your college or
+          keep a copy.
+        </p>
       </div>
-
-      <p className={cn(textMuted, "cme-print-controls -mt-3 mb-5 text-xs")}>
-        Opens your device&apos;s print screen. Choose Save as PDF, or Share on a phone, to send it to your college or
-        keep a copy.
-      </p>
 
       <header className="grid gap-1">
         <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">CPD annual summary — {set.year}</h1>
