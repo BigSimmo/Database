@@ -741,9 +741,9 @@ function StagedAnswerResultSurfaceImpl({
             // `iconTilePremium`: that recipe carries the clinical-accent border and
             // background, so appending `text-…` recoloured only the glyph — the sheet
             // opened with an amber shield sitting in a blue tile while the card that
-            // opens it drew an amber one. This matches `AnswerSupportSummaryCard`'s
-            // tile exactly, so the colour the design assigns to the icon tile is the
-            // same on both sides of the tap.
+            // opens it drew an amber one. This matched the retired answer support
+            // card's tile exactly (#51975R), so the colour the design assigns to the
+            // icon tile is the same on both sides of the tap.
             headerLeading={
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
                 <ShieldAlert aria-hidden="true" className="h-3.5 w-3.5" />

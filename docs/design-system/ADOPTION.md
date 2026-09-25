@@ -169,6 +169,13 @@ addition to the three original signals, never a replacement — deriving from th
 would lose the stale-and-ungrounded case, which the projection collapses to `stale_evidence`.
 Pinned by `tests/answer-support-priority.dom.test.tsx`.
 
+**Retired 2026-09-25 (#51975R).** The card this paragraph describes left the answer surface on
+2026-08-31, and `answerSupportPriority()` and `AnswerSupportSummaryCard` were deleted with their
+five pinning cases once nothing called them. The grounding caution now reaches the reader through
+the answer-limitations chip and its panel (`RetrievalStateBanner`, the governed
+`VerificationNotice` wording) and the support chip's degraded level. The paragraph above is kept
+as the record of the adoption decision.
+
 ### 2.6 answer — controller, last
 
 ```text
@@ -179,8 +186,9 @@ src/components/ClinicalDashboard.tsx        (answer orchestration only)
 ```
 
 `answer-result-surface.tsx` was missing from this list when it was first written and is added
-here rather than silently edited: it is the module that calls `answerSupportPriority()` and
-owns the inline support card, so the answer surface cannot be adopted without it.
+here rather than silently edited: it is the module that called `answerSupportPriority()` and
+owned the inline support card (both retired, see §2.5), so the answer surface cannot be adopted
+without it.
 
 Adopts `AnswerCard` + `AnswerState` + `VerificationNotice` + `RetrievalStateBanner`, with
 `DateDisplay` / `MissingValue` for absent fields, and wires `onCopy` to
@@ -309,7 +317,9 @@ held with the wave's prep material; the files are the contract here.
 **The load-bearing pin for `#207`** is the live "Review source match" assertion on
 `answer-support-card` in `tests/ui-smoke.spec.ts`. It must still pass after the answer surface
 adopts `AnswerCard`; if adoption moves the caution to a new carrier, the pin moves with it in
-the same commit and the new assertion is at least as strong.
+the same commit and the new assertion is at least as strong. (That move happened on 2026-08-31:
+the pin now asserts the card is absent and that the limitations chip and the support chip's
+`data-support` carry the caution instead. The card's code was deleted on 2026-09-25, #51975R.)
 
 ---
 

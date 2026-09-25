@@ -582,10 +582,11 @@ describe("clinical point tones", () => {
  * These cases pin what the extractor does TODAY, including the cases where it is wrong. They are
  * written this way on purpose, for two reasons:
  *
- *   1. Changing which passages carry a safety label changes what a clinician is shown first --
- *      `answerSupportPriority` in evidence-panels.tsx promotes the most severe finding ahead of
- *      everything else as the answer's headline support card. That is a clinical display decision
- *      for the owner, not a defect to fix in passing.
+ *   1. Changing which passages carry a safety label changes which chip, and which tone, a
+ *      clinician sees beside a passage in the Key points rail. That is a clinical display decision
+ *      for the owner, not a defect to fix in passing. (This point once cited a priority function
+ *      that promoted the most severe finding into a headline support card; that card left the
+ *      answer surface on 2026-08-31 and the function was deleted on 2026-09-25, #51975R.)
  *   2. The gap is otherwise invisible. Nothing in the suite demonstrated that "review the chart in
  *      six weeks" is labelled Monitoring, or that "cease clozapine immediately" is labelled Red
  *      flag by the word `immediate` rather than by `cease`, which no pattern knows at all.
