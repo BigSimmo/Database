@@ -1,0 +1,99 @@
+{
+  "exportMetadata": {
+    "format": "chief-psychiatrist-standards",
+    "formatVersion": 1,
+    "sourceIds": [
+      "ocp-wa-standard-aboriginal-practice",
+      "ocp-wa-standard-assessment",
+      "ocp-wa-standard-care-planning",
+      "ocp-wa-standard-consumer-carer-involvement",
+      "ocp-wa-standard-physical-healthcare",
+      "formulation-wa-ocp-risk",
+      "ocp-wa-standard-seclusion-restraint",
+      "ocp-wa-standard-transfer-of-care"
+    ],
+    "generatedAt": "2026-09-25T00:00:00.000Z"
+  },
+  "standards": [
+    {
+      "id": "cp-standard-aboriginal-practice",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Aboriginal Practice",
+      "summary": "This standard sets practice requirements for all Western Australian mental health services to deliver culturally appropriate, equitable care to Aboriginal people with mental illness and their carers, families and communities. Services are expected to work in partnership with Aboriginal people and communities, recognise the value of traditional healing and a holistic view of social, emotional, cultural and spiritual wellbeing, and provide trauma-informed, strengths-based care. Its criteria cover access (including interpreter services), governance (Aboriginal leadership and community and consumer involvement), workforce (cultural supervision, cultural competence training and Aboriginal workforce development), and culturally informed data collection and use.",
+      "sourceId": "ocp-wa-standard-aboriginal-practice",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-aboriginal-practice/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    {
+      "id": "cp-standard-assessment",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Assessment",
+      "summary": "This standard requires mental health services to provide a comprehensive, individualised assessment of each consumer, with the consumer involved throughout and the carer able to contribute. Assessments must be age-appropriate, use broadly accepted methods and tools, be written in plain English and legible, and consider biopsychosocial, cultural and diversity factors; a comprehensive assessment must include a mental state examination and an integrated formulation and diagnosis. A risk assessment and management plan must accompany the initial assessment, and physical health needs, dependents and caring roles, and co-occurring alcohol, other drug, physical, intellectual or developmental issues must all be considered.",
+      "sourceId": "ocp-wa-standard-assessment",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-assessment/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    {
+      "id": "cp-standard-care-planning",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Care Planning",
+      "summary": "This standard requires every consumer to have a written, recovery-focused care plan developed using a standardised template, with the consumer as a partner in its development and the carer's involvement facilitated. Care plans must be reviewed at least every three months, have multidisciplinary team input wherever possible, and receive oversight from a psychiatrist; they must also address continuity of care, physical health assessment and management, and medication and treatment safety. Where consumers, carers and clinicians have unresolved differences of perspective on the plan, those differences must be acknowledged in the care plan itself.",
+      "sourceId": "ocp-wa-standard-care-planning",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-care-planning/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    {
+      "id": "cp-standard-consumer-carer-involvement",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Consumer and Carer Involvement in Individual Care",
+      "summary": "This standard requires mental health services to work collaboratively and in partnership with consumers and carers, irrespective of whether the consumer is a voluntary or involuntary patient, with an emphasis on recovery-oriented care and regard to the Charter of Mental Health Care Principles. Consumers have rights to comprehensive and integrated care, to be free from abuse, exploitation, discrimination, coercion, harassment and neglect, to be partners in their treatment and recovery planning, and to give informed consent and receive current, accurate information. Services must actively seek and record carer information during assessment, treatment and discharge planning, engage carers in discharge and crisis planning, and consider appropriate strategies to engage a carer even where the consumer initially declines carer involvement.",
+      "sourceId": "ocp-wa-standard-consumer-carer-involvement",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-consumer-and-carer-involvement-in-individual-care/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    {
+      "id": "cp-standard-physical-healthcare",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Physical Healthcare of Mental Health Consumers",
+      "summary": "This standard states that mental health consumers have the right to physical, including dental, health care equal to that provided to the general population, coordinated with mental health care at equal priority. Clinicians must regularly assess physical wellbeing, obtain appropriate consent before physical examination, and refer to specialist clinicians where needed; services must maintain clear referral pathways, a standardised approach to regular physical and metabolic screening (including BMI and waist circumference), and physical health components in care, treatment and discharge plans. All consumers are to receive at least yearly physical assessments and appropriate screening, regular oral health assessments, and a physical assessment on admission to an inpatient service.",
+      "sourceId": "ocp-wa-standard-physical-healthcare",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-physical-healthcare-of-mental-health-consumers/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    {
+      "id": "cp-standard-risk-assessment-management",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Risk Assessment and Management",
+      "summary": "This standard requires all Western Australian public and private mental health services to assess, minimise and manage risk to self, to others and from others, through legally, ethically and evidence-based, person-centred practice within a shared, 'no-blame' culture. Staff must draw on information from the patient, carers and families, records and other professional assessments; use standardised or equivalent contemporary risk assessment tools that support clinical judgement, noting that actuarial tools alone are of limited predictive value; apply trauma-informed care; and give physical health equal priority within the assessment. Risk assessments and shared management plans must be reviewed regularly and whenever a consumer's circumstances change significantly, including at discharge, temporary exit or transfer, with outcomes communicated to affected persons and agencies in a timely way, and sentinel incidents reviewed as opportunities for improvement.",
+      "sourceId": "formulation-wa-ocp-risk",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-risk-assessment-and-management/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    {
+      "id": "cp-standard-seclusion-restraint-reduction",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Seclusion and Bodily Restraint Reduction",
+      "summary": "This standard requires mental health services to endeavour to reduce, and where possible eliminate, the use of seclusion and restraint, which it treats as interventions rather than therapies. Authorised hospitals must comply with the Mental Health Act 2014's seclusion and restraint provisions, run approved de-escalation and trauma-informed training, maintain a sensory modulation space, use collaboratively drafted patient safety plans, debrief after events, avoid neck holds, avoid prone restraint where possible, and monitor patients' physical observations and wellbeing during restraint. Mental health units must hold at least weekly, non-blaming executive reviews of seclusion and restraint events, involving a peer support worker where possible, and publish quarterly de-identified seclusion and restraint data locally, which is also forwarded to the Chief Psychiatrist.",
+      "sourceId": "ocp-wa-standard-seclusion-restraint",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-seclusion-and-restraint/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    {
+      "id": "cp-standard-transfer-of-care",
+      "title": "Chief Psychiatrist's Standard for Clinical Care: Transfer of Care",
+      "summary": "This standard defines transfer of care as a person-centred, recovery-focused process for the timely, safe and effective discharge and handover of care between service providers, with the referring service retaining responsibility for the consumer until handover to the receiving service is complete. It requires consumer, guardian and carer partnership in drafting transfer information, facilitation of appropriate follow-up for all consumers within seven days after transfer, and active consideration and management of risk if a consumer does not keep a planned follow-up. Discharge and transfer plans must include a case formulation, standardised clinical diagnosis, mental state changes from admission to discharge, therapies used and ceased, physical healthcare assessment and management, risk assessment and management, a relapse signature, contingency and crisis strategies, post-discharge follow-up arrangements, and contact details for the consumer, carer and guardian.",
+      "sourceId": "ocp-wa-standard-transfer-of-care",
+      "sourceUrl": "https://www.chiefpsychiatrist.wa.gov.au/publication/chief-psychiatrists-standard-for-clinical-care-transfer-of-care/",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null
+    }
+  ]
+}
