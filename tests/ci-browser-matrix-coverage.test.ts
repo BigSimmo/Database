@@ -196,7 +196,16 @@ describe("release-browser-matrix engine coverage", () => {
     expect(build?.run).toBe("node scripts/run-playwright.mjs --project=chromium");
     expect(download?.if).toBe("matrix.engine != 'chromium' && needs.ui-playwright-build.result == 'success'");
     expect(download?.with.name).toBe(upload?.with.name);
-    expect(download?.with.path).toBe(upload?.with.path);
+    // The upload names the build root plus one negated exclusion (the webpack build cache,
+    // which a reuse-only consumer never reads). The root is still what the consumer downloads
+    // into, and nothing but `dist/cache/webpack` may be excluded: `dist/cache/fetch-cache` is
+    // read at runtime, and dropping any other part of the root would break `next start`.
+    const uploadPaths = String(upload?.with.path).trim().split("\n");
+    expect(uploadPaths).toEqual([
+      ".next-playwright/ci-${{ github.run_id }}",
+      "!.next-playwright/ci-${{ github.run_id }}/dist/cache/webpack",
+    ]);
+    expect(download?.with.path).toBe(uploadPaths[0]);
     expect(download?.with["run-id"]).toBeUndefined();
     expect(run?.env.PLAYWRIGHT_BUILD_ROOT_ID).toBe(build?.env.PLAYWRIGHT_BUILD_ROOT_ID);
     expect(run?.env.PLAYWRIGHT_REUSE_BUILD).toBe(
