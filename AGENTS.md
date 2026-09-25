@@ -335,7 +335,9 @@ Retrieval/ranking behaviour is live-validated and safeguarded. Before touching a
 surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approaches → safeguards).
 
 - **Flag it.** Any task that will touch `src/lib/rag/**`, clinical-search, retrieval-selection,
-  released-search-order, ranking-config, evidence/result-sort/answer-ranking, the eval harness
+  released-search-order, ranking-config, evidence/result-sort/answer-ranking,
+  evidence-relevance/semantic-rerank/eval-document-matching, the source-authority tiering
+  (`src/lib/source-authority-registry.ts`, `src/lib/australian-source-priority.ts`), the eval harness
   (`scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`, ranking-tuning/snapshot
   tooling), the golden fixture/snapshot, or the retrieval RPCs must say so to the user BEFORE
   editing, even when the change looks incidental (refactor, rename, "just a comment"). The same
@@ -347,6 +349,15 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
   `src/lib/deep-memory.ts`), whose index units are queried directly by the candidate fan-out and
   whose `applyMemoryCardBoosts` rescores results. Added 2026-09-16; `pr-policy` classifies all
   of these as RAG-ranking surfaces, and `docs/rag-behaviour/safeguards.md` carries the reasoning.
+  The other retrieval inputs are covered too (added 2026-09-25): retrieval RPC version choice
+  and scoring helpers (`src/lib/retrieval-rpc-rollout.ts`, `clinical-evidence-haystack.ts`,
+  `cross-document-synthesis.ts`, `corpus-grounding.ts`, `keyword-query.ts`), and the producers of
+  enrichment, image-caption, embedding-field, table-fact and assertion rows
+  (`src/lib/document-enrichment.ts`, `visual-intelligence.ts`, `image-filtering.ts`,
+  `worker/embedding-fields.ts`, `worker/table-facts.ts`, `worker/assertion-tagging.ts`).
+  The authoritative list is `ragRankingPatterns` in `scripts/pr-policy.mjs`, which also protects
+  the ranking contract tests; where this sentence and that list ever differ, flag everything
+  either names (aligned 2026-09-25).
 - **PR nudge (advisory since 2026-09-17).** PRs touching those surfaces get a `pr-policy`
   **warning** — not a block — when the body has no explicit `RAG impact:` line. Still write one,
   because it is the fastest way to tell a reviewer whether ordering moved: either
