@@ -36,7 +36,8 @@ Type each command below exactly as shown, then press Enter.
    node --version
    ```
 
-   The answer must start with `v24`. If it does not, stop and tell Claude what it printed.
+   The answer must be `v24.15` or higher, but still start with `v24` (for example `v24.15.0`
+   or `v24.16.1`). If it does not, stop and tell Claude what it printed.
 
 2. Get the latest version of the project:
 
@@ -55,7 +56,8 @@ Type each command below exactly as shown, then press Enter.
    have sent your sign-offs.
 
 4. Install the project's tools for this version. It takes a few minutes, and you only need
-   to do it again after you next switch to a newer version of the project:
+   to do it again after you next switch to a newer version of the project. Close VS Code
+   and any running copy of the app first — Windows can lock the installed-packages folder.
 
    ```bash
    npm ci --include=dev
@@ -127,15 +129,15 @@ a session:
 
 11. Mark the changed files to be saved. For forms:
 
-```bash
-git add data/forms-content-review.json docs/evidence/forms-operational-guidance-review.md
-```
+    ```bash
+    git add data/forms-content-review.json docs/evidence/forms-operational-guidance-review.md
+    ```
 
-For Act sections, instead:
+    For Act sections, instead:
 
-```bash
-git add data/mha-2014-sections.json
-```
+    ```bash
+    git add data/mha-2014-sections.json
+    ```
 
 12. Save them with a short note:
 
