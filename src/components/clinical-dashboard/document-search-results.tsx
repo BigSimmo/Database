@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -876,6 +877,7 @@ function DocumentSearchResultsPanelImpl({
   const searchParams = useSearchParams();
   const trimmedQuery = query.trim();
   const filterPanelId = useId();
+  const filterOpenerRef = useRef<HTMLElement | null>(null);
   // Query-scope the open flag the same way facets are scoped: a new search must
   // not leave the panel covering a different result set (especially on phones).
   // Do not reset via useEffect+setState — react-hooks/set-state-in-effect fails CI.
@@ -1040,6 +1042,12 @@ function DocumentSearchResultsPanelImpl({
     });
     setFilterPanelState({ query, open: true });
   };
+  // Remember which of the two triggers (phone / wide) opened the sheet, so
+  // closing it returns focus there (#M3XZV0).
+  const toggleFiltersFromTrigger = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!filterPanelOpen) filterOpenerRef.current = event.currentTarget;
+    openOrCloseFilters();
+  };
   const renderFilterTrigger = (testId: string) =>
     showFilterControl ? (
       <ResultFilterTrigger
@@ -1048,7 +1056,7 @@ function DocumentSearchResultsPanelImpl({
         title="Filter documents"
         open={filterPanelOpen}
         activeCount={activeFilterCount}
-        onToggle={openOrCloseFilters}
+        onToggle={toggleFiltersFromTrigger}
       />
     ) : null;
 
@@ -1393,51 +1401,55 @@ function DocumentSearchResultsPanelImpl({
      above zero it is the only thing that says the list is a floor rather than
      the answer. (Raised by Devin review on PR #1640.) */
   const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
-  const documentFilterSheet =
-    showFilterControl && filterPanelOpen ? (
-      <ResultFilterSheet
-        open={filterPanelOpen}
-        onClose={() => setFilterPanelState({ query, open: false })}
-        panelId={filterPanelId}
-        testId="document-filter-panel"
-        title="Filter documents"
-        description="Set retrieval scope, then refine the matches. Changes apply together."
-        chromeResetKey={query}
-        groups={documentFilterGroups}
-        applicationMode="staged"
-        primaryActionLabel="Update search"
-        onApply={applyDocumentFilters}
-        onClearAll={
-          draftActiveFilterCount > 0
-            ? () =>
-                setFilterDraft((current) => ({
-                  ...current,
-                  facetKeys: [],
-                  resultType: "all",
-                  scopeFilters: {},
-                  selectedDocumentIds: [],
-                }))
-            : undefined
-        }
-        summary={{
-          count: draftDisplayedMatches.length,
-          noun: draftDisplayedMatches.length === 1 ? "match" : "matches",
-        }}
-        coverage={{
-          visibleCount: draftDisplayedMatches.length,
-          totalCount: matches.length,
-          label: "Visible retrieved matches",
-        }}
-        secondaryAction={{
-          label: "Browse all sources",
-          count: documentCount > 0 ? documentCount : undefined,
-          onClick: () => {
-            setFilterPanelState({ query, open: false });
-            onOpenLibrary();
-          },
-        }}
-      />
-    ) : null;
+  // Mounted whenever the control is, not only while open (#M3XZV0): `Sheet`
+  // skips its focus restore when it unmounts, so a sheet rendered only while
+  // open closed with focus on <body>. Closed, it renders nothing — no DOM, no
+  // tab stop, and nothing on the server render.
+  const documentFilterSheet = showFilterControl ? (
+    <ResultFilterSheet
+      open={filterPanelOpen}
+      returnFocusRef={filterOpenerRef}
+      onClose={() => setFilterPanelState({ query, open: false })}
+      panelId={filterPanelId}
+      testId="document-filter-panel"
+      title="Filter documents"
+      description="Set retrieval scope, then refine the matches. Changes apply together."
+      chromeResetKey={query}
+      groups={documentFilterGroups}
+      applicationMode="staged"
+      primaryActionLabel="Update search"
+      onApply={applyDocumentFilters}
+      onClearAll={
+        draftActiveFilterCount > 0
+          ? () =>
+              setFilterDraft((current) => ({
+                ...current,
+                facetKeys: [],
+                resultType: "all",
+                scopeFilters: {},
+                selectedDocumentIds: [],
+              }))
+          : undefined
+      }
+      summary={{
+        count: draftDisplayedMatches.length,
+        noun: draftDisplayedMatches.length === 1 ? "match" : "matches",
+      }}
+      coverage={{
+        visibleCount: draftDisplayedMatches.length,
+        totalCount: matches.length,
+        label: "Visible retrieved matches",
+      }}
+      secondaryAction={{
+        label: "Browse all sources",
+        count: documentCount > 0 ? documentCount : undefined,
+        onClick: () => {
+          setFilterPanelState({ query, open: false });
+          onOpenLibrary();
+        },
+      }}
+    />
+  ) : null;
   const showIdentityHeader =
     recordMatchCount > 0 ||
     matches.length > 0 ||
