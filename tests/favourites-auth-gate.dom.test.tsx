@@ -23,6 +23,8 @@ const authSession = vi.hoisted(() => ({
   error: null as string | null,
   notice: null as string | null,
   signInWithEmail: vi.fn(),
+  signInWithPassword: vi.fn(),
+  signUpWithPassword: vi.fn(),
   signInWithOAuth: vi.fn(),
   signOut: vi.fn(),
 }));
@@ -241,7 +243,7 @@ describe("favourites auth gate DOM", () => {
     const apple = screen.getByRole("button", { name: "Continue with Apple" });
     const google = screen.getByRole("button", { name: "Continue with Google" });
     const microsoft = screen.getByRole("button", { name: "Continue with Microsoft" });
-    const email = screen.getByLabelText(/Work email/);
+    const email = screen.getByLabelText(/Email address/);
 
     expect(apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(google.compareDocumentPosition(microsoft) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -269,29 +271,32 @@ describe("favourites auth gate DOM", () => {
     for (const provider of ["Apple", "Google", "Microsoft"]) {
       expect(screen.getByRole("button", { name: `Continue with ${provider}` })).toBeDisabled();
     }
-    expect(screen.getByRole("button", { name: "Continue securely" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sign in with email" })).toBeDisabled();
   });
 
-  it("submits email and announces success and failure feedback", async () => {
+  it("submits password sign-in and announces success and failure feedback", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    const submit = screen.getByRole("button", { name: "Continue securely" });
+    const submit = screen.getByRole("button", { name: "Sign in with email" });
     expect(submit).toBeDisabled();
-    const email = screen.getByLabelText(/Work email/);
+    const email = screen.getByLabelText(/Email address/);
     expect(email).toHaveAttribute("data-sheet-autofocus", "true");
     await user.type(email, "clinician@clinic.example");
+    await user.type(screen.getByLabelText(/^Password/), "existing-passphrase");
     await user.click(submit);
-    expect(authSession.signInWithEmail).toHaveBeenCalledWith("clinician@clinic.example");
+    expect(authSession.signInWithPassword).toHaveBeenCalledWith("clinician@clinic.example", "existing-passphrase");
 
-    authSession.notice = "Check your email for the sign-in link.";
+    authSession.notice = "Check your email to confirm your account, then sign in.";
     rerender(<AccountSetupDialog open onClose={() => undefined} />);
-    expect(screen.getByRole("status")).toHaveTextContent("Check your email for the sign-in link.");
+    expect(screen.getByRole("status")).toHaveTextContent("Check your email to confirm your account, then sign in.");
 
     authSession.notice = null;
-    authSession.error = "Sign-in email could not be sent.";
+    authSession.error = "Sign-in failed. Check your email and password, or confirm your email address.";
     rerender(<AccountSetupDialog open onClose={() => undefined} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("Sign-in email could not be sent.");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Sign-in failed. Check your email and password, or confirm your email address.",
+    );
   });
 
   it("keeps the Tools Show all chip as a 48px tap target to the directory", () => {

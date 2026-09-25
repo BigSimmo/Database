@@ -63,7 +63,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const entry = onCallEntrySchema.parse({ ...parsedEntry.data, id, details: parsedDetails.data });
     const row = onCallEntryToRow(entry, user.id);
 
-    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id);
+    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id, row.is_personal);
 
     // Scoped by id AND owner_id on the same chain: a row that exists but belongs to another
     // owner returns no row here, identically to a row that does not exist at all — this
@@ -78,7 +78,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (error) throw new Error(error.message);
     if (!data) return publicErrorResponse("On Call entry not found.", 404, { code: "on_call_entry_not_found" });
 
-    return NextResponse.json({ entry: rowToOnCallEntry(data as Record<string, unknown>) });
+    return NextResponse.json({ entry: { ...rowToOnCallEntry(data as Record<string, unknown>), isOwn: true } });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

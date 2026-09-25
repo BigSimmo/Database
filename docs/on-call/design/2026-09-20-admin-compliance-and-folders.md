@@ -538,3 +538,29 @@ trade — and it is a trade that can be made later, whereas the migration cannot
 - Nothing here adds a check against any issuing body, and section 4 is the reason: the moment
   this app contacts a register, the wording rules change, and they would need rewriting from the
   clinical-governance question outward rather than patched.
+
+## Invited service handbook addition — 23 September 2026
+
+`/on-call/service` adds a separate service/site workspace. It does not import or
+republish legacy public entries, private compliance or CME records. Membership is
+invitation-based after a doctor creates their service; invitations expire within seven
+days and are shared explicitly by the administrator. Member, editor and administrator
+roles are separate from the designated clinical-review capability.
+
+All server reads and writes check current membership. Operational entries can be
+published by editors. Clinical and legal revisions require a different designated
+reviewer; an existing published revision remains available while its replacement is
+reviewed. Revision conflicts fail visibly rather than overwriting a newer edit. Members
+can flag incorrect information into the editor queue. Personal orientation completion
+is scoped to doctor, service, site, rotation and published revision.
+
+The handbook starts with linked official WA resources and blank documentation
+structures. Local numbers, referral requirements and procedures are editor-supplied;
+the app does not infer a roster or certify a clinician's compliance. Templates copy
+blank headings only and provide no patient-note storage workflow. Service information
+is not persisted in the legacy browser cache. Approved offline packs remain a later
+feature; this addition makes no offline availability promise.
+
+Database isolation and publishing checks use a disposable local database. The new
+migration remains subject to owner merge and the production rules above; local checks
+do not establish hosted acceptance.

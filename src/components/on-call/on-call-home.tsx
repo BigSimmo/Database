@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
@@ -20,12 +21,14 @@ import {
   ON_CALL_VIEW_ICONS,
   ON_CALL_VIEW_TITLES,
 } from "@/components/on-call/on-call-section-identity";
-import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
+import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
+import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
+import { deriveOnCallNotifications } from "@/lib/on-call/notifications";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
@@ -123,12 +126,13 @@ function HomeModule({
  */
 function CallCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
   const number = onCallPrimaryNumber(entry, now);
-  const href = onCallTelHref(number?.value);
+  const href = number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
   const availability = onCallAvailability(entry);
-  if (!href || !number) return null;
+  if (!number) return null;
+  const Target = href ? "a" : Link;
   return (
-    <a
-      href={href}
+    <Target
+      href={href ?? onCallEntryHref(entry)}
       onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
       data-testid={`on-call-home-call-${entry.slug}`}
       className={cn(
@@ -139,7 +143,11 @@ function CallCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
       )}
     >
       <span className="flex items-center justify-between gap-2">
-        <Phone aria-hidden="true" className="size-icon-md" />
+        {href ? (
+          <Phone aria-hidden="true" className="size-icon-md" />
+        ) : (
+          <ChevronRight aria-hidden="true" className="size-icon-md" />
+        )}
         {/* Which of the contact's numbers this is. `onCallPrimaryNumber` became
             time-aware when the after-hours rule landed, so the same card shows a
             different line at 09:00 and at 22:00 — printing the digits without
@@ -152,17 +160,17 @@ function CallCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
         <span className="nums text-lg-minus font-bold tracking-display">{number.value}</span>
         {availability ? <span className="text-3xs font-semibold opacity-80">{availability}</span> : null}
       </span>
-    </a>
+    </Target>
   );
 }
 
 function SwitchboardRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
   const number = onCallPrimaryNumber(entry, now);
-  const href = onCallTelHref(number?.value);
+  const href = number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
   const content = (
     <>
       <span className="grid size-8 shrink-0 place-items-center rounded-sm border border-[color:var(--border)] bg-[color:var(--surface-subtle)]">
-        <Phone aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" />
+        {href ? <Phone aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" /> : null}
       </span>
       <span className="min-w-0 flex-1 grid gap-0.5 text-left">
         <span className="text-sm font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
@@ -204,11 +212,12 @@ function SwitchboardRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
 
 function WardChip({ entry, now }: { entry: OnCallEntry; now: Date }) {
   const number = onCallPrimaryNumber(entry, now);
-  const href = onCallTelHref(number?.value);
-  if (!href || !number) return null;
+  const href = number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
+  if (!number) return null;
+  const Target = href ? "a" : Link;
   return (
-    <a
-      href={href}
+    <Target
+      href={href ?? onCallEntryHref(entry)}
       onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
       data-testid={`on-call-home-ward-${entry.slug}`}
       className={cn(
@@ -221,7 +230,7 @@ function WardChip({ entry, now }: { entry: OnCallEntry; now: Date }) {
       <span className="truncate text-xs font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
       <span className="nums text-sm font-bold text-[color:var(--text)]">{number.value}</span>
       <span className={cn(textMuted, "truncate text-3xs font-bold uppercase tracking-kicker")}>{number.label}</span>
-    </a>
+    </Target>
   );
 }
 
@@ -266,7 +275,8 @@ function timeLabel(iso: string): string {
 }
 
 export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut, demoMode } = useOnCallEntries();
+  const loadFailed = !loading && isOffline && entries.length === 0;
   const recent = useOnCallRecent();
 
   // One clock for the whole page. `onCallPrimaryNumber` became time-aware when
@@ -311,6 +321,42 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // tries to serve both ends up telling a first-time reader about tags they have
   // nothing to tag yet.
   const hasEntries = entries.length > 0;
+  // What this reader can do with the example corpus, or null while that is
+  // unknown — which also covers demo mode, where the corpus already IS the
+  // entries and every button would be one that can only fail.
+  //
+  // Signed out is NOT null: a signed-out reader gets the on-device preview,
+  // which needs no account and publishes nothing. That is the case most people
+  // opening this page are in, and offering them nothing was the reason the
+  // page looked unfinished.
+  //
+  // The module below is gated on this value, so a labelled heading can never
+  // appear above a control that has decided to render nothing.
+  // What this reader can do with the example corpus, or null while that is
+  // unknown.
+  //
+  // The signed-out decision is NOT made here. `useOnCallDemoContentState` takes
+  // the server's `signedOut` flag and reconciles it with what the browser
+  // already knows about the session, because the server's flag cannot answer
+  // when its own request failed — see that hook for the failure it closes. It
+  // lives there rather than in this file for a second reason: this file is one
+  // of the surfaces `tests/on-call-compliance.test.ts` scans for words a
+  // compliance page may never say, and two of the auth status values are
+  // exactly those words.
+  const exampleContent = useOnCallDemoContentState(signedOut, demoMode);
+
+  // What the hub is raising on its own, derived from the entries already in
+  // hand. Memoised so opening and closing the sheet does not rebuild the list,
+  // and so two renders cannot disagree about the count.
+  //
+  // It reads the page's OWN clock rather than calling `new Date()` here, for
+  // two reasons this had wrong on the first pass. A fresh `Date` ignored
+  // `pinnedNow` entirely, so a test standing at a chosen moment was silently
+  // answered from the process clock. And with `[entries]` alone the memo never
+  // re-ran on a page nobody is touching: the ward strip would move to the
+  // after-hours number on the next tick while the badge went on counting from
+  // whenever the page was opened. One clock, one answer.
+  const notifications = useMemo(() => deriveOnCallNotifications(entries, now), [entries, now]);
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -379,16 +425,54 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           grid names every page of the mode with its count — and the mode pill
           above opens the same list. A bar between them would be the third
           copy. */}
-      <OnCallPageMenu view="home" />
+      <OnCallPageMenu view="home" notifications={notifications} />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>
-        {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+        {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
+        {loadFailed ? <OnCallLoadFailed reason={loadError} onRetry={retry} /> : null}
 
         {/* Renders nothing but the field until something is typed, so it costs a
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
 
-        {!loading && !hasEntries ? (
+        <HomeModule id="on-call-home-service" label="Your service">
+          <Link
+            href="/on-call/service"
+            className={cn(
+              cardSurface,
+              focusRing,
+              "flex min-h-tap min-w-0 items-center justify-between gap-3 p-4 no-underline",
+            )}
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-[color:var(--text-heading)]">Service handbook</span>
+              <span className={cn(textMuted, "mt-0.5 block break-words text-xs")}>
+                Choose your service and site for local contacts, referrals, orientation and corrections.
+              </span>
+            </span>
+            <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+          </Link>
+        </HomeModule>
+
+        {exampleContent ? (
+          <HomeModule id="on-call-home-example-content" label="Example content">
+            {/* Deliberately at the top of the page rather than tucked into a
+                menu. These rows are shared, so while they are loaded they are
+                on the page a stranger reads; the way out of that should be
+                where the reader already is, not somewhere they have to
+                remember to look.
+
+                The control renders nothing until it knows what this ACCOUNT
+                holds, and decides Load or Remove from that. It is not gated on
+                the entries in view: the shared read returns every non-personal
+                row across all accounts, so example rows another account loaded
+                are on this page too, and gating on them would offer Remove to
+                someone who owns none of them. */}
+            <OnCallDemoContentControl state={exampleContent} />
+          </HomeModule>
+        ) : null}
+
+        {!loading && !hasEntries && !loadFailed ? (
           <HomeModule id="on-call-home-first-run" label="Getting started">
             <EmptyState
               icon={ON_CALL_HOME_ICON}
@@ -396,17 +480,19 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
               description="Adding and editing needs an account. Reading does not."
               actions={
-                <Link
-                  href={ON_CALL_SECTION_HREFS.contacts}
-                  className={cn(
-                    "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
-                    "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
-                    focusRing,
-                  )}
-                >
-                  Open Contacts
-                  <ChevronRight aria-hidden="true" className="size-icon-xs" />
-                </Link>
+                <div className="flex flex-col gap-3">
+                  <Link
+                    href={ON_CALL_SECTION_HREFS.contacts}
+                    className={cn(
+                      "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
+                      "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
+                      focusRing,
+                    )}
+                  >
+                    Open Contacts
+                    <ChevronRight aria-hidden="true" className="size-icon-xs" />
+                  </Link>
+                </div>
               }
               testId="on-call-home-first-run-empty"
             />
@@ -414,7 +500,10 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         ) : null}
 
         <HomeModule id="on-call-home-call-first" label="Call first">
-          {callFirst.length === 0 ? (
+          {/* While the first load is in flight the tile grid below carries the
+              loading state; saying "Nothing pinned" here would be a claim about
+              entries that have not arrived yet. */}
+          {(loading && entries.length === 0) || loadFailed ? null : callFirst.length === 0 ? (
             <EmptyState
               icon={Phone}
               title="Nothing pinned to call first"
@@ -462,7 +551,8 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                 // Same private treatment Contacts uses: a personal number does
                 // not print on the home, even if the row itself is still named.
                 const number = entry.isPersonal ? null : onCallPrimaryNumber(entry, now);
-                const href = onCallTelHref(number?.value);
+                const href =
+                  number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
                 // By view, not by `entry.section`. Compliance and Who's who are
                 // views over `logistics` and `contacts`, so a section lookup
                 // sent a compliance requirement to the Admin page — a page that
@@ -473,8 +563,11 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                 const target = href ?? ON_CALL_VIEW_HREFS[view];
                 const at = timeLabel(item.at);
                 const RecentIcon = ON_CALL_VIEW_ICONS[view];
+                // Internal targets go through the router (no full page reload);
+                // a phone number stays a plain `tel:` anchor.
+                const RecentLink = target.startsWith("/") ? Link : "a";
                 return (
-                  <a
+                  <RecentLink
                     key={item.id}
                     href={target}
                     onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
@@ -522,7 +615,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                         className="size-icon-sm shrink-0 text-[color:var(--text-muted)]"
                       />
                     )}
-                  </a>
+                  </RecentLink>
                 );
               })}
             </div>
@@ -578,7 +671,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           action={
             <Link href="/on-call/card" className={moduleAction}>
               <Printer aria-hidden="true" className="size-icon-xs" />
-              Printable card
+              Pocket card
             </Link>
           }
         >

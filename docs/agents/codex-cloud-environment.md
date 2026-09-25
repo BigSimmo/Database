@@ -8,6 +8,12 @@ Codex Cloud uses an isolated Linux container and does not inherit desktop files,
 credentials, OAuth sessions, MCP authentication, local services, or uncommitted work.
 Use `docs/codex-cloud.md` as the environment contract:
 
+- Whenever agents are requested or otherwise permitted, follow the tracked
+  [smart agent allocation policy](smart-agent-allocation.md). It is discovered through
+  the root `AGENTS.md`, without desktop files. Verify available hosted model/effort
+  controls before dispatch; documentation is not execution proof. A local draft
+  must be published to the selected Cloud branch before a fresh task can load it.
+
 - Configure setup as `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - For an explicitly owner-authorized GitHub shell environment, use

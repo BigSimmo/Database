@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "29178f4e-0a62-4807-b519-3c4a62d283d9",
+  "createdOn": "2026-09-22",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "vitest run silently ignores a named-but-missing test file and exits 0, so a gate receipt can name tests that never ran",
+    "detail": "MEASURED 2026-09-21. 'npx vitest run tests/this-file-does-not-exist.test.ts tests/owner-scope.test.ts' reports 'Tests 9 passed (9)' and exits 0. Two files named, one real, no warning, no non-zero exit. HOW IT BIT: on PR #2974 a commit message claimed 'the committed test that checks both surfaces agree needed no change - verified rather than assumed, by running it', citing 'npx vitest run tests/tenancy-scan.test.ts tests/owner-scope*.test.ts -> Test Files 2 passed, Tests 19 passed'. tests/tenancy-scan.test.ts DOES NOT EXIST; the paired test is tests/api-tenancy-predicates.test.ts and was never loaded. The 19 tests came from owner-scope-guard and owner-scope alone. The conclusion happened to be correct (verified afterwards: api-tenancy-predicates passes with and without the doc row) but the evidence sentence was false, and in this repository gate receipts are quoted verbatim into PR bodies and the review ledger, so a false one propagates as fact. WHY IT IS P2 AND NOT COSMETIC: this is the same class as #JMX32A (a Playwright run whose own web server failed to start silently reused another and reported green) - a signal that cannot fail is worse than no signal, because it is trusted. It is also the class docs/agents/verification-gates.md exists to protect, and AGENTS.md 'Evidence and calibration are never compressed' requires pasting the decisive gate line, which this makes unsafe to trust. NEXT ACTION: 'npm run test:focused -- --files <paths>' is already documented as failing closed for deleted files; the bare 'vitest run <paths>' path has no such guard. Either route agents to the focused wrapper for named-file runs, or add a preflight that errors when a named spec path does not exist. Add a contract test that a named-but-missing spec exits non-zero. Not a RAG, clinical or privacy surface; offline gate only.",
+    "source": "PR #2974, 2026-09-21 — measured directly after a false evidence line in commit 6271ca1b3; correction posted at https://github.com/BigSimmo/Database/pull/2974#issuecomment-5763434640",
+    "issueUlid": "01M33P8T9XGQG3NV31WKK54QDP"
+  }
+}

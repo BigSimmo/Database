@@ -7,15 +7,15 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import {
+  amendClosedCmeEntry,
   assertValidCmeLinkedIds,
-  cmeEntryToRow,
+  setCmeEntryArchived,
+  saveCmeEntry,
   fetchOwnerCmeYear,
   markCmeEntryTranscribed,
-  replaceCmeAllocations,
-  restoreCmeAllocations,
-  rowToCmeEntry,
 } from "@/lib/cme/repository";
-import { cmeEntryUpdateSchema } from "@/lib/cme/schemas";
+import { cmeEntryAmendSchema, cmeEntryUpdateSchema } from "@/lib/cme/schemas";
+import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
 import type { CmeEntry } from "@/lib/cme/types";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
@@ -27,22 +27,6 @@ export const runtime = "nodejs";
 
 const cmeEntryRouteParamsSchema = z.object({ id: z.string().uuid() });
 
-/**
- * `src/lib/cme/repository.ts` (Task 5, frozen — out of this task's ownership) exports only
- * `insertCmeEntry`, no update/delete primitive for `cme_entries`/`cme_allocations`. The same
- * gap exists on `src/app/api/on-call/entries/[id]/route.ts`, the file this route is built
- * "line for line" from: On Call's repository has no update/delete helper either, and its
- * PATCH/DELETE build their `.update()`/`.delete()` calls directly, scoped by
- * `.eq("id", id).eq("owner_id", ownerId)` on the same chain — the exact pattern
- * `scripts/check-owner-scope-api.mjs` self-tests and accepts. This file follows that same,
- * already-proven precedent rather than leaving these two required endpoints unbuildable.
- *
- * This does mean `docs/codebase-index.md` ("`src/lib/cme/repository.ts` is the only module
- * that reaches [the CME tables]") and the comment on `cme/repository.ts` in
- * `scripts/lib/tenancy-scan.mjs`'s `SCANNED_LIB_MODULES` are not quite true of this file —
- * flagged in this task's report for the controller to either extend the repository with the
- * missing primitives or correct those two comments.
- */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
@@ -69,11 +53,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    // Two accepted bodies:
+    // Accepted bodies (plus `{ "archived": boolean }`, handled below):
     // 1. `{ "transcribed": true }` — stamp transcribed_at after a successful clipboard copy.
     // 2. A full-replace `cmeEntryUpdateSchema` body (every create field required), so a partial
     //    edit cannot silently blank reflection/cost/links via create-schema defaults.
-    const rawBody: unknown = await request.json();
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return publicErrorResponse("Invalid CME entry.", 400);
+    }
     const markTranscribed =
       rawBody !== null &&
       typeof rawBody === "object" &&
@@ -86,13 +75,57 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ entry });
     }
 
-    const body = cmeEntryUpdateSchema.parse(rawBody);
+    const archiveBody = z.object({ archived: z.boolean() }).strict().safeParse(rawBody);
+    if (archiveBody.success) {
+      const entry = await setCmeEntryArchived(supabase, user.id, id, archiveBody.data.archived);
+      return NextResponse.json({ entry });
+    }
+
+    // 3. An amendment to an activity in a closed year: the complete record plus a reason. The
+    //    database keeps the previous version, the new one and the reason, dated, beside the
+    //    closing snapshot, which never changes.
+    if (rawBody !== null && typeof rawBody === "object" && !Array.isArray(rawBody) && "amendmentReason" in rawBody) {
+      const amendment = cmeEntryAmendSchema.safeParse(rawBody);
+      if (!amendment.success) {
+        return publicErrorResponse("Invalid CME amendment. A reason of 3 to 1000 characters is required.", 400);
+      }
+      const { amendmentReason, ...fields } = amendment.data;
+      await assertValidCmeLinkedIds(supabase, user.id, {
+        routineId: fields.routineId,
+        documentId: fields.documentId,
+      });
+      const amended = await amendClosedCmeEntry(
+        supabase,
+        user.id,
+        {
+          id,
+          date: fields.date,
+          title: fields.title,
+          allocations: fields.allocations,
+          reflection: fields.reflection,
+          costCents: fields.costCents,
+          // Not written by an amendment; the database keeps the stored value.
+          transcribed: false,
+          routineId: fields.routineId,
+          documentId: fields.documentId,
+          sourceUrl: fields.sourceUrl,
+          buckets: fields.buckets,
+          formalPeerReviewHours: fields.formalPeerReviewHours,
+        },
+        amendmentReason,
+      );
+      return NextResponse.json({ entry: amended });
+    }
+
+    const parsed = cmeEntryUpdateSchema.safeParse(rawBody);
+    if (!parsed.success) return publicErrorResponse("Invalid CME entry.", 400);
+    const body = parsed.data;
 
     // `transcribed` is not part of a full replace — read it off the existing row and carry
     // it forward so editing title/cost cannot silently un-transcribe the entry.
     const { data: existingRow, error: existingError } = await supabase
       .from("cme_entries")
-      .select("transcribed_at")
+      .select("transcribed_at, source_url")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle();
@@ -101,7 +134,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const targetYear = Number(body.date.slice(0, 4));
     const yearRow = await fetchOwnerCmeYear(supabase, user.id, targetYear);
-    if (!yearRow) {
+    if (cmeYearConfigurationState(yearRow) === "unavailable") {
+      return publicErrorResponse("Your saved CPD targets could not be read. They have not been changed.", 503, {
+        code: "cme_year_unavailable",
+      });
+    }
+    if (!yearRow || cmeYearConfigurationState(yearRow) !== "ready") {
       return publicErrorResponse(`Confirm your CPD targets for ${targetYear} before moving an entry there.`, 400, {
         code: "cme_year_not_confirmed",
       });
@@ -122,31 +160,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       transcribed: (existingRow as Record<string, unknown>).transcribed_at != null,
       routineId: body.routineId,
       documentId: body.documentId,
+      sourceUrl: body.sourceUrl === undefined ? (existingRow.source_url ?? null) : body.sourceUrl,
       buckets: body.buckets,
+      formalPeerReviewHours: body.formalPeerReviewHours,
     };
-    const row = cmeEntryToRow(entry, user.id, yearRow.id);
-
-    // Allocations first (with restore-on-insert-failure). If the later entry update fails,
-    // restore the prior allocation snapshot so a rejected edit cannot corrupt the CPD record.
-    const { written: allocations, prior } = await replaceCmeAllocations(supabase, user.id, id, entry.allocations);
-
-    const { data: updatedRow, error: updateError } = await supabase
-      .from("cme_entries")
-      .update(row)
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .select("*")
-      .maybeSingle();
-    if (updateError) {
-      await restoreCmeAllocations(supabase, user.id, id, prior);
-      throw new Error(updateError.message);
-    }
-    if (!updatedRow) {
-      await restoreCmeAllocations(supabase, user.id, id, prior);
-      return publicErrorResponse("CME entry not found.", 404, { code: "cme_entry_not_found" });
-    }
-
-    return NextResponse.json({ entry: rowToCmeEntry(updatedRow as Record<string, unknown>, allocations) });
+    const saved = await saveCmeEntry(supabase, user.id, yearRow.id, entry);
+    return NextResponse.json({ entry: saved });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
@@ -181,21 +200,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    // Scoped by id AND owner_id on the same chain: deleting an id the caller does not own
-    // returns no row, identically to deleting an id that does not exist. `cme_allocations`
-    // rows cascade on delete (see the migration's `entry_id ... on delete cascade`), so
-    // nothing else needs deleting here.
-    const { data, error } = await supabase
-      .from("cme_entries")
-      .delete()
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .select("id")
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!data) return publicErrorResponse("CME entry not found.", 404, { code: "cme_entry_not_found" });
-
-    return NextResponse.json({ deleted: true, id });
+    // Retain records and evidence; the legacy DELETE endpoint now archives reversibly.
+    const entry = await setCmeEntryArchived(supabase, user.id, id, true);
+    return NextResponse.json({ archived: true, entry });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

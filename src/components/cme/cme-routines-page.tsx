@@ -31,6 +31,7 @@ export type CmeRoutinesPageProps = {
   readonly onLogRoutine: (prefill: CmeRoutineLogPrefill) => void;
   /** Called when the owner taps "New routine". Required for the same reason as `onLogRoutine`. */
   readonly onNewRoutine: () => void;
+  readonly onEditRoutine?: (routine: CmeRoutine) => void;
 };
 
 /**
@@ -52,7 +53,13 @@ export type CmeRoutinesPageProps = {
  * `CmeNavHeader`. See `docs/search-chrome-behaviour.md` for when a page owns
  * that header and when, like this one, it does not need to.
  */
-export function CmeRoutinesPage({ routines = [], now, onLogRoutine, onNewRoutine }: CmeRoutinesPageProps) {
+export function CmeRoutinesPage({
+  routines = [],
+  now,
+  onLogRoutine,
+  onNewRoutine,
+  onEditRoutine,
+}: CmeRoutinesPageProps) {
   const dueRoutines = routinesDueOn(routines, now);
   const activeRoutines = routines
     .filter((routine) => routine.archivedAt === null)
@@ -136,14 +143,26 @@ export function CmeRoutinesPage({ routines = [], now, onLogRoutine, onNewRoutine
                     {routine.nextDue ? `Next due ${formatRoutineDueDate(routine.nextDue)}` : "Not scheduled yet"}
                   </p>
                 </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label={`Log usual hours for ${routine.title}`}
-                  onClick={() => handleLog(routine)}
-                >
-                  Log
-                </Button>
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-label={`Log usual hours for ${routine.title}`}
+                    onClick={() => handleLog(routine)}
+                  >
+                    Log
+                  </Button>
+                  {onEditRoutine ? (
+                    <Button
+                      variant="toolbar"
+                      size="sm"
+                      aria-label={`Edit ${routine.title}`}
+                      onClick={() => onEditRoutine(routine)}
+                    >
+                      Edit
+                    </Button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>

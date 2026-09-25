@@ -37,6 +37,7 @@ vi.mock("@/lib/on-call/entry-store", () => ({
 
 vi.mock("@/lib/on-call/linked-documents", () => ({
   useOnCallLinkedDocuments: () => ({}),
+  useOnCallLinkedDocumentsState: () => ({ documents: {}, loading: false }),
 }));
 
 import OnCallComplianceRoute from "@/app/(search-app)/on-call/compliance/page";

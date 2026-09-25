@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "cc90bdc8-765f-4dc5-94ea-b0edbf354535",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "CME: build real year close (snapshot, dated amendments, shortfall note) as designed in cme-design-decisions.md section 9",
+    "detail": "closed_at on cme_years is enforced everywhere but nothing sets it; needs a cme_close_year function, snapshot and amendment tables, a trigger stopping closed_at being cleared outside that path, and closed-year guards on cme_requirements and cme_allocations. New migration, so owner-merged. The dashboard's year-end action was reworded on 2026-09-24 to point at the annual summary instead of a close step that does not exist.",
+    "source": "On Call + CME audit 2026-09-24, round 2 (branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M39RGQBWWV38QM04WHHT9KBZ"
+  }
+}

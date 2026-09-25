@@ -9,7 +9,9 @@ on:
 
 concurrency:
   group: pr-mergeability-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # PR events supersede stale heads (AGENTS.md anti-conflict); protected-base push
+  # refreshes must not cancel each other — same pattern as ci.yml.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read
