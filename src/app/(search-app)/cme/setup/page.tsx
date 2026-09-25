@@ -1,19 +1,26 @@
 import type { Metadata } from "next";
 
-import { CmeSetupPage } from "@/components/cme/cme-setup-page";
+import { CmeSetupRoute } from "@/components/cme/cme-setup-route";
+import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
-import type { CmeRequirementSet } from "@/lib/cme/types";
 
 export const metadata: Metadata = {
   title: "Set up | CME | PsychSift",
   description: "Four things to set up once, then the mode runs itself.",
 };
 
-function placeholderSet(year: number): CmeRequirementSet {
-  return { year, confirmedOn: "", confirmedSource: "", totalHours: 0, requirements: [] };
-}
-
-export default async function CmeSetupRoute() {
-  const data = await loadCmePageData();
-  return <CmeSetupPage set={data.set ?? placeholderSet(data.year)} />;
+export default async function CmeSetupPageRoute({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+  const query = await searchParams;
+  const requestedYear = query.year ? Number(query.year) : undefined;
+  const data = await loadCmePageData(
+    Number.isInteger(requestedYear) && requestedYear! >= 2000 && requestedYear! <= 2100 ? requestedYear : undefined,
+  );
+  if (data.state === "signed-out" || data.state === "unavailable") {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+        <CmeStateNotice state={data.state} year={data.year} />
+      </main>
+    );
+  }
+  return <CmeSetupRoute key={data.year} year={data.year} set={data.set} demoMode={data.demoMode} />;
 }

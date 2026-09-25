@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1f3f489b-2563-454e-9ef8-1ddb032332b3",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "On Call: a failed load looks like an empty hub, or says 'You are offline' when the server errored",
+    "detail": "entry-store.ts sets isOffline on any fetch failure; with no cache the banner needs cachedAt so it is hidden and pages show 'No contacts yet'/'Your On Call hub is empty'. With a cache a 500 says 'You are offline'. No retry on section pages.",
+    "source": "On Call + CME audit 2026-09-24 (code read + demo-mode screenshots, branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M392PP1FF28H47NVWCJ3R97W"
+  }
+}

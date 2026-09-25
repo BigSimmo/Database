@@ -212,34 +212,110 @@ test("1024px bounded main scrolling preserves focused page search", async ({ pag
   await expect(input, "bounded desktop main scrolling must preserve deliberate keyboard focus").toBeFocused();
 });
 
-for (const { name: sizeName, viewport } of breakpoints) {
-  for (const { name: surfaceName, route, minimumRunway = requiredRunway } of surfaces) {
-    test(`${sizeName}: top bar hides on scroll down and returns mid-page on ${surfaceName}`, async ({ page }) => {
+test.describe("tablet and desktop scroll chrome", () => {
+  // These breakpoints drive the page with a mouse wheel and pin tablet/desktop owners.
+  // The iPhone projects (isMobile) have no wheel and never render those owners.
+  test.skip(({ isMobile }) => isMobile, "tablet/desktop wheel scrolling does not apply to the iPhone projects");
+  for (const { name: sizeName, viewport } of breakpoints) {
+    for (const { name: surfaceName, route, minimumRunway = requiredRunway } of surfaces) {
+      test(`${sizeName}: top bar hides on scroll down and returns mid-page on ${surfaceName}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(route, { waitUntil: "domcontentloaded" });
+        await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+        await waitForRunway(page, minimumRunway);
+        await page.waitForTimeout(400);
+
+        const atTop = await readChromeState(page);
+        expect(atTop.hidden, "top bar visible at the top").toBe(false);
+        expect(atTop.headerTop, "top bar starts at the viewport top").toBeLessThanOrEqual(8);
+        expect(atTop.searchVisible, "search starts on screen").toBe(true);
+        if (sizeName === "tablet" || sizeName === "desktop") {
+          expect(atTop.searchPlacement).toBe("desktop-page");
+          expect(atTop.searchInsideDesktopPageSlot).toBe(true);
+          expect(atTop.searchHasStickyAncestor).toBe(false);
+          expect(atTop.desktopPageSearchClearsFollowingContent).toBe(true);
+        }
+
+        await scrollBy(page, atTop.maxOffset + 320, 160);
+        await page.waitForTimeout(300);
+
+        const scrolledDown = await readChromeState(page);
+        expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(minimumRunway - 200);
+        expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
+        expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
+        expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
+
+        // Three deliberate upward steps — nowhere near the top of the page.
+        await scrollBy(page, -360, 120);
+        await page.waitForTimeout(300);
+
+        const scrolledUp = await readChromeState(page);
+        expect(scrolledUp.offset, "the reveal happens well short of the top").toBeGreaterThan(200);
+        expect(scrolledUp.hidden, "top bar returns on a deliberate scroll up").toBe(false);
+        expect(scrolledUp.headerBottom, "returned top bar is actually on screen").toBeGreaterThan(0);
+        expect(scrolledUp.headerTop, "returned top bar sits at the viewport top").toBeLessThanOrEqual(8);
+        expect(scrolledUp.searchVisible, "returning the top bar does not re-anchor page search").toBe(false);
+      });
+
+      test(`${sizeName}: search composer keeps its breakpoint owner on ${surfaceName}`, async ({ page }) => {
+        // data-scroll-hidden is reserved for the phone dock. Tablet and desktop
+        // search leave by ordinary page scrolling instead.
+        await page.setViewportSize(viewport);
+        await page.goto(route, { waitUntil: "domcontentloaded" });
+        await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+        await waitForRunway(page, minimumRunway);
+        await page.waitForTimeout(400);
+
+        const atTop = await readChromeState(page);
+        expect(atTop.searchVisible).toBe(true);
+        await scrollBy(page, atTop.maxOffset + 320, 160);
+        await page.waitForTimeout(300);
+
+        const scrolledDown = await readChromeState(page);
+        expect(scrolledDown.hidden, "the top bar still hides").toBe(true);
+        expect(
+          scrolledDown.hiddenBottomComposers,
+          "no composer flips data-scroll-hidden above the phone breakpoint",
+        ).toBe(0);
+        expect(atTop.searchInsideDesktopPageSlot, "tablet and desktop search start in the page slot").toBe(true);
+        expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
+      });
+    }
+
+    /**
+     * Information pages own no composer in any mode, at any breakpoint. That is a
+     * different contract from the surfaces above, not a variant of it: there is no
+     * page slot to sit in and nothing to scroll away, so the loop's search
+     * assertions cannot express it. What still has to hold is the top bar's own
+     * hide-and-return, which is what the retired "shell service detail" surface
+     * was really proving. This record measures ~2000px of runway at 834x1112 and
+     * ~1300px at 1440x900, both clear of the 700px floor.
+     */
+    test(`${sizeName}: a record page hides the top bar on scroll and returns it mid-page with no composer`, async ({
+      page,
+    }) => {
       await page.setViewportSize(viewport);
-      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await page.goto("/services/mother-and-baby-mental-health-unit-fiona-stanley-hospital", {
+        waitUntil: "domcontentloaded",
+      });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
-      await waitForRunway(page, minimumRunway);
+      await waitForRunway(page, requiredRunway);
       await page.waitForTimeout(400);
+
+      await expect(page.getByTestId("global-search-input")).toHaveCount(0);
+      await expect(page.getByTestId("desktop-page-search-composer-slot")).toHaveCount(0);
 
       const atTop = await readChromeState(page);
       expect(atTop.hidden, "top bar visible at the top").toBe(false);
       expect(atTop.headerTop, "top bar starts at the viewport top").toBeLessThanOrEqual(8);
-      expect(atTop.searchVisible, "search starts on screen").toBe(true);
-      if (sizeName === "tablet" || sizeName === "desktop") {
-        expect(atTop.searchPlacement).toBe("desktop-page");
-        expect(atTop.searchInsideDesktopPageSlot).toBe(true);
-        expect(atTop.searchHasStickyAncestor).toBe(false);
-        expect(atTop.desktopPageSearchClearsFollowingContent).toBe(true);
-      }
 
       await scrollBy(page, atTop.maxOffset + 320, 160);
       await page.waitForTimeout(300);
 
       const scrolledDown = await readChromeState(page);
-      expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(minimumRunway - 200);
+      expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(requiredRunway - 200);
       expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
       expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
-      expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
 
       // Three deliberate upward steps — nowhere near the top of the page.
       await scrollBy(page, -360, 120);
@@ -248,82 +324,11 @@ for (const { name: sizeName, viewport } of breakpoints) {
       const scrolledUp = await readChromeState(page);
       expect(scrolledUp.offset, "the reveal happens well short of the top").toBeGreaterThan(200);
       expect(scrolledUp.hidden, "top bar returns on a deliberate scroll up").toBe(false);
-      expect(scrolledUp.headerBottom, "returned top bar is actually on screen").toBeGreaterThan(0);
       expect(scrolledUp.headerTop, "returned top bar sits at the viewport top").toBeLessThanOrEqual(8);
-      expect(scrolledUp.searchVisible, "returning the top bar does not re-anchor page search").toBe(false);
-    });
-
-    test(`${sizeName}: search composer keeps its breakpoint owner on ${surfaceName}`, async ({ page }) => {
-      // data-scroll-hidden is reserved for the phone dock. Tablet and desktop
-      // search leave by ordinary page scrolling instead.
-      await page.setViewportSize(viewport);
-      await page.goto(route, { waitUntil: "domcontentloaded" });
-      await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
-      await waitForRunway(page, minimumRunway);
-      await page.waitForTimeout(400);
-
-      const atTop = await readChromeState(page);
-      expect(atTop.searchVisible).toBe(true);
-      await scrollBy(page, atTop.maxOffset + 320, 160);
-      await page.waitForTimeout(300);
-
-      const scrolledDown = await readChromeState(page);
-      expect(scrolledDown.hidden, "the top bar still hides").toBe(true);
-      expect(
-        scrolledDown.hiddenBottomComposers,
-        "no composer flips data-scroll-hidden above the phone breakpoint",
-      ).toBe(0);
-      expect(atTop.searchInsideDesktopPageSlot, "tablet and desktop search start in the page slot").toBe(true);
-      expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
+      expect(scrolledUp.searchVisible, "a record page never grows a composer on reveal").toBe(false);
     });
   }
-
-  /**
-   * Information pages own no composer in any mode, at any breakpoint. That is a
-   * different contract from the surfaces above, not a variant of it: there is no
-   * page slot to sit in and nothing to scroll away, so the loop's search
-   * assertions cannot express it. What still has to hold is the top bar's own
-   * hide-and-return, which is what the retired "shell service detail" surface
-   * was really proving. This record measures ~2000px of runway at 834x1112 and
-   * ~1300px at 1440x900, both clear of the 700px floor.
-   */
-  test(`${sizeName}: a record page hides the top bar on scroll and returns it mid-page with no composer`, async ({
-    page,
-  }) => {
-    await page.setViewportSize(viewport);
-    await page.goto("/services/mother-and-baby-mental-health-unit-fiona-stanley-hospital", {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
-    await waitForRunway(page, requiredRunway);
-    await page.waitForTimeout(400);
-
-    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
-    await expect(page.getByTestId("desktop-page-search-composer-slot")).toHaveCount(0);
-
-    const atTop = await readChromeState(page);
-    expect(atTop.hidden, "top bar visible at the top").toBe(false);
-    expect(atTop.headerTop, "top bar starts at the viewport top").toBeLessThanOrEqual(8);
-
-    await scrollBy(page, atTop.maxOffset + 320, 160);
-    await page.waitForTimeout(300);
-
-    const scrolledDown = await readChromeState(page);
-    expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(requiredRunway - 200);
-    expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
-    expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
-
-    // Three deliberate upward steps — nowhere near the top of the page.
-    await scrollBy(page, -360, 120);
-    await page.waitForTimeout(300);
-
-    const scrolledUp = await readChromeState(page);
-    expect(scrolledUp.offset, "the reveal happens well short of the top").toBeGreaterThan(200);
-    expect(scrolledUp.hidden, "top bar returns on a deliberate scroll up").toBe(false);
-    expect(scrolledUp.headerTop, "returned top bar sits at the viewport top").toBeLessThanOrEqual(8);
-    expect(scrolledUp.searchVisible, "a record page never grows a composer on reveal").toBe(false);
-  });
-}
+});
 
 /**
  * Dead scroll: a scroll range on a page whose content has already ended.

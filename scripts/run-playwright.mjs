@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -228,7 +228,10 @@ async function waitForServer(baseUrl, server) {
         `Playwright-owned Next server exited before readiness (${server.exitCode !== null ? `code ${server.exitCode}` : `signal ${server.signalCode}`}).`,
       );
     }
-    const payload = await request(`${baseUrl}${identityPath}`, { json: true, timeoutMs: 5000 });
+    const payload = await request(`${baseUrl}${identityPath}`, {
+      json: true,
+      timeoutMs: 5000,
+    });
     if (isVerifiedProjectPayload(payload)) {
       let healthy = true;
       for (const smokePath of routeSmokePaths) {
@@ -270,7 +273,9 @@ function startIsolatedServer(serverPort, env) {
 function stopOwnedProcessTree(child) {
   if (!child?.pid || child.exitCode !== null) return;
   if (process.platform === "win32") {
-    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
     return;
   }
   try {
@@ -410,40 +415,73 @@ try {
     PLAYWRIGHT_OFFLINE_MODE: "true",
     NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false",
   });
-  console.log(`Building isolated production Playwright app (${relativeRunRoot})`);
+  const reuseBuild = process.env.PLAYWRIGHT_REUSE_BUILD?.trim() === "true";
+  const buildOnly = process.env.PLAYWRIGHT_BUILD_ONLY?.trim() === "true";
+  const distDirAbsolute = path.join(projectRoot, relativeDistDir);
+  const distReady = (() => {
+    try {
+      return existsSync(distDirAbsolute) && existsSync(path.join(distDirAbsolute, "BUILD_ID"));
+    } catch {
+      return false;
+    }
+  })();
 
-  const buildResult = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
-    cwd: projectRoot,
-    env: offlineEnv,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: "pipe",
-  });
-  const buildExitCode = childProcessExitCode(buildResult);
-  if (buildExitCode !== 0) {
-    if (buildResult.stdout) {
-      console.error(`[playwright] build stdout:\n${buildResult.stdout}`);
-    }
-    if (buildResult.stderr) {
-      console.error(`[playwright] build stderr:\n${buildResult.stderr}`);
-    }
-    const combinedOutput = `${buildResult.stdout ?? ""}\n${buildResult.stderr ?? ""}`;
-    if (
-      combinedOutput.includes("EBUSY") ||
-      combinedOutput.includes("EPERM") ||
-      combinedOutput.includes("resource busy or locked") ||
-      buildResult.error?.code === "EBUSY" ||
-      buildResult.error?.code === "EPERM"
-    ) {
+  if (reuseBuild && !distReady) {
+    throw new Error(
+      `PLAYWRIGHT_REUSE_BUILD=true but ${relativeDistDir} is missing a usable Next build (expected BUILD_ID).`,
+    );
+  }
+
+  if (reuseBuild && distReady) {
+    console.log(`Reusing isolated production Playwright build (${relativeRunRoot})`);
+  } else {
+    console.log(`Building isolated production Playwright app (${relativeRunRoot})`);
+
+    const buildResult = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
+      cwd: projectRoot,
+      env: offlineEnv,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: "pipe",
+    });
+    const buildExitCode = childProcessExitCode(buildResult);
+    if (buildExitCode !== 0) {
+      if (buildResult.stdout) {
+        console.error(`[playwright] build stdout:\n${buildResult.stdout}`);
+      }
+      if (buildResult.stderr) {
+        console.error(`[playwright] build stderr:\n${buildResult.stderr}`);
+      }
+      const combinedOutput = `${buildResult.stdout ?? ""}\n${buildResult.stderr ?? ""}`;
+      if (
+        combinedOutput.includes("EBUSY") ||
+        combinedOutput.includes("EPERM") ||
+        combinedOutput.includes("resource busy or locked") ||
+        buildResult.error?.code === "EBUSY" ||
+        buildResult.error?.code === "EPERM"
+      ) {
+        console.error(
+          `[playwright] directory lock contention detected in ${relativeRunRoot}. Another process may be accessing or locking this directory.`,
+        );
+      }
+      const memory = process.memoryUsage();
       console.error(
-        `[playwright] directory lock contention detected in ${relativeRunRoot}. Another process may be accessing or locking this directory.`,
+        `[playwright] build diagnostics: status=${buildResult.status}, signal=${buildResult.signal ?? "none"}, error=${buildResult.error?.message ?? "none"}, memory(rss=${Math.round(memory.rss / (1024 * 1024))}MB, heapTotal=${Math.round(memory.heapTotal / (1024 * 1024))}MB, heapUsed=${Math.round(memory.heapUsed / (1024 * 1024))}MB)`,
+      );
+      throw new Error(`Playwright production build failed (${childProcessFailureSummary(buildResult)}).`);
+    }
+  }
+
+  if (buildOnly) {
+    if (!keepBuildRoot) {
+      throw new Error(
+        "PLAYWRIGHT_BUILD_ONLY=true requires PLAYWRIGHT_KEEP_BUILD_ROOT=true so CI can upload the build.",
       );
     }
-    const memory = process.memoryUsage();
-    console.error(
-      `[playwright] build diagnostics: status=${buildResult.status}, signal=${buildResult.signal ?? "none"}, error=${buildResult.error?.message ?? "none"}, memory(rss=${Math.round(memory.rss / (1024 * 1024))}MB, heapTotal=${Math.round(memory.heapTotal / (1024 * 1024))}MB, heapUsed=${Math.round(memory.heapUsed / (1024 * 1024))}MB)`,
-    );
-    throw new Error(`Playwright production build failed (${childProcessFailureSummary(buildResult)}).`);
+    console.log(`Playwright build-only complete (${relativeRunRoot}); skipping servers/tests.`);
+    cleanup();
+    // Propagate build status via childProcessExitCode (failures already threw above).
+    process.exit(childProcessExitCode({ status: 0, signal: null }));
   }
 
   console.log(`Starting isolated production Playwright server at ${baseUrl} (${relativeRunRoot})`);

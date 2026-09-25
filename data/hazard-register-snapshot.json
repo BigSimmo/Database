@@ -1,6 +1,6 @@
 {
   "version": "hazard-register-snapshot-v1",
-  "generatedAt": "2026-09-20",
+  "generatedAt": "2026-09-22",
   "counts": {
     "registers": 3,
     "registersMissing": 1,

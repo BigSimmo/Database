@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4452ff15-9714-4f15-8a41-c4c4ba8d76b1",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CME: nothing ever closes a CPD year, although the dashboard tells the owner to 'Close the year before 31 December'",
+    "detail": "closed_at is checked in the database functions and cme-entry-route-client.tsx but no code or migration sets it; the dashboard year-end action only links to the log. Either build year close (finalise + summary snapshot) or change the dashboard wording.",
+    "source": "On Call + CME audit 2026-09-24 (code read + demo-mode screenshots, branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M392PNJB506ATFJQZSH6HV9S"
+  }
+}

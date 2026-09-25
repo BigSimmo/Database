@@ -36,7 +36,10 @@ if (localGates.length === 0) {
 // an executed gate (which would let the drift check pass after the real step was
 // deleted). Trailing `# comment` on the step line is allowed. Steps in this repo
 // are single-command, so a single capture is sufficient.
-const npmRunScript = (line) => line.match(/^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)\s*(?:#.*)?$/)?.[1];
+const npmRunScript = (line) =>
+  line.match(
+    /^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)(?:\s+--\s+--merge-reports=[\w./-]+(?:\s+--reporter=default)?)?\s*(?:#.*)?$/,
+  )?.[1];
 
 // Extract the `run: npm run X` scripts inside a named top-level job (2-space key).
 function jobScripts(name) {

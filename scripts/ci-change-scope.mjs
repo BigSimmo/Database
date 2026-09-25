@@ -378,6 +378,20 @@ const workflowPatterns = [
 ];
 
 const uiPatterns = [
+  // These inputs can change hydration, styling, module resolution or the browser
+  // runtime without editing a component. A production build is not browser proof.
+  "package.json",
+  "package-lock.json",
+  ".npmrc",
+  ".nvmrc",
+  "next.config.ts",
+  "postcss.config.mjs",
+  "tsconfig.json",
+  "src/hooks",
+  /^src\/lib\/(?:[\w-]+\/)*use-[\w-]+\.tsx?$/,
+  "src/lib/theme.ts",
+  "src/lib/client-store-factory.ts",
+  "src/lib/supabase/client.tsx",
   "data",
   // A browser-environment action change must exercise the lane it controls,
   // while remaining light enough to avoid unrelated unit coverage.
@@ -391,6 +405,9 @@ const uiPatterns = [
   // lockstep with playwright.config.ts so an edited assertion cannot evade
   // the required UI job (Vitest does not collect *.spec.ts files).
   "tests/answer-progress-ui-smoke.spec.ts",
+  "tests/adaptive-answer-ui.spec.ts",
+  "tests/api-csrf-proxy.spec.ts",
+  "tests/dsm-ui-smoke.spec.ts",
   /^tests\/ui-.*\.spec\.ts$/,
   /^tests\/playwright-.*\.ts$/,
   // Shared Playwright fixtures. Three of the four files here back `ui-*.spec.ts`
@@ -415,6 +432,30 @@ const uiPatterns = [
   // or rendering lists. Editing these directly alters what the browser shell
   // and mode homes render without touching a component or route file (#0HFDWD).
   /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
+  // Calculator fixtures, scoring, routing and evidence are browser-facing clinical
+  // content owned under src/lib (the component layer re-exports them). A wording,
+  // scoring or routing change here must run the UI lane — before this, a fixture
+  // edit reported ui_changed=false and reached no browser test (PS-02).
+  /^src\/lib\/calculators\//,
+  // On Call's demo corpus supplies the populated production browser journeys.
+  // Fixture-only edits can change visible groups and rows without touching a component.
+  /^src\/lib\/on-call\//,
+  // The same hazard, generalised. A demo fixture is not "data the app happens to
+  // have" — it IS what the browser suite renders against, because every
+  // `ui-*.spec.ts` runs in demo mode. The rule above closed On Call after a
+  // measured miss: a change to `on-call/demo-entries.ts` alone reported
+  // ui_changed=false, so `Production UI` skipped and `npm run plan:browser`
+  // printed "nothing is being left unrun" — while that same change failed three
+  // assertions in ui-on-call-boards.spec.ts. Three sibling fixtures still had
+  // the gap, each of them named directly by a spec:
+  //   demo-data                        ui-route-coverage, ui-smoke, ui-tools
+  //   caring-contacts-server/demo-seed ui-caring-contacts-{activation,populated,workspace}
+  //   cme/demo-year                    ui-cme-phone
+  // Matched by shape rather than by a hand-list, for the reason recorded above
+  // for `tests/helpers/**`: a hand-list is what failed there. The cost of the
+  // shape is one extra UI run when a demo clock changes; the cost of the
+  // hand-list is a silent miss.
+  /^src\/lib\/(?:[\w-]+\/)*demo-[\w-]+\.tsx?$/,
   // The pre-merge Lighthouse budget and its inputs. Without these, enabling
   // enforcement, refreshing the baseline, or breaking the runner is not exercised
   // until some unrelated UI or build change happens to trigger the job.
@@ -967,6 +1008,30 @@ function assertBudgetRoutesAreQueryFree() {
 }
 
 function selfTest() {
+  for (const file of [
+    "tests/adaptive-answer-ui.spec.ts",
+    "tests/api-csrf-proxy.spec.ts",
+    "tests/dsm-ui-smoke.spec.ts",
+  ]) {
+    assertScope(`nonstandard-browser-spec:${file}`, [file], { ui_changed: true });
+  }
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    ".npmrc",
+    ".nvmrc",
+    "next.config.ts",
+    "postcss.config.mjs",
+    "tsconfig.json",
+    "src/hooks/use-mobile.ts",
+    "src/lib/use-registry-records.ts",
+    "src/lib/use-client-time.ts",
+    "src/lib/theme.ts",
+    "src/lib/client-store-factory.ts",
+    "src/lib/supabase/client.tsx",
+  ]) {
+    assertScope(`browser-runtime-input:${file}`, [file], { ui_changed: true });
+  }
   // #137: the advisory lane runs only when it has something to cover. All four
   // directions matter — a lane that silently never runs is the failure mode.
   assertScope("advisory-off-when-nothing-to-cover", ["src/components/clinical-dashboard/dashboard-nav.tsx"], {
@@ -1377,6 +1442,14 @@ function selfTest() {
     source_changed: true,
   });
   assertScope("therapies-lib-triggers-ui", ["src/lib/therapies.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("calculators-lib-triggers-ui", ["src/lib/calculators/calculator-fixtures.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("on-call-demo-fixture-triggers-ui", ["src/lib/on-call/demo-entries.ts"], {
     ui_changed: true,
     source_changed: true,
   });

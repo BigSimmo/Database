@@ -257,6 +257,18 @@ const ragRankingPatterns = [
   // deep-memory.ts also exports applyMemoryCardBoosts, which rescores SearchResult[] in that same
   // path, so it is a ranking surface outright. Added 2026-09-16 on Codex review of PR #2832.
   /^src\/lib\/(?:document-index-units|model-index-extraction|deep-memory)\.ts$/,
+  // Inputs to retrieval and ordering that sat outside every pattern above. retrieval-rpc-rollout
+  // picks which RPC version the candidate fan-out calls; clinical-evidence-haystack feeds
+  // clinical-search scoring; cross-document-synthesis is read by retrieval-selection and the
+  // context pack; corpus-grounding decides the classifier fallback's grounding verdict;
+  // keyword-query builds the lexical query and stop-word set. document-enrichment,
+  // visual-intelligence and image-filtering produce enrichment and image-caption rows the
+  // retrieval RPCs query, and the three worker modules build embedding fields, table facts and
+  // assertion tags. worker/main.ts stays out: it orchestrates these producers rather than
+  // deciding their content. Added 2026-09-25 after a codebase survey found them unprotected.
+  /^src\/lib\/(?:retrieval-rpc-rollout|clinical-evidence-haystack|cross-document-synthesis|corpus-grounding|keyword-query)\.ts$/,
+  /^src\/lib\/(?:document-enrichment|visual-intelligence|image-filtering)\.ts$/,
+  /^worker\/(?:embedding-fields|table-facts|assertion-tagging)\.ts$/,
   /^scripts\/(?:eval-retrieval|build-ranking-snapshot|tune-search-weights)\.ts$/,
   /^scripts\/lib\/(?:clinical-aliases|ranking-tuning|ranking-snapshot-builder)\.ts$/,
   /^scripts\/fixtures\/(?:rag-retrieval-golden|rag-ranking-candidate-snapshot\.v1)\.json$/,
@@ -1531,6 +1543,25 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["src/lib/document-index-units.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/model-index-extraction.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/deep-memory.ts"]).ragRanking, true);
+  // Retrieval inputs added 2026-09-25: RPC version choice, scoring helpers, and the producers
+  // of enrichment, image-caption, embedding-field, table-fact and assertion rows.
+  for (const file of [
+    "src/lib/retrieval-rpc-rollout.ts",
+    "src/lib/clinical-evidence-haystack.ts",
+    "src/lib/cross-document-synthesis.ts",
+    "src/lib/corpus-grounding.ts",
+    "src/lib/keyword-query.ts",
+    "src/lib/document-enrichment.ts",
+    "src/lib/visual-intelligence.ts",
+    "src/lib/image-filtering.ts",
+    "worker/embedding-fields.ts",
+    "worker/table-facts.ts",
+    "worker/assertion-tagging.ts",
+  ]) {
+    assert.equal(classifyPullRequestFiles([file]).ragRanking, true, file);
+  }
+  // The worker loop orchestrates producers; it is not itself one.
+  assert.equal(classifyPullRequestFiles(["worker/main.ts"]).ragRanking, false);
   // Still narrow: adjacent ingestion machinery that does not decide chunk TEXT, index-unit
   // content, or a score stays out. Orchestration that only calls the producers is not itself
   // a producer.

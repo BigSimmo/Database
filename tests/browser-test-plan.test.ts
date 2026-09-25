@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -13,6 +13,7 @@ import {
   ownershipKeys,
   playwrightSpecPatterns,
   projectsForSpecs,
+  renderCiSummary,
   specsReferencing,
 } from "../scripts/browser-test-plan.mjs";
 
@@ -50,6 +51,74 @@ function plan(
  * These tests pin the escalations first and the narrowing second.
  */
 describe("browser test plan", () => {
+  it("routes every configured production spec through both CI and local recommendations", () => {
+    const patterns = playwrightSpecPatterns();
+    expect(patterns.production).not.toBeNull();
+    const productionSpecs = readdirSync(resolve(root, "tests"))
+      .filter((file) => patterns.production!.test(file))
+      .map((file) => `tests/${file}`);
+    expect(productionSpecs.length).toBeGreaterThan(0);
+    for (const file of productionSpecs) expect(BROWSER_SPEC_PATTERN.test(file), file).toBe(true);
+    // Classify each file independently: a combined list can mask one omitted spec.
+    for (const file of productionSpecs.filter((file) => !/^tests\/ui-/.test(file))) {
+      const scope = JSON.parse(
+        execFileSync(process.execPath, ["scripts/ci-change-scope.mjs", "--json", "--files", file], {
+          cwd: root,
+          encoding: "utf8",
+        }),
+      );
+      expect(scope.ui_changed, file).toBe(true);
+    }
+  });
+  it.each([
+    "package-lock.json",
+    "next.config.ts",
+    "postcss.config.mjs",
+    "tsconfig.json",
+    "src/lib/use-registry-records.ts",
+    "src/lib/theme.ts",
+    "src/lib/client-store-factory.ts",
+    "src/lib/supabase/client.tsx",
+  ])("requires full browser proof for shared runtime input %s", (file) => {
+    const scope = JSON.parse(
+      execFileSync(process.execPath, ["scripts/ci-change-scope.mjs", "--json", "--files", file], {
+        cwd: root,
+        encoding: "utf8",
+      }),
+    );
+    expect(scope.ui_changed).toBe(true);
+    expect(isBrowserLanePath(file)).toBe(true);
+    expect(plan([file], [[file, ""]], scope).level).toBe("full");
+  });
+
+  it("reports recommendations separately from execution and draft readiness", () => {
+    const selected = plan(["tests/ui-smoke.spec.ts"], [], { ui_changed: true });
+    const summary = renderCiSummary(selected, { ui_changed: true, coverage_changed: true }, { draft: true });
+    expect(summary).toContain("**changed**");
+    expect(summary).toContain("tests/ui-smoke.spec.ts");
+    expect(summary).toContain("Unit coverage, Production browser journeys");
+    expect(summary).toContain("no tests were run by this step");
+    expect(summary).toContain("not merge-readiness evidence");
+    expect(summary).toContain("does not replace the full required CI suite");
+  });
+
+  it("escapes source-derived recommendations in the GitHub summary", () => {
+    const selected = plan(["docs/note.md"], [], { ui_changed: false });
+    selected.reasons = ["<script>source & text</script>"];
+    const summary = renderCiSummary(selected, { ui_changed: false });
+    expect(summary).toContain("&lt;script&gt;source &amp; text&lt;/script&gt;");
+    expect(summary).not.toContain("<script>");
+  });
+
+  it("keeps CI recommendations on the same event base and head as change classification", () => {
+    const workflow = read(".github/workflows/ci.yml");
+    const recommendation = workflow.split("- name: Recommend tests for this PR")[1]?.split("  sync-pr-policy-body:")[0];
+    expect(recommendation).toContain("github.event.pull_request.base.sha || github.event.merge_group.base_sha");
+    expect(recommendation).toContain("github.event.pull_request.head.sha || github.event.merge_group.head_sha");
+    expect(recommendation).toContain("node scripts/browser-test-plan.mjs --ci-summary");
+    expect(recommendation).not.toContain("--run");
+  });
+
   describe("fails closed", () => {
     it("escalates a UI file no spec can be shown to exercise", () => {
       const result = plan(
@@ -364,6 +433,8 @@ describe("browser test plan", () => {
       "scripts/run-playwright.mjs",
       "lighthouse-budget.json",
       "src/lib/app-modes.ts",
+      "src/lib/on-call/demo-entries.ts",
+      "src/lib/demo-data.ts",
       "src/app/api/answer/route.ts",
       "src/lib/rag/rag.ts",
       "docs/testing.md",

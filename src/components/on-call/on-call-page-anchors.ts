@@ -44,3 +44,20 @@ export function allocateOnCallGroupSlug(label: string, taken: Set<string>): stri
   taken.add(slug);
   return slug;
 }
+
+/** Stable record identity, independent of editable titles, slugs and grouping. */
+export function onCallEntryAnchorId(id: string): string {
+  return `on-call-entry-${id}`;
+}
+
+export function focusOnCallEntryFromHash(): void {
+  if (typeof window === "undefined") return;
+  const id = window.location.hash.slice(1);
+  if (!id.startsWith("on-call-entry-")) return;
+  const target = document.getElementById(id);
+  if (!target) return;
+  const disclosure = target.querySelector<HTMLButtonElement>('button[aria-expanded="false"]');
+  disclosure?.click();
+  target.focus({ preventScroll: true });
+  target.scrollIntoView?.({ block: "center", behavior: "instant" });
+}

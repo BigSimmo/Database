@@ -151,7 +151,10 @@ describe("content and services audit regressions", () => {
     expect(formsSearchSource).toContain("Content match in record details");
     expect(formsSearchSource).not.toContain("Content match in related pathway");
     expect(formsSearchSource).toContain("View all forms");
-    expect(formsSearchSource).toContain('appModeHomeHref("forms", { query, focus: true, run: true })');
+    // "View all forms" opens the whole register (the query-less search route) and
+    // counts the register, not the current matches (#SZA102).
+    expect(formsSearchSource).toContain('consolidatedModeSearchPath("forms")');
+    expect(formsSearchSource).toContain("View all forms ({registerTotal})");
     expect(formsSearchSource).not.toContain('href="/forms"');
     // The retired detailed Forms home (and its caveat footer) is gone; the
     // structural footer contract lives in tests/mode-home-no-caveat-footer.test.ts.

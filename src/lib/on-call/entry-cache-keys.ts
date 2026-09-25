@@ -17,6 +17,41 @@ export const onCallEntryCacheStorageKey = "clinical-kb-on-call-entries-cache";
 export const onCallEntryCacheChangedEvent = "clinical-kb-on-call-entries-cache-changed";
 
 /**
+ * Whether the cache currently holds the example corpus put there by a preview
+ * rather than real entries.
+ *
+ * A separate key, and not a `demo-` prefix test over the entries themselves,
+ * because signed out the entries in view are the SHARED read — every
+ * non-personal row across every account. If another account has loaded the
+ * example corpus into their hub, its rows are on this reader's page too, and a
+ * prefix test would call that a local preview and offer to "clear" something
+ * this device never wrote. The flag records what THIS device did, which is the
+ * only thing a preview may claim.
+ */
+export const onCallDemoPreviewStorageKey = "clinical-kb-on-call-demo-preview";
+
+export function isOnCallDemoPreviewActive(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(onCallDemoPreviewStorageKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setOnCallDemoPreviewActive(active: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (active) window.localStorage.setItem(onCallDemoPreviewStorageKey, "1");
+    else window.localStorage.removeItem(onCallDemoPreviewStorageKey);
+  } catch {
+    // Storage blocked or full. The preview still renders for this session from
+    // the entry cache write that accompanies it; only the marker is lost, and
+    // the worst outcome is the control offering Preview again.
+  }
+}
+
+/**
  * Bumped only by `clearOnCallEntryCache` — the sign-out / account-switch
  * boundary. `useOnCallEntries` tags its in-flight fetch with this so a late
  * response from the previous account cannot write personal rows back after
@@ -39,6 +74,8 @@ export function clearOnCallEntryCache(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(onCallEntryCacheStorageKey);
+    // The preview marker describes the cache that just went, so it goes too.
+    window.localStorage.removeItem(onCallDemoPreviewStorageKey);
   } catch {
     // Storage blocked or unavailable. The epoch still advanced, so a late
     // fetch from the previous account is rejected even when this write fails.

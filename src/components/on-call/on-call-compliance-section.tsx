@@ -1,5 +1,7 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
 import { Info, Pencil } from "lucide-react";
 
 import { cardPadding, cardSurface } from "@/components/card-recipes";
@@ -27,6 +29,7 @@ import {
   type OnCallComplianceConsequence,
   type OnCallComplianceProvenance,
   type OnCallEntry,
+  onCallEntryIsEditable,
 } from "@/lib/on-call/entry-model";
 import { onCallTeachingDateParts } from "@/lib/on-call/teaching-schedule";
 
@@ -326,6 +329,8 @@ function ComplianceRow({
 
   return (
     <article
+      id={onCallEntryAnchorId(entry.id)}
+      tabIndex={-1}
       className={cn(cardSurface, cardPadding.standard, "grid grid-cols-[minmax(0,1fr)] gap-2")}
       data-testid={`on-call-compliance-row-${entry.slug}`}
     >
@@ -471,7 +476,7 @@ function ComplianceRow({
         // indexes a document and sends it to a provider, and a registration
         // certificate is identity data with no business in the clinical corpus.
         // Marked as leaving the app by `ExternalTextLink`, never a bare anchor.
-        <ExternalTextLink href={details.evidenceUrl} className="text-xs">
+        <ExternalTextLink href={details.evidenceUrl} className="min-h-tap items-center text-xs">
           Your evidence
         </ExternalTextLink>
       ) : null}
@@ -533,7 +538,14 @@ export function OnCallComplianceSection({
         <EmptyState
           icon={ON_CALL_VIEW_ICONS.compliance}
           title="No requirements recorded yet"
-          body="Registration, indemnity, credentialing, mandatory training and CPD. Add one from this page and it appears here, grouped by what happens if it lapses — with the date you recorded, and where you recorded it from."
+          // `onEditEntry` is passed only to a signed-in reader, and compliance
+          // rows are never shared, so a signed-out reader always lands here and
+          // cannot add anything: tell them what would let them.
+          body={
+            onEditEntry
+              ? "Registration, indemnity, credentialing, mandatory training and CPD. Add one from this page and it appears here, grouped by what happens if it lapses — with the date you recorded, and where you recorded it from."
+              : "Registration, indemnity, credentialing, mandatory training and CPD. These are private to your account, so sign in to record yours and see them here, grouped by what happens if it lapses."
+          }
           testId="on-call-compliance-empty"
         />
       </div>
@@ -594,8 +606,8 @@ export function OnCallComplianceSection({
                 key={entry.id}
                 entry={entry}
                 now={now}
-                onEditEntry={onEditEntry}
-                onVerified={onVerified}
+                onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
                 privacyStatedOnPage={allPrivate}
               />
             ))}

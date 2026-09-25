@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "17e14b02-63a4-44f3-ba5c-7fa9c293c5bb",
+  "createdOn": "2026-09-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Clinical KB: FK / unused indexes only with evidence (no batch-drop)",
+    "detail": "Index hygiene deferred; evidence-gated only. See docs/supabase-remediation-closeout-notes.md §1.4 (PR #2959).",
+    "source": "PR #2959 docs closeout review 2026-09-21 — queue deferred security/DB work into canonical ledger",
+    "issueUlid": "01M31F4Y1JVHW8K90VRJ2R0Z0E"
+  }
+}

@@ -1,7 +1,8 @@
 import { isComplianceEntry } from "@/lib/on-call/compliance";
 import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
-import { type OnCallPageView } from "@/components/on-call/on-call-section-identity";
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+import { ON_CALL_VIEW_HREFS, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
 
 /**
  * The two functions that map between a stored section and the page a reader
@@ -55,4 +56,8 @@ export function onCallViewForEntry(entry: OnCallEntry): OnCallPageView {
   if (isComplianceEntry(entry)) return "compliance";
   if (isRoleExplainerEntry(entry)) return "who-is-who";
   return entry.section;
+}
+
+export function onCallEntryHref(entry: OnCallEntry): string {
+  return `${ON_CALL_VIEW_HREFS[onCallViewForEntry(entry)]}#${onCallEntryAnchorId(entry.id)}`;
 }

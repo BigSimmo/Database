@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ON_CALL_CACHE_MAX_AGE_MS,
   cacheOnCallEntries,
   clearOnCallEntryCache,
   onCallEntryCacheChangedEvent,
@@ -68,6 +69,7 @@ describe("on-call entry cache", () => {
       removeEventListener,
       dispatchEvent,
     });
+    clearOnCallEntryCache();
   });
 
   afterEach(() => {
@@ -88,6 +90,25 @@ describe("on-call entry cache", () => {
     // Recorded, not guessed: the save time is the moment of the write, not the
     // entry's own lastVerifiedAt.
     expect(cached?.savedAt).toBe("2026-09-04T12:00:00.000Z");
+  });
+
+  it("expires the cached copy at seven days", () => {
+    cacheOnCallEntries([contact]);
+    vi.advanceTimersByTime(ON_CALL_CACHE_MAX_AGE_MS - 1);
+    expect(readCachedOnCallEntries()).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(readCachedOnCallEntries()).toBeNull();
+  });
+
+  it.each(["invalid", "2027-01-01T00:00:00.000Z"])("rejects an invalid or future saved date: %s", (savedAt) => {
+    storage.set(onCallEntryCacheStorageKey, JSON.stringify({ entries: [contact], savedAt }));
+    expect(readCachedOnCallEntries()).toBeNull();
+  });
+
+  it("does not revive private entries persisted by an older release", () => {
+    storage.set(onCallEntryCacheStorageKey, JSON.stringify({ entries: [contact], savedAt: new Date().toISOString() }));
+    expect(readCachedOnCallEntries()?.entries).toEqual([]);
+    expect(JSON.parse(storage.get(onCallEntryCacheStorageKey)!).entries).toEqual([]);
   });
 
   it("dispatches the change event so a reactive reader picks up the write", () => {

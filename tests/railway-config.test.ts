@@ -65,6 +65,17 @@ describe("Railway config as code", () => {
     expect(appDockerfile).toContain("ENV RAILWAY_GIT_COMMIT_SHA=${RAILWAY_GIT_COMMIT_SHA}");
   });
 
+  it("admits non-secret staging identity metadata into the browser build", () => {
+    expect(appDockerfile).toContain("ARG NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF=");
+    expect(appDockerfile).toContain("ARG NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME=");
+    expect(appDockerfile).toContain(
+      "ENV NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF=${NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF}",
+    );
+    expect(appDockerfile).toContain(
+      "ENV NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME=${NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME}",
+    );
+  });
+
   it("declares the Sentry source-map build arguments so a Railway variable can reach the build", () => {
     // next.config.ts gates withSentryConfig on all three being present at build time, and a build
     // argument the Dockerfile does not declare is not in the build environment at all — so

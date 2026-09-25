@@ -1074,16 +1074,26 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('PLAYWRIGHT_KEEP_BUILD_ROOT must be unset or exactly "true"');
     expect(runner).toContain("PLAYWRIGHT_KEEP_BUILD_ROOT requires PLAYWRIGHT_BUILD_ROOT_ID");
     expect(runner).toContain("if (!keepBuildRoot)");
-    // The final hosted PR run transferred a 1.09 GB run-scoped artifact and made the
-    // slowest warm shard path slower than its cold critical predecessor. Each wrapper
-    // now owns an isolated build instead of coupling required jobs through `.next`.
+    // Failed experiment (kept forbidden): a 1.09 GB run-scoped *webpack cache*
+    // artifact (`playwright-next-build-cache-*` / Publish|Restore / `ci-production`)
+    // made the slowest warm shard slower than a cold critical build.
     expect(ciWorkflow).not.toContain("playwright-next-build-cache-${{ github.run_id }}");
     expect(ciWorkflow).not.toContain("Publish isolated Next.js build cache");
     expect(ciWorkflow).not.toContain("Restore isolated Next.js build cache");
     expect(ciWorkflow).not.toMatch(/playwright-next-\$\{\{\s*runner\.os\s*\}\}/);
     expect(ciWorkflow).not.toContain("path: .next-playwright/ci-production/dist/cache");
     expect(ciWorkflow).not.toContain("PLAYWRIGHT_BUILD_ROOT_ID: ci-production");
-    expect(ciWorkflow).not.toContain('PLAYWRIGHT_KEEP_BUILD_ROOT: "true"');
+    // Current design: one build-only producer (`ui-playwright-build`) uploads the
+    // run-scoped Next dist (include-hidden-files for `.next-playwright/...`); UI
+    // consumers set PLAYWRIGHT_REUSE_BUILD. KEEP_BUILD_ROOT is allowed only there.
+    expect(ciWorkflow).toContain("ui-playwright-build:");
+    expect(ciWorkflow).toContain("playwright-next-build-${{ github.run_id }}");
+    expect(ciWorkflow).toContain("include-hidden-files: true");
+    expect(ciWorkflow).toContain('PLAYWRIGHT_BUILD_ONLY: "true"');
+    expect(ciWorkflow).toContain('PLAYWRIGHT_REUSE_BUILD: "true"');
+    expect(ciWorkflow).toContain('PLAYWRIGHT_KEEP_BUILD_ROOT: "true"');
+    expect(runner).toContain('PLAYWRIGHT_REUSE_BUILD?.trim() === "true"');
+    expect(runner).toContain('PLAYWRIGHT_BUILD_ONLY?.trim() === "true"');
     expect(runner).toContain("!explicitProjectRequested ||");
     // Empty 3xx bodies from legacy redirect route handlers must not fail readiness.
     expect(runner).toContain("body === null || body.includes(missingErrorComponentsNeedle)");

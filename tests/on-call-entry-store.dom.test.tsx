@@ -1,10 +1,12 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { setOnCallDemoPreviewActive } from "@/lib/on-call/entry-cache-keys";
 import {
+  onCallEntryCacheStorageKey,
   cacheOnCallEntries,
   clearOnCallEntryCache,
   readCachedOnCallEntries,
@@ -43,6 +45,32 @@ describe("useOnCallEntries", () => {
     vi.restoreAllMocks();
   });
 
+  it("leaves an active on-device preview alone when a NON-EMPTY shared response arrives", async () => {
+    // The defect this exists for (Codex, 2026-09-22). The empty-response guard
+    // below protects a shift whose session expired, but it tests emptiness —
+    // and the signed-out shared read is not empty. So a reader who started the
+    // example preview on the home and then opened a section page mounted a
+    // fresh copy of this hook there, its shared response overwrote the example
+    // rows, and the destination showed the real (empty) hub while the home
+    // still offered "Clear the example preview" over data this device never
+    // wrote. One tap, two pages disagreeing about what is on screen.
+    const preview = { ...contact, id: "33333333-3333-4333-8333-333333333333", slug: "demo-preview-row" };
+    setOnCallDemoPreviewActive(true);
+    cacheOnCallEntries([preview]);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [contact], signedOut: true }));
+
+    const { result } = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(readCachedOnCallEntries()?.entries).toEqual([preview]);
+    expect(result.current.entries).toEqual([preview]);
+
+    // And clearing the preview puts the hook straight back to normal: the
+    // marker and the cache go together, so nothing can outlive the preview.
+    clearOnCallEntryCache();
+    expect(readCachedOnCallEntries()).toBeNull();
+  });
+
   it("writes the cache and records the save time on a successful fetch", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [contact], signedOut: false }));
 
@@ -77,6 +105,28 @@ describe("useOnCallEntries", () => {
     expect(result.current.cachedAt).toBe(savedAt);
   });
 
+  // Regression, 2026-09-24: every failure was called "offline", so a server
+  // error told a reader with full signal that they had lost it.
+  it("calls a failure 'offline' only when the browser has no network", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("500"));
+    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const first = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    expect(first.result.current.loadError).toBe("failed");
+    first.unmount();
+
+    onLine.mockReturnValue(false);
+    const second = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+    expect(second.result.current.loadError).toBe("offline");
+
+    // Retrying fetches again, and a success clears the error.
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ entries: [contact], signedOut: false }), { status: 200 }));
+    act(() => second.result.current.retry());
+    await waitFor(() => expect(second.result.current.loadError).toBeNull());
+    onLine.mockRestore();
+  });
+
   // On Call entries became readable by any visitor on 2026-09-04, so a signed-out response
   // now carries the shared set and IS worth caching. What still must not happen is an empty
   // response erasing a good cache mid-shift — the reason the old signed-out guard existed.
@@ -92,9 +142,8 @@ describe("useOnCallEntries", () => {
     expect(readCachedOnCallEntries()?.entries).toEqual([contact]);
   });
 
-  it("does not let an empty response erase a non-empty cache", async () => {
+  it("removes withdrawn rows on a successful empty response", async () => {
     cacheOnCallEntries([contact]);
-    const cachedBefore = readCachedOnCallEntries();
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [], signedOut: true }));
 
@@ -102,9 +151,37 @@ describe("useOnCallEntries", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // The stale-but-real cache is still shown rather than blanked.
-    expect(result.current.entries).toEqual([contact]);
-    expect(readCachedOnCallEntries()).toEqual(cachedBefore);
+    // A successful response is authoritative; only a failed fetch uses old data.
+    expect(result.current.entries).toEqual([]);
+    expect(readCachedOnCallEntries()?.entries).toEqual([]);
+  });
+
+  it("drops private cached rows on a signed-out empty response", async () => {
+    cacheOnCallEntries([{ ...contact, isPersonal: true }]);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [], signedOut: true }));
+    const { result } = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.entries).toEqual([]);
+    expect(readCachedOnCallEntries()?.entries).toEqual([]);
+  });
+
+  it("never persists personal or malformed compliance entries", () => {
+    cacheOnCallEntries([
+      contact,
+      { ...contact, isPersonal: true },
+      { ...contact, section: "logistics", details: { category: "Registration" } },
+    ]);
+    expect(JSON.parse(window.localStorage.getItem(onCallEntryCacheStorageKey)!).entries).toEqual([contact]);
+  });
+
+  it("invalidates private session memory when another tab signs out", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ entries: [{ ...contact, isPersonal: true }], signedOut: false }))
+      .mockResolvedValueOnce(jsonResponse({ entries: [], signedOut: true }));
+    const { result } = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    window.dispatchEvent(new StorageEvent("storage", { key: onCallEntryCacheStorageKey, newValue: null }));
+    await waitFor(() => expect(result.current.entries).toEqual([]));
   });
 
   it("clears on demand", () => {

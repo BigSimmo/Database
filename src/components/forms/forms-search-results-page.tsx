@@ -6,6 +6,7 @@ import { Check, ChevronRight, ExternalLink, ShieldCheck, Workflow } from "lucide
 import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
 import {
   deriveFormCategories,
@@ -76,7 +77,36 @@ function tagToneClass(label: string) {
   return "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 }
 
+/**
+ * With no query the page is the register itself, not a search. Every form is
+ * listed in form-code order ("1A" before "10") so the count a clinician reads is
+ * what the register holds. Until #SZA102 an empty query produced "0 forms" over
+ * 54 records, which reads as "no such form exists".
+ */
+const registerListingReason = "register";
+const formCodeCollator = new Intl.Collator("en-AU", { numeric: true, sensitivity: "base" });
+
+export function listFormRegister(records: readonly FormSearchMatch["service"][]): FormSearchMatch[] {
+  return records
+    .map((service) => ({ service, score: 0, reasons: [registerListingReason] }))
+    .sort((left, right) => {
+      const leftCode = formCatalogDetails(left.service)?.form ?? "";
+      const rightCode = formCatalogDetails(right.service)?.form ?? "";
+      // Coded forms first, in code order; anything uncoded follows by title.
+      if (Boolean(leftCode) !== Boolean(rightCode)) return leftCode ? -1 : 1;
+      return (
+        formCodeCollator.compare(leftCode, rightCode) ||
+        formCodeCollator.compare(left.service.title, right.service.title)
+      );
+    });
+}
+
+// The register view is the forms search route with no query: a browse surface,
+// not a redirect (see modeSearchRoutesWithoutBrowseView).
+const allFormsHref = consolidatedModeSearchPath("forms");
+
 function compactMatchReason(match: FormSearchMatch, query: string) {
+  if (match.reasons.includes(registerListingReason)) return "Listed in the forms register";
   const trimmedQuery = query.trim();
   if (match.reasons.includes("title")) {
     return trimmedQuery ? `Title or content match for "${trimmedQuery}"` : "Title or content match";
@@ -171,11 +201,14 @@ function ResultsTable({
   matches,
   query,
   sortValue,
+  registerTotal,
 }: {
   matches: FormSearchMatch[];
   query: string;
   sortValue: ResultSortValue;
+  registerTotal: number;
 }) {
+  const listingRegister = !query.trim();
   return (
     <section
       data-testid="form-search-results"
@@ -183,10 +216,12 @@ function ResultsTable({
       className={cn("overflow-hidden", searchResultsSection)}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-5 pb-3">
-        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Best matches</h2>
+        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">
+          {listingRegister ? "All forms" : "Best matches"}
+        </h2>
         <span className="text-sm font-semibold text-[color:var(--text-muted)]">
           {matches.length} {matches.length === 1 ? "form" : "forms"} ·{" "}
-          {sortValue === "alpha" ? "sorted A–Z" : "ranked by relevance"}
+          {sortValue === "alpha" ? "sorted A–Z" : listingRegister ? "by form code" : "ranked by relevance"}
         </span>
       </div>
       <div
@@ -198,7 +233,7 @@ function ResultsTable({
         <span>Form</span>
         <span>Title</span>
         <span>Tags</span>
-        <span>Matched because</span>
+        <span>{listingRegister ? "Source" : "Matched because"}</span>
         <span className="text-right">Open</span>
       </div>
       <div>
@@ -256,18 +291,21 @@ function ResultsTable({
           );
         })}
       </div>
-      <div className="flex justify-center border-t border-[color:var(--border)] p-4">
-        <Link
-          href={appModeHomeHref("forms", { query, focus: true, run: true })}
-          className={cn(
-            "inline-flex min-h-tap items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-            searchFocusRing,
-          )}
-        >
-          View all forms ({matches.length})
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </Link>
-      </div>
+      {listingRegister ? null : (
+        <div className="flex justify-center border-t border-[color:var(--border)] p-4">
+          <Link
+            href={allFormsHref}
+            data-testid="form-search-view-all"
+            className={cn(
+              "inline-flex min-h-tap items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+              searchFocusRing,
+            )}
+          >
+            View all forms ({registerTotal})
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
+      )}
     </section>
   );
 }
@@ -507,7 +545,16 @@ function MobileResultCard({ match, code }: CodedFormMatch) {
   );
 }
 
-function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
+function MobileCards({
+  matches,
+  query,
+  registerTotal,
+}: {
+  matches: FormSearchMatch[];
+  query: string;
+  registerTotal: number;
+}) {
+  const listingRegister = !query.trim();
   const coded = matches.map((match, index) => ({ match, code: resultCode(match, index) }));
   const exactMatch = findExactFormCodeMatch(coded, query);
   const remaining = exactMatch ? coded.filter((item) => item !== exactMatch) : coded;
@@ -521,7 +568,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
         <>
           <div className="flex items-baseline justify-between gap-2 px-1">
             <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-              {exactMatch ? `Also references ${exactMatch.code}` : "Best matches"}
+              {exactMatch ? `Also references ${exactMatch.code}` : listingRegister ? "All forms" : "Best matches"}
             </h2>
             <span className="text-xs font-bold text-[color:var(--text-muted)]">
               {remaining.length} {remaining.length === 1 ? "form" : "forms"}
@@ -541,16 +588,19 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
           ))}
         </>
       ) : null}
-      <Link
-        href={appModeHomeHref("forms", { query, focus: true, run: true })}
-        className={cn(
-          "mx-auto flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-          searchFocusRing,
-        )}
-      >
-        View all forms ({matches.length})
-        <ChevronRight className="h-4 w-4" aria-hidden />
-      </Link>
+      {listingRegister ? null : (
+        <Link
+          href={allFormsHref}
+          data-testid="form-search-mobile-view-all"
+          className={cn(
+            "mx-auto flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+            searchFocusRing,
+          )}
+        >
+          View all forms ({registerTotal})
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </Link>
+      )}
     </section>
   );
 }
@@ -628,8 +678,8 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const deferredQuery = useDeferredValue(query);
   const matches = useMemo(() => {
     if (!registryReady) return [];
-    // Cleared query: no form matches (page usually remounts, but keep lag-safe).
-    if (!query.trim()) return [];
+    // No query: list the whole register rather than reporting "0 forms" (#SZA102).
+    if (!query.trim()) return listFormRegister(registry.records);
     // Deferred empty while live has text: wait — do not rank as empty-query "all forms".
     if (!deferredQuery.trim()) return [];
     return rankFormRecords(registry.records, deferredQuery, registry.records.length, [], true);
@@ -841,10 +891,15 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             ) : (
               <>
                 <div className="hidden md:block">
-                  <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
+                  <ResultsTable
+                    matches={displayedMatches}
+                    query={query}
+                    sortValue={sortValue}
+                    registerTotal={registry.records.length}
+                  />
                 </div>
                 <div className="md:hidden">
-                  <MobileCards matches={displayedMatches} query={query} />
+                  <MobileCards matches={displayedMatches} query={query} registerTotal={registry.records.length} />
                 </div>
               </>
             )}

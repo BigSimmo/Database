@@ -63,9 +63,10 @@
  *   node scripts/browser-test-plan.mjs --run              execute the planned stages
  *   node scripts/browser-test-plan.mjs --full             force the full suite
  *   node scripts/browser-test-plan.mjs --self-test        offline contract self-test
+ *   node scripts/browser-test-plan.mjs --ci-summary       event-scoped recommendation only
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -90,6 +91,10 @@ const normalize = (file) =>
  * makes the same call for the phone-chrome subset.
  */
 export const SHARED_FOUNDATION_PATTERNS = [
+  /^(?:package(?:-lock)?\.json|\.npmrc|\.nvmrc|next\.config\.ts|postcss\.config\.mjs|tsconfig\.json)$/,
+  /^src\/hooks\//,
+  /^src\/lib\/(?:[\w-]+\/)*use-[\w-]+\.tsx?$/,
+  /^src\/lib\/(?:theme\.ts|client-store-factory\.ts|supabase\/client\.tsx)$/,
   /^src\/app\/globals\.css$/,
   /^src\/styles\//,
   /^src\/app\/layout\.tsx$/,
@@ -103,7 +108,8 @@ export const SHARED_FOUNDATION_PATTERNS = [
 ];
 
 /** A Playwright spec this planner can select. Mirrors `uiPatterns` in `ci-change-scope.mjs`. */
-export const BROWSER_SPEC_PATTERN = /^tests\/(?:ui-.*|answer-progress-ui-smoke)\.spec\.ts$/;
+export const BROWSER_SPEC_PATTERN =
+  /^tests\/(?:ui-.*|answer-progress-ui-smoke|adaptive-answer-ui|api-csrf-proxy|dsm-ui-smoke)\.spec\.ts$/;
 
 /**
  * The two `testMatch` patterns from `playwright.config.ts`, read from that file
@@ -195,11 +201,12 @@ export function isSharedFoundation(file) {
  * `ci-change-scope.mjs` itself, path by path, and fails when the two disagree.
  */
 export const BROWSER_LANE_PATTERNS = [
+  ...SHARED_FOUNDATION_PATTERNS,
   /^data\//,
   /^public\//,
   /^src\/(?:app|components|styles)\//,
   /^\.github\/actions\/setup-ui-e2e\//,
-  /^tests\/(?:ui-.*|answer-progress-ui-smoke)\.spec\.ts$/,
+  BROWSER_SPEC_PATTERN,
   /^tests\/playwright-.*\.ts$/,
   /^tests\/helpers\/.*\.ts$/,
   /^tests\/__screenshots__\//,
@@ -207,6 +214,11 @@ export const BROWSER_LANE_PATTERNS = [
   /^scripts\/(?:run-playwright|playwright-base-url|playwright-browser-preflight|playwright-pr-shards|check-playwright-browser-revision)\.(?:mjs|ts)$/,
   /^scripts\/(?:run|check)-lighthouse-budget\.mjs$/,
   /^lighthouse-budget\.json$/,
+  // On Call's stored entries and its demo corpus, plus demo fixtures generally —
+  // the data every `ui-*.spec.ts` renders against in demo mode. Mirrors the two
+  // rules of the same shape in `ci-change-scope.mjs`; see the note there.
+  /^src\/lib\/on-call\//,
+  /^src\/lib\/(?:[\w-]+\/)*demo-[\w-]+\.tsx?$/,
   /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
 ];
 
@@ -451,6 +463,41 @@ export function renderCommand(command) {
   return [command.executable, ...command.args.map((arg) => (/\s|\|/.test(arg) ? JSON.stringify(arg) : arg))].join(" ");
 }
 
+/** A recommendation is not test evidence and never controls required CI jobs. */
+export function renderCiSummary(plan, scope, { draft = false } = {}) {
+  const escape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const lanes = [
+    ["coverage_changed", "Unit coverage"],
+    ["ui_changed", "Production browser journeys"],
+    ["build_changed", "Build"],
+    ["perf_changed", "Performance budget"],
+    ["db_changed", "Migration replay"],
+    ["container_changed", "Container images"],
+    ["ingestion_sast_changed", "Ingestion security scan"],
+  ]
+    .filter(([flag]) => scope[flag])
+    .map(([, label]) => label);
+  return [
+    "## PR test recommendation",
+    "",
+    `Changed files: ${plan.files.length}. Local browser recommendation: **${plan.level}**.`,
+    "",
+    `Scope-selected checks: ${lanes.length ? lanes.join(", ") : "focused documentation/workflow contracts"}.`,
+    "Job conditions, draft status and explicit labels still decide which checks execute.",
+    draft ? "**Draft: heavy checks are deferred until ready for review. This is not merge-readiness evidence.**" : "",
+    "",
+    "<pre>" +
+      escape([...plan.reasons, ...plan.stages.map((stage) => renderCommand(stage.command))].join("\n")) +
+      "</pre>",
+    "",
+    "These commands are recommendations for local iteration; no tests were run by this step.",
+    "Focused browser proof does not replace the full required CI suite. Unknown or shared browser scope selects the full local gate.",
+    "",
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n");
+}
+
 /* ------------------------------------------------------------------ *
  * CLI                                                                *
  * ------------------------------------------------------------------ */
@@ -604,9 +651,22 @@ function main(argv) {
 
   const fileFlag = flagValue(argv, "--files");
   const diffBase = flagValue(argv, "--diff") ?? "origin/main";
-  const files = fileFlag ? fileFlag.split(",").map(normalize).filter(Boolean) : changedFilesFromGit(diffBase);
+  // Use the classifier's event range and fail-safe sentinel in CI. Recomputing
+  // against origin/main here could recommend tests for a different PR diff.
+  const ciScope =
+    argv.includes("--ci-summary") && !fileFlag
+      ? JSON.parse(
+          execFileSync(process.execPath, [path.join(projectRoot, "scripts/ci-change-scope.mjs"), "--json"], {
+            cwd: projectRoot,
+            encoding: "utf8",
+            maxBuffer: 32 * 1024 * 1024,
+          }),
+        )
+      : null;
+  const files =
+    ciScope?.files ?? (fileFlag ? fileFlag.split(",").map(normalize).filter(Boolean) : changedFilesFromGit(diffBase));
 
-  const scope = readChangeScope(files);
+  const scope = ciScope ?? readChangeScope(files);
   const plan = browserTestPlan({
     files,
     scope,
@@ -615,6 +675,13 @@ function main(argv) {
     mode: argv.includes("--full") ? "full" : "auto",
     specPatterns: playwrightSpecPatterns(),
   });
+
+  if (argv.includes("--ci-summary")) {
+    const summary = renderCiSummary(plan, scope, { draft: process.env.PR_DRAFT === "true" });
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+    else console.log(summary);
+    return 0;
+  }
 
   // What CI will do with this same change, read from the workflow rather than
   // asserted — the claim "the full suite runs on GitHub anyway" is the whole basis
