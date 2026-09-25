@@ -351,6 +351,11 @@
         "area": "product"
       },
       {
+        "path": "/on-call/now",
+        "file": "src/app/(search-app)/on-call/now/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/tools-split-clinical-brief",
         "file": "src/app/mockups/tools-split-clinical-brief/page.tsx",
         "area": "mockup"
@@ -489,6 +494,11 @@
         "path": "/mockups/development/clinical-answer-failures",
         "file": "src/app/mockups/development/clinical-answer-failures/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/check",
+        "file": "src/app/(search-app)/on-call/check/page.tsx",
+        "area": "product"
       },
       {
         "path": "/differentials/presentations",
@@ -681,6 +691,11 @@
         "area": "mockup"
       },
       {
+        "path": "/cme/check",
+        "file": "src/app/(search-app)/cme/check/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/ward-flow/statistics",
         "file": "src/app/mockups/ward-flow/statistics/page.tsx",
         "area": "mockup"
@@ -759,6 +774,11 @@
         "path": "/mockups/document-search-evidence-lens",
         "file": "src/app/mockups/document-search-evidence-lens/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/cme/calendar",
+        "file": "src/app/(search-app)/cme/calendar/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/privacy-live-signal-perfected",
@@ -1091,6 +1111,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/first-night",
+        "file": "src/app/(search-app)/on-call/first-night/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/specifiers/[slug]",
         "file": "src/app/(search-app)/specifiers/[slug]/page.tsx",
         "area": "product"
@@ -1184,6 +1209,11 @@
         "path": "/mockups/calculators-bedside-sheet",
         "file": "src/app/mockups/calculators-bedside-sheet/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/calendar",
+        "file": "src/app/(search-app)/on-call/calendar/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/caring-contacts/plans/[planId]",

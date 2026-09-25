@@ -74,9 +74,9 @@ force-push, or discard work.
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Write the body from `.github/pull_request_template.md` exactly as
    [Open](../../../docs/agents/pull-request-workflow.md#open) requires — full prose, verbatim Preflight lines checked only
-   where true, a satisfying `RAG impact:` line — and never add the `owner-approved` label.
-   On an ordinary PR you may arm squash auto-merge at open (`gh pr merge --squash --auto`);
-   never on an owner-merge PR ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)).
+   where true, a satisfying `RAG impact:` line. On an ordinary PR you may arm squash
+   auto-merge at open (`gh pr merge --squash --auto`)
+   ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)).
 7. **Record** the review per [Records](../../../docs/agents/pull-request-workflow.md#records) with `npm run ledger:append`.
 8. **Follow CI while it is useful, then stop** per [Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci):
    fix only what this change broke, slow cadence, no cron, then report the PR URL and plainly

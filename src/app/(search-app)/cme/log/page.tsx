@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CmeLogPage } from "@/components/cme/cme-log-page";
+import { CmeLogPage, type CmeLogAttention } from "@/components/cme/cme-log-page";
 import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import { cpdYearOf } from "@/lib/cme/cpd-year";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
@@ -19,7 +19,7 @@ function placeholderSet(year: number): CmeRequirementSet {
 export default async function CmeLogRoute({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; saved?: string }>;
+  searchParams: Promise<{ year?: string; saved?: string; fix?: string; copy?: string }>;
 }) {
   const query = await searchParams;
   const requestedYear = query.year ? Number(query.year) : undefined;
@@ -35,12 +35,15 @@ export default async function CmeLogRoute({
     );
   }
   const currentYear = cpdYearOf(data.now);
+  const initialAttention: CmeLogAttention | null =
+    query.copy === "todo" ? "copy" : query.fix === "evidence" || query.fix === "reflection" ? query.fix : null;
   return (
     <CmeLogPage
       entries={data.entries}
       set={data.set ?? placeholderSet(data.year)}
       navigationYears={[currentYear, currentYear - 1, data.year]}
       justSaved={query.saved === "1"}
+      initialAttention={initialAttention}
       demoMode={data.demoMode}
     />
   );

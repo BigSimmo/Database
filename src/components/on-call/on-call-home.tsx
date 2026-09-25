@@ -1,6 +1,16 @@
 "use client";
 
-import { CalendarDays, ChevronRight, Phone, Printer, Shield, Trash2 } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarDays,
+  ChevronRight,
+  Moon,
+  Phone,
+  PhoneCall,
+  Printer,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -23,12 +33,20 @@ import {
 } from "@/components/on-call/on-call-section-identity";
 import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl, textMuted } from "@/components/ui-primitives";
+
+/** One of the three small tool tiles under "Who do I call now?". */
+const homeToolTile = cn(
+  cardSurface,
+  focusRing,
+  "flex min-h-tap flex-col items-start gap-0.5 p-3 text-sm font-semibold text-[color:var(--text)] no-underline",
+);
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { deriveOnCallNotifications } from "@/lib/on-call/notifications";
+import { buildOnCallReviewQueue } from "@/lib/on-call/review-queue";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
@@ -357,6 +375,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // after-hours number on the next tick while the badge went on counting from
   // whenever the page was opened. One clock, one answer.
   const notifications = useMemo(() => deriveOnCallNotifications(entries, now), [entries, now]);
+  const reviewCount = useMemo(() => buildOnCallReviewQueue(entries, now).total, [entries, now]);
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -434,6 +453,36 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         {/* Renders nothing but the field until something is typed, so it costs a
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
+
+        <div className="grid gap-2" data-testid="on-call-home-tools">
+          <Link
+            href="/on-call/now"
+            data-testid="on-call-home-call-now"
+            className={cn(primaryControl, "min-h-14 w-full justify-start text-base")}
+          >
+            <PhoneCall aria-hidden="true" className="size-icon-md" />
+            Who do I call now?
+          </Link>
+          <div className="grid grid-cols-3 gap-2">
+            <Link href="/on-call/check" data-testid="on-call-home-check" className={homeToolTile}>
+              <CalendarCheck aria-hidden="true" className="size-icon-sm" />
+              <span>Check these</span>
+              <span className={cn(textMuted, "nums text-xs font-medium")}>
+                {reviewCount === 0 ? "All checked" : `${reviewCount} due`}
+              </span>
+            </Link>
+            <Link href="/on-call/first-night" data-testid="on-call-home-first-night" className={homeToolTile}>
+              <Moon aria-hidden="true" className="size-icon-sm" />
+              <span>First night</span>
+              <span className={cn(textMuted, "text-xs font-medium")}>Guide</span>
+            </Link>
+            <Link href="/on-call/calendar" data-testid="on-call-home-calendar" className={homeToolTile}>
+              <CalendarDays aria-hidden="true" className="size-icon-sm" />
+              <span>Calendar</span>
+              <span className={cn(textMuted, "text-xs font-medium")}>Teaching</span>
+            </Link>
+          </div>
+        </div>
 
         <HomeModule id="on-call-home-service" label="Your service">
           <Link

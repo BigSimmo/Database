@@ -1466,7 +1466,12 @@ describe("design-system adoption manifest", () => {
     // 102 -> 103 on 2026-09-21: `/auth/reset-password` adds the password-recovery
     // destination used by the PKCE email callback. It is a real production route
     // and is declared in `adoption-contract.json`.
-    expect(manifest.routeCoverage.discovered).toHaveLength(105);
+    //
+    // 105 -> 111 on 2026-09-25: six new routes, each a real production page declared in
+    // `adoption-contract.json`: `/cme/check` (year check), `/cme/calendar`, and On Call's
+    // `/on-call/now` (who to call now), `/on-call/check` (entries due a check),
+    // `/on-call/first-night` and `/on-call/calendar`.
+    expect(manifest.routeCoverage.discovered).toHaveLength(111);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
