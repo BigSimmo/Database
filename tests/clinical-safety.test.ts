@@ -875,6 +875,10 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor("Transferred to the medical ward.")).toBe("Escalation");
     // The exclusion is a whole-word lookahead: "intolerance" is not "into".
     expect(labelFor("Transferred given intolerance of the ward.")).toBe("Escalation");
+    // KNOWN CONSEQUENCE, pinned so it is deliberate rather than discovered later: the exclusion
+    // reads the next word only, so a patient transfer phrased "into" also loses its chip. The
+    // decision did not weigh this case; revisit it first if the exclusion is ever narrowed.
+    expect(labelFor("Transfer into ICU was arranged.")).toBeUndefined();
   });
 
   it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {
