@@ -178,6 +178,13 @@ jobs:
           # Content sensitivity matches the tee'd log: all-public corpus, no env values.
           npm run eval:answer-quality -- --dump-answers .local/eval-canary/answer-targeting-answers.json 2>&1 | tee .local/eval-canary/answer-targeting.log
 
+      # Every individually failing case, on every run (audit F24). The thresholds decide red or
+      # green; an aggregate green run can still carry a failing case (#628), so the job summary
+      # lists them all and a green run with failures gets a warning annotation.
+      - name: Per-case summary
+        if: always() && steps.install.outcome == 'success'
+        run: node scripts/eval-canary-case-summary.mjs --reports-dir .local/eval-canary/quality-reports
+
       # Uploaded on success AND failure: the JSON artifact regenerates the offline ranking
       # snapshot (download it, then `npm run build:ranking-snapshot -- --input <json> --output
       # scripts/fixtures/rag-ranking-candidate-snapshot.v1.json --source-run-id <run-id>`), and
