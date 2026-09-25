@@ -431,13 +431,24 @@ describe("Care Plan contact actions", () => {
         isEmergencyService: false,
       },
       { name: "Rurallink", telephoneDisplay: "1800 552 002", isEmergencyService: false },
+      { name: "Lifeline", telephoneDisplay: "13 11 14", isEmergencyService: false },
+      { name: "Suicide Call Back Service", telephoneDisplay: "1300 659 467", isEmergencyService: false },
+      { name: "13YARN", telephoneDisplay: "13 92 76", isEmergencyService: false },
     ]);
 
+    // The original four WA numbers keep their original verification date; the
+    // three added 2026-09-25 (Lifeline, Suicide Call Back Service, 13YARN)
+    // carry today's.
+    const originallyVerified = new Set(["Emergency services", "Rurallink"]);
     for (const contact of publicCrisisContacts) {
-      expect(contact.verifiedOn).toBe("2026-08-20");
       expect(contact.sourceUrl).toMatch(/^https:\/\//);
       if (contact.name.includes("MHERL")) {
         expect(contact.caveat).toMatch(/not an emergency service/i);
+        expect(contact.verifiedOn).toBe("2026-08-20");
+      } else if (originallyVerified.has(contact.name)) {
+        expect(contact.verifiedOn).toBe("2026-08-20");
+      } else {
+        expect(contact.verifiedOn).toBe("2026-09-25");
       }
     }
   });
@@ -453,9 +464,11 @@ describe("Care Plan contact actions", () => {
     //
     // Real numbers: the after-hours pathway genuinely is the public crisis service,
     // because a reader dialling it at 2am must reach a real service rather than a dead
-    // number. Those are an explicit allowlist, so a fifth real number cannot be added
-    // silently.
-    const authorisedPublicNumbers = ["000", "1300555788", "1800676822", "1800552002"];
+    // number. Those are an explicit allowlist, so an unauthorised real number cannot be
+    // added silently. "131114" and "139276" (Lifeline, 13YARN) never match the scanning
+    // regex below (it requires a 1300/1800 prefix) but are listed anyway so this
+    // allowlist stays the complete set of `publicCrisisContacts` numbers.
+    const authorisedPublicNumbers = ["000", "1300555788", "1800676822", "1800552002", "131114", "1300659467", "139276"];
 
     const found = (serialisedFixtures.match(/\+61[\d\s]{6,}|\b0[2-9][\s\d]{7,}|\b1[38]00[\s\d]{5,}/g) ?? []).map(
       (match) => match.replace(/\s/g, "").replace(/^\+61/, "0"),
