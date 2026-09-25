@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bb71a27c-3b3a-4c1a-b1c1-209c6e81343a",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Youth self-harm and suicide services queries rarely show Lifeline, Suicide Call Back Service, 13YARN or Kids Helpline near the top",
+    "detail": "Pre-existing on main, confirmed offline 2026-09-25 (rankServiceRecords, top 12, no provider access). None of Lifeline, Suicide Call Back Service, 13YARN or Kids Helpline appears in the top 12 for 'youth self harm', 'suicidal youth', 'trans youth suicidal', 'gay youth suicidal', 'child self harm', 'suicidal teen perth' or 'young person self harming who do I call'. Where one does appear it is low and alone: Suicide Call Back Service #9 for 'youth suicide' and 'lgbti youth suicide', Kids Helpline #10 for 'young person suicidal' and #12 for 'teen suicidal'. Exceptions: 13YARN #1 for 'aboriginal youth suicide' (pinned by urgent routing) and Kids Helpline #1 for 'kid self harm' (organic). Urgent routing (src/lib/service-urgent-routing.ts) pins CAMHS Crisis Connect for child wording and, after PR C, CAMHS Crisis Connect plus MHERL for plain youth wording (owner decision 15), but pins no national line for youth. After PR C's pins the low entries move down one or two places (e.g. Suicide Call Back Service #9 to #11). NEXT: owner decision on which national lines, if any, to pin for youth and child self-harm or suicidal wording, and in what order relative to CAMHS Crisis Connect and MHERL; then add the intents with a routing test.",
+    "source": "PR C services safety probe 2026-09-25",
+    "issueUlid": "01M3CT4CFM8CKX6FCRKGSK2RRS"
+  }
+}
