@@ -59,6 +59,10 @@ export function onCallEntryFreshness(
 
 const trimmed = z.string().trim().min(1);
 
+/** When an escalation step applies. Working hours are Mon–Fri 08:00–17:00, not a public holiday. */
+export const ON_CALL_STEP_HOURS = ["any", "in-hours", "after-hours"] as const;
+export type OnCallStepHours = (typeof ON_CALL_STEP_HOURS)[number];
+
 const contactsDetails = z
   .object({
     role: trimmed,
@@ -89,6 +93,10 @@ const playbookDetails = z
             whoToCall: trimmed,
             when: trimmed,
             phone: trimmed.optional(),
+            // Optional, so every stored ladder parses unchanged. "Who do I call
+            // now" leads with the steps that apply at this hour; a step with no
+            // value applies at any time.
+            hours: z.enum(ON_CALL_STEP_HOURS).optional(),
           })
           .strict(),
       )
