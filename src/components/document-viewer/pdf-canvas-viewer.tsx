@@ -495,9 +495,15 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       setTotalPages(0);
       setReferenceGeometry(null);
       try {
-        const pdfjs = await import("pdfjs-dist");
+        // The legacy build, not the default one. The default build of pdf.js 6
+        // calls `Map.prototype.getOrInsertComputed`, which only recent browsers
+        // have (Chromium 151+), so on an older phone or a hospital-managed
+        // desktop every page failed with "Could not display this page of the
+        // PDF". The legacy build carries its own polyfills and draws the same
+        // pages. The worker must come from the same build.
+        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-          "pdfjs-dist/build/pdf.worker.min.mjs",
+          "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
           import.meta.url,
         ).toString();
         // Range-fetch on demand instead of pulling the whole file down. pdf.js

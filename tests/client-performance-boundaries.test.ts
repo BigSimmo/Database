@@ -58,13 +58,26 @@ describe("fixture-free client performance boundaries", () => {
 
   it("retains PDF.js as an on-demand import", () => {
     const pdfViewer = source("src/components/document-viewer/pdf-canvas-viewer.tsx");
-    const eagerPdfJsImport = /^[ \t]*import[ \t]+(?!type\b)(?:[^\r\n"']+[ \t]+from[ \t]+)?["']pdfjs-dist["'][ \t]*;?/m;
+    const eagerPdfJsImport =
+      /^[ \t]*import[ \t]+(?!type\b)(?:[^\r\n"']+[ \t]+from[ \t]+)?["']pdfjs-dist(?:\/[^"']*)?["'][ \t]*;?/m;
 
-    expect(pdfViewer).toContain('await import("pdfjs-dist")');
+    expect(pdfViewer).toContain('await import("pdfjs-dist/legacy/build/pdf.mjs")');
     expect(pdfViewer).not.toMatch(eagerPdfJsImport);
     expect('import "pdfjs-dist";').toMatch(eagerPdfJsImport);
+    expect('import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";').toMatch(eagerPdfJsImport);
     expect('import pdfjs from "pdfjs-dist";').toMatch(eagerPdfJsImport);
     expect('import type { PDFDocumentProxy } from "pdfjs-dist";').not.toMatch(eagerPdfJsImport);
+  });
+
+  it("loads the pdf.js legacy build so older browsers can still draw pages", () => {
+    const pdfViewer = source("src/components/document-viewer/pdf-canvas-viewer.tsx");
+
+    // The default pdf.js 6 build calls Map.prototype.getOrInsertComputed, which
+    // browsers older than Chromium 151 lack, so every page failed to draw there.
+    // The legacy build polyfills it. Library and worker must come from the same build.
+    expect(pdfViewer).toContain('"pdfjs-dist/legacy/build/pdf.worker.min.mjs"');
+    expect(pdfViewer).not.toContain('"pdfjs-dist/build/');
+    expect(pdfViewer).not.toContain('await import("pdfjs-dist")');
   });
 
   it("fetches PDF bytes on demand and releases the raster on teardown", () => {
