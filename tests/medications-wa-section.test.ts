@@ -121,10 +121,15 @@ function citationOf(row: MedicationSectionRow) {
 }
 
 describe("WA prescribing rules — medications catalogue (task t6a)", () => {
-  it("clozapine is untouched (owned by a different builder)", () => {
+  it("clozapine's 'wa' section is owned by the wa-clozapine branch, not this one", () => {
+    // Pre-integration, this branch (wa-prescribing) left clozapine untouched. Post-integration,
+    // wa-clozapine has merged and added its own 'wa' section to the same record (a disjoint edit
+    // to the same file, per the integration plan's hotspot note) — so clozapine now does carry a
+    // 'wa' section, just not one this branch wrote. Coverage of its content lives in
+    // tests/medications-clozapine-reference.test.ts.
     const clozapine = getMedicationRecord("clozapine");
     expect(clozapine).toBeDefined();
-    expect(clozapine!.sections.some((section) => section.type === "wa")).toBe(false);
+    expect(clozapine!.sections.some((section) => section.type === "wa")).toBe(true);
   });
 
   it("'wa' is registered in tabSectionTypes, in the safety tab group", () => {
