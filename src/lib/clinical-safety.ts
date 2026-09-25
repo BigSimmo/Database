@@ -95,7 +95,8 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // so those passages get no Escalation chip. Decision 16 narrowed the
     // exclusion to the drug-passage OBJECTS only: (breast / human) milk, the
     // placenta, the fetus or foetus, the CSF and the blood-brain barrier,
-    // reached by into / across / via / to, optionally through "transfer of
+    // reached by into / across / via / to (optionally after one -ly adverb:
+    // "transfers readily across the placenta"), optionally through "transfer of
     // <one to three words>" ("Transfer of lithium across the placenta"), plus
     // (trans)placental transfer. Any other object -- "transfer into ICU",
     // "transfer of care to the community team" -- is a patient transfer and
@@ -107,7 +108,7 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // stays linear: the word count is bounded and `[\w-]` and `\s` are
     // disjoint, so each word has exactly one way to match.
     pattern:
-      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:of(?:\s+[\w-]+){1,3}\s+)?(?:into|across|via|to)\s+(?:the\s+)?(?:(?:breast|human|maternal)\s+)?(?:milk|breastmilk|placenta|fo?etus|csf|blood[-\s]brain\s+barrier)\b(?!\s+(?:accreta|pr(?:a)?evia|shunt|clinics?|services?|units?|teams?|cent(?:re|er)s?|wards?|departments?)\b)))\b/i,
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:[a-z]+ly\s+)?(?:of(?:\s+[\w-]+){1,3}\s+)?(?:into|across|via|to)\s+(?:the\s+)?(?:(?:breast|human|maternal)\s+)?(?:milk|breastmilk|placenta|fo?etus|csf|blood[-\s]brain\s+barrier)\b(?!\s+(?:accreta|pr(?:a)?evia|shunt|clinics?|services?|units?|teams?|cent(?:re|er)s?|wards?|departments?)\b)))\b/i,
   },
   {
     kind: "dose_limit",

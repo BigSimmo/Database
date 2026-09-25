@@ -939,6 +939,13 @@ describe("safety finding precision (characterisation)", () => {
     // One-word "breastmilk" and "maternal milk" are drug passage too (common in Australian guidance).
     expect(labelFor("Transfer into the breastmilk is minimal.")).toBeUndefined();
     expect(labelFor("Transfer into maternal milk is low.")).toBeUndefined();
+    // An adverb between the verb and the preposition is still drug passage (Claude review on #3031).
+    expect(labelFor("Lithium transfers readily across the placenta and into breast milk.")).toBeUndefined();
+    expect(labelFor("Sertraline is transferred minimally into breast milk.")).toBeUndefined();
+    expect(labelFor("Valproate transfers freely to the fetus.")).toBeUndefined();
+    // ...but an adverb does not turn a patient transfer into drug passage.
+    expect(labelFor("Transfer promptly to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transferred safely to the placenta accreta service.")).toBe("Escalation");
     // The plain drug-passage forms are unchanged.
     expect(labelFor("Transfer of lithium across the placenta is complete.")).toBeUndefined();
     expect(labelFor("Little of the drug is transferred into the CSF.")).toBeUndefined();
