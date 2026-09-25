@@ -68,6 +68,23 @@ describe("part-08 new WA service records", () => {
     }
   });
 
+  it("does not claim an interpreter-booking pathway for Legal Yarn that the fetched page did not state", () => {
+    const legalYarn = part08.find((record) => record.id === "SVC-LEG-001");
+    expect(legalYarn?.bestUse.toLowerCase()).not.toContain("aboriginal interpreting wa");
+  });
+
+  it("never names Rurallink as the after-hours route for a Perth metro record (Rurallink covers regional/remote WA only)", () => {
+    const perthMetroRecords = part08.filter((record) =>
+      record.catchments.some((catchment) => /perth metro/i.test(catchment)),
+    );
+    expect(perthMetroRecords.length).toBeGreaterThan(0);
+    for (const record of perthMetroRecords) {
+      for (const note of record.notFor) {
+        expect(note.toLowerCase()).not.toContain("rurallink");
+      }
+    }
+  });
+
   it("supersedes the known legacy Goldfields adult mental health record by match key", () => {
     const legacyGoldfields = normalizeCatalogService(
       {
