@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f244e5c9-6adb-4f25-96e1-de0a2d850beb",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#7J47R1",
+    "outcome": "Fixed in bfbbcbac6 (dropped opacity-75 on the density-toggle subtitle; Show-all chip text uses --clinical-accent-strong, which never renders under the on-call/cme accent remaps); pinned by tests/live-control-contrast.dom.test.tsx.",
+    "baseRowFingerprint": "f1ab52ee6e33665234524a67aca2a0db3f10f9f7847b3a7a12209642d34abe13"
+  }
+}
