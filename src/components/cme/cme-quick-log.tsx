@@ -85,7 +85,7 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[var(--z-toast)] flex justify-center px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+4rem)]"
       >
         {savedNotice ? (
-          <p className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-elevated)]">
+          <p className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--e4)]">
             <Check aria-hidden="true" className="size-icon-sm" />
             Saved to your log.
           </p>
@@ -99,7 +99,7 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
         onClick={() => setOpen(true)}
         className={cn(
           primaryControl,
-          "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[var(--z-chrome)] rounded-full shadow-[var(--shadow-elevated)] print:hidden",
+          "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[var(--z-chrome)] rounded-full shadow-[var(--e4)] print:hidden",
         )}
       >
         <Plus aria-hidden="true" className="size-icon-sm" />

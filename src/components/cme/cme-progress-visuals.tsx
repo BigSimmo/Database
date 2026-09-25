@@ -24,6 +24,13 @@ const CATEGORY_FILL: Record<CmeCategory, string> = {
   measuring: "bg-[color:var(--tone-rose)]",
 };
 
+/** The same colours as SVG fills: bar segments are drawn, not styled, so their widths need no inline style. */
+const CATEGORY_SVG_FILL: Record<CmeCategory, string> = {
+  educational: "fill-[color:var(--tone-indigo)]",
+  reviewing: "fill-[color:var(--tone-purple)]",
+  measuring: "fill-[color:var(--tone-rose)]",
+};
+
 const CATEGORY_SHORT: Record<CmeCategory, string> = {
   educational: "Educational",
   reviewing: "Reviewing",
@@ -55,24 +62,31 @@ export function CmeCategoryBar({ entries, targetHours }: { entries: readonly Cme
   const totals = hoursByCategory(entries);
   const logged = cmeCategories.reduce((sum, category) => sum + totals[category], 0);
   const scale = Math.max(targetHours, logged, 1);
+  // Each segment starts where the ones before it ended, with a hairline gap between them.
+  const present = cmeCategories.filter((category) => totals[category] > 0);
+  const segments = present.map((category, index) => {
+    const x = present.slice(0, index).reduce((sum, earlier) => sum + (totals[earlier] / scale) * 100, 0);
+    const width = (totals[category] / scale) * 100;
+    return { category, x, width: Math.max(0, width - 0.4) };
+  });
 
   return (
     <div data-testid="cme-category-bar">
       <p className="mb-1.5 text-sm font-medium text-[color:var(--text)]">By category</p>
-      <div
-        aria-hidden="true"
-        className="flex h-2.5 w-full gap-px overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
-      >
-        {cmeCategories.map((category) =>
-          totals[category] > 0 ? (
-            <span
-              key={category}
-              data-category={category}
-              className={cn("h-full forced-colors:bg-[CanvasText]", CATEGORY_FILL[category])}
-              style={{ width: `${(totals[category] / scale) * 100}%` }}
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]">
+        <svg aria-hidden="true" viewBox="0 0 100 10" preserveAspectRatio="none" className="block h-full w-full">
+          {segments.map((segment) => (
+            <rect
+              key={segment.category}
+              data-category={segment.category}
+              x={segment.x}
+              width={segment.width}
+              y={0}
+              height={10}
+              className={cn("forced-colors:fill-[CanvasText]", CATEGORY_SVG_FILL[segment.category])}
             />
-          ) : null,
-        )}
+          ))}
+        </svg>
       </div>
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1" aria-label="Hours by category">
         {cmeCategories.map((category) => (
@@ -105,14 +119,16 @@ export function CmeRequirementMeter({
   const fraction = Math.max(0, Math.min(1, progress.value / progress.target));
   return (
     <div className="flex items-center gap-2" data-testid="cme-requirement-meter">
-      <span
-        aria-hidden="true"
-        className="block h-1.5 w-20 overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
-      >
-        <span
-          className="block h-full origin-left rounded-full bg-[color:var(--command)] forced-colors:bg-[CanvasText]"
-          style={{ transform: `scaleX(${fraction})` }}
-        />
+      <span className="block h-1.5 w-20 overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]">
+        <svg aria-hidden="true" viewBox="0 0 100 10" preserveAspectRatio="none" className="block h-full w-full">
+          <rect
+            x={0}
+            y={0}
+            height={10}
+            width={fraction * 100}
+            className="fill-[color:var(--command)] forced-colors:fill-[CanvasText]"
+          />
+        </svg>
       </span>
       {met ? <Check aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text)]" /> : null}
     </div>
