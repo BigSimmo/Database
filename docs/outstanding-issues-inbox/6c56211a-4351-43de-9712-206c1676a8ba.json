@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6c56211a-4351-43de-9712-206c1676a8ba",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#KZDNNX",
+    "outcome": "Fixed in 0209fd5d5 (differential section badges now name what they count: 'N feature(s)', 'N cause(s)', 'N clue(s)', 'N step(s)', singular and plural, per owner decision 2026-09-25; no assessment-state words). Pinned by tests/differential-detail.test.ts.",
+    "baseRowFingerprint": "4c4315f3a284aac6bbb923213cd705cf5b54f542e47cd2eeacf58f7f14e965eb"
+  }
+}

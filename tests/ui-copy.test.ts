@@ -75,7 +75,7 @@ const EXPECTED_MODE_TITLES: Record<
     subtitle: "Build a formulation from the evidence.",
   },
   prescribing: {
-    sharedTitle: "Medication Guidance",
+    sharedTitle: "Medication Reference",
     standaloneTitle: "Medication",
     subtitle: "Medication dosing and safety.",
   },

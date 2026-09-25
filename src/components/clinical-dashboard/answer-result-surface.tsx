@@ -206,12 +206,15 @@ function StagedAnswerResultSurfaceImpl({
   // side card ever showed the difference, so a "medium" answer - which includes
   // the case of a high-risk claim resting on unreviewed-authority evidence - read
   // exactly like a fully verified one. Wording lives in AnswerCard.
+  // The word follows `supportLabelTrust`, which differs from `trust` only when a high-trust
+  // answer has claims not all direct on approved or locally reviewed sources, or none at all
+  // (#WGMB4Z decision 17): it then reads "Supported". Strong and supported share one tone.
   const answerSupport: AnswerSupportStrength =
-    renderModel.trust === "high"
+    renderModel.supportLabelTrust === "high"
       ? "strong"
-      : renderModel.trust === "medium"
+      : renderModel.supportLabelTrust === "medium"
         ? "supported"
-        : renderModel.trust === "low"
+        : renderModel.supportLabelTrust === "low"
           ? "limited"
           : "unassessed";
   const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
@@ -741,9 +744,9 @@ function StagedAnswerResultSurfaceImpl({
             // `iconTilePremium`: that recipe carries the clinical-accent border and
             // background, so appending `text-…` recoloured only the glyph — the sheet
             // opened with an amber shield sitting in a blue tile while the card that
-            // opens it drew an amber one. This matches `AnswerSupportSummaryCard`'s
-            // tile exactly, so the colour the design assigns to the icon tile is the
-            // same on both sides of the tap.
+            // opens it drew an amber one. This matched the retired answer support
+            // card's tile exactly (#51975R), so the colour the design assigns to the
+            // icon tile is the same on both sides of the tap.
             headerLeading={
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
                 <ShieldAlert aria-hidden="true" className="h-3.5 w-3.5" />

@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -111,7 +112,7 @@ import type { ClinicalDocument, SearchScopeSummary } from "@/lib/types";
 import type { ClientDocumentMatch } from "@/lib/answer-client-payload";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
-import { documentRelevancePercent } from "./relevance-score";
+import { documentRelevanceLabel } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
 type ResultTypeFilter = "all" | "tables" | "images" | "pdfs";
@@ -230,18 +231,6 @@ function loadedSourceCountHint(count: number) {
 // enough to wrap onto its own line and repeated the same two words in each one.
 function loadedSourceCountLabel(count: number) {
   return count.toLocaleString();
-}
-
-function relevanceTone(document: ClientDocumentMatch) {
-  const verdict = document.relevance?.verdict as string | undefined;
-  const percent = documentRelevancePercent(document);
-  if (verdict === "direct") {
-    return { label: "High relevance", short: "High relevance", detail: `${percent}% match` };
-  }
-  if (verdict === "partial" || percent >= 75) {
-    return { label: "Relevant", short: "Relevant", detail: `${percent}% related` };
-  }
-  return { label: "Related", short: "Related", detail: `${percent}% nearby` };
 }
 
 function documentOpenHref(document: ClientDocumentMatch) {
@@ -888,6 +877,7 @@ function DocumentSearchResultsPanelImpl({
   const searchParams = useSearchParams();
   const trimmedQuery = query.trim();
   const filterPanelId = useId();
+  const filterOpenerRef = useRef<HTMLElement | null>(null);
   // Query-scope the open flag the same way facets are scoped: a new search must
   // not leave the panel covering a different result set (especially on phones).
   // Do not reset via useEffect+setState — react-hooks/set-state-in-effect fails CI.
@@ -1052,6 +1042,12 @@ function DocumentSearchResultsPanelImpl({
     });
     setFilterPanelState({ query, open: true });
   };
+  // Remember which of the two triggers (phone / wide) opened the sheet, so
+  // closing it returns focus there (#M3XZV0).
+  const toggleFiltersFromTrigger = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!filterPanelOpen) filterOpenerRef.current = event.currentTarget;
+    openOrCloseFilters();
+  };
   const renderFilterTrigger = (testId: string) =>
     showFilterControl ? (
       <ResultFilterTrigger
@@ -1060,7 +1056,7 @@ function DocumentSearchResultsPanelImpl({
         title="Filter documents"
         open={filterPanelOpen}
         activeCount={activeFilterCount}
-        onToggle={openOrCloseFilters}
+        onToggle={toggleFiltersFromTrigger}
       />
     ) : null;
 
@@ -1405,51 +1401,55 @@ function DocumentSearchResultsPanelImpl({
      above zero it is the only thing that says the list is a floor rather than
      the answer. (Raised by Devin review on PR #1640.) */
   const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
-  const documentFilterSheet =
-    showFilterControl && filterPanelOpen ? (
-      <ResultFilterSheet
-        open={filterPanelOpen}
-        onClose={() => setFilterPanelState({ query, open: false })}
-        panelId={filterPanelId}
-        testId="document-filter-panel"
-        title="Filter documents"
-        description="Set retrieval scope, then refine the matches. Changes apply together."
-        chromeResetKey={query}
-        groups={documentFilterGroups}
-        applicationMode="staged"
-        primaryActionLabel="Update search"
-        onApply={applyDocumentFilters}
-        onClearAll={
-          draftActiveFilterCount > 0
-            ? () =>
-                setFilterDraft((current) => ({
-                  ...current,
-                  facetKeys: [],
-                  resultType: "all",
-                  scopeFilters: {},
-                  selectedDocumentIds: [],
-                }))
-            : undefined
-        }
-        summary={{
-          count: draftDisplayedMatches.length,
-          noun: draftDisplayedMatches.length === 1 ? "match" : "matches",
-        }}
-        coverage={{
-          visibleCount: draftDisplayedMatches.length,
-          totalCount: matches.length,
-          label: "Visible retrieved matches",
-        }}
-        secondaryAction={{
-          label: "Browse all sources",
-          count: documentCount > 0 ? documentCount : undefined,
-          onClick: () => {
-            setFilterPanelState({ query, open: false });
-            onOpenLibrary();
-          },
-        }}
-      />
-    ) : null;
+  // Mounted whenever the control is, not only while open (#M3XZV0): `Sheet`
+  // skips its focus restore when it unmounts, so a sheet rendered only while
+  // open closed with focus on <body>. Closed, it renders nothing — no DOM, no
+  // tab stop, and nothing on the server render.
+  const documentFilterSheet = showFilterControl ? (
+    <ResultFilterSheet
+      open={filterPanelOpen}
+      returnFocusRef={filterOpenerRef}
+      onClose={() => setFilterPanelState({ query, open: false })}
+      panelId={filterPanelId}
+      testId="document-filter-panel"
+      title="Filter documents"
+      description="Set retrieval scope, then refine the matches. Changes apply together."
+      chromeResetKey={query}
+      groups={documentFilterGroups}
+      applicationMode="staged"
+      primaryActionLabel="Update search"
+      onApply={applyDocumentFilters}
+      onClearAll={
+        draftActiveFilterCount > 0
+          ? () =>
+              setFilterDraft((current) => ({
+                ...current,
+                facetKeys: [],
+                resultType: "all",
+                scopeFilters: {},
+                selectedDocumentIds: [],
+              }))
+          : undefined
+      }
+      summary={{
+        count: draftDisplayedMatches.length,
+        noun: draftDisplayedMatches.length === 1 ? "match" : "matches",
+      }}
+      coverage={{
+        visibleCount: draftDisplayedMatches.length,
+        totalCount: matches.length,
+        label: "Visible retrieved matches",
+      }}
+      secondaryAction={{
+        label: "Browse all sources",
+        count: documentCount > 0 ? documentCount : undefined,
+        onClick: () => {
+          setFilterPanelState({ query, open: false });
+          onOpenLibrary();
+        },
+      }}
+    />
+  ) : null;
   const showIdentityHeader =
     recordMatchCount > 0 ||
     matches.length > 0 ||
@@ -1623,11 +1623,20 @@ function DocumentSearchResultsPanelImpl({
             <div className="min-w-0 space-y-2.5 sm:space-y-3">
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 {renderedMatches.map((document, index) => {
-                  const relevanceDisplay = relevanceTone(document);
+                  // The verdict in words, never a percentage (#1M22X5): the
+                  // number was a per-verdict constant that measured nothing.
+                  const relevanceLabel = documentRelevanceLabel(document);
                   // One accent per card. `high` is accent TEXT on the raised
                   // surface (no fill), so a top hit showing both "Best match"
-                  // and "High relevance" still has a single filled accent.
-                  const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "neutral";
+                  // and "Strong match" still has a single filled accent.
+                  const relevanceVariant = relevanceLabel === "Strong match" ? "high" : "neutral";
+                  // Owner decision 11 (2026-09-25): "Best match" is a quality
+                  // claim, so the first card earns it only on a strong or
+                  // partial verdict. Otherwise it is just the first result.
+                  const topBadgeLabel =
+                    relevanceLabel === "Strong match" || relevanceLabel === "Partial match"
+                      ? "Best match"
+                      : "Top result";
                   const openHref = documentOpenHref(document);
                   return (
                     <article
@@ -1682,7 +1691,7 @@ function DocumentSearchResultsPanelImpl({
                                 icon={Sparkles}
                                 className="min-h-7 rounded-lg px-2.5 text-2xs"
                               >
-                                Best match
+                                {topBadgeLabel}
                               </DocumentBadge>
                             ) : null}
                             <DocumentBadge
@@ -1690,8 +1699,7 @@ function DocumentSearchResultsPanelImpl({
                               icon={Target}
                               className="min-h-7 rounded-lg px-2.5 text-2xs"
                             >
-                              {relevanceDisplay.short}
-                              <span className="sr-only">, {relevanceDisplay.detail}</span>
+                              {relevanceLabel}
                             </DocumentBadge>
                             <DocumentBadge
                               variant="neutral"
