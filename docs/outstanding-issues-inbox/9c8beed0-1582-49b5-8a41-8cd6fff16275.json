@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9c8beed0-1582-49b5-8a41-8cd6fff16275",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Extractor/parser/OCR/table-strategy/chunker version is not persisted per document, so a parser defect cannot be traced to affected documents (audit F04)",
+    "detail": "Verified offline: only a coarse indexing_version ('rag-deep-memory-v1') is stored; no extractor/OCR/table-strategy/chunker provenance exists in schema or worker. The clozapine interleaving defect (#GJHKYC) had no deterministic way to list affected documents. Next action: persist per-document extraction provenance and support version-based invalidation/re-extraction. Touches text producers (extract_pdf_assets.py, chunking) and likely a migration: RAG-protected and Supabase-deploy rules apply. Not a prerequisite for the #GJHKYC re-index.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC29Y2F8K1VF3T2SYJQCG"
+  }
+}
