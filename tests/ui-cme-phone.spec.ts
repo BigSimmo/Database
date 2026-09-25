@@ -214,7 +214,10 @@ test.describe("CME annual records and explicit learning handoff", () => {
     await expect(summary.getByRole("heading", { level: 1 })).toContainText("2026");
     await expect(summary).toContainText("47 active activities");
     await page.emulateMedia({ media: "print" });
-    await expect(summary.locator(".cme-print-controls")).toBeHidden();
+    // The page controls and the close-the-year panel both stay out of the printout.
+    const printControls = summary.locator(".cme-print-controls");
+    await expect(printControls).toHaveCount(2);
+    for (const control of await printControls.all()) await expect(control).toBeHidden();
     const printLayout = await summary.evaluate((root) => {
       const ancestors = [];
       for (let parent = root.parentElement; parent; parent = parent.parentElement) {

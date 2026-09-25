@@ -1055,13 +1055,13 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              43 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              44 |
 | `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `CitationList`           | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
@@ -1073,9 +1073,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              12 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
-| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              24 |
+| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              25 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              11 |

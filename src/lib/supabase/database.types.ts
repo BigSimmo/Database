@@ -2680,6 +2680,75 @@ export type Database = {
         };
         Relationships: [];
       };
+      cme_year_amendments: {
+        Row: {
+          after: Json;
+          amended_at: string;
+          before: Json;
+          entry_id: string;
+          id: string;
+          owner_id: string;
+          reason: string;
+          year_id: string;
+        };
+        Insert: {
+          after: Json;
+          amended_at?: string;
+          before: Json;
+          entry_id: string;
+          id?: string;
+          owner_id: string;
+          reason: string;
+          year_id: string;
+        };
+        Update: {
+          after?: Json;
+          amended_at?: string;
+          before?: Json;
+          entry_id?: string;
+          id?: string;
+          owner_id?: string;
+          reason?: string;
+          year_id?: string;
+        };
+        Relationships: [];
+      };
+      cme_year_snapshots: {
+        Row: {
+          closed_at: string;
+          evaluation: Json;
+          id: string;
+          owner_id: string;
+          record: Json;
+          shortfall_note: string | null;
+          target_hours: number;
+          total_hours: number;
+          year_id: string;
+        };
+        Insert: {
+          closed_at?: string;
+          evaluation: Json;
+          id?: string;
+          owner_id: string;
+          record: Json;
+          shortfall_note?: string | null;
+          target_hours: number;
+          total_hours: number;
+          year_id: string;
+        };
+        Update: {
+          closed_at?: string;
+          evaluation?: Json;
+          id?: string;
+          owner_id?: string;
+          record?: Json;
+          shortfall_note?: string | null;
+          target_hours?: number;
+          total_hours?: number;
+          year_id?: string;
+        };
+        Relationships: [];
+      };
       cme_years: {
         Row: {
           closed_at: string | null;
@@ -3521,6 +3590,14 @@ export type Database = {
       cme_guard_evidence_insert: { Args: never; Returns: unknown };
       cme_guard_archived_entry: { Args: never; Returns: unknown };
       on_call_service_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      cme_close_year: {
+        Args: { p_owner_id: string; p_year_id: string; p_evaluation: Json; p_shortfall_note?: string | null };
+        Returns: Json;
+      };
+      cme_amend_closed_entry: {
+        Args: { p_owner_id: string; p_entry_id: string; p_entry: Json; p_reason: string };
+        Returns: Json;
+      };
       cme_save_entry: { Args: { p_owner_id: string; p_year_id: string; p_entry_id: string; p_entry: Json; p_create: boolean; p_request_id?: string | null }; Returns: Json };
       analyze_rag_tables: { Args: never; Returns: undefined };
       assert_public_source_document_governance: {

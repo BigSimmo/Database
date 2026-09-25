@@ -28,6 +28,8 @@ export type CmeEntryPageProps = {
    */
   readonly onCopied?: (entryId: string) => void | Promise<void>;
   readonly editHref?: string;
+  /** Label for the `editHref` link: "Amend entry" in a closed year. */
+  readonly editLabel?: string;
   readonly readOnly?: boolean;
   readonly children?: ReactNode;
   readonly actions?: ReactNode;
@@ -62,6 +64,7 @@ export function CmeEntryPage({
   set,
   onCopied = noop,
   editHref,
+  editLabel = "Edit entry",
   readOnly = false,
   children,
   actions,
@@ -146,7 +149,7 @@ export function CmeEntryPage({
               className="inline-flex min-h-tap items-center gap-2 text-sm font-semibold text-[color:var(--clinical-accent)]"
             >
               <Pencil aria-hidden="true" className="size-icon-sm" />
-              Edit entry
+              {editLabel}
             </Link>
           ) : null}
           {!readOnly ? (

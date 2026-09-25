@@ -7,13 +7,14 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import {
+  amendClosedCmeEntry,
   assertValidCmeLinkedIds,
   setCmeEntryArchived,
   saveCmeEntry,
   fetchOwnerCmeYear,
   markCmeEntryTranscribed,
 } from "@/lib/cme/repository";
-import { cmeEntryUpdateSchema } from "@/lib/cme/schemas";
+import { cmeEntryAmendSchema, cmeEntryUpdateSchema } from "@/lib/cme/schemas";
 import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
 import type { CmeEntry } from "@/lib/cme/types";
 import { isDemoMode } from "@/lib/env";
@@ -52,7 +53,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    // Two accepted bodies:
+    // Accepted bodies (plus `{ "archived": boolean }`, handled below):
     // 1. `{ "transcribed": true }` — stamp transcribed_at after a successful clipboard copy.
     // 2. A full-replace `cmeEntryUpdateSchema` body (every create field required), so a partial
     //    edit cannot silently blank reflection/cost/links via create-schema defaults.
@@ -78,6 +79,42 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (archiveBody.success) {
       const entry = await setCmeEntryArchived(supabase, user.id, id, archiveBody.data.archived);
       return NextResponse.json({ entry });
+    }
+
+    // 3. An amendment to an activity in a closed year: the complete record plus a reason. The
+    //    database keeps the previous version, the new one and the reason, dated, beside the
+    //    closing snapshot, which never changes.
+    if (rawBody !== null && typeof rawBody === "object" && !Array.isArray(rawBody) && "amendmentReason" in rawBody) {
+      const amendment = cmeEntryAmendSchema.safeParse(rawBody);
+      if (!amendment.success) {
+        return publicErrorResponse("Invalid CME amendment. A reason of 3 to 1000 characters is required.", 400);
+      }
+      const { amendmentReason, ...fields } = amendment.data;
+      await assertValidCmeLinkedIds(supabase, user.id, {
+        routineId: fields.routineId,
+        documentId: fields.documentId,
+      });
+      const amended = await amendClosedCmeEntry(
+        supabase,
+        user.id,
+        {
+          id,
+          date: fields.date,
+          title: fields.title,
+          allocations: fields.allocations,
+          reflection: fields.reflection,
+          costCents: fields.costCents,
+          // Not written by an amendment; the database keeps the stored value.
+          transcribed: false,
+          routineId: fields.routineId,
+          documentId: fields.documentId,
+          sourceUrl: fields.sourceUrl,
+          buckets: fields.buckets,
+          formalPeerReviewHours: fields.formalPeerReviewHours,
+        },
+        amendmentReason,
+      );
+      return NextResponse.json({ entry: amended });
     }
 
     const parsed = cmeEntryUpdateSchema.safeParse(rawBody);

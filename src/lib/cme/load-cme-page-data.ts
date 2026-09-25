@@ -7,10 +7,11 @@ import {
   fetchOwnerCmeEntry,
   fetchOwnerCmeRoutines,
   fetchOwnerCmeYear,
+  fetchOwnerCmeYearClose,
 } from "@/lib/cme/repository";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
-import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+import type { CmeEntry, CmeRequirementSet, CmeYearClose } from "@/lib/cme/types";
 import { isDemoMode } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -23,6 +24,8 @@ export type CmePageData = {
   readonly entries: readonly CmeEntry[];
   readonly routines: readonly CmeRoutine[];
   readonly now: Date;
+  /** The closing snapshot and amendments, when the year is closed. */
+  readonly close: CmeYearClose | null;
 };
 
 async function load(
@@ -41,6 +44,8 @@ async function load(
       entries: targetYear === DEMO_CME_YEAR.year ? DEMO_CME_ENTRIES : [],
       routines: DEMO_CME_ROUTINES,
       now: DEMO_CME_INSTANT,
+      // The demo year is never closed; closing is refused in demo mode.
+      close: null,
       entry,
     };
   }
@@ -52,6 +57,7 @@ async function load(
     entries: [],
     routines: [],
     now,
+    close: null,
     entry: null,
   };
   try {
@@ -71,6 +77,7 @@ async function load(
     const loadedEntries = await fetchOwnerCmeEntries(admin, auth.user.id, set.id, options);
     const evidenceCounts = await fetchCmeEvidenceCounts(admin, auth.user.id, targetYear);
     const entries = loadedEntries.map((item) => ({ ...item, evidenceCount: evidenceCounts[item.id] ?? 0 }));
+    const close = set.closedAt ? await fetchOwnerCmeYearClose(admin, auth.user.id, set.id) : null;
     const state = cmeYearConfigurationState(set);
     if (state === "unavailable") return { ...empty, year: targetYear, state };
     // Preserve the original settings and history for explicit owner repair.
@@ -82,6 +89,7 @@ async function load(
       entries,
       routines,
       now,
+      close,
       entry: entry ? { ...entry, evidenceCount: evidenceCounts[entry.id] ?? 0 } : null,
     };
   } catch {

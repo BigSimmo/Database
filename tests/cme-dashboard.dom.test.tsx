@@ -121,8 +121,21 @@ describe("the dashboard", () => {
     renderAt("2026-12-28T02:00:00Z");
     const next = screen.getByTestId("cme-next-action");
     expect(next).toHaveTextContent(/year end/i);
-    // There is no close-the-year step to send anyone to; it opens the summary.
-    expect(next).not.toHaveTextContent(/close the year/i);
+    // Closing happens on the annual summary, so the action names it and sends the owner there.
+    expect(next).toHaveTextContent(/close the year from your annual summary/i);
+    expect(next).toHaveAttribute("href", "/cme/summary?year=2026");
+  });
+
+  it("points a closed year at its snapshot instead of at more logging", () => {
+    render(
+      <CmeDashboard
+        set={{ ...DEMO_CME_YEAR, closedAt: "2026-12-20T02:00:00Z" }}
+        entries={DEMO_CME_ENTRIES}
+        now={new Date("2026-12-28T02:00:00Z")}
+      />,
+    );
+    const next = screen.getByTestId("cme-next-action");
+    expect(next).toHaveTextContent(/this cpd year is closed/i);
     expect(next).toHaveAttribute("href", "/cme/summary?year=2026");
   });
 

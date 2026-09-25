@@ -1,12 +1,13 @@
 "use client";
 import Link from "next/link";
 import { cardSurface } from "@/components/card-recipes";
+import { CmeYearClosePanel } from "@/components/cme/cme-year-close-panel";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
 import { activeCmeYearEntries } from "@/lib/cme/export";
-import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
+import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet, type CmeYearClose } from "@/lib/cme/types";
 /**
  * The phone's own print screen is the PDF maker: iOS offers Share and Save to
  * Files from it, Android and desktop browsers offer Save as PDF. The page title
@@ -27,10 +28,16 @@ export function CmeAnnualSummary({
   set,
   entries,
   demoMode = false,
+  close = null,
+  now = new Date(),
 }: {
   set: CmeRequirementSet;
   entries: readonly CmeEntry[];
   demoMode?: boolean;
+  /** The closing snapshot and amendments, when the year is closed. */
+  close?: CmeYearClose | null;
+  /** The instant the close window is judged against; the page passes its own clock. */
+  now?: Date;
 }) {
   const active = activeCmeYearEntries(entries, set.year);
   const status = evaluateYear({ set, entries: active });
@@ -92,6 +99,15 @@ export function CmeAnnualSummary({
           entries. This summary is a personal record, not a compliance certificate.
         </p>
       </section>
+
+      <CmeYearClosePanel
+        year={set.year}
+        close={close}
+        closedAt={set.closedAt}
+        now={now}
+        unmetCount={status.unmet.length}
+        demoMode={demoMode}
+      />
 
       <h2 className={cn(eyebrowText, "mt-6")}>Requirements</h2>
       <ul className="mt-2 grid gap-2">

@@ -39,6 +39,7 @@ import {
   type CmeRoutineLogPrefill,
 } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet, CmeRequirementSpec, CmeRequirementStatus } from "@/lib/cme/types";
+import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
 
 /**
  * THE DASHBOARD — the screen the whole mode is judged by.
@@ -65,7 +66,7 @@ import type { CmeEntry, CmeRequirementSet, CmeRequirementSpec, CmeRequirementSta
  */
 
 /** How close to 31 December the one action turns from tracking into the year-end checklist. */
-const CLOSE_YEAR_WINDOW_DAYS = 14;
+const CLOSE_YEAR_WINDOW_DAYS = CME_CLOSE_WINDOW_DAYS;
 
 const FULL_MONTH_NAMES = [
   "January",
@@ -191,15 +192,18 @@ function computeNextAction(args: {
   const { set, unmet, now, totalHours } = args;
   const inRequestedYear = cpdYearOf(now) === set.year;
 
+  if (set.closedAt) {
+    return "This CPD year is closed. Open the annual summary for its snapshot and any amendments.";
+  }
+
   if (unmet.length === 0 && totalHours >= set.totalHours) {
     return "Every requirement is met for this year. Keep logging activities as you go.";
   }
 
   if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
-    // There is no "close the year" step in the app yet (finalisation is a
-    // later milestone), so this must not tell the owner to do one. It names
-    // what can actually be done here: check, then open the printable summary.
-    return "Year end: check each entry against the records you keep, then open your annual summary before 31 December.";
+    // Closing happens on the annual summary, which also shows what the year looks like
+    // before it is frozen, so the action sends the owner there rather than closing from here.
+    return "Year end: check each entry against the records you keep, then close the year from your annual summary.";
   }
 
   const earlyTask = set.requirements.find(
@@ -289,7 +293,15 @@ export function CmeDashboard({
     onLogRoutine(routineLogPrefill(routine, now));
   }
 
-  const nextActionControl = allTargetsMet ? (
+  const nextActionControl = set.closedAt ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/summary?year=${set.year}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : allTargetsMet ? (
     <p data-testid="cme-next-action" className="text-sm font-medium text-[color:var(--text)]">
       {nextAction}
     </p>

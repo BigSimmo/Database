@@ -303,6 +303,7 @@
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
@@ -348,6 +349,7 @@
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
@@ -624,11 +626,13 @@
       "directImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "designSync": {
@@ -1086,7 +1090,9 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
@@ -1098,7 +1104,9 @@
       ],
       "productImportFiles": [
         "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
@@ -1199,6 +1207,7 @@
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
@@ -1226,6 +1235,7 @@
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/service-admin-panel.tsx",
