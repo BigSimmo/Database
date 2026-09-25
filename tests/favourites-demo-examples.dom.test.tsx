@@ -131,6 +131,18 @@ describe("demo favourites are labelled Example (#358YM0)", () => {
     expect(within(option).queryByText("Example", { exact: true })).toBeNull();
   });
 
+  it("prefers the clinician's own favourite over a higher-scoring fixture sharing its link", async () => {
+    // Different title, so the fixture outscores it; the own item must still win the link.
+    const ownTitle = "My relapse-prevention notes";
+    savedRegistry.items = [{ ...fixture, id: "saved-renamed", title: ownTitle, keywords: "acamprosate" }];
+    render(<Surface demoMode query="acamprosate" />);
+
+    await screen.findByRole("listbox");
+    const option = optionFor(ownTitle);
+    expect(within(option).getByText("Saved", { exact: true })).toBeInTheDocument();
+    expect(within(option).queryByText("Example", { exact: true })).toBeNull();
+  });
+
   it("never files the clinician's own favourite under a set labelled Example on the hub", () => {
     savedRegistry.items = [{ ...ownSaved, set: fixture.set }];
     render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode />);

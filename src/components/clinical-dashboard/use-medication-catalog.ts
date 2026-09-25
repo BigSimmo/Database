@@ -370,7 +370,9 @@ export function useMedicationDetail(slug?: string): MedicationDetailState {
     return () => {
       controller.abort();
     };
-  }, [normalized, authorizationHeader]);
+    // authIdentity: loading -> signed_out keeps the same memoised header object, so the
+    // identity reset above must also restart the fetch or the page stays on its skeleton.
+  }, [normalized, authorizationHeader, authIdentity]);
 
   const { notFoundCode, ...asyncState } = state;
   // While sign-in is still loading, a `medication_not_found` from the anonymous fetch

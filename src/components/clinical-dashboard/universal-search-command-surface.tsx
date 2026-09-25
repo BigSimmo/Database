@@ -128,9 +128,11 @@ function rankLocalFavourites(
       score,
     };
     const existing = byKey.get(key);
-    // Fixtures come first, so on a tie prefer the clinician's own favourite: a saved
-    // item sharing a fixture's link must read "Saved", never "Example".
-    if (!existing || existing.score < score || (existing.score === score && existing.example && !match.example)) {
+    // A saved item sharing a fixture's link must read "Saved", never "Example": the
+    // clinician's own favourite always wins its link, whatever the fixture scores.
+    const ownBeatsFixture = existing?.example === true && !match.example;
+    const fixtureLosesToOwn = existing !== undefined && !existing.example && match.example;
+    if (!existing || ownBeatsFixture || (!fixtureLosesToOwn && existing.score < score)) {
       byKey.set(key, match);
     }
   }

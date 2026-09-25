@@ -153,6 +153,23 @@ describe("useMedicationDetail not-found (#W0T66R)", () => {
     expect(result.current.notFound).toBe(false);
   });
 
+  it("refetches and settles when sign-in resolves to signed_out with the same header object", async () => {
+    // loading -> signed_out keeps a null token, so the memoised header is the same object.
+    // The identity reset must still trigger a fetch, or the page sits on its skeleton forever.
+    authSession.status = "loading";
+    fetchMock.mockResolvedValueOnce(notFound("owner-med"));
+    const { result, rerender } = renderHook(() => useMedicationDetail("owner-med"));
+    await flushMicrotasks();
+
+    fetchMock.mockResolvedValueOnce(notFound("owner-med"));
+    authSession.status = "signed_out";
+    rerender();
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current).toMatchObject({ loading: false, notFound: true });
+  });
+
   it("stays silent when a request is aborted by a slug change", async () => {
     fetchMock.mockImplementation((_url, init) => {
       const signal = (init as RequestInit | undefined)?.signal;
