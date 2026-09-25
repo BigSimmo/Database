@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-25T08:26:52.314Z",
+  "generated_at": "2026-09-25T10:34:41.647Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "6b922110387087892b8b7cd1d2dd4d553b057db39a73d647c3e4b0fe8f94ac6a",
-  "replay_seconds": 20,
+  "schema_sha256": "37d2f5b331b07664dc99da5b55a88c59098457d1c9e240e37e799cb6c0f107af",
+  "replay_seconds": 27,
   "snapshot": {
     "views": [
       {
@@ -907,6 +907,50 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_entry_goals",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "entry_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "goal_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
           "service_role=ar/postgres"
         ],
         "name": "cme_evidence",
@@ -1019,6 +1063,74 @@
             "name": "uploaded_at",
             "type": "timestamp with time zone",
             "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_plan_goals",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "goal",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "sort_order",
+            "type": "smallint",
+            "default": "0",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "year_id",
+            "type": "uuid",
+            "default": null,
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -8503,6 +8615,24 @@
         "def_hash": "ddfa7ecd685a0125235fb746d7c8bef6"
       },
       {
+        "def": "CREATE INDEX cme_entry_goals_goal_idx ON public.cme_entry_goals USING btree (goal_id)",
+        "name": "cme_entry_goals_goal_idx",
+        "table": "cme_entry_goals",
+        "def_hash": "fa00501012b1f6664d1d001a08298523"
+      },
+      {
+        "def": "CREATE INDEX cme_entry_goals_owner_idx ON public.cme_entry_goals USING btree (owner_id)",
+        "name": "cme_entry_goals_owner_idx",
+        "table": "cme_entry_goals",
+        "def_hash": "3c7568ef9573b246e66e908499101d0d"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_entry_goals_pkey ON public.cme_entry_goals USING btree (entry_id)",
+        "name": "cme_entry_goals_pkey",
+        "table": "cme_entry_goals",
+        "def_hash": "cdad3f8def9dfd38a6eba476ef4299d9"
+      },
+      {
         "def": "CREATE UNIQUE INDEX cme_evidence_active_entry_sha256_key ON public.cme_evidence USING btree (entry_id, sha256) WHERE (removed_at IS NULL)",
         "name": "cme_evidence_active_entry_sha256_key",
         "table": "cme_evidence",
@@ -8525,6 +8655,24 @@
         "name": "cme_evidence_storage_path_key",
         "table": "cme_evidence",
         "def_hash": "bfc72ba1d6e9208b5bdf395c8ae90153"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_plan_goals_id_owner_key ON public.cme_plan_goals USING btree (id, owner_id)",
+        "name": "cme_plan_goals_id_owner_key",
+        "table": "cme_plan_goals",
+        "def_hash": "474fcce179598cd4d665f9b0c17f9162"
+      },
+      {
+        "def": "CREATE INDEX cme_plan_goals_owner_year_idx ON public.cme_plan_goals USING btree (owner_id, year_id, sort_order)",
+        "name": "cme_plan_goals_owner_year_idx",
+        "table": "cme_plan_goals",
+        "def_hash": "88da8bc4de32f1da84c3dbf6c03b0655"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_plan_goals_pkey ON public.cme_plan_goals USING btree (id)",
+        "name": "cme_plan_goals_pkey",
+        "table": "cme_plan_goals",
+        "def_hash": "4c25e0ba41f0325b10325392a424669e"
       },
       {
         "def": "CREATE UNIQUE INDEX cme_requirements_pkey ON public.cme_requirements USING btree (id)",
@@ -10288,6 +10436,30 @@
       },
       {
         "cmd": "ALL",
+        "name": "cme_entry_goals service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_entry_goals",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_plan_goals service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_plan_goals",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
         "name": "cme_requirements service role all",
         "qual": "true",
         "roles": [
@@ -11043,9 +11215,24 @@
         "table": "cme_entries"
       },
       {
+        "def": "CREATE TRIGGER cme_entry_goal_guard BEFORE INSERT OR DELETE OR UPDATE ON public.cme_entry_goals FOR EACH ROW EXECUTE FUNCTION public.cme_guard_entry_goal()",
+        "name": "cme_entry_goal_guard",
+        "table": "cme_entry_goals"
+      },
+      {
         "def": "CREATE TRIGGER cme_evidence_insert_guard BEFORE INSERT ON public.cme_evidence FOR EACH ROW EXECUTE FUNCTION public.cme_guard_evidence_insert()",
         "name": "cme_evidence_insert_guard",
         "table": "cme_evidence"
+      },
+      {
+        "def": "CREATE TRIGGER cme_plan_goal_closed_year_guard BEFORE INSERT OR DELETE OR UPDATE ON public.cme_plan_goals FOR EACH ROW EXECUTE FUNCTION public.cme_guard_plan_goal()",
+        "name": "cme_plan_goal_closed_year_guard",
+        "table": "cme_plan_goals"
+      },
+      {
+        "def": "CREATE TRIGGER cme_plan_goals_updated_at BEFORE UPDATE ON public.cme_plan_goals FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
+        "name": "cme_plan_goals_updated_at",
+        "table": "cme_plan_goals"
       },
       {
         "def": "CREATE TRIGGER cme_requirement_closed_year_guard BEFORE INSERT OR DELETE OR UPDATE ON public.cme_requirements FOR EACH ROW EXECUTE FUNCTION public.cme_guard_requirement()",
@@ -11498,6 +11685,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "e6ea7f5c3e88eda5ab682f24fddf50b3",
+        "signature": "public.cme_guard_entry_goal()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "442a83ee92ad1b9f41e8b3cb01bc494f",
         "signature": "public.cme_guard_entry()"
       },
@@ -11508,6 +11703,14 @@
         ],
         "def_hash": "eb65959eccc144d14d89fd8845acb94c",
         "signature": "public.cme_guard_evidence_insert()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "ddbb6249886d45a9c2d77e660737728a",
+        "signature": "public.cme_guard_plan_goal()"
       },
       {
         "acl": [
@@ -11546,8 +11749,24 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "498e10e5ccaa2f6064b2e0d43f0c11a3",
+        "signature": "public.cme_save_plan_goals(uuid,uuid,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "c5dd348392b2146d5c25e7e03c7b5f7c",
         "signature": "public.cme_set_entry_archived(uuid,uuid,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "65c575eac0994d8e5b9f9bc41d991b85",
+        "signature": "public.cme_set_entry_goal(uuid,uuid,uuid)"
       },
       {
         "acl": [
@@ -13119,6 +13338,26 @@
         "table": "cme_entries"
       },
       {
+        "def": "FOREIGN KEY (entry_id, owner_id) REFERENCES public.cme_entries(id, owner_id) ON DELETE CASCADE",
+        "name": "cme_entry_goals_entry_owner_fk",
+        "table": "cme_entry_goals"
+      },
+      {
+        "def": "FOREIGN KEY (goal_id, owner_id) REFERENCES public.cme_plan_goals(id, owner_id) ON DELETE CASCADE",
+        "name": "cme_entry_goals_goal_owner_fk",
+        "table": "cme_entry_goals"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_entry_goals_owner_id_fkey",
+        "table": "cme_entry_goals"
+      },
+      {
+        "def": "PRIMARY KEY (entry_id)",
+        "name": "cme_entry_goals_pkey",
+        "table": "cme_entry_goals"
+      },
+      {
         "def": "CHECK (((byte_size >= 1) AND (byte_size <= 10485760)))",
         "name": "cme_evidence_byte_size_check",
         "table": "cme_evidence"
@@ -13182,6 +13421,36 @@
         "def": "UNIQUE (storage_path)",
         "name": "cme_evidence_storage_path_key",
         "table": "cme_evidence"
+      },
+      {
+        "def": "CHECK (((char_length(btrim(goal)) >= 3) AND (char_length(btrim(goal)) <= 300)))",
+        "name": "cme_plan_goals_goal_check",
+        "table": "cme_plan_goals"
+      },
+      {
+        "def": "UNIQUE (id, owner_id)",
+        "name": "cme_plan_goals_id_owner_key",
+        "table": "cme_plan_goals"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_plan_goals_owner_id_fkey",
+        "table": "cme_plan_goals"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_plan_goals_pkey",
+        "table": "cme_plan_goals"
+      },
+      {
+        "def": "CHECK (((sort_order >= 0) AND (sort_order <= 9)))",
+        "name": "cme_plan_goals_sort_order_check",
+        "table": "cme_plan_goals"
+      },
+      {
+        "def": "FOREIGN KEY (year_id, owner_id) REFERENCES public.cme_years(id, owner_id) ON DELETE CASCADE",
+        "name": "cme_plan_goals_year_owner_fk",
+        "table": "cme_plan_goals"
       },
       {
         "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",

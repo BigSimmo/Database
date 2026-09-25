@@ -1,7 +1,15 @@
 import "server-only";
 import { fetchCmeEvidenceCounts } from "@/lib/cme/evidence-repository";
 import { cpdYearOf } from "@/lib/cme/cpd-year";
-import { DEMO_CME_ENTRIES, DEMO_CME_INSTANT, DEMO_CME_YEAR, DEMO_CME_ROUTINES } from "@/lib/cme/demo-year";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
+import { fetchOwnerCmeEntryGoals, fetchOwnerCmePlanGoals } from "@/lib/cme/plan-goals-repository";
+import {
+  DEMO_CME_ENTRIES,
+  DEMO_CME_INSTANT,
+  DEMO_CME_PLAN_GOALS,
+  DEMO_CME_YEAR,
+  DEMO_CME_ROUTINES,
+} from "@/lib/cme/demo-year";
 import {
   fetchOwnerCmeEntries,
   fetchOwnerCmeEntry,
@@ -26,6 +34,8 @@ export type CmePageData = {
   readonly now: Date;
   /** The closing snapshot and amendments, when the year is closed. */
   readonly close: CmeYearClose | null;
+  /** The year's development-plan goals, in the owner's order. */
+  readonly goals: readonly CmePlanGoal[];
 };
 
 async function load(
@@ -46,6 +56,7 @@ async function load(
       now: DEMO_CME_INSTANT,
       // The demo year is never closed; closing is refused in demo mode.
       close: null,
+      goals: targetYear === DEMO_CME_YEAR.year ? DEMO_CME_PLAN_GOALS : [],
       entry,
     };
   }
@@ -58,6 +69,7 @@ async function load(
     routines: [],
     now,
     close: null,
+    goals: [],
     entry: null,
   };
   try {
@@ -76,7 +88,16 @@ async function load(
     if (!set) return { ...empty, year: targetYear, routines, state: "unconfigured" };
     const loadedEntries = await fetchOwnerCmeEntries(admin, auth.user.id, set.id, options);
     const evidenceCounts = await fetchCmeEvidenceCounts(admin, auth.user.id, targetYear);
-    const entries = loadedEntries.map((item) => ({ ...item, evidenceCount: evidenceCounts[item.id] ?? 0 }));
+    const [goals, entryGoals] = await Promise.all([
+      fetchOwnerCmePlanGoals(admin, auth.user.id, set.id),
+      fetchOwnerCmeEntryGoals(admin, auth.user.id, entry ? [entry.id] : loadedEntries.map((item) => item.id)),
+    ]);
+    const entries = loadedEntries.map((item) => ({
+      ...item,
+      evidenceCount: evidenceCounts[item.id] ?? 0,
+      // Only an activity linked to a goal carries the field, so an unlinked one reads as before.
+      ...(entryGoals[item.id] ? { goalId: entryGoals[item.id] } : {}),
+    }));
     const close = set.closedAt ? await fetchOwnerCmeYearClose(admin, auth.user.id, set.id) : null;
     const state = cmeYearConfigurationState(set);
     if (state === "unavailable") return { ...empty, year: targetYear, state };
@@ -90,7 +111,14 @@ async function load(
       routines,
       now,
       close,
-      entry: entry ? { ...entry, evidenceCount: evidenceCounts[entry.id] ?? 0 } : null,
+      goals,
+      entry: entry
+        ? {
+            ...entry,
+            evidenceCount: evidenceCounts[entry.id] ?? 0,
+            ...(entryGoals[entry.id] ? { goalId: entryGoals[entry.id] } : {}),
+          }
+        : null,
     };
   } catch {
     // Failure is distinct from setup: an outage must never invite replacing a saved year.
