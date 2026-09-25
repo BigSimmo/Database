@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7a74783f-ba20-4c02-88df-ecfc0ed329ea",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Table parser fixtures are not adversarial enough; add wrapped/merged/multi-column clinically relational tables (audit F20)",
+    "detail": "Partly done: PR #2810 added worker/python/test_extract_pdf_assets_table_reading_order.py for the clozapine-class line-major interleaving. The historical table-heavy benchmark used easy ruled tables. Next action: add a handful of harder fixtures (merged cells, wrapped multi-line cells, multi-column threshold/action tables) and require semantic non-inferiority for extractor changes. Text-producer surface: RAG-protected.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC2MQFVF58MKZ723N3W8Q"
+  }
+}

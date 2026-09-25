@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3d5a64a8-0001-4760-a534-2a2d8f222590",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Specifiers mobile journey fails the Axe WCAG A/AA check with serious/critical violations (audit F09)",
+    "detail": "Audit F09 reports serious/critical Axe violations on the Specifiers mobile journey in the release browser matrix (WebKit/mobile). Verified offline only that tests/ui-specifiers.spec.ts runs AxeBuilder with wcag2a/2aa/21a/21aa tags and blocks on serious+critical; the failure itself was NOT reproduced here (browser provisioning unavailable). Next action: read the axe-violations attachment from the failing release-browser-matrix run, fix the named rule/node, keep the test blocking. Do not loosen the impact set. Related: #9Z197J (matrix failures).",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC1CTTN5ZMGPG8MSZ0453"
+  }
+}

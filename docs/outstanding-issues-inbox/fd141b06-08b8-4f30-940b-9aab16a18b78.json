@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fd141b06-08b8-4f30-940b-9aab16a18b78",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Represent relational table facts and require semantic non-inferiority for extraction changes (audit F19)",
+    "detail": "Words/numbers can be extracted correctly while parameter-threshold-action relationships are wrong. Revisit after the #GJHKYC re-index shows whether the reading-order fix was sufficient. First check what worker/table-facts.ts already produces before designing anything new. Structured-evidence producer: RAG-protected.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC3BTJ9F1ZM7Q2GBJFXQ5"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "713337f7-b8a3-4d21-9d14-017cb76b89c5",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Hostile-document ingestion has design coverage but no end-to-end executable matrix (audit F18)",
+    "detail": "Design covers rotated, password-protected, truncated, oversized, hidden-text, image-heavy and prompt-injected documents. Verified offline: prompt-injection tests exist (tests/rag-injection.test.ts) and forms handle passwordProtected, but no upload-to-answer matrix runs all classes. Next action: build the matrix, prompt-injected and password-protected first.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC2F8F3SGCMTYH7WX82AX"
+  }
+}
