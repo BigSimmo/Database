@@ -138,7 +138,7 @@ function ToolResultCard({
       <ToolIcon tool={tool} />
       <div className="min-w-0">
         <h2 className="text-base font-semibold leading-5 text-[color:var(--text-heading)]">{tool.title}</h2>
-        <p className="mt-0.5 line-clamp-2 text-sm leading-5 text-[color:var(--text-muted)]">{tool.description}</p>
+        <p className="mt-0.5 text-sm leading-5 text-[color:var(--text-muted)]">{tool.description}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
           <ToolChips tool={tool} />
           <span className="hidden min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)] sm:inline-flex">

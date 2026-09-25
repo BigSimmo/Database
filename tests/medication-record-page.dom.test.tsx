@@ -24,8 +24,8 @@ vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
   MedicationInteractionCallout: () => <p>medication-interaction-callout</p>,
 }));
 
-function mockDetail(state: { data: unknown; loading: boolean; error: string | null }) {
-  useMedicationDetail.mockReturnValue(state);
+function mockDetail(state: { data: unknown; loading: boolean; error: string | null; notFound?: boolean }) {
+  useMedicationDetail.mockReturnValue({ notFound: false, ...state });
 }
 
 // Minimal record with no `src` "...checked" text, so the "Reviewed" identity
@@ -72,6 +72,21 @@ describe("MedicationRecordPage content-first states", () => {
     mockDetail({ data: null, loading: false, error: "Network unavailable" });
     render(<MedicationRecordPage slug="test-med" />);
     expect(screen.getByText("Network unavailable")).toBeInTheDocument();
+  });
+
+  it("renders a named not-found with a route back when the medication does not exist (#W0T66R)", () => {
+    mockDetail({ data: null, loading: false, error: "Request failed (404)", notFound: true });
+    render(<MedicationRecordPage slug="zzz" />);
+    expect(screen.getByRole("heading", { level: 1, name: "Medication Not Found" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to medications" })).toHaveAttribute("href", "/medications");
+    expect(screen.queryByText("Request failed (404)")).not.toBeInTheDocument();
+  });
+
+  it("keeps a non-not-found failure as an error rather than a not-found (#W0T66R)", () => {
+    mockDetail({ data: null, loading: false, error: "Request failed (503)", notFound: false });
+    render(<MedicationRecordPage slug="zzz" />);
+    expect(screen.getByText("Request failed (503)")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Medication Not Found" })).not.toBeInTheDocument();
   });
 
   it("drops fixture governance on error so a fixture 'Reviewed' badge does not persist as authoritative", () => {
