@@ -18,7 +18,9 @@ name: Claude review
 # aggregate in ci.yml, and this workflow is absent from its `needs:`, so it can
 # never block a merge. That is the standing rule in AGENTS.md — never weaken a
 # required check to compensate for review coverage — read the other way round:
-# adding review must not add a gate either.
+# adding review must not add a gate either. The same holds under the merge
+# queue: this workflow has no `merge_group` trigger, and the queue waits only
+# for required checks, so it can never hold up a queue entry.
 #
 # Not a gate was not the same as not a red X, and for three days it was not.
 # This comment used to claim `continue-on-error` kept a credential problem from

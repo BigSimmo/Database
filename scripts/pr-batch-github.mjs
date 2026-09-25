@@ -464,11 +464,16 @@ export class GitHubBatch {
         latestStatuses.some((status) => status.state === "pending"),
       busy: workerRuns.length > 0 || connectorRepairOutstanding,
       behind: compare.ahead_by > 0,
+      // A merge queue re-tests every entry against the latest main, so being
+      // behind is not a blocker there and the batch never syncs the branch.
+      queue: !!protection?.queue,
       conflicting,
       conflictPaths,
       requiredGreen,
       reviewsSatisfied: pr.reviewDecision === "APPROVED" || (pr.reviewDecision === null && protection?.approvals === 0),
-      mergeable: raw.mergeable === true && ["CLEAN", "HAS_HOOKS", "UNSTABLE"].includes(pr.mergeStateStatus),
+      mergeable:
+        raw.mergeable === true &&
+        ["CLEAN", "HAS_HOOKS", "UNSTABLE", ...(protection?.queue ? ["BEHIND"] : [])].includes(pr.mergeStateStatus),
       armed: !!pr.autoMergeRequest,
       enqueued: !!pr.mergeQueueEntry,
       merged: raw.merged,
@@ -542,6 +547,9 @@ export class GitHubBatch {
   async execute(state, pending, evidence) {
     await this.assertMutation(state, pending);
     if (pending.kind === "sync") {
+      // Defence in depth for decide(): the merge queue owns base freshness, so
+      // an update-branch here would only add churn and restart the PR's CI.
+      if ((await this.protections()).queue) throw new Error("Merge queue is enabled; branch sync refused");
       await this.gh.rest.pulls.updateBranch({
         ...this.repo,
         pull_number: pending.number,
@@ -555,7 +563,7 @@ export class GitHubBatch {
         !latest.requiredGreen ||
         !latest.reviewsSatisfied ||
         !latest.mergeable ||
-        latest.behind ||
+        (latest.behind && !protection.queue) ||
         latest.inFlight ||
         latest.failures.length ||
         latest.threads.length ||

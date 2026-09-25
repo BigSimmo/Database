@@ -257,6 +257,13 @@ test.describe("PsychSift accessibility coverage", () => {
     await modeButton.click();
     await expect(modeMenu).toBeVisible();
     await expect(modeButton).toHaveAttribute("aria-expanded", "true");
+    // Opening moves focus into "Find a mode" one animation frame later. Under load WebKit
+    // ran that frame after the Shift+Tab below, so the keypress left the search field,
+    // landed back on the trigger inside the wrapper, and the menu stayed open. Let the
+    // deferred focus land first so the keypress starts from the trigger as intended.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
 
     await modeButton.press("Shift+Tab");
     await expect(modeButton).not.toBeFocused();
