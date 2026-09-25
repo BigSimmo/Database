@@ -56,6 +56,55 @@ describe("services safety routing", () => {
   });
 });
 
+describe("Aboriginal, AOD, family violence and sexual assault urgent routing", () => {
+  it("pins 13YARN for an Aboriginal crisis query", () => {
+    expect(detectServiceUrgentIntents("aboriginal man suicidal")).toContain("aboriginal_crisis");
+    expect(titles("aboriginal man suicidal", 8).slice(0, 3)).toContain("13YARN");
+  });
+
+  it("pins the Alcohol and Drug Support Line for an urgent AOD query", () => {
+    expect(detectServiceUrgentIntents("drunk and wants detox advice")).toContain("aod_urgent");
+    expect(titles("drunk and wants detox advice", 8).slice(0, 3)).toContain("Alcohol and Drug Support Line");
+  });
+
+  it("pins 1800RESPECT for a family violence query", () => {
+    expect(detectServiceUrgentIntents("partner hitting her")).toContain("family_violence");
+    expect(titles("partner hitting her", 8).slice(0, 3)).toContain("1800RESPECT");
+  });
+
+  it("pins SARC for a recent sexual assault query", () => {
+    expect(detectServiceUrgentIntents("raped last night")).toContain("sexual_assault");
+    expect(titles("raped last night", 8).slice(0, 3)).toContain("Sexual Assault Resource Centre (SARC)");
+  });
+});
+
+describe("regional WA daytime versus after-hours routing", () => {
+  it("pins the Kimberley WACHS record, not Rurallink, for a daytime regional crisis query", () => {
+    const intents = detectServiceUrgentIntents("Kununurra crisis 10am Tuesday");
+    expect(intents).toContain("regional_daytime");
+
+    const resultTitles = titles("Kununurra crisis 10am Tuesday", 8);
+    expect(resultTitles[0]).toBe("WACHS Kimberley Adult Mental Health Service");
+    expect(resultTitles[0]).not.toBe("Rurallink");
+  });
+
+  it("pins Rurallink, and only Rurallink, for an after-hours regional crisis query", () => {
+    const intents = detectServiceUrgentIntents("Busselton crisis 11pm");
+    expect(intents).not.toContain("regional_daytime");
+    expect(intents).toContain("regional_after_hours");
+
+    expect(titles("Busselton crisis 11pm", 8)[0]).toBe("Rurallink");
+  });
+
+  it("does not pin the wrong region when the named place has no WACHS regional record", () => {
+    // Kalgoorlie is Goldfields, which has no SVC-REG-* record — a daytime crisis
+    // query naming it must not silently pin a different region's clinic.
+    const intents = detectServiceUrgentIntents("Kalgoorlie crisis 10am Tuesday");
+    expect(intents).not.toContain("regional_daytime");
+    expect(intents.every((intent) => !intent.startsWith("regional"))).toBe(true);
+  });
+});
+
 describe("services provenance presentation", () => {
   it("keeps evidence URLs out of contact links unless the URL is the service website", () => {
     const snapshot = loadServicesSnapshot();
