@@ -88,6 +88,66 @@ export type ServiceSearchMatch = {
   reasons: string[];
 };
 
+// Words every service record shares, so a match on them says nothing about fit.
+// "disorder" is the one that did the damage: it put eating-disorder services
+// first for "panic disorder" (#CNCAFV). This only orders results; the "Best fit"
+// badge is decided separately by src/lib/service-best-fit.ts.
+const GENERIC_SERVICE_QUERY_TERMS = new Set([
+  "a",
+  "an",
+  "and",
+  "for",
+  "in",
+  "of",
+  "or",
+  "the",
+  "to",
+  "with",
+  "service",
+  "services",
+  "mental",
+  "health",
+  "support",
+  "help",
+  "clinic",
+  "clinics",
+  "team",
+  "program",
+  "programme",
+  "care",
+  "treatment",
+  "criteria",
+  "disorder",
+  "disorders",
+  "wa",
+  "perth",
+]);
+
+// Condition words no service record uses, mapped to the family word records do
+// use. Deliberately short: only uncontroversial parent terms belong here.
+const SERVICE_CONDITION_FAMILIES: Record<string, readonly string[]> = {
+  panic: ["anxiety"],
+  phobia: ["anxiety"],
+  phobias: ["anxiety"],
+  agoraphobia: ["anxiety"],
+};
+
+function distinctiveServiceQueryTerms(query: string) {
+  return Array.from(
+    new Set(
+      normalizeSearchText(query)
+        .split(/\s+/)
+        .filter((term) => term.length > 1 && !GENERIC_SERVICE_QUERY_TERMS.has(term)),
+    ),
+  );
+}
+
+function serviceTermCoverage(text: string, terms: string[]) {
+  return terms.filter(
+    (term) => text.includes(term) || (SERVICE_CONDITION_FAMILIES[term] ?? []).some((family) => text.includes(family)),
+  ).length;
+}
+
 export function serviceNavigatorQuery(service: ServiceRecord) {
   return (
     [service.navigatorQuery, service.title, service.primaryContact?.value, service.subtitle].find((value) =>
@@ -143,10 +203,13 @@ export function rankServiceRecords(
   expansions: string[] = [],
   interpretNaturalLanguage = false,
 ): ServiceSearchMatch[] {
+  const distinctive = distinctiveServiceQueryTerms(query);
   const interpretedExpansions = [
     ...expansions,
     ...(interpretNaturalLanguage ? smartSearchExpansions("services", query) : []),
+    ...distinctive.flatMap((term) => SERVICE_CONDITION_FAMILIES[term] ?? []),
   ];
+  const coverageOf = (service: ServiceRecord) => serviceTermCoverage(serviceRecordSearchText(service), distinctive);
 
   const ranked = rankCatalogRecords(records, query, {
     fields: [
@@ -178,6 +241,13 @@ export function rankServiceRecords(
       signals.broad ? "services catalogue" : "",
     ].filter(Boolean),
   }));
+  // Records that mention more of the specific condition come first; within each
+  // coverage level the ranker's own order holds (Array sort is stable). This
+  // reorders, never drops, so typo and synonym matches keep their place in line.
+  if (distinctive.length > 0) {
+    const coverage = new Map(ranked.map(({ service }) => [service.slug, coverageOf(service)]));
+    ranked.sort((left, right) => coverage.get(right.service.slug)! - coverage.get(left.service.slug)!);
+  }
 
   const urgent = rankServiceUrgentRoutes(records, query);
   if (urgent.length === 0) return ranked.slice(0, limit);

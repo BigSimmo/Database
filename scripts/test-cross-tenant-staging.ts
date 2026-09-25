@@ -7,6 +7,7 @@ import { loadEnvConfig } from "@next/env";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "../src/lib/supabase/database.types";
+import { probeCmeAndOnCallIsolation } from "./lib/cross-tenant-records-probe";
 
 loadEnvConfig(process.cwd());
 
@@ -591,6 +592,7 @@ function writeEvidence(args: {
   runId: string;
   startedAt: string;
   checkpoints: string[];
+  notExercised: string[];
   cleanupErrors: string[];
   error: unknown;
   deployedCommitSha: string | null;
@@ -614,6 +616,8 @@ function writeEvidence(args: {
     deployedCommitSha: args.deployedCommitSha,
     workflowRunUrl: args.config?.workflowRunUrl ?? null,
     checkpoints: args.checkpoints,
+    // Surfaces the harness could not exercise for want of fixture data. Not a pass for them.
+    notExercised: args.notExercised,
     cleanup: args.cleanupErrors.length === 0 ? "passed" : "failed",
     cleanupErrors: args.cleanupErrors,
     error: errorMessage,
@@ -627,6 +631,7 @@ async function main() {
   const startedAt = new Date().toISOString();
   const runId = randomUUID();
   const checkpoints: string[] = [];
+  const notExercised: string[] = [];
   const fixtures: Fixture[] = [];
   const userIds: string[] = [];
   let config: HarnessConfig | null = null;
@@ -696,6 +701,16 @@ async function main() {
       tokenB: sessionB.token,
       checkpoints,
     });
+
+    // CME and On Call (audit F17): read-only, using records user A already owns.
+    const records = await probeCmeAndOnCallIsolation({
+      request: (token, path, expected) => requestJson(config!, token, path, {}, expected),
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+    });
+    checkpoints.push(...records.checkpoints);
+    notExercised.push(...records.skipped);
+    for (const note of records.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
   } catch (error) {
     failure = error;
   }
@@ -710,6 +725,7 @@ async function main() {
     runId,
     startedAt,
     checkpoints,
+    notExercised,
     cleanupErrors,
     error: failure,
     deployedCommitSha,
