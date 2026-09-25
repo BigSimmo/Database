@@ -1,6 +1,7 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
+  authorityTrustCapRequired,
   toClientAnswerPayload,
   projectClientAnswerPayload,
   type ClientRagAnswerPayload,
@@ -58,6 +59,65 @@ function answerWith(sources: SearchResult[]): RagAnswer {
     sources,
   };
 }
+
+// #WGMB4Z decision 17 (owner, 2026-09-25): the all-claims rule governs the displayed
+// support word only. authorityTrustCapRequired - which lowers render trust and so hides
+// quote cards, related documents and tables - keeps main's semantics exactly: high-risk
+// claims only unless NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is exactly "true", and no gated
+// claims means no cap.
+describe("authorityTrustCapRequired truth table (main semantics)", () => {
+  type Claims = NonNullable<RagAnswer["supportedClaims"]>;
+  type Authority = "unverified" | "locally_reviewed" | "approved";
+  const claim = (riskClass: "routine" | "high_risk", supportStatus: "direct" | "partial" = "direct") => ({
+    claimId: `claim-${riskClass}`,
+    text: "Document the review date.",
+    riskClass,
+    supportingChunkIds: ["chunk-1"],
+    supportStatus,
+  });
+  const answerWithClaims = (claims: Claims | undefined, authority: Authority): RagAnswer => ({
+    ...answerWith([]),
+    supportedClaims: claims,
+    evidenceAssessments: {
+      "chunk-1": {
+        relevance: "direct",
+        claimSupport: "direct",
+        authority,
+        currency: "current",
+        extractionQuality: "good",
+      },
+    },
+  });
+  // [label, claims, authority, capped when env is unset or anything but "true", capped when env is "true"]
+  const cases: Array<[string, Claims | undefined, Authority, boolean, boolean]> = [
+    ["no claims (undefined)", undefined, "unverified", false, false],
+    ["no claims (empty)", [], "unverified", false, false],
+    ["routine claim on unverified evidence", [claim("routine")] as Claims, "unverified", false, true],
+    ["routine claim on locally reviewed evidence", [claim("routine")] as Claims, "locally_reviewed", false, false],
+    ["partial routine claim on approved evidence", [claim("routine", "partial")] as Claims, "approved", false, true],
+    ["high-risk claim on unverified evidence", [claim("high_risk")] as Claims, "unverified", true, true],
+    ["high-risk claim on approved evidence", [claim("high_risk")] as Claims, "approved", false, false],
+  ];
+  it.each(cases)("%s", (_label, claims, authority, cappedByDefault, cappedWhenTrue) => {
+    for (const [env, expected] of [
+      [undefined, cappedByDefault],
+      ["false", cappedByDefault],
+      ["", cappedByDefault],
+      ["True", cappedByDefault],
+      ["true", cappedWhenTrue],
+    ] as const) {
+      vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", env);
+      try {
+        expect({ env, capped: authorityTrustCapRequired(answerWithClaims(claims, authority)) }).toEqual({
+          env,
+          capped: expected,
+        });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    }
+  });
+});
 
 describe("toClientAnswerPayload", () => {
   it.each([
@@ -633,9 +693,7 @@ describe("toClientAnswerPayload", () => {
       citations: [],
       sources: [],
       retrievalGateBlocked: false,
-      // #WGMB4Z decision 10 (2026-09-25): no assessed claims under the default all-claims cap
-      // means nothing shows the sources are approved, so the display trust cap is required.
-      authorityTrustCapRequired: true,
+      authorityTrustCapRequired: false,
     });
     expect(toClientAnswerPayload(empty)).not.toBe(empty);
   });

@@ -889,20 +889,11 @@ export function trimSourceForClient(source: SearchResult): ClientSearchResult {
 
 export function authorityTrustCapRequired(answer: RagAnswer): boolean {
   if (answer.authorityTrustCapRequired === true) return true;
-  // D5: every claim is authority-gated by default (#WGMB4Z, owner decision
-  // 2026-09-25), so high trust cannot rest on model confidence alone when the
-  // cited sources are not approved or locally reviewed. Only an explicit
-  // "false" narrows the gate back to high-risk claims.
-  const capAllClaims = process.env.NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS !== "false";
+  const capAllClaims = process.env.NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS === "true";
   const gatedClaims = capAllClaims
     ? (answer.supportedClaims ?? [])
     : (answer.supportedClaims ?? []).filter((claim) => claim.riskClass === "high_risk");
-  // Owner decision 10 (#WGMB4Z, 2026-09-25): with every claim gated, an answer
-  // with no assessed claims has nothing showing its sources are approved or
-  // locally reviewed, so it is capped ("Supported" at most, never "Strong
-  // support"). Under the explicit "false" opt-out, no high-risk claims still
-  // means no cap.
-  if (gatedClaims.length === 0) return capAllClaims;
+  if (gatedClaims.length === 0) return false;
   return !gatedClaims.every(
     (claim) =>
       claim.supportStatus === "direct" &&

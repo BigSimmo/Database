@@ -367,148 +367,31 @@ describe("answer render policy", () => {
     expect(model.trust).not.toBe("high");
   });
 
-  // #WGMB4Z (owner decision, Josh, 2026-09-25): the authority cap checks EVERY
-  // claim by default, so "Strong support" can no longer come from model
-  // confidence alone on unvalidated sources. Only an explicit "false" opts out.
-  // The cap is computed when the payload is projected, so build it inside the env stub.
-  const routineClaimOnUnverifiedEvidence = (authority: "unverified" | "locally_reviewed" = "unverified") =>
-    clientAnswer({
-      supportedClaims: [
-        {
-          claimId: "claim-1",
-          text: "Document the review date.",
-          riskClass: "routine",
-          supportingChunkIds: ["chunk-1"],
-          supportStatus: "direct",
-        },
-      ],
-      evidenceAssessments: {
-        "chunk-1": {
-          relevance: "direct",
-          claimSupport: "direct",
-          authority,
-          currency: "current",
-          extractionQuality: "good",
-        },
-      },
-    });
-
-  it("caps trust for a routine claim on unverified evidence by default, with the D5 flag unset", () => {
-    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", undefined);
-    try {
-      expect(buildAnswerRenderModel(routineClaimOnUnverifiedEvidence()).trust).toBe("medium");
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it.each(["", "0", "off", "False"])(
-    'keeps the all-claims cap on for a D5 value that is not exactly "false" (%j)',
-    (value) => {
-      vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", value);
-      try {
-        expect(buildAnswerRenderModel(routineClaimOnUnverifiedEvidence()).trust).toBe("medium");
-      } finally {
-        vi.unstubAllEnvs();
-      }
-    },
-  );
-
-  it('keeps high trust for routine claims on unverified evidence only when the D5 flag is explicitly "false"', () => {
-    // Explicit opt-out: only high-risk claims are authority-gated.
-    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "false");
-    try {
-      expect(buildAnswerRenderModel(routineClaimOnUnverifiedEvidence()).trust).toBe("high");
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it('still caps a high-risk claim on unverified evidence when the D5 flag is explicitly "false"', () => {
-    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "false");
-    try {
-      const model = buildAnswerRenderModel(
-        clientAnswer({
-          supportedClaims: [
-            {
-              claimId: "claim-1",
-              text: "Withhold clozapine.",
-              riskClass: "high_risk",
-              supportingChunkIds: ["chunk-1"],
-              supportStatus: "direct",
-            },
-          ],
-          evidenceAssessments: {
-            "chunk-1": {
-              relevance: "direct",
-              claimSupport: "direct",
-              authority: "unverified",
-              currency: "current",
-              extractionQuality: "good",
-            },
+  it("keeps high trust for routine claims on unverified evidence while the D5 flag is off", () => {
+    // Locks the zero-change default: only high-risk claims are authority-gated.
+    const model = buildAnswerRenderModel(
+      clientAnswer({
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Document the review date.",
+            riskClass: "routine",
+            supportingChunkIds: ["chunk-1"],
+            supportStatus: "direct",
           },
-        }),
-      );
-      expect(model.trust).not.toBe("high");
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it("keeps high trust for a routine claim on locally reviewed evidence with the D5 flag unset", () => {
-    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", undefined);
-    try {
-      expect(buildAnswerRenderModel(routineClaimOnUnverifiedEvidence("locally_reviewed")).trust).toBe("high");
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  // #WGMB4Z, owner decision 10 (Josh, 2026-09-25): with the cap on every claim, an answer
-  // with NO assessed claims has nothing to show its sources are approved or locally reviewed,
-  // so it never reaches "Strong support" (trust "high"); "Supported" (medium) is the ceiling.
-  // Only an explicit "false" restores the old high-risk-only gate, under which no claims
-  // meant no cap.
-  it.each([
-    ["empty", [] as NonNullable<RagAnswer["supportedClaims"]>],
-    ["undefined", undefined],
-  ])("caps a high-confidence answer with %s supportedClaims at medium with the D5 flag unset", (_label, claims) => {
-    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", undefined);
-    try {
-      const payload = clientAnswer({ confidence: "high", supportedClaims: claims });
-      expect(payload.authorityTrustCapRequired).toBe(true);
-      expect(buildAnswerRenderModel(payload).trust).toBe("medium");
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it.each([
-    ["empty", [] as NonNullable<RagAnswer["supportedClaims"]>],
-    ["undefined", undefined],
-  ])(
-    'keeps high trust for an answer with %s supportedClaims when the D5 flag is explicitly "false"',
-    (_label, claims) => {
-      vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "false");
-      try {
-        const payload = clientAnswer({ confidence: "high", supportedClaims: claims });
-        expect(payload.authorityTrustCapRequired).toBe(false);
-        expect(buildAnswerRenderModel(payload).trust).toBe("high");
-      } finally {
-        vi.unstubAllEnvs();
-      }
-    },
-  );
-
-  it("leaves the low and unsupported paths unchanged for an answer with no assessed claims", () => {
-    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", undefined);
-    try {
-      expect(buildAnswerRenderModel(clientAnswer({ confidence: "low", supportedClaims: [] })).trust).toBe("low");
-      expect(buildAnswerRenderModel(clientAnswer({ confidence: "medium", supportedClaims: [] })).trust).toBe("medium");
-      expect(buildAnswerRenderModel(clientAnswer({ grounded: false, supportedClaims: [] })).trust).toBe("unsupported");
-    } finally {
-      vi.unstubAllEnvs();
-    }
+        ],
+        evidenceAssessments: {
+          "chunk-1": {
+            relevance: "direct",
+            claimSupport: "direct",
+            authority: "unverified",
+            currency: "current",
+            extractionQuality: "good",
+          },
+        },
+      }),
+    );
+    expect(model.trust).toBe("high");
   });
 
   it("caps trust for ANY claim on unverified evidence when NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is on (D5)", () => {
