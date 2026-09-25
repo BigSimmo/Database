@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#33JDBW",
-    "outcome": "Resolved 2026-09-25 by PR #3017. formulationFamily() in src/lib/developer-area/sign-off-queue.ts now also reads the 46 concepts and 6 guide modules from formulation-concepts.json, filtered by conceptReviewState (the same fail-closed decision their pages render). tests/sign-off-queue.test.ts now pins formulation at 64 and total at 1662, and asserts every unsigned concept/guide row with its native review.status and href.",
+    "outcome": "Resolved 2026-09-25 by PR #3021. formulationFamily() in src/lib/developer-area/sign-off-queue.ts now also reads the 46 concepts and 6 guide modules from formulation-concepts.json, filtered by conceptReviewState (the same fail-closed decision their pages render). tests/sign-off-queue.test.ts now pins formulation at 64 and total at 1662, and asserts every unsigned concept/guide row with its native review.status and href.",
     "baseRowFingerprint": "2054515acb96077bcefe5e9a9cbb1e76c80bb846cca8a7114414c27747c6a9d9"
   }
 }
