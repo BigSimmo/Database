@@ -5285,8 +5285,15 @@ test.describe("PsychSift UI smoke coverage", () => {
     );
     // Citation landing keeps the indexed dump collapsed so the PDF stays primary.
     await expect(page.locator("#source-text")).toHaveJSProperty("open", false);
-    await page.getByTestId("inspect-indexed-text").click();
-    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
+    // A click that lands before hydration is dropped (Firefox, release matrix 2026-09-25).
+    // Re-click only while the indexed-text disclosure is still closed.
+    const indexedTextPanel = page.locator("#source-text");
+    await expect(async () => {
+      if (!(await indexedTextPanel.evaluate((node) => (node as HTMLDetailsElement).open))) {
+        await page.getByTestId("inspect-indexed-text").click();
+      }
+      await expect(indexedTextPanel).toHaveJSProperty("open", true, { timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
