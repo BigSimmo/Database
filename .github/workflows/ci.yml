@@ -789,7 +789,16 @@ jobs:
         with:
           name: playwright-next-build-${{ github.run_id }}
           overwrite: true
-          path: .next-playwright/ci-${{ github.run_id }}
+          # The webpack build cache is ~2.0 GB of a ~2.2 GB build root (measured locally
+          # 2026-09-25; the rest is ~110 MB of server, static, trace and types output) and it
+          # made this a ~337 MB compressed artifact that every browser lane then downloaded.
+          # Consumers run `next start` on a finished build (PLAYWRIGHT_REUSE_BUILD) and never
+          # compile, so they never read it. Only `cache/webpack` is excluded: `cache/fetch-cache`
+          # is read at runtime. A negated pattern is not a search path, so the artifact root —
+          # and the layout every consumer downloads into — is unchanged.
+          path: |
+            .next-playwright/ci-${{ github.run_id }}
+            !.next-playwright/ci-${{ github.run_id }}/dist/cache/webpack
           # Dot-dir under .next-playwright is hidden; upload-artifact excludes by default
           # (same pattern as .local/eval-canary).
           include-hidden-files: true
