@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "31fc8664-c2e8-470f-8390-ba0264ed6d3b",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Three places still describe hand-editing sign-off fields now that the sign-off tool enforces content pins",
+    "detail": "The note inside data/forms-content-review.json, the developer-area sign-off queue page text, and the MHA section review sheet header still tell a reviewer to set reviewedBy/reviewedAt by hand. A hand edit now fails the --check pin gates, so nothing slips through, but the wording should point at npm run clinical:review.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBPNAKRB96TWRKZJQH9K6"
+  }
+}
