@@ -12,6 +12,7 @@ const routePaths = [
   "src/app/api/cme/entries/route.ts",
   "src/app/api/cme/entries/[id]/route.ts",
   "src/app/api/cme/year/route.ts",
+  "src/app/api/cme/year/close/route.ts",
 ] as const;
 
 const routes = routePaths.map((path) => ({ path, source: readFileSync(path, "utf8").replace(/\r\n/g, "\n") }));

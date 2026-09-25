@@ -81,3 +81,42 @@ export type CmeRequirementStatus = {
   /** One plain sentence: "Met", "3 hours short", "Ethical practice has nothing against it yet". */
   readonly summary: string;
 };
+
+/** One requirement as the app read it at the moment a year was closed. */
+export type CmeClosedRequirementStatus = {
+  readonly requirementId: string;
+  readonly label: string;
+  readonly met: boolean;
+  readonly summary: string;
+};
+
+/** What the owner sees before and after an amendment to one activity in a closed year. */
+export type CmeAmendedEntryVersion = {
+  readonly date: string;
+  readonly title: string;
+  readonly allocations: readonly CmeAllocation[];
+};
+
+/** A dated, reasoned change to an activity in a closed year. The original is kept beside it. */
+export type CmeYearAmendment = {
+  readonly id: string;
+  readonly entryId: string;
+  readonly amendedAt: string;
+  readonly reason: string;
+  readonly before: CmeAmendedEntryVersion;
+  readonly after: CmeAmendedEntryVersion;
+};
+
+/**
+ * A closed year: the snapshot taken at closing, never changed afterwards, plus every
+ * amendment made since. Current totals are read from the live record, which includes them.
+ */
+export type CmeYearClose = {
+  readonly closedAt: string;
+  readonly shortfallNote: string | null;
+  readonly totalHours: number;
+  readonly targetHours: number;
+  readonly entryCount: number;
+  readonly requirements: readonly CmeClosedRequirementStatus[];
+  readonly amendments: readonly CmeYearAmendment[];
+};

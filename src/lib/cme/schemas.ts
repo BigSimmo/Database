@@ -122,3 +122,22 @@ export const cmeRoutineCreateSchema = routineFields
   .extend({ archivedAt: z.null().default(null) })
   .refine(validRoutine, "Category hours must equal usual hours.");
 export const cmeRoutineUpdateSchema = routineFields.refine(validRoutine, "Category hours must equal usual hours.");
+// Closing a year: which year, and an optional note explaining a shortfall. The note goes on the
+// record; it does not reduce any requirement.
+export const cmeYearCloseSchema = z
+  .object({
+    year: z.number().int().min(2000).max(2100),
+    shortfallNote: z.string().trim().max(2000).optional(),
+  })
+  .strict();
+// An amendment to an activity in a closed year: the same complete record as an edit, plus the
+// reason, which is stored with the date beside the original.
+export const cmeEntryAmendSchema = entryFields
+  .required()
+  .extend({
+    formalPeerReviewHours: z.number().nonnegative().max(24),
+    // Required (null when there is none): an amendment states the whole record.
+    sourceUrl: entryFields.shape.sourceUrl.unwrap(),
+    amendmentReason: z.string().trim().min(3).max(1000),
+  })
+  .refine(validCredit, "Formal peer review credit cannot exceed reviewing hours.");

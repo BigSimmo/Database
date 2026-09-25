@@ -29,5 +29,13 @@ export default async function CmeAnnualSummaryRoute({ searchParams }: { searchPa
         <CmeStateNotice state={data.state === "ready" ? "unavailable" : data.state} year={data.year} />
       </main>
     );
-  return <CmeAnnualSummary set={data.set} entries={data.entries} demoMode={data.demoMode} />;
+  return (
+    <CmeAnnualSummary
+      set={data.set}
+      entries={data.entries}
+      demoMode={data.demoMode}
+      close={data.close}
+      now={data.now}
+    />
+  );
 }

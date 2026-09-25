@@ -1,5 +1,6 @@
 import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
 import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
+import { rowsToCmeYearClose, type CmeCloseEvaluation } from "@/lib/cme/year-close";
 import { randomUUID } from "node:crypto";
 import type { CmeRoutine, CmeRoutineCadence } from "@/lib/cme/routines";
 import type { Json } from "@/lib/supabase/database.types";
@@ -12,6 +13,7 @@ import type {
   CmeRequirementSet,
   CmeRequirementSource,
   CmeRequirementSpec,
+  CmeYearClose,
 } from "@/lib/cme/types";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -257,7 +259,13 @@ export async function saveCmeEntry(
 export function cmeRepositoryError(error: { message: string }): Error {
   const safe: Record<string, [string, number]> = {
     cme_entry_archived: ["Restore this archived entry before editing or copying it.", 409],
-    cme_year_closed: ["This CPD year is closed. Its records cannot be changed.", 409],
+    cme_year_closed: [
+      "This CPD year is closed. Change one of its activities by recording an amendment from the activity's page.",
+      409,
+    ],
+    cme_year_open: ["This CPD year is not closed. Edit the activity instead of amending it.", 409],
+    cme_close_conflict: ["Your record changed while the year was being closed. Reload and try again.", 409],
+    cme_amendment_reason_invalid: ["Give a reason for this amendment (3 to 1000 characters).", 400],
     cme_year_not_confirmed: ["Confirm your CPD year before saving an entry.", 400],
     cme_entry_not_found: ["CME entry not found.", 404],
     cme_retry_conflict: [
@@ -561,4 +569,75 @@ export async function setCmeEntryArchived(
   });
   if (error) throw cmeRepositoryError(error);
   return joinedEntry(data as Record<string, unknown>);
+}
+
+/**
+ * Close one CPD year: the database freezes a snapshot of the record under the owner lock and
+ * sets `closed_at` in the same transaction. `evaluation` must agree with the rows on total
+ * hours and activity count, or nothing is written (`cme_close_conflict`).
+ */
+export async function closeCmeYear(
+  supabase: AdminClient,
+  ownerId: string,
+  yearId: string,
+  evaluation: CmeCloseEvaluation,
+  shortfallNote: string | null,
+): Promise<void> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const { error } = await supabase.rpc("cme_close_year", {
+    p_owner_id: ownerId,
+    p_year_id: yearId,
+    p_evaluation: JSON.parse(JSON.stringify(evaluation)) as Json,
+    p_shortfall_note: shortfallNote,
+  });
+  if (error) throw cmeRepositoryError(error);
+}
+
+/**
+ * Amend one activity in a closed year. The database records the previous version, the new
+ * one and the reason, dated, before applying the change; the closing snapshot is untouched.
+ */
+export async function amendClosedCmeEntry(
+  supabase: AdminClient,
+  ownerId: string,
+  entry: CmeEntry,
+  reason: string,
+): Promise<CmeEntry> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const parsed = cmeEntryCreateSchema.safeParse(entry);
+  if (!parsed.success) throw new PublicApiError("Invalid CME entry details or allocations.", 400);
+  const { data, error } = await supabase.rpc("cme_amend_closed_entry", {
+    p_owner_id: ownerId,
+    p_entry_id: entry.id,
+    p_entry: { ...parsed.data, formalPeerReviewHours: entry.formalPeerReviewHours ?? 0 } as Json,
+    p_reason: reason,
+  });
+  if (error) throw cmeRepositoryError(error);
+  return joinedEntry(data as Record<string, unknown>);
+}
+
+/** The closing snapshot and amendment history for one closed year, or `null` if it has none. */
+export async function fetchOwnerCmeYearClose(
+  supabase: AdminClient,
+  ownerId: string,
+  yearId: string,
+): Promise<CmeYearClose | null> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const { data: snapshot, error: snapshotError } = await supabase
+    .from("cme_year_snapshots")
+    .select("closed_at, shortfall_note, total_hours, target_hours, record, evaluation")
+    .eq("owner_id", ownerId)
+    .eq("year_id", yearId)
+    .maybeSingle();
+  if (snapshotError) throw cmeRepositoryError(snapshotError);
+  if (!snapshot) return null;
+  const { data: amendments, error: amendmentError } = await supabase
+    .from("cme_year_amendments")
+    .select("id, entry_id, amended_at, reason, before, after")
+    .eq("owner_id", ownerId)
+    .eq("year_id", yearId)
+    .order("amended_at", { ascending: true })
+    .limit(CME_MAX_ENTRIES);
+  if (amendmentError) throw cmeRepositoryError(amendmentError);
+  return rowsToCmeYearClose(snapshot, amendments ?? []);
 }
