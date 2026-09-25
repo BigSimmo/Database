@@ -397,19 +397,25 @@ function ReferralTable({ rows }: { rows: ServiceInfoRow[] }) {
           <div
             key={`${row.label}-${index}`}
             className={cn(
-              "grid grid-cols-[2rem_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-inset)]",
+              "relative grid min-h-13 grid-cols-[2rem_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-inset)]",
               isPrimary && "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35",
               isCost && "bg-[color:var(--success-soft)]/25",
             )}
           >
-            <span className="row-span-2 grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]">
-              {renderRowIcon(row.label)}
-            </span>
-            <dt className="min-w-0 text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+            {/* A `dl > div` may hold only dt and dd (#Q80S8B), so the decorative row
+                icon lives inside the dt and is positioned into the reserved first
+                column (the p-2.5 inset) rather than sitting beside the pair. */}
+            <dt className="col-start-2 min-w-0 text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+              <span
+                aria-hidden="true"
+                className="absolute left-2.5 top-2.5 grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]"
+              >
+                {renderRowIcon(row.label)}
+              </span>
               {row.label}
               {isPrimary ? <span className="sr-only">, primary access route</span> : null}
             </dt>
-            <dd className="mt-0.5 min-w-0 whitespace-pre-line break-words text-sm font-medium leading-5 text-[color:var(--text-heading)]">
+            <dd className="col-start-2 mt-0.5 min-w-0 whitespace-pre-line break-words text-sm font-medium leading-5 text-[color:var(--text-heading)]">
               {displayText(row.value)}
             </dd>
           </div>

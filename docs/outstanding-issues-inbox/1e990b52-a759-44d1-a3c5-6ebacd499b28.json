@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1e990b52-a759-44d1-a3c5-6ebacd499b28",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#8RWKA0",
+    "detail": "PARTLY FIXED 2026-09-25: the On Call ward chip is fixed in 626cb241e (min-w-32 max-w-60 instead of w-32, title wraps instead of truncating; pinned by tests/on-call-home.dom.test.tsx). STILL OPEN: services-navigator-page.tsx applies a 150-character compactText cap identically at 320 and 1920; on the 13YARN crisis line the cut lands on 'Immedia...', removing the availability statement (owned by the services/search PR). /on-call/contacts squeezing the name column to two words at 390 was not re-verified. The acamprosate dose clamp was dropped from this row: it is a deliberate <details> disclosure that expands in place.",
+    "baseRowFingerprint": "a018c346d2200f0e1290ab145f197b4e5d3f5b036a708e5fbc3c10fa6bbe02df"
+  }
+}

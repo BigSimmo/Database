@@ -325,10 +325,10 @@ duration of the docling run (up to 120 s) before the final metadata merge and
 ### 3.2 Preconditions before enabling
 
 1. **The running image must be built from `main` at or after PR #2170 (`5437c309f`).** That
-   build adds the second venv `/opt/docling-venv` (from the Gate B lab's hashed lock,
-   `docling==2.120.2`, CPU-only torch), bakes docling's models into `/opt/docling-models`,
-   and sets `WORKER_DOCLING_PYTHON_BIN`, `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1`
-   and `HF_HUB_OFFLINE=1`. On an older image that variable is unset and **every** cohort
+   build adds the second venv `/opt/docling-venv` (from the Gate B lab's hashed lock: docling
+   at the version pinned in `eval/docling/requirements.txt`, CPU-only torch), bakes docling's
+   models into `/opt/docling-models`, and sets `WORKER_DOCLING_PYTHON_BIN`,
+   `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1` and `HF_HUB_OFFLINE=1`. On an older image that variable is unset and **every** cohort
    document records `runtime_unavailable` while legacy indexing continues normally.
 2. **Memory headroom of roughly 1.5 GiB above the worker's current peak — measured 2026-08-21
    and comfortably satisfied.** Gate B measured docling peak RSS **1,504,313,344 B (~1.40 GiB)**
