@@ -102,6 +102,14 @@ describe("plan goals API", () => {
     });
   });
 
+  it("refuses to link a goal to an archived activity with a plain 409", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "cme_entry_archived" } });
+    const response = await setGoal(put(`http://localhost/api/cme/entries/${ENTRY}/goal`, { goalId: GOAL }), {
+      params: Promise.resolve({ id: ENTRY }),
+    });
+    expect(response.status).toBe(409);
+  });
+
   it("returns 404 for an id that is not a uuid, before touching the database", async () => {
     const response = await setGoal(put("http://localhost/api/cme/entries/nope/goal", { goalId: null }), {
       params: Promise.resolve({ id: "nope" }),
@@ -165,6 +173,17 @@ describe("plan goals migration", () => {
     expect(sql).toContain("foreign key (entry_id, owner_id)");
     expect(sql).toContain("foreign key (goal_id, owner_id)");
     expect(sql).toContain("foreign key (year_id, owner_id)");
+  });
+
+  it("refuses a goal link on an archived activity, in the function rather than the link trigger", () => {
+    const setGoalFn = sql.slice(sql.indexOf("create function public.cme_set_entry_goal"));
+    expect(setGoalFn).toMatch(/if v_archived_at is not null then raise exception 'cme_entry_archived'/);
+    // Deleting a goal cascades to its links; the trigger must not block that for archived activities.
+    const trigger = sql.slice(
+      sql.indexOf("create function public.cme_guard_entry_goal"),
+      sql.indexOf("create trigger cme_entry_goal_guard"),
+    );
+    expect(trigger).not.toContain("archived_at");
   });
 
   it("changes no existing table or function", () => {

@@ -19654,15 +19654,17 @@ end $$;
 revoke all on function public.cme_save_plan_goals(uuid, uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.cme_save_plan_goals(uuid, uuid, jsonb) to service_role;
 
--- Set, change or clear which goal one activity served.
+-- Set, change or clear which goal one activity served. An archived activity is frozen, as it is
+-- for every other CME write, so its link is refused until it is restored.
 create function public.cme_set_entry_goal(p_owner_id uuid, p_entry_id uuid, p_goal_id uuid) returns jsonb
 language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare v_archived_at timestamptz;
 begin
   if p_owner_id is null or p_entry_id is null then raise exception 'cme_invalid_request'; end if;
   perform pg_advisory_xact_lock(hashtextextended(p_owner_id::text, 23092026));
-  if not exists(select 1 from public.cme_entries where owner_id = p_owner_id and id = p_entry_id) then
-    raise exception 'cme_entry_not_found';
-  end if;
+  select archived_at into v_archived_at from public.cme_entries where owner_id = p_owner_id and id = p_entry_id;
+  if not found then raise exception 'cme_entry_not_found'; end if;
+  if v_archived_at is not null then raise exception 'cme_entry_archived'; end if;
   delete from public.cme_entry_goals where owner_id = p_owner_id and entry_id = p_entry_id;
   if p_goal_id is not null then
     insert into public.cme_entry_goals (entry_id, owner_id, goal_id) values (p_entry_id, p_owner_id, p_goal_id);
