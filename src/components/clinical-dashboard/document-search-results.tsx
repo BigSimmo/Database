@@ -111,7 +111,7 @@ import type { ClinicalDocument, SearchScopeSummary } from "@/lib/types";
 import type { ClientDocumentMatch } from "@/lib/answer-client-payload";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
-import { documentRelevancePercent } from "./relevance-score";
+import { documentRelevanceLabel } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
 type ResultTypeFilter = "all" | "tables" | "images" | "pdfs";
@@ -230,18 +230,6 @@ function loadedSourceCountHint(count: number) {
 // enough to wrap onto its own line and repeated the same two words in each one.
 function loadedSourceCountLabel(count: number) {
   return count.toLocaleString();
-}
-
-function relevanceTone(document: ClientDocumentMatch) {
-  const verdict = document.relevance?.verdict as string | undefined;
-  const percent = documentRelevancePercent(document);
-  if (verdict === "direct") {
-    return { label: "High relevance", short: "High relevance", detail: `${percent}% match` };
-  }
-  if (verdict === "partial" || percent >= 75) {
-    return { label: "Relevant", short: "Relevant", detail: `${percent}% related` };
-  }
-  return { label: "Related", short: "Related", detail: `${percent}% nearby` };
 }
 
 function documentOpenHref(document: ClientDocumentMatch) {
@@ -1623,11 +1611,13 @@ function DocumentSearchResultsPanelImpl({
             <div className="min-w-0 space-y-2.5 sm:space-y-3">
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 {renderedMatches.map((document, index) => {
-                  const relevanceDisplay = relevanceTone(document);
+                  // The verdict in words, never a percentage (#1M22X5): the
+                  // number was a per-verdict constant that measured nothing.
+                  const relevanceLabel = documentRelevanceLabel(document);
                   // One accent per card. `high` is accent TEXT on the raised
                   // surface (no fill), so a top hit showing both "Best match"
-                  // and "High relevance" still has a single filled accent.
-                  const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "neutral";
+                  // and "Strong match" still has a single filled accent.
+                  const relevanceVariant = relevanceLabel === "Strong match" ? "high" : "neutral";
                   const openHref = documentOpenHref(document);
                   return (
                     <article
@@ -1690,8 +1680,7 @@ function DocumentSearchResultsPanelImpl({
                               icon={Target}
                               className="min-h-7 rounded-lg px-2.5 text-2xs"
                             >
-                              {relevanceDisplay.short}
-                              <span className="sr-only">, {relevanceDisplay.detail}</span>
+                              {relevanceLabel}
                             </DocumentBadge>
                             <DocumentBadge
                               variant="neutral"
