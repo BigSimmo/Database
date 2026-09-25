@@ -1210,10 +1210,33 @@ def table_aware_page_text(page, grid_candidates, raw_text=None):
     return rebuilt
 
 
+class PdfUnreadable(Exception):
+    """The upload cannot be read at all; the message is shown as the ingestion failure reason."""
+
+
+def open_pdf_for_extraction(pdf_path):
+    """Open a PDF, refusing locked, damaged, empty or mislabelled files with a plain reason.
+
+    Before this (audit F18) such files failed mid-extraction with whatever PyMuPDF raised. A PDF
+    that only restricts editing opens with an empty user password, so it is still extracted.
+    """
+    try:
+        document = fitz.open(pdf_path, filetype="pdf")
+    except Exception as exc:  # PyMuPDF raises several types for empty, truncated and non-PDF input
+        raise PdfUnreadable(f"PDF could not be opened (it may be damaged, truncated or not a PDF): {exc}") from exc
+    if document.needs_pass and not document.authenticate(""):
+        document.close()
+        raise PdfUnreadable("PDF is password-protected. Upload an unlocked copy.")
+    if document.page_count == 0:
+        document.close()
+        raise PdfUnreadable("PDF could not be opened: it has no pages.")
+    return document
+
+
 def extract(pdf_path, output_dir, budget=None):
     budget = budget or ExtractionBudget()
     os.makedirs(output_dir, exist_ok=True)
-    document = fitz.open(pdf_path)
+    document = open_pdf_for_extraction(pdf_path)
     pages = []
     images = []
     warnings = []
@@ -1496,3 +1519,6 @@ if __name__ == "__main__":
     except ExtractionBudgetExceeded as exc:
         print(f"PDF_EXTRACTION_BUDGET_EXCEEDED: {exc}", file=sys.stderr)
         sys.exit(3)
+    except PdfUnreadable as exc:
+        print(f"PDF_UNREADABLE: {exc}", file=sys.stderr)
+        sys.exit(4)
