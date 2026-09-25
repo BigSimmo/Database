@@ -4,13 +4,13 @@
     "committed_at": "2026-09-25"
   },
   "counts": {
-    "open": 181,
+    "open": 180,
     "p1": 34,
     "p2": 89,
-    "p3": 58,
+    "p3": 57,
     "queued": 6,
     "pending": 0,
-    "resolved": 626
+    "resolved": 627
   },
   "queue": [
     {
@@ -934,15 +934,6 @@
       "summary": "Three differential presentation workflows carry an id identical to a diagnosis slug, so any surface keying both families on one identifier silently drops three records",
       "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Reproduced (31 presentations + 201 diagnoses, three collisions: substance-intoxication, substance-withdrawal, depression). Guard test in place and the row itself says no surface loses records today, so P3. PRIOR DETAIL: GUARDED 2026-09-19 in PR #2920, naming decision deferred by the owner. tests/differential-identifier-collisions.test.ts lists substance-intoxication, substance-withdrawal and depression as a documented baseline, pins per-family uniqueness, pins the flattened arithmetic (232 total, 229 distinct) so the loss is measured rather than described, and fails on a FOURTH collision with a message saying not to widen the baseline. The real fix stays in scripts/import-differentials-export.ts, which cannot run outside the owner's Windows machine (DEFAULT_ZIP at line 8 is a hardcoded local path). Also established: no surface loses records today -- sign-off-queue.ts is the only consumer that flattens both families and it already namespaces its keys.",
       "source": "Found and independently reproduced during the 2026-09-18 outstanding-issues session; workaround shipped in PR #2883",
-      "added": "2026-09-18"
-    },
-    {
-      "id": "#T9MZ7V",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "The source authority register carries two entries keyed american-psychiatric-association, both coded APA, with different jurisdictions; the later one silently wins every lookup",
-      "detail": "Noticed 2026-09-18 while registering the five blocked publishers (PR #2880) and deliberately not touched there, because src/lib/source-authority-registry.ts is a protected RAG-ranking surface and a duplicate-key removal changes which record answers a lookup. Both entries are catalogueIdentityOnly, so neither reaches runtime retrieval classification today and nothing is currently mis-ranked - which is why this is P3 rather than higher. The hazard is latent: the two differ in jurisdictions, object literal order alone decides which survives, and if either entry is ever made runtime-classifiable the resolved jurisdiction becomes whichever one happened to be written second. Next: confirm the two entries against the publisher, merge them into one with the union of aliases and the correct jurisdictions, and add a register test that fails on any duplicate key or duplicate code. Flag the RAG surface before editing, per AGENTS.md.",
-      "source": "Observed during PR #2880 (merged 2026-09-18) and recorded rather than fixed in place",
       "added": "2026-09-18"
     },
     {
