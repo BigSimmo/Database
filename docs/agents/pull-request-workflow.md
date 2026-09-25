@@ -355,6 +355,13 @@ branch until the PR is otherwise ready. Diagnose before assuming otherwise: comp
 tree means the branch is only stale: leave it until it is otherwise ready, then sync it once; a dirty
 tree means a real conflict, which does need resolving.
 
+**When the merge queue is on for `main`, do not sync PR branches at all** — not even the one late
+sync above. The queue builds each entry on top of the latest `main` (plus any PRs queued ahead of
+it) and runs the required checks there, so a branch that is merely behind is not a merge blocker
+and syncing it only restarts its CI. A real conflict (a dirty `git merge-tree`) still has to be
+resolved on the branch as described below, because GitHub will not queue a conflicting PR and
+removes an entry that stops merging cleanly.
+
 **How to sync, when the rule above actually calls for it** (a real conflict, or the owner asks).
 
 - Automatic `GITHUB_TOKEN` branch updates are prohibited: bot-authored heads leave required checks
@@ -484,7 +491,9 @@ active PR, issued right before merge once it has no conflicts, failing checks, u
 or CI in flight — because the branch ruleset requires an up-to-date branch to merge, not because
 being behind is itself a problem; a PR with a real blocker is parked for a person instead of
 synced. It never merges `main` into a PR speculatively or repeatedly, consistent with "never merge
-main into an open PR unless there is a real conflict or the owner asks."
+main into an open PR unless there is a real conflict or the owner asks." When `main`'s ruleset has
+a merge queue, it skips even that sync: a behind PR goes straight to the merge request, and the
+queue tests it against the latest `main`.
 
 Procedure:
 

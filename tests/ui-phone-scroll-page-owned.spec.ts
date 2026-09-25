@@ -120,6 +120,10 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await page.getByRole("button", { name: "Open document actions" }).click();
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible({ timeout: 20_000 });
+    // Opening search moves focus into its input two animation frames later. Headless WebKit
+    // runs frames only when something asks for one, so without this wait that deferred focus
+    // lands during the drag below and steals focus from the section trigger it is pinning.
+    await expect(composer.locator("input")).toBeFocused();
     await expect(content).toHaveAttribute("data-phone-scroll-owner", expectedOwner);
     await expect(content).toHaveAttribute("data-phone-footer-owner", "document-viewer");
     await expect(collapse).toHaveAttribute("data-phone-motion", "overlay");

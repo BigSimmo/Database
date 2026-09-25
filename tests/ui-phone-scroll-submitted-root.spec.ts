@@ -54,6 +54,16 @@ test("submitted root search keeps its query and hides the phone suggestion ticke
     await expect(header).toBeVisible();
   }).toPass({ timeout: 30_000 });
 
-  await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue("lithium");
+  // Once the answer lands the composer becomes an empty follow-up draft box and the
+  // submitted query moves into the thread as its question bubble (ClinicalDashboard
+  // clears it on completion). Reading the composer's value raced that completion: it
+  // passed only while the answer was still pending, so wait for the settled thread.
+  await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+  await expect(page.getByTestId("user-question-bubble")).toContainText("lithium");
+  const composer = page.locator('[data-testid="global-search-input"]:visible');
+  await expect(composer).toHaveCount(1);
+  await expect(composer).toHaveValue("");
+  await expect(composer).toHaveAttribute("placeholder", "Ask a follow-up...");
   await expect(page.getByTestId("smart-search-phone-ticker")).toBeHidden();
 });

@@ -6,6 +6,10 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, edited]
   push:
     branches: [main, "release/**"]
+  # Merge queue: a required check must report on the queue entry's
+  # gh-readonly-queue/* commit, or the entry waits forever. The mergeability
+  # job below passes straight through on this event (see its first step).
+  merge_group:
 
 concurrency:
   group: pr-mergeability-${{ github.event.pull_request.number || github.ref }}
@@ -20,20 +24,33 @@ permissions:
 jobs:
   mergeability:
     name: PR mergeability
-    if: github.event_name == 'pull_request_target'
+    # One job carries the check name for both events, so a merge_group run can
+    # never leave a skipped duplicate "PR mergeability" check that reads as a pass.
+    if: github.event_name == 'pull_request_target' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      # A merge queue entry is mergeable by construction: GitHub built its
+      # gh-readonly-queue/* commit by merging the PR onto the queue's base, and
+      # a conflicting PR is removed from the queue instead of getting a run.
+      # There is no PR mergeability to classify, so report success without
+      # checking anything out or calling the API.
+      - name: Accept merge queue entry
+        if: github.event_name == 'merge_group'
+        run: echo "Merge queue entry ${GITHUB_REF} was built by GitHub as a clean merge onto its queue base; nothing to classify."
+
       # pull_request_target runs trusted workflow-revision code. Checkout
       # github.workflow_sha so the classifier is the exact revision that
       # triggered this run. Never execute the PR head or persist credentials.
       - name: Checkout trusted classifier
+        if: github.event_name == 'pull_request_target'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
 
       - name: Signal real merge conflicts
+        if: github.event_name == 'pull_request_target'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
