@@ -8,6 +8,8 @@ import { assertNoDraftIsPublished, dictionarySenseDrafts } from "@/lib/dictionar
 import { dictionaryDefinitionReviews } from "@/lib/dictionary-editorial/definition-reviews";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
 import { loadSpecifiersContent } from "@/lib/specifiers-content";
+import { formulationConcepts, formulationGuides } from "@/lib/formulation-concepts";
+import { conceptReviewState } from "@/lib/formulation-review-status";
 
 /**
  * The failure this file exists to prevent is a silent zero.
@@ -25,7 +27,9 @@ import { loadSpecifiersContent } from "@/lib/specifiers-content";
  */
 const EXPECTED: Record<SignOffFamilyId, number> = {
   "wa-mha-forms": 54,
-  formulation: 12,
+  // 12 mechanisms + 46 contextual concepts + 6 guide modules. The queue used to
+  // read the mechanisms only, which hid 52 unsigned records (ledger #33JDBW).
+  formulation: 64,
   // 201 exported diagnosis records + 31 presentation workflows, all of which
   // derive `validation_status: unverified` from the same snapshot governance
   // block. The prior hand count of "201" covered the diagnoses only.
@@ -82,6 +86,22 @@ describe("clinical sign-off queue", () => {
     const summed = queue.families.reduce((sum, family) => sum + family.rows.length, 0);
     expect(queue.total).toBe(summed);
     expect(queue.total).toBe(Object.values(EXPECTED).reduce((sum, count) => sum + count, 0));
+  });
+
+  it("lists every unsigned Formulation concept and guide module, not only the mechanisms", () => {
+    // Ledger #33JDBW: the concepts and guides live in a second file the queue
+    // never opened, and they carry their status under `review.status`, not
+    // `reviewStatus`. The guide modules instruct rather than describe, so they are
+    // the part of the family a clinician most needs to see here.
+    const formulation = queue.families.find((family) => family.id === "formulation")!;
+    for (const record of [...formulationConcepts, ...formulationGuides]) {
+      if (conceptReviewState(record).reviewed) continue;
+      const row = formulation.rows.find((candidate) => candidate.id === record.id);
+      expect(row, `${record.id} is missing from the formulation family`).toBeDefined();
+      expect(row!.nativeStatus).toBe(record.review.status);
+      expect(row!.href).toBe(record.release === "published" ? `/formulation/${record.id}` : null);
+    }
+    expect(new Set(formulation.rows.map((row) => row.key)).size).toBe(formulation.rows.length);
   });
 
   it("reuses the source acquisition ledger's own queue rather than re-deriving the filter", () => {

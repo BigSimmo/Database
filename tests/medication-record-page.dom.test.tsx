@@ -136,3 +136,25 @@ describe("MedicationRecordPage content-first states", () => {
     expect(screen.getByText("Reviewed")).toBeInTheDocument();
   });
 });
+
+describe("MedicationRecordPage source link (#05WXHX)", () => {
+  // No medication record carries its own source link yet, so the footer points to the
+  // default source the owner chose on 2026-09-25: the TGA Product Information search.
+  it("links to the TGA Product Information search for the medicine", () => {
+    mockDetail({ data: { record: fallbackDrug }, loading: false, error: null });
+    render(<MedicationRecordPage slug="test-med" fallbackRecord={fallbackDrug} />);
+    const link = screen.getByRole("link", { name: `Search the TGA Product Information for ${fallbackDrug.name}` });
+    const href = new URL(link.getAttribute("href")!);
+    expect(href.origin).toBe("https://www.ebs.tga.gov.au");
+    expect(href.pathname).toBe("/ebs/picmi/picmirepository.nsf/PICMI");
+    expect(href.searchParams.get("q")).toBe(fallbackDrug.name);
+    expect(href.searchParams.get("t")).toBe("pi");
+    expect(link).toHaveAttribute("rel", "noreferrer");
+  });
+
+  it("offers no TGA link when there is no record to name", () => {
+    mockDetail({ data: null, loading: false, error: "Medication not found." });
+    render(<MedicationRecordPage slug="missing" />);
+    expect(screen.queryByRole("link", { name: /TGA Product Information/ })).not.toBeInTheDocument();
+  });
+});

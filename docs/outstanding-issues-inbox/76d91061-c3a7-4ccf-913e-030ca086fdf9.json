@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "76d91061-c3a7-4ccf-913e-030ca086fdf9",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "878e668e-b2ff-492f-b771-11b67e07f2af",
+    "reason": "Superseded the same day by a re-queued add that records the owner decision taken after it was written."
+  }
+}

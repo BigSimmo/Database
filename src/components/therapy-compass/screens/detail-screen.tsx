@@ -83,7 +83,9 @@ export function DetailScreen() {
           <TherapySourceProvenance therapy={t} />
         </section>
         <InformationPageFooter className="mt-4">
-          Source-grounded therapy reference — verify the record and linked source before clinical use.
+          {/* Therapy records name their sources but do not link to them yet (ledger #05WXHX). */}
+          Source-grounded therapy reference — verify the record against the sources named under Source &amp; review
+          status before clinical use.
         </InformationPageFooter>
       </InformationPageShell>
     </>
