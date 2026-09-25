@@ -2515,6 +2515,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      cme_plan_goals: {
+        Row: {
+          created_at: string;
+          goal: string;
+          id: string;
+          owner_id: string;
+          sort_order: number;
+          updated_at: string;
+          year_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          goal: string;
+          id?: string;
+          owner_id: string;
+          sort_order?: number;
+          updated_at?: string;
+          year_id: string;
+        };
+        Update: {
+          created_at?: string;
+          goal?: string;
+          id?: string;
+          owner_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+          year_id?: string;
+        };
+        Relationships: [{
+          foreignKeyName: "cme_plan_goals_year_owner_fk";
+          columns: ["year_id", "owner_id"];
+          isOneToOne: false;
+          referencedRelation: "cme_years";
+          referencedColumns: ["id", "owner_id"];
+        }];
+      };
+      cme_entry_goals: {
+        Row: {
+          created_at: string;
+          entry_id: string;
+          goal_id: string;
+          owner_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          entry_id: string;
+          goal_id: string;
+          owner_id: string;
+        };
+        Update: {
+          created_at?: string;
+          entry_id?: string;
+          goal_id?: string;
+          owner_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cme_entry_goals_entry_owner_fk";
+            columns: ["entry_id", "owner_id"];
+            isOneToOne: true;
+            referencedRelation: "cme_entries";
+            referencedColumns: ["id", "owner_id"];
+          },
+          {
+            foreignKeyName: "cme_entry_goals_goal_owner_fk";
+            columns: ["goal_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "cme_plan_goals";
+            referencedColumns: ["id", "owner_id"];
+          },
+        ];
+      };
       cme_allocations: {
         Row: {
           category: string;
@@ -3581,6 +3653,8 @@ export type Database = {
     };
     Functions: {
       cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
+      cme_save_plan_goals: { Args: { p_owner_id: string; p_year_id: string; p_goals: Json }; Returns: Json };
+      cme_set_entry_goal: { Args: { p_owner_id: string; p_entry_id: string; p_goal_id: string | null }; Returns: Json };
       cme_set_entry_archived: { Args: { p_owner_id: string; p_entry_id: string; p_archived: boolean }; Returns: Json };
       cme_evidence_counts: { Args: { p_owner_id: string; p_year: number }; Returns: Json };
       cme_remove_evidence: {

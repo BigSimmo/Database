@@ -151,20 +151,13 @@ export type CmhtContact = {
 /**
  * The only intentionally non-fictional contact details in the prototype: the
  * verified public crisis lines. Everything else in the fixtures is invented.
+ *
+ * Canonical definition lives in `@/lib/crisis-contacts` (outside the mockup
+ * tree, so production tools such as the Patient Safety Plan can use it
+ * without importing from `components/mockups`); re-exported here for the
+ * fixtures and pages that already reference it by this name.
  */
-export type PublicCrisisContact = {
-  id: SyntheticId;
-  name: string;
-  telephoneDisplay: string;
-  telephoneUri: string;
-  coverage: string;
-  availability: string;
-  isEmergencyService: boolean;
-  /** Stated limitation shown wherever the number is shown, or null when none applies. */
-  caveat: string | null;
-  sourceUrl: string;
-  verifiedOn: string;
-};
+export type { PublicCrisisContact } from "@/lib/crisis-contacts";
 
 export type PatientPlanVersionState = "draft" | "current" | "superseded";
 

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bbb2d749-0c36-4f7d-90d3-88a34da5b985",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "MHA s 357 drafted summary refers to paragraphs (g) to (j) without saying who they cover",
+    "detail": "data/mha-2014-sections.json s 357 summary (drafted). Reviewer confirmed the rest is faithful to the pinned text. Next action: rewrite that clause strictly from the section text before the owner signs it.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBPV7HEN4EXBKR1FW5AW9"
+  }
+}

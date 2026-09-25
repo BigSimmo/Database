@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "90ab43f7-b175-458b-bc49-83abb64d08b6",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#CNCAFV",
+    "detail": "UPDATE 2026-09-25 (PR #3019): the dishonest badge is fixed — Best fit now shows only when every non-stopword query token (plural-normalised) matches the record (src/lib/service-best-fit.ts). Ranking was deliberately not touched (src/lib/catalog-search.ts is a flagged ranking surface), so an eating-disorder record can still appear for panic disorder, unbadged. Remaining: the OR-token ranking itself, which needs the ranking-protection process and a canary.",
+    "baseRowFingerprint": "9eed0a2b3855d1db9907455c02839d266c8b82b8a2f7b4d6abbe1073be35bf1d"
+  }
+}

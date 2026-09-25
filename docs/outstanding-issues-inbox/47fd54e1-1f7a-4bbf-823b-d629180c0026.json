@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "47fd54e1-1f7a-4bbf-823b-d629180c0026",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "CME and On Call have no two-user staging isolation proof; the cross-tenant harness covers documents/search/answer only (audit F17)",
+    "detail": "Verified offline: scripts/test-cross-tenant-staging.ts exercises /api/answer, /api/documents, /api/health, /api/search and /api/search/universal and has zero CME or On Call references. Unit-level root-bundle isolation tests exist (cme-root-bundle-isolation, on-call-root-bundle-isolation) but are not endpoint attacks. Next action: extend the existing two-user harness to CME records/evidence/storage signed URLs and On Call services/invitations/membership/reports/orientation, including revocation and concurrency races. Staging execution is provider-backed and needs explicit approval. Related: #057 (runs the existing harness; does not widen it).",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC1JDF9HZEG738N2MBN2W"
+  }
+}

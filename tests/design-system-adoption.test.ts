@@ -1471,7 +1471,11 @@ describe("design-system adoption manifest", () => {
     // `adoption-contract.json`: `/cme/check` (year check), `/cme/calendar`, and On Call's
     // `/on-call/now` (who to call now), `/on-call/check` (entries due a check),
     // `/on-call/first-night` and `/on-call/calendar`.
-    expect(manifest.routeCoverage.discovered).toHaveLength(111);
+    //
+    // 111 -> 112 on 2026-09-25: `/forms/act`, the Forms "Act and Standards" reference page
+    // (drafted Mental Health Act 2014 section summaries and the Chief Psychiatrist's
+    // Standards), declared in `adoption-contract.json` on the catalogues surface.
+    expect(manifest.routeCoverage.discovered).toHaveLength(112);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

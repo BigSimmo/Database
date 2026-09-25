@@ -178,6 +178,9 @@ const routes: RouteCase[] = [
     name: "/forms/[slug]",
     sections: formNavSections,
     render: () => <FormDetailPage form={formRecords[0]} />,
+    // Form 1A has no quoted Act time limit, so it renders no Timeline; the section's presence
+    // on a form that has one is pinned by tests/mha-timeline-panel.dom.test.tsx.
+    absent: ["form-timeline"],
   },
   {
     name: "/specifiers/map",
