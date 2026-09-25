@@ -596,10 +596,11 @@ describe("clinical point tones", () => {
  * evidence that they are STABLE -- that nobody has moved a label without meaning to. Those are
  * different claims, and only the second one a test can make.
  *
- * Two such decisions have been taken so far, and both are recorded in the cases below rather than
- * in a changelog: #GHC4XZ (stop instructions, `immediate(?:ly)?`) and #9XRDF7 (`escalat` and
- * `monitor`, owner-approved 2026-09-19). Each moved labels a clinician sees, which is why each
- * needed the owner and not a reviewer.
+ * Three such decisions have been taken so far, and all are recorded in the cases below rather than
+ * in a changelog: #GHC4XZ (stop instructions, `immediate(?:ly)?`), #9XRDF7 (`escalat` and
+ * `monitor`, owner-approved 2026-09-19) and #GHC4XZ again (`urgent(?:ly)?`, `seizures?` and
+ * `transfer(?:s|red|ring)?`, signed off by Josh on 2026-09-25). Each moved labels a clinician
+ * sees, which is why each needed the owner and not a reviewer.
  */
 describe("safety finding precision (characterisation)", () => {
   /**
