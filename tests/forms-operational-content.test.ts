@@ -154,7 +154,7 @@ describe("forms catalogue operational content", () => {
   it("fails the pin once a signed form's guidance is edited after sign-off", () => {
     const row = formsContentReview.forms.find((entry) => entry.code === "3C")!;
     const signed = finalizeClinicalReview(row, "form", {
-      reviewedBy: "Dr Jane Citizen",
+      reviewedBy: "Dr Alex Morgan",
       reviewedAt: "2026-09-24T12:00:00.000Z",
       context: { catalog: formsCatalog },
       now: new Date("2026-09-25T00:00:00.000Z"),

@@ -25,8 +25,12 @@ import { publicReviewerAttributionProblem } from "./therapy-review-contract.mjs"
  *   form       the review row (code, sections, contextualSections, basis, and any other
  *              non-review field) PLUS the form's operational guidance in
  *              data/forms-catalog.json -- the fields in FORM_ATTESTED_CATALOG_FIELDS, and
- *              from `sourceFacts` only `timings` and `sectionCue`. Search-index metadata
- *              (aliases, searchTerms, indexedTerms, indexedClock, riskLevel, ids) and PDF
+ *              from `sourceFacts` only `timings` and `sectionCue`. That includes
+ *              `indexedClock`, which the app's Clock card shows when priorityFacts lacks a
+ *              detail line. It also covers `renderedFormGuidance(entry)`: the text the app
+ *              actually shows, including its generic fallback sentences for empty fields
+ *              and the three Priority-facts cards. Search-index metadata (aliases, searchTerms, indexedTerms,
+ *              riskLevel, ids) and PDF
  *              file metadata are deliberately outside it: the owner does not attest them,
  *              and pinning them would force a clinical re-review for a search tweak. The
  *              catalogue's `actSections` summaries are attested separately as `section`.
@@ -49,11 +53,27 @@ import { publicReviewerAttributionProblem } from "./therapy-review-contract.mjs"
 export function reviewerAttributionProblem(value) {
   const problem = publicReviewerAttributionProblem(value);
   if (problem) return problem;
-  if (/[<>[\]{}]/.test(value) || /\byour\s+(?:own\s+)?name\b/i.test(value)) {
-    return "reviewedBy still holds the placeholder from the guide; replace it with your own public name.";
+  const words = (value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
+  if (
+    /[<>[\]{}]/.test(value) ||
+    /\byour\s+(?:own\s+)?(?:sur)?name\b/i.test(value) ||
+    EXAMPLE_REVIEWER_NAMES.has(words)
+  ) {
+    return "reviewedBy still holds the example from the guide; replace it with your own public name.";
   }
   return null;
 }
+
+/** Example names that have appeared in this tool's guide, help text or tests: never a sign-off. */
+const EXAMPLE_REVIEWER_NAMES = new Set([
+  "dr j smith",
+  "j smith",
+  "dr jane citizen",
+  "jane citizen",
+  "dr john smith",
+  "john smith",
+  "dr your surname",
+]);
 
 /** Review metadata. Everything else in a record is content, and content is pinned. */
 export const REVIEW_METADATA_KEYS = Object.freeze(["status", "reviewedBy", "reviewedAt", "reviewedContentSha256"]);
@@ -85,6 +105,9 @@ export const FORM_ATTESTED_CATALOG_FIELDS = Object.freeze([
   "practicePearls",
   "preUseChecks",
   "priorityFacts",
+  // The app's Clock card falls back to `indexedClock` for its detail line when a form has no
+  // curated priorityFacts.clock.detail (3A, 4A and 7A among others), so it is shown text.
+  "indexedClock",
   "sourceFacts",
 ]);
 const FORM_ATTESTED_SOURCE_FACTS = Object.freeze(["timings", "sectionCue"]);
@@ -165,6 +188,141 @@ export function reviewedContentSha256(record) {
     .digest("hex");
 }
 
+const displayText = (value) => (typeof value === "string" && value.trim() ? value.trim() : "");
+
+function curatedCard(value) {
+  if (!isPlainRecord(value)) return undefined;
+  const title = displayText(value.title);
+  if (!title) return undefined;
+  return { title, detail: displayText(value.detail) || undefined, body: displayText(value.body) || undefined };
+}
+
+function cardSheet(fact, fallbackBody, fallbackDetail, label) {
+  if (!fact && !fallbackBody.trim()) return null;
+  const body = fact?.body?.trim() || fallbackBody.trim();
+  if (!body) return null;
+  return { title: fact?.title?.trim() || label, detail: fact?.detail?.trim() || fallbackDetail, body };
+}
+
+/**
+ * The three Priority-facts cards exactly as the Forms page renders them: the card face
+ * (`summaryCardsForDetails` in src/lib/form-catalog.ts) and the tap-for-detail sheet
+ * (`priorityFactBody` in src/components/forms/form-priority-facts-section.tsx), including
+ * their fallbacks to the catalogue prose and to `indexedClock`. Replicated here because
+ * this plain-Node tool cannot import the app's TypeScript; the contract test compares it
+ * with the app's own output for every form, so the two cannot drift apart silently.
+ */
+export function renderedPriorityCards(entry) {
+  const facts = isPlainRecord(entry?.priorityFacts) ? entry.priorityFacts : {};
+  const clock = curatedCard(facts.clock);
+  const authority = curatedCard(facts.authority);
+  const criteria = curatedCard(facts.criteria);
+  // The cards read the app's resolved fields, fallback sentences included.
+  const resolved = renderedGuidanceFields(entry);
+  const field = (key) => (key === "indexedClock" ? displayText(entry?.[key]) : resolved[key]);
+  const indexedClock = field("indexedClock") || undefined;
+  return {
+    clock: {
+      title: clock?.title ?? field("clock"),
+      detail: clock?.detail ?? indexedClock,
+      sheet: cardSheet(clock, field("clock"), indexedClock, "Clock / review"),
+    },
+    authority: {
+      title: authority?.title ?? field("maker"),
+      detail: authority?.detail ?? field("authorises"),
+      sheet: cardSheet(
+        authority,
+        [field("maker"), field("authorises"), field("doesNotAuthorise")].filter(Boolean).join(" "),
+        field("authorises"),
+        "Made by / authority",
+      ),
+    },
+    criteria: {
+      title: criteria?.title ?? field("threshold"),
+      detail: criteria?.detail ?? field("doesNotAuthorise"),
+      sheet: cardSheet(criteria, field("threshold"), field("doesNotAuthorise"), "Criteria / threshold"),
+    },
+  };
+}
+
+const displayList = (value) =>
+  Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim().length > 0) : [];
+
+/**
+ * The form guidance exactly as the Forms page shows it: `detailsFor` in
+ * src/lib/form-catalog.ts, including its generic fallback sentences for empty catalogue
+ * fields (seven forms currently show fallback text for authorises, doesNotAuthorise,
+ * legalNote, practicePearls or copies) and the three Priority-facts cards. Replicated for
+ * the same reason as `renderedPriorityCards`, and parity-tested against the app for all 54
+ * forms. The purpose fallback assumes a downloadable form, since the register's
+ * availability is not in the catalogue; the parity test catches it if that ever matters.
+ */
+export function renderedFormGuidance(entry) {
+  return { ...renderedGuidanceFields(entry), priorityCards: renderedPriorityCards(entry) };
+}
+
+function renderedGuidanceFields(entry) {
+  const code = String(entry?.form ?? "");
+  const field = (key, fallback = "") => displayText(entry?.[key]) || fallback;
+  const list = (key, fallback = []) => (displayList(entry?.[key]).length ? displayList(entry?.[key]) : fallback);
+  return {
+    purpose: field(
+      "purpose",
+      `Use the current approved Form ${code} to record ${String(entry?.name ?? "").toLowerCase()} when the statutory and local requirements are met.`,
+    ),
+    maker: field(
+      "maker",
+      "Only an appropriately authorised person under the Mental Health Act 2014 and the approved form instructions.",
+    ),
+    involved: field(
+      "involved",
+      "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+    ),
+    threshold: field(
+      "threshold",
+      "Confirm the statutory criteria and completion instructions on the current approved form before use.",
+    ),
+    clock: field(
+      "clock",
+      "Confirm any time limit, expiry or review point on the current approved form and local policy.",
+    ),
+    destination: field("destination", "Confirm any required place or destination on the approved form."),
+    authorises: field(
+      "authorises",
+      `Only the action or record expressly described by Form ${code} and the Mental Health Act 2014.`,
+    ),
+    doesNotAuthorise: field(
+      "doesNotAuthorise",
+      "No action beyond the current Act, approved form wording and the maker\u2019s lawful authority.",
+    ),
+    boundaries: list("boundaries"),
+    before: list("before"),
+    parallel: list("parallel"),
+    after: list("after"),
+    copies: field("copies", "Confirm notices, copies, handover and filing requirements on the approved form."),
+    documentationStem: field("documentationStem"),
+    traps: list("traps"),
+    safetyPearl: field(
+      "safetyPearl",
+      "Open the current official source and confirm authority, timing, notices and filing requirements before completion.",
+    ),
+    sourceNote: field(
+      "sourceNote",
+      "Official title and availability checked against the Office of the Chief Psychiatrist register.",
+    ),
+    legalNote: field(
+      "legalNote",
+      "Use only the current approved form or PSOLIS pathway. This catalogue is a reference aid, not legal advice, and does not replace the Act, form instructions or local governance.",
+    ),
+    practicePearls: list("practicePearls", ["Treat the approved form and current legislation as authoritative."]),
+    preUseChecks: list("preUseChecks", [
+      "Open the current official form or PSOLIS workflow before use.",
+      "Confirm the maker is appropriately authorised and all statutory criteria are met.",
+      "Confirm identifiers, date, time, signatures, notices, copies and filing requirements.",
+    ]),
+  };
+}
+
 function catalogForms(catalog) {
   if (Array.isArray(catalog)) return catalog;
   if (isPlainRecord(catalog) && Array.isArray(catalog.forms)) return catalog.forms;
@@ -191,7 +349,9 @@ export const recordKinds = Object.freeze({
       const catalog = pick(entry, FORM_ATTESTED_CATALOG_FIELDS);
       if (isPlainRecord(catalog.sourceFacts))
         catalog.sourceFacts = pick(catalog.sourceFacts, FORM_ATTESTED_SOURCE_FACTS);
-      return { ...withoutMetadata(record), catalog };
+      // Both the raw catalogue fields and the text the app actually renders from them,
+      // including its fallback sentences, so neither can change under a sign-off.
+      return { ...withoutMetadata(record), catalog, rendered: renderedFormGuidance(entry) };
     },
   }),
   section: Object.freeze({

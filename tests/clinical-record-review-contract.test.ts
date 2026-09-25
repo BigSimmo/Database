@@ -19,15 +19,25 @@ import {
   recordKinds,
   recordPinState,
   reviewProblems,
+  renderedFormGuidance,
+  renderedPriorityCards,
   reviewedContentSha256,
   signOffQueue,
 } from "../scripts/lib/clinical-record-review-contract.mjs";
-import { conductClinicalReview, main, parseClinicalReviewArgs } from "../scripts/review-clinical-record.mjs";
+import {
+  conductClinicalReview,
+  loadFormatter,
+  main,
+  parseClinicalReviewArgs,
+  writeDataFileAtomically,
+} from "../scripts/review-clinical-record.mjs";
 
 import formsCatalog from "../data/forms-catalog.json";
 import formsContentReview from "../data/forms-content-review.json";
 
-import { formContentReviewStatus } from "@/lib/form-catalog";
+import { priorityFactBody } from "@/components/forms/form-priority-facts-section";
+import { formCatalogDetails, formContentReviewStatus } from "@/lib/form-catalog";
+import { formRecords } from "@/lib/forms";
 
 /**
  * The clinical sign-off tool is how the clinical owner attests clinical content. These
@@ -42,7 +52,7 @@ const ROOT = process.cwd();
 const SCRIPT = join(ROOT, "scripts", "review-clinical-record.mjs");
 const NOW = new Date("2026-09-25T00:00:00.000Z");
 const REVIEWED_AT = "2026-09-24T12:34:56.000Z";
-const REVIEWER = "Dr Jane Citizen";
+const REVIEWER = "Dr Alex Morgan";
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
@@ -318,6 +328,10 @@ describe("form sign-off", () => {
       "AHPRA MED0001234567",
       "<your name>",
       "Dr Your Name",
+      "Dr <your surname>",
+      "Dr J Smith",
+      "Dr Jane Citizen",
+      "jane citizen",
     ]) {
       expect(() =>
         finalizeClinicalReview(formRow(), "form", {
@@ -422,6 +436,83 @@ describe("timeframe sign-off", () => {
   });
 });
 
+describe("renderedPriorityCards", () => {
+  it("matches what the Forms page renders on every form's clock, authority and criteria cards", () => {
+    const catalogByCode = new Map(
+      formsCatalog.forms.map((entry) => [entry.form.trim().toLowerCase(), entry as Record<string, unknown>]),
+    );
+    expect(formRecords.length).toBe(54);
+    for (const record of formRecords) {
+      const code = formCatalogDetails(record)!.form;
+      const rendered = renderedPriorityCards(catalogByCode.get(code.trim().toLowerCase()));
+      for (const id of ["clock", "authority", "criteria"] as const) {
+        const face = record.summaryCards?.find((card) => card.id === id);
+        expect({ title: face?.title, detail: face?.detail }, `${code} ${id} face`).toEqual({
+          title: rendered[id].title,
+          detail: rendered[id].detail,
+        });
+        expect(priorityFactBody(record, id), `${code} ${id} sheet`).toEqual(rendered[id].sheet);
+      }
+    }
+  });
+
+  it("matches every guidance field the Forms page renders, fallback sentences included", () => {
+    const catalogByCode = new Map(
+      formsCatalog.forms.map((entry) => [entry.form.trim().toLowerCase(), entry as Record<string, unknown>]),
+    );
+    const fields = [
+      "purpose",
+      "maker",
+      "involved",
+      "threshold",
+      "clock",
+      "destination",
+      "authorises",
+      "doesNotAuthorise",
+      "boundaries",
+      "before",
+      "parallel",
+      "after",
+      "copies",
+      "documentationStem",
+      "traps",
+      "safetyPearl",
+      "sourceNote",
+      "legalNote",
+      "practicePearls",
+      "preUseChecks",
+    ] as const;
+    for (const record of formRecords) {
+      const details = formCatalogDetails(record)!;
+      const rendered = renderedFormGuidance(catalogByCode.get(details.form.trim().toLowerCase()));
+      for (const field of fields) expect(rendered[field], `${details.form} ${field}`).toEqual(details[field]);
+    }
+  });
+
+  it("pins the app's fallback sentences for a form whose catalogue field is empty", () => {
+    const catalog = catalogFixture() as { forms: Record<string, unknown>[] };
+    catalog.forms[0].authorises = "";
+    const signed = finalizeClinicalReview(formRow(), "form", {
+      reviewedBy: REVIEWER,
+      reviewedAt: REVIEWED_AT,
+      context: { catalog },
+      now: NOW,
+    });
+    expect(attestedContent(signed, "form", { catalog }).rendered.authorises).toBe(
+      "Only the action or record expressly described by Form 3C and the Mental Health Act 2014.",
+    );
+  });
+
+  it("pins indexedClock, the Clock card's fallback detail line", () => {
+    const signed = signedForm();
+    const catalog = catalogFixture() as ReturnType<typeof catalogFixture> & { forms: { indexedClock?: string }[] };
+    catalog.forms[0].indexedClock = "within 24 hours";
+    expect(reviewProblems([signed], "form", { catalog, now: NOW }).join("\n")).toContain(
+      "content changed since sign-off",
+    );
+  });
+});
+
 describe("attestedContent", () => {
   it("combines the review row with the pinned catalogue fields for a form", () => {
     const content = attestedContent(formRow(), "form", { catalog: catalogFixture() });
@@ -498,6 +589,25 @@ describe("conductClinicalReview", () => {
     expect(commits).toBe(0);
   });
 
+  it("stops without saving when the owner types quit at the code prompt", async () => {
+    const questions = recordKinds.form.checklist.length;
+    const { ask } = scriptedAsk([...Array(questions).fill("yes"), "quit"]);
+    let commits = 0;
+    const result = await conductClinicalReview({
+      kind,
+      record: formRow(),
+      context,
+      reviewedBy: REVIEWER,
+      ask,
+      output: sink(),
+      commit: async () => {
+        commits += 1;
+      },
+    });
+    expect(result.status).toBe("quit");
+    expect(commits).toBe(0);
+  });
+
   it("refuses a placeholder reviewer before asking anything", async () => {
     const { ask, asked } = scriptedAsk([]);
     await expect(
@@ -557,7 +667,7 @@ describe("review-clinical-record CLI", () => {
     output.on("data", (chunk: Buffer) => {
       const value = chunk.toString();
       text.push(value);
-      if (/(Type yes, no, or quit: |type its code \([^)]*\): )$/.test(value)) {
+      if (/(Type yes, no, or quit: |type its code \([^)]*\), or quit to stop: )$/.test(value)) {
         const next = answers.shift();
         if (next !== undefined) setImmediate(() => input.write(`${next}\n`));
       }
@@ -600,6 +710,27 @@ describe("review-clinical-record CLI", () => {
     expect(refused.status).not.toBe(0);
     expect(refused.stderr).toContain("interactive TTY");
     expect(paths.map((path) => readFileSync(path, "utf8"))).toEqual(before);
+  });
+
+  it("loads the project formatter it needs before asking anything", async () => {
+    await expect(loadFormatter()).resolves.toHaveProperty("format");
+  });
+
+  it("clears a leftover lock from a finished session but respects a live one", () => {
+    const root = mkdtempSync(join(tmpdir(), "clinical-lock-"));
+    temporaryDirectories.push(root);
+    const path = join(root, "records.json");
+    writeFileSync(path, "{}\n");
+    const notices: string[] = [];
+
+    writeFileSync(`${path}.review.lock`, "2147483646\n");
+    writeDataFileAtomically(path, '{"a":1}\n', "{}\n", { notice: (message: string) => notices.push(message) });
+    expect(readFileSync(path, "utf8")).toBe('{"a":1}\n');
+    expect(notices.join("")).toContain("leftover lock");
+
+    writeFileSync(`${path}.review.lock`, `${process.pid}\n`);
+    expect(() => writeDataFileAtomically(path, '{"a":2}\n', '{"a":1}\n')).toThrow(/Another sign-off/);
+    expect(readFileSync(path, "utf8")).toBe('{"a":1}\n');
   });
 
   it("skips the timeframe kind cleanly while its data file does not exist", async () => {

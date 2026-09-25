@@ -21,7 +21,17 @@
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -34,6 +44,7 @@ import {
   recordId,
   recordKinds,
   recordPinState,
+  renderedFormGuidance,
   reviewProblems,
   sameRecordId,
   signOffEligibilityProblem,
@@ -62,7 +73,8 @@ function usage() {
     "or the timeframe id.",
     "",
     "reviewedBy is shown publicly in the app. Use your display name (for example",
-    '"Dr Jane Citizen"); never an email address, AHPRA number, provider number or staff id.',
+    '"Dr <your surname>" with your own surname); never an email address, AHPRA number,',
+    "provider number or staff id.",
     "",
     "Guide: docs/clinical-sign-off-how-to.md",
   ].join("\n");
@@ -125,51 +137,52 @@ function actTextFor(context, section) {
   return (context.actSource?.sections ?? []).find((entry) => entry.section === section);
 }
 
-function priorityFactsText(facts) {
-  if (!facts || typeof facts !== "object") return facts;
-  return Object.entries(facts)
-    .map(([name, card]) =>
-      card && typeof card === "object"
-        ? [`${name}: ${card.title ?? ""}${card.detail ? ` (${card.detail})` : ""}`, card.body ? `  ${card.body}` : ""]
-            .filter(Boolean)
-            .join("\n")
-        : `${name}: ${String(card)}`,
-    )
-    .join("\n");
+function cardText(card) {
+  const face = [card.title, card.detail].filter(Boolean).join("\n  ");
+  const sheet = card.sheet?.body && card.sheet.body !== card.title ? `\n  Tap for detail: ${card.sheet.body}` : "";
+  return `${face}${sheet}`;
 }
 
-/** What the owner reads before answering. Every field shown is inside the content pin. */
+/**
+ * What the owner reads before answering: the form's guidance exactly as the Forms page
+ * renders it (fallback sentences and the Priority-facts cards included). All of it is
+ * inside the content pin.
+ */
 const DISPLAY = {
   form(record, context) {
     const entry = catalogEntryFor(context, record.code);
+    const shown = renderedFormGuidance(entry);
+    const cards = shown.priorityCards;
     return [
       ["Form", `${record.code} - ${entry.name ?? ""}`],
       ["Drafted from", record.basis],
       ["Operational sections", (record.sections ?? []).map((section) => `s ${section}`).join(", ")],
       ["Contextual sections", (record.contextualSections ?? []).map((section) => `s ${section}`).join(", ")],
-      ["Purpose", entry.purpose],
-      ["Made by", entry.maker],
-      ["Also involved", entry.involved],
-      ["When it applies", entry.threshold],
-      ["Clock", entry.clock],
-      ["Destination", entry.destination],
-      ["Authorises", entry.authorises],
-      ["Does not authorise", entry.doesNotAuthorise],
-      ["Authority boundaries", entry.boundaries],
+      ["Card: Clock / review", cardText(cards.clock)],
+      ["Card: Made by / authority", cardText(cards.authority)],
+      ["Card: Criteria / threshold", cardText(cards.criteria)],
+      ["Purpose", shown.purpose],
+      ["Made by", shown.maker],
+      ["Also involved", shown.involved],
+      ["When it applies", shown.threshold],
+      ["Clock", shown.clock],
+      ["Destination", shown.destination],
+      ["Authorises", shown.authorises],
+      ["Does not authorise", shown.doesNotAuthorise],
+      ["Authority boundaries", shown.boundaries],
       [
         "Comes before / alongside / after",
-        [entry.before, entry.parallel, entry.after].map((list) => (list ?? []).join(", ") || "-").join("  /  "),
+        [shown.before, shown.parallel, shown.after].map((list) => list.join(", ") || "-").join("  /  "),
       ],
-      ["Filing and copies", entry.copies],
-      ["Documentation stem", entry.documentationStem],
-      ["Common traps", entry.traps],
-      ["Safety pearl", entry.safetyPearl],
-      ["Legal note", entry.legalNote],
-      ["Practice pearls", entry.practicePearls],
-      ["Pre-use checks", entry.preUseChecks],
-      ["Priority facts", priorityFactsText(entry.priorityFacts)],
+      ["Filing and copies", shown.copies],
+      ["Documentation stem", shown.documentationStem],
+      ["Common traps", shown.traps],
+      ["Safety pearl", shown.safetyPearl],
+      ["Legal note", shown.legalNote],
+      ["Practice pearls", shown.practicePearls],
+      ["Pre-use checks", shown.preUseChecks],
       ["Timings on the form", entry.sourceFacts?.timings],
-      ["Section cue", entry.sourceFacts?.sectionCue],
+      ["Section cue", entry.sourceFacts?.sectionCue ?? shown.sourceNote],
     ];
   },
   section(record, context) {
@@ -251,7 +264,11 @@ export async function conductClinicalReview({
   }
 
   const expected = clinicalReviewConfirmation(kind, record);
-  const confirmation = await ask(`\nTo sign this off, type its code (${expected}): `);
+  const confirmation = await ask(`\nTo sign this off, type its code (${expected}), or quit to stop: `);
+  if (normalizeAnswer(confirmation) === "quit" && !sameRecordId(confirmation, expected)) {
+    writeLine(output, "Stopped. Nothing was saved for this record.");
+    return { status: "quit", record };
+  }
   if (!sameRecordId(confirmation, expected)) {
     writeLine(output, "That did not match. Nothing was changed.");
     return { status: "cancelled", record };
@@ -341,46 +358,87 @@ function showOneRecord(kind, code, root, output) {
   );
 }
 
-async function formatJson(document, path) {
-  const text = `${JSON.stringify(document, null, 2)}\n`;
+const SETUP_COMMAND = "npm ci --include=dev";
+
+/**
+ * The project's formatter, loaded before the first question. Every saved file must be
+ * formatted exactly as the repository expects, or the owner's own push would be refused;
+ * so if it cannot load, refuse up front rather than after he has read a form.
+ */
+export async function loadFormatter() {
   try {
     const prettier = await import("prettier");
-    const options = (await prettier.resolveConfig(path)) ?? {};
-    return await prettier.format(text, { ...options, filepath: path });
+    if (typeof prettier.format !== "function") throw new Error("prettier.format is missing");
+    return prettier;
   } catch {
-    return text;
+    throw new Error(
+      `The project's tools are not installed on this computer, so nothing can be saved yet. ` +
+        `In this terminal, run: ${SETUP_COMMAND}   (it takes a few minutes), then try again.`,
+    );
   }
 }
 
-function acquireLock(path) {
-  const lockPath = `${path}.review.lock`;
-  let descriptor;
+async function formatJson(prettier, document, path) {
+  const options = (await prettier.resolveConfig(path)) ?? {};
+  return prettier.format(`${JSON.stringify(document, null, 2)}\n`, { ...options, filepath: path });
+}
+
+const STALE_LOCK_MS = 30 * 60 * 1000;
+
+function lockIsStale(lockPath) {
   try {
-    descriptor = openSync(lockPath, "wx");
-    writeFileSync(descriptor, `${process.pid}\n`, "utf8");
-    fsyncSync(descriptor);
-  } catch (error) {
-    if (descriptor !== undefined) closeSync(descriptor);
-    if (error?.code === "EEXIST") {
-      throw new Error(`Another sign-off is writing ${basename(path)}; refusing a concurrent write.`);
-    }
-    throw error;
-  }
-  return () => {
+    const pid = Number.parseInt(readFileSync(lockPath, "utf8"), 10);
+    if (Date.now() - statSync(lockPath).mtimeMs > STALE_LOCK_MS) return true;
+    if (!Number.isInteger(pid) || pid <= 0) return true;
     try {
-      closeSync(descriptor);
-    } finally {
-      rmSync(lockPath, { force: true });
+      process.kill(pid, 0);
+      return false;
+    } catch (error) {
+      return error?.code === "ESRCH";
     }
-  };
+  } catch {
+    return false;
+  }
+}
+
+function acquireLock(path, notice = (message) => process.stderr.write(`${message}\n`)) {
+  const lockPath = `${path}.review.lock`;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let descriptor;
+    try {
+      descriptor = openSync(lockPath, "wx");
+      writeFileSync(descriptor, `${process.pid}\n`, "utf8");
+      fsyncSync(descriptor);
+      return () => {
+        try {
+          closeSync(descriptor);
+        } finally {
+          rmSync(lockPath, { force: true });
+        }
+      };
+    } catch (error) {
+      if (descriptor !== undefined) closeSync(descriptor);
+      if (error?.code !== "EEXIST") throw error;
+      if (attempt === 0 && lockIsStale(lockPath)) {
+        notice(`Removed a leftover lock from an earlier sign-off session that did not finish (${basename(lockPath)}).`);
+        rmSync(lockPath, { force: true });
+        continue;
+      }
+      throw new Error(
+        `Another sign-off is saving ${basename(path)} right now. Close any other sign-off window and try again; ` +
+          `if none is open, wait 30 minutes or delete the file ${basename(lockPath)} in the data folder.`,
+      );
+    }
+  }
+  throw new Error(`Could not lock ${basename(path)}.`);
 }
 
 /**
  * Same-directory temp file + fsync + rename, guarded by a lock and by the exact bytes
  * read when the review began, so a concurrent edit is never overwritten.
  */
-export function writeDataFileAtomically(path, contents, expectedRaw) {
-  const release = acquireLock(path);
+export function writeDataFileAtomically(path, contents, expectedRaw, { notice } = {}) {
+  const release = acquireLock(path, notice);
   const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`);
   let descriptor;
   try {
@@ -466,6 +524,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   const attributionProblem = reviewerAttributionProblem(args.reviewedBy);
   if (attributionProblem) throw new Error(attributionProblem);
 
+  const prettier = await loadFormatter();
   const kind = args.kind;
   const first = loadKindDocument(kind, { root });
   if (first.status === "absent") {
@@ -527,7 +586,9 @@ export async function main(argv = process.argv.slice(2), io = {}) {
           const nextDocument = applyClinicalReview(loaded.document, kind, reviewed);
           const problems = reviewProblems([reviewed], kind, context);
           if (problems.length) throw new Error(`Refusing to write an invalid sign-off:\n- ${problems.join("\n- ")}`);
-          writeDataFileAtomically(loaded.path, await formatJson(nextDocument, loaded.path), loaded.raw);
+          writeDataFileAtomically(loaded.path, await formatJson(prettier, nextDocument, loaded.path), loaded.raw, {
+            notice: (message) => writeLine(errorOutput, message),
+          });
         },
       });
       if (result.status === "reviewed") {
