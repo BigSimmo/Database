@@ -1059,6 +1059,8 @@ function ClinicalCollapsedRail({
   // gets its own slot — including Calculators and Favourites, which cannot be pinned.
   // Exactly one rail item is ever marked current.
   const activeModeInLibrary = showAccountLibrary && sidebarAccountLibraryItems.some((item) => item.id === activeMode);
+  // The "favourites" branch is reachable only when the library nav is hidden
+  // (showAccountLibrary false); otherwise Favourites is already lit there.
   const currentModeItem =
     pinnedModeIds.includes(activeMode) || activeModeInLibrary
       ? undefined
