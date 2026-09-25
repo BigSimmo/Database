@@ -319,4 +319,26 @@ test.describe("CME phone design", () => {
     await page.getByLabel("What was it", { exact: false }).focus();
     await expect(bar).toBeInViewport();
   });
+
+  test("the year check lists every target with a status in words, and links back to the log", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cme");
+    await page.getByTestId("cme-year-check-link").filter({ visible: true }).click();
+    await expect(page).toHaveURL(/\/cme\/check\?year=2026/);
+    const check = page.getByTestId("cme-year-check");
+    await expect(check.getByRole("heading", { level: 1 })).toHaveText(/\d+ of \d+ ready/);
+    await expect(check.getByTestId("cme-check-row-total")).toBeVisible();
+    await expect(check.getByTestId("cme-check-row-copied")).toBeVisible();
+  });
+
+  test("the calendar opens on the current month and changes month with the arrows", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cme/calendar");
+    const calendar = page.getByTestId("cme-calendar-view");
+    await expect(calendar.getByRole("heading", { level: 2 })).toHaveText("September 2026");
+    await calendar.getByRole("button", { name: "Next month" }).click();
+    await expect(calendar.getByRole("heading", { level: 2 })).toHaveText("October 2026");
+    const width = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(width).toBeLessThanOrEqual(390);
+  });
 });
