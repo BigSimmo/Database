@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronRight, ExternalLink, ShieldCheck, Workflow } from "lucide-react";
+import { BookOpenText, Check, ChevronRight, ExternalLink, ShieldCheck, Workflow } from "lucide-react";
 import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -104,6 +104,33 @@ export function listFormRegister(records: readonly FormSearchMatch["service"][])
 // The register view is the forms search route with no query: a browse surface,
 // not a redirect (see modeSearchRoutesWithoutBrowseView).
 const allFormsHref = consolidatedModeSearchPath("forms");
+
+/**
+ * The route into the "Act and Standards" reference page. It depends on nothing the
+ * registry loads, so it renders in every registry state — including a failed load,
+ * when the statutory reference is still the thing a reader can use.
+ */
+function ActAndStandardsLink() {
+  return (
+    <Link
+      href="/forms/act"
+      data-testid="forms-act-and-standards-link"
+      className={cn(
+        "flex min-h-12 items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)]",
+        searchFocusRing,
+      )}
+    >
+      <BookOpenText aria-hidden className="h-5 w-5 shrink-0 text-[color:var(--clinical-accent)]" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">Act and Standards</span>
+        <span className="block text-xs leading-5 text-[color:var(--text-muted)]">
+          Mental Health Act 2014 sections and the Chief Psychiatrist&apos;s Standards, in plain English
+        </span>
+      </span>
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+    </Link>
+  );
+}
 
 function compactMatchReason(match: FormSearchMatch, query: string) {
   if (match.reasons.includes(registerListingReason)) return "Listed in the forms register";
@@ -923,6 +950,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
           />
         )}
+        <ActAndStandardsLink />
         <div className="hidden lg:block">{supportsPathwayClaims ? <PathwayPanel /> : null}</div>
         <div className="lg:hidden">{supportsPathwayClaims ? <MobilePathway /> : null}</div>
         {registryReady && supportsPathwayClaims ? <VerifiedFooter /> : null}
