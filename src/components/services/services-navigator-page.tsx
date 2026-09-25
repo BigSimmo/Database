@@ -59,6 +59,7 @@ import {
   writeServiceFacetSelectionToParams,
   type ServiceFacetDimension,
 } from "@/lib/service-facets";
+import { serviceMatchesEveryQueryToken } from "@/lib/service-best-fit";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { replaceResultFilterUrl } from "@/lib/result-filter-url";
 import { sortResultItems } from "@/lib/result-sort";
@@ -91,6 +92,7 @@ function ServiceCard({
   service,
   index,
   relevanceRank,
+  query,
   selected,
   onToggleSelected,
   saved,
@@ -102,6 +104,11 @@ function ServiceCard({
   service: ServiceRecord;
   index: number;
   relevanceRank: number | null;
+  // The active search text, used only to keep the "Best fit" badge honest: rank alone
+  // says "this came out on top", which can happen through a loose/fuzzy match, so the
+  // badge additionally requires every word the psychiatrist typed to actually be in the
+  // record. See src/lib/service-best-fit.ts (#CNCAFV).
+  query: string;
   selected: boolean;
   onToggleSelected: (slug: string) => void;
   saved: boolean;
@@ -113,7 +120,7 @@ function ServiceCard({
   savePending: boolean;
   onToggleSaved: (slug: string) => void;
 }) {
-  const showBestFit = relevanceRank !== null && relevanceRank <= 2;
+  const showBestFit = relevanceRank !== null && relevanceRank <= 2 && serviceMatchesEveryQueryToken(service, query);
 
   return (
     <article
@@ -1029,6 +1036,7 @@ export function ServicesNavigatorPage() {
                 service={service}
                 index={index}
                 relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
+                query={query}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
                 saved={accountData.isSaved("service", service.slug)}
