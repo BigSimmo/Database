@@ -1316,6 +1316,11 @@ export type RagAnswer = {
   retrievalGateBlocked?: boolean;
   /** Server-derived browser-safe trust cap. Never carries claim, chunk, document, or assessment identities. */
   authorityTrustCapRequired?: boolean;
+  /**
+   * Server-derived, label-only cap on the words "Strong support" (#WGMB4Z). Never changes render
+   * trust or caps. Absent on payloads stored before it existed, which then keep the old label.
+   */
+  strongSupportLabelCapped?: boolean;
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;

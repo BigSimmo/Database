@@ -84,27 +84,65 @@ const criterionTone: Record<DifferentialSection["tone"], string> = {
   overlap: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
 
+// Every tone is OPAQUE (#0FT00E). The sticky criteria cell takes `bg-inherit`
+// from its row, so an alpha tone such as `/75` let horizontally scrolled cells
+// bleed through the red-flag row labels. Mixing the soft tone into the surface
+// keeps the same visible tint without any transparency.
 const rowTone: Record<DifferentialSection["tone"], string> = {
   fit: "bg-[color:var(--surface)]",
-  warning: "bg-[color:var(--danger-soft)]/75",
+  warning: "bg-[color:color-mix(in_srgb,var(--danger-soft)_75%,var(--surface))]",
   question: "bg-[color:var(--surface)]",
-  action: "bg-[color:var(--clinical-accent-soft)]/55",
+  action: "bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))]",
   test: "bg-[color:var(--surface)]",
   overlap: "bg-[color:var(--surface)]",
 };
 
-// The sticky criteria column needs the same tint as its row but OPAQUE: the
-// translucent row tones let horizontally scrolled cells show through the
-// red-flag labels (#0FT00E). Each value mixes the tone over the surface at the
-// same strength the row uses, so the colour matches without the transparency.
-const stickyRowTone: Record<DifferentialSection["tone"], string> = {
-  fit: "bg-[color:var(--surface)]",
-  warning: "bg-[color-mix(in_srgb,var(--danger-soft)_75%,var(--surface))]",
-  question: "bg-[color:var(--surface)]",
-  action: "bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))]",
-  test: "bg-[color:var(--surface)]",
-  overlap: "bg-[color:var(--surface)]",
-};
+/**
+ * The table's minimum width by candidate-column count: the 10.75rem criteria
+ * column plus 8.5rem per candidate. A fixed lookup of LITERAL classes, because
+ * Tailwind only generates classes it can read in the source (#0FT00E). It
+ * replaces a flat `min-w-[84rem]`, which forced 1344px however few columns
+ * there were. Not `w-max`: the "Applies to the whole presentation" cell spans
+ * every column, and max-content would size the table to that sentence on one
+ * line. Not an inline style: the design drift ratchet is at its ceiling.
+ */
+const comparisonTableMinWidth = [
+  "min-w-[10.75rem]",
+  "min-w-[19.25rem]",
+  "min-w-[27.75rem]",
+  "min-w-[36.25rem]",
+  "min-w-[44.75rem]",
+  "min-w-[53.25rem]",
+  "min-w-[61.75rem]",
+  "min-w-[70.25rem]",
+  "min-w-[78.75rem]",
+  "min-w-[87.25rem]",
+  "min-w-[95.75rem]",
+  "min-w-[104.25rem]",
+  "min-w-[112.75rem]",
+] as const;
+
+function comparisonTableMinWidthClass(candidateCount: number) {
+  const index = Math.max(0, Math.min(candidateCount, comparisonTableMinWidth.length - 1));
+  return comparisonTableMinWidth[index];
+}
+
+/** Selected diagnoses first, each group in catalogue order, so the columns the
+ *  banner says are being compared are the ones in view (#0FT00E). */
+function selectedFirst(candidates: readonly CandidateView[]) {
+  return [
+    ...candidates.filter((candidate) => candidate.selected),
+    ...candidates.filter((candidate) => !candidate.selected),
+  ];
+}
+
+function NotSelectedMarker() {
+  return (
+    <span className="inline-flex min-h-6 items-center rounded-md border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]">
+      Not selected
+    </span>
+  );
+}
 
 function statusLabel(status: DifferentialRecord["status"]) {
   if (status === "emergent") return "Emergency";
@@ -244,9 +282,7 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
         {candidate.record.title}
       </span>
       <EmergencyBadge status={candidate.record.status} />
-      {candidate.selected ? null : (
-        <span className="text-2xs font-bold text-[color:var(--text-muted)]">Not selected</span>
-      )}
+      {candidate.selected ? null : <NotSelectedMarker />}
     </Link>
   );
 }
@@ -262,19 +298,7 @@ function DesktopComparisonTable({
   candidates: CandidateView[];
   editSelectionHref: string;
 }) {
-  // Emergency diagnoses lead the table so a must-not-miss column is never the one
-  // left past the right edge of the scroll (#0FT00E). Array sort is stable, so the
-  // workflow's own order holds within each group.
-  const columns = [...candidates].sort(
-    (left, right) => Number(right.record.status === "emergent") - Number(left.record.status === "emergent"),
-  );
-  const emergencyCount = columns.filter((candidate) => candidate.record.status === "emergent").length;
-  const emergencyNote =
-    emergencyCount === 0
-      ? ""
-      : emergencyCount === columns.length
-        ? ` All ${columns.length} are emergency diagnoses.`
-        : " Emergency diagnoses are shown first.";
+  const columns = selectedFirst(candidates);
   return (
     <section className="hidden md:block" aria-label="Differential comparison table">
       <div className="mb-2 flex min-h-tap flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
@@ -282,7 +306,7 @@ function DesktopComparisonTable({
           <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
           <p className="text-sm font-semibold text-[color:var(--text-muted)]">
             <span className="font-extrabold text-[color:var(--text-heading)]">{workflow.selectedCount}</span> of{" "}
-            {workflow.totalCount} diagnoses selected · all {columns.length} shown below
+            {workflow.totalCount} diagnoses compared
           </p>
         </div>
         <Link
@@ -295,19 +319,16 @@ function DesktopComparisonTable({
         </Link>
       </div>
 
-      <p
-        data-testid="differential-comparison-scroll-cue"
-        className="mb-2 text-xs font-semibold text-[color:var(--text-heading)]"
-      >
-        Scroll sideways to see all {columns.length} diagnoses.{emergencyNote}
-      </p>
       <div
         data-testid="differential-comparison-scroll"
         className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         <table
           aria-label="Differential comparison"
-          className="min-w-[84rem] border-separate border-spacing-0 text-left"
+          className={cn(
+            "w-full border-separate border-spacing-0 text-left",
+            comparisonTableMinWidthClass(columns.length),
+          )}
         >
           <thead>
             <tr>
@@ -326,7 +347,7 @@ function DesktopComparisonTable({
                   key={candidate.record.slug}
                   className={cn(
                     "w-[8.5rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] p-0 align-top",
-                    !candidate.selected && "bg-[color:var(--surface-subtle)]/75",
+                    !candidate.selected && "bg-[color:var(--surface-subtle)]",
                   )}
                 >
                   <CandidateHeader candidate={candidate} />
@@ -341,10 +362,7 @@ function DesktopComparisonTable({
                 <tr key={criterion.id} className={rowTone[criterion.tone]}>
                   <th
                     scope="row"
-                    className={cn(
-                      "sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] px-3.5 py-3 align-top",
-                      stickyRowTone[criterion.tone],
-                    )}
+                    className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-inherit px-3.5 py-3 align-top"
                   >
                     <CriteriaLabel criterion={criterion} />
                   </th>
@@ -517,6 +535,9 @@ function HighestUrgencyPanel({
   workflow: DifferentialPresentationWorkflow;
   candidates: CandidateView[];
 }) {
+  // Every selected emergency is listed: an earlier `slice(0, 3)` silently
+  // dropped the fourth (post-ictal state on acute confusion) with no cue
+  // (#0FT00E follow-up).
   const emergent = candidates.filter((candidate) => candidate.selected && candidate.record.status === "emergent");
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -525,22 +546,73 @@ function HighestUrgencyPanel({
       <div className="mt-3 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/80 p-3">
         <EmergencyBadge status="emergent" />
         <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
-          {emergent.slice(0, 3).map((candidate) => (
+          {emergent.map((candidate) => (
             <li key={candidate.record.slug}>
-              <Link
-                href={`/differentials/diagnoses/${candidate.record.slug}`}
-                className="inline-flex min-h-tap items-center gap-1 text-[color:var(--text-heading)] underline-offset-2 hover:text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-label={`Open diagnosis: ${candidate.record.title}`}
-              >
-                {candidate.record.title}
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-              </Link>
+              <UrgentDiagnosisLink candidate={candidate} />
             </li>
           ))}
         </ul>
         <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">{workflow.highestUrgencyNote}</p>
       </div>
+      <UnselectedEmergencies candidates={candidates} testId="differential-unselected-emergencies" className="mt-3" />
     </section>
+  );
+}
+
+/**
+ * Emergencies left out of the selection, listed in full and never truncated
+ * (#0FT00E). Their desktop table columns sit after the selected ones, where
+ * they scroll out of view, and the phone view renders only the selected cards,
+ * so without this block an unselected emergency such as Wernicke
+ * encephalopathy would be on no non-scrolling surface at all. Rendered in the
+ * Highest urgency callout (tablet and desktop) and in the phone comparison.
+ */
+function UnselectedEmergencies({
+  candidates,
+  testId,
+  className,
+}: {
+  candidates: CandidateView[];
+  testId: string;
+  className?: string;
+}) {
+  const unselectedEmergent = candidates.filter(
+    (candidate) => !candidate.selected && candidate.record.status === "emergent",
+  );
+  if (unselectedEmergent.length === 0) return null;
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        "rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/80 p-3",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <EmergencyBadge status="emergent" />
+        <NotSelectedMarker />
+      </div>
+      <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
+        {unselectedEmergent.map((candidate) => (
+          <li key={candidate.record.slug}>
+            <UrgentDiagnosisLink candidate={candidate} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function UrgentDiagnosisLink({ candidate }: { candidate: CandidateView }) {
+  return (
+    <Link
+      href={`/differentials/diagnoses/${candidate.record.slug}`}
+      className="inline-flex min-h-tap items-center gap-1 text-[color:var(--text-heading)] underline-offset-2 hover:text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      aria-label={`Open diagnosis: ${candidate.record.title}`}
+    >
+      {candidate.record.title}
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
+    </Link>
   );
 }
 
@@ -798,6 +870,7 @@ function MobileComparison({
         </Link>
       </div>
       <SafetySnapshot workflow={workflow} diagnosisLinks={diagnosisLinks} />
+      <UnselectedEmergencies candidates={candidates} testId="differential-unselected-emergencies-mobile" />
       <GroupScopedCriteria workflow={workflow} candidates={selected} diagnosisLinks={diagnosisLinks} />
       <div className="grid gap-3">
         {selected.map((candidate, index) => (

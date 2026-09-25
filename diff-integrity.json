@@ -108,6 +108,13 @@
       "after": 0,
       "reason": "Whole-file deletion under issue #BDJWAH: src/lib/owner-catalogue-cache.ts is deleted outright, so this suite has no subject left. The module lost its only search-path reader on 2026-09-09 (b753ed2b1) and kept only two orphaned invalidateOwnerCatalogueCache calls in the seed writers, which are removed in the same change. No coverage is re-pointed because none is lost: tests/site-content-record-cache.test.ts already covers every property this suite asserted about the cache that replaced it - flight coalescing, last-waiter abort semantics, no-store on failure or abort, TTL expiry and a bounded LRU. The only case with no counterpart is owner/kind-scoped invalidation, and neither the owner scope nor the invalidation exists any more: the replacement cache is process-wide, public-projection only, and deliberately has no invalidation hook (reasoning in its module header).",
       "approvedOn": "2026-09-19"
+    },
+    {
+      "path": "tests/answer-support-priority.dom.test.tsx",
+      "before": 9,
+      "after": 4,
+      "reason": "#51975R owner decision 2026-09-25: answerSupportPriority and AnswerSupportSummaryCard had no caller in src/ and were deleted, so the five cases pinning the priority function went with them. The four AnswerUtilityActions and answer-surface routing cases stay.",
+      "approvedOn": "2026-09-25"
     }
   ]
 }

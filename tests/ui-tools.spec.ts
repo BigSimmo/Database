@@ -1376,7 +1376,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       {
         path: "/?mode=prescribing",
         testId: "shared-home-empty-state",
-        heading: "Medication Guidance",
+        heading: "Medication Reference",
         headingLevel: 2,
       },
       {

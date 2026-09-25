@@ -360,6 +360,8 @@ export function PatientProfilePanel({
               // clear case is handled in place instead — see `resetNonce`.
               key={`scr-${scrUnit}`}
               label="Serum creatinine"
+              // Names the selected unit so the range message does too (#HXC4D4).
+              unit={scrUnit === "mg/dL" ? "mg/dL" : "µmol/L"}
               value={profile.scr}
               onChange={(value) => updateField("scr", value)}
               testId="patient-scr"

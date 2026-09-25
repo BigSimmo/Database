@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2eb74ac8-3873-4a82-8e2f-ca79ab102570",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#1M22X5",
+    "outcome": "Fixed in 8693bd70e and e7e2cd5ca (document results show the verdict in words: Strong match / Partial match / Nearby only, and the existing 'No direct support' below nearby; the hard-coded percentage is gone from visible and screen-reader text; result order untouched and pinned; per owner decision 11 the first card says 'Best match' only on a Strong or Partial match and 'Top result' otherwise). Pinned by tests/document-search-results.dom.test.tsx, tests/document-relevance-score.test.ts and the document search journey in tests/ui-smoke.spec.ts. Resolved 2026-09-25 by PR #3021. Document search no longer shows a numeric match percentage; the relevance chip shows the verdict only (direct/partial/nearby) with its wording from relevanceChipLabel, so a nearby-only result displays honestly. Pinned by tests/document-search-results.dom.test.tsx. [Merge note: when #3021 merged after #3031, #3031's owner-decided implementation above was kept in the conflicting files and #3021's version described in this second sentence group was superseded.]",
+    "baseRowFingerprint": "836486ed0ae400ca6e069710ae8ce19d6b2daa411121f5898f12778db4763e68"
+  }
+}

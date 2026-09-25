@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2e51e30d-b356-44c5-85e0-a361bb683e8a",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#ASVM8H",
+    "outcome": "Not reproducible on main (2026-09-25): real Tab presses at 390 px keep the focused control clear of the phone dock. Pinned by the phone Tab spec added to tests/ui-overlap.spec.ts in PR #3023.",
+    "baseRowFingerprint": "d34fe912737a5ff6b807112a0824dda0bee548241b7d8a275f9f68b3cd66d5f5"
+  }
+}

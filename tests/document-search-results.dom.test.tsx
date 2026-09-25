@@ -146,45 +146,82 @@ describe("DocumentSearchResultsPanel (#GBBYTA)", () => {
   });
 });
 
-describe("document result relevance label (#1M22X5)", () => {
-  // relevance-score.ts returns fixed numbers per verdict (nearby = 78), so a
-  // nearby-only result with no matched terms rendered "Relevant, 78% related".
-  // The label must come from the verdict alone and carry no percentage.
-  const relevanceFor = (verdict: "direct" | "partial" | "nearby" | "none") =>
-    ({
-      verdict,
-      isSourceBacked: verdict === "direct" || verdict === "partial",
-      matchedTerms: [],
-      score: 0.063,
-    }) as unknown as DocumentMatch["relevance"];
-  const badgeFor = (verdict: "direct" | "partial" | "nearby" | "none") => {
-    window.history.replaceState(null, "", "/documents/search");
-    const document = match({
-      document_id: "33333333-3333-4333-8333-333333333333",
-      title: "Relevance probe",
-      score: 0.063,
-      relevance: relevanceFor(verdict),
+// #1M22X5 (owner decision, Josh, 2026-09-25): the relevance chip says what the
+// verdict says in words — "Strong match", "Partial match", "Nearby only" — and
+// never a percentage. The percentages were hard-coded per verdict (96/84/78), so
+// they measured nothing, and a nearby-only result always read "Relevant, 78%".
+describe("DocumentSearchResultsPanel relevance chip (#1M22X5)", () => {
+  function withVerdict(id: string, title: string, verdict: string | null, score: number) {
+    return match({
+      document_id: id,
+      title,
+      score,
+      ...(verdict
+        ? { relevance: { verdict, score, matchedTerms: [], missingTerms: [], isSourceBacked: false } as never }
+        : {}),
     });
-    const view = render(<DocumentSearchResultsPanel {...baseProps} matches={[document]} />);
-    const card = screen.getByTestId("document-result-card");
-    const text = card.textContent ?? "";
-    view.unmount();
-    return text;
-  };
+  }
 
-  it.each([
-    ["direct", "High relevance", "Source-backed"],
-    ["partial", "Relevant", "Partial support"],
-    ["nearby", "Related", "Nearby only"],
-    ["none", "Related", "No direct support"],
-  ] as const)("labels a %s result as %s (%s) with no percentage", (verdict, label, detail) => {
-    const text = badgeFor(verdict);
-    expect(text).toContain(label);
-    expect(text).toContain(detail);
-    expect(text).not.toMatch(/\d+%/);
+  // Deliberately ordered AGAINST both the verdict and the raw score, so any
+  // re-sort by either would show up as a changed order.
+  const nearby = withVerdict("33333333-3333-4333-8333-333333333333", "Nearby Document", "nearby", 0.99);
+  const partial = withVerdict("44444444-4444-4444-8444-444444444444", "Partial Document", "partial", 0.2);
+  const direct = withVerdict("55555555-5555-4555-8555-555555555555", "Direct Document", "direct", 0.1);
+  const none = withVerdict("66666666-6666-4666-8666-666666666666", "Unmatched Document", "none", 0.95);
+  const unknown = withVerdict("77777777-7777-4777-8777-777777777777", "Unassessed Document", null, 0.97);
+
+  function renderCards() {
+    window.history.replaceState(null, "", "/documents/search");
+    render(<DocumentSearchResultsPanel {...baseProps} matches={[nearby, partial, direct, none, unknown]} />);
+    return screen.getAllByTestId("document-result-card");
+  }
+
+  it("labels each verdict in words, for sighted and screen-reader users alike", () => {
+    const cards = renderCards();
+    const chipText = (card: HTMLElement) => card.textContent ?? "";
+    expect(chipText(cards[0]!)).toContain("Nearby only");
+    expect(chipText(cards[1]!)).toContain("Partial match");
+    expect(chipText(cards[2]!)).toContain("Strong match");
+    // Below "nearby" the product's existing honest label is used, never a
+    // stronger word than the verdict earns.
+    expect(chipText(cards[3]!)).toContain("No direct support");
+    expect(chipText(cards[4]!)).toContain("No direct support");
+    for (const card of cards) {
+      expect(chipText(card)).not.toMatch(/\d+\s*%/);
+      expect(chipText(card)).not.toMatch(/High relevance|\bRelevant\b|\bRelated\b/);
+    }
   });
 
-  it("never calls a nearby-only result Relevant", () => {
-    expect(badgeFor("nearby")).not.toContain("Relevant");
+  it("keeps the server's result order: the chip never re-sorts results", () => {
+    const cards = renderCards();
+    expect(cards.map((card) => card.querySelector("h3 .line-clamp-2")?.textContent ?? "")).toEqual([
+      "Nearby Document",
+      "Partial Document",
+      "Direct Document",
+      "Unmatched Document",
+      "Unassessed Document",
+    ]);
+  });
+
+  // Owner decision 11 (Josh, 2026-09-25): "Best match" is a quality claim, so the top card
+  // earns it only when its verdict is a strong or partial match. Otherwise it is only the
+  // first result, and the badge says so: "Top result".
+  it.each([
+    ["direct", "Best match"],
+    ["partial", "Best match"],
+    ["nearby", "Top result"],
+    ["none", "Top result"],
+    [null, "Top result"],
+  ])("labels a top result with verdict %s as %s", (verdict, badge) => {
+    window.history.replaceState(null, "", "/documents/search");
+    const top = withVerdict("88888888-8888-4888-8888-888888888888", "Top Document", verdict, 0.9);
+    const second = withVerdict("99999999-9999-4999-8999-999999999999", "Second Document", "direct", 0.8);
+    render(<DocumentSearchResultsPanel {...baseProps} matches={[top, second]} />);
+    const cards = screen.getAllByTestId("document-result-card");
+    expect(cards[0]!.textContent).toContain(badge);
+    const other = badge === "Best match" ? "Top result" : "Best match";
+    expect(cards[0]!.textContent).not.toContain(other);
+    // Only the first card carries either badge, whatever the later cards' verdicts.
+    expect(cards[1]!.textContent).not.toMatch(/Best match|Top result/);
   });
 });
