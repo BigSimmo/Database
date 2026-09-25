@@ -100,7 +100,7 @@ function StandardItem({ standard }: { standard: ChiefPsychiatristStandard }) {
             </p>
           )}
           {standard.sourceUrl ? (
-            <a className={externalLink} href={standard.sourceUrl} target="_blank" rel="noreferrer">
+            <a className={externalLink} href={standard.sourceUrl} target="_blank" rel="noopener noreferrer">
               Read the standard
               <ExternalLink className="h-4 w-4" aria-hidden />
             </a>
@@ -150,7 +150,7 @@ export function ActAndStandardsPage({
           <p className={cn("text-xs leading-5", textMuted)}>
             {`${sectionCount} sections, written from version ${act.actVersion} as at ${act.actAsAt}.`}
           </p>
-          <a className={externalLink} href={act.sourceUrl} target="_blank" rel="noreferrer">
+          <a className={externalLink} href={act.sourceUrl} target="_blank" rel="noopener noreferrer">
             Read the Act on the WA legislation website
             <ExternalLink className="h-4 w-4" aria-hidden />
           </a>

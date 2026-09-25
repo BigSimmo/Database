@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
+import chiefPsychiatristStandards from "../../../data/chief-psychiatrist-standards.json";
 import formsActSectionCues from "../../../data/forms-act-section-cues.json";
 import mhaSections from "../../../data/mha-2014-sections.json";
 import { safeCanonicalSourceUrl } from "@/lib/sources/source-url-policy";
@@ -8,9 +6,8 @@ import { safeCanonicalSourceUrl } from "@/lib/sources/source-url-policy";
 /**
  * Data assembly for the Forms "Act and Standards" page (`/forms/act`).
  *
- * Server-only: it reads `data/chief-psychiatrist-standards.json` from disk, which is
- * why the page that calls it is force-static — the read happens once, at build, where
- * the whole repository is present, and never in the slimmer runtime image.
+ * Every input is a JSON import, so it is bundled at build. The runtime image does not
+ * ship `data/`, so nothing here may read from disk at request time.
  */
 
 export type ActReferenceSection = {
@@ -106,9 +103,9 @@ export type ChiefPsychiatristStandard = {
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 /**
- * Validates the Standards file defensively. Another workstream writes it, so an absent
- * file, a malformed file and a malformed entry must all leave the page rendering —
- * with the Standards section omitted or the bad entry dropped, never half-drawn.
+ * Validates the Standards data defensively. Another workstream writes it, so a
+ * malformed file or entry must leave the page rendering — with the Standards section
+ * omitted or the bad entry dropped, never half-drawn.
  */
 export function parseChiefPsychiatristStandards(value: unknown): ChiefPsychiatristStandard[] | null {
   if (!value || typeof value !== "object") return null;
@@ -134,20 +131,7 @@ export function parseChiefPsychiatristStandards(value: unknown): ChiefPsychiatri
   });
 }
 
-export const CHIEF_PSYCHIATRIST_STANDARDS_PATH = path.join(process.cwd(), "data", "chief-psychiatrist-standards.json");
-
-export function loadChiefPsychiatristStandards(
-  filePath: string = CHIEF_PSYCHIATRIST_STANDARDS_PATH,
-): ChiefPsychiatristStandard[] | null {
-  let raw: string;
-  try {
-    raw = readFileSync(filePath, "utf8");
-  } catch {
-    return null;
-  }
-  try {
-    return parseChiefPsychiatristStandards(JSON.parse(raw));
-  } catch {
-    return null;
-  }
+/** The committed Standards summaries; `null` only if the file's shape is unusable. */
+export function loadChiefPsychiatristStandards(): ChiefPsychiatristStandard[] | null {
+  return parseChiefPsychiatristStandards(chiefPsychiatristStandards);
 }

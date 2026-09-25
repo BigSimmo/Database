@@ -1,9 +1,6 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
 
+import chiefPsychiatristStandards from "../data/chief-psychiatrist-standards.json";
 import formsActSectionCues from "../data/forms-act-section-cues.json";
 import curatedSections from "../data/mha-2014-sections.json";
 import {
@@ -62,24 +59,14 @@ describe("Chief Psychiatrist's Standards", () => {
     ],
   };
 
-  it("returns null when the file is absent, so the page renders without the section", () => {
-    const missing = path.join(mkdtempSync(path.join(tmpdir(), "cp-standards-")), "absent.json");
-    expect(loadChiefPsychiatristStandards(missing)).toBeNull();
-  });
-
-  it("returns null for unreadable JSON or the wrong shape", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "cp-standards-"));
-    const broken = path.join(dir, "broken.json");
-    writeFileSync(broken, "{not json");
-    expect(loadChiefPsychiatristStandards(broken)).toBeNull();
+  it("returns null for the wrong shape, so the page renders without the section", () => {
     expect(parseChiefPsychiatristStandards({ standards: "nope" })).toBeNull();
+    expect(parseChiefPsychiatristStandards({})).toBeNull();
     expect(parseChiefPsychiatristStandards(null)).toBeNull();
   });
 
-  it("reads a well-formed file", () => {
-    const file = path.join(mkdtempSync(path.join(tmpdir(), "cp-standards-")), "ok.json");
-    writeFileSync(file, JSON.stringify(valid));
-    expect(loadChiefPsychiatristStandards(file)).toEqual([
+  it("reads a well-formed payload", () => {
+    expect(parseChiefPsychiatristStandards(valid)).toEqual([
       {
         id: "cp-standard-a",
         title: "Standard A",
@@ -88,6 +75,16 @@ describe("Chief Psychiatrist's Standards", () => {
         reviewed: false,
       },
     ]);
+  });
+
+  it("loads every committed standard from the bundled JSON, none marked reviewed", () => {
+    // A JSON import, not a disk read: the runtime image does not ship data/.
+    const loaded = loadChiefPsychiatristStandards();
+    expect(loaded?.map((entry) => entry.id)).toEqual(chiefPsychiatristStandards.standards.map((entry) => entry.id));
+    for (const entry of loaded ?? []) {
+      expect(entry.sourceUrl, entry.id).toMatch(/^https:\/\/www\.chiefpsychiatrist\.wa\.gov\.au\//);
+      expect(entry.reviewed, entry.id).toBe(false);
+    }
   });
 
   it("drops entries missing a title or summary and never links an ungoverned URL", () => {
