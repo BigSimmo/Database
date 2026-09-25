@@ -509,7 +509,10 @@ test.describe("Tablet usability regressions", () => {
       await expect(page.getByTestId("smart-search-prompt-row")).toBeVisible();
     }).toPass({ timeout: 30_000 });
 
-    const promptRow = page.getByTestId("smart-search-prompt-row");
+    // WebKit can stream a hidden duplicate of the page root (#093), so a bare
+    // document.querySelector may read the clone's rail, which never scrolls.
+    // Read the rail from the same visible owner the control is clicked in.
+    const promptRow = page.getByTestId("smart-search-prompt-row").filter({ visible: true });
     const forward = promptRow.getByTestId("answer-suggestion-scroll-forward");
     await expect(forward, "the rail overflows at 820px, so the control must be offered").toBeVisible();
 
@@ -520,11 +523,11 @@ test.describe("Tablet usability regressions", () => {
     expect(box!.height, "scroll control must meet the 48px tap floor").toBeGreaterThanOrEqual(48);
     expect(box!.width, "scroll control must meet the 48px tap floor").toBeGreaterThanOrEqual(48);
 
-    const railSelector = '[data-testid="smart-search-prompt-row"] .answer-suggestion-chips';
-    const before = await page.evaluate((selector) => document.querySelector(selector)!.scrollLeft, railSelector);
+    const rail = promptRow.locator(".answer-suggestion-chips");
+    const before = await rail.evaluate((node) => node.scrollLeft);
     await forward.click();
     await expect
-      .poll(async () => page.evaluate((selector) => document.querySelector(selector)!.scrollLeft, railSelector), {
+      .poll(async () => rail.evaluate((node) => node.scrollLeft), {
         message: "the control must actually move the rail",
         timeout: 5_000,
       })
@@ -533,16 +536,15 @@ test.describe("Tablet usability regressions", () => {
 
     // The contract the affordance had to be designed around: one row of chips,
     // and a composer still the settled 160px with the control rendered.
-    const geometry = await page.evaluate((selector) => {
-      const slot = document.getElementById("mode-home-desktop-composer-slot");
-      const chips = document.querySelector(selector);
-      if (!slot || !chips) return null;
-      return {
-        chipRows: new Set([...chips.children].map((chip) => Math.round(chip.getBoundingClientRect().top))).size,
-        chipCount: chips.children.length,
-        composerHeight: Math.round(slot.getBoundingClientRect().height),
-      };
-    }, railSelector);
+    const chipGeometry = await rail.evaluate((chips) => ({
+      chipRows: new Set([...chips.children].map((chip) => Math.round(chip.getBoundingClientRect().top))).size,
+      chipCount: chips.children.length,
+    }));
+    const composerHeight = await page
+      .locator("#mode-home-desktop-composer-slot")
+      .filter({ visible: true })
+      .evaluate((slot) => Math.round(slot.getBoundingClientRect().height));
+    const geometry = { ...chipGeometry, composerHeight };
     expect(geometry, "home composer and prompt rail must render").not.toBeNull();
     expect(geometry!.chipCount, "the rail must carry prompts to be worth measuring").toBeGreaterThan(1);
     expect(geometry!.chipRows, "prompt chips must still share one row").toBe(1);
