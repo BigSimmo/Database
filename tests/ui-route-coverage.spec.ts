@@ -557,7 +557,16 @@ test.describe("previously uncovered production routes", () => {
       const text = message.text();
       const isWebKitViewportDiagnostic =
         browserName === "webkit" && text === 'Viewport argument key "interactive-widget" not recognized and ignored.';
-      if (message.type() === "error" && !isWebKitViewportDiagnostic) consoleErrors.push(text);
+      // The offline test environment points Supabase at http://127.0.0.1:1 (scripts/test-environment.mjs), and the
+      // app preconnects to its Supabase origin. WebKit refuses port 1 as a restricted port and logs that refusal
+      // as a console error; no request of the page's own failed.
+      const isWebKitOfflineSupabasePreconnect =
+        browserName === "webkit" &&
+        text.startsWith("Failed to preconnect to http://127.0.0.1:1/") &&
+        text.includes("restricted network port");
+      if (message.type() === "error" && !isWebKitViewportDiagnostic && !isWebKitOfflineSupabasePreconnect) {
+        consoleErrors.push(text);
+      }
     });
     await proveRenderedRoute(
       page,

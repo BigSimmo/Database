@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page, type TestInfo } from "playwright/test";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 const axeWcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const axeBlockingImpacts = new Set(["critical", "serious"]);
@@ -472,7 +473,8 @@ test("fits the guided builder across its responsive breakpoints", async ({ page 
     await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
     await gotoApp(page, "/specifiers/builder");
     await expect(page.getByRole("list", { name: "Specifier builder steps" })).toBeVisible();
-    await expect(page.getByTestId("specifier-builder-base")).toBeVisible();
+    // A hidden streaming clone of the page root can coexist briefly in WebKit (#093).
+    await expectSingleSettledOwner(page.getByTestId("specifier-builder-base"));
     await expectNoHorizontalOverflow(page);
   }
 });
