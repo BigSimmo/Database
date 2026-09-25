@@ -13,7 +13,8 @@ export type ServiceUrgentIntent =
   | "suicide_aftercare"
   | "suicide_postvention";
 
-const CRISIS = /\b(?:suicid\w*|crisis|acute|unsafe|self[- ]?harm|mental health emergency)\b/i;
+// `self[- ]?harm\w*` so "self harming", "self-harmed" and "selfharm" are all crisis wording.
+const CRISIS = /\b(?:suicid\w*|crisis|acute|unsafe|self[- ]?harm\w*|mental health emergency)\b/i;
 const IMMEDIATE_DANGER =
   /\b(?:actively suicidal|immediate danger|life[- ]?threatening|severe injury|overdose|about to (?:kill|harm)|cannot keep (?:myself|them|him|her|the patient) safe|emergency (?:now|in progress)|strangl\w*|chok(?:ing|ed)?|can[’']?t breathe|cannot breathe)\b/i;
 // Wording that says the person is under 18: CAMHS Crisis Connect alone.

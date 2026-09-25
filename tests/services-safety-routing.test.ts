@@ -68,6 +68,16 @@ describe("services safety routing", () => {
     }
   });
 
+  it("treats every self-harm word form as crisis wording", () => {
+    for (const form of ["self harm", "self-harm", "selfharm", "self harming", "self-harmed", "selfharming"]) {
+      expect(detectServiceUrgentIntents(`young person ${form}`), form).toEqual(["camhs_crisis", "adult_metro_crisis"]);
+      expect(detectServiceUrgentIntents(`child ${form}`), form).toEqual(["camhs_crisis"]);
+      expect(detectServiceUrgentIntents(`aboriginal man ${form}`), form).toContain("aboriginal_crisis");
+    }
+    // Only the self-harm words themselves: "harm" alone, or harm to others, is not crisis wording.
+    expect(detectServiceUrgentIntents("child harm reduction")).toEqual([]);
+  });
+
   it("keeps main's other urgent routes pinned alongside a youth crisis", () => {
     expect(detectServiceUrgentIntents("aboriginal youth suicide")).toEqual([
       "camhs_crisis",
