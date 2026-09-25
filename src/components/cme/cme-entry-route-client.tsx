@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
+import { CmeEntryGoalPicker } from "@/components/cme/cme-entry-goal-picker";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { CmeEntryPage } from "@/components/cme/cme-entry-page";
 import { FormField } from "@/components/ui/form-field";
@@ -19,6 +21,8 @@ export type CmeEntryRouteClientProps = {
   readonly set: CmeRequirementSet;
   readonly edit: boolean;
   readonly demoMode: boolean;
+  /** The year's development-plan goals, for "which goal did this serve?". */
+  readonly goals?: readonly CmePlanGoal[];
 };
 
 async function responseError(response: Response): Promise<string> {
@@ -48,7 +52,7 @@ function updatePayload(entry: CmeEntry, draft: CmeEntryDraft, transcribed = entr
   };
 }
 
-export function CmeEntryRouteClient({ entry, set, edit, demoMode }: CmeEntryRouteClientProps) {
+export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: CmeEntryRouteClientProps) {
   const router = useRouter();
   const [archivePending, setArchivePending] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
@@ -174,41 +178,51 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode }: CmeEntryRout
         editLabel={amendable ? "Amend entry" : undefined}
         readOnly={readOnly}
         actions={
-          <section className="mt-4" aria-label="Archive activity">
-            {readOnly ? (
-              <p className={cn(textMuted, "mb-2 text-sm")}>
-                {set.closedAt
-                  ? "This CPD year is closed. Correct an activity with Amend entry: the change is recorded, dated and with your reason, beside the original. Evidence is view-only."
-                  : "Archived: excluded from totals, copies, exports and annual summaries. Sources and evidence are retained."}
-              </p>
-            ) : null}
-            <Button
-              disabled={demoMode || Boolean(set.closedAt) || archivePending}
-              // Archiving asks first; restoring does not. Both are reversible,
-              // but archiving takes the activity out of this year's totals and
-              // was one stray tap away from the top of the page.
-              onClick={() => (archived ? void setArchived(false) : setConfirmArchiveOpen(true))}
-            >
-              {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
-            </Button>
-            <ConfirmDialog
-              open={confirmArchiveOpen}
-              onCancel={() => setConfirmArchiveOpen(false)}
-              onConfirm={() => {
-                setConfirmArchiveOpen(false);
-                void setArchived(true);
-              }}
-              title="Archive this activity?"
-              description="It stops counting toward this year's hours and is left out of copies, exports and the annual summary. Its sources and evidence are kept, and you can restore it at any time."
-              confirmLabel="Archive activity"
-              tone="primary"
-            />
-            {archiveError ? (
-              <p role="alert" className="mt-2 text-sm">
-                {archiveError}
-              </p>
-            ) : null}
-          </section>
+          <>
+            <section className="mt-4" aria-label="Plan goal">
+              <CmeEntryGoalPicker
+                entryId={loadedEntry.id}
+                goals={goals}
+                initialGoalId={loadedEntry.goalId ?? null}
+                readOnly={demoMode || readOnly}
+              />
+            </section>
+            <section className="mt-4" aria-label="Archive activity">
+              {readOnly ? (
+                <p className={cn(textMuted, "mb-2 text-sm")}>
+                  {set.closedAt
+                    ? "This CPD year is closed. Correct an activity with Amend entry: the change is recorded, dated and with your reason, beside the original. Evidence is view-only."
+                    : "Archived: excluded from totals, copies, exports and annual summaries. Sources and evidence are retained."}
+                </p>
+              ) : null}
+              <Button
+                disabled={demoMode || Boolean(set.closedAt) || archivePending}
+                // Archiving asks first; restoring does not. Both are reversible,
+                // but archiving takes the activity out of this year's totals and
+                // was one stray tap away from the top of the page.
+                onClick={() => (archived ? void setArchived(false) : setConfirmArchiveOpen(true))}
+              >
+                {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
+              </Button>
+              <ConfirmDialog
+                open={confirmArchiveOpen}
+                onCancel={() => setConfirmArchiveOpen(false)}
+                onConfirm={() => {
+                  setConfirmArchiveOpen(false);
+                  void setArchived(true);
+                }}
+                title="Archive this activity?"
+                description="It stops counting toward this year's hours and is left out of copies, exports and the annual summary. Its sources and evidence are kept, and you can restore it at any time."
+                confirmLabel="Archive activity"
+                tone="primary"
+              />
+              {archiveError ? (
+                <p role="alert" className="mt-2 text-sm">
+                  {archiveError}
+                </p>
+              ) : null}
+            </section>
+          </>
         }
         onCopied={async () => {
           if (demoMode) throw new Error("Demo mode is read-only.");
