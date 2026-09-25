@@ -168,5 +168,28 @@
     "tests/rag-trust.test.ts": "416568e19e6ab8e67267ca53183b86a1703193543b4253269162d28736606eae",
     "tests/source-governance.test.ts": "0e9e126370a5500dbb72c722610fe1268c7e2f32e6b20b0a4f3ea401c54a645d",
     "tests/ward-output.test.ts": "bb9f417d63c769b8e059f41fe2c9a5c52f772cedd13e6352408b4a7716e00222"
-  }
+  },
+  "driftExceptions": [
+    {
+      "path": "src/lib/clinical-safety.ts",
+      "reason": "Drift predates the blocking gate. Safety-behaviour changes since the 2026-08-23 review (e.g. 41b5a025a escalate/monitoring matching, 64db243a9 stop-instruction labelling, 1aa717e88 no all-clear over a failed medication check) need clinical re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "src/components/clinical-dashboard/patient-profile-panel.tsx",
+      "reason": "Drift predates the blocking gate. Patient-profile changes since the 2026-08-23 review (3da15e805 clear generation, 8d49b16c4 number field) need re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "tests/clinical-safety.test.ts",
+      "reason": "Drift predates the blocking gate. Test changes accompanying the clinical-safety.ts changes above; re-seal together with it.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    }
+  ]
 }
