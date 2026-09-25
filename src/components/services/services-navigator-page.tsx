@@ -59,6 +59,7 @@ import {
   writeServiceFacetSelectionToParams,
   type ServiceFacetDimension,
 } from "@/lib/service-facets";
+import { serviceMatchesEveryQueryToken } from "@/lib/service-best-fit";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { replaceResultFilterUrl } from "@/lib/result-filter-url";
 import { sortResultItems } from "@/lib/result-sort";
@@ -90,7 +91,8 @@ function serviceChipLabel(chip: ServiceStatusChip) {
 function ServiceCard({
   service,
   index,
-  bestFit,
+  relevanceRank,
+  query,
   selected,
   onToggleSelected,
   saved,
@@ -101,7 +103,12 @@ function ServiceCard({
 }: {
   service: ServiceRecord;
   index: number;
-  bestFit: boolean;
+  relevanceRank: number | null;
+  // The active search text, used only to keep the "Best fit" badge honest: rank alone
+  // says "this came out on top", which can happen through a loose/fuzzy match, so the
+  // badge additionally requires every word the psychiatrist typed to actually be in the
+  // record. See src/lib/service-best-fit.ts (#CNCAFV).
+  query: string;
   selected: boolean;
   onToggleSelected: (slug: string) => void;
   saved: boolean;
@@ -113,7 +120,7 @@ function ServiceCard({
   savePending: boolean;
   onToggleSaved: (slug: string) => void;
 }) {
-  const showBestFit = bestFit;
+  const showBestFit = relevanceRank !== null && relevanceRank <= 2 && serviceMatchesEveryQueryToken(service, query);
 
   return (
     <article
@@ -434,27 +441,12 @@ export function ServicesNavigatorPage() {
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const registryBlocked = registry.status === "unauthorized" || registry.status === "error";
   const searchableRecords = useMemo(() => (registryReady ? registry.records : []), [registry.records, registryReady]);
-  const rankedSearch = useMemo(() => {
-    if (!query.trim()) return null;
-    return rankServiceRecords(searchableRecords, deferredQuery, searchableRecords.length, [], true);
+  const rankedMatches = useMemo(() => {
+    if (!query.trim()) return searchableRecords;
+    const ranked = rankServiceRecords(searchableRecords, deferredQuery, searchableRecords.length, [], true);
+    if (ranked.length) return ranked.map((match) => match.service);
+    return [];
   }, [deferredQuery, query, searchableRecords]);
-  const rankedMatches = useMemo(
-    () => (rankedSearch ? rankedSearch.map((match) => match.service) : searchableRecords),
-    [rankedSearch, searchableRecords],
-  );
-  // "Best fit" is a claim about the query, so it needs one: no query, no badge.
-  // Among the top two, only a record that covers every distinctive query term
-  // earns it; a shared generic word such as "disorder" does not (#CNCAFV).
-  const bestFitSlugs = useMemo(
-    () =>
-      new Set(
-        (rankedSearch ?? [])
-          .slice(0, 2)
-          .filter((match) => match.coversQuery)
-          .map((match) => match.service.slug),
-      ),
-    [rankedSearch],
-  );
   const groupedMatches = useMemo(
     () => rankedMatches.filter((service) => serviceMatchesCoreGroupSelection(service, activeGroupSelection)),
     [activeGroupSelection, rankedMatches],
@@ -503,6 +495,11 @@ export function ServicesNavigatorPage() {
     (substanceLens === "all" ? 0 : 1) +
     (resultScope === "all" ? 1 : 0) +
     activeGroupSelection.size;
+  const relevanceRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+    rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
+    return map;
+  }, [rankedMatches]);
   // Group-agnostic base for the group facet's own "how many if I also ticked
   // this" counts — `facetBaseMatches` cannot be reused here because it is
   // already narrowed by `activeGroupSelection`, which would make every
@@ -1038,7 +1035,8 @@ export function ServicesNavigatorPage() {
                 key={service.slug}
                 service={service}
                 index={index}
-                bestFit={sortValue !== "alpha" && bestFitSlugs.has(service.slug)}
+                relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
+                query={query}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
                 saved={accountData.isSaved("service", service.slug)}

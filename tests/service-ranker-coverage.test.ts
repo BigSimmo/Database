@@ -6,7 +6,8 @@ import { rankServiceUrgentRoutes } from "@/lib/service-urgent-routing";
 
 // Ledger #CNCAFV. The catalogue ranker keeps any record scoring on ANY query
 // term, and "disorder" in a title outweighs "panic" in the body, so "panic
-// disorder" put eating-disorder services first, badged "Best fit".
+// disorder" put eating-disorder services first. The "Best fit" badge itself is
+// covered by tests/service-best-fit.test.ts.
 describe("service search coverage of the distinctive query terms", () => {
   // No service record says "panic"; four say "anxiety", its listed family word.
   const mentionsPanic = (slug: string) => {
@@ -26,20 +27,10 @@ describe("service search coverage of the distinctive query terms", () => {
     if (firstWithout !== -1) expect(flags.slice(firstWithout).some(Boolean)).toBe(false);
   });
 
-  it("marks a match as covering the query only when it contains every distinctive term", () => {
-    const urgent = urgentFor("panic disorder");
+  it("finds the anxiety services for panic even though no record says panic", () => {
     const ranked = rankServiceRecords(serviceRecords, "panic disorder", serviceRecords.length, [], true);
-    for (const match of ranked.filter(({ service }) => !urgent.has(service.slug))) {
-      expect(match.coversQuery, match.service.slug).toBe(mentionsPanic(match.service.slug));
-    }
-    // The four anxiety services are found at all, and lead the ordinary results.
-    expect(ranked.filter(({ coversQuery }) => coversQuery).length).toBeGreaterThanOrEqual(4);
-  });
-
-  it("never claims coverage for a query made only of generic words", () => {
-    const urgent = urgentFor("mental health services");
-    for (const match of rankServiceRecords(serviceRecords, "mental health services", serviceRecords.length)) {
-      if (!urgent.has(match.service.slug)) expect(match.coversQuery).toBe(false);
-    }
+    const urgent = urgentFor("panic disorder");
+    const ordinary = ranked.filter(({ service }) => !urgent.has(service.slug));
+    expect(ordinary.slice(0, 4).every(({ service }) => mentionsPanic(service.slug))).toBe(true);
   });
 });

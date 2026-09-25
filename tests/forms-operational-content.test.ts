@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import formsCatalog from "../data/forms-catalog.json";
 import formsContentReview from "../data/forms-content-review.json";
+import { buildSheet } from "../scripts/build-forms-content-review-sheet";
+import { finalizeClinicalReview, reviewProblems } from "../scripts/lib/clinical-record-review-contract.mjs";
 
+import { reviewedSourceNote } from "@/components/forms/form-detail-page";
 import { FORMS_AWAITING_REVIEW_NOTE, formCatalogDetails, formContentReviewStatus } from "@/lib/form-catalog";
 import { formRecords, getFormRecord } from "@/lib/forms";
 
@@ -22,7 +25,7 @@ import { formRecords, getFormRecord } from "@/lib/forms";
  * clinician sign-off, exactly as the Act-section summaries do.
  */
 
-type CatalogForm = { form: string; purpose?: string; maker?: string; safetyPearl?: string };
+type CatalogForm = { form: string; purpose?: string; maker?: string; safetyPearl?: string; sourceNote?: string };
 const catalogForms = (formsCatalog as { forms: CatalogForm[] }).forms;
 
 const INDEXING_SCAFFOLD = {
@@ -95,6 +98,41 @@ describe("forms catalogue operational content", () => {
   });
 
   /**
+   * Seven forms' catalogue sourceNote is only the pre-review caveat: "Operational guidance
+   * drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical
+   * review." (pinned in data/forms-catalog.json; never edited by this component). The Act/cue
+   * row on the form's Source info tab falls back to sourceNote whenever the form has no
+   * sourceFacts.sectionCue, so that caveat would otherwise keep showing forever, even after
+   * the form is clinically reviewed. reviewedSourceNote suppresses it, and only it, once
+   * contentReviewStatus is "reviewed" — any other sourceNote text is unaffected.
+   */
+  it("stops showing the 'awaiting clinical review' sourceNote once a form is reviewed, but leaves every other sourceNote alone", () => {
+    const AWAITING =
+      "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review.";
+    const affected = catalogForms.filter((entry) => entry.sourceNote === AWAITING).map((entry) => entry.form);
+    expect(affected).toEqual(PREVIOUSLY_UNCOVERED);
+
+    // Drafted (today's real state for all seven): the caveat still shows.
+    expect(reviewedSourceNote({ sourceNote: AWAITING, contentReviewStatus: "drafted" })).toBe(AWAITING);
+    expect(reviewedSourceNote({ sourceNote: AWAITING })).toBe(AWAITING);
+
+    // Reviewed: the caveat is suppressed so the row falls through to "Not listed" rather than
+    // a stale "awaiting review" claim about signed-off guidance.
+    expect(reviewedSourceNote({ sourceNote: AWAITING, contentReviewStatus: "reviewed" })).toBeUndefined();
+
+    // A genuinely informative sourceNote (unrelated to the review caveat) is never suppressed,
+    // reviewed or not.
+    const realNote = "Official title and availability checked against the Office of the Chief Psychiatrist register.";
+    expect(reviewedSourceNote({ sourceNote: realNote, contentReviewStatus: "reviewed" })).toBe(realNote);
+    expect(reviewedSourceNote({ sourceNote: realNote, contentReviewStatus: "drafted" })).toBe(realNote);
+
+    // No sourceNote at all: nothing to suppress, nothing to show.
+    expect(reviewedSourceNote({ contentReviewStatus: "reviewed" })).toBeUndefined();
+    expect(reviewedSourceNote(null)).toBeUndefined();
+    expect(reviewedSourceNote(undefined)).toBeUndefined();
+  });
+
+  /**
    * Status alone is not a sign-off. Flagged by Codex review on PR #2821: a hand-edit that
    * sets `status: "reviewed"` without naming a reviewer would otherwise drop the caveat and
    * present unsigned guidance about a statutory form as settled reference.
@@ -134,7 +172,42 @@ describe("forms catalogue operational content", () => {
     for (const entry of review.forms) {
       expect(registerCodes.has(entry.code.trim().toLowerCase()), entry.code).toBe(true);
       expect(entry.basis.length, entry.code).toBeGreaterThan(40);
-      expect(entry.status, entry.code).toBe("drafted");
+      // The only way out of "drafted" is an owner sign-off through `npm run clinical:review`,
+      // and the pin test below holds every reviewed row to a complete, current attestation.
+      expect(["drafted", "reviewed"], entry.code).toContain(entry.status);
     }
+  });
+
+  /**
+   * A sign-off attests specific text. The content pin (`reviewedContentSha256`) covers the
+   * review row and the form's operational guidance in data/forms-catalog.json, so a later
+   * edit to either fails here -- in the unit suite, not only in `check:forms-review-sheet`.
+   */
+  it("holds every reviewed form row to a complete, current sign-off pin", () => {
+    expect(reviewProblems(formsContentReview.forms, "form", { catalog: formsCatalog })).toEqual([]);
+  });
+
+  it("fails the pin once a signed form's guidance is edited after sign-off", () => {
+    const row = formsContentReview.forms.find((entry) => entry.code === "3C")!;
+    const signed = finalizeClinicalReview(row, "form", {
+      reviewedBy: "Dr Alex Morgan",
+      reviewedAt: "2026-09-24T12:00:00.000Z",
+      context: { catalog: formsCatalog },
+      now: new Date("2026-09-25T00:00:00.000Z"),
+    });
+    expect(reviewProblems([signed], "form", { catalog: formsCatalog, now: new Date("2026-09-25") })).toEqual([]);
+
+    const edited = structuredClone(formsCatalog) as { forms: { form: string; clock: string }[] };
+    const entry = edited.forms.find((form) => form.form === "3C")!;
+    entry.clock = `${entry.clock} Resets when the form is signed.`;
+    expect(reviewProblems([signed], "form", { catalog: edited, now: new Date("2026-09-25") }).join("\n")).toContain(
+      "content changed since sign-off",
+    );
+  });
+
+  it("shows each form's sign-off pin state on the review sheet", () => {
+    const sheet = buildSheet();
+    expect(sheet.match(/\*\*Sign-off pin\*\*/g)?.length).toBe(formsContentReview.forms.length);
+    expect(sheet).toContain("npm run clinical:review");
   });
 });

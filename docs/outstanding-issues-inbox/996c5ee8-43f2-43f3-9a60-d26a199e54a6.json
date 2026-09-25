@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "996c5ee8-43f2-43f3-9a60-d26a199e54a6",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Add sign-off kinds with content pins for the Chief Psychiatrist Standards and the forms cultural notes",
+    "detail": "data/chief-psychiatrist-standards.json (8 drafted) and data/forms-cultural-notes.json (23 drafted) have no path through npm run clinical:review; today they could only be marked reviewed by hand-editing JSON, with no pin. Extend scripts/lib/clinical-record-review-contract.mjs with standard and cultural-note kinds, pin the rendered text, add --check enforcement and tests.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBPAGXD5BHMEX8QP8JFCC"
+  }
+}

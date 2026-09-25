@@ -318,7 +318,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Score psychiatry rating scales and clinical decision calculators with source-cited guidance.",
     bestFor: "Bedside scoring and severity banding",
     detail:
-      "Search and complete clinical calculators (PHQ-9, GAD-7, CSSRS, and related scales). Scores support clinical judgement and cite their source — they never replace a full assessment.",
+      "Search and complete clinical calculators (PHQ-9, GAD-7, and related scales). Scores support clinical judgement and cite their source — they never replace a full assessment.",
     href: appModeHomeHref("calculators"),
     area: "assessment",
     status: "ready",
@@ -336,7 +336,6 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
       "phq-9",
       "gad",
       "gad-7",
-      "cssrs",
       "severity",
       "depression severity",
       "clinical decision",

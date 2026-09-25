@@ -86,19 +86,12 @@ export type ServiceSearchMatch = {
   service: ServiceRecord;
   score: number;
   reasons: string[];
-  /**
-   * True only when the record mentions every distinctive term of the query (or
-   * a listed synonym for it). The "Best fit" badge must not appear without it:
-   * a query made only of generic words, or a record that shares only a generic
-   * word such as "disorder", has not been shown to fit (#CNCAFV). Services always
-   * set it; forms reuse this type and never show the badge, so it is optional.
-   */
-  coversQuery?: boolean;
 };
 
 // Words every service record shares, so a match on them says nothing about fit.
 // "disorder" is the one that did the damage: it put eating-disorder services
-// first for "panic disorder" (#CNCAFV).
+// first for "panic disorder" (#CNCAFV). This only orders results; the "Best fit"
+// badge is decided separately by src/lib/service-best-fit.ts.
 const GENERIC_SERVICE_QUERY_TERMS = new Set([
   "a",
   "an",
@@ -217,7 +210,6 @@ export function rankServiceRecords(
     ...distinctive.flatMap((term) => SERVICE_CONDITION_FAMILIES[term] ?? []),
   ];
   const coverageOf = (service: ServiceRecord) => serviceTermCoverage(serviceRecordSearchText(service), distinctive);
-  const coversQuery = (service: ServiceRecord) => distinctive.length > 0 && coverageOf(service) === distinctive.length;
 
   const ranked = rankCatalogRecords(records, query, {
     fields: [
@@ -248,7 +240,6 @@ export function rankServiceRecords(
       signals.content ? "record fields" : "",
       signals.broad ? "services catalogue" : "",
     ].filter(Boolean),
-    coversQuery: coversQuery(record),
   }));
   // Records that mention more of the specific condition come first; within each
   // coverage level the ranker's own order holds (Array sort is stable). This
