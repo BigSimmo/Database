@@ -37,17 +37,18 @@ const repoRoot = path.resolve(process.cwd());
 
 // The records this task adds a `wa` section to, plus how many rows each should
 // carry (pinned so a future accidental row deletion/duplication is caught, not
-// just "at least one row").
+// just "at least one row"). Each count includes the leading "Status" row
+// (added 2026-09-25) that says the section is drafted and awaiting review.
 const WA_SECTION_RECORDS: { slug: string; rowCount: number }[] = [
-  { slug: "methylphenidate", rowCount: 9 },
-  { slug: "dexamfetamine", rowCount: 9 },
-  { slug: "lisdexamfetamine", rowCount: 9 },
-  { slug: "alprazolam", rowCount: 3 },
-  { slug: "methadone", rowCount: 5 },
-  { slug: "buprenorphine-sl-depot", rowCount: 6 },
-  { slug: "buprenorphine-naloxone", rowCount: 5 },
-  { slug: "gabapentin", rowCount: 3 },
-  { slug: "pregabalin", rowCount: 3 },
+  { slug: "methylphenidate", rowCount: 10 },
+  { slug: "dexamfetamine", rowCount: 10 },
+  { slug: "lisdexamfetamine", rowCount: 10 },
+  { slug: "alprazolam", rowCount: 4 },
+  { slug: "methadone", rowCount: 6 },
+  { slug: "buprenorphine-sl-depot", rowCount: 7 },
+  { slug: "buprenorphine-naloxone", rowCount: 6 },
+  { slug: "gabapentin", rowCount: 4 },
+  { slug: "pregabalin", rowCount: 4 },
 ];
 
 const STIMULANT_SLUGS = ["methylphenidate", "dexamfetamine", "lisdexamfetamine"] as const;
@@ -111,6 +112,11 @@ function waSectionOf(record: MedicationRecord) {
   return sections[0]!;
 }
 
+/** The rows that carry content, after the leading "Status" row. */
+function contentRowsOf(record: MedicationRecord) {
+  return waSectionOf(record).rows.slice(1);
+}
+
 function citationOf(row: MedicationSectionRow) {
   const match = CITATION_PATTERN.exec(row.val);
   expect(
@@ -160,9 +166,17 @@ describe("WA prescribing rules — medications catalogue (task t6a)", () => {
         expect(byTab.more.some((section) => section.type === "wa")).toBe(false);
       });
 
+      it("opens with a 'Status' row saying it is drafted from the sources its rows cite and awaiting clinical review", () => {
+        const [status, ...rows] = waSectionOf(record!).rows;
+        expect(status!.key).toBe("Status");
+        expect(status!.tags).toEqual([]);
+        const titles = [...new Set(rows.map((row) => citationOf(row).title))];
+        const joined = titles.length === 1 ? titles[0] : `${titles.slice(0, -1).join(", ")} and ${titles.at(-1)}`;
+        expect(status!.val).toBe(`Drafted from ${joined}; awaiting clinical review.`);
+      });
+
       it("every 'wa' row cites a source id that was actually captured", () => {
-        const section = waSectionOf(record!);
-        for (const row of section.rows) {
+        for (const row of contentRowsOf(record!)) {
           const { sourceId } = citationOf(row);
           expect(
             knownSourceIds.has(sourceId),

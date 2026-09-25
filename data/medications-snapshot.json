@@ -602,6 +602,11 @@
         "type": "wa",
         "rows": [
           {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
             "key": "CPOP Authorisation",
             "val": "Methadone and buprenorphine for opioid dependence may only be prescribed within WA's Community Program for Opioid Pharmacotherapy (CPOP): a practitioner cannot prescribe or administer them for dependence without the CEO's prior permission, and treatment must be by an authorised CPOP prescriber, an authorised dispenser, and an authorised patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
@@ -960,6 +965,11 @@
         "title": "WA prescribing",
         "type": "wa",
         "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
           {
             "key": "CPOP Authorisation",
             "val": "Methadone and buprenorphine for opioid dependence may only be prescribed within WA's Community Program for Opioid Pharmacotherapy (CPOP): a practitioner cannot prescribe or administer them for dependence without the CEO's prior permission, and treatment must be by an authorised CPOP prescriber, an authorised dispenser, and an authorised patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
@@ -1988,6 +1998,11 @@
         "title": "WA prescribing",
         "type": "wa",
         "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
           {
             "key": "CPOP Authorisation",
             "val": "Methadone and buprenorphine for opioid dependence may only be prescribed within WA's Community Program for Opioid Pharmacotherapy (CPOP): a practitioner cannot prescribe or administer them for dependence without the CEO's prior permission, and treatment must be by an authorised CPOP prescriber, an authorised dispenser, and an authorised patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
@@ -62395,6 +62410,11 @@
         "type": "wa",
         "rows": [
           {
+            "key": "Status",
+            "val": "Drafted from ScriptCheckWA and Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
             "key": "Schedule 4 Monitored Medicine",
             "val": "WA Health lists gabapentin and pregabalin among the Schedule 4 Monitored Medicines tracked on ScriptCheckWA, alongside other higher-risk S4 drugs such as benzodiazepines, quetiapine and tramadol. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
             "tags": []
@@ -63655,6 +63675,11 @@
         "title": "WA prescribing",
         "type": "wa",
         "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from ScriptCheckWA and Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
           {
             "key": "Schedule 4 Monitored Medicine",
             "val": "WA Health lists gabapentin and pregabalin among the Schedule 4 Monitored Medicines tracked on ScriptCheckWA, alongside other higher-risk S4 drugs such as benzodiazepines, quetiapine and tramadol. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
@@ -64926,6 +64951,11 @@
         "title": "WA prescribing",
         "type": "wa",
         "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
           {
             "key": "CEO Authorisation",
             "val": "Written CEO authorisation is always required before prescribing S8 benzodiazepines (alprazolam, flunitrazepam) in WA, except for administering them to a hospital inpatient, or a 14-day supply from an emergency department or on hospital discharge that is tied to that episode of care and where the patient is not recorded as Drug Dependent or Oversupplied. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
@@ -68259,6 +68289,11 @@
         "type": "wa",
         "rows": [
           {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
             "key": "CEO Authorisation",
             "val": "S8 stimulants (dexamfetamine, methylphenidate, lisdexamfetamine) can be prescribed without written CEO authorisation only when the Prescriber, Patient, Product and Review criteria in Part 3 of WA's Monitored Medicines Prescribing Code are all met; if any is not met, written CEO authorisation is required before prescribing. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
@@ -68892,6 +68927,11 @@
         "type": "wa",
         "rows": [
           {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
             "key": "CEO Authorisation",
             "val": "S8 stimulants (dexamfetamine, methylphenidate, lisdexamfetamine) can be prescribed without written CEO authorisation only when the Prescriber, Patient, Product and Review criteria in Part 3 of WA's Monitored Medicines Prescribing Code are all met; if any is not met, written CEO authorisation is required before prescribing. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
@@ -69260,6 +69300,11 @@
         "title": "WA prescribing",
         "type": "wa",
         "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
           {
             "key": "CEO Authorisation",
             "val": "S8 stimulants (dexamfetamine, methylphenidate, lisdexamfetamine) can be prescribed without written CEO authorisation only when the Prescriber, Patient, Product and Review criteria in Part 3 of WA's Monitored Medicines Prescribing Code are all met; if any is not met, written CEO authorisation is required before prescribing. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
@@ -79229,6 +79274,11 @@
         "title": "Clozapine reference (quoted)",
         "type": "wa",
         "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system (WA Department of Health, Version 2, June 2024); awaiting clinical review.",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
           {
             "key": "Source statement",
             "val": "Every row in this section is quoted or closely transcribed from the Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system (WA Department of Health, Version 2, June 2024). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",

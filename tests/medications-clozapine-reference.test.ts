@@ -158,7 +158,8 @@ describe("clozapine 'wa' quoted reference block (task 6b)", () => {
 
   it("keeps every row's quote traceable to a bracketed source title", () => {
     const section = findWaSection();
-    for (const row of section.rows) {
+    // The leading "Status" row is a review-state notice, not a quote; the test above pins it.
+    for (const row of section.rows.slice(1)) {
       expect(row.val, `row "${row.key}" must end with a bracketed source title`).toMatch(/\[[^[\]]+\]\s*$/);
     }
   });
@@ -246,10 +247,21 @@ describe("clozapine 'wa' quoted reference block (task 6b)", () => {
     expect(row!.val).not.toMatch(/hourly for six hours/);
   });
 
+  it("opens with a 'Status' row saying the block is drafted from the WA guideline and awaiting clinical review", () => {
+    const [status] = findWaSection().rows;
+    expect(status?.key).toBe("Status");
+    expect(status?.val).toBe(
+      "Drafted from Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system (WA Department of Health, Version 2, June 2024); awaiting clinical review.",
+    );
+    expect(status?.tags).toEqual(["source:wa-health-clozapine-guideline-2024"]);
+  });
+
   it("states up front that the block is quoted from the named WA guideline", () => {
     const section = findWaSection();
     const first = section.rows.find((row) => row.key === "Source statement");
-    expect(first, "the section must open with a 'Source statement' row").toBeTruthy();
+    expect(first, "the section must carry a 'Source statement' row").toBeTruthy();
+    // Straight after the Status row.
+    expect(section.rows.indexOf(first!)).toBe(1);
     expect(first!.val).toMatch(
       /Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system \(WA Department of Health, Version 2, June 2024\)/,
     );
