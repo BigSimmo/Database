@@ -456,6 +456,7 @@ export const SOURCE_GOVERNANCE_CODES = {
   WEAK_EVIDENCE: "weak_evidence",
   WEAK_TABLE_EXTRACTION: "weak_table_extraction",
   REGISTRY_RECORD: "registry_record_source",
+  DOCUMENT_CAUTION: "document_caution",
 } as const;
 
 export type SourceGovernanceCode = (typeof SOURCE_GOVERNANCE_CODES)[keyof typeof SOURCE_GOVERNANCE_CODES];
