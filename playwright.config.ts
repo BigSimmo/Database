@@ -48,6 +48,24 @@ const seededSpecPattern = /.*ui-caring-contacts-(activation|populated)\.spec\.ts
 // to run without this value rather than trusting a fallback (see its own head comment).
 const seededBaseURL = process.env.PLAYWRIGHT_SEEDED_BASE_URL;
 
+// iOS never fires `beforeinstallprompt`, so `pwa-lifecycle.tsx` shows a one-time "Add to Home
+// Screen" sheet to any iPhone user agent until it is dismissed. On a fresh test context that
+// sheet is always up, and on a phone it sits over the home composer's send button, so every
+// iPhone-project journey that typed a question and pressed Send timed out on
+// "pwa-notice-stack subtree intercepts pointer events" (release-browser-matrix, 2026-09-22 on).
+// A returning user who has dismissed it once is the state these journeys are about, so the two
+// iPhone projects start from that state. `ui-pwa.spec.ts` resets it to prove the sheet itself.
+const IOS_INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-ios-install-dismissed-at";
+const iosInstallHintDismissed = {
+  cookies: [],
+  origins: [
+    {
+      origin: new URL(baseURL).origin,
+      localStorage: [{ name: IOS_INSTALL_DISMISSAL_KEY, value: String(Date.now()) }],
+    },
+  ],
+};
+
 export default defineConfig({
   testDir: "./tests",
   testMatch:
@@ -147,7 +165,7 @@ export default defineConfig({
       name: "mobile-webkit",
       testMatch: productionSpecPattern,
       grepInvert: mockupTag,
-      use: { ...devices["iPhone 14"] },
+      use: { ...devices["iPhone 14"], storageState: iosInstallHintDismissed },
     },
     {
       name: "mobile-pwa-standalone",
@@ -155,6 +173,7 @@ export default defineConfig({
       grepInvert: mockupTag,
       use: {
         ...devices["iPhone 14"],
+        storageState: iosInstallHintDismissed,
         viewport: { width: 390, height: 844 },
         deviceScaleFactor: 3,
         isMobile: true,
