@@ -59,6 +59,105 @@ function hasOnlyKnownKeys(value: JsonRecord, keys: readonly string[]) {
   return Object.keys(value).every((key) => keys.includes(key));
 }
 
+function pickKnownKeys(value: JsonRecord, keys: readonly string[]): JsonRecord {
+  const projected: JsonRecord = {};
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(value, key) && value[key] !== undefined) {
+      projected[key] = value[key];
+    }
+  }
+  return projected;
+}
+
+function projectObjectKeys(value: unknown, keys: readonly string[]): unknown {
+  const candidate = object(value);
+  return candidate ? pickKnownKeys(candidate, keys) : value;
+}
+
+const serviceRecordKeys = [
+  "slug",
+  "title",
+  "subtitle",
+  "statusChips",
+  "primaryContact",
+  "contacts",
+  "route",
+  "eligibility",
+  "cost",
+  "referral",
+  "location",
+  "summaryCards",
+  "referralInfo",
+  "bestUse",
+  "criteria",
+  "verification",
+  "tags",
+  "catchments",
+  "catalogueLabel",
+  "navigatorQuery",
+  "source",
+  "catalogPayload",
+] as const;
+
+const sourceKeys = ["label", "status", "url", "published", "reviewed", "notes", "allUrls"] as const;
+const statusChipKeys = ["label", "tone"] as const;
+const contactKeys = ["label", "value", "detail", "kind"] as const;
+const summaryCardKeys = ["id", "label", "title", "detail"] as const;
+const infoRowKeys = ["label", "value"] as const;
+const criterionKeys = ["label", "tone"] as const;
+const verificationKeys = [
+  "locallyVerified",
+  "confidence",
+  "notes",
+  "availabilityStatus",
+  "lastVerifiedAt",
+  "nextReviewAt",
+  "reviewer",
+  "riskLevel",
+  "unresolvedIssues",
+] as const;
+
+/**
+ * Strip a registry render payload down to the keys the shared client parser accepts.
+ *
+ * Published `render_payload` rows can carry nested fields the publication projector still
+ * allows (for example `source.summary` / `source.lastUpdated`) that the client contract
+ * never lists. Before 2026-09-25 that mismatch made `parseRegistryListResponse` return null
+ * for an otherwise healthy HTTP 200, and Services/Forms rendered "Could not load …".
+ * Medications already keep record shape checks identity-deep for the same reason; this
+ * projection is the registry equivalent, shared by the API respond path and the client parser.
+ */
+export function projectServiceRecordForClient(value: unknown): unknown {
+  const candidate = object(value);
+  if (!candidate) return value;
+  const projected = pickKnownKeys(candidate, serviceRecordKeys);
+  if (Array.isArray(projected.statusChips)) {
+    projected.statusChips = projected.statusChips.map((entry) => projectObjectKeys(entry, statusChipKeys));
+  }
+  if (projected.primaryContact !== undefined) {
+    projected.primaryContact = projectObjectKeys(projected.primaryContact, contactKeys);
+  }
+  if (Array.isArray(projected.contacts)) {
+    projected.contacts = projected.contacts.map((entry) => projectObjectKeys(entry, contactKeys));
+  }
+  if (Array.isArray(projected.summaryCards)) {
+    projected.summaryCards = projected.summaryCards.map((entry) => projectObjectKeys(entry, summaryCardKeys));
+  }
+  if (Array.isArray(projected.referralInfo)) {
+    projected.referralInfo = projected.referralInfo.map((entry) => projectObjectKeys(entry, infoRowKeys));
+  }
+  if (Array.isArray(projected.criteria)) {
+    projected.criteria = projected.criteria.map((entry) => projectObjectKeys(entry, criterionKeys));
+  }
+  if (projected.verification !== undefined) {
+    projected.verification = projectObjectKeys(projected.verification, verificationKeys);
+  }
+  if (projected.source !== undefined) {
+    projected.source = projectObjectKeys(projected.source, sourceKeys);
+  }
+  return projected;
+}
+
 function oneOf<T extends string>(value: unknown, values: readonly T[]): value is T {
   return typeof value === "string" && values.includes(value as T);
 }
@@ -189,30 +288,7 @@ function serviceRecord(value: unknown): value is ServiceRecord {
   const candidate = object(value);
   if (
     !candidate ||
-    !hasOnlyKnownKeys(candidate, [
-      "slug",
-      "title",
-      "subtitle",
-      "statusChips",
-      "primaryContact",
-      "contacts",
-      "route",
-      "eligibility",
-      "cost",
-      "referral",
-      "location",
-      "summaryCards",
-      "referralInfo",
-      "bestUse",
-      "criteria",
-      "verification",
-      "tags",
-      "catchments",
-      "catalogueLabel",
-      "navigatorQuery",
-      "source",
-      "catalogPayload",
-    ]) ||
+    !hasOnlyKnownKeys(candidate, serviceRecordKeys) ||
     !nonEmptyString(candidate.slug) ||
     !nonEmptyString(candidate.title) ||
     !optionalString(candidate.subtitle) ||
@@ -251,11 +327,18 @@ function governanceEntry(
   value: unknown,
 ): value is { sourceStatus: RegistrySourceStatus; validationStatus: RegistryValidationStatus } {
   const candidate = object(value);
+  // List responses historically omitted review dates; detail responses include them.
+  // Canonical live governance always carries `lastReviewedAt` / `reviewDueAt` (often null).
+  // Rejecting those keys blanked every healthy Services/Forms list after the catalogue read
+  // recovered — the exact "Could not load services" fault the seed path did not hit, because
+  // seeds only emit the two status fields.
   return Boolean(
     candidate &&
-    hasOnlyKnownKeys(candidate, ["sourceStatus", "validationStatus"]) &&
+    hasOnlyKnownKeys(candidate, ["sourceStatus", "validationStatus", "lastReviewedAt", "reviewDueAt"]) &&
     oneOf(candidate.sourceStatus, sourceStatuses) &&
-    oneOf(candidate.validationStatus, validationStatuses),
+    oneOf(candidate.validationStatus, validationStatuses) &&
+    optionalNullableString(candidate.lastReviewedAt) &&
+    optionalNullableString(candidate.reviewDueAt),
   );
 }
 
@@ -294,7 +377,6 @@ export function parseRegistryListResponse(value: unknown, view: RegistryListView
 
   if (
     !Array.isArray(candidate.records) ||
-    !candidate.records.every(serviceRecord) ||
     !hasOnlyKnownKeys(
       candidate,
       // `matches` has to be listed even though nothing here reads it. The route builds it for
@@ -310,9 +392,12 @@ export function parseRegistryListResponse(value: unknown, view: RegistryListView
     return null;
   }
 
+  const records = candidate.records.map(projectServiceRecordForClient);
+  if (!records.every(serviceRecord)) return null;
+
   if (view === "full" && !governance(candidate.governance)) return null;
   return {
-    records: candidate.records,
+    records: records as ServiceRecord[],
     total: candidate.total as number,
     verifiedCount: candidate.verifiedCount as number,
     demoMode: candidate.demoMode as boolean | undefined,
@@ -360,19 +445,19 @@ export function parseRegistryRecordResponse(value: unknown): RegistryRecordRespo
       "publicAccess",
       "sharedCatalog",
     ]) ||
-    !serviceRecord(candidate.record) ||
-    !Array.isArray(candidate.linkedDocuments) ||
-    !candidate.linkedDocuments.every(linkedDocument) ||
     (candidate.demoMode !== undefined && typeof candidate.demoMode !== "boolean") ||
     (candidate.publicAccess !== undefined && typeof candidate.publicAccess !== "boolean") ||
     (candidate.sharedCatalog !== undefined && typeof candidate.sharedCatalog !== "boolean")
   ) {
     return null;
   }
+  const projectedRecord = projectServiceRecordForClient(candidate.record);
+  if (!serviceRecord(projectedRecord)) return null;
+  if (!Array.isArray(candidate.linkedDocuments) || !candidate.linkedDocuments.every(linkedDocument)) return null;
   const parsedGovernance = recordGovernance(candidate.governance);
   if (!parsedGovernance) return null;
   return {
-    record: candidate.record,
+    record: projectedRecord,
     linkedDocuments: candidate.linkedDocuments as RegistryRecordResponse["linkedDocuments"],
     governance: parsedGovernance,
     demoMode: candidate.demoMode as boolean | undefined,
