@@ -56,8 +56,16 @@ Type each command below exactly as shown, then press Enter.
    git pull
    ```
 
-   If either says your local changes would be overwritten, stop and ask Claude before going
-   on.
+   Then make your own sign-off branch, so your sign-offs travel on their own and never
+   straight onto main (main only accepts changes through a reviewed pull request). Use
+   today's date in place of the example date:
+
+   ```bash
+   git switch -c clinical-signoff-2026-10-01
+   ```
+
+   If any of these says your local changes would be overwritten, stop and ask Claude before
+   going on.
 
    If you already signed forms on the claude/sweet-carson-e7ur0s-wa-signoff branch and pushed
    them, tell Claude so they are merged into main first — your form sign-offs carry over
@@ -175,15 +183,16 @@ a session:
     (For sections, use `"Clinical sign-off: Act sections"`; for deadlines,
     `"Clinical sign-off: Act deadlines"`.)
 
-13. Send them:
+13. Send them, using the same date as your branch name:
 
     ```bash
-    git push
+    git push -u origin clinical-signoff-2026-10-01
     ```
 
     This can take a minute or two while the project runs its own checks.
 
-Then tell Claude "I've pushed my sign-offs", and Claude will take it from there.
+Then tell Claude in the chat: "open a PR for my sign-offs on clinical-signoff-2026-10-01"
+(with your date), and Claude will take it from there.
 
 If `git push` (or any step) fails, copy the last line of the message it printed and paste it
 to Claude in the chat. Your sign-offs are still saved on your computer, so nothing is lost.
