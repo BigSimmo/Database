@@ -24,6 +24,62 @@ describe("services safety routing", () => {
     expect(detectServiceUrgentIntents("bereaved after my brother died by suicide")).not.toContain("suicide_aftercare");
   });
 
+  it("routes plain youth crisis wording to CAMHS Crisis Connect and MHERL (owner decision 15)", () => {
+    // "Youth", "young person" and "young people" do not say whether the person is under or over
+    // 18, so both the CAMHS and the adult crisis line are pinned, CAMHS first.
+    for (const query of [
+      "youth crisis",
+      "youth self harm",
+      "youths suicidal",
+      "young person suicidal",
+      "suicidal young people",
+    ]) {
+      expect(detectServiceUrgentIntents(query), query).toEqual(["camhs_crisis", "adult_metro_crisis"]);
+      expect(titles(query, 12).slice(0, 2), query).toEqual([
+        "CAMHS Crisis Connect",
+        "Mental Health Emergency Response Line (MHERL)",
+      ]);
+    }
+  });
+
+  it("routes explicit under-18 wording to CAMHS Crisis Connect alone, even when youth is also named", () => {
+    for (const query of [
+      "kid self harm",
+      "kids suicidal",
+      "child crisis",
+      "children self harm",
+      "teen suicidal",
+      "teens in crisis",
+      "suicidal teenager",
+      "teenagers suicidal",
+      "adolescent crisis",
+      "adolescents suicidal",
+      "16 year old self harm",
+      "youth and child crisis",
+      "suicidal teen youth",
+      "young person aged 15-year-old suicidal",
+    ]) {
+      expect(detectServiceUrgentIntents(query), query).toEqual(["camhs_crisis"]);
+      const pinned = rankServiceRecords(serviceRecords, query, 12, [], true)
+        .filter(({ reasons }) => reasons.includes("urgent route"))
+        .map(({ service }) => service.title);
+      expect(pinned, query).toEqual(["CAMHS Crisis Connect"]);
+      expect(titles(query, 12)[0], query).toBe("CAMHS Crisis Connect");
+    }
+  });
+
+  it("keeps main's other urgent routes pinned alongside a youth crisis", () => {
+    expect(detectServiceUrgentIntents("aboriginal youth suicide")).toEqual([
+      "camhs_crisis",
+      "aboriginal_crisis",
+      "adult_metro_crisis",
+    ]);
+    expect(detectServiceUrgentIntents("youth overdose crisis")).toEqual(
+      expect.arrayContaining(["emergency", "camhs_crisis", "adult_metro_crisis", "aod_urgent"]),
+    );
+    expect(detectServiceUrgentIntents("youth overdose crisis")[0]).toBe("emergency");
+  });
+
   it("pins the immediate emergency, CAMHS crisis and regional after-hours routes for a clear youth crisis", () => {
     const resultTitles = titles("15-year-old actively suicidal in Bunbury tonight", 8);
     expect(resultTitles.slice(0, 4)).toEqual(
