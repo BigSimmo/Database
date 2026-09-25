@@ -32,7 +32,6 @@ import {
   type PersonalSafetyPlanVersion,
   type PresentationAmendment,
   type PrototypeUser,
-  type PublicCrisisContact,
   type ReviewTrigger,
 } from "./types";
 
@@ -240,78 +239,15 @@ export const syntheticCmhtContacts = [
 ] satisfies readonly CmhtContact[];
 
 /**
- * The only non-fictional contact details in the prototype. Verified against the
- * public sources below on 20 August 2026. If a number or an availability window
- * has changed since, correct it here rather than anywhere it is displayed.
- *
- * VERIFICATION RECORD: `docs/care-plan/crisis-lines-verification.md`. It holds, per
- * number, the source used to check it, the `verifiedOn` date below, every other place
- * in this file the same number is printed, and the six-monthly re-verification cadence
- * and procedure. Nothing in this repository ages `verifiedOn`, so that document is the
- * only thing that says when these are next due to be checked -- update it in the same
- * change as any correction here.
- * Each `sourceUrl` below is the page used for that check: three cite East
- * Metropolitan Health Service pages and `000` cites Triple Zero. Re-verify each
- * number and its availability window against its own `sourceUrl`, then move the
- * `verifiedOn` date only for the entries actually re-checked. These strings render
- * on the printed Personal Safety Plan and Patient Plan, which is the one place the
- * prototype's "everything is synthetic" framing does not protect the reader - a dead
- * or redirected crisis number would print as guidance.
+ * The only non-fictional contact details in the prototype. Re-exported from
+ * `@/lib/crisis-contacts`, the single source of truth every surface that
+ * prints a real crisis number reads from (see that module's doc comment for
+ * the full verification-record pointer and re-verification procedure). Keep
+ * this name — `publicCrisisContacts` — since the pages in this directory
+ * already import it; correct a number in `@/lib/crisis-contacts` and nowhere
+ * else.
  */
-export const publicCrisisContacts = [
-  {
-    id: "SYN-CRISIS-CONTACT-001",
-    name: "Emergency services",
-    telephoneDisplay: "000",
-    telephoneUri: "000",
-    coverage: "Australia-wide",
-    availability: "24 hours, every day",
-    isEmergencyService: true,
-    caveat: null,
-    sourceUrl: "https://www.triplezero.gov.au/",
-    verifiedOn: "2026-08-20",
-  },
-  {
-    id: "SYN-CRISIS-CONTACT-002",
-    name: "Mental Health Emergency Response Line (MHERL) — Perth metropolitan",
-    telephoneDisplay: "1300 555 788",
-    telephoneUri: "1300555788",
-    coverage: "Metropolitan Perth",
-    availability: "24 hours, every day",
-    isEmergencyService: false,
-    caveat: "MHERL is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.",
-    sourceUrl:
-      "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL",
-    verifiedOn: "2026-08-20",
-  },
-  {
-    id: "SYN-CRISIS-CONTACT-003",
-    name: "Mental Health Emergency Response Line (MHERL) — Peel",
-    telephoneDisplay: "1800 676 822",
-    telephoneUri: "1800676822",
-    coverage: "Peel region",
-    availability: "24 hours, every day",
-    isEmergencyService: false,
-    caveat: "MHERL is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.",
-    sourceUrl:
-      "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL",
-    verifiedOn: "2026-08-20",
-  },
-  {
-    id: "SYN-CRISIS-CONTACT-004",
-    name: "Rurallink",
-    telephoneDisplay: "1800 552 002",
-    telephoneUri: "1800552002",
-    coverage: "Regional and remote Western Australia",
-    availability: "4:30 pm to 8:30 am on weeknights, and 24 hours on weekends and public holidays",
-    isEmergencyService: false,
-    caveat:
-      "Rurallink is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.",
-    sourceUrl:
-      "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink",
-    verifiedOn: "2026-08-20",
-  },
-] satisfies readonly PublicCrisisContact[];
+export { WA_CRISIS_CONTACTS as publicCrisisContacts } from "@/lib/crisis-contacts";
 
 export const syntheticManagementPlans = [
   {

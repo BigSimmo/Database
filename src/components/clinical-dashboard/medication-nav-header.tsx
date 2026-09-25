@@ -27,7 +27,7 @@ export function isMedicationTabId(value: string): value is MedicationTabId {
 const tabSectionTypes: Record<MedicationTabId, ReadonlySet<string>> = {
   summary: new Set(["summary", "ind", "form"]),
   dosing: new Set(["dose"]),
-  safety: new Set(["risk", "contra", "mon", "safe"]),
+  safety: new Set(["risk", "contra", "mon", "safe", "wa"]),
   more: new Set(["inter", "pearl", "evid", "spec", "comp", "sel", "src"]),
 };
 

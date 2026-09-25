@@ -38,9 +38,14 @@ const EXPECTED: Record<SignOffFamilyId, number> = {
   // unlinked.
   specifiers: 603,
   therapy: 205,
-  // 77 records carry disposition `candidate`; 75 of those are still
+  // 90 records carry disposition `candidate`; 88 of those are still
   // `validationStatus: unverified` and so appear in acquisitionReviewQueue().
-  sources: 75,
+  // 2026-09-25: was 75. The WA forms/medicines/cultural-notes branch added 13
+  // new unsigned candidates (the Mental Health Act 2014 record, seven Chief
+  // Psychiatrist standards, the clozapine guideline, two Language Services
+  // documents, ScriptCheckWA and the Monitored Medicines Prescribing Code);
+  // its five new rejected records are excluded from the queue by design.
+  sources: 88,
 };
 
 describe("clinical sign-off queue", () => {

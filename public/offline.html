@@ -107,7 +107,101 @@
         font-size: 0.9rem;
       }
 
-      a {
+      /* The generated pocket pack: WA_CRISIS_CONTACTS plus any owner-signed-off
+         Act deadlines, written by scripts/build-offline-pack.ts. Kept out of the
+         generic button styling below — these are inline reference links and
+         quotes, not calls to action. */
+      .offline-pack-section {
+        margin-top: 1.75rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--page-border);
+        text-align: left;
+      }
+
+      .offline-pack-section h2 {
+        margin: 0 0 0.75rem;
+        color: var(--page-heading);
+        font-size: 1.05rem;
+        line-height: 1.3;
+      }
+
+      .pack-caution {
+        margin: 0 0 0.75rem;
+        color: var(--page-muted);
+        font-size: 0.85rem;
+      }
+
+      .crisis-list,
+      .act-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .crisis-item,
+      .act-item {
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--page-border);
+      }
+
+      .crisis-item:last-child,
+      .act-item:last-child {
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+
+      .crisis-name {
+        margin: 0;
+        color: var(--page-heading);
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+
+      .crisis-tel {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.75rem;
+        margin-top: 0.35rem;
+        color: var(--page-accent);
+        font-size: 1.15rem;
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 0.2rem;
+      }
+
+      .crisis-availability,
+      .crisis-caveat,
+      .crisis-checked {
+        margin: 0.35rem 0 0;
+        color: var(--page-muted);
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+
+      .crisis-checked a {
+        color: inherit;
+        text-decoration: underline;
+      }
+
+      .act-quote {
+        margin: 0;
+        padding-left: 0.85rem;
+        border-left: 3px solid var(--page-border-lux);
+        color: var(--page-text);
+        font-size: 0.95rem;
+        font-style: italic;
+        line-height: 1.55;
+      }
+
+      .act-meta {
+        margin: 0.5rem 0 0;
+        color: var(--page-muted);
+        font-size: 0.85rem;
+      }
+
+      .retry {
         min-height: 2.75rem;
         display: inline-flex;
         align-items: center;
@@ -121,7 +215,7 @@
         text-decoration: none;
       }
 
-      a:hover {
+      .retry:hover {
         background: var(--page-accent-hover);
       }
 
@@ -190,9 +284,19 @@
       }
       .on-call a.call {
         min-height: 3rem;
-        margin-top: 0;
+        display: inline-flex;
+        align-items: center;
         padding: 0.5rem 0.9rem;
+        border-radius: 0.75rem;
+        background: var(--page-accent);
+        color: var(--page-accent-contrast);
+        font-weight: 700;
         font-variant-numeric: tabular-nums;
+        text-decoration: none;
+      }
+      .on-call a.call:focus-visible {
+        outline: 3px solid var(--page-focus);
+        outline-offset: 3px;
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -215,12 +319,25 @@
       @media (forced-colors: active) {
         main,
         .privacy-note,
+        .offline-pack-section,
+        .crisis-item,
+        .act-item,
         .on-call,
         .on-call li {
           border-color: CanvasText;
         }
 
-        a {
+        .crisis-tel,
+        .crisis-checked a {
+          color: LinkText;
+        }
+
+        .act-quote {
+          border-color: CanvasText;
+        }
+
+        .retry,
+        .on-call a.call {
           background: Highlight;
           color: HighlightText;
         }
@@ -252,7 +369,11 @@
       </svg>
       <!-- brand-mark:end -->
       <h1 id="offline-title">PsychSift is offline</h1>
-      <p>Reconnect to search, generate answers, or open private clinical documents and account data.</p>
+      <p>
+        Reconnect to search, generate answers, or open private clinical documents and account data. This offline page
+        can still show the public crisis numbers and any Mental Health Act deadlines your clinician has signed off, as
+        quotes below.
+      </p>
       <section class="on-call" id="on-call-offline" aria-labelledby="on-call-offline-title" hidden>
         <h2 id="on-call-offline-title">On Call, saved on this phone</h2>
         <p class="warning" id="on-call-offline-saved"></p>
@@ -260,11 +381,103 @@
       </section>
       <p class="privacy-note">
         For privacy, the PWA cache stores only this offline screen and public application assets. It does not store or
-        replay clinical queries, answers, documents, uploads, signed URLs, or API responses. If you use On Call, this
-        screen can show the shared On Call numbers your browser already saved in the last seven days, never your
-        personal entries; they are cleared when you sign out.
+        replay clinical queries, answers, documents, uploads, signed URLs, or API responses. The numbers and quotes
+        below are public, non-patient information, not stored or replayed patient data, and each shows its source and
+        the date it was checked. If you use On Call, this screen can also show the shared On Call numbers your browser
+        already saved in the last seven days, never your personal entries; they are cleared when you sign out.
       </p>
-      <a href="/">Try again</a>
+      <!-- offline-pack:start (generated by scripts/build-offline-pack.ts) -->
+      <section aria-labelledby="offline-crisis-heading" class="offline-pack-section">
+        <h2 id="offline-crisis-heading">Crisis support numbers</h2>
+        <ul class="crisis-list">
+          <li class="crisis-item">
+            <p class="crisis-name">Emergency services</p>
+            <a class="crisis-tel" href="tel:000">000</a>
+            <p class="crisis-availability">24 hours, every day</p>
+            <p class="crisis-checked">
+              Checked 20 August 2026 &middot;
+              <a href="https://www.triplezero.gov.au/">Source</a>
+            </p>
+          </li>
+          <li class="crisis-item">
+            <p class="crisis-name">Mental Health Emergency Response Line (MHERL) — Perth metropolitan</p>
+            <a class="crisis-tel" href="tel:1300555788">1300 555 788</a>
+            <p class="crisis-availability">24 hours, every day</p>
+            <p class="crisis-caveat">
+              MHERL is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.
+            </p>
+            <p class="crisis-checked">
+              Checked 20 August 2026 &middot;
+              <a
+                href="https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL"
+                >Source</a
+              >
+            </p>
+          </li>
+          <li class="crisis-item">
+            <p class="crisis-name">Mental Health Emergency Response Line (MHERL) — Peel</p>
+            <a class="crisis-tel" href="tel:1800676822">1800 676 822</a>
+            <p class="crisis-availability">24 hours, every day</p>
+            <p class="crisis-caveat">
+              MHERL is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.
+            </p>
+            <p class="crisis-checked">
+              Checked 20 August 2026 &middot;
+              <a
+                href="https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL"
+                >Source</a
+              >
+            </p>
+          </li>
+          <li class="crisis-item">
+            <p class="crisis-name">Rurallink</p>
+            <a class="crisis-tel" href="tel:1800552002">1800 552 002</a>
+            <p class="crisis-availability">
+              4:30 pm to 8:30 am on weeknights, and 24 hours on weekends and public holidays
+            </p>
+            <p class="crisis-caveat">
+              Rurallink is a telephone triage and support line. It is not an emergency service; call 000 in an
+              emergency.
+            </p>
+            <p class="crisis-checked">
+              Checked 20 August 2026 &middot;
+              <a
+                href="https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink"
+                >Source</a
+              >
+            </p>
+          </li>
+          <li class="crisis-item">
+            <p class="crisis-name">Lifeline</p>
+            <a class="crisis-tel" href="tel:131114">13 11 14</a>
+            <p class="crisis-availability">24 hours, every day</p>
+            <p class="crisis-checked">
+              Checked 25 September 2026 &middot;
+              <a href="https://www.lifeline.org.au/get-help/">Source</a>
+            </p>
+          </li>
+          <li class="crisis-item">
+            <p class="crisis-name">Suicide Call Back Service</p>
+            <a class="crisis-tel" href="tel:1300659467">1300 659 467</a>
+            <p class="crisis-availability">24 hours, every day</p>
+            <p class="crisis-checked">
+              Checked 25 September 2026 &middot;
+              <a href="https://www.suicidecallbackservice.org.au/">Source</a>
+            </p>
+          </li>
+          <li class="crisis-item">
+            <p class="crisis-name">13YARN (for Aboriginal and Torres Strait Islander people)</p>
+            <a class="crisis-tel" href="tel:139276">13 92 76</a>
+            <p class="crisis-availability">24 hours, every day</p>
+            <p class="crisis-checked">
+              Checked 25 September 2026 &middot;
+              <a href="https://www.13yarn.org.au/">Source</a>
+            </p>
+          </li>
+        </ul>
+      </section>
+      <!-- offline-pack:end -->
+      <a class="retry" href="/">Try again</a>
     </main>
     <script>
       // On Call essentials with no signal.
