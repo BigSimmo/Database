@@ -363,7 +363,7 @@ describe("registry records API", () => {
     expectPublicFixtureCache(response, { variesByEncoding: true });
     expect(payload.publicAccess).toBe(true);
     expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
-    expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
+    expect(payload.matches?.[0]?.record.slug).toBe("legal-yarn");
     // The full catalog is served from seed data (no table read) and no auth round-trip is
     // needed, but anonymous list requests must still pass the registry limiter (M4/C1).
     expect(client.from).not.toHaveBeenCalled();
@@ -410,7 +410,7 @@ describe("registry records API", () => {
     expect(response.status).toBe(200);
     expectPrivateCache(response);
     expect(payload.records[0]?.slug).toBe("13yarn");
-    expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
+    expect(payload.matches?.[0]?.record.slug).toBe("legal-yarn");
     expect(payload.governance["13yarn"]?.validationStatus).toBeTruthy();
     const { serviceRecords } = await import("../src/lib/services");
     expect(payload.records).toHaveLength(serviceRecords.length);

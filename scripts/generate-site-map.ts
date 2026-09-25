@@ -153,6 +153,8 @@ const routeDescriptions: Record<string, string> = {
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
+  "/forms/act":
+    "Plain-English summaries of the Mental Health Act 2014 (WA) sections and the Chief Psychiatrist's Standards for Clinical Care, grouped by reference topic.",
   "/forms/search":
     "Forms results surface: searches the WA MHA 2014 forms register by code, title and clinical purpose.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",

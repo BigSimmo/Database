@@ -1,8 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import formsCatalog from "../data/forms-catalog.json";
 import formsContentReview from "../data/forms-content-review.json";
 import mhaSections from "../data/mha-2014-sections.json";
+import { recordPinState, reviewProblems } from "./lib/clinical-record-review-contract.mjs";
 import { loadFormCatalogDetails, officialFormsRegisterUrl } from "../src/lib/form-catalog";
 
 /**
@@ -18,14 +20,16 @@ import { loadFormCatalogDetails, officialFormsRegisterUrl } from "../src/lib/for
  * This sheet puts all of it on one line of sight per form, the way
  * `scripts/build-mha-act-sections.mjs --draft` already does for the Act summaries: what
  * the app displays, what it was drafted from, and the link to the approved form to check
- * it against. A reviewer signs one form off by setting `status` to `reviewed` with
- * `reviewedBy` and `reviewedAt` in `data/forms-content-review.json`. The caveat in the UI
- * drops for that form and stays up for the rest.
+ * it against. The clinical owner signs a form off with `npm run clinical:review`, which
+ * writes `status`, `reviewedBy`, `reviewedAt` and a `reviewedContentSha256` content pin in
+ * `data/forms-content-review.json`. The caveat in the UI drops for that form and stays up
+ * for the rest. Each entry shows its pin state, so an edit after sign-off is visible here.
  *
  * Fully offline. Generated, never hand-edited.
  *
  * Flags:
- *   --check   exit 1 if the sheet is stale, writing nothing
+ *   --check   exit 1 if the sheet is stale, or if any signed form's content pin no longer
+ *             matches its guidance (edited since sign-off) or its attestation is incomplete
  */
 
 const repoUrl = (relative: string) => fileURLToPath(new URL(`../${relative}`, import.meta.url));
@@ -39,7 +43,26 @@ type ReviewRow = {
   basis: string;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  reviewedContentSha256?: string | null;
 };
+
+const PIN_LABEL: Record<string, string> = {
+  unsigned: "not signed yet",
+  current: "matches the signed guidance",
+  stale: "CONTENT CHANGED SINCE SIGN-OFF — needs signing again",
+};
+
+function pinLine(review: ReviewRow | undefined) {
+  const state = review ? recordPinState(review, "form", { catalog: formsCatalog }) : "unsigned";
+  const shortPin =
+    state === "unsigned" || !review?.reviewedContentSha256 ? "" : ` (\`${review.reviewedContentSha256.slice(0, 12)}\`)`;
+  return [`**Sign-off pin** ${PIN_LABEL[state]}${shortPin}`, ""];
+}
+
+/** Sign-off problems in the review register: stale pins, partial or invalid attestations. */
+export function formSignOffProblems(): string[] {
+  return reviewProblems((formsContentReview as { forms: ReviewRow[] }).forms, "form", { catalog: formsCatalog });
+}
 
 const reviewByCode = new Map(
   (formsContentReview as { forms: ReviewRow[] }).forms.map(
@@ -86,14 +109,19 @@ export function buildSheet() {
     "the basis it was drafted from and a link to the approved form. None of it carries",
     "clinician sign-off, and the app says so on every form until it does.",
     "",
-    "A reviewer signs one form off by checking the guidance against the approved form and the",
-    "sections named, then setting `status` to `reviewed` with `reviewedBy` and `reviewedAt`",
-    "for that code in `data/forms-content-review.json`. The caveat drops for that form and",
-    "stays up for the rest, so this can be done a few forms at a time.",
+    "The clinical owner signs forms off with `npm run clinical:review` (walk mode steps",
+    "through the queue one form at a time; see `docs/clinical-sign-off-how-to.md`). It",
+    "writes `status`, `reviewedBy`, `reviewedAt` and a content pin for that code in",
+    "`data/forms-content-review.json`. The caveat drops for that form and stays up for the",
+    "rest, so this can be done a few forms at a time. Never set those fields by hand.",
     "",
-    "Highest consequence first is a reasonable order: 3C, 10B, 10E, 11B, 11E, 6C,",
-    "12C attachment, 5A, 2. Those are the clocks where a wrong reading changes whether a",
-    "person is lawfully detained, restrained or secluded.",
+    "The walk order is highest consequence first: 3C, 10B, 10E, 11B, 11E, 6C, then the rest",
+    "in catalogue order. Those first six are the clocks where a wrong reading changes whether",
+    "a person is lawfully detained, restrained or secluded.",
+    "",
+    "The content pin covers the drafted basis and sections below plus the form's operational",
+    "guidance. If any of it is edited after sign-off, the pin line says so and",
+    "`npm run check:forms-review-sheet` fails until the form is signed again.",
     "",
     `Official register: <${officialFormsRegisterUrl}>`,
     "",
@@ -111,6 +139,7 @@ export function buildSheet() {
         (review?.reviewedAt ? ` on ${review.reviewedAt}` : ""),
       "",
     );
+    lines.push(...pinLine(review));
     lines.push(
       `**Availability** ${form.availability}` +
         (form.officialPdfUrl ? ` · [approved form PDF](${form.officialPdfUrl})` : " · no published PDF"),
@@ -143,6 +172,11 @@ function main() {
   const sheet = buildSheet();
   const path = repoUrl(OUT);
   if (process.argv.includes("--check")) {
+    const problems = formSignOffProblems();
+    if (problems.length) {
+      console.error(`Form sign-off problems:\n  - ${problems.join("\n  - ")}`);
+      process.exit(1);
+    }
     const current = readFileSync(path, "utf8");
     if (current !== sheet) {
       console.error(`${OUT} is stale. Run: npm run forms:review-sheet`);

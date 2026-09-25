@@ -9,6 +9,7 @@ import {
   findFactsheet,
   type Factsheet,
 } from "@/components/factsheets/factsheets-data";
+import { GOVERNED_SOURCE_HOSTS } from "@/lib/sources/source-url-policy";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({
@@ -108,5 +109,37 @@ describe("crisis numbers come from one source", () => {
       expect(body, `${contact.name} must render from the shared constant`).toContain(contact.number);
     }
     expect(body).toContain(FACTSHEET_EMERGENCY_NUMBER);
+  });
+});
+
+describe("official translated information", () => {
+  const governed = new Set<string>(GOVERNED_SOURCE_HOSTS);
+
+  it("only ever cites a governed host, on every factsheet that carries one", () => {
+    for (const sheet of factsheets) {
+      for (const resource of sheet.translatedResources ?? []) {
+        const where = `${sheet.slug} translated resource ${resource.url}`;
+        expect(resource.url, where).toMatch(/^https:\/\//);
+        expect(governed.has(new URL(resource.url).hostname), `${where} links to an ungoverned host`).toBe(true);
+      }
+    }
+  });
+
+  it("renders the section, with a working external link, on a sheet that has one", () => {
+    const factsheet = renderSheet("depression");
+    const [resource] = factsheet.translatedResources ?? [];
+    expect(resource, "depression must carry a translated resource for this test to be meaningful").toBeDefined();
+
+    expect(screenText()).toMatch(/Official translated information/i);
+    const link = document.querySelector<HTMLAnchorElement>('a[href="' + resource!.url + '"]');
+    expect(link, "translated resource must render as a link to its own URL").not.toBeNull();
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("renders no section on a sheet with no translated resources", () => {
+    const factsheet = renderSheet("sertraline");
+    expect(factsheet.translatedResources ?? []).toHaveLength(0);
+    expect(document.querySelector("#factsheet-translated")).toBeNull();
   });
 });

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "19563792-36e8-4365-a727-53ea36e12018",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Owner decision: TGA/SaMD classification for the MHA quoted timeline, the app's first surface that computes a statutory deadline",
+    "detail": "The timeline on form pages turns a trigger time plus a statutory duration into a Perth deadline, but only for owner-signed entries (quote-only otherwise; three s 28 Form 3A limits permanently quote-only). docs/samd-classification-medication-considerations.md is open and covers a different surface. Next action: owner either extends that note to cover the timeline or records a short ruling that it sits outside its scope. Until then, do not sign off timeframes whose computed time would be relied on.",
+    "source": "Session 2026-09-25 WA psychiatry build (PR #3019)",
+    "issueUlid": "01M3CMBNBHWGH5YFKN5NMXSN1Q"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5f484432-cd05-4601-9026-3f2f6b0cd0f0",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#SZA102",
+    "outcome": "Fixed on main by 7cdc3bcaf: forms search empty query now lists the register instead of showing '0 forms'.",
+    "baseRowFingerprint": "4f27dfefb949d9626881484ea39f8a39e0992e2c9bd0685921230a0b869f09ff"
+  }
+}

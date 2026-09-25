@@ -791,6 +791,18 @@ describe("route reachability", () => {
     ).toBe(true);
   });
 
+  it("links the Forms Act and Standards page from the forms search surface", () => {
+    // Narrowed from the combined orphan check so a regression names this route. The page
+    // holds the Act-section and Chief Psychiatrist's Standards summaries no form links to.
+    expect(staticPageRoutes.some((entry) => entry.route === "/forms/act")).toBe(true);
+    const formsSearch = sourceFiles.find((file) => file.rel === "src/components/forms/forms-search-results-page.tsx");
+    expect(formsSearch, "the forms search results page is missing").toBeDefined();
+    expect(
+      formsSearch?.targets.has("/forms/act"),
+      "the forms search results page does not render a navigation link to /forms/act",
+    ).toBe(true);
+  });
+
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));
     for (const route of REACHABILITY_ALLOWLIST.keys()) {

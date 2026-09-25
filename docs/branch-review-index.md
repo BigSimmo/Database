@@ -15,13 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 667
-- Distinct ref cells: 425
-- Distinct reviewed heads: 650
-- Date range: `2026-08-12` to `2026-09-21`
+- Records: 669
+- Distinct ref cells: 426
+- Distinct reviewed heads: 651
+- Date range: `2026-08-12` to `2026-09-22`
 
 Records per date, newest first:
 
+- `2026-09-22` — 2 records
 - `2026-09-21` — 1 record
 - `2026-09-19` — 1 record
 - `2026-09-17` — 2 records
@@ -65,6 +66,8 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-22 | codex/chat-selective-railway-previews-b95c | Railway selective previews and safe iteration policy (supersedes 2026-09-22) | Correction: automatic PR environments disabled and four preview deploy… | [285ec2e4](branch-review-records/285ec2e41ed6da36d001e71db724f91c1b65a9bfae987b5deff765154760122d.record.md) |
+| 2026-09-22 | codex/chat-selective-railway-previews-b95c | Railway selective previews and safe iteration policy | P1: production-connected PR previews; contained by disabling automatic… | [383a4235](branch-review-records/383a4235f5ed25e18d6e9a1f50dc6cadfb08ec6283831517962201f77b0fb1ec.record.md) |
 | 2026-09-21 | claude/on-call-review-redesign-1yyqh0 | prlanded | PR #2900 merged 2026-09-20 18:06 UTC as merge commit a25c45437 (2 pare… | [9fc9b53a](branch-review-records/9fc9b53a3eebb51933c0efffc8ffb6a7a743db008b9310c96655883d20695870.record.md) |
 | 2026-09-19 | claude/intelligent-albattani-aid2kl-governance | prlanded | PR #2901 merged by owner 2026-09-19T16:59:56Z as merge commit 4960c6f7… | [ca58af11](branch-review-records/ca58af110d8a1b8ab10a9c1fa082d8defadeb171378fb2c83fa7bdb1bacc0fb6.record.md) |
 | 2026-09-17 | claude/gracious-hawking-7jsjz8 | prlanded | PR #2838 squash-merged to main by the owner at 2026-09-17T08:33:49Z. C… | [bf56b8e1](branch-review-records/bf56b8e13de5f83642504f6dd10aa30c2cc174f46a40467a5989f33c5035c408.record.md) |
@@ -741,6 +744,7 @@ this section stays short. Grouping is best-effort: ref cells are free text.
 
 | Ref | Head | Records |
 | --- | --- | --- |
+| codex/chat-selective-railway-previews-b95c | `aa2cd554` | 2026-09-22 [383a4235](branch-review-records/383a4235f5ed25e18d6e9a1f50dc6cadfb08ec6283831517962201f77b0fb1ec.record.md), 2026-09-22 [285ec2e4](branch-review-records/285ec2e41ed6da36d001e71db724f91c1b65a9bfae987b5deff765154760122d.record.md) |
 | claude/phase-5-closeout | `c3ca68fa` | 2026-08-21 [da9eaddd](branch-review-records/da9eadddac4befebc995b1000caa73f1fa0ced0d25d52b5789223410bac06c08.record.md), 2026-08-21 [4dd785f6](branch-review-records/4dd785f6a227e847467c76e68e4c08df2fc9394343295e0985c70bd306ab2861.record.md) |
 | claude/services-navigation-removal-7bnknn (PR #2040) | `e0c3f640` | 2026-08-17 [db385c81](branch-review-records/db385c8181a9620272ece6df071f3b5afabd6085d21755f30dddf9e6e0ffaf10.record.md), 2026-08-17 [02471c51](branch-review-records/02471c51928a64ed4d9010f91d3c62ef5391134683ddd67a7652b9e8d45621ac.record.md) |
 | claude/rag-zod-hardening-tranche2 | `690204f6` | 2026-08-15 [e28c5671](branch-review-records/e28c56717b466a1206d6eea9b313f4a39e88a0195f76078511821ab44cc09456.record.md), 2026-08-15 [8f593be4](branch-review-records/8f593be414cd088768dc59074dcd77476f562cfdaabd4d2b23cd3a67336a02ff.record.md), 2026-08-15 [150c9556](branch-review-records/150c95562bf34c0fc9a79c97c63bbacb3bac3f9a436acc5b0336b62533ab1c54.record.md) |
