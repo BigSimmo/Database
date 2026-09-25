@@ -214,7 +214,7 @@ async function expectNoHorizontalOverflow(page: Page, label: string) {
  * of quietly returning NaN for it.
  */
 async function tileCount(page: Page, key: string) {
-  const badge = page.getByTestId(`on-call-home-tile-${key}`).locator("span.nums");
+  const badge = visibleByTestId(page, `on-call-home-tile-${key}`).locator("span.nums");
   await expect(badge, `the ${key} tile carries no count`).toHaveCount(1);
   const text = ((await badge.textContent()) ?? "").trim();
   expect(text, `the ${key} tile's count reads "${text}", which is not a number`).toMatch(/^\d+$/);
@@ -242,13 +242,13 @@ test.describe("01 Home", () => {
       "on-call-home-sections",
     ];
     for (const id of modules) {
-      await expect(page.getByTestId(id), `${id} is drawn on board 01 but does not render`).toBeVisible();
+      await expect(visibleByTestId(page, id), `${id} is drawn on board 01 but does not render`).toBeVisible();
     }
 
     // Top to bottom in the drawn order. A module that renders in the wrong
     // place still passes a presence check, and the order is the board.
     const tops = await Promise.all(
-      modules.map(async (id) => (await page.getByTestId(id).boundingBox())?.y ?? Number.NaN),
+      modules.map(async (id) => (await visibleByTestId(page, id).boundingBox())?.y ?? Number.NaN),
     );
     for (let index = 1; index < tops.length; index += 1) {
       expect(tops[index], `${modules[index]} is above ${modules[index - 1]}`).toBeGreaterThan(tops[index - 1]!);
@@ -257,7 +257,7 @@ test.describe("01 Home", () => {
 
   test("leads with Who do I call now, which opens the escalation steps with call buttons", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    await page.getByTestId("on-call-home-call-now").click();
+    await visibleByTestId(page, "on-call-home-call-now").click();
     await expect(page).toHaveURL(/\/on-call\/now$/);
     await expect(page.getByTestId("on-call-now-ladder")).toBeVisible();
     await expect(page.getByTestId("on-call-now-steps").getByRole("listitem").first()).toBeVisible();
