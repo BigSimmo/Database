@@ -991,6 +991,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
@@ -998,6 +999,7 @@
         "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "productImportFiles": [
+        "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
@@ -1763,8 +1765,16 @@
       "source": "src/components/ui/text-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/cme/cme-log-page.tsx", "src/components/on-call/on-call-search-box.tsx"],
-      "productImportFiles": ["src/components/cme/cme-log-page.tsx", "src/components/on-call/on-call-search-box.tsx"],
+      "directImportFiles": [
+        "src/components/cme/cme-log-page.tsx",
+        "src/components/on-call/on-call-call-now-page.tsx",
+        "src/components/on-call/on-call-search-box.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/cme/cme-log-page.tsx",
+        "src/components/on-call/on-call-call-now-page.tsx",
+        "src/components/on-call/on-call-search-box.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1907,6 +1917,7 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/calendar/calendar-view.tsx",
         "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
@@ -1946,6 +1957,7 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/calendar/calendar-view.tsx",
         "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
@@ -2358,8 +2370,8 @@
       "source": "src/components/ui/link.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/calendar/calendar-view.tsx"],
+      "productImportFiles": ["src/components/calendar/calendar-view.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -2375,8 +2387,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -2636,6 +2648,8 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": [
+        "src/app/(search-app)/cme/calendar/page.tsx",
+        "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
         "src/app/(search-app)/cme/log/[id]/page.tsx",
         "src/app/(search-app)/cme/log/page.tsx",
@@ -2667,11 +2681,15 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/on-call/calendar/page.tsx",
         "src/app/(search-app)/on-call/card/page.tsx",
+        "src/app/(search-app)/on-call/check/page.tsx",
         "src/app/(search-app)/on-call/compliance/page.tsx",
         "src/app/(search-app)/on-call/contacts/page.tsx",
         "src/app/(search-app)/on-call/education/page.tsx",
+        "src/app/(search-app)/on-call/first-night/page.tsx",
         "src/app/(search-app)/on-call/logistics/page.tsx",
+        "src/app/(search-app)/on-call/now/page.tsx",
         "src/app/(search-app)/on-call/orientation/page.tsx",
         "src/app/(search-app)/on-call/page.tsx",
         "src/app/(search-app)/on-call/playbook/page.tsx",
@@ -2726,6 +2744,26 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["CmeDashboard", "CmePage", "DetailPage", "ModeHome", "SearchPage"],
       "roots": [
+        {
+          "file": "src/app/(search-app)/cme/calendar/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CmePage"]
+        },
+        {
+          "file": "src/app/(search-app)/cme/check/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CmePage"]
+        },
         {
           "file": "src/app/(search-app)/cme/customise/page.tsx",
           "exists": true,
@@ -3037,7 +3075,27 @@
           "sanctionedPatternsPresent": []
         },
         {
+          "file": "src/app/(search-app)/on-call/calendar/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
           "file": "src/app/(search-app)/on-call/card/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/check/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3077,7 +3135,27 @@
           "sanctionedPatternsPresent": []
         },
         {
+          "file": "src/app/(search-app)/on-call/first-night/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
           "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/now/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4462,6 +4540,8 @@
     "discovered": [
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
+      "src/app/(search-app)/cme/calendar/page.tsx",
+      "src/app/(search-app)/cme/check/page.tsx",
       "src/app/(search-app)/cme/customise/page.tsx",
       "src/app/(search-app)/cme/log/[id]/page.tsx",
       "src/app/(search-app)/cme/log/page.tsx",
@@ -4513,11 +4593,15 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/calendar/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
+      "src/app/(search-app)/on-call/check/page.tsx",
       "src/app/(search-app)/on-call/compliance/page.tsx",
       "src/app/(search-app)/on-call/contacts/page.tsx",
       "src/app/(search-app)/on-call/education/page.tsx",
+      "src/app/(search-app)/on-call/first-night/page.tsx",
       "src/app/(search-app)/on-call/logistics/page.tsx",
+      "src/app/(search-app)/on-call/now/page.tsx",
       "src/app/(search-app)/on-call/orientation/page.tsx",
       "src/app/(search-app)/on-call/page.tsx",
       "src/app/(search-app)/on-call/playbook/page.tsx",
@@ -4569,6 +4653,8 @@
     "declared": [
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
+      "src/app/(search-app)/cme/calendar/page.tsx",
+      "src/app/(search-app)/cme/check/page.tsx",
       "src/app/(search-app)/cme/customise/page.tsx",
       "src/app/(search-app)/cme/log/[id]/page.tsx",
       "src/app/(search-app)/cme/log/page.tsx",
@@ -4620,11 +4706,15 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/calendar/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
+      "src/app/(search-app)/on-call/check/page.tsx",
       "src/app/(search-app)/on-call/compliance/page.tsx",
       "src/app/(search-app)/on-call/contacts/page.tsx",
       "src/app/(search-app)/on-call/education/page.tsx",
+      "src/app/(search-app)/on-call/first-night/page.tsx",
       "src/app/(search-app)/on-call/logistics/page.tsx",
+      "src/app/(search-app)/on-call/now/page.tsx",
       "src/app/(search-app)/on-call/orientation/page.tsx",
       "src/app/(search-app)/on-call/page.tsx",
       "src/app/(search-app)/on-call/playbook/page.tsx",
@@ -4679,7 +4769,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 112,
+    "inheritedCkbV2RootCount": 118,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4687,9 +4777,9 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 45,
-    "rootCount": 113,
-    "productionRouteCount": 105,
-    "nextUiEntryCount": 170
+    "productImportedComponentCount": 46,
+    "rootCount": 119,
+    "productionRouteCount": 111,
+    "nextUiEntryCount": 176
   }
 }

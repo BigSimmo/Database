@@ -236,6 +236,14 @@ test.describe("01 Home", () => {
     }
   });
 
+  test("leads with Who do I call now, which opens the escalation steps with call buttons", async ({ page }) => {
+    await openBoard(page, ROUTES.home);
+    await page.getByTestId("on-call-home-call-now").click();
+    await expect(page).toHaveURL(/\/on-call\/now$/);
+    await expect(page.getByTestId("on-call-now-ladder")).toBeVisible();
+    await expect(page.getByTestId("on-call-now-steps").getByRole("listitem").first()).toBeVisible();
+  });
+
   test("puts two call cards and the switchboard row under Call first", async ({ page }) => {
     await openBoard(page, ROUTES.home);
     const callFirst = page.getByTestId("on-call-home-call-first");

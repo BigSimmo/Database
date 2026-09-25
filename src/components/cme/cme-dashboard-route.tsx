@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { CmeDashboard } from "@/components/cme/cme-dashboard";
+import { CmeDashboard, type CmeReportingReminder } from "@/components/cme/cme-dashboard";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import type { CmeRoutine } from "@/lib/cme/routines";
@@ -15,6 +15,7 @@ export type CmeDashboardRouteProps = {
   readonly nowIso: string;
   readonly routines: readonly CmeRoutine[];
   readonly demoMode?: boolean;
+  readonly reportingReminder?: CmeReportingReminder | null;
 };
 
 /**
@@ -29,7 +30,14 @@ export type CmeDashboardRouteProps = {
  * hydrates into agree on which season of the year the screen is in. Demo mode
  * freezes that instant against the corpus; live mode uses the request time.
  */
-export function CmeDashboardRoute({ set, entries, nowIso, routines, demoMode = false }: CmeDashboardRouteProps) {
+export function CmeDashboardRoute({
+  set,
+  entries,
+  nowIso,
+  routines,
+  demoMode = false,
+  reportingReminder = null,
+}: CmeDashboardRouteProps) {
   const router = useRouter();
 
   return (
@@ -41,6 +49,7 @@ export function CmeDashboardRoute({ set, entries, nowIso, routines, demoMode = f
         routines={routines}
         onLogRoutine={(prefill) => router.push(cmeRoutineLogHref(prefill))}
         onOpenCustomise={() => router.push("/cme/customise")}
+        reportingReminder={reportingReminder}
       />
       <CmeQuickLog set={set} demoMode={demoMode} />
     </>

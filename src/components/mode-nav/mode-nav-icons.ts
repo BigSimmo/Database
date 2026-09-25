@@ -3,6 +3,7 @@ import {
   BookMarked,
   Building2,
   CalendarDays,
+  CalendarRange,
   ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
@@ -96,6 +97,8 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   // page it opens.
   year: CalendarDays,
   log: NotebookPen,
+  check: ClipboardCheck,
+  calendar: CalendarRange,
   routines: Repeat,
   plan: Target,
   programme: ClipboardList,
