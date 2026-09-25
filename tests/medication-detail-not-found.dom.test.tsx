@@ -170,6 +170,22 @@ describe("useMedicationDetail not-found (#W0T66R)", () => {
     expect(result.current).toMatchObject({ loading: false, notFound: true });
   });
 
+  it.each(["expired", "error"] as const)(
+    "keeps a medication_not_found response as an error while the session is %s",
+    async (status) => {
+      // An expired or failed session cannot vouch that the record is globally absent,
+      // so an owner-only record must never read as not found.
+      authSession.status = status;
+      fetchMock.mockResolvedValueOnce(notFound("owner-med"));
+
+      const { result } = renderHook(() => useMedicationDetail("owner-med"));
+      await flushMicrotasks();
+
+      expect(result.current.notFound).toBe(false);
+      expect(result.current.error).toBeTruthy();
+    },
+  );
+
   it("stays silent when a request is aborted by a slug change", async () => {
     fetchMock.mockImplementation((_url, init) => {
       const signal = (init as RequestInit | undefined)?.signal;
