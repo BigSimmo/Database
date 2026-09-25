@@ -152,7 +152,7 @@ describe("clozapine 'wa' quoted reference block (task 6b)", () => {
     const keys = section.rows.map((row) => row.key);
 
     expect(keys.some((key) => /titration/i.test(key))).toBe(true);
-    expect(keys.some((key) => /missed dose/i.test(key))).toBe(true);
+    expect(keys.some((key) => /interruption:/i.test(key))).toBe(true);
     expect(keys.some((key) => /myocarditis/i.test(key))).toBe(true);
   });
 
@@ -161,5 +161,96 @@ describe("clozapine 'wa' quoted reference block (task 6b)", () => {
     for (const row of section.rows) {
       expect(row.val, `row "${row.key}" must end with a bracketed source title`).toMatch(/\[[^[\]]+\]\s*$/);
     }
+  });
+
+  it("pins all 28 Appendix 5 titration days in order, plus the ongoing row", () => {
+    const section = findWaSection();
+    const dayKeys = section.rows.map((row) => row.key).filter((key) => /^Community titration Day \d+$/.test(key));
+    const expectedDayKeys = Array.from({ length: 28 }, (_, i) => `Community titration Day ${i + 1}`);
+    expect(dayKeys).toEqual(expectedDayKeys);
+
+    const ongoingRow = section.rows.find((row) => row.key === "Community titration Ongoing");
+    expect(ongoingRow, "the 'Ongoing: As clinically indicated' row must be present").toBeTruthy();
+    expect(ongoingRow!.val).toMatch(/As clinically indicated/i);
+  });
+
+  it("gives Day 10 and Day 24 (the two rows a previous pass omitted) their exact Appendix 5 doses", () => {
+    const section = findWaSection();
+    const byKey = new Map(section.rows.map((row) => [row.key, row.val]));
+
+    const day10 = byKey.get("Community titration Day 10");
+    expect(day10, "Community titration Day 10 row must exist").toBeTruthy();
+    expect(day10).toMatch(/AM dose 25 mg, PM dose 25 mg\. Monitoring: A\./);
+
+    const day24 = byKey.get("Community titration Day 24");
+    expect(day24, "Community titration Day 24 row must exist").toBeTruthy();
+    expect(day24).toMatch(/AM dose 75 mg, PM dose 75 mg\. Monitoring: A\./);
+  });
+
+  it("carries the Day 5 and Day 12 out-of-hours reminder notes verbatim", () => {
+    const section = findWaSection();
+    const byKey = new Map(section.rows.map((row) => [row.key, row.val]));
+    expect(byKey.get("Community titration Day 5")).toMatch(
+      /Check results from day 4\. Remind patient of out of hours arrangements and weekend\./,
+    );
+    expect(byKey.get("Community titration Day 12")).toMatch(
+      /Check results from day 1\. Remind patient of out of hours arrangements and weekend\./,
+    );
+  });
+
+  it("labels every Appendix 4 community-protocol row as such, distinct from the s5.3 rows", () => {
+    const section = findWaSection();
+    const appendix4Keys = section.rows.map((row) => row.key).filter((key) => key.startsWith("Community protocol"));
+    expect(appendix4Keys.length).toBeGreaterThanOrEqual(4);
+    for (const key of appendix4Keys) {
+      expect(key).toMatch(/^Community protocol \(Appendix 4\):/);
+    }
+
+    // The two rows drawn from the main s5.3 text (not Appendix 4) keep their own naming.
+    const s53Row = section.rows.find((row) => row.key === "Myocarditis monitoring - Days 7, 14, 21, 28");
+    expect(s53Row).toBeTruthy();
+    expect(s53Row!.key).not.toMatch(/Appendix 4/);
+  });
+
+  it("quotes the s5.1 chart-purpose sentence, the s5.2 community-vs-inpatient sentence, and the s5.3 inpatient vital-signs paragraph verbatim", () => {
+    const section = findWaSection();
+    const byKey = new Map(section.rows.map((row) => [row.key, row.val]));
+
+    expect(byKey.get("Chart purpose (s5.1)")).toMatch(
+      /intended to be used as a record of the prescribing, monitoring, and administration of clozapine titration for all patients in inpatient settings/,
+    );
+    expect(byKey.get("Community vs inpatient titration (s5.2)")).toMatch(
+      /For inpatient settings, the WA Clozapine Initiation and Titration Chart outlines a suggested titration schedule, but slower titrations may be utilised\. Patients commenced in the community must follow a slower titration due to reduced monitoring\./,
+    );
+    expect(byKey.get("Inpatient vital signs (s5.3)")).toMatch(
+      /hourly for six hours, and then 6-hourly for the first 24 hours.*at least twice daily for the first week/,
+    );
+  });
+
+  it("states up front that the block is quoted from the named WA guideline", () => {
+    const section = findWaSection();
+    const first = section.rows.find((row) => row.key === "Source statement");
+    expect(first, "the section must open with a 'Source statement' row").toBeTruthy();
+    expect(first!.val).toMatch(
+      /Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system \(WA Department of Health, Version 2, June 2024\)/,
+    );
+  });
+
+  it("includes the 'Commencement should take place early in the week' sentence in the titration principle row", () => {
+    const section = findWaSection();
+    const row = section.rows.find((row) => row.key === "Titration principle");
+    expect(row).toBeTruthy();
+    expect(row!.val).toMatch(
+      /Commencement should take place early in the week to allow for adequate staffing and monitoring\./,
+    );
+  });
+
+  it("adds a Table 3 pointer row for blood monitoring after interruption", () => {
+    const section = findWaSection();
+    const row = section.rows.find((row) => row.key === "Blood monitoring after interruption (Table 3)");
+    expect(row).toBeTruthy();
+    expect(row!.val).toMatch(
+      /re-registered with the monitoring service if the period of cessation is 3 months or greater/,
+    );
   });
 });
