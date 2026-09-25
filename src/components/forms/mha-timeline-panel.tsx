@@ -11,12 +11,14 @@ import { formatPerthDateTime, parsePerthDateTimeInput, timelineFor, type MhaTime
 /** Fixed wording, owner-approved. Do not paraphrase. */
 export const MHA_TIMELINE_REFERENCE_NOTE = "Reference only — check against the Act and your service's procedure.";
 export const MHA_TIMELINE_AWAITING_REVIEW = "Awaiting clinical review — time not calculated";
+export const MHA_TIMELINE_NOT_CALCULABLE =
+  "Time not calculated — this limit can also end earlier, as the quoted Act words below explain";
 
 function DeadlineLine({ item }: { item: MhaTimelineItem }) {
   if (item.quoteOnly) {
     return (
       <p className="text-sm font-semibold leading-6 text-[color:var(--text-muted)]" data-testid="mha-timeline-awaiting">
-        {MHA_TIMELINE_AWAITING_REVIEW}
+        {item.reason === "not-calculable" ? MHA_TIMELINE_NOT_CALCULABLE : MHA_TIMELINE_AWAITING_REVIEW}
       </p>
     );
   }
@@ -90,12 +92,36 @@ export function MhaTimelinePanel({ formCode }: { formCode: string }) {
               className="space-y-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]"
             >
               <h3 className="text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{entry.trigger}</h3>
+              {entry.condition ? (
+                <p
+                  className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]"
+                  data-testid="mha-timeline-condition"
+                >
+                  {entry.condition}
+                </p>
+              ) : null}
               <blockquote
                 cite={mhaActMetadata.sourceUrl}
                 className="border-l-2 border-[color:var(--clinical-accent-border)] pl-3 text-sm italic leading-6 text-[color:var(--text-body)]"
               >
-                {`“${entry.quote}”`}
+                {entry.leadIn ? `“${entry.leadIn} … ${entry.quote}”` : `“${entry.quote}”`}
               </blockquote>
+              {entry.caveat ? (
+                <div
+                  className="space-y-1 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2"
+                  data-testid="mha-timeline-caveat"
+                >
+                  <p className="text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
+                    {`The Act also says (s ${entry.caveat.section}):`}
+                  </p>
+                  <blockquote
+                    cite={mhaActMetadata.sourceUrl}
+                    className="text-sm italic leading-6 text-[color:var(--text-body)]"
+                  >
+                    {`“${entry.caveat.quote}”`}
+                  </blockquote>
+                </div>
+              ) : null}
               <a
                 href={mhaActMetadata.sourceUrl}
                 target="_blank"

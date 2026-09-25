@@ -11,6 +11,7 @@
       "formCodes": ["2"],
       "trigger": "Detention of the voluntary inpatient so the assessment can be conducted",
       "section": "34",
+      "sourceTextSha256": "9409e7aece03ae5b1e7486d5051f5fe892dfb060ec6fa906f53c4740c0beadf5",
       "quote": "The voluntary inpatient can be detained under the order at the authorised hospital for up to 6 hours from the time when the order was made to enable the assessment to be conducted",
       "duration": {
         "value": 6,
@@ -27,12 +28,17 @@
       "formCodes": ["3A"],
       "trigger": "Detention so the referred person can be taken to the authorised hospital or other place",
       "section": "28",
+      "sourceTextSha256": "bedcd235eb7cbfb297e3fd038f4f92a00be5d783dd907702d50748dd3e84e908",
       "quote": "may make an order authorising the person’s detention for up to 24 hours from the time when the order is made",
       "duration": {
         "value": 24,
         "unit": "hours"
       },
       "anchor": "The time the Form 3A order was made",
+      "caveat": {
+        "section": "28",
+        "quote": "The person cannot continue to be detained if the referral expires before the person is taken to the authorised hospital or other place"
+      },
       "status": "drafted",
       "reviewedBy": null,
       "reviewedAt": null,
@@ -43,12 +49,18 @@
       "formCodes": ["3A"],
       "trigger": "Longest continuous detention under section 28 orders, when the referral was made in a metropolitan area",
       "section": "28",
+      "sourceTextSha256": "bedcd235eb7cbfb297e3fd038f4f92a00be5d783dd907702d50748dd3e84e908",
       "quote": "The person cannot be detained under orders made under this section for a continuous period of more than — (a)if the place where the referral is made is in a metropolitan area — 72 hours",
       "duration": {
         "value": 72,
         "unit": "hours"
       },
       "anchor": "The time the first section 28 detention order (this Form 3A) was made",
+      "caveat": {
+        "section": "28",
+        "quote": "The person cannot continue to be detained if the referral expires before the person is taken to the authorised hospital or other place"
+      },
+      "computeAllowed": false,
       "status": "drafted",
       "reviewedBy": null,
       "reviewedAt": null,
@@ -59,12 +71,19 @@
       "formCodes": ["3A"],
       "trigger": "Longest continuous detention under section 28 orders, when the referral was made outside a metropolitan area",
       "section": "28",
+      "sourceTextSha256": "bedcd235eb7cbfb297e3fd038f4f92a00be5d783dd907702d50748dd3e84e908",
+      "leadIn": "The person cannot be detained under orders made under this section for a continuous period of more than —",
       "quote": "(b)if the place where the referral is made is outside a metropolitan area — 144 hours",
       "duration": {
         "value": 144,
         "unit": "hours"
       },
       "anchor": "The time the first section 28 detention order (this Form 3A) was made",
+      "caveat": {
+        "section": "28",
+        "quote": "The person cannot continue to be detained if the referral expires before the person is taken to the authorised hospital or other place"
+      },
+      "computeAllowed": false,
       "status": "drafted",
       "reviewedBy": null,
       "reviewedAt": null,
@@ -73,8 +92,10 @@
     {
       "id": "form-3d-6b-detention-to-take-person",
       "formCodes": ["3D", "6B"],
-      "trigger": "If the person must be detained to be taken to the hospital (an order under section 62(1))",
+      "trigger": "Detention to take the person to the hospital, if a section 62 order is made",
+      "condition": "Only if an order under section 62(1) is made to detain the person so they can be taken to the hospital",
       "section": "62",
+      "sourceTextSha256": "0e13f2531179c9da5efb8a59c06a384465d75519903d98954a3cec2fb010f986",
       "quote": "may make an order authorising the continuation of the person’s detention for up to 24 hours from the time when the order under section 61(1)(a) or (c) is made",
       "duration": {
         "value": 24,
@@ -89,8 +110,10 @@
     {
       "id": "form-3d-6b-continuous-limit",
       "formCodes": ["3D", "6B"],
-      "trigger": "Longest continuous detention under section 62 orders",
+      "trigger": "Longest continuous detention, if a section 62 order is made",
+      "condition": "Only if an order under section 62(1) is made to detain the person so they can be taken to the hospital",
       "section": "62",
+      "sourceTextSha256": "0e13f2531179c9da5efb8a59c06a384465d75519903d98954a3cec2fb010f986",
       "quote": "A person cannot be detained under orders made under this section for a continuous period of more than 72 hours",
       "duration": {
         "value": 72,
@@ -105,8 +128,10 @@
     {
       "id": "form-5a-confirmation",
       "formCodes": ["5A"],
-      "trigger": "Confirmation of a community treatment order made under section 75",
+      "trigger": "Confirmation of the community treatment order, if it was made under section 75",
+      "condition": "Only if this community treatment order was made under section 75. Form 5A is also used for orders made under other sections",
       "section": "76",
+      "sourceTextSha256": "1cb53d9cee55cfac44e41cf4a10cd5b8edd80cf323edbfcd1e6cc4701658faf5",
       "quote": "Within 72 hours after the time when the community treatment order is made, it must be confirmed by",
       "duration": {
         "value": 72,
@@ -123,6 +148,7 @@
       "formCodes": ["12C"],
       "trigger": "Advising the Chief Mental Health Advocate that a restriction on freedom of communication has been made",
       "section": "262",
+      "sourceTextSha256": "d74ff4a4c1e3afeb02583dae5d22854a4624cce39fab4f61a325c0d8a197680e",
       "quote": "must, within 24 hours after the time when the order is made, advise the Chief Mental Health Advocate that the order has been made",
       "duration": {
         "value": 24,
@@ -139,6 +165,7 @@
       "formCodes": ["12C"],
       "trigger": "First review of the restriction on freedom of communication (the Act requires a review before the end of each 24-hour period the order is in force)",
       "section": "262",
+      "sourceTextSha256": "d74ff4a4c1e3afeb02583dae5d22854a4624cce39fab4f61a325c0d8a197680e",
       "quote": "A psychiatrist must, before the end of each 24-hour period that an order made under subsection (1) is in force, review the order and confirm, amend or revoke it",
       "duration": {
         "value": 24,

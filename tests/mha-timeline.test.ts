@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import mhaTimeframes from "../data/mha-timeframes.json";
@@ -7,6 +8,8 @@ import {
   hasMhaTimeline,
   isReviewedTimeframe,
   parsePerthDateTimeInput,
+  sha256Hex,
+  timeframeContentSha256,
   timelineFor,
   type MhaTimeframeEntry,
   type MhaTimeframesFile,
@@ -24,6 +27,7 @@ function entry(overrides: Partial<MhaTimeframeEntry>): MhaTimeframeEntry {
     formCodes: ["X1"],
     trigger: "Fixture trigger",
     section: "1",
+    sourceTextSha256: "a".repeat(64),
     quote: "fixture quote",
     duration: { value: 24, unit: "hours" },
     anchor: "Fixture anchor",
@@ -35,14 +39,15 @@ function entry(overrides: Partial<MhaTimeframeEntry>): MhaTimeframeEntry {
   };
 }
 
+/** A correctly signed fixture: status, named reviewer, UTC time and a matching content pin. */
 function reviewed(overrides: Partial<MhaTimeframeEntry>): MhaTimeframeEntry {
-  return entry({
+  const next = entry({
     status: "reviewed",
     reviewedBy: "Fixture Reviewer",
-    reviewedAt: "2026-09-25T10:00:00+08:00",
-    reviewedContentSha256: "0".repeat(64),
+    reviewedAt: "2026-09-25T02:00:00Z",
     ...overrides,
   });
+  return { ...next, reviewedContentSha256: timeframeContentSha256(next) };
 }
 
 const perth = (wallTime: string) => new Date(`${wallTime}+08:00`);
@@ -132,6 +137,7 @@ describe("timelineFor", () => {
     const [item] = timelineFor("X1", start, fixtures);
     expect(item.entry.id).toBe("drafted-short");
     expect(item.quoteOnly).toBe(true);
+    expect(item).toEqual(expect.objectContaining({ reason: "awaiting-review" }));
     expect(item).not.toHaveProperty("deadline");
   });
 
@@ -148,14 +154,38 @@ describe("timelineFor", () => {
     expect(mid).toEqual(expect.objectContaining({ quoteOnly: false, deadline: null }));
   });
 
-  it("fails closed: 'reviewed' without a named reviewer and date is treated as drafted", () => {
+  it("fails closed: a sign-off that is incomplete, not UTC, or no longer matches is treated as drafted", () => {
+    const good = reviewed({ id: "good" });
+    expect(isReviewedTimeframe(good)).toBe(true);
     const unsigned = [
-      entry({ id: "no-name", status: "reviewed", reviewedAt: "2026-09-25" }),
-      entry({ id: "no-date", status: "reviewed", reviewedBy: "Someone" }),
-      entry({ id: "blank", status: "reviewed", reviewedBy: "  ", reviewedAt: "2026-09-25" }),
+      { ...good, id: "no-name", reviewedBy: null },
+      { ...good, id: "blank-name", reviewedBy: "  " },
+      { ...good, id: "no-date", reviewedAt: null },
+      { ...good, id: "date-only", reviewedAt: "2026-09-25" },
+      { ...good, id: "offset-time", reviewedAt: "2026-09-25T10:00:00+08:00" },
+      { ...good, id: "no-pin", reviewedContentSha256: null },
+      { ...good, id: "wrong-pin", reviewedContentSha256: "0".repeat(64) },
+      // Edited after sign-off: the pin was computed over the old content.
+      { ...good, quote: "an edited fixture quote" },
+      { ...good, duration: { value: 48, unit: "hours" as const } },
+      { ...good, sourceTextSha256: "b".repeat(64) },
+      { ...good, status: "drafted" as const },
     ];
-    for (const candidate of unsigned) expect(isReviewedTimeframe(candidate)).toBe(false);
-    for (const item of timelineFor("X1", start, unsigned)) expect(item.quoteOnly).toBe(true);
+    for (const candidate of unsigned) expect(isReviewedTimeframe(candidate), JSON.stringify(candidate)).toBe(false);
+    for (const item of timelineFor("X1", start, unsigned)) {
+      expect(item).toEqual(expect.objectContaining({ quoteOnly: true, reason: "awaiting-review" }));
+    }
+  });
+
+  it("never calculates a computeAllowed:false entry, even when correctly signed", () => {
+    const blocked = reviewed({ id: "blocked", computeAllowed: false });
+    expect(isReviewedTimeframe(blocked)).toBe(true);
+    const [item] = timelineFor("X1", start, [blocked]);
+    expect(item).toEqual(expect.objectContaining({ quoteOnly: true, reason: "not-calculable" }));
+    expect(item).not.toHaveProperty("deadline");
+    // computeAllowed: true is the same as leaving it out.
+    const [allowed] = timelineFor("X1", start, [reviewed({ id: "allowed", computeAllowed: true })]);
+    expect(allowed).toEqual(expect.objectContaining({ quoteOnly: false, deadline: perth("2026-09-26T10:00:00") }));
   });
 
   it("calculates no time for any entry in the shipped file, because none is signed off", () => {
@@ -185,5 +215,24 @@ describe("Perth date-time input and display", () => {
   it("formats an instant as a Perth date and 24-hour time", () => {
     expect(formatPerthDateTime(new Date("2026-09-25T06:30:00Z"))).toBe("Fri 25 Sep 2026, 14:30 (Perth time)");
     expect(formatPerthDateTime(new Date("2028-02-28T16:05:00Z"))).toBe("Tue 29 Feb 2028, 00:05 (Perth time)");
+  });
+});
+
+describe("sha256Hex", () => {
+  it("matches node:crypto, including multi-byte text and padding boundaries", () => {
+    const samples = [
+      "",
+      "abc",
+      "a".repeat(55),
+      "a".repeat(56),
+      "a".repeat(64),
+      "a".repeat(119),
+      "The person’s detention — 72 hours",
+      JSON.stringify({ quote: "Within 72 hours after the time", émoji: "✓" }),
+      "x".repeat(1000),
+    ];
+    for (const sample of samples) {
+      expect(sha256Hex(sample), sample.slice(0, 20)).toBe(createHash("sha256").update(sample).digest("hex"));
+    }
   });
 });

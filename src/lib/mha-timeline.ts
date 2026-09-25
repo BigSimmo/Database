@@ -13,14 +13,19 @@ import {
  * THE OWNER'S RULE, and the reason this module is shaped the way it is: a statutory time
  * limit may appear only as a verbatim quote from the pinned Act text
  * (`data/mha-2014-sections.source.json`), and a computed Perth clock time may appear only for
- * an entry the owner has signed off — `status: "reviewed"` with a named reviewer and a date.
- * Agents write entries as `drafted` and never sign them. A drafted entry renders its quote and
- * nothing else; the engine does not calculate a time for it.
+ * an entry the owner has signed off — `status: "reviewed"`, a named reviewer, a UTC sign-off
+ * time, and a `reviewedContentSha256` pin that still matches the entry. Agents write entries as
+ * `drafted` and never sign them. A drafted entry renders its quote and nothing else.
  *
- * `timeframeContractProblems` is the mechanical half of that rule and is run against the whole
+ * Some limits are never calculated even when signed off (`computeAllowed: false`), because the
+ * Act ends the period at a second event the single "When was this made?" time cannot see — the
+ * s 28 continuous-detention ceilings also end when the referral expires (s 28(11)).
+ *
+ * `timeframeContractProblems` is the mechanical half of the rule and is run against the whole
  * file by `tests/mha-timeframes-contract.test.ts`: every quote must be a whitespace-normalised
- * substring of its section's text, and every duration the engine counts with must be written,
- * digit for digit, inside its quote. A figure that is not in the Act cannot reach the page.
+ * substring of its section's text, must state exactly one duration and it must be the entry's,
+ * and each entry's `sourceTextSha256` must equal its pinned section's hash, so refreshing the Act
+ * text forces the entry — and therefore its sign-off pin — to be touched.
  */
 
 export type MhaTimeframeUnit = "hours" | "days";
@@ -33,13 +38,26 @@ export type MhaTimeframeEntry = {
   formCodes: string[];
   /** What the time limit is for, in plain words. */
   trigger: string;
+  /** When the limit applies only in some uses of the form, the condition, shown prominently. */
+  condition?: string;
   /** The Act section number, as `data/mha-2014-sections.source.json` keys it. */
   section: string;
-  /** Verbatim (whitespace-normalised) text from that section, containing the duration. */
+  /** `textSha256` of that section in the pinned Act text; covered by the sign-off pin. */
+  sourceTextSha256: string;
+  /**
+   * Verbatim Act words that come before `quote` in the same section and are shown before it with
+   * an ellipsis — the stem of a list whose other limb carries a different figure.
+   */
+  leadIn?: string;
+  /** Verbatim (whitespace-normalised) text from that section, stating the duration exactly once. */
   quote: string;
   duration: { value: number; unit: MhaTimeframeUnit };
   /** The event the period is counted from, in plain words. */
   anchor: string;
+  /** Verbatim words from the same section that also end the period, shown with the quote. */
+  caveat?: { section: string; quote: string };
+  /** `false` keeps the entry quote-only for good, even once reviewed. Absent means `true`. */
+  computeAllowed?: boolean;
   status: MhaTimeframeStatus;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -56,8 +74,13 @@ export type MhaTimeframesFile = {
   entries: MhaTimeframeEntry[];
 };
 
+export type MhaTimelineQuoteOnlyReason = "awaiting-review" | "not-calculable";
+
 export type MhaTimelineItem =
-  { entry: MhaTimeframeEntry; quoteOnly: true } | { entry: MhaTimeframeEntry; quoteOnly: false; deadline: Date | null };
+  | { entry: MhaTimeframeEntry; quoteOnly: true; reason: MhaTimelineQuoteOnlyReason }
+  | { entry: MhaTimeframeEntry; quoteOnly: false; deadline: Date | null };
+
+export type MhaActSourceSection = { section: string; text: string; textSha256: string };
 
 const shippedEntries = (mhaTimeframes as MhaTimeframesFile).entries;
 
@@ -77,13 +100,133 @@ function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// ---------------------------------------------------------------------------------------------
+// The sign-off pin.
+//
+// MIRRORS `reviewedContentSha256` + the `timeframe` kind in
+// scripts/lib/clinical-record-review-contract.mjs (the `npm run clinical:review` tool), which
+// src/ cannot import: SHA-256, hex, over JSON.stringify of the entry with the four review fields
+// (status, reviewedBy, reviewedAt, reviewedContentSha256) removed and every object's keys sorted
+// recursively. Every other field is covered, including ones added later. If that tool's
+// canonicalisation changes, this must change with it; tests/mha-timeframes-contract.test.ts
+// pins a digest the tool itself produced.
+// ---------------------------------------------------------------------------------------------
+
+const REVIEW_METADATA_KEYS = new Set(["status", "reviewedBy", "reviewedAt", "reviewedContentSha256"]);
+
+function canonicalise(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalise);
+  if (value === null || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort()
+      .map((key) => [key, canonicalise(record[key])]),
+  );
+}
+
+const SHA256_K = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98,
+  0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+  0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8,
+  0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819,
+  0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+  0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+  0xc67178f2,
+]);
+
 /**
- * Does the quote state this duration as the Act writes it — "72 hours", "6-hour", "3 days"?
- * The digit boundary stops "144 hours" from satisfying a 44-hour entry.
+ * Synchronous SHA-256 (FIPS 180-4) of a string's UTF-8 bytes, as lowercase hex. Written here
+ * because the pin must be checkable while rendering, where Web Crypto is async-only and
+ * `node:crypto` is unavailable. Proven against `node:crypto` in tests/mha-timeline.test.ts.
  */
-function quoteStatesDuration(quote: string, duration: MhaTimeframeEntry["duration"]): boolean {
-  const singular = duration.unit === "hours" ? "hour" : "day";
-  return new RegExp(`(?:^|[^\\d])${duration.value}(?:\\s+${singular}s?|-${singular})\\b`).test(quote);
+export function sha256Hex(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  const bitLength = bytes.length * 8;
+  const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
+  const data = new Uint8Array(paddedLength);
+  data.set(bytes);
+  data[bytes.length] = 0x80;
+  const view = new DataView(data.buffer);
+  view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000));
+  view.setUint32(paddedLength - 4, bitLength >>> 0);
+
+  const hash = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
+  const w = new Uint32Array(64);
+  const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
+
+  for (let offset = 0; offset < paddedLength; offset += 64) {
+    for (let i = 0; i < 16; i += 1) w[i] = view.getUint32(offset + i * 4);
+    for (let i = 16; i < 64; i += 1) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = hash;
+    for (let i = 0; i < 64; i += 1) {
+      const t1 = (h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + SHA256_K[i] + w[i]) >>> 0;
+      const t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+      h = g;
+      g = f;
+      f = e;
+      e = (d + t1) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (t1 + t2) >>> 0;
+    }
+    hash[0] += a;
+    hash[1] += b;
+    hash[2] += c;
+    hash[3] += d;
+    hash[4] += e;
+    hash[5] += f;
+    hash[6] += g;
+    hash[7] += h;
+  }
+  return Array.from(hash, (word) => word.toString(16).padStart(8, "0")).join("");
+}
+
+/** The sign-off pin for an entry, exactly as `npm run clinical:review` computes it. */
+export function timeframeContentSha256(entry: MhaTimeframeEntry): string {
+  const content = Object.fromEntries(Object.entries(entry).filter(([key]) => !REVIEW_METADATA_KEYS.has(key)));
+  return sha256Hex(JSON.stringify(canonicalise(content)));
+}
+
+const UTC_ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const SHA256_HEX = /^[a-f0-9]{64}$/;
+
+/** Mirrors the sign-off tool: a real UTC ISO instant, never date-only, never an offset. */
+function isUtcIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== "string" || !UTC_ISO_TIMESTAMP.test(value)) return false;
+  const milliseconds = Date.parse(value);
+  if (!Number.isFinite(milliseconds)) return false;
+  const normalised = value.includes(".") ? value : value.replace(/Z$/, ".000Z");
+  return new Date(milliseconds).toISOString() === normalised;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Duration figures in quotes.
+// ---------------------------------------------------------------------------------------------
+
+/** Every "<digits> <time unit>" or "<digits>-<time unit>" in a text, e.g. "72 hours", "6-hour". */
+const DURATION_FIGURE = /(?<!\d)(\d+)(?:\s+|-)(minutes?|hours?|days?|weeks?|months?|years?)\b/gi;
+
+function durationFigures(text: string): { value: number; unit: string }[] {
+  return [...text.matchAll(DURATION_FIGURE)].map((match) => ({
+    value: Number(match[1]),
+    unit: match[2].toLowerCase().replace(/s$/, ""),
+  }));
+}
+
+/** The quote states exactly one duration, and it is this entry's. */
+function quoteStatesOnlyDuration(quote: string, duration: MhaTimeframeEntry["duration"]): boolean {
+  const figures = durationFigures(quote);
+  const unit = duration.unit === "hours" ? "hour" : "day";
+  return figures.length === 1 && figures[0].value === duration.value && figures[0].unit === unit;
 }
 
 /**
@@ -95,11 +238,13 @@ function quoteStatesDuration(quote: string, duration: MhaTimeframeEntry["duratio
  */
 export function timeframeContractProblems(
   entries: readonly MhaTimeframeEntry[],
-  sourceSections: readonly { section: string; text: string }[],
+  sourceSections: readonly MhaActSourceSection[],
   knownFormCodes: readonly string[],
 ): string[] {
   const problems: string[] = [];
-  const sectionText = new Map(sourceSections.map((entry) => [entry.section, normaliseActText(entry.text)]));
+  const sources = new Map(
+    sourceSections.map((entry) => [entry.section, { text: normaliseActText(entry.text), sha: entry.textSha256 }]),
+  );
   const forms = new Set(knownFormCodes.map(normaliseFormCode));
   const seen = new Set<string>();
 
@@ -120,24 +265,55 @@ export function timeframeContractProblems(
 
     if (!hasText(entry.trigger)) problems.push(`${label}: missing trigger`);
     if (!hasText(entry.anchor)) problems.push(`${label}: missing anchor`);
+    if (entry.condition !== undefined && !hasText(entry.condition)) problems.push(`${label}: empty condition`);
+    if (entry.computeAllowed !== undefined && typeof entry.computeAllowed !== "boolean") {
+      problems.push(`${label}: computeAllowed must be true or false`);
+    }
 
     const { value, unit } = entry.duration ?? ({} as MhaTimeframeEntry["duration"]);
-    const unitOk = unit === "hours" || unit === "days";
-    if (!unitOk) problems.push(`${label}: duration unit must be "hours" or "days", got "${String(unit)}"`);
+    // Owner ruling pending: whether a statutory "day" is 24 elapsed hours or a calendar day
+    // (and whether the day of the event counts). The engine can do either; the data may not
+    // use days until the owner decides.
+    const unitOk = unit === "hours";
+    if (unit === "days") {
+      problems.push(`${label}: duration unit "days" is not accepted until the owner rules on how days are reckoned`);
+    } else if (!unitOk) {
+      problems.push(`${label}: duration unit must be "hours", got "${String(unit)}"`);
+    }
     const valueOk = Number.isInteger(value) && value > 0;
     if (!valueOk) problems.push(`${label}: duration value must be a positive whole number, got ${String(value)}`);
 
-    const text = sectionText.get(entry.section);
-    if (text === undefined) {
+    const source = sources.get(entry.section);
+    if (source === undefined) {
       problems.push(`${label}: section ${entry.section} is not in the pinned Act text`);
-    } else if (!hasText(entry.quote)) {
-      problems.push(`${label}: missing quote`);
     } else {
-      if (!text.includes(normaliseActText(entry.quote))) {
-        problems.push(`${label}: quote is not a verbatim substring of section ${entry.section}`);
+      if (entry.sourceTextSha256 !== source.sha) {
+        problems.push(`${label}: sourceTextSha256 does not match the pinned text of section ${entry.section}`);
       }
-      if (unitOk && valueOk && !quoteStatesDuration(entry.quote, entry.duration)) {
-        problems.push(`${label}: quote does not state the duration "${value} ${unit}"`);
+      const quoteAt = hasText(entry.quote) ? source.text.indexOf(normaliseActText(entry.quote)) : -1;
+      if (!hasText(entry.quote)) {
+        problems.push(`${label}: missing quote`);
+      } else {
+        if (quoteAt < 0) problems.push(`${label}: quote is not a verbatim substring of section ${entry.section}`);
+        if (valueOk && (unit === "hours" || unit === "days") && !quoteStatesOnlyDuration(entry.quote, entry.duration)) {
+          problems.push(`${label}: quote does not state exactly one duration, "${value} ${unit}"`);
+        }
+      }
+      if (entry.leadIn !== undefined) {
+        const leadInAt = hasText(entry.leadIn) ? source.text.indexOf(normaliseActText(entry.leadIn)) : -1;
+        if (leadInAt < 0) problems.push(`${label}: leadIn is not a verbatim substring of section ${entry.section}`);
+        else if (quoteAt >= 0 && leadInAt >= quoteAt) problems.push(`${label}: leadIn must come before the quote`);
+        if (hasText(entry.leadIn) && durationFigures(entry.leadIn).length > 0) {
+          problems.push(`${label}: leadIn must not state a duration`);
+        }
+      }
+    }
+
+    if (entry.caveat !== undefined) {
+      if (entry.caveat.section !== entry.section) {
+        problems.push(`${label}: caveat must quote the entry's own section, so the same hash pins it`);
+      } else if (!hasText(entry.caveat.quote) || !source?.text.includes(normaliseActText(entry.caveat.quote))) {
+        problems.push(`${label}: caveat is not a verbatim substring of section ${entry.caveat.section}`);
       }
     }
 
@@ -146,8 +322,14 @@ export function timeframeContractProblems(
         problems.push(`${label}: a drafted entry must not carry reviewedBy, reviewedAt or reviewedContentSha256`);
       }
     } else if (entry.status === "reviewed") {
-      if (!hasText(entry.reviewedBy) || !hasText(entry.reviewedAt) || !hasText(entry.reviewedContentSha256)) {
-        problems.push(`${label}: a reviewed entry needs reviewedBy, reviewedAt and reviewedContentSha256`);
+      if (!hasText(entry.reviewedBy)) problems.push(`${label}: a reviewed entry needs reviewedBy`);
+      if (!isUtcIsoTimestamp(entry.reviewedAt)) {
+        problems.push(`${label}: a reviewed entry needs reviewedAt as a UTC ISO timestamp`);
+      }
+      if (typeof entry.reviewedContentSha256 !== "string" || !SHA256_HEX.test(entry.reviewedContentSha256)) {
+        problems.push(`${label}: a reviewed entry needs a lowercase reviewedContentSha256 pin`);
+      } else if (entry.reviewedContentSha256 !== timeframeContentSha256(entry)) {
+        problems.push(`${label}: content changed since sign-off (reviewedContentSha256 no longer matches)`);
       }
     } else {
       problems.push(`${label}: status must be "drafted" or "reviewed", got "${String(entry.status)}"`);
@@ -158,12 +340,18 @@ export function timeframeContractProblems(
 }
 
 /**
- * Signed off by a named person on a stated date. Anything short of that — including a
- * `reviewed` status with a blank reviewer — is treated as drafted, so the page fails closed
- * to quote-only.
+ * Signed off by a named person at a stated UTC time, with a pin that still matches the entry.
+ * Anything short of that — a blank reviewer, a date-only sign-off, an entry edited after
+ * sign-off — is treated as drafted, so the page fails closed to quote-only.
  */
 export function isReviewedTimeframe(entry: MhaTimeframeEntry): boolean {
-  return entry.status === "reviewed" && hasText(entry.reviewedBy) && hasText(entry.reviewedAt);
+  return (
+    entry.status === "reviewed" &&
+    hasText(entry.reviewedBy) &&
+    isUtcIsoTimestamp(entry.reviewedAt) &&
+    typeof entry.reviewedContentSha256 === "string" &&
+    entry.reviewedContentSha256 === timeframeContentSha256(entry)
+  );
 }
 
 /**
@@ -171,8 +359,8 @@ export function isReviewedTimeframe(entry: MhaTimeframeEntry): boolean {
  *
  * Hours are elapsed time. Days are Perth calendar days: the same Perth wall-clock time that
  * many days later, stepped through the Perth calendar so month ends and 29 February fall out
- * of the calendar rather than out of a day-length assumption. (Perth keeps UTC+8 all year, so
- * the two agree; the calendar route is the one that stays correct if that ever changes.)
+ * of the calendar rather than out of a day-length assumption. The contract does not yet let
+ * any entry use days (owner ruling pending), so that path is exercised only by its tests.
  */
 export function computeDeadline(entry: MhaTimeframeEntry, start: Date): Date {
   const startMs = start.getTime();
@@ -196,9 +384,10 @@ function durationHours(entry: MhaTimeframeEntry): number {
 }
 
 /**
- * A form's timeline, shortest period first (file order breaks ties). Drafted entries come back
- * quote-only with no `deadline` at all; reviewed ones carry the computed instant, or `null`
- * until a start is known.
+ * A form's timeline, shortest period first (file order breaks ties). An entry that is not
+ * signed off, or may never be calculated (`computeAllowed: false`), comes back quote-only with a
+ * reason and no `deadline` key; a calculable, signed-off one carries the computed instant, or
+ * `null` until a start is known.
  */
 export function timelineFor(
   formCode: string,
@@ -211,7 +400,8 @@ export function timelineFor(
     .filter(({ entry }) => entry.formCodes.some((candidate) => normaliseFormCode(candidate) === code))
     .sort((a, b) => durationHours(a.entry) - durationHours(b.entry) || a.index - b.index)
     .map(({ entry }): MhaTimelineItem => {
-      if (!isReviewedTimeframe(entry)) return { entry, quoteOnly: true };
+      if (entry.computeAllowed === false) return { entry, quoteOnly: true, reason: "not-calculable" };
+      if (!isReviewedTimeframe(entry)) return { entry, quoteOnly: true, reason: "awaiting-review" };
       return { entry, quoteOnly: false, deadline: start ? computeDeadline(entry, start) : null };
     });
 }

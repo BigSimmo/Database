@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { MhaTimeframeEntry } from "@/lib/mha-timeline";
+import { timeframeContentSha256, type MhaTimeframeEntry } from "@/lib/mha-timeline";
 
 /**
  * `fixtureEntries`, when set, replaces the shipped timeframes for the panel. The shipped file is
@@ -37,6 +37,7 @@ vi.mock("@/components/account-data-provider", () => ({
 import { FormDetailPage, formNavSections } from "@/components/forms/form-detail-page";
 import {
   MHA_TIMELINE_AWAITING_REVIEW,
+  MHA_TIMELINE_NOT_CALCULABLE,
   MHA_TIMELINE_REFERENCE_NOTE,
   MhaTimelinePanel,
 } from "@/components/forms/mha-timeline-panel";
@@ -62,18 +63,36 @@ describe("MhaTimelinePanel with the shipped (drafted) entries", () => {
     expect(input).toHaveAttribute("type", "datetime-local");
 
     const items = within(panel).getAllByRole("listitem");
-    expect(items.length).toBeGreaterThan(0);
+    expect(items).toHaveLength(3);
     for (const item of items) {
       expect(item.querySelector("blockquote")?.textContent).toMatch(/\d+ hours/);
       const link = within(item).getByRole("link", { name: /Mental Health Act 2014 \(WA\) s 28/ });
       expect(link).toHaveAttribute("href", mhaActMetadata.sourceUrl);
-      expect(within(item).getByText(MHA_TIMELINE_AWAITING_REVIEW)).toBeInTheDocument();
+      // Every s 28 limit carries the quoted s 28(11) referral-expiry caveat.
+      expect(within(item).getByTestId("mha-timeline-caveat")).toHaveTextContent(
+        "The person cannot continue to be detained if the referral expires",
+      );
     }
+    // The 24-hour order awaits review; the two continuous ceilings are never calculated.
+    expect(within(items[0]).getByText(MHA_TIMELINE_AWAITING_REVIEW)).toBeInTheDocument();
+    expect(within(items[1]).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
+    expect(within(items[2]).getByText(MHA_TIMELINE_NOT_CALCULABLE)).toBeInTheDocument();
+    // The non-metropolitan ceiling shows its stem, elided, before its own limb.
+    expect(items[2].querySelector("blockquote")?.textContent).toMatch(
+      /^“The person cannot be detained under orders made under this section for a continuous period of more than — … \(b\)if/,
+    );
 
     // Entering a start time must not make a drafted entry show a time.
     await user.type(input, "2026-09-25T10:00");
     expect(panel.querySelector("time")).toBeNull();
-    expect(within(panel).getAllByText(MHA_TIMELINE_AWAITING_REVIEW)).toHaveLength(items.length);
+  });
+
+  it("shows the Form 5A condition prominently", () => {
+    render(<MhaTimelinePanel formCode="5A" />);
+    const panel = screen.getByRole("region", { name: "Timeline" });
+    expect(within(panel).getByTestId("mha-timeline-condition")).toHaveTextContent(
+      /^Only if this community treatment order was made under section 75/,
+    );
   });
 
   it("renders nothing for a form with no timeframes", () => {
@@ -84,25 +103,28 @@ describe("MhaTimelinePanel with the shipped (drafted) entries", () => {
 
 describe("MhaTimelinePanel with a signed-off entry", () => {
   it("shows a Perth time only once a start is entered, and only for the reviewed entry", async () => {
+    const reviewedFixture: MhaTimeframeEntry = {
+      id: "fixture-reviewed",
+      formCodes: ["3A"],
+      trigger: "Reviewed fixture",
+      section: "28",
+      sourceTextSha256: "a".repeat(64),
+      quote: "fixture quote stating 24 hours",
+      duration: { value: 24, unit: "hours" },
+      anchor: "Fixture anchor",
+      status: "reviewed",
+      reviewedBy: "Fixture Reviewer",
+      reviewedAt: "2026-09-25T02:00:00Z",
+      reviewedContentSha256: null,
+    };
     control.fixtureEntries = [
-      {
-        id: "fixture-reviewed",
-        formCodes: ["3A"],
-        trigger: "Reviewed fixture",
-        section: "28",
-        quote: "fixture quote stating 24 hours",
-        duration: { value: 24, unit: "hours" },
-        anchor: "Fixture anchor",
-        status: "reviewed",
-        reviewedBy: "Fixture Reviewer",
-        reviewedAt: "2026-09-25T10:00:00+08:00",
-        reviewedContentSha256: "0".repeat(64),
-      },
+      { ...reviewedFixture, reviewedContentSha256: timeframeContentSha256(reviewedFixture) },
       {
         id: "fixture-drafted",
         formCodes: ["3A"],
         trigger: "Drafted fixture",
         section: "28",
+        sourceTextSha256: "a".repeat(64),
         quote: "fixture quote stating 72 hours",
         duration: { value: 72, unit: "hours" },
         anchor: "Fixture anchor",
