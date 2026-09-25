@@ -108,7 +108,7 @@ export const WA_CRISIS_CONTACTS = [
   },
   {
     id: "SYN-CRISIS-CONTACT-007",
-    name: "13YARN",
+    name: "13YARN (for Aboriginal and Torres Strait Islander people)",
     telephoneDisplay: "13 92 76",
     telephoneUri: "139276",
     coverage: "Australia-wide",

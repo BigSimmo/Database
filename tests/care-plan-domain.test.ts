@@ -433,7 +433,11 @@ describe("Care Plan contact actions", () => {
       { name: "Rurallink", telephoneDisplay: "1800 552 002", isEmergencyService: false },
       { name: "Lifeline", telephoneDisplay: "13 11 14", isEmergencyService: false },
       { name: "Suicide Call Back Service", telephoneDisplay: "1300 659 467", isEmergencyService: false },
-      { name: "13YARN", telephoneDisplay: "13 92 76", isEmergencyService: false },
+      {
+        name: "13YARN (for Aboriginal and Torres Strait Islander people)",
+        telephoneDisplay: "13 92 76",
+        isEmergencyService: false,
+      },
     ]);
 
     // The original four WA numbers keep their original verification date; the

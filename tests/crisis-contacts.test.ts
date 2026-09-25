@@ -41,7 +41,7 @@ describe("crisis-contacts", () => {
     expect(added.map((contact) => ({ name: contact.name, telephoneDisplay: contact.telephoneDisplay }))).toEqual([
       { name: "Lifeline", telephoneDisplay: "13 11 14" },
       { name: "Suicide Call Back Service", telephoneDisplay: "1300 659 467" },
-      { name: "13YARN", telephoneDisplay: "13 92 76" },
+      { name: "13YARN (for Aboriginal and Torres Strait Islander people)", telephoneDisplay: "13 92 76" },
     ]);
     for (const contact of added) {
       expect(contact.verifiedOn).toBe("2026-09-25");
@@ -56,7 +56,8 @@ describe("crisis-contacts", () => {
     // "If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76." —
     // these two numbers must match that sentence exactly.
     const lifeline = WA_CRISIS_CONTACTS.find((contact) => contact.name === "Lifeline");
-    const thirteenYarn = WA_CRISIS_CONTACTS.find((contact) => contact.name === "13YARN");
+    // Looked up by name prefix: since 2026-09-25 the label also says who 13YARN is for.
+    const thirteenYarn = WA_CRISIS_CONTACTS.find((contact) => contact.name.startsWith("13YARN"));
     expect(lifeline?.telephoneDisplay).toBe("13 11 14");
     expect(thirteenYarn?.telephoneDisplay).toBe("13 92 76");
   });
