@@ -315,9 +315,13 @@ const resolvedAuthStatuses = new Set(["authenticated", "signed_out", "unconfigur
 
 export function useMedicationDetail(slug?: string): MedicationDetailState {
   const normalized = slug?.trim().toLowerCase() ?? "";
-  const { authorizationHeader, status: authStatus } = useAuthSession();
+  const { authorizationHeader, session, status: authStatus } = useAuthSession();
+  // Identity, not the raw header: an hourly token refresh changes the header for the
+  // same user, and resetting on it blanked an owner-only record to a skeleton. The
+  // fetch effect still depends on the header, so it refetches with the new token.
+  const authIdentity = authSessionFingerprint(authStatus, session?.user.id);
   const [prevSlug, setPrevSlug] = useState(normalized);
-  const [prevAuthorizationHeader, setPrevAuthorizationHeader] = useState(authorizationHeader);
+  const [prevAuthIdentity, setPrevAuthIdentity] = useState(authIdentity);
   const [state, setState] = useState<AsyncState<MedicationDetailResponse> & { notFoundCode: boolean }>(() => ({
     data: null,
     loading: !!normalized,
@@ -325,11 +329,12 @@ export function useMedicationDetail(slug?: string): MedicationDetailState {
     notFoundCode: false,
   }));
 
-  // A new slug or a new credential starts from a clean slate: a 404 from the
-  // anonymous pre-sign-in fetch must never stand for the owner's record.
-  if (normalized !== prevSlug || authorizationHeader !== prevAuthorizationHeader) {
+  // A new slug or a new identity (including sign-in resolving) starts from a clean
+  // slate: a 404 from the anonymous pre-sign-in fetch must never stand for the
+  // owner's record.
+  if (normalized !== prevSlug || authIdentity !== prevAuthIdentity) {
     setPrevSlug(normalized);
-    setPrevAuthorizationHeader(authorizationHeader);
+    setPrevAuthIdentity(authIdentity);
     setState({
       data: null,
       loading: !!normalized,
@@ -368,5 +373,10 @@ export function useMedicationDetail(slug?: string): MedicationDetailState {
   }, [normalized, authorizationHeader]);
 
   const { notFoundCode, ...asyncState } = state;
+  // While sign-in is still loading, a `medication_not_found` from the anonymous fetch
+  // is not an answer yet: show loading, not a red error, until the identity settles.
+  if (notFoundCode && authStatus === "loading") {
+    return { data: null, loading: true, error: null, notFound: false };
+  }
   return { ...asyncState, notFound: notFoundCode && resolvedAuthStatuses.has(authStatus) };
 }

@@ -96,14 +96,39 @@ describe("useMedicationDetail not-found (#W0T66R)", () => {
     expect(result.current.error).toMatch(new RegExp(String(status)));
   });
 
-  it("does not claim not-found while sign-in is still resolving", async () => {
+  it("does not claim not-found while sign-in is still resolving, and shows loading rather than an error", async () => {
     authSession.status = "loading";
     fetchMock.mockResolvedValueOnce(notFound("owner-med"));
 
     const { result } = renderHook(() => useMedicationDetail("owner-med"));
     await flushMicrotasks();
 
-    expect(result.current.notFound).toBe(false);
+    expect(result.current).toMatchObject({ notFound: false, loading: true, error: null });
+  });
+
+  it("keeps the record through a token refresh for the same user, and refetches with the new token", async () => {
+    authSession.status = "authenticated";
+    authSession.session = { user: { id: "owner" } };
+    authSession.authorizationHeader = { Authorization: "Bearer first-token" };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ record }));
+    const { result, rerender } = renderHook(() => useMedicationDetail("owner-med"));
+    await flushMicrotasks();
+    expect(result.current.data?.record.name).toBe("Owner Med");
+
+    let resolveRefresh!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (resolveRefresh = resolve)));
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-token" };
+    rerender();
+
+    // Same identity, new credential: the owner-only record must not blank to a skeleton.
+    expect(result.current.data?.record.name).toBe("Owner Med");
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/medications/owner-med",
+      expect.objectContaining({ headers: { Authorization: "Bearer refreshed-token" } }),
+    );
+    await act(async () => resolveRefresh(jsonResponse({ record: { ...record, name: "Owner Med v2" } })));
+    await flushMicrotasks();
+    expect(result.current.data?.record.name).toBe("Owner Med v2");
   });
 
   it("resets when the auth header changes, so the anonymous 404 never stands for the owner's record", async () => {
