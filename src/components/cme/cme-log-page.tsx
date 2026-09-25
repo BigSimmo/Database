@@ -307,6 +307,7 @@ export function CmeLogPage({ entries, set, navigationYears, justSaved = false, d
         </button>
         <a
           href={`/api/cme/export?year=${effectiveYear}`}
+          download
           className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
         >
           Download CSV

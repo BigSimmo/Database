@@ -118,6 +118,15 @@ async function collectHeaderOverlaps(page: Page): Promise<OverlapReport> {
   });
 }
 
+// The settled mode-home stack is 160px for a mouse or trackpad. On a touch screen the prompt chips
+// meet the 48px tap floor instead of 32px (`@media (pointer: coarse)` on `.answer-suggestion-chip`
+// in globals.css), so the same one-row stack is 16px taller. The iPhone projects run these wide
+// viewports with a touch pointer, which is why they measured 176 and failed against a bare 160.
+async function expectedModeHomeStackHeight(page: Page) {
+  const coarsePointer = await page.evaluate(() => window.matchMedia("(pointer: coarse)").matches);
+  return coarsePointer ? 176 : 160;
+}
+
 test.describe("Header element overlap coverage", () => {
   for (const width of headerWidths) {
     test(`header controls do not overlap at ${width}px`, async ({ page }) => {
@@ -344,7 +353,9 @@ test.describe("Header element overlap coverage", () => {
         expect(geometry!.chipRows, `${label}: prompt chips must share one row`).toBe(1);
         // 160px is the settled stack every mode home shares: 24px ticker line,
         // the pill, gaps, the one-line rail and the privacy line.
-        expect(geometry!.composerHeight, `${label}: home composer must be the shared 160px stack`).toBe(160);
+        expect(geometry!.composerHeight, `${label}: home composer must be the shared 160px stack`).toBe(
+          await expectedModeHomeStackHeight(page),
+        );
       }
     }
   });
@@ -535,7 +546,9 @@ test.describe("Tablet usability regressions", () => {
     expect(geometry, "home composer and prompt rail must render").not.toBeNull();
     expect(geometry!.chipCount, "the rail must carry prompts to be worth measuring").toBeGreaterThan(1);
     expect(geometry!.chipRows, "prompt chips must still share one row").toBe(1);
-    expect(geometry!.composerHeight, "the control must not grow the shared 160px stack").toBe(160);
+    expect(geometry!.composerHeight, "the control must not grow the shared 160px stack").toBe(
+      await expectedModeHomeStackHeight(page),
+    );
   });
 
   // #SFFGYD. These three carried `min-h-12 … sm:min-h-10`, so they met the floor
