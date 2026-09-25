@@ -88,7 +88,9 @@ export function FavouritesHub({
     return [
       ...prototypeSets.map((set) => ({
         ...set,
-        example: true,
+        // A preset set that also holds the clinician's own items is theirs too; it
+        // must not carry the Example label over their saved favourite.
+        example: !savedRegistryFavourites.some((item) => item.set === set.title),
         count: allFavouriteItems.filter((item) => item.set === set.title).length,
       })),
       ...dynamicSets,

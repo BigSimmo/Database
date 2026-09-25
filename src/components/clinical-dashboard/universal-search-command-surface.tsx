@@ -127,7 +127,12 @@ function rankLocalFavourites(
       example: item.example === true,
       score,
     };
-    if ((byKey.get(key)?.score ?? -1) < score) byKey.set(key, match);
+    const existing = byKey.get(key);
+    // Fixtures come first, so on a tie prefer the clinician's own favourite: a saved
+    // item sharing a fixture's link must read "Saved", never "Example".
+    if (!existing || existing.score < score || (existing.score === score && existing.example && !match.example)) {
+      byKey.set(key, match);
+    }
   }
 
   if (includePrototypeSets) {

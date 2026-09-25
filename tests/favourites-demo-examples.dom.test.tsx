@@ -119,4 +119,26 @@ describe("demo favourites are labelled Example (#358YM0)", () => {
     expect(within(option).getByText("Saved", { exact: true })).toBeInTheDocument();
     expect(within(option).queryByText("Example", { exact: true })).toBeNull();
   });
+
+  it("prefers the clinician's own favourite over a fixture sharing its link in the dropdown", async () => {
+    // Same href and title as the fixture, so both score identically; fixtures come first.
+    savedRegistry.items = [{ ...fixture, id: "saved-twin" }];
+    render(<Surface demoMode query="acamprosate" />);
+
+    await screen.findByRole("listbox");
+    const option = optionFor(fixture.title);
+    expect(within(option).getByText("Saved", { exact: true })).toBeInTheDocument();
+    expect(within(option).queryByText("Example", { exact: true })).toBeNull();
+  });
+
+  it("never files the clinician's own favourite under a set labelled Example on the hub", () => {
+    savedRegistry.items = [{ ...ownSaved, set: fixture.set }];
+    render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode />);
+
+    const setRows = screen
+      .getAllByRole("button")
+      .filter((button) => button.textContent?.startsWith(fixture.set) || button.textContent?.includes(fixture.set));
+    expect(setRows.length).toBeGreaterThan(0);
+    for (const row of setRows) expect(within(row).queryByText("Example", { exact: true })).toBeNull();
+  });
 });
