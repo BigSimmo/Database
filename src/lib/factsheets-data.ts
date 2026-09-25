@@ -619,7 +619,7 @@ export const factsheets: Factsheet[] = [
     translatedResources: [
       {
         language: "Multiple languages",
-        title: "Anxiety fact sheet (headspace) — Health Translations Victoria",
+        title: "Anxiety fact sheet for young people (headspace) — Health Translations Victoria",
         url: "https://www.healthtranslations.vic.gov.au/resources/anxiety-fact-sheet",
       },
     ],

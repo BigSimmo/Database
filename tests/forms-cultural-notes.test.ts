@@ -13,13 +13,15 @@ import { culturalNotesForForm, type FormCulturalNote } from "@/lib/forms-cultura
  * well-formed ledger id, and that the render hook filters by form code
  * correctly.
  *
- * The three sourceIds cited here (`mha-2014-communication-and-cultural-provisions`,
- * `wa-health-language-services-policy-2011`, `cp-clinical-care-standard-aboriginal-practice`)
- * are captured, with full metadata and quoted text, in
- * `.superpowers/sdd/plan/sources-t7b.json` — outside this repo's tracked tree, per the
- * builder protocol, until the integrator appends it to `src/data/source-acquisitions.json`.
- * That append, and `npm run check:source-acquisitions`, are the integration-time proof that
- * these ids resolve to real, complete records; this test only pins this file's own shape.
+ * The sourceIds cited here (`mha-2014-communication-and-cultural-provisions`,
+ * `wa-health-language-services-guidelines-2025`) are captured, with full metadata and
+ * quoted text, in `.superpowers/sdd/plan/sources-t7b.json` — outside this repo's tracked
+ * tree, per the builder protocol, until the integrator appends it to
+ * `src/data/source-acquisitions.json`. That append, and `npm run check:source-acquisitions`,
+ * are the integration-time proof that these ids resolve to real, complete records; this
+ * test only pins this file's own shape. (The same fragment also records two rejected
+ * captures — a superseded 2011 policy edition and a service-level standard that turned out
+ * not to fit an examination form — neither of which any note cites.)
  */
 
 type CatalogForm = { form: string };

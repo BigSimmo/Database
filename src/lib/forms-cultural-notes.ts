@@ -2,9 +2,12 @@
  * Interpreter and Aboriginal-liaison cultural notes for MHA examination forms.
  *
  * Drafted from the Mental Health Act 2014 (WA), the WA Health Language Services
- * Policy and Chief Psychiatrist guidance — see `data/forms-cultural-notes.json`
- * and its citing entries in `src/data/source-acquisitions.json`. Every note is
- * `status: "drafted"`; none has been clinically reviewed.
+ * Policy (MP 0051/17) and its Guidelines, and Chief Psychiatrist guidance — see
+ * `data/forms-cultural-notes.json` for the notes themselves. The captured
+ * source records these notes cite are not in this repository yet: they land
+ * in `src/data/source-acquisitions.json` only when the integrator appends
+ * this task's `sources-t7b.json` fragment. Every note is `status: "drafted"`;
+ * none has been clinically reviewed.
  */
 import notesFile from "../../data/forms-cultural-notes.json";
 
@@ -15,7 +18,7 @@ export type FormCulturalNote = {
   kind: FormCulturalNoteKind;
   text: string;
   sourceId: string;
-  status: "drafted" | "reviewed";
+  status: "drafted";
 };
 
 type FormsCulturalNotesFile = { notes: FormCulturalNote[] };

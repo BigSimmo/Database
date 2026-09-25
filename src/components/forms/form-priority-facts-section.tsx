@@ -314,7 +314,7 @@ function ActSectionsCard({
 function PendingSectionBody({ formCode, pdfHref }: { formCode?: string; pdfHref?: string }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm leading-6 text-[color:var(--text-body)]">
+      <p className="text-sm leading-6 text-[color:var(--text)]">
         A plain-English summary for this section has not been written yet. Read the section in the current consolidated
         Act, and confirm the requirement on the current approved form.
       </p>
@@ -396,7 +396,7 @@ function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
                 <p className="text-2xs font-bold uppercase leading-4 text-[color:var(--text-muted)]">
                   {CULTURAL_NOTE_LABELS[note.kind]}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-[color:var(--text-body)]">{note.text}</p>
+                <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{note.text}</p>
               </div>
             </div>
           );
