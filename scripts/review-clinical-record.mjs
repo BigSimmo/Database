@@ -125,6 +125,19 @@ function actTextFor(context, section) {
   return (context.actSource?.sections ?? []).find((entry) => entry.section === section);
 }
 
+function priorityFactsText(facts) {
+  if (!facts || typeof facts !== "object") return facts;
+  return Object.entries(facts)
+    .map(([name, card]) =>
+      card && typeof card === "object"
+        ? [`${name}: ${card.title ?? ""}${card.detail ? ` (${card.detail})` : ""}`, card.body ? `  ${card.body}` : ""]
+            .filter(Boolean)
+            .join("\n")
+        : `${name}: ${String(card)}`,
+    )
+    .join("\n");
+}
+
 /** What the owner reads before answering. Every field shown is inside the content pin. */
 const DISPLAY = {
   form(record, context) {
@@ -154,7 +167,7 @@ const DISPLAY = {
       ["Legal note", entry.legalNote],
       ["Practice pearls", entry.practicePearls],
       ["Pre-use checks", entry.preUseChecks],
-      ["Priority facts", entry.priorityFacts],
+      ["Priority facts", priorityFactsText(entry.priorityFacts)],
       ["Timings on the form", entry.sourceFacts?.timings],
       ["Section cue", entry.sourceFacts?.sectionCue],
     ];
@@ -546,6 +559,11 @@ if (invokedPath === import.meta.url) {
       process.exitCode = code;
     },
     (error) => {
+      if (error?.code === "ABORT_ERR") {
+        console.error("Stopped. Every record you confirmed before this point is saved.");
+        process.exitCode = 130;
+        return;
+      }
       console.error(`clinical:review: ${error instanceof Error ? error.message : String(error)}`);
       process.exitCode = 1;
     },
