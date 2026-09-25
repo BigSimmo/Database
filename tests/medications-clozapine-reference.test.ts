@@ -216,6 +216,10 @@ describe("clozapine 'wa' quoted reference block (task 6b)", () => {
     const section = findWaSection();
     const byKey = new Map(section.rows.map((row) => [row.key, row.val]));
 
+    // The row must also name the chart via the preceding sentence, not just describe it.
+    expect(byKey.get("Chart purpose (s5.1)")).toMatch(
+      /The WA Clozapine Initiation and Titration Chart \(Appendix 1\.1\) facilitates clinical handover and prescription for the safe management of patients initiated or re-titrated on clozapine\. Decision support regarding titration is provided on the chart\./,
+    );
     expect(byKey.get("Chart purpose (s5.1)")).toMatch(
       /intended to be used as a record of the prescribing, monitoring, and administration of clozapine titration for all patients in inpatient settings/,
     );
@@ -225,6 +229,21 @@ describe("clozapine 'wa' quoted reference block (task 6b)", () => {
     expect(byKey.get("Inpatient vital signs (s5.3)")).toMatch(
       /hourly for six hours, and then 6-hourly for the first 24 hours.*at least twice daily for the first week/,
     );
+  });
+
+  it("quotes the s5.3 community vital-signs paragraph verbatim, as its own row, without reconciling it against Appendix 4/5 frequencies", () => {
+    const section = findWaSection();
+    const row = section.rows.find((row) => row.key === "Community vital signs (s5.3)");
+    expect(row, "a 'Community vital signs (s5.3)' row must exist").toBeTruthy();
+    expect(row!.val).toMatch(
+      /Patients initiated on clozapine in the community should be monitored for the first 3 hours, then daily during clinic business hours when patients are reviewed for the first two weeks then twice weekly for the third week, then weekly from week 4 at weekly reviews and at each monthly review once the initial 18 weeks is finished \(increase monitoring if required\)\./,
+    );
+
+    // It must sit alongside, not merged into, the inpatient s5.3 paragraph or the Appendix 4/5 rows.
+    const inpatientRow = section.rows.find((r) => r.key === "Inpatient vital signs (s5.3)");
+    expect(inpatientRow).toBeTruthy();
+    expect(inpatientRow!.val).not.toContain("first 3 hours");
+    expect(row!.val).not.toMatch(/hourly for six hours/);
   });
 
   it("states up front that the block is quoted from the named WA guideline", () => {
@@ -245,12 +264,23 @@ describe("clozapine 'wa' quoted reference block (task 6b)", () => {
     );
   });
 
-  it("adds a Table 3 pointer row for blood monitoring after interruption", () => {
+  it("adds a Table 3 pointer row covering all four interruption bands, matching the source's capitalisation", () => {
     const section = findWaSection();
     const row = section.rows.find((row) => row.key === "Blood monitoring after interruption (Table 3)");
     expect(row).toBeTruthy();
-    expect(row!.val).toMatch(
-      /re-registered with the monitoring service if the period of cessation is 3 months or greater/,
+    const val = row!.val;
+
+    // Band 1: <=48 hours.
+    expect(val).toMatch(/Less than or equal to 48 hours: No change to monitoring frequency\./);
+    // Band 2: >48 and <=72 hours (previously missing).
+    expect(val).toMatch(
+      /Greater than 48 hours and less than or equal to 72 hours: No change to monitoring frequency\./,
+    );
+    // Band 3: >72 hours and <=28 days — source capitalises "The six-week rule" as the start of the cell.
+    expect(val).toMatch(/Greater than 72 hours and less than or equal to 28 days: The six-week rule applies\./);
+    // Band 4: >28 days.
+    expect(val).toMatch(
+      /Greater than 28 days: Weekly monitoring for 18 weeks\. The patient must be re-registered with the monitoring service if the period of cessation is 3 months or greater\./,
     );
   });
 });

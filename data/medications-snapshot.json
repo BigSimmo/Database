@@ -78922,7 +78922,7 @@
           },
           {
             "key": "Chart purpose (s5.1)",
-            "val": "This chart meets the minimum standards for clozapine titration and is intended to be used as a record of the prescribing, monitoring, and administration of clozapine titration for all patients in inpatient settings. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "val": "The WA Clozapine Initiation and Titration Chart (Appendix 1.1) facilitates clinical handover and prescription for the safe management of patients initiated or re-titrated on clozapine. Decision support regarding titration is provided on the chart. This chart meets the minimum standards for clozapine titration and is intended to be used as a record of the prescribing, monitoring, and administration of clozapine titration for all patients in inpatient settings. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
             "tags": ["source:wa-health-clozapine-guideline-2024"]
           },
           {
@@ -78943,6 +78943,11 @@
           {
             "key": "Inpatient vital signs (s5.3)",
             "val": "Once clozapine is taken, monitoring of vital signs must take place hourly for six hours, and then 6-hourly for the first 24 hours (during waking hours). For subsequent doses, observations of patients should be taken at least twice daily for the first week of titration then daily for inpatients thereafter (more frequently if clinically required). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community vital signs (s5.3)",
+            "val": "Patients initiated on clozapine in the community should be monitored for the first 3 hours, then daily during clinic business hours when patients are reviewed for the first two weeks then twice weekly for the third week, then weekly from week 4 at weekly reviews and at each monthly review once the initial 18 weeks is finished (increase monitoring if required). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
             "tags": ["source:wa-health-clozapine-guideline-2024"]
           },
           {
@@ -79122,7 +79127,7 @@
           },
           {
             "key": "Blood monitoring after interruption (Table 3)",
-            "val": "Table 3: Full Blood Count test monitoring after interruption of therapy. Greater than 72 hours and less than or equal to 28 days: the six-week rule applies. For weekly monitored patients: weekly monitoring for six weeks or for as long as needed to ensure a total of 18 weeks; whichever is the greatest. For four-weekly monitored patients: weekly monitoring for six weeks. If no abnormality, resume four-weekly monitoring. Greater than 28 days: weekly monitoring for 18 weeks. The patient must be re-registered with the monitoring service if the period of cessation is 3 months or greater. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "val": "Table 3: Full Blood Count test monitoring after interruption of therapy. Less than or equal to 48 hours: No change to monitoring frequency. Greater than 48 hours and less than or equal to 72 hours: No change to monitoring frequency. Greater than 72 hours and less than or equal to 28 days: The six-week rule applies. For weekly monitored patients: Weekly monitoring for six weeks or for as long as needed to ensure a total of 18 weeks; whichever is the greatest. For four-weekly monitored patients: Weekly monitoring for six weeks. If no abnormality, resume four-weekly monitoring. Greater than 28 days: Weekly monitoring for 18 weeks. The patient must be re-registered with the monitoring service if the period of cessation is 3 months or greater. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
             "tags": ["source:wa-health-clozapine-guideline-2024"]
           },
           {
