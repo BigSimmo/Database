@@ -145,3 +145,46 @@ describe("DocumentSearchResultsPanel (#GBBYTA)", () => {
     expect(screen.queryByTestId("document-filter-empty-results")).not.toBeInTheDocument();
   });
 });
+
+describe("document result relevance label (#1M22X5)", () => {
+  // relevance-score.ts returns fixed numbers per verdict (nearby = 78), so a
+  // nearby-only result with no matched terms rendered "Relevant, 78% related".
+  // The label must come from the verdict alone and carry no percentage.
+  const relevanceFor = (verdict: "direct" | "partial" | "nearby" | "none") =>
+    ({
+      verdict,
+      isSourceBacked: verdict === "direct" || verdict === "partial",
+      matchedTerms: [],
+      score: 0.063,
+    }) as unknown as DocumentMatch["relevance"];
+  const badgeFor = (verdict: "direct" | "partial" | "nearby" | "none") => {
+    window.history.replaceState(null, "", "/documents/search");
+    const document = match({
+      document_id: "33333333-3333-4333-8333-333333333333",
+      title: "Relevance probe",
+      score: 0.063,
+      relevance: relevanceFor(verdict),
+    });
+    const view = render(<DocumentSearchResultsPanel {...baseProps} matches={[document]} />);
+    const card = screen.getByTestId("document-result-card");
+    const text = card.textContent ?? "";
+    view.unmount();
+    return text;
+  };
+
+  it.each([
+    ["direct", "High relevance", "Source-backed"],
+    ["partial", "Relevant", "Partial support"],
+    ["nearby", "Related", "Nearby only"],
+    ["none", "Related", "No direct support"],
+  ] as const)("labels a %s result as %s (%s) with no percentage", (verdict, label, detail) => {
+    const text = badgeFor(verdict);
+    expect(text).toContain(label);
+    expect(text).toContain(detail);
+    expect(text).not.toMatch(/\d+%/);
+  });
+
+  it("never calls a nearby-only result Relevant", () => {
+    expect(badgeFor("nearby")).not.toContain("Relevant");
+  });
+});

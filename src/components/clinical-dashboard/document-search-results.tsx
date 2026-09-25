@@ -111,7 +111,7 @@ import type { ClinicalDocument, SearchScopeSummary } from "@/lib/types";
 import type { ClientDocumentMatch } from "@/lib/answer-client-payload";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
-import { documentRelevancePercent } from "./relevance-score";
+import { relevanceChipLabel } from "./relevance";
 
 type SearchFacet = { value: string; count: number };
 type ResultTypeFilter = "all" | "tables" | "images" | "pdfs";
@@ -232,16 +232,16 @@ function loadedSourceCountLabel(count: number) {
   return count.toLocaleString();
 }
 
+// Label from the verdict alone. documentRelevancePercent returns a fixed number
+// per verdict (nearby is always 78), so "78% related" measured nothing and the
+// `percent >= 75` test turned every nearby-only result into "Relevant" (#1M22X5).
+// The detail reuses relevanceChipLabel, the wording the answer surface already uses.
 function relevanceTone(document: ClientDocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
-  const percent = documentRelevancePercent(document);
-  if (verdict === "direct") {
-    return { label: "High relevance", short: "High relevance", detail: `${percent}% match` };
-  }
-  if (verdict === "partial" || percent >= 75) {
-    return { label: "Relevant", short: "Relevant", detail: `${percent}% related` };
-  }
-  return { label: "Related", short: "Related", detail: `${percent}% nearby` };
+  const detail = relevanceChipLabel(document.relevance);
+  if (verdict === "direct") return { label: "High relevance", short: "High relevance", detail };
+  if (verdict === "partial") return { label: "Relevant", short: "Relevant", detail };
+  return { label: "Related", short: "Related", detail };
 }
 
 function documentOpenHref(document: ClientDocumentMatch) {
