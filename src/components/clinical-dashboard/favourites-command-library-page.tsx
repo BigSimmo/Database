@@ -38,6 +38,7 @@ import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setu
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, EmptyState, fieldControlPlain } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
+import { FAVOURITE_EXAMPLES_NOTICE, FavouriteExampleTag } from "@/components/clinical-dashboard/favourite-example-tag";
 import {
   favouriteItems as prototypeFavouriteItems,
   favouriteSets as prototypeFavouriteSets,
@@ -358,17 +359,8 @@ function MiniIconTile({
   );
 }
 
-/**
- * Marks a demo-mode fixture so its "last opened" time and set are not read as the
- * clinician's own history. Same idea as the Ward Flow sidebar's `example` tag.
- */
 function ExampleTag({ item }: { item: FavouriteItem }) {
-  if (!item.example) return null;
-  return (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-[color:var(--border)] px-1.5 text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
-      Example
-    </span>
-  );
+  return item.example ? <FavouriteExampleTag /> : null;
 }
 
 function SmallChip({ children, appearance }: { children: React.ReactNode; appearance: ChipAppearance }) {
@@ -1712,9 +1704,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 {items.length} {items.length === 1 ? "item" : "items"}
               </p>
               {items.some((item) => item.example) ? (
-                <p className="text-sm font-medium text-[color:var(--text-muted)]">
-                  Example favourites shown in demo mode
-                </p>
+                <p className="text-sm font-medium text-[color:var(--text-muted)]">{FAVOURITE_EXAMPLES_NOTICE}</p>
               ) : null}
             </header>
 

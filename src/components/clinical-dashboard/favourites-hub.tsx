@@ -21,6 +21,7 @@ import {
 import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { MissingValue } from "@/components/ui/missing-value";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
+import { FAVOURITE_EXAMPLES_NOTICE, FavouriteExampleTag } from "@/components/clinical-dashboard/favourite-example-tag";
 import {
   favouriteItems,
   favouriteSets,
@@ -39,6 +40,11 @@ function favouriteMatchesQuery(value: { title: string; meta?: string; set?: stri
     .toLowerCase()
     .includes(normalized);
 }
+
+// Demo fixtures are tagged by where they came from (never by id), so a clinician's
+// own saved favourite can never inherit the Example label (#358YM0).
+type HubFavouriteItem = FavouriteItem & { example?: boolean };
+type HubFavouriteSet = FavouriteSet & { example?: boolean };
 
 export function FavouritesHub({
   query,
@@ -60,11 +66,11 @@ export function FavouritesHub({
     status: savedRegistryStatus,
     refetch: refetchFavouritesRegistry,
   } = useSavedRegistryFavourites();
-  const allFavouriteItems = useMemo(
-    () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
+  const allFavouriteItems = useMemo<HubFavouriteItem[]>(
+    () => [...(demoMode ? favouriteItems : []).map((item) => ({ ...item, example: true })), ...savedRegistryFavourites],
     [demoMode, savedRegistryFavourites],
   );
-  const allFavouriteSets = useMemo(() => {
+  const allFavouriteSets = useMemo<HubFavouriteSet[]>(() => {
     const prototypeSets = demoMode ? favouriteSets : [];
     const savedSetTitles = new Set(prototypeSets.map((set) => set.title));
     const dynamicSets: FavouriteSet[] = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
@@ -82,6 +88,7 @@ export function FavouritesHub({
     return [
       ...prototypeSets.map((set) => ({
         ...set,
+        example: true,
         count: allFavouriteItems.filter((item) => item.set === set.title).length,
       })),
       ...dynamicSets,
@@ -191,6 +198,9 @@ export function FavouritesHub({
           icon={appModeIcons.favourites}
           headingLevel={headingLevel}
         />
+        {allFavouriteItems.some((item) => item.example) ? (
+          <p className="text-sm font-medium text-[color:var(--text-muted)]">{FAVOURITE_EXAMPLES_NOTICE}</p>
+        ) : null}
 
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot
@@ -580,7 +590,7 @@ export function FavouritesHub({
   );
 }
 
-function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrowseSets: () => void }) {
+function FavouriteItemRow({ item, onBrowseSets }: { item: HubFavouriteItem; onBrowseSets: () => void }) {
   const Icon = item.icon;
   return (
     <article className="relative grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
@@ -588,7 +598,10 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
         <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
       <div className="min-w-0">
-        <p className="truncate font-bold text-[color:var(--text-heading)]">{item.title}</p>
+        <p className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-bold text-[color:var(--text-heading)]">{item.title}</span>
+          {item.example ? <FavouriteExampleTag /> : null}
+        </p>
         <p className="mt-0.5 truncate text-sm font-medium text-[color:var(--text-muted)]">{item.meta}</p>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="truncate text-xs font-semibold text-[color:var(--text-muted)]">{item.set}</span>
@@ -626,7 +639,7 @@ function FavouriteSetRow({
   selected = false,
   onSelect,
 }: {
-  favouriteSet: FavouriteSet;
+  favouriteSet: HubFavouriteSet;
   compact?: boolean;
   selected?: boolean;
   onSelect: () => void;
@@ -645,13 +658,16 @@ function FavouriteSetRow({
         <Folder aria-hidden="true" className="h-4 w-4" />
       </span>
       <span className="min-w-0">
-        <span
-          className={cn(
-            "block truncate font-bold",
-            selected ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
-          )}
-        >
-          {favouriteSet.title}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span
+            className={cn(
+              "block truncate font-bold",
+              selected ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
+            )}
+          >
+            {favouriteSet.title}
+          </span>
+          {favouriteSet.example ? <FavouriteExampleTag /> : null}
         </span>
         <span
           className={cn(

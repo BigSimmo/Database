@@ -93,11 +93,13 @@ type LocalFavouriteMatch = {
   subtitle?: string;
   href: string;
   standalone: boolean;
+  /** A demo-mode fixture, labelled "Example" rather than "Saved" (#358YM0). */
+  example: boolean;
   score: number;
 };
 
 function rankLocalFavourites(
-  items: FavouriteItem[],
+  items: Array<FavouriteItem & { example?: boolean }>,
   query: string,
   includePrototypeSets: boolean,
 ): LocalFavouriteMatch[] {
@@ -122,6 +124,7 @@ function rankLocalFavourites(
       // Saved searches are standalone Favourites artifacts; saved canonical entities
       // already surface through their owning universal domain outside Favourites mode.
       standalone: item.primaryAction === "Run",
+      example: item.example === true,
       score,
     };
     if ((byKey.get(key)?.score ?? -1) < score) byKey.set(key, match);
@@ -138,6 +141,8 @@ function rankLocalFavourites(
         subtitle: `${set.count} saved ${set.count === 1 ? "item" : "items"} · ${set.meta}`,
         href: `/favourites?q=${encodeURIComponent(set.title)}&run=1`,
         standalone: true,
+        // Preset sets are only offered in demo mode, and are fixtures.
+        example: true,
         score,
       });
     }
@@ -569,7 +574,11 @@ export function UniversalSearchCommandSurface({
   });
   const savedRegistryFavourites = useSavedRegistryFavourites().items;
   const allFavouriteItems = useMemo(
-    () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
+    () => [
+      // Tagged by where they came from, so a saved item never inherits "Example".
+      ...(demoMode ? favouriteItems : []).map((item) => ({ ...item, example: true })),
+      ...savedRegistryFavourites,
+    ],
     [demoMode, savedRegistryFavourites],
   );
   const favouriteMatches = useMemo(
@@ -577,6 +586,12 @@ export function UniversalSearchCommandSurface({
     [allFavouriteItems, demoMode, trimmedQuery],
   );
   const savedHrefs = useMemo(() => new Set(allFavouriteItems.map((item) => item.href)), [allFavouriteItems]);
+  // `savedHrefs` still includes demo fixtures for de-duplication; only these are
+  // the clinician's own, and only these earn the "Saved" label.
+  const ownSavedHrefs = useMemo(
+    () => new Set(savedRegistryFavourites.map((item) => item.href)),
+    [savedRegistryFavourites],
+  );
 
   const showSafetyBanner =
     modeId === "differentials" && differentialRedFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
@@ -707,9 +722,15 @@ export function UniversalSearchCommandSurface({
                   </span>
                 ) : null}
               </span>
-              <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold text-[color:var(--clinical-accent)]">
-                Saved
-              </span>
+              {match.example ? (
+                <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                  Example
+                </span>
+              ) : (
+                <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold text-[color:var(--clinical-accent)]">
+                  Saved
+                </span>
+              )}
             </OptionShell>
           ),
         })),
@@ -887,9 +908,13 @@ export function UniversalSearchCommandSurface({
                       {item.badge}
                     </span>
                   ) : null}
-                  {savedHrefs.has(item.href) ? (
+                  {ownSavedHrefs.has(item.href) ? (
                     <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold text-[color:var(--clinical-accent)]">
                       Saved
+                    </span>
+                  ) : savedHrefs.has(item.href) ? (
+                    <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                      Example
                     </span>
                   ) : null}
                 </OptionShell>
@@ -1043,6 +1068,7 @@ export function UniversalSearchCommandSurface({
     onRunModeAction,
     onSearch,
     recentQueries,
+    ownSavedHrefs,
     router,
     savedHrefs,
     showFormCodeHint,
