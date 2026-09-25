@@ -827,7 +827,6 @@ export function migrationHistoryEditApproval(body) {
  */
 export function ownerMergeReasons(classification, filenames) {
   const reasons = [];
-  if ((filenames ?? []).some((file) => normalizePath(file).startsWith("supabase/"))) reasons.push("database");
   return reasons;
 }
 
