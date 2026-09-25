@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenText, ClipboardList, Clock3, MapPin, Scale, UserRound } from "lucide-react";
+import { BookOpenText, ClipboardList, Clock3, Languages, MapPin, Scale, UserRound } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
@@ -12,6 +12,7 @@ import {
   PRIORITY_FACT_CARD_LABELS,
   type FormRecord,
 } from "@/lib/form-catalog";
+import { culturalNotesForForm, type FormCulturalNoteKind } from "@/lib/forms-cultural-notes";
 import type { FormActSection, FormPriorityFactCard } from "@/lib/form-ranker";
 import { mhaActMetadata } from "@/lib/mha-act-sections";
 import type { ServiceSummaryCard } from "@/lib/service-ranker";
@@ -313,7 +314,7 @@ function ActSectionsCard({
 function PendingSectionBody({ formCode, pdfHref }: { formCode?: string; pdfHref?: string }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm leading-6 text-[color:var(--text-body)]">
+      <p className="text-sm leading-6 text-[color:var(--text)]">
         A plain-English summary for this section has not been written yet. Read the section in the current consolidated
         Act, and confirm the requirement on the current approved form.
       </p>
@@ -346,6 +347,66 @@ function PendingSectionBody({ formCode, pdfHref }: { formCode?: string; pdfHref?
 }
 
 type ActSheetState = { mode: "index" } | { mode: "section"; section: string } | null;
+
+const CULTURAL_NOTE_LABELS: Record<FormCulturalNoteKind, string> = {
+  interpreter: "Interpreter",
+  "aboriginal-liaison": "Aboriginal liaison",
+  statutory: "Mental Health Act",
+};
+
+const CULTURAL_NOTE_ICONS: Record<FormCulturalNoteKind, typeof Languages> = {
+  interpreter: Languages,
+  "aboriginal-liaison": UserRound,
+  statutory: BookOpenText,
+};
+
+/**
+ * Interpreter and Aboriginal-liaison notes drafted for this form code, if any
+ * exist in `data/forms-cultural-notes.json`. Deliberately plain rows rather
+ * than another card grid or Sheet: there are at most a couple of notes per
+ * form, and every one carries the same "awaiting clinical review" caveat as
+ * the rest of this section, so a heavier affordance would be decoration.
+ */
+function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
+  const notes = culturalNotesForForm(formCode);
+  if (!notes.length) return null;
+
+  return (
+    <section
+      id="form-cultural-notes"
+      aria-label="Interpreter and Aboriginal liaison notes"
+      className={cn(inPageAnchor, "space-y-2")}
+    >
+      <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
+        Interpreter and Aboriginal liaison
+      </h2>
+      <p className={cn("text-xs leading-5", textMuted)}>
+        Drafted from the Mental Health Act 2014 and WA Health guidance — awaiting clinical review.
+      </p>
+      <div className="grid gap-2">
+        {notes.map((note, index) => {
+          const Icon = CULTURAL_NOTE_ICONS[note.kind];
+          return (
+            <div
+              key={`${note.kind}-${index}`}
+              className="flex items-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3"
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-2xs font-bold uppercase leading-4 text-[color:var(--text-muted)]">
+                  {CULTURAL_NOTE_LABELS[note.kind]}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{note.text}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards: ServiceSummaryCard[] }) {
   const details = formCatalogDetails(form);
@@ -404,6 +465,8 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
           })}
         </div>
       </section>
+
+      <CulturalNotesSection formCode={details?.form} />
 
       <Sheet
         open={Boolean(activeFact)}
