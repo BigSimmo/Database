@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f1a25e7a-d5a5-450a-9a3b-3a5a98353adb",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#QP7H3X",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The RANZCP mood guideline is now unverified (PR #2815 reset), so 'preserving the 2026-09-06 review' no longer holds and it needs a fresh review. Two of the three candidates duplicate records already in the ledger with the same canonical URL: ps-diff-src-au-ausprescr-movement-2019 = dictionary-australian-prescriber-movement-2019, and ps-diff-src-au-ausprescr-lithium-2020 = australian-prescriber-lithium-therapy-and-its-interactions. Reconcile the duplicates before sign-off. Absorbs the remainder of closed #MTY1J2. The '20 held / 357 of 385' counts were not re-verified. PRIOR DETAIL: Commit d3f29a95f added three metadata-only candidates to src/data/source-acquisitions.json from the 2026-09-16 Differentials handover: ps-diff-src-who-icd11-cddr-2024 (WHO ICD-11 CDDR), ps-diff-src-au-ausprescr-movement-2019 and ps-diff-src-au-ausprescr-lithium-2020 (Australian Prescriber). All three sit at D band as candidate/unverified/link_only and cannot be cited by clinical content until reviewed. The same commit corrected ranzcp-mood-disorders-clinical-practice-guideline from documentStatus current to outdated against the publisher's own page, preserving the 2026-09-06 review. Next action: owner reviews each of the three against its publisher page and records the outcome, and confirms the RANZCP currentness correction. Also outstanding from the same handover and NOT applied: 20 held source records awaiting publication evidence, and 357 of 385 staged claims with no checked source passage.",
+    "baseRowFingerprint": "e88ca0680f6e1f383b4eeda3fc6a62d92d4a1dc0929d023c19a467799286d30f"
+  }
+}

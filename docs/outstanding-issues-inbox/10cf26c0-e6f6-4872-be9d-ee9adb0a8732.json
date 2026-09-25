@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "10cf26c0-e6f6-4872-be9d-ee9adb0a8732",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "96afc241-361c-4ef1-a135-67c4e125bdd7",
+    "reason": "Stale on review 2026-09-25: already fixed on main. PR #2997 added a server-set isOwn flag, gates edit/verify controls on it and makes bulk verify skip foreign rows, with tests."
+  }
+}

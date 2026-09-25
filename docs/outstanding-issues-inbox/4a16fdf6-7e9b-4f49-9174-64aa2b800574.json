@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4a16fdf6-7e9b-4f49-9174-64aa2b800574",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#055",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Still pending. Dependency: #9Z197J (2 Firefox and several WebKit release-matrix failures still open), so the Firefox/WebKit leg cannot pass today. PRIOR DETAIL: Before the next full-confidence release/handoff, record the candidate/PR SHA and run the local/provider release gates, Firefox/WebKit, required hosted CI, and actionable GitHub review-thread closure once. Stop at the first actionable failure and rerun only the repaired smallest gate.",
+    "baseRowFingerprint": "ccc85c04603ec2b38272707bced396a0750ccfee31caff5caccbf4000314028a"
+  }
+}

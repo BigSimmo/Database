@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "01e27e86-e7ed-4185-ad99-5ff5808897de",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#5Z3CDC",
+    "summary": "The privacy impact assessment omits six subsystems, including Caring Contacts and CME evidence uploads",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Still true: docs/privacy-impact-assessment.md has no mention of Caring Contacts, the pocket card, the service worker, the developer hub or site_content. Add a sixth gap: CME private evidence uploads (public.cme_evidence, migration 20260922175023, plus the 2026-09-24 evidence-removal migration). Also correct the line saying On Call compliance rows are cached in localStorage; closed #KJF5J7 stopped that. PRIOR DETAIL: docs/privacy-impact-assessment.md gained an On Call compliance entry (PIA-9) on 2026-09-20, but still does not mention, at all: (1) CARING CONTACTS, a whole patient-data subsystem with its own database (src/lib/caring-contacts/**, src/lib/caring-contacts-server/**, CARING_CONTACTS_DATABASE_URL) -- by far the largest gap and the only patient data in the product; (2) the PRINTED POCKET CARD, the only artefact that physically leaves the app; (3) the SERVICE WORKER caching policy (public/sw.js) and what it retains on the device; (4) the DEVELOPER HUB (src/components/developer-area/**) and what operational data it surfaces; (5) the PUBLIC CATALOGUE surface and its one anon-callable database function, public.read_site_content_public_records, granted to the anon role. Verified absent by grep on 2026-09-20: zero mentions of caring, pocket, service worker, developer hub or site_content anywhere in the document. This is governance documentation rather than an engineering defect -- nothing is leaking -- but the assessment is the artefact an external adviser reads, and as written it understates the data footprint of the product. NEXT ACTION: add one section-2 data-category row per subsystem and, where a residual risk exists, a numbered PIA entry; do Caring Contacts first and do not let the other four hold it up. Escalate the Caring Contacts part to P1 if the production-configuration check finds that workspace enabled in production.",
+    "baseRowFingerprint": "fb4d151a66feafdefce6a04b59373a6836402a7ac24503e4ef448c2ee0b0c218"
+  }
+}

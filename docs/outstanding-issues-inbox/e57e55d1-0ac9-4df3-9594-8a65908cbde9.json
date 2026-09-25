@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e57e55d1-0ac9-4df3-9594-8a65908cbde9",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#C2D9JF",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Absorbs closed #NTAV3D (same pin shape and same open decision). Still divergent; the citation now carries provenance review_only, so it is a pointer to read rather than claimed support. The decision the row asks for is unchanged. PRIOR DETAIL: Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring). Observed shape: grounded false, confidence unsupported, but cited chunk ids [syn-scope-owner-a] — the answer correctly abstains from the other-owner document, yet the review fallback attaches an in-scope citation to an unsupported answer. Fixture: scripts/fixtures/rag-adversarial-cases.v1.json case scope-other-owner-document (category scope_or_tenant). Tenancy/no-read invariant held (the other-owner content is never read). Next: decide whether an unsupported abstention may carry any citation; if not, strip citations on the abstention path (RAG-surface change; own PR; harness pin flips; canary pair). Stop: do not delete the pin without the behaviour change.",
+    "baseRowFingerprint": "7574a5fb0fba17441cdbf780c99d696802dd5ad03cf64f9678642e3b4950dcf7"
+  }
+}

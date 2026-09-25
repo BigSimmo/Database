@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f6f52800-cdb9-48c4-adee-123ad3db1033",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#47Y8XH",
+    "outcome": "Resolved 2026-09-25 (ledger review). Fixed by 91f10c813: phone attachment-row badges wrap onto their own line so the form title stays readable. Pinned by tests/form-attachment-row-phone.dom.test.tsx. Not re-checked in a browser.",
+    "baseRowFingerprint": "7f8f92d6e17086cef35641fb8a62d40e6354053bfdb8cb22ae44f39e39ff2900"
+  }
+}

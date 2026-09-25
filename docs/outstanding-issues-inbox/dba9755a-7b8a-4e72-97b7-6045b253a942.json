@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dba9755a-7b8a-4e72-97b7-6045b253a942",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#WFARS3",
+    "outcome": "Resolved 2026-09-25 (ledger review). The awaited browser test exists: tests/ui-patient-number-field.spec.ts (72e78ef62) types into CrCl, QTc and creatinine one digit at a time and checks the value after every keystroke. The 2026-09-20 visual/UX audit could not reproduce the corruption and recommended closing.",
+    "baseRowFingerprint": "764a861ac7fc480b5cbf3e4ab53aa23ae3c0f13db082fd1367159df5115f2530"
+  }
+}

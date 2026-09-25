@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "caaaf437-3486-4c80-ba86-c48e31d82762",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#GHC4XZ",
+    "summary": "Safety chips still miss word endings (urgently, seizures, reviewed, excluded, considered, cautious, transferring); widening red_flag needs owner approval",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The two headline defects were fixed in 64db243a9 (2026-09-18): clinical-safety.ts now matches immediate(ly), cease/ceased/ceasing, withhold, hold-the-dose, boxed warning and anaphylaxis. Still bare-word patterns: urgent and seizure (red_flag), transfer, review, exclude, consider, caution. tests/clinical-safety.test.ts pins 'Urgently reassess the patient.' as unlabelled. PRIOR DETAIL: NEW FINDING 2026-09-19 while fixing #9XRDF7, needs the owner and NOT fixed. The word-boundary defect is still live one severity tier UP, on the danger colour: \\burgent\\b misses 'urgently', so 'Urgently reassess the patient.' produces no finding at all today. The same gap exists for review/reviewed, exclude/excluded, consider/considered, caution/cautious, transfer/transferring and seizure/seizures. urgent and seizure sit in red_flag, so widening them paints passages with the stop tone and danger colour -- beyond the approval given for escalate and monitor. Pinned as an explicitly-labelled unfixed gap in tests/clinical-safety.test.ts so it stops being invisible. SEPARATELY, correcting an assumption this row implied: widening a mid-array entry does not only add findings where nothing matched. safetyPatterns.find returns the first match in severity order, so it TAKES passages from every tier below it; seven label-to-label movements were measured for escalate/monitor alone (Dose limit, Monitoring, Exclusion and Caveat all lose passages to Escalation; Exclusion and Caveat lose to Monitoring). Recorded because it changes how any future vocabulary widening must be assessed. Read alongside the 2026-09-19 finding above that the headline-position question is moot: with answerSupportPriority unrendered, a label change moves which chip a clinician sees, not what they read first.",
+    "baseRowFingerprint": "aeaf261ac4ac985a6defbdbaf5eabb865cab96e01235efde6960f4720b43443c"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a162ef41-8510-4234-afbe-43372ad13f02",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#94A62C",
+    "outcome": "Resolved 2026-09-25 (ledger review). Fixed by 13a1f2eee (PR #2994): every optional On Call text, list and escalation-step field now clears when emptied; covered by the 'On call optional field clearing' test block. Trivial leftover: the clearWhenEmpty docstring in on-call-entry-editor.tsx still says the other forms cannot clear.",
+    "baseRowFingerprint": "69cd70f96a4a9e2c49f82a19701db5f5db81dfb7afd1f73c5e022d07fc677559"
+  }
+}

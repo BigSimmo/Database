@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "58e8bd7c-4f87-44f1-8baa-403c2039b34e",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#ADM67A",
+    "outcome": "Resolved 2026-09-25 (ledger review). A 'do not build' decision record, not work. The decision is already enforced by the answer-status.tsx comment and answer-progress-ui-smoke.spec.ts (the answer wait must contain no digits). This archived row keeps the reasoning.",
+    "baseRowFingerprint": "63dd63f33145ec1d562c8b827693f52a5b868a8d200d5f5865e6d10c4dd60bc1"
+  }
+}

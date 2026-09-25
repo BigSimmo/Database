@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "5f2747cb-3f74-42d2-9802-7c507b5dedcf",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#SBKXZ7",
+    "pri": "P1",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Raised to P1 for consistency with the other live-content sign-off rows (#87GR24, #DXJ70P, #A6WAES). Recount: 205 of 205 still need review. PRIOR DETAIL: PROGRESS 2026-09-13: Owner-approved early clinical governance sign-off recorded in Developer Hub Review Ledger while preserving needs_review badges, warning notices, and npm run therapy:review. Do NOT close #SBKXZ7: therapy review still reports 205/205 needs_review and this PR changes no governed therapy attestations. Keep the tracking row open for the outstanding qualified-clinician judgements.",
+    "baseRowFingerprint": "10c10ca480076d468ec696ad38be7dfb5dedd2fce86289f23963276cd0e6fbe2"
+  }
+}

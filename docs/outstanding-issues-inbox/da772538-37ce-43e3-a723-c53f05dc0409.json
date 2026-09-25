@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "da772538-37ce-43e3-a723-c53f05dc0409",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#458SAC",
+    "pri": "P3",
+    "summary": "read_site_content_health() still computes the release digest twice (about 3%)",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The ~7 s title is out of date: a2f0770bc records a 47% cut and a mean of about 410 ms, and the RPC is deliberately off the readiness path (health-response.ts), so it cannot trip the deploy gate and did not cause the 2026-09-21 deploy stall. Absorbs the residual of closed #08W0F7. PRIOR DETAIL: PARTLY FIXED, measured. Migration 20260918120000_evaluate_bootstrap_digest_once_per_health_read (PR #2886, merged; live-drift green 2026-09-19) removed the larger half. read_site_content_health() compared two stored columns to the SAME freshly computed site_content_bootstrap_digest, evaluating it twice. Counted with track_functions=all in the pinned image: one bootstrap digest costs 164,820 site_content_canonical_json invocations, one release digest 10,969, one dynamic-state digest 3, and ONE health read cost 351,594 before and 186,774 after - a 47 percent reduction, with output byte-identical across all 23 fields and the state-machine fixture passing on both. Live pg_stat_statements over 3d05h also shows the catalogue reader's mean falling from 8,656 ms to roughly 410 ms for post-fix calls. STILL OPEN, and small: site_content_release_digest is evaluated once in the private base and again in the public wrapper - 10,969 invocations, about 3 percent. Folding those two is a subtler equivalence argument than the first and is worth doing only if the probe is still gating deploys after this.",
+    "baseRowFingerprint": "e839dc219f8b15a1999e0934e79dfdf647177151d2d47c78b0d3085392a20feb"
+  }
+}
