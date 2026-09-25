@@ -19,6 +19,7 @@ import {
   type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { ShowAllChip } from "@/components/show-all-chip";
+import { restoreFocusUnlessMoved } from "@/components/use-dismissable-layer";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { isTopmostSheet, popSheet, pushSheet } from "@/components/ui/sheet-focus";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -61,6 +62,35 @@ type SessionAnswers = Record<string, AnswerMap>;
 type Density = "comfortable" | "compact";
 
 const subscribeNoop = () => () => undefined;
+
+/**
+ * The calculator whose tile should take focus back once closing it has finished
+ * navigating. Module-scoped, not component state: dropping `?calculator=` is a
+ * route change, and in the app that commit can mount a fresh page instance, so
+ * state held in the closing instance would be gone by the time the tile exists
+ * again. It expires quickly so a later, unrelated visit never inherits it.
+ */
+let pendingCalculatorFocusReturn: { id: string; target: string; expiresAt: number } | null = null;
+const calculatorFocusReturnTtlMs = 5_000;
+
+/** Path plus query, the part of a URL the close navigation decides. */
+function locationKey(href: string) {
+  const url = new URL(href, window.location.origin);
+  return `${url.pathname}${url.search}`;
+}
+
+/**
+ * Remember which tile to refocus, and exactly which URL the close navigates to. The
+ * restore only lands on that URL, so a later mount somewhere else (a new search, or
+ * a return after the reader left) never inherits it.
+ */
+function queueCalculatorFocusReturn(id: string, targetHref: string) {
+  pendingCalculatorFocusReturn = {
+    id,
+    target: locationKey(targetHref),
+    expiresAt: Date.now() + calculatorFocusReturnTtlMs,
+  };
+}
 
 const progressOptions: ReadonlyArray<{ value: CalculatorProgressFilter; label: string }> = [
   { value: "all", label: "Any" },
@@ -106,6 +136,9 @@ function CalculatorTile({
     <button
       type="button"
       onClick={onOpen}
+      // Focus-return anchor: closing the sheet re-renders this list, so the page
+      // finds the tile again by calculator id rather than holding a node ref.
+      data-calculator-open={calc.id}
       aria-label={`Open ${calc.abbrev} — ${calc.name}`}
       className={cn(
         "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-[var(--e2)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
@@ -328,9 +361,38 @@ export function CalculatorsSearchPage({
   }
 
   function closeCalculator() {
+    const href = calculatorSearchHref(query);
+    if (activeCalc) queueCalculatorFocusReturn(activeCalc.id, href);
     setOpenId(null);
-    router.push(calculatorSearchHref(query));
+    router.push(href);
   }
+
+  // WCAG 2.4.3: return focus to the calculator's tile once the URL change that
+  // closed it has committed (no `?calculator=` in the route and no sheet open).
+  // Not synchronously after `router.push`: at that point the list has not yet
+  // re-rendered, and the node that opened the sheet may be about to be replaced.
+  useEffect(() => {
+    const pending = pendingCalculatorFocusReturn;
+    if (!pending || initialCalculatorId || activeCalc) return;
+    pendingCalculatorFocusReturn = null;
+    if (pending.expiresAt < Date.now()) return;
+    if (locationKey(window.location.href) !== pending.target) return;
+    const target = document.querySelector<HTMLElement>(`[data-calculator-open="${CSS.escape(pending.id)}"]`);
+    restoreFocusUnlessMoved(target);
+  }, [activeCalc, initialCalculatorId]);
+
+  // Leaving for another route before the close lands abandons the restore. The
+  // check runs after the navigation has moved the address bar, so the remount that
+  // the close itself causes (same target URL) keeps it.
+  useEffect(
+    () => () => {
+      window.setTimeout(() => {
+        const pending = pendingCalculatorFocusReturn;
+        if (pending && locationKey(window.location.href) !== pending.target) pendingCalculatorFocusReturn = null;
+      }, 0);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!activeCalc) return;
@@ -339,8 +401,10 @@ export function CalculatorsSearchPage({
       if (!isTopmostSheet(calculatorSheetId)) return;
       if (event.key === "Escape") {
         event.preventDefault();
+        const href = calculatorSearchHref(query);
+        queueCalculatorFocusReturn(activeCalc.id, href);
         setOpenId(null);
-        router.push(calculatorSearchHref(query));
+        router.push(href);
       }
     };
     window.addEventListener("keydown", onKey);

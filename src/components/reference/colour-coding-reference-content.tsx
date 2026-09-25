@@ -120,21 +120,22 @@ export function ColourCodingReferenceContent({ variant, onOpenFullReference }: C
         <h2 className="text-sm font-semibold uppercase tracking-label text-[color:var(--text-muted)]">Tone key</h2>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           {SEMANTIC_TONES.map((tone) => (
+            // One wrapper, holding only the dt and its dds (#Q80S8B). The sample
+            // badge is a definition of its own, placed in the first column by the
+            // grid so the reading order stays term, meaning, sample.
             <div
               key={tone}
-              className="flex items-start gap-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+              className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
             >
-              <div className="shrink-0 pt-0.5">
+              <dt className="col-start-2 row-start-1 min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">
+                {SEMANTIC_TONE_META[tone].label}
+              </dt>
+              <dd className="col-start-2 row-start-2 mt-0.5 min-w-0 text-xs leading-5 text-[color:var(--text-muted)]">
+                {SEMANTIC_TONE_META[tone].meaning}
+              </dd>
+              <dd className="col-start-1 row-span-2 row-start-1 shrink-0 pt-0.5">
                 <ClinicalBadge tone={tone} label={TONE_SAMPLE_LABEL[tone]} />
-              </div>
-              <div className="min-w-0">
-                <dt className="text-sm font-semibold text-[color:var(--text-heading)]">
-                  {SEMANTIC_TONE_META[tone].label}
-                </dt>
-                <dd className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">
-                  {SEMANTIC_TONE_META[tone].meaning}
-                </dd>
-              </div>
+              </dd>
             </div>
           ))}
         </dl>

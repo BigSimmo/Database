@@ -427,6 +427,115 @@ test.describe("Header element overlap coverage", () => {
     }
   });
 
+  // #ASVM8H (SPEC 9.4, "sticky elements do not cover focused content"). A browser phone
+  // scrolls the document, and a Tab press scrolls the focused control into view without
+  // knowing the fixed dock exists. The clearance comes from the `.phone-scroll-surface`
+  // focus rule in globals.css (scroll-margin-block-end = the live composer reserve), so
+  // this walks every result tab stop with real key presses and checks each one is on
+  // screen, above the visible dock, and is what a tap at its centre would actually hit.
+  test("phone Tab never leaves a focused result control under the compact dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoDashboard(page);
+    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          results: [],
+          visualEvidence: [],
+          relatedDocuments: [],
+          documentMatches: Array.from({ length: 5 }, (_, index) => ({
+            document_id: `1111111${index}-1111-4111-8111-111111111111`,
+            title: `Lithium monitoring guideline ${index + 1}`,
+            file_name: `lithium-monitoring-${index + 1}.pdf`,
+            labels: [],
+            summarySnippet: "Reviewed lithium monitoring guidance covering levels, renal and thyroid checks.",
+            bestPages: [1, 2],
+            bestChunkIds: [`chunk-lithium-${index}`],
+            imageCount: 0,
+            tableCount: 0,
+            matchReason: "Matched indexed passage",
+            score: 0.9 - index * 0.05,
+          })),
+          relevance: { verdict: "strong", score: 0.91, directSourceCount: 5, weakSourceCount: 0 },
+          smartPanel: {},
+          telemetry: { query_class: "lookup", retrieval_strategy: "text_fast_path" },
+          scope: { queryMode: "lookup" },
+          sourceGovernanceWarnings: [],
+          demoMode: true,
+        },
+      });
+    });
+
+    await page.goto("/documents/search?q=lithium", { waitUntil: "domcontentloaded" });
+    const input = page.locator('[data-testid="global-search-input"]:visible').first();
+    await expect(async () => {
+      await expect(page.locator("header#search")).toHaveCount(1);
+      await expect(input).toBeVisible();
+    }).toPass({ timeout: 30_000 });
+    // Submit from the dock so the search runs after setup status has settled.
+    await input.fill("lithium");
+    await input.press("Enter");
+    await expect(page.getByRole("link", { name: /Result 5:/ })).toBeVisible({ timeout: 30_000 });
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      window.scrollTo(0, 0);
+    });
+
+    const covered: string[] = [];
+    let resultStops = 0;
+    let scrolledStops = 0;
+    for (let press = 0; press < 80; press++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (!active || active === document.body) return { kind: "none" as const };
+        if (active.closest(".phone-footer-layer")) return { kind: "dock" as const };
+        if (!active.closest(".phone-scroll-surface")) {
+          return { kind: "chrome" as const };
+        }
+        const rect = active.getBoundingClientRect();
+        const dockForm = document.querySelector('form[role="search"][data-footer-variant="compact"]');
+        const dockLayer = (dockForm?.closest(".phone-footer-layer") ?? dockForm) as HTMLElement | null;
+        const dockRect = dockLayer?.getBoundingClientRect();
+        const dockStyle = dockLayer ? getComputedStyle(dockLayer) : null;
+        const dockShowing = Boolean(
+          dockRect &&
+          dockStyle &&
+          dockStyle.visibility !== "hidden" &&
+          Number(dockStyle.opacity) > 0 &&
+          dockRect.top < window.innerHeight - 1,
+        );
+        const floor = dockShowing ? dockRect!.top : window.innerHeight;
+        const centreX = Math.min(Math.max(rect.left + rect.width / 2, 0), window.innerWidth - 1);
+        const centreY = Math.min(Math.max(rect.top + rect.height / 2, 0), window.innerHeight - 1);
+        const hit = document.elementFromPoint(centreX, centreY);
+        return {
+          kind: "content" as const,
+          label: (active.getAttribute("aria-label") ?? active.innerText ?? "").trim().slice(0, 40),
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+          floor: Math.round(floor),
+          scrollY: Math.round(window.scrollY),
+          hitIsSelf: Boolean(hit && (hit === active || active.contains(hit))),
+        };
+      });
+      if (stop.kind === "dock") break;
+      if (stop.kind !== "content") continue;
+      resultStops += 1;
+      if (stop.scrollY > 0) scrolledStops += 1;
+      // 1px tolerance for subpixel layout.
+      if (stop.top < 0 || stop.bottom > stop.floor + 1 || !stop.hitIsSelf) {
+        covered.push(
+          `"${stop.label}" at [${stop.top}, ${stop.bottom}] vs dock line ${stop.floor} (scrollY ${stop.scrollY}, hit self: ${stop.hitIsSelf})`,
+        );
+      }
+    }
+
+    // The walk must reach tab stops that start below the dock line, or it proves nothing.
+    expect(resultStops, "Tab must walk the result list").toBeGreaterThanOrEqual(10);
+    expect(scrolledStops, "some result stops must need the page to scroll").toBeGreaterThan(0);
+    expect(covered, "no focused result control may sit under the dock or off screen").toEqual([]);
+  });
+
   test("phone home keeps one tappable example ticker without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
