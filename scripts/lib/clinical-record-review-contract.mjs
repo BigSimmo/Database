@@ -77,6 +77,28 @@ export const FORM_ATTESTED_CATALOG_FIELDS = Object.freeze([
 ]);
 const FORM_ATTESTED_SOURCE_FACTS = Object.freeze(["timings", "sectionCue"]);
 
+/**
+ * The three questions every sign-off asks, for every kind, one record at a time (owner-approved
+ * wording). Any answer other than yes leaves the record unsigned.
+ */
+export const SIGN_OFF_QUESTIONS = Object.freeze([
+  Object.freeze({
+    key: "wordingMatchesSource",
+    label: "Wording",
+    question: "The wording matches its source.",
+  }),
+  Object.freeze({
+    key: "clinicalMeaningCorrect",
+    label: "Clinical meaning",
+    question: "The clinical meaning is correct.",
+  }),
+  Object.freeze({
+    key: "safeToShowAsReviewed",
+    label: "Safe to show",
+    question: "It is safe to show this as reviewed.",
+  }),
+]);
+
 const UTC_ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 
@@ -149,29 +171,7 @@ export const recordKinds = Object.freeze({
     collectionKey: "forms",
     idField: "code",
     statuses: Object.freeze(["drafted", "reviewed"]),
-    checklist: Object.freeze([
-      {
-        key: "matchesActAndForm",
-        label: "Matches the Act and the approved form",
-        question: "Does every statement above match the Act sections named and the current approved form?",
-      },
-      {
-        key: "clockAndStart",
-        label: "Clock and start point",
-        question: "Is the clock right, including exactly when it starts, and whether it can be extended or reset?",
-      },
-      {
-        key: "makerAndAuthority",
-        label: "Who may make it and what it authorises",
-        question: "Are the maker, what the form authorises, and what it does NOT authorise all correct?",
-      },
-      {
-        key: "safeToActOn",
-        label: "Safe to act on",
-        question:
-          "Would the traps, pre-use checks, safety pearl and documentation stem lead a clinician to act safely?",
-      },
-    ]),
+    checklist: SIGN_OFF_QUESTIONS,
     attested(record, context) {
       const code = normalizeCode(record.code);
       const entry = catalogForms(context?.catalog).find((form) => normalizeCode(form?.form) === code);
@@ -190,23 +190,7 @@ export const recordKinds = Object.freeze({
     collectionKey: "sections",
     idField: "section",
     statuses: Object.freeze(["pending", "drafted", "reviewed"]),
-    checklist: Object.freeze([
-      {
-        key: "faithfulToAct",
-        label: "Faithful to the Act",
-        question: "Does the summary say what the Act text above says, without adding anything the Act does not?",
-      },
-      {
-        key: "keepsEveryLimit",
-        label: "Keeps every limit",
-        question: "Does it keep every condition, limit or exception that would change a clinical decision?",
-      },
-      {
-        key: "clearToRead",
-        label: "Clear to read",
-        question: "Is it plain English a clinician can read once and act on correctly?",
-      },
-    ]),
+    checklist: SIGN_OFF_QUESTIONS,
     attested: (record) => withoutMetadata(record),
   }),
   timeframe: Object.freeze({
@@ -218,23 +202,7 @@ export const recordKinds = Object.freeze({
     idField: "id",
     optional: true,
     statuses: Object.freeze(["drafted", "reviewed"]),
-    checklist: Object.freeze([
-      {
-        key: "verbatimQuote",
-        label: "Word-for-word quote",
-        question: "Is the quote word-for-word from the Act section shown?",
-      },
-      {
-        key: "durationAndStart",
-        label: "Duration and start point",
-        question: "Are the duration and the moment the clock starts from both correct?",
-      },
-      {
-        key: "triggerAndForms",
-        label: "Trigger and forms",
-        question: "Is the trigger right, and does this deadline belong to the forms listed?",
-      },
-    ]),
+    checklist: SIGN_OFF_QUESTIONS,
     attested: (record) => withoutMetadata(record),
   }),
 });
@@ -352,9 +320,37 @@ export function signOffEligibilityProblem(record, kind, context = {}) {
   return `Only a drafted ${resolved.noun.toLowerCase()} can be signed off; ${resolved.noun} ${recordId(record, resolved)} is ${String(record?.status)}.`;
 }
 
-/** The exact words the owner types to confirm one sign-off. */
+/** The owner confirms one sign-off by typing that record's own code (for example 3C, or 26). */
 export function clinicalReviewConfirmation(kind, record) {
-  return `SIGN OFF ${recordId(record, kind)}`;
+  return recordId(record, kind);
+}
+
+/** Records still to sign, in walk order: drafted ones, plus signed ones edited since sign-off. */
+export function signOffQueue(kind, records, context = {}) {
+  const resolved = resolveKind(kind);
+  const waiting = records.filter(
+    (record) =>
+      record?.status === "drafted" ||
+      (record?.status === "reviewed" && recordPinState(record, resolved, context) === "stale"),
+  );
+  if (resolved.kind !== "form") return waiting.map((record) => recordId(record, resolved));
+  // Forms: the highest-consequence clocks first, then the rest in catalogue order.
+  let catalogOrder = [];
+  try {
+    catalogOrder = catalogForms(context.catalog).map((entry) => normalizeCode(entry?.form));
+  } catch {
+    // Without a catalogue, fall back to the review file's own order.
+  }
+  const rank = (id) => {
+    const recommended = RECOMMENDED_FORM_ORDER.findIndex((code) => sameRecordId(code, id));
+    if (recommended !== -1) return recommended;
+    const position = catalogOrder.indexOf(normalizeCode(id));
+    return RECOMMENDED_FORM_ORDER.length + (position === -1 ? catalogOrder.length : position);
+  };
+  return waiting
+    .map((record, index) => ({ id: recordId(record, resolved), index }))
+    .sort((left, right) => rank(left.id) - rank(right.id) || left.index - right.index)
+    .map(({ id }) => id);
 }
 
 /** Build the signed record in memory. Throws rather than return anything short of valid. */

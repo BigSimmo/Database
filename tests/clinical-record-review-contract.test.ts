@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { PassThrough } from "node:stream";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,6 +10,7 @@ import { checkProblems } from "../scripts/build-mha-act-sections.mjs";
 import {
   FORM_ATTESTED_CATALOG_FIELDS,
   RECOMMENDED_FORM_ORDER,
+  SIGN_OFF_QUESTIONS,
   applyClinicalReview,
   attestedContent,
   clinicalReviewConfirmation,
@@ -18,8 +20,12 @@ import {
   recordPinState,
   reviewProblems,
   reviewedContentSha256,
+  signOffQueue,
 } from "../scripts/lib/clinical-record-review-contract.mjs";
 import { conductClinicalReview, main, parseClinicalReviewArgs } from "../scripts/review-clinical-record.mjs";
+
+import formsCatalog from "../data/forms-catalog.json";
+import formsContentReview from "../data/forms-content-review.json";
 
 import { formContentReviewStatus } from "@/lib/form-catalog";
 
@@ -211,6 +217,29 @@ describe("recordKinds", () => {
 
   it("starts the recommended form order with the highest-consequence clocks", () => {
     expect(RECOMMENDED_FORM_ORDER).toEqual(["3C", "10B", "10E", "11B", "11E", "6C"]);
+  });
+
+  it("asks exactly the three owner-approved questions for every kind", () => {
+    expect(SIGN_OFF_QUESTIONS.map((check: { question: string }) => check.question)).toEqual([
+      "The wording matches its source.",
+      "The clinical meaning is correct.",
+      "It is safe to show this as reviewed.",
+    ]);
+    for (const kind of Object.values(recordKinds)) expect(kind.checklist).toBe(SIGN_OFF_QUESTIONS);
+  });
+
+  it("walks forms in the recommended order, then catalogue order, skipping signed ones", () => {
+    const catalog = { forms: ["1A", "2", "3C", "6C", "10B", "10E", "11B", "11E", "13"].map((form) => ({ form })) };
+    const rows = ["13", "11E", "2", "1A", "6C", "10E", "3C", "11B", "10B"].map((code) => formRow({ code }));
+    expect(signOffQueue("form", rows, { catalog })).toEqual(["3C", "10B", "10E", "11B", "11E", "6C", "1A", "2", "13"]);
+    const signed = signedForm();
+    expect(signOffQueue("form", [signed, formRow({ code: "2" })], { catalog: catalogFixture() })).toEqual(["2"]);
+  });
+
+  it("walks the real form queue starting with 3C, 10B, 10E, 11B, 11E, 6C", () => {
+    const queue = signOffQueue("form", formsContentReview.forms, { catalog: formsCatalog });
+    expect(queue.slice(0, 6)).toEqual(["3C", "10B", "10E", "11B", "11E", "6C"]);
+    expect(new Set(queue.map((code: string) => code.toLowerCase())).size).toBe(formsContentReview.forms.length);
   });
 
   it("pins the clinically attested catalogue fields and leaves search metadata out", () => {
@@ -443,7 +472,7 @@ describe("conductClinicalReview", () => {
 
   it("re-asks on anything other than yes, no or quit, and cancels on a wrong confirmation", async () => {
     const questions = recordKinds.form.checklist.length;
-    const { ask, asked } = scriptedAsk(["y", ...Array(questions).fill("yes"), "sign off 3c"]);
+    const { ask, asked } = scriptedAsk(["y", ...Array(questions).fill("yes"), "3D"]);
     let commits = 0;
     const result = await conductClinicalReview({
       kind,
@@ -485,6 +514,61 @@ describe("review-clinical-record CLI", () => {
     }
     expect(() => parseClinicalReviewArgs(["--code", "3C", "--code", "10B"])).toThrow(/once/);
     expect(parseClinicalReviewArgs(["--kind", "form", "--code", "3C"])).toMatchObject({ kind: "form", code: "3C" });
+    expect(parseClinicalReviewArgs(["--write", "--walk", "--kind", "form"])).toMatchObject({ walk: true });
+    expect(() => parseClinicalReviewArgs(["--walk", "--kind", "form"])).toThrow(/--write/);
+    expect(() => parseClinicalReviewArgs(["--write", "--walk", "--kind", "form", "--code", "3C"])).toThrow(/--code/);
+  });
+
+  it("refuses --write --walk without an interactive TTY and exits non-zero", () => {
+    const path = join(ROOT, "data", "forms-content-review.json");
+    const before = readFileSync(path, "utf8");
+    const refused = spawnSync(
+      process.execPath,
+      [SCRIPT, "--write", "--walk", "--kind", "form", "--reviewed-by", REVIEWER],
+      { cwd: ROOT, encoding: "utf8", input: "yes\nyes\nyes\n3C\n" },
+    );
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain("interactive TTY");
+    expect(readFileSync(path, "utf8")).toBe(before);
+  });
+
+  it("walk mode saves each confirmed record at once, skips a no, and keeps saves after quit", async () => {
+    const root = mkdtempSync(join(tmpdir(), "clinical-walk-"));
+    temporaryDirectories.push(root);
+    mkdirSync(join(root, "data"));
+    const catalog = { forms: ["3C", "10B", "10E", "1A"].map((form) => ({ ...catalogFixture().forms[0], form })) };
+    const reviewPath = join(root, "data", "forms-content-review.json");
+    writeFileSync(reviewPath, JSON.stringify({ forms: ["1A", "10E", "10B", "3C"].map((code) => formRow({ code })) }));
+    writeFileSync(join(root, "data", "forms-catalog.json"), JSON.stringify(catalog));
+
+    // 3C: yes x3 + code (saved). 10B: a no (skipped). 10E: quit (stops; 1A never shown).
+    const answers = ["yes", "yes", "yes", "3C", "yes", "no", "quit"];
+    const input = Object.assign(new PassThrough(), { isTTY: true });
+    const text: string[] = [];
+    const output = Object.assign(new PassThrough(), { isTTY: true, columns: 80 });
+    output.on("data", (chunk: Buffer) => {
+      const value = chunk.toString();
+      text.push(value);
+      if (/(Type yes, no, or quit: |type its code \([^)]*\): )$/.test(value)) {
+        const next = answers.shift();
+        if (next !== undefined) setImmediate(() => input.write(`${next}\n`));
+      }
+    });
+    const code = await main(["--write", "--walk", "--kind", "form", "--reviewed-by", REVIEWER], {
+      root,
+      input,
+      output,
+      errorOutput: sink(),
+    });
+    expect(code).toBe(0);
+    expect(answers).toEqual([]);
+    const saved = JSON.parse(readFileSync(reviewPath, "utf8")).forms;
+    const byCode = Object.fromEntries(saved.map((row: { code: string }) => [row.code, row]));
+    expect(byCode["3C"]).toMatchObject({ status: "reviewed", reviewedBy: REVIEWER });
+    expect(reviewProblems([byCode["3C"]], "form", { catalog })).toEqual([]);
+    for (const unsigned of ["10B", "10E", "1A"]) expect(byCode[unsigned].status).toBe("drafted");
+    expect(text.join("")).toContain("Signed off this session: 3C.");
+    expect(text.join("")).not.toContain("Form 1A  (4 of 4)");
   });
 
   it("is report-only by default and lists the queue without changing any file", () => {

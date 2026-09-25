@@ -26,7 +26,6 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  RECOMMENDED_FORM_ORDER,
   applyClinicalReview,
   clinicalReviewConfirmation,
   collectionOf,
@@ -38,6 +37,7 @@ import {
   reviewProblems,
   sameRecordId,
   signOffEligibilityProblem,
+  signOffQueue,
 } from "./lib/clinical-record-review-contract.mjs";
 import { createPrompt } from "./lib/confirm.mjs";
 
@@ -48,9 +48,14 @@ function usage() {
   return [
     "Usage: npm run clinical:review -- [--kind form|section|timeframe] [--code <code>]",
     "       npm run clinical:review -- --write --kind <kind> --code <code> --reviewed-by <public name>",
+    "       npm run clinical:review -- --write --walk --kind form|section --reviewed-by <public name>",
+    "",
+    "--walk steps through every unsigned record of one kind, one screen at a time (forms: 3C,",
+    "10B, 10E, 11B, 11E, 6C, then catalogue order; sections: section-number order). Each record",
+    "is saved the moment you confirm it, so quitting keeps everything signed so far.",
     "",
     "Without --write this only reports what is waiting and changes nothing.",
-    "--write needs a real interactive terminal, one --kind, one --code and --reviewed-by.",
+    "--write needs a real interactive terminal, one --kind, --reviewed-by, and --code or --walk.",
     "Every checklist answer is typed by you; there is no batch or automatic-yes mode.",
     "",
     '--code is the form code (3C, or "1A attachment" in quotes), the section number (26),',
@@ -64,13 +69,13 @@ function usage() {
 }
 
 export function parseClinicalReviewArgs(argv) {
-  const args = { help: false, write: false, kind: undefined, code: undefined, reviewedBy: undefined };
+  const args = { help: false, write: false, walk: false, kind: undefined, code: undefined, reviewedBy: undefined };
   const seen = new Set();
   const valueFlags = { "--kind": "kind", "--code": "code", "--reviewed-by": "reviewedBy" };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (token === "--help" || token === "-h" || token === "--write") {
-      const name = token === "--write" ? "write" : "help";
+    if (token === "--help" || token === "-h" || token === "--write" || token === "--walk") {
+      const name = token === "-h" ? "help" : token.slice(2);
       if (seen.has(name)) throw new Error(`${token} may only be supplied once.`);
       seen.add(name);
       args[name] = true;
@@ -94,6 +99,8 @@ export function parseClinicalReviewArgs(argv) {
     throw new Error(`--kind must be one of: ${KIND_NAMES.join(", ")}.`);
   }
   if (args.code !== undefined && args.kind === undefined) throw new Error("--code needs --kind as well.");
+  if (args.walk && !args.write) throw new Error("--walk is a sign-off mode; use it with --write.");
+  if (args.walk && args.code !== undefined) throw new Error("--walk goes through the whole queue; leave out --code.");
   return args;
 }
 
@@ -209,13 +216,15 @@ export async function conductClinicalReview({
   if (eligibility) throw new Error(eligibility);
 
   showRecord(kind, record, context, output);
+  writeLine(output);
+  writeLine(output, "Answer yes only if you agree with the statement. Any no leaves this record unsigned.");
   const checklist = recordKinds[kind].checklist;
   for (const [position, check] of checklist.entries()) {
     writeLine(output);
-    writeLine(output, `Question ${position + 1} of ${checklist.length}: ${check.label}`);
+    writeLine(output, `Question ${position + 1} of ${checklist.length}: ${check.question}`);
     let decision = null;
     while (decision === null) {
-      decision = normalizeAnswer(await ask(`${check.question}\nType yes, no, or quit: `));
+      decision = normalizeAnswer(await ask("Type yes, no, or quit: "));
       if (decision === null) writeLine(output, "Please type exactly yes, no, or quit.");
     }
     if (decision === "quit") {
@@ -229,8 +238,8 @@ export async function conductClinicalReview({
   }
 
   const expected = clinicalReviewConfirmation(kind, record);
-  const confirmation = await ask(`\nType ${expected} to record your sign-off: `);
-  if (confirmation.trim() !== expected) {
+  const confirmation = await ask(`\nTo sign this off, type its code (${expected}): `);
+  if (!sameRecordId(confirmation, expected)) {
     writeLine(output, "That did not match. Nothing was changed.");
     return { status: "cancelled", record };
   }
@@ -264,14 +273,6 @@ function loadContext(kind, root) {
   return { actSource: existsSync(actPath) ? readJson(actPath) : undefined };
 }
 
-/** Waiting records, forms in the recommended order first. */
-function waitingIds(kind, records) {
-  const ids = records.filter((record) => record.status === "drafted").map((record) => recordId(record, kind));
-  if (kind !== "form") return ids;
-  const first = RECOMMENDED_FORM_ORDER.filter((code) => ids.some((id) => sameRecordId(id, code)));
-  return [...first, ...ids.filter((id) => !first.some((code) => sameRecordId(id, code)))];
-}
-
 function showKindQueue(kind, root, output) {
   const definition = recordKinds[kind];
   const loaded = loadKindDocument(kind, { root });
@@ -286,7 +287,7 @@ function showKindQueue(kind, root, output) {
   const context = loadContext(kind, root);
   const reviewed = records.filter((record) => record.status === "reviewed");
   const stale = reviewed.filter((record) => recordPinState(record, kind, context) !== "current");
-  const waiting = waitingIds(kind, records);
+  const waiting = signOffQueue(kind, records, context);
   const pending = records.filter((record) => record.status === "pending").length;
   writeLine(
     output,
@@ -444,57 +445,98 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   if (!input.isTTY || !output.isTTY) {
     throw new Error("--write requires an interactive TTY; piped, scripted and agent-supplied sign-offs are refused.");
   }
-  if (!args.kind || !args.code)
-    throw new Error("--write needs one --kind and one --code; batch sign-off is not supported.");
+  if (!args.kind) throw new Error("--write needs one --kind.");
+  if (!args.walk && !args.code) {
+    throw new Error("--write needs --code for one record, or --walk to step through the queue one record at a time.");
+  }
   if (!args.reviewedBy) throw new Error("--write needs --reviewed-by with your public display name.");
   const attributionProblem = publicReviewerAttributionProblem(args.reviewedBy);
   if (attributionProblem) throw new Error(attributionProblem);
 
   const kind = args.kind;
-  const loaded = loadKindDocument(kind, { root });
-  if (loaded.status === "absent") {
+  const first = loadKindDocument(kind, { root });
+  if (first.status === "absent") {
     throw new Error(`${recordKinds[kind].path} does not exist yet; there is nothing to sign off for ${kind}.`);
   }
-  const records = collectionOf(kind, loaded.document);
-  const record = records.find((entry) => sameRecordId(recordId(entry, kind), args.code));
-  if (!record) throw new Error(`No ${kind} with code ${args.code} in ${recordKinds[kind].path}.`);
-  const context = loadContext(kind, root);
-  const eligibility = signOffEligibilityProblem(record, kind, context);
-  if (eligibility) throw new Error(eligibility);
+  const codes = args.walk
+    ? signOffQueue(kind, collectionOf(kind, first.document), loadContext(kind, root))
+    : [args.code];
+  if (args.walk && codes.length === 0) {
+    writeLine(output, `Nothing waiting: every ${kind} is already signed off.`);
+    return 0;
+  }
+  if (!args.walk) {
+    // Fail before any prompt for an unknown or ineligible single record.
+    const record = collectionOf(kind, first.document).find((entry) => sameRecordId(recordId(entry, kind), args.code));
+    if (!record) throw new Error(`No ${kind} with code ${args.code} in ${recordKinds[kind].path}.`);
+    const eligibility = signOffEligibilityProblem(record, kind, loadContext(kind, root));
+    if (eligibility) throw new Error(eligibility);
+  }
 
   writeLine(errorOutput, "CLINICAL AUTHORITY: only the clinical owner may sign this off, after reading it in full.");
   writeLine(
     errorOutput,
     "PRIVACY: your reviewer name is shown publicly. Do not enter an email or registration number.",
   );
-  if (record.status === "reviewed") {
-    writeLine(errorOutput, `This record was signed off before (${record.reviewedAt}) and has been edited since.`);
-  }
+  const signed = [];
+  const skipped = [];
   const prompt = createPrompt({ input, output });
   try {
-    const result = await conductClinicalReview({
-      kind,
-      record,
-      context,
-      reviewedBy: args.reviewedBy,
-      ask: prompt.ask,
-      output,
-      commit: async (reviewed) => {
-        const nextDocument = applyClinicalReview(loaded.document, kind, reviewed);
-        const problems = reviewProblems([reviewed], kind, context);
-        if (problems.length) throw new Error(`Refusing to write an invalid sign-off:\n- ${problems.join("\n- ")}`);
-        writeDataFileAtomically(loaded.path, await formatJson(nextDocument, loaded.path), loaded.raw);
-      },
-    });
-    if (result.status === "reviewed") {
-      if (kind === "form") regenerateFormsReviewSheet(root, errorOutput);
-      writeLine(output, `Signed off ${kind} ${recordId(result.record, kind)}. Saved on this computer only.`);
-      writeLine(output, 'When you have finished, tell Claude: "commit my sign-offs".');
+    for (const [position, code] of codes.entries()) {
+      // Re-read before every record, so each save is checked against the file as it is now.
+      const loaded = loadKindDocument(kind, { root });
+      const context = loadContext(kind, root);
+      const record = collectionOf(kind, loaded.document).find((entry) => sameRecordId(recordId(entry, kind), code));
+      if (!record || signOffEligibilityProblem(record, kind, context)) {
+        skipped.push(code);
+        continue;
+      }
+      writeLine(output);
+      writeLine(output, "=".repeat(60));
+      writeLine(
+        output,
+        args.walk
+          ? `${recordKinds[kind].noun} ${code}  (${position + 1} of ${codes.length})`
+          : `${recordKinds[kind].noun} ${code}`,
+      );
+      if (record.status === "reviewed") {
+        writeLine(output, `Signed off before (${record.reviewedAt}), but the text has been edited since.`);
+      }
+      writeLine(output, "=".repeat(60));
+      const result = await conductClinicalReview({
+        kind,
+        record,
+        context,
+        reviewedBy: args.reviewedBy,
+        ask: prompt.ask,
+        output,
+        commit: async (reviewed) => {
+          const nextDocument = applyClinicalReview(loaded.document, kind, reviewed);
+          const problems = reviewProblems([reviewed], kind, context);
+          if (problems.length) throw new Error(`Refusing to write an invalid sign-off:\n- ${problems.join("\n- ")}`);
+          writeDataFileAtomically(loaded.path, await formatJson(nextDocument, loaded.path), loaded.raw);
+        },
+      });
+      if (result.status === "reviewed") {
+        signed.push(code);
+        writeLine(output, `Saved: ${recordKinds[kind].noun} ${code} is signed off.`);
+      } else if (result.status === "quit") {
+        break;
+      } else {
+        skipped.push(code);
+      }
     }
-    return 0;
   } finally {
     prompt.close();
+    if (kind === "form" && signed.length) regenerateFormsReviewSheet(root, errorOutput);
+    writeLine(output);
+    writeLine(output, `Signed off this session: ${signed.length ? signed.join(", ") : "none"}.`);
+    if (skipped.length) writeLine(output, `Left unsigned: ${skipped.join(", ")}.`);
+    if (signed.length) {
+      writeLine(output, "Your sign-offs are saved on this computer. See the guide for how to send them.");
+    }
   }
+  return 0;
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null;
