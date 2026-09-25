@@ -798,7 +798,8 @@ jobs:
 
   ui-critical-fast:
     name: Production UI critical
-    needs: [changes, ui-playwright-build]
+    # Also waits for static-pr: see the note on ui-critical below.
+    needs: [changes, static-pr, ui-playwright-build]
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
@@ -855,7 +856,15 @@ jobs:
   # change and the per-shard job names are free to differ.
   ui-critical:
     name: Production UI
-    needs: [changes, ui-playwright-build]
+    # The browser lanes also wait for `static-pr`, and are skipped when it fails. Measured on
+    # PR runs of 2026-09-25, static-pr and the Playwright build finish within seconds of each
+    # other (5.2m/5.2m, 5.4m/5.3m, 4.4m/5.0m), so on a green run this waits for nothing. On a
+    # red one it stops about 30 runner-minutes of browser tests (three shards, the critical
+    # subset and the Ward Flow lane) from running against a head that already has to be pushed
+    # again — a lint, typecheck, format, snapshot or contract failure. The browser verdict is
+    # not lost, only deferred to the fixing push, which reruns every lane. `pr-required` stays
+    # red on the static failure itself and reports these lanes as skipped-because-static.
+    needs: [changes, static-pr, ui-playwright-build]
     # Start alongside the fail-fast subset. The suites stay disjoint on PR and
     # merge-queue events, and PR required independently demands both results.
     if: >
@@ -962,7 +971,8 @@ jobs:
   # edit to one is an edit to both.
   ui-ward-journeys:
     name: Ward Flow browser journeys
-    needs: [changes, ui-playwright-build]
+    # Also waits for static-pr: see the note on ui-critical above.
+    needs: [changes, static-pr, ui-playwright-build]
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
@@ -1582,6 +1592,14 @@ jobs:
           require_success "changes" "$CHANGES_RESULT"
           require_success "static-pr" "$STATIC_RESULT"
 
+          # The browser lanes (production-ui-critical, production-ui, ward-flow-journeys) need
+          # static-pr, so GitHub skips them whenever static-pr did not succeed. That failure is
+          # already recorded just above and keeps this aggregate red, so their skip is accepted
+          # here rather than reported as three more "result was skipped" failures that describe
+          # nothing about the diff. Any lane that did run and failed is still recorded as a failure.
+          static_blocked=false
+          if [ "$STATIC_RESULT" != "success" ]; then static_blocked=true; fi
+
           # safety/coverage/build/ui-critical*/db-reset-verify/caring-contacts-db additionally skip on draft PRs
           # (see their own job `if:` conditions) to stop draft pushes from booking a full heavy
           # CI matrix. PR_DRAFT is folded into the same "was this job in scope" check as the
@@ -1624,7 +1642,12 @@ jobs:
             require_skipped_or_success "Playwright Next build" "$UI_BUILD_RESULT"
           fi
 
-          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
+          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && [ "$static_blocked" = "true" ]; then
+            require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
+            require_skipped_or_success "production-ui" "$UI_RESULT"
+            echo "::notice title=Browser tests deferred::static-pr did not pass, so the browser" \
+              "lanes were skipped for this head. They run on the push that fixes static-pr."
+          elif [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
               require_success "production-ui-critical" "$UI_FAST_RESULT"
             else
@@ -1646,7 +1669,8 @@ jobs:
           # `WARD_JOURNEYS_BLOCKING` term until 2026-09-06, when the lane was enabled and the term
           # was dropped from both in one commit — see that job's own comment for the green run it
           # was lifted against.
-          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
+          # The static_blocked term mirrors the job's `needs: static-pr`, as above.
+          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && [ "$static_blocked" != "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
             require_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
           else
             require_skipped_or_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
