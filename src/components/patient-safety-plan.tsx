@@ -588,11 +588,13 @@ export function PatientSafetyPlan() {
     lines.push(
       `24/7 support: ${LIFELINE_CONTACT.name} ${LIFELINE_CONTACT.telephoneDisplay} · ${SCBS_CONTACT.name} ${SCBS_CONTACT.telephoneDisplay} · ${THIRTEEN_YARN_CONTACT.name} ${THIRTEEN_YARN_CONTACT.telephoneDisplay}.`,
     );
-    lines.push(
-      `Western Australia crisis lines: ${WA_REGIONAL_CRISIS_CONTACTS.map(
-        (contact) => `${contact.name} ${contact.telephoneDisplay}`,
-      ).join(" · ")} (${RURALLINK_CONTACT.name} hours: ${RURALLINK_CONTACT.availability}).`,
-    );
+    lines.push("Western Australia crisis lines:");
+    for (const contact of WA_REGIONAL_CRISIS_CONTACTS) {
+      lines.push(`   • ${contact.name} — ${contact.telephoneDisplay} (${contact.availability})`);
+      // A crisis number and its stated limitation (e.g. "not an emergency service") must
+      // never be separated — see care-plan.module.css's .crisisEntry print-break comment.
+      if (contact.caveat !== null) lines.push(`     ${contact.caveat}`);
+    }
     return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
   }, [entries, exampleActive, planDate, ready, reasons]);
 
@@ -1041,7 +1043,12 @@ export function PatientSafetyPlan() {
               <ul className="grid gap-1 pl-6 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
                 {WA_REGIONAL_CRISIS_CONTACTS.map((contact) => (
                   <li key={contact.id}>
-                    {contact.name} — {contact.telephoneDisplay} ({contact.availability})
+                    <span>
+                      {contact.name} — {contact.telephoneDisplay} ({contact.availability})
+                    </span>
+                    {/* A crisis number and its stated limitation must never be separated —
+                        see care-plan.module.css's .crisisEntry print-break comment. */}
+                    {contact.caveat === null ? null : <span className="block">{contact.caveat}</span>}
                   </li>
                 ))}
               </ul>
