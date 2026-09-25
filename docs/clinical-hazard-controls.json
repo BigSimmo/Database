@@ -197,6 +197,13 @@
       "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
       "recordedOn": "2026-09-25",
       "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "src/lib/source-authority-registry.ts",
+      "reason": "Changed on main by 309656a8 (#T9MZ7V, merge the duplicate American Psychiatric Association register entry) after the 2026-08-23 review; arrived in this branch via a main merge. Main only warns on drift; this branch makes drift blocking. Needs owner re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
     }
   ]
 }
