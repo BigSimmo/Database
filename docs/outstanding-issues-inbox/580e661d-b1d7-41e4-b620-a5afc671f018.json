@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "580e661d-b1d7-41e4-b620-a5afc671f018",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Move withSentryConfig import to @sentry/nextjs/config before Sentry v11 (audit F25)",
+    "detail": "Verified offline: next.config.ts imports withSentryConfig from @sentry/nextjs (installed 10.74.0), which prints 'Importing withSentryConfig from @sentry/nextjs is deprecated and will stop working in v11. Import it from @sentry/nextjs/config instead'. One-line change; do it before any Sentry major upgrade.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC3682CRP5C4CQ5N5XHH5"
+  }
+}
