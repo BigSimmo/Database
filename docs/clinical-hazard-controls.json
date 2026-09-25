@@ -155,7 +155,7 @@
     "src/lib/rag/rag-claim-support.ts": "7cdcfc84e8b5516588f6ac08163330eb8fbd52d6c6750dc63955110516ab345c",
     "src/lib/rag/rag-source-block.ts": "984b3f655b468aabbf2d1f489eb6df66273fe7c9e85ea88df63affa986654ad2",
     "src/lib/source-authority-registry.ts": "e82b2f1aeaf053a321f76576da71a2c54f7fb4db485fbf6c4caf686ac6f2267c",
-    "src/lib/source-governance.ts": "581d8026a0d41362a06c12d1bba7df8bd6c301fa900f7c5ab7c7eaa69e9883c8",
+    "src/lib/source-governance.ts": "e3e1c09b0a7e446b7055f894088c771f1a5cc160a0f20f026f3cc291af5804fa",
     "src/lib/source-text-sanitizer.ts": "8d7a2bba424096b6334494a7c5760d4fc74381d8806b117d3d801e6b19e8138f",
     "tests/answer-render-policy.test.ts": "5e48ea66ca1902ac17a271444db7f6350a37c0100fe2152afd042e4fdb89427d",
     "tests/answer-verification.test.ts": "6c61453a04d7342b5c80ddb337df76b61f5dfe14e6de363c86348d97e71ccee3",
