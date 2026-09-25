@@ -39,9 +39,9 @@ const repoRoot = path.resolve(process.cwd());
 // carry (pinned so a future accidental row deletion/duplication is caught, not
 // just "at least one row").
 const WA_SECTION_RECORDS: { slug: string; rowCount: number }[] = [
-  { slug: "methylphenidate", rowCount: 5 },
-  { slug: "dexamfetamine", rowCount: 5 },
-  { slug: "lisdexamfetamine", rowCount: 5 },
+  { slug: "methylphenidate", rowCount: 9 },
+  { slug: "dexamfetamine", rowCount: 9 },
+  { slug: "lisdexamfetamine", rowCount: 9 },
   { slug: "alprazolam", rowCount: 3 },
   { slug: "methadone", rowCount: 5 },
   { slug: "buprenorphine-sl-depot", rowCount: 6 },
@@ -49,6 +49,20 @@ const WA_SECTION_RECORDS: { slug: string; rowCount: number }[] = [
   { slug: "gabapentin", rowCount: 3 },
   { slug: "pregabalin", rowCount: 3 },
 ];
+
+const STIMULANT_SLUGS = ["methylphenidate", "dexamfetamine", "lisdexamfetamine"] as const;
+const OST_SLUGS = ["methadone", "buprenorphine-sl-depot", "buprenorphine-naloxone"] as const;
+
+/** Round-1 fix regulatory doses per drug (Monitored Medicines Prescribing Code,
+ * Dec 2024, Part 3 Figure 3 and its dose table — verified against the PDF's word
+ * coordinates, not just its linearised text, because the table's columns
+ * (Dexamfetamine / Methylphenidate / Lisdexamfetamine) print out of row order in
+ * plain extraction). */
+const STIMULANT_MAX_DOSE_MG: Record<(typeof STIMULANT_SLUGS)[number], number> = {
+  dexamfetamine: 60,
+  methylphenidate: 120,
+  lisdexamfetamine: 70,
+};
 
 /** `(<title>; source: <id>)` — the citation convention every `wa` row's `val` ends
  * with. Chosen over a `tags` entry: `medicationRowBadges` (`src/lib/medication-badges.ts`)
@@ -162,6 +176,122 @@ describe("WA prescribing rules — medications catalogue (task t6a)", () => {
       });
     });
   }
+
+  describe("round-1 fix: stimulant 'Approved Prescribers' names Table 3's specialty-to-diagnosis pairs (item 2)", () => {
+    for (const slug of STIMULANT_SLUGS) {
+      it(`${slug} states the specialty-specific diagnosis restrictions, not a blanket ADHD claim`, () => {
+        const section = waSectionOf(getMedicationRecord(slug)!);
+        const row = section.rows.find((r) => r.key === "Approved Prescribers")!;
+        expect(row).toBeDefined();
+        // Respiratory/sleep medicine and rehabilitation medicine are each
+        // approved for exactly one diagnosis under Table 3 — the wording this
+        // fix exists to correct implied any Approved Specialty covered ADHD.
+        expect(row.val).toContain("Respiratory and Sleep Medicine for Narcolepsy only");
+        expect(row.val).toContain(
+          "Rehabilitation Medicine or Paediatric Rehabilitation Medicine for Acquired Brain Injury only",
+        );
+        expect(row.val).toContain("Psychiatry");
+        expect(row.val).toContain("Neurology");
+      });
+    }
+  });
+
+  describe("round-1 fix: stimulant 'Shared Care Limits' quotes the GP/nurse-practitioner restriction (item 2)", () => {
+    for (const slug of STIMULANT_SLUGS) {
+      it(`${slug} states all four things a non-Approved-Specialist prescriber may not do`, () => {
+        const section = waSectionOf(getMedicationRecord(slug)!);
+        const row = section.rows.find((r) => r.key === "Shared Care Limits")!;
+        expect(row).toBeDefined();
+        expect(row.val).toContain("initiate an S8 stimulant medicine");
+        expect(row.val).toContain("alter an S8 stimulant dose without the Approved Specialist's written authority");
+        expect(row.val).toContain("an authority displayed on ScriptCheckWA");
+        expect(row.val).toContain("alter the S8 stimulant type or formulation");
+      });
+    }
+  });
+
+  describe("round-1 fix: ScriptCheckWA rows carry the s1.2.3 new/unknown-patient rule (item 3)", () => {
+    const cases: { slug: string; rowKey: string }[] = [
+      { slug: "alprazolam", rowKey: "ScriptCheckWA" },
+      { slug: "gabapentin", rowKey: "ScriptCheckWA Registration" },
+      { slug: "pregabalin", rowKey: "ScriptCheckWA Registration" },
+      { slug: "methylphenidate", rowKey: "ScriptCheckWA" },
+      { slug: "dexamfetamine", rowKey: "ScriptCheckWA" },
+      { slug: "lisdexamfetamine", rowKey: "ScriptCheckWA" },
+    ];
+    for (const { slug, rowKey } of cases) {
+      it(`${slug} '${rowKey}' row requires a check for a new or unknown patient, and cites the Code for it`, () => {
+        const section = waSectionOf(getMedicationRecord(slug)!);
+        const row = section.rows.find((r) => r.key === rowKey)!;
+        expect(row).toBeDefined();
+        expect(row.val).toContain("new or unknown patient");
+        expect(row.val).toContain("strongly recommended");
+        const { sourceId } = citationOf(row);
+        expect(sourceId).toBe("wa-monitored-medicines-prescribing-code");
+      });
+    }
+  });
+
+  describe("round-1 fix: opioid-substitution 'Continuing Treatment in Hospital' matches s7.4.1.6 (item 4)", () => {
+    for (const slug of OST_SLUGS) {
+      it(`${slug} names a medical practitioner, a current CPOP participant and a valid authorisation on admission`, () => {
+        const section = waSectionOf(getMedicationRecord(slug)!);
+        const row = section.rows.find((r) => r.key === "Continuing Treatment in Hospital")!;
+        expect(row).toBeDefined();
+        expect(row.val).toContain("A medical practitioner who is not an authorised CPOP prescriber");
+        expect(row.val).toContain("current CPOP participant");
+        expect(row.val).toContain("valid authorisation on admission");
+      });
+    }
+  });
+
+  describe("round-1 fix: stimulant patient exclusions, dose caps and review frequency (item 6)", () => {
+    for (const slug of STIMULANT_SLUGS) {
+      it(`${slug} 'Patient Exclusions' names every comorbidity/history exclusion in 3.5.2.iii`, () => {
+        const section = waSectionOf(getMedicationRecord(slug)!);
+        const row = section.rows.find((r) => r.key === "Patient Exclusions")!;
+        expect(row).toBeDefined();
+        expect(row.val).toContain("stimulant-induced psychosis");
+        expect(row.val).toContain("psychosis or bipolar disorder");
+        expect(row.val).toContain("previous 5 years");
+        expect(row.val).toContain("Drug Dependence or Oversupply");
+        expect(row.val).toContain("CPOP participant");
+      });
+
+      it(`${slug} 'Maximum Doses' states the verified regulatory dose cap (${STIMULANT_MAX_DOSE_MG[slug]} mg/day)`, () => {
+        const section = waSectionOf(getMedicationRecord(slug)!);
+        const row = section.rows.find((r) => r.key === "Maximum Doses")!;
+        expect(row).toBeDefined();
+        expect(row.val).toContain(`${STIMULANT_MAX_DOSE_MG[slug]} mg/day`);
+        // Every one of the three stimulants shares the same combined-therapy
+        // dexamfetamine-equivalent ceiling under Figure 3: 60 mg/day for an
+        // adult, 1 mg/kg/day for a patient under 18.
+        expect(row.val).toContain("1 mg/kg/day");
+      });
+
+      it(`${slug} 'Specialist Review Frequency' states the annual/3-year split`, () => {
+        const section = waSectionOf(getMedicationRecord(slug)!);
+        const row = section.rows.find((r) => r.key === "Specialist Review Frequency")!;
+        expect(row).toBeDefined();
+        expect(row.val).toContain("annual");
+        expect(row.val).toContain("3 years");
+      });
+    }
+  });
+
+  describe("round-1 fix: alprazolam legacy lines (item 8)", () => {
+    const record = getMedicationRecord("alprazolam")!;
+
+    it("no longer claims ward prescribing is 'extremely restricted' (Part 6 excludes inpatient administration)", () => {
+      expect(JSON.stringify(record)).not.toContain("Prescribing on the ward is extremely restricted");
+    });
+
+    it("still carries the unsourced 'Private script only in most states' line (flagged for the owner, not deleted)", () => {
+      const form = record.sections.find((section) => section.type === "form")!;
+      const row = form.rows.find((r) => r.key === "Prescribing & PBS")!;
+      expect(row.val).toContain("Private script only in most states");
+    });
+  });
 
   describe("pregabalin correction", () => {
     const record = getMedicationRecord("pregabalin")!;

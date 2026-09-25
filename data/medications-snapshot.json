@@ -618,12 +618,12 @@
           },
           {
             "key": "Continuing Treatment in Hospital",
-            "val": "A practitioner who is not an authorised CPOP prescriber may continue a patient's existing, currently authorised OST for up to one month while the patient is a hospital inpatient or in custody, but must not initiate or alter it; ordinary CPOP authorisation applies outside that. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "A medical practitioner who is not an authorised CPOP prescriber may prescribe continuing OST for a patient in custody or as a hospital inpatient, for up to one month, provided the patient is a current CPOP participant with a valid authorisation on admission, the OST is prescribed in accordance with that authorisation, and the practitioner is satisfied it is safe to do so; authorisation is required outside these conditions. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
             "key": "ScriptCheckWA",
-            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
@@ -977,12 +977,12 @@
           },
           {
             "key": "Continuing Treatment in Hospital",
-            "val": "A practitioner who is not an authorised CPOP prescriber may continue a patient's existing, currently authorised OST for up to one month while the patient is a hospital inpatient or in custody, but must not initiate or alter it; ordinary CPOP authorisation applies outside that. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "A medical practitioner who is not an authorised CPOP prescriber may prescribe continuing OST for a patient in custody or as a hospital inpatient, for up to one month, provided the patient is a current CPOP participant with a valid authorisation on admission, the OST is prescribed in accordance with that authorisation, and the practitioner is satisfied it is safe to do so; authorisation is required outside these conditions. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
             "key": "ScriptCheckWA",
-            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -2005,12 +2005,12 @@
           },
           {
             "key": "Continuing Treatment in Hospital",
-            "val": "A practitioner who is not an authorised CPOP prescriber may continue a patient's existing, currently authorised OST for up to one month while the patient is a hospital inpatient or in custody, but must not initiate or alter it; ordinary CPOP authorisation applies outside that. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "A medical practitioner who is not an authorised CPOP prescriber may prescribe continuing OST for a patient in custody or as a hospital inpatient, for up to one month, provided the patient is a current CPOP participant with a valid authorisation on admission, the OST is prescribed in accordance with that authorisation, and the practitioner is satisfied it is safe to do so; authorisation is required outside these conditions. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
             "key": "ScriptCheckWA",
-            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -62406,7 +62406,7 @@
           },
           {
             "key": "ScriptCheckWA Registration",
-            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying any Monitored Medicine in WA, including S4 monitored medicines such as gabapentin and pregabalin. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying any Monitored Medicine in WA, including S4 monitored medicines such as gabapentin and pregabalin. Checking it is strongly recommended before any prescription, and is required before prescribing to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -63667,7 +63667,7 @@
           },
           {
             "key": "ScriptCheckWA Registration",
-            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying any Monitored Medicine in WA, including S4 monitored medicines such as gabapentin and pregabalin. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying any Monitored Medicine in WA, including S4 monitored medicines such as gabapentin and pregabalin. Checking it is strongly recommended before any prescription, and is required before prescribing to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -64742,7 +64742,7 @@
           },
           {
             "key": "Clinical Focus",
-            "val": "Up-scheduled to S8 in Australia due to massive abuse. Prescribing on the ward is extremely restricted and generally avoided.",
+            "val": "Up-scheduled to S8 in Australia due to massive abuse.",
             "tags": []
           },
           {
@@ -64881,7 +64881,7 @@
           },
           {
             "key": "The S8 Status",
-            "val": "WA lets a treating team prescribe up to a 14-day supply of alprazolam on hospital discharge without CEO authorisation, provided it is tied to that episode of care and the patient is not recorded as Drug Dependent or Oversupplied; any longer supply, or any alprazolam script outside a discharge episode, needs written CEO authorisation under the Monitored Medicines Prescribing Code, ordinarily supported by a psychiatrist. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "WA lets a treating team prescribe up to a 14-day supply of alprazolam from an emergency department or on hospital discharge without CEO authorisation, provided it is tied to that episode of care and the patient is not recorded as Drug Dependent or Oversupplied; any longer supply, or any alprazolam script outside those settings, needs written CEO authorisation under the Monitored Medicines Prescribing Code, supported by a Relevant Specialist (e.g. psychiatrist). (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -64933,12 +64933,12 @@
           },
           {
             "key": "Specialist Support",
-            "val": "An authorisation application must be submitted by, or supported by, a relevant AHPRA specialist — psychiatry is the recognised specialty for anxiety treated with alprazolam — and that support is valid for up to three years, or three months if it is a recent hospital discharge summary. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "An authorisation application must be submitted by, or supported by, a Relevant Specialist — an AHPRA specialist relevant to the diagnosis, e.g. a psychiatrist for anxiety treated with alprazolam, the Code's own example — and that support is valid for up to three years, or three months if it is a recent hospital discharge summary. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
             "key": "ScriptCheckWA",
-            "val": "Alprazolam is a Schedule 8 medicine tracked on ScriptCheckWA; registration is mandatory before prescribing, and checking ScriptCheckWA before prescribing is strongly recommended and shows any current CEO authorisation. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "val": "Alprazolam is a Schedule 8 medicine tracked on ScriptCheckWA. Registration is mandatory before prescribing, dispensing or supplying a Monitored Medicine; checking ScriptCheckWA is strongly recommended before any prescription, and is required before prescribing to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -68265,7 +68265,12 @@
           },
           {
             "key": "Approved Prescribers",
-            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist — AHPRA specialist registration in Psychiatry, Paediatrics and Child Health, Neurology, Rehabilitation Medicine or Respiratory and Sleep Medicine, treating an approved diagnosis such as ADHD — or a GP or nurse practitioner continuing an Approved Specialist's treatment under a documented Shared Care Model. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist treating the diagnosis their AHPRA specialty is approved for under Table 3 of the Code: Neurology or Paediatric Neurology for Acquired Brain Injury, ADHD or Narcolepsy; Paediatrics and Child Health for ADHD; Psychiatry for Acquired Brain Injury, ADHD, Moderate-to-Severe Binge Eating Disorder in an adult (lisdexamfetamine only) or Depression; Rehabilitation Medicine or Paediatric Rehabilitation Medicine for Acquired Brain Injury only; or Respiratory and Sleep Medicine for Narcolepsy only. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Shared Care Limits",
+            "val": "A GP or nurse practitioner may continue an Approved Specialist's stimulant treatment under a documented Shared Care Model, but — in the Code's own words — is “not permitted to” initiate an S8 stimulant medicine, alter an S8 stimulant dose without the Approved Specialist's written authority, prescribe for a patient who has an authority displayed on ScriptCheckWA, or alter the S8 stimulant type or formulation. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
@@ -68275,12 +68280,27 @@
           },
           {
             "key": "ScriptCheckWA",
-            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA, and it shows the patient's current prescribing and dispensing history and any CEO authorisation on record. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA. Checking it is strongly recommended before any prescription, and is required before prescribing an S8 stimulant to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
             "key": "Patient Age",
             "val": "For CEO-authorisation-free prescribing, the patient must be at least 4 years old; treatment of any patient under 2 years old with an S8 stimulant is not permitted at all. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Exclusions",
+            "val": "For CEO-authorisation-free prescribing, the patient must not have a history of stimulant-induced psychosis, a history of psychosis or bipolar disorder, a history of substance abuse, diversion or misuse of drugs of addiction or Schedule 9 poisons within the previous 5 years, a record of Drug Dependence or Oversupply, or be a current CPOP participant. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Maximum Doses",
+            "val": "For CEO-authorisation-free prescribing, dexamfetamine must not exceed 60 mg/day (1 mg/kg/day up to that same maximum for a patient under 18); the same 60 mg/day dexamfetamine-equivalent limit (1 mg/kg/day under 18) applies to the combined dose if another S8 stimulant is added. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Specialist Review Frequency",
+            "val": "To keep prescribing without CEO authorisation, a patient under 18 years old, or with any of the listed comorbidities, must be reviewed by the Approved Specialist on an annual basis; a patient 18 or older without a listed comorbidity must have been reviewed within the last 3 years. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -68878,7 +68898,12 @@
           },
           {
             "key": "Approved Prescribers",
-            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist — AHPRA specialist registration in Psychiatry, Paediatrics and Child Health, Neurology, Rehabilitation Medicine or Respiratory and Sleep Medicine, treating an approved diagnosis such as ADHD — or a GP or nurse practitioner continuing an Approved Specialist's treatment under a documented Shared Care Model. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist treating the diagnosis their AHPRA specialty is approved for under Table 3 of the Code: Neurology or Paediatric Neurology for Acquired Brain Injury, ADHD or Narcolepsy; Paediatrics and Child Health for ADHD; Psychiatry for Acquired Brain Injury, ADHD, Moderate-to-Severe Binge Eating Disorder in an adult (lisdexamfetamine only) or Depression; Rehabilitation Medicine or Paediatric Rehabilitation Medicine for Acquired Brain Injury only; or Respiratory and Sleep Medicine for Narcolepsy only. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Shared Care Limits",
+            "val": "A GP or nurse practitioner may continue an Approved Specialist's stimulant treatment under a documented Shared Care Model, but — in the Code's own words — is “not permitted to” initiate an S8 stimulant medicine, alter an S8 stimulant dose without the Approved Specialist's written authority, prescribe for a patient who has an authority displayed on ScriptCheckWA, or alter the S8 stimulant type or formulation. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
@@ -68888,12 +68913,27 @@
           },
           {
             "key": "ScriptCheckWA",
-            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA, and it shows the patient's current prescribing and dispensing history and any CEO authorisation on record. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA. Checking it is strongly recommended before any prescription, and is required before prescribing an S8 stimulant to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
             "key": "Patient Age",
             "val": "For CEO-authorisation-free prescribing, the patient must be at least 6 years old; treatment of any patient under 2 years old with an S8 stimulant is not permitted at all. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Exclusions",
+            "val": "For CEO-authorisation-free prescribing, the patient must not have a history of stimulant-induced psychosis, a history of psychosis or bipolar disorder, a history of substance abuse, diversion or misuse of drugs of addiction or Schedule 9 poisons within the previous 5 years, a record of Drug Dependence or Oversupply, or be a current CPOP participant. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Maximum Doses",
+            "val": "For CEO-authorisation-free prescribing, lisdexamfetamine must not exceed 70 mg/day; it is not dosed by bodyweight, and treatment from age 6 is commenced at 30 mg/day. If combined with another S8 stimulant, the combined dose converted to a dexamfetamine equivalent must not exceed 60 mg/day (1 mg/kg/day for a patient under 18). (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Specialist Review Frequency",
+            "val": "To keep prescribing without CEO authorisation, a patient under 18 years old, or with any of the listed comorbidities, must be reviewed by the Approved Specialist on an annual basis; a patient 18 or older without a listed comorbidity must have been reviewed within the last 3 years. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -69227,7 +69267,12 @@
           },
           {
             "key": "Approved Prescribers",
-            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist — AHPRA specialist registration in Psychiatry, Paediatrics and Child Health, Neurology, Rehabilitation Medicine or Respiratory and Sleep Medicine, treating an approved diagnosis such as ADHD — or a GP or nurse practitioner continuing an Approved Specialist's treatment under a documented Shared Care Model. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist treating the diagnosis their AHPRA specialty is approved for under Table 3 of the Code: Neurology or Paediatric Neurology for Acquired Brain Injury, ADHD or Narcolepsy; Paediatrics and Child Health for ADHD; Psychiatry for Acquired Brain Injury, ADHD, Moderate-to-Severe Binge Eating Disorder in an adult (lisdexamfetamine only) or Depression; Rehabilitation Medicine or Paediatric Rehabilitation Medicine for Acquired Brain Injury only; or Respiratory and Sleep Medicine for Narcolepsy only. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Shared Care Limits",
+            "val": "A GP or nurse practitioner may continue an Approved Specialist's stimulant treatment under a documented Shared Care Model, but — in the Code's own words — is “not permitted to” initiate an S8 stimulant medicine, alter an S8 stimulant dose without the Approved Specialist's written authority, prescribe for a patient who has an authority displayed on ScriptCheckWA, or alter the S8 stimulant type or formulation. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
@@ -69237,12 +69282,27 @@
           },
           {
             "key": "ScriptCheckWA",
-            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA, and it shows the patient's current prescribing and dispensing history and any CEO authorisation on record. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA. Checking it is strongly recommended before any prescription, and is required before prescribing an S8 stimulant to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           },
           {
             "key": "Patient Age",
             "val": "For CEO-authorisation-free prescribing, the patient must be at least 4 years old; treatment of any patient under 2 years old with an S8 stimulant is not permitted at all. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Exclusions",
+            "val": "For CEO-authorisation-free prescribing, the patient must not have a history of stimulant-induced psychosis, a history of psychosis or bipolar disorder, a history of substance abuse, diversion or misuse of drugs of addiction or Schedule 9 poisons within the previous 5 years, a record of Drug Dependence or Oversupply, or be a current CPOP participant. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Maximum Doses",
+            "val": "For CEO-authorisation-free prescribing, methylphenidate must not exceed 120 mg/day (2 mg/kg/day up to that same maximum for a patient under 18); if combined with another S8 stimulant, the combined dose converted to a dexamfetamine equivalent must not exceed 60 mg/day (1 mg/kg/day for a patient under 18). (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Specialist Review Frequency",
+            "val": "To keep prescribing without CEO authorisation, a patient under 18 years old, or with any of the listed comorbidities, must be reviewed by the Approved Specialist on an annual basis; a patient 18 or older without a listed comorbidity must have been reviewed within the last 3 years. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
