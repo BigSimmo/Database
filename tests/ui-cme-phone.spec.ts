@@ -298,7 +298,7 @@ test.describe("CME phone design", () => {
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/cme");
-    await expect(page.getByTestId("cme-category-bar")).toBeVisible();
+    await expect(page.getByTestId("cme-category-bar").filter({ visible: true })).toBeVisible();
     await page.getByTestId("cme-quick-log-button").click();
     const sheet = page.getByTestId("cme-quick-log-sheet");
     await expect(sheet.getByLabel("What was it", { exact: false })).toBeVisible();
