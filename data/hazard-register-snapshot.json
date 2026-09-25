@@ -39,7 +39,7 @@
           "title": "A stale or unverified guideline is presented as current/authoritative",
           "status": "partial",
           "owner": "Source governance owner",
-          "residualRisk": "Repository controls surface review state and cap high-risk trust, but source currency and clinical validation require human authority.",
+          "residualRisk": "Repository controls surface review state and cap high-risk trust, but source currency and clinical validation require human authority. UPDATE 2026-09-25 (#WGMB4Z, owner decisions 3, 10 and 17): the words 'Strong support' now show only when every assessed claim is direct with approved or locally reviewed authority on each supporting chunk, and never when an answer has no assessed claims; such an answer reads 'Supported' instead (strongSupportLabelCapped in src/lib/answer-client-payload.ts, supportLabelTrust in src/lib/answer-render-policy.ts, pinned by tests/answer-render-policy.test.ts). This all-claims rule governs the label only: render trust and its caps (quote cards, related documents, tables and visual evidence, source and evidence-row counts, weak-evidence styling) are unchanged, and still cap only high-risk claims unless NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is exactly 'true'. An explicit 'false' makes the label follow trust again. Answers saved in the browser before this shipped carry no label flag and keep their old label until they expire.",
           "controlCount": 2,
           "testCount": 2,
           "reviewExpiresAt": "2026-11-23",
