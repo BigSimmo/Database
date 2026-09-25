@@ -460,6 +460,80 @@ test.describe("PsychSift PWA", () => {
     await expect(stack).toHaveCSS("pointer-events", "none");
   });
 
+  test("shows the saved On Call essentials offline, and nothing personal", async ({ context, page }) => {
+    await openControlledPwa(page);
+    // The shape src/lib/on-call/entry-store.ts writes: shared rows only, saved now.
+    await page.evaluate(() => {
+      const base = {
+        subtitle: null,
+        body: null,
+        linkedDocumentIds: [],
+        tags: [],
+        lastVerifiedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        sortOrder: 0,
+      };
+      window.localStorage.setItem(
+        "clinical-kb-on-call-entries-cache",
+        JSON.stringify({
+          savedAt: new Date().toISOString(),
+          entries: [
+            {
+              ...base,
+              id: crypto.randomUUID(),
+              section: "contacts",
+              slug: "ward",
+              title: "Ward 5",
+              isPersonal: false,
+              includeOnCard: true,
+              details: { role: "Nurse in charge", phone: "9224 0001" },
+            },
+            {
+              ...base,
+              id: crypto.randomUUID(),
+              section: "contacts",
+              slug: "sb",
+              title: "Main switchboard",
+              isPersonal: false,
+              includeOnCard: false,
+              details: { role: "Switchboard", phone: "(08) 9224 2244" },
+            },
+            {
+              ...base,
+              id: crypto.randomUUID(),
+              section: "contacts",
+              slug: "me",
+              title: "My own mobile",
+              isPersonal: true,
+              includeOnCard: false,
+              details: { role: "Personal", phone: "0400 000 000" },
+            },
+          ],
+        }),
+      );
+    });
+    const cspViolations: string[] = [];
+    page.on("console", (message) => {
+      if (/Content Security Policy/i.test(message.text())) cspViolations.push(message.text());
+    });
+
+    await context.setOffline(true);
+    await page.goto(`/pwa-offline-on-call-${Date.now()}`, { waitUntil: "domcontentloaded" });
+    const essentials = page.getByRole("region", { name: "On Call, saved on this phone" });
+    await expect(essentials).toBeVisible();
+    await expect(essentials.getByText(/^Saved copy from .+ call switchboard\.$/)).toBeVisible();
+    await expect(essentials.locator(".name").first()).toHaveText("Main switchboard");
+    await expect(essentials.getByRole("link", { name: "Call (08) 9224 2244" })).toHaveAttribute(
+      "href",
+      "tel:0892242244",
+    );
+    await expect(essentials.getByText("My own mobile")).toHaveCount(0);
+    expect(cspViolations).toEqual([]);
+
+    await context.setOffline(false);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => window.localStorage.removeItem("clinical-kb-on-call-entries-cache"));
+  });
+
   test("serves a cold offline fallback, recovers online, and keeps private URLs out of CacheStorage", async ({
     context,
     page,
