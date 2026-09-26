@@ -1,0 +1,98 @@
+/** @vitest-environment jsdom */
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { AdminRecordsPage } from "@/components/admin/new-job/admin-records-page";
+import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/new-job/records",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+const registration = complianceFixture(
+  "Medical registration",
+  { category: "Registration", expiresOn: "2027-09-30", issuingBody: "Ahpra" },
+  { isOwn: true, isPersonal: true },
+);
+const payslipGuide = onCallEntryFixture({
+  section: "logistics",
+  title: "Payslips and pay queries",
+  details: { category: "Pay" },
+  isOwn: true,
+  isPersonal: false,
+});
+const sharedGuide = onCallEntryFixture({
+  section: "logistics",
+  title: "Shared guide, not the reader's own",
+  details: { category: "Pay" },
+  isOwn: false,
+  isPersonal: false,
+});
+
+const entryState = vi.hoisted(() => ({
+  entries: [] as OnCallEntry[],
+  loading: false,
+  isOffline: false,
+  loadError: null as "offline" | "failed" | null,
+  signedOut: false,
+  demoMode: false,
+  cachedAt: null as string | null,
+  retry: vi.fn(),
+}));
+
+vi.mock("@/lib/on-call/entry-store", () => ({
+  useOnCallEntries: () => entryState,
+}));
+
+const NOW = new Date("2026-09-26T01:00:00Z");
+
+beforeEach(() => {
+  Object.assign(entryState, {
+    entries: [registration, payslipGuide, sharedGuide],
+    loading: false,
+    isOffline: false,
+    loadError: null,
+    signedOut: false,
+    demoMode: false,
+    cachedAt: null,
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("AdminRecordsPage", () => {
+  it("is an on-screen page, with a back link and no download", () => {
+    render(<AdminRecordsPage now={NOW} />);
+    expect(screen.getByTestId("admin-records-main")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /New job/ })).toBeTruthy();
+  });
+
+  it("shows only the reader's own records, grouped into Renewals, Admin and Contacts", () => {
+    render(<AdminRecordsPage now={NOW} />);
+    expect(screen.getByText(registration.title)).toBeTruthy();
+    expect(screen.getByText(payslipGuide.title)).toBeTruthy();
+    expect(screen.queryByText(sharedGuide.title)).toBeNull();
+  });
+
+  it("keeps Copy and Print behind the ••• menu, not on the page itself", () => {
+    render(<AdminRecordsPage now={NOW} />);
+    expect(screen.queryByRole("button", { name: "Copy" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Print" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByTestId("admin-records-copy")).toBeTruthy();
+    expect(screen.getByTestId("admin-records-print")).toBeTruthy();
+  });
+
+  it("shows the load-failed state when entries failed to load", () => {
+    Object.assign(entryState, { isOffline: true, loadError: "offline" });
+    render(<AdminRecordsPage now={NOW} />);
+    expect(screen.getByTestId("admin-records-load-failed")).toBeTruthy();
+  });
+});
