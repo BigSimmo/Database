@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { canonicalServiceRecords, canonicalServiceValidationErrors } from "@/lib/service-governance";
+import {
+  canonicalServiceRecords,
+  canonicalServiceValidationErrors,
+  mergeCanonicalCatalogServices,
+} from "@/lib/service-governance";
 import { sourceAuthorityIdentityForPublisher } from "@/lib/source-authority-registry";
-import { loadServicesSnapshot } from "@/lib/service-catalog";
+import { loadServicesSnapshot, normalizeCatalogServices } from "@/lib/service-catalog";
+import servicesSnapshot from "../data/services-snapshot.json";
 import part09 from "@/lib/services-canonical-data/part-09";
 
 const PART_09_IDS = [
@@ -62,5 +67,15 @@ describe("part-09 WA service records written 2026-09-26", () => {
     expect(stableIdFor("S212")).toBe("SVC-YTH-021");
     expect(stableIdFor("S041")).toBe("SVC-YTH-024");
     expect(stableIdFor("S123")).toBe("SVC-YTH-025");
+  });
+
+  it("matches the two Youth Hospital in the Home entries the same way whatever the snapshot order", () => {
+    const legacy = normalizeCatalogServices(servicesSnapshot);
+    for (const ordered of [legacy, [...legacy].reverse()]) {
+      const merged = mergeCanonicalCatalogServices(ordered);
+      const stableIdFor = (legacyId: string) => merged.find((service) => service.id === legacyId)?.stable_id;
+      expect(stableIdFor("S211")).toBe("SVC-YTH-022");
+      expect(stableIdFor("S212")).toBe("SVC-YTH-021");
+    }
   });
 });
