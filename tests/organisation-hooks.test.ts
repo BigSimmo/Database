@@ -298,6 +298,12 @@ describe("edit warning: paths", () => {
     expect(contextOf(editHookOutput(payload, { stateDir }))).toContain("src/lib/rag/sample.ts is ranking-protected");
   });
 
+  it("collapses `..` segments before judging the path", () => {
+    const root = fixture();
+    const sneaky = `${root}/src/lib/../../supabase/migrations/20990101000000_sample.sql`;
+    expect(repoRelativePath(sneaky)?.rel).toBe("supabase/migrations/20990101000000_sample.sql");
+  });
+
   it("handles a new file in folders that do not exist yet", () => {
     const root = fixture();
     expect(repoRelativePath(path.join(root, "src/lib/rag/new/deeper/file.ts"))?.rel).toBe(

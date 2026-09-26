@@ -148,8 +148,8 @@ function gitTopLevel(dir) {
  */
 export function repoRelativePath(filePath, cwd = process.cwd()) {
   if (typeof filePath !== "string" || filePath.trim() === "") return null;
-  let target = filePath.trim().replaceAll("\\", "/");
-  if (!path.isAbsolute(target)) target = path.resolve(cwd, target);
+  // `resolve` also collapses `..` segments, so `src/../supabase/…` is judged as `supabase/…`.
+  const target = path.resolve(cwd, filePath.trim().replaceAll("\\", "/"));
   // Walk up to the nearest folder that exists: Write may be creating new folders.
   const missing = [path.basename(target)];
   let dir = path.dirname(target);
