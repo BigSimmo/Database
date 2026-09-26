@@ -70,6 +70,12 @@ const ALLOWLIST = new Set([
 // genuinely repo-wide.
 const SCOPED_ALLOWLIST = new Map([
   [
+    "docs/plans/edge-ingestion-overhaul-3pr-plan.md",
+    // A dated plan whose baseline and first step name the retired ingestion-worker Edge
+    // Function; the folder was deleted as that step's follow-up, so the path is the record.
+    new Set(["supabase/functions/ingestion-worker/"]),
+  ],
+  [
     "docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md",
     // A nested not-found route Task 15 considered and decided against after reading the
     // Next 16 docs. Naming it is the point of the paragraph.

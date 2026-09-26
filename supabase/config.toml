@@ -1,8 +1,9 @@
 [functions.indexing-v3-agent]
 verify_jwt = true
 
-[functions.ingestion-worker]
-verify_jwt = true
-
 [functions.site-content-sync]
 verify_jwt = true
+
+[db.settings]
+# Preview-branch replay: migration 20260824122000 is ~16 MB and its history insert exceeds the 2-min default statement_timeout.
+statement_timeout = "30min"
