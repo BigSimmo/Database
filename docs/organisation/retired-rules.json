@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "owner-approved-label-gate",
+      "retired": "2026-09-25",
+      "summary": "The `owner-approved` label gate and the `Owner approval` commit status were removed; no PR waits for the owner's label. Supabase merges still need an approved window.",
+      "pattern": "`owner-approved`|owner-approved`? label|`owner approval`|owner approval`? (status|check|context|hold)|owner[- ]approval (label|gate|hold)|owner merge required|ownerHoldViaStatus",
+      "allowedContext": "there is no|there are no|no longer|retired|removed|removal|no [^.]*gate|formerly|previously|superseded",
+      "record": "docs/agents/pull-request-workflow.md, Merge authority: there is no owner-approved label gate and no Owner approval commit status"
+    },
+    {
+      "id": "rag-impact-line-blocks",
+      "retired": "2026-09-17",
+      "summary": "A missing or vague `RAG impact:` line no longer blocks a PR; pr-policy only warns. Still write the line; the eval canary and the source-pin contract test are what fail closed.",
+      "pattern": "RAG impact[^.]{0,100}\\b(hard[- ]?blocks?|blocks? (the |a )?(merge|PR|pull request)|fails? `?(the )?(PR[- ]policy|pr-policy|check|merge))|\\b(hard[- ]?blocks?|blocks? (the )?merge|fails? `?(the )?(PR[- ]policy|pr-policy)|(PR[- ]policy|pr-policy)`?( check)? (fails|blocks))[^.]{0,120}RAG impact",
+      "allowedContext": "not a block|no longer|advisory|warn|retired|removed|there is no|formerly|previously|superseded",
+      "record": "AGENTS.md, RAG ranking protection: PR nudge (advisory since 2026-09-17); the scripts/pr-policy.mjs self-test asserts a missing line does not block"
+    },
+    {
+      "id": "gate-arbiter",
+      "retired": "2026-09-17",
+      "summary": "The gate arbiter (`npm run arbiter`, scripts/gate-arbiter.mjs, GATE_ARBITER) was removed; gate receipts remain.",
+      "pattern": "npm run arbiter|gate[- ]arbiter|GATE_ARBITER|consult the arbiter|arbiter'?s? verdict",
+      "allowedContext": "no longer|removed|removal|retired|deleted|there is no|formerly|previously|superseded",
+      "record": "diff-integrity.json: scripts/gate-arbiter.mjs deleted in the owner-approved governance cut of 2026-09-17; gate receipts kept"
+    }
+  ]
+}
