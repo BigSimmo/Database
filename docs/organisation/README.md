@@ -33,7 +33,7 @@ Ask: **if this file broke, which part of PsychSift would stop working?**
 - A new file inside a folder the map already covers is placed automatically. A new folder, or a loose file in a mixed folder (`src/lib`, `src/components`, `scripts`, `tests`, `docs`), needs a rule: add it to the right `systems/<id>.json`. Prefer a folder or name-pattern rule over naming one file, and never name a single page.
 - After moving or renaming things, run `npm run check:organisation -- --fix`. It removes entries left pointing at moved or deleted files, drops not-yet-placed entries a rule now covers and restores alphabetical order. It never places a file and never touches anything outside this folder.
 - If a file genuinely does two jobs equally, list it in `shared.json` with a reason. If you honestly cannot tell, list it in `not-yet-placed.json` with a one-line reason that says where it might belong (at most 120 characters; no links, names or long numbers, because this repo is public).
-- Ward Flow and Caring Contacts are being removed from the project and are listed in `ignored.json`. Delete their entries when their files go.
+- Ward Flow and Caring Contacts were retired and removed on 2026-09-26, so the map no longer lists them.
 
 **Rule language.** A rule with no `*` names one exact file. `*` matches within one folder; `**` spans folders. Everything else is literal, including `(search-app)` and `[id]`, and matching is case-sensitive. An exact rule beats a pattern; otherwise the rule with the longer fixed part (the text before the first `*`) wins. A wildcard directly inside a mixed folder needs at least three fixed characters, so `tests/rag-*` is allowed and `tests/*.ts` is not.
 

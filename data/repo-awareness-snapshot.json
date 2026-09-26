@@ -157,21 +157,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/statistics/compare",
-        "file": "src/app/mockups/ward-flow/statistics/compare/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/statistics/ward/[unitId]",
-        "file": "src/app/mockups/ward-flow/statistics/ward/[unitId]/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/caring-contacts/team",
-        "file": "src/app/caring-contacts/team/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/auth/reset-password",
         "file": "src/app/auth/reset-password/page.tsx",
         "area": "product"
@@ -242,11 +227,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/caring-contacts/contacts/[contactId]",
-        "file": "src/app/mockups/caring-contacts/contacts/[contactId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/doctor-compliance",
         "file": "src/app/mockups/doctor-compliance/page.tsx",
         "area": "mockup"
@@ -267,19 +247,9 @@
         "area": "mockup"
       },
       {
-        "path": "/caring-contacts/intake",
-        "file": "src/app/caring-contacts/intake/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/cme/summary",
         "file": "src/app/(search-app)/cme/summary/page.tsx",
         "area": "product"
-      },
-      {
-        "path": "/mockups/caring-contacts/team",
-        "file": "src/app/mockups/caring-contacts/team/page.tsx",
-        "area": "mockup"
       },
       {
         "path": "/mockups/development/ledger",
@@ -292,19 +262,9 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/referrals",
-        "file": "src/app/mockups/ward-flow/referrals/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/dictionary/[slug]",
         "file": "src/app/(search-app)/dictionary/[slug]/page.tsx",
         "area": "product"
-      },
-      {
-        "path": "/mockups/ward-flow/movements/[movementId]",
-        "file": "src/app/mockups/ward-flow/movements/[movementId]/page.tsx",
-        "area": "mockup"
       },
       {
         "path": "/mockups/universal-search-command",
@@ -342,11 +302,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/ward-flow/ward/[unitId]",
-        "file": "src/app/mockups/ward-flow/ward/[unitId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/settings-search-privacy",
         "file": "src/app/mockups/settings-search-privacy/page.tsx",
         "area": "mockup"
@@ -367,11 +322,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/caring-contacts/plans/new",
-        "file": "src/app/mockups/caring-contacts/plans/new/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/care-plan",
         "file": "src/app/mockups/care-plan/page.tsx",
         "area": "mockup"
@@ -382,28 +332,13 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/capacity",
-        "file": "src/app/mockups/ward-flow/capacity/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/universal-search-redesign",
         "file": "src/app/mockups/universal-search-redesign/page.tsx",
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/people/[patientId]",
-        "file": "src/app/mockups/ward-flow/people/[patientId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/document-search/source-overlays",
         "file": "src/app/mockups/document-search/source-overlays/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/search",
-        "file": "src/app/mockups/ward-flow/search/page.tsx",
         "area": "mockup"
       },
       {
@@ -429,11 +364,6 @@
       {
         "path": "/mockups/search-lens-menu",
         "file": "src/app/mockups/search-lens-menu/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/board/[unitId]",
-        "file": "src/app/mockups/ward-flow/board/[unitId]/page.tsx",
         "area": "mockup"
       },
       {
@@ -467,18 +397,8 @@
         "area": "product"
       },
       {
-        "path": "/mockups/caring-contacts/system-states",
-        "file": "src/app/mockups/caring-contacts/system-states/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/care-plan/patients/[patientId]/management-plan/edit",
         "file": "src/app/mockups/care-plan/patients/[patientId]/management-plan/edit/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/caring-contacts/patients/[patientId]",
-        "file": "src/app/mockups/caring-contacts/patients/[patientId]/page.tsx",
         "area": "mockup"
       },
       {
@@ -527,11 +447,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow",
-        "file": "src/app/mockups/ward-flow/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
@@ -539,16 +454,6 @@
       {
         "path": "/cme/customise",
         "file": "src/app/(search-app)/cme/customise/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/mockups/ward-flow/delays",
-        "file": "src/app/mockups/ward-flow/delays/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/caring-contacts/templates/[pathwayId]",
-        "file": "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "area": "product"
       },
       {
@@ -564,11 +469,6 @@
       {
         "path": "/mockups/answer-chat-perfected",
         "file": "src/app/mockups/answer-chat-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/caring-contacts/templates",
-        "file": "src/app/mockups/caring-contacts/templates/page.tsx",
         "area": "mockup"
       },
       {
@@ -607,11 +507,6 @@
         "area": "mockup"
       },
       {
-        "path": "/caring-contacts/patients/[patientId]",
-        "file": "src/app/caring-contacts/patients/[patientId]/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/reference/colour-coding",
         "file": "src/app/reference/colour-coding/page.tsx",
         "area": "product"
@@ -627,18 +522,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/ed/[edId]",
-        "file": "src/app/mockups/ward-flow/ed/[edId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/development/documentation",
         "file": "src/app/mockups/development/documentation/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/network",
-        "file": "src/app/mockups/ward-flow/network/page.tsx",
         "area": "mockup"
       },
       {
@@ -702,11 +587,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/ward-flow/statistics",
-        "file": "src/app/mockups/ward-flow/statistics/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/settings-search-general",
         "file": "src/app/mockups/settings-search-general/page.tsx",
         "area": "mockup"
@@ -742,11 +622,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/ward-flow/community/[teamId]",
-        "file": "src/app/mockups/ward-flow/community/[teamId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/factsheets/[slug]",
         "file": "src/app/(search-app)/factsheets/[slug]/page.tsx",
         "area": "product"
@@ -770,11 +645,6 @@
         "path": "/therapy-compass/pathways",
         "file": "src/app/(search-app)/therapy-compass/pathways/page.tsx",
         "area": "product"
-      },
-      {
-        "path": "/mockups/ward-flow/transport/officer",
-        "file": "src/app/mockups/ward-flow/transport/officer/page.tsx",
-        "area": "mockup"
       },
       {
         "path": "/mockups/development",
@@ -809,11 +679,6 @@
       {
         "path": "/cme/new",
         "file": "src/app/(search-app)/cme/new/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/caring-contacts/plans/new",
-        "file": "src/app/caring-contacts/plans/new/page.tsx",
         "area": "product"
       },
       {
@@ -882,11 +747,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/ward-flow/movements",
-        "file": "src/app/mockups/ward-flow/movements/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/development/corpus-health",
         "file": "src/app/mockups/development/corpus-health/page.tsx",
         "area": "mockup"
@@ -902,34 +762,14 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/caring-contacts/guidance",
-        "file": "src/app/mockups/caring-contacts/guidance/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/statistics/ed/[edId]",
-        "file": "src/app/mockups/ward-flow/statistics/ed/[edId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/services/search",
         "file": "src/app/(search-app)/services/search/page.tsx",
         "area": "product"
       },
       {
-        "path": "/mockups/ward-flow/discharges",
-        "file": "src/app/mockups/ward-flow/discharges/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/development/hazards",
         "file": "src/app/mockups/development/hazards/page.tsx",
         "area": "mockup"
-      },
-      {
-        "path": "/caring-contacts/guidance",
-        "file": "src/app/caring-contacts/guidance/page.tsx",
-        "area": "product"
       },
       {
         "path": "/mockups/settings-search-clinical",
@@ -962,11 +802,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/caring-contacts/templates/[pathwayId]",
-        "file": "src/app/mockups/caring-contacts/templates/[pathwayId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/differentials/search",
         "file": "src/app/(search-app)/differentials/search/page.tsx",
         "area": "product"
@@ -979,11 +814,6 @@
       {
         "path": "/cme/log",
         "file": "src/app/(search-app)/cme/log/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/caring-contacts/patients",
-        "file": "src/app/caring-contacts/patients/page.tsx",
         "area": "product"
       },
       {
@@ -1002,11 +832,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/community",
-        "file": "src/app/mockups/ward-flow/community/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/pinned-plus-menu",
         "file": "src/app/mockups/pinned-plus-menu/page.tsx",
         "area": "mockup"
@@ -1017,18 +842,8 @@
         "area": "product"
       },
       {
-        "path": "/mockups/ward-flow/wards",
-        "file": "src/app/mockups/ward-flow/wards/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/tools-action-workbench",
         "file": "src/app/mockups/tools-action-workbench/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/caring-contacts/patients",
-        "file": "src/app/mockups/caring-contacts/patients/page.tsx",
         "area": "mockup"
       },
       {
@@ -1157,11 +972,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/caring-contacts/schedule",
-        "file": "src/app/mockups/caring-contacts/schedule/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/care-plan/patients/[patientId]/presentations",
         "file": "src/app/mockups/care-plan/patients/[patientId]/presentations/page.tsx",
         "area": "mockup"
@@ -1182,18 +992,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/referrals/new",
-        "file": "src/app/mockups/ward-flow/referrals/new/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/development/clinical-trust",
         "file": "src/app/mockups/development/clinical-trust/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/handover",
-        "file": "src/app/mockups/ward-flow/handover/page.tsx",
         "area": "mockup"
       },
       {
@@ -1209,11 +1009,6 @@
       {
         "path": "/mockups/document-navigation-perfected",
         "file": "src/app/mockups/document-navigation-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/people/new",
-        "file": "src/app/mockups/ward-flow/people/new/page.tsx",
         "area": "mockup"
       },
       {
@@ -1237,11 +1032,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/caring-contacts/plans/[planId]",
-        "file": "src/app/mockups/caring-contacts/plans/[planId]/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/tools-search-mode",
         "file": "src/app/mockups/tools-search-mode/page.tsx",
         "area": "mockup"
@@ -1254,11 +1044,6 @@
       {
         "path": "/mockups/document-search-triage-board",
         "file": "src/app/mockups/document-search-triage-board/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/caring-contacts/reports",
-        "file": "src/app/mockups/caring-contacts/reports/page.tsx",
         "area": "mockup"
       },
       {
@@ -1277,16 +1062,6 @@
         "area": "mockup"
       },
       {
-        "path": "/caring-contacts/templates",
-        "file": "src/app/caring-contacts/templates/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/caring-contacts/reports",
-        "file": "src/app/caring-contacts/reports/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
         "area": "product"
@@ -1297,33 +1072,13 @@
         "area": "product"
       },
       {
-        "path": "/caring-contacts",
-        "file": "src/app/caring-contacts/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/cme/setup",
         "file": "src/app/(search-app)/cme/setup/page.tsx",
         "area": "product"
       },
       {
-        "path": "/mockups/ward-flow/governance",
-        "file": "src/app/mockups/ward-flow/governance/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/development/clinical-sign-off",
         "file": "src/app/mockups/development/clinical-sign-off/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/out-of-area",
-        "file": "src/app/mockups/ward-flow/out-of-area/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/statistics/overview",
-        "file": "src/app/mockups/ward-flow/statistics/overview/page.tsx",
         "area": "mockup"
       },
       {
@@ -1345,11 +1100,6 @@
         "path": "/mockups/care-plan/patients/[patientId]/patient-plan/edit",
         "file": "src/app/mockups/care-plan/patients/[patientId]/patient-plan/edit/page.tsx",
         "area": "mockup"
-      },
-      {
-        "path": "/caring-contacts/schedule",
-        "file": "src/app/caring-contacts/schedule/page.tsx",
-        "area": "product"
       },
       {
         "path": "/mockups/development/routes",
@@ -1380,11 +1130,6 @@
         "path": "/on-call/logistics",
         "file": "src/app/(search-app)/on-call/logistics/page.tsx",
         "area": "product"
-      },
-      {
-        "path": "/mockups/caring-contacts",
-        "file": "src/app/mockups/caring-contacts/page.tsx",
-        "area": "mockup"
       },
       {
         "path": "/mockups/therapy-scenario-popup-intake",
@@ -1444,11 +1189,6 @@
         "target": "/documents/[id]"
       },
       {
-        "path": "/mockups/ward-flow/escalation",
-        "file": "src/app/mockups/ward-flow/escalation/page.tsx",
-        "target": "/mockups/ward-flow/delays"
-      },
-      {
         "path": "/dictionary",
         "file": "src/app/(search-app)/dictionary/page.tsx",
         "target": "/?mode=dictionary"
@@ -1457,11 +1197,6 @@
         "path": "/medications",
         "file": "src/app/(search-app)/medications/page.tsx",
         "target": "/?mode=prescribing"
-      },
-      {
-        "path": "/mockups/ward-flow/constellation",
-        "file": "src/app/mockups/ward-flow/constellation/page.tsx",
-        "target": "/mockups/ward-flow/network"
       },
       {
         "path": "/formulation",
@@ -1474,34 +1209,14 @@
         "target": "/?mode=documents"
       },
       {
-        "path": "/mockups/ward-flow/exceptions",
-        "file": "src/app/mockups/ward-flow/exceptions/page.tsx",
-        "target": "/mockups/ward-flow/delays"
-      },
-      {
         "path": "/documents/source/evidence",
         "file": "src/app/(search-app)/documents/source/evidence/page.tsx",
         "target": "/documents/[id]"
       },
       {
-        "path": "/mockups/ward-flow/queue",
-        "file": "src/app/mockups/ward-flow/queue/page.tsx",
-        "target": "/mockups/ward-flow/delays"
-      },
-      {
         "path": "/applications",
         "file": "src/app/applications/route.ts",
         "target": "/tools"
-      },
-      {
-        "path": "/mockups/ward-flow/transport",
-        "file": "src/app/mockups/ward-flow/transport/page.tsx",
-        "target": "/mockups/ward-flow/movements"
-      },
-      {
-        "path": "/mockups/ward-flow/morning",
-        "file": "src/app/mockups/ward-flow/morning/page.tsx",
-        "target": "/mockups/ward-flow/capacity"
       },
       {
         "path": "/dictionary/browse",
@@ -1546,10 +1261,6 @@
     ],
     "api": [
       {
-        "path": "/api/caring-contacts/service-state",
-        "file": "src/app/api/caring-contacts/service-state/route.ts"
-      },
-      {
         "path": "/api/on-call/shifts",
         "file": "src/app/api/on-call/shifts/route.ts"
       },
@@ -1564,10 +1275,6 @@
       {
         "path": "/api/differentials",
         "file": "src/app/api/differentials/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/intake",
-        "file": "src/app/api/caring-contacts/intake/route.ts"
       },
       {
         "path": "/api/on-call/demo-content",
@@ -1602,10 +1309,6 @@
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
       {
-        "path": "/api/caring-contacts/referrals",
-        "file": "src/app/api/caring-contacts/referrals/route.ts"
-      },
-      {
         "path": "/api/documents/[id]",
         "file": "src/app/api/documents/[id]/route.ts"
       },
@@ -1638,14 +1341,6 @@
         "file": "src/app/api/answer/route.ts"
       },
       {
-        "path": "/api/caring-contacts/access-trail",
-        "file": "src/app/api/caring-contacts/access-trail/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/plans/[planId]",
-        "file": "src/app/api/caring-contacts/plans/[planId]/route.ts"
-      },
-      {
         "path": "/api/upload",
         "file": "src/app/api/upload/route.ts"
       },
@@ -1662,18 +1357,6 @@
         "file": "src/app/api/search/universal/route.ts"
       },
       {
-        "path": "/api/caring-contacts/ready",
-        "file": "src/app/api/caring-contacts/ready/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/pathway-versions",
-        "file": "src/app/api/caring-contacts/pathway-versions/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/session",
-        "file": "src/app/api/caring-contacts/session/route.ts"
-      },
-      {
         "path": "/api/on-call/entries/[id]/verify",
         "file": "src/app/api/on-call/entries/[id]/verify/route.ts"
       },
@@ -1688,14 +1371,6 @@
       {
         "path": "/api/registry/records",
         "file": "src/app/api/registry/records/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/patients/search",
-        "file": "src/app/api/caring-contacts/patients/search/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/dispatches",
-        "file": "src/app/api/caring-contacts/dispatches/route.ts"
       },
       {
         "path": "/api/calendar/feed/[token]",
@@ -1716,10 +1391,6 @@
       {
         "path": "/api/cme/export",
         "file": "src/app/api/cme/export/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/plans/[planId]/contacts/[contactId]",
-        "file": "src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts"
       },
       {
         "path": "/api/account/preferences",
@@ -1752,10 +1423,6 @@
       {
         "path": "/api/site-content/publications",
         "file": "src/app/api/site-content/publications/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/team",
-        "file": "src/app/api/caring-contacts/team/route.ts"
       },
       {
         "path": "/api/cme/entries/[id]/evidence",
@@ -1818,16 +1485,8 @@
         "file": "src/app/api/cme/entries/[id]/evidence/[evidenceId]/route.ts"
       },
       {
-        "path": "/api/caring-contacts/assignments/[planId]",
-        "file": "src/app/api/caring-contacts/assignments/[planId]/route.ts"
-      },
-      {
         "path": "/api/cme/entries/[id]/goal",
         "file": "src/app/api/cme/entries/[id]/goal/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/training",
-        "file": "src/app/api/caring-contacts/training/route.ts"
       },
       {
         "path": "/api/speech/transcribe",
@@ -1836,10 +1495,6 @@
       {
         "path": "/api/images/signed-urls",
         "file": "src/app/api/images/signed-urls/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/notification-preferences",
-        "file": "src/app/api/caring-contacts/notification-preferences/route.ts"
       },
       {
         "path": "/api/cme/year",
@@ -1868,14 +1523,6 @@
       {
         "path": "/api/cme/missed",
         "file": "src/app/api/cme/missed/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/plans",
-        "file": "src/app/api/caring-contacts/plans/route.ts"
-      },
-      {
-        "path": "/api/caring-contacts/schedule",
-        "file": "src/app/api/caring-contacts/schedule/route.ts"
       },
       {
         "path": "/api/local-project-id",
@@ -1914,19 +1561,9 @@
   "documentation": {
     "documents": [
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-fields-with-no-reader.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-16-withhold-unreliable-differential-bodies.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-6-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
       },
       {
         "path": "docs/developer-area-access.md",
@@ -1934,23 +1571,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-3-rulings.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/mockups/WARD-FLOW-DESIGN-SYSTEM.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-19-registry-records-is-clinical-risk.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-09-05-ward-flow-merges-1-3-design-lock.md",
-        "section": "superpowers",
         "catalogued": false
       },
       {
@@ -1974,18 +1596,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/plans/2026-08-19-caring-contact-domain-and-datastore.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/plans/2026-07-24-webkit-rsc-prefetch-disposition.md",
         "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-17-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -1994,39 +1606,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/traps/silent-transforms.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/agents/cursor-cloud.md",
         "section": "agents",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/deletion-check-ui-ward-morning-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-visual-differences.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/plan-to-finish-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-8-mutation-coverage-limits.md",
-        "section": "root",
-        "catalogued": false
       },
       {
         "path": "docs/product/clinical-trust-direction.md",
@@ -2034,23 +1616,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-3-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/multi-user-auth-setup.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-9-report.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -2069,24 +1636,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/control/evidence/bundles/README.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-7-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/canonical/sdd-execution.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/triage/wf-build2-006-batch-a.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/prompts/sources-mode-extraction.md",
@@ -2099,38 +1651,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/verifier-builder-two-decision-review-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/design/prototypes/README.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-constant-gap-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/final-fix-wave-a-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-25-ward-flow-standalone-and-nav-repair.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-25-youth-crisis-wording-shows-both-lines.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-verifier-2026-09-02-rescued.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -2144,69 +1666,14 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/reports/ward-builder-two-session-review-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-dom-vacuity-batch1.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/00-live-ledger-verbatim.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/corpus-health-panel-handover.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/ledger-status-audit-2026-09-06.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/handover-stage-coherence-report.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/THE-WHOLE-PICTURE-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-complete-ledger.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/preflight-tasks-9-to-12.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-FIELD-SURVEY.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/search-results-bar-decisions.md",
@@ -2219,23 +1686,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-1-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-26-keep-review-fallback-citations.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/matching-engine-design-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/verifier-rule-provenance-audit-2026-09-04.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -2244,68 +1696,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/owner-decisions-to-settle-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/final-fix-wave-b-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11b-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-statistics-prose-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-register-repair-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/commit-provenance-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/builder-one-branch-red-delta-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/finding-register-ward-verifier.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/design-qa-2026-07-15.md",
         "section": "archive",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/triage/wf-build2-006-batch-c.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/prompts/codex-cloud-review/2-codex-full-stack-master-prompt-review-and-stress-test.md",
         "section": "prompts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md",
-        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -2314,18 +1711,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/transport-leg-helper-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-26-remove-ward-flow-and-caring-contacts.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-mixed-locked-open-beds.md",
-        "section": "superpowers",
         "catalogued": false
       },
       {
@@ -2364,24 +1751,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-17-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-fix-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/phase-3-design-decision-log.md",
         "section": "archive",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/triage/d15-live-check.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/codex/data-database-safety/README.md",
@@ -2389,48 +1761,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-capacity-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-01-fourteen-decisions.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/dsm5tr-handover-reconciliation-2026-09-16.md",
         "section": "root",
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/ward-community-index.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/accept-referral-reason-path-evidence.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-19-brand-sheet-self-hosts-fonts.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/deployment/caring-contacts-sovereign-australia.md",
-        "section": "deployment",
         "catalogued": false
       },
       {
@@ -2459,29 +1796,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-changeable-data-rule.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-17-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/archive/TOOLS_CONTEXT_FOR_NEW_CHAT.md",
         "section": "archive",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/verifier-ward-lead-clinical-fixes-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-HANDOFF.md",
@@ -2489,53 +1806,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-claims-register-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-statistics-prose.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/interaction-matrix.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-ruling-13-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/care-plan/reports/task-9-brief.md",
         "section": "care-plan",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-handoff.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-builder-two-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-three-corrections-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-13-on-call-section-pages-show-their-groups.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-community-dates-report.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -2544,18 +1821,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-orchestrator-handover.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-26-register-crisis-line-publishers.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/control/task-ledger-2026-09-02.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -2564,24 +1831,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow-custody.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/handovers/ward-builder-one-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/rag-injection-threat-model.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/traps/an-aborting-loop-hides-its-own-arity.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/database-remediation-playbook.md",
@@ -2609,29 +1861,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/task-6a-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/hard-blocks-found-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-4-review.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/source-review-priority-2026-07-02.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/verify-ruling-9-restriction-notice.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/operator-supabase-branching-cap.md",
@@ -2669,53 +1901,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-5-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/community-redesign-handover-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-01-bed-states-and-community.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/three-blocks-and-the-sequence-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-open-questions-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/triage/falsifier-visibility.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.cloud.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-14-ward-management-mockups.md",
         "section": "superpowers",
         "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-29-compact-roles-tap-floor-40px.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-05.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -2729,38 +1921,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-management-context.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
         "path": "docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md",
         "section": "product",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-community-index/progress.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-16-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/statistics-primitive-reconciliation.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-questions-rule.md",
-        "section": "root",
         "catalogued": false
       },
       {
@@ -2769,18 +1931,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/parked-referral-join-unreadable-2026-09-06.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/COLOR_REDESIGN_PLAN.md",
         "section": "archive",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-5-brief.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -2799,11 +1951,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/codex-review-protocol.md",
         "section": "root",
         "catalogued": true
@@ -2819,29 +1966,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/task-1-review.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-7-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-25-site-catalogue-first-publication.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/parked-debt-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-1-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-25-mha-timeline-outside-samd-note.md",
@@ -2862,11 +1989,6 @@
         "path": "docs/superpowers/rag-upgrade/cloud/START-HERE.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/verifier-matching-design-s6-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/forward-codify-retrieval-rpcs-workorder.md",
@@ -2899,11 +2021,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/referral-feasibility.md",
-        "section": "caring-contacts",
-        "catalogued": false
-      },
-      {
         "path": "docs/design-system/FIX-GUIDE.md",
         "section": "design-system",
         "catalogued": true
@@ -2911,11 +2028,6 @@
       {
         "path": "docs/comparison-behaviour.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/whole-branch-review.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -2934,26 +2046,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/task-2-review.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/design/screen-adoption-playbook.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-8-decisions.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-verifier-engine-verdict-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/DOCS-SYSTEM.md",
         "section": "root",
         "catalogued": false
@@ -2966,11 +2058,6 @@
       {
         "path": "docs/superpowers/plans/2026-09-01-native-smart-catalogue-search.md",
         "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11a-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -3004,16 +2091,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-3-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/clinical-hazard-analysis.md",
         "section": "root",
         "catalogued": true
@@ -3039,39 +2116,14 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-6-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-9-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/maturity-backlog-workorders.md",
         "section": "root",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/finding-register-wf-build3.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/search-rag-master-context.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-review.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/control/README.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
@@ -3081,11 +2133,6 @@
       {
         "path": "docs/superpowers/rag-upgrade/local/approval-matrix.md",
         "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -3109,21 +2156,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-6-7-decisions.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/README.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/design/patient-page-second-edition-spec.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/redesign/permanent-colour-direction.md",
         "section": "redesign",
         "catalogued": true
@@ -3131,11 +2163,6 @@
       {
         "path": "docs/agents/codex-dependency-shortcut.md",
         "section": "agents",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-6a-re-review.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -3147,16 +2174,6 @@
         "path": "docs/evidence/forms-operational-guidance-review.md",
         "section": "evidence",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/mutation-findings-2026-09-03.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-statistics-prose-report.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/decisions/2026-09-25-document-results-show-verdict-words.md",
@@ -3199,31 +2216,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-handover-2026-08-29.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-02-afternoon.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-decision-pending-device-copy-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/ward-builder-two-chat-prompt.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/agents/upload-shortcut.md",
         "section": "agents",
         "catalogued": true
@@ -3244,23 +2236,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-1-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/statistics-fix-round-1-findings.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/redesign/m2-atomic-reindex-migration-note.md",
         "section": "redesign",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-5-review.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -3274,44 +2251,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/ward-builder-two-session-record-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/design-system/COMPONENTS.md",
         "section": "design-system",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-continuation-prompt.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-3-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/mockups/third-edition-kit/HANDOVER.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/handovers/ward-builder-one-integration-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/control/assignments/WF-BUILD3-001-ROUTE-PREFIX-INVARIANT.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/launch-operator-runbook.md",
@@ -3319,44 +2261,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/control/prompts/verifier.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/how-chats-talk-to-each-other.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-header-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/organisation/README.md",
         "section": "organisation",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/recon-wf-build-007-site-names.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/movement-workspace-review-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/ward-statistics-skeleton.md",
-        "section": "superpowers",
-        "catalogued": false
       },
       {
         "path": "docs/redesign/04-deferred.md",
@@ -3364,34 +2271,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/pilot-governance-checklist.md",
-        "section": "caring-contacts",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-12-addendum.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/rag-improvement/gate-b-decision-record.md",
         "section": "rag-improvement",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/outstanding/ward-builder-two-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/claude-cloud.md",
@@ -3401,11 +2283,6 @@
       {
         "path": "docs/search-chrome-behaviour.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-15-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -3429,39 +2306,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/control/prompts/lead.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-12-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-14-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-4-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-remaining-work.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-patient-and-ward.md",
-        "section": "superpowers",
-        "catalogued": false
       },
       {
         "path": "docs/privacy-impact-assessment.md",
@@ -3471,11 +2318,6 @@
       {
         "path": "docs/care-plan/conversation-transcript-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-1-brief.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -3489,11 +2331,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-2-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/rag-behaviour/README.md",
         "section": "rag-behaviour",
         "catalogued": true
@@ -3504,38 +2341,13 @@
         "catalogued": false
       },
       {
-        "path": "docs/superpowers/specs/2026-09-04-ward-flow-design-language-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-document-inventory.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/source-governance-refresh-worklist-2026-07-22.md",
         "section": "root",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-provisional-values.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-04-on-call-design-choices.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/outstanding/ward-builder-three-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/merge/playwright-config-resolution.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -3569,26 +2381,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/brief-contention-model-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-01-pull-and-hold.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-community-and-ed.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/retrieval-quality-runbook.md",
         "section": "root",
         "catalogued": true
@@ -3599,24 +2391,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/care-plan/reports/task-5-brief.md",
         "section": "care-plan",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/two-verdicts-one-question.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/audit/2026-09-16-catalogue-read-latency.md",
@@ -3627,16 +2404,6 @@
         "path": "docs/agents/test-deletion-guard.md",
         "section": "agents",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/coordinator-worklist-fix-scope-2026-09-01.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/engine-gate-implementation-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/decisions/2026-09-25-no-identifiable-patient-information.md",
@@ -3654,26 +2421,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-ed-psychiatry-hub-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-orchestrator.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/progress.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-autonomous-session-2026-08-28.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/prompts/codex-cloud-review/3-codex-agents-md-companion.md",
         "section": "prompts",
         "catalogued": true
@@ -3682,11 +2429,6 @@
         "path": "docs/care-plan/clinical-language-trace.md",
         "section": "care-plan",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-community-index/task-1-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-rag-repository-content-sync.md",
@@ -3699,24 +2441,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-25-answer-page-direction-a.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-28-ward-flow-phase-8-distance-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-05-editable-pin-menu-mockups-design.md",
@@ -3739,18 +2466,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-safety-fixes-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/audit/latency-audit-2026-07-28.md",
         "section": "audit",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-7-report.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -3759,23 +2476,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/specs/2026-09-01-native-smart-catalogue-search-design.md",
         "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -3794,16 +2496,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/register/ward-lead-findings.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-owner-rulings-2026-08-31.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/ci-operations.md",
         "section": "root",
         "catalogued": true
@@ -3819,33 +2511,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-hold-bed-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/traps/found-it-and-stopped-at-finding-it.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/community-origin-scope.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/prompts/codex-architecture-maintainability-ultra-review.md",
         "section": "prompts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -3854,23 +2521,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-management-mode-map.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-1-findings-round-1.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/governance/privacy-role-attestation-pack-2026-09-01.md",
         "section": "governance",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -3882,16 +2534,6 @@
         "path": "docs/superpowers/specs/2026-08-20-care-plan-design.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-build-record.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-BUILD-PLAN.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-care-plan-implementation.md",
@@ -3907,16 +2549,6 @@
         "path": "docs/governance/privacy-completion-drafts-2026-09-13.md",
         "section": "governance",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/cleanup-awaiting-approval.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-9-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-01-overdue-sources-inside-evidence-gaps.md",
@@ -3944,28 +2576,13 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/design/prototypes/DESIGN-LANGUAGE.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/governance/privacy-closeout-2026-09-01.md",
         "section": "governance",
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-community-hub-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/cme/design/cme-design-decisions.md",
         "section": "cme",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-safety-checklist.md",
-        "section": "root",
         "catalogued": false
       },
       {
@@ -3979,19 +2596,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/design/second-edition-to-ckb-v2-role-map.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/care-plan/HANDOFF-2026-08-24-SUPERSEDED.md",
         "section": "care-plan",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-4-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/execution-order.md",
@@ -4009,11 +2616,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-navigation-shell.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/branch-review-ledger-2026-q3.md",
         "section": "archive",
         "catalogued": true
@@ -4026,16 +2628,6 @@
       {
         "path": "docs/plans/edge-ingestion-overhaul-3pr-plan.md",
         "section": "plans",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-catchment-data.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/task-seed-wireframe-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -4059,19 +2651,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-ward-board-plan-corrections-2026-08-29.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/care-plan/reports/task-8-report.md",
         "section": "care-plan",
         "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-movement-findings-4-to-11.md",
-        "section": "superpowers",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/specs/2026-08-20-rag-answer-and-australian-sources-design.md",
@@ -4079,28 +2661,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/where-things-stand-2026-09-01.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/builder-one-handback-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/on-call/design/on-call-hub-build-prompt.md",
         "section": "on-call",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-3-brief.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -4124,11 +2686,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/task-6-review.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-26-prototypes-are-standalone-sandboxes.md",
         "section": "decisions",
         "catalogued": false
@@ -4144,11 +2701,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-nine-claims-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-25-clinical-eval-battery-additions.md",
         "section": "decisions",
         "catalogued": false
@@ -4162,16 +2714,6 @@
         "path": "docs/rag-behaviour/safeguards.md",
         "section": "rag-behaviour",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/control/message-log-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/register/ward-builder-two-findings.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/rag-evaluation.md",
@@ -4194,21 +2736,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/mockups/third-edition-kit/MERGE-BRIEF.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-community-index/task-1-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/message-review-pack.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/care-plan/reports/task-3-brief.md",
         "section": "care-plan",
         "catalogued": true
@@ -4217,16 +2744,6 @@
         "path": "docs/care-plan/complete-work-ledger.md",
         "section": "care-plan",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-18-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/merge-hazards-config-divergence-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/specs/2026-08-23-outstanding-p2-p3-remediation-design.md",
@@ -4279,11 +2796,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-13-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/openai-cross-border-basis.md",
         "section": "root",
         "catalogued": true
@@ -4294,29 +2806,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/owner-rulings-2026-09-04-decision-batch.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/README.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-2-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/source-governance-status-2026-07-08.md",
         "section": "archive",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/two-true-traces-one-contradiction-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/decisions/2026-09-03-source-only-pill-folded-into-limitations.md",
@@ -4327,31 +2819,6 @@
         "path": "docs/reindex-shadow-harness-design.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-1-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-task-ledger.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-coordinator-hub-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/dead-order-scan-2026-09-03.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/medication-lexicon-review-worklist.md",
@@ -4379,18 +2846,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-03-safety-findings-below-the-prose.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-builder-three-2026-09-02.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -4399,43 +2856,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
         "section": "superpowers",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/reports/ward-lead-consolidation-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/what-goes-red-when-you-redesign-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-dom-vacuity-batch2.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/clinical-badge-system-guide.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-4-report.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -4444,34 +2871,14 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/final-fix-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-08-27-sidebar-documents-points-at-shared-home.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-community-absence-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/merge-checklist.md",
-        "section": "caring-contacts",
-        "catalogued": true
       },
       {
         "path": "docs/rag-improvement/data-flow-register.md",
@@ -4484,24 +2891,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/ward-builder-three-chat-prompt.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/three-chat-working-agreement.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/cloud/approval-matrix.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/wf-build-006-my-findings.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/agents/codex-review-throttling.md",
@@ -4511,11 +2903,6 @@
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-8-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -4534,11 +2921,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-07-weak-evidence-banner-only-when-it-adds.md",
         "section": "decisions",
         "catalogued": false
@@ -4549,11 +2931,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-team-list-guard-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/care-plan/reports/task-4-report.md",
         "section": "care-plan",
         "catalogued": true
@@ -4562,16 +2939,6 @@
         "path": "docs/care-plan/reports/task-5-report.md",
         "section": "care-plan",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-plan.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-statistics-report.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/design-system/sweep-fix-tap-floors.md",
@@ -4599,11 +2966,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-mission-and-refusals.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/ledger-id-scheme-proposal.md",
         "section": "root",
         "catalogued": true
@@ -4611,16 +2973,6 @@
       {
         "path": "docs/decisions/2026-09-26-keep-uploaded-local-retrieval-fail-closed.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/rescued/ward-builder-three/wf-build3-006-triage-progress.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -4634,18 +2986,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/the-engine-enforces-nothing.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-23-cme-year-close-snapshot.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/evidence/rendered-undeclared-token-defect-2026-09-02.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -4654,39 +2996,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/register/REGISTER-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-2-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/outstanding/ward-builder-three-integration-handover.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/visual-reference-manifest.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-transport-page-design.md",
-        "section": "superpowers",
-        "catalogued": false
       },
       {
         "path": "docs/error-tracking.md",
@@ -4709,16 +3021,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-cold-start-reachability.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-editing-guide.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/specs/2026-07-02-triage-security-reliability-design.md",
         "section": "superpowers",
         "catalogued": true
@@ -4729,39 +3031,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/copy-decisions-recommended.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/verifier-governance-sweep-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-dom-vacuity-batch3.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/db-maintenance.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/clinical-language-trace.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-owner-rulings-2026-08-31-community.md",
-        "section": "root",
-        "catalogued": false
       },
       {
         "path": "docs/prompts/codex-data-database-safety-ultra-review.md",
@@ -4769,43 +3041,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/patient-and-referral-screens-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-fixture-claims-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-REVIEW.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-nine-claims-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/agents/claude-hook-scripts.md",
         "section": "agents",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-27-ward-flow-phase-6-morning-page.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/protection-hook-gap-2026-09-01.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-14-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -4817,11 +3054,6 @@
         "path": "docs/prompts/codex-documentation-ownership-ultra-review.md",
         "section": "prompts",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/redesign-brittleness-audit-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/audit/live-drift-forensics-2026-08.md",
@@ -4837,11 +3069,6 @@
         "path": "docs/plans/tooling-activation-implementation-plan.md",
         "section": "plans",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/control/BUILDER-ACTIVATION-RECEIPTS.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/audit/2026-07-20-repository-maturity.md",
@@ -4864,11 +3091,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/owner-decisions-2026-09-03-patient-link-and-legal-status.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/agents/dead-code-deletion.md",
         "section": "agents",
         "catalogued": true
@@ -4884,16 +3106,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/task-3-review.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-02-staleness-and-legal-status.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/specs/2026-09-01-sources-mode-design.md",
         "section": "superpowers",
         "catalogued": true
@@ -4902,21 +3114,6 @@
         "path": "docs/production-readiness.md",
         "section": "root",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/control/assignments/WF-BUILD2-001-COORDINATOR-REFERRAL-SURFACES.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-2-kickoff.md",
-        "section": "root",
-        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-26-doppler-is-not-used.md",
@@ -4936,26 +3133,6 @@
       {
         "path": "docs/audit/repo-wide-review-sweep-2026-07-19.md",
         "section": "audit",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/combined-picture-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-28-ward-flow-phase-8-distance.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-8-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11b-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -4979,16 +3156,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-8-addendum.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/care-plan/cloud-session.md",
         "section": "care-plan",
         "catalogued": true
@@ -4996,11 +3163,6 @@
       {
         "path": "docs/decisions/2026-09-19-escalation-and-monitoring-chip-words.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/tour-pair-checked-2026-09-02.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -5014,39 +3176,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-handover-after-phase-7.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/verifier-dayzero-assessment-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-12-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/triage/wf-build2-006-batch-b.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/brand/psychsift-logo.md",
         "section": "brand",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-ledger.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-community-dates-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/redesign/05-changelog.md",
@@ -5064,11 +3196,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-hold-bed-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/redesign/clinical-white-aegean-master-implementation-plan.md",
         "section": "redesign",
         "catalogued": true
@@ -5084,43 +3211,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-exit-only-trigger-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-referral-destination-spec.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-declines-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/care-plan/HANDOFF-START-HERE.md",
         "section": "care-plan",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/adoption-fanout-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-network-diagram-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -5144,44 +3236,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/reports/rendered-board-observation-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-17-remove-switched-off-automations.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/mockups/third-edition-kit/fonts/README.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-10-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/verification-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
       },
       {
         "path": "docs/README.md",
@@ -5199,38 +3256,13 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/START-LOCAL-CHAT.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/current-clinical-work-brief.md",
         "section": "root",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-constant-gap-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/design-system/TOKENS.md",
         "section": "design-system",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-02-batch.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-handover.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11a-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -5249,26 +3281,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-8-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-transport-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-24-caring-contact-phase-2b-screens.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-09-visual-baseline-off-pull-requests.md",
         "section": "decisions",
         "catalogued": false
@@ -5277,11 +3289,6 @@
         "path": "docs/rag-improvement/COORDINATION.md",
         "section": "rag-improvement",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-figures-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/testing.md",
@@ -5304,11 +3311,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/flow-diagram-fix-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/governance-incident-runbooks.md",
         "section": "root",
         "catalogued": true
@@ -5324,38 +3326,13 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-6a-review.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-6-7-kickoff-prompt.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
         "path": "docs/branch-cleanup-guide.md",
         "section": "root",
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/plans/2026-09-05-ward-screens-second-edition.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/redesign/crisp-white-colour-system-plan.md",
         "section": "redesign",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-18-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -5374,19 +3351,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-figure-3-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/rag-scalability-wip-remediation-2026-07-17.md",
         "section": "archive",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-findings.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/care-plan/reports/task-d1-report.md",
@@ -5396,21 +3363,6 @@
       {
         "path": "docs/productivity-workflows.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/concurrent-session-inventory.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-builder-one-session-log-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-6-fix-round-3-findings.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -5424,29 +3376,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-2-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/agents/bug-hunter-shortcut.md",
         "section": "agents",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/flow-diagram-fix-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-5-kickoff-prompt.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-transport-and-statistics.md",
-        "section": "superpowers",
-        "catalogued": false
       },
       {
         "path": "docs/phone-chrome-physical-acceptance.md",
@@ -5464,48 +3396,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-21-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/specs/2026-08-23-clinical-operations-programme-design.md",
         "section": "superpowers",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-register-can-it-go-quiet.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/register-unfalsifiable-findings.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-fold-manifest-2026-08-31.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-3-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-07-30-phone-chrome-device-acceptance-not-pursued.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/bed-states-options.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -5521,11 +3418,6 @@
       {
         "path": "docs/care-plan/verification-log-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-16-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -5549,31 +3441,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-reporting-rule.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-14-ward-management-design.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/owner-ruling-patient-link-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/triage/reexport-blindness-sweep.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-stale-absence-notes.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-25-source-tier-order-confirmed.md",
         "section": "decisions",
         "catalogued": false
@@ -5589,33 +3456,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/answer-page-redesign-handover.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/fold-plan-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-5-handover.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-6-re-review-rounds-3-4.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -5624,43 +3466,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/progress.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/browser-failure-triage-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-3-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-15-caring-contact-design-phase.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-25-answer-provenance-line.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-open-questions.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-18-ward-flow-model-and-modes.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/verify-ruling-13-away-placement.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -5669,47 +3476,12 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/wf-build-006-triage-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/operator-decisions-2026-07-04.md",
         "section": "archive",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-hubs-and-patient-plan.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/execution-receipts/rag-answer-quality-and-repository-coverage-v1/README.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-29-ward-flow-truthfulness-and-demo-fixes.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/fd23-bypasses-2026-09-01.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-1-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-25-ward-flow-phase-4-specialist-boards.md",
         "section": "superpowers",
         "catalogued": true
       },
@@ -5719,28 +3491,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-wf-build-007-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/rag-improvement/gate-b-decision-record-2026-08-18.md",
         "section": "rag-improvement",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/work-tracker-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-18-ward-flow-phase-1-model.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/accessibility-acceptance.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -5754,11 +3506,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/reports/ward-builder-community-route-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/plans/2026-08-05-editable-pin-menu-mockups.md",
         "section": "superpowers",
         "catalogued": true
@@ -5769,43 +3516,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/plans/2026-08-25-ward-flow-sandbox-and-design-repair.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-evaluation-rollout.md",
         "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-9-decisions.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-34-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/ward-answers-chat-prompt.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-29-ward-flow-referral-front-door.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -5814,79 +3526,14 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/design/referral-intake-v6-and-build-plan.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-handover-2026-08-28.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/outstanding/ward-lead-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-5-7-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/WARD-LEAD-HANDOVER-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-claims-register-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/dictionary-editorial-drafts.md",
         "section": "root",
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-25-rkpg-clozapine-guideline-handling.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-5-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-register-repair-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-clinician-check.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-build-record.md",
-        "section": "caring-contacts",
-        "catalogued": true
       },
       {
         "path": "docs/design-system/GATES.md",
@@ -5899,29 +3546,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/bed-figure-wording-census-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-20-cme-no-guided-reflection.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-test-vacuity-statistics.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-10-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-1-handoff.md",
-        "section": "caring-contacts",
-        "catalogued": true
       },
       {
         "path": "docs/prompts/rag-coverage-gate-extraction.md",
@@ -5936,11 +3563,6 @@
       {
         "path": "docs/design-system/sweep-fix-missing-values.md",
         "section": "design-system",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-review.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -5959,31 +3581,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/builder-plan-2026-09-01.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-master-sequence-2026-08-29.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts-crisis-lines.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/copy-review.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/traps/fixture-contingent-branches.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/design-system/sweep-fix-tap-floors-round-2.md",
         "section": "design-system",
         "catalogued": true
@@ -5991,11 +3588,6 @@
       {
         "path": "docs/factsheets-reading-model-brief.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-11-brief.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -6009,64 +3601,14 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-register-falsifiability.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-09-04-ward-flow-direction-and-delays-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-fold-conflict-2026-08-29.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-26-leave-extended-rag-telemetry-off.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-2-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-clinician-check-method.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-28-ward-flow-ward-board.md",
-        "section": "superpowers",
         "catalogued": false
       },
       {
         "path": "docs/wiring-conventions.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-7-front-door-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-20-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-DECISION.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/agents/pull-request-workflow.md",
@@ -6079,58 +3621,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/stale-claims.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/local/sdd-execution.md",
         "section": "superpowers",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/outstanding/ward-builder-community-route-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-round-1-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-privacy-url-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-self-defeating-guards.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/care-plan/reports/task-10-report.md",
         "section": "care-plan",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-review.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/how-to-write-to-the-owner.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-10-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -6154,11 +3651,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/merge/post-fold-verification-plan.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/supabase-remediation-closeout-notes.md",
         "section": "root",
         "catalogued": false
@@ -6167,11 +3659,6 @@
         "path": "docs/clinical-governance.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-statistics-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/archive/cloud-chat-reconciliation-2026-07-22.md",
@@ -6184,49 +3671,14 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/outstanding/ward-lead-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-round-2-review.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/branch-review-archival-policy.md",
         "section": "root",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/owner-rulings-2026-09-01-bed-model.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-round-1-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/control/prompts/builder.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/care-plan/session-handoff-2026-08-21.md",
         "section": "care-plan",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/owner-wording-page-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-universal-referral-plan.md",
-        "section": "root",
-        "catalogued": false
       },
       {
         "path": "docs/design-system.md",
@@ -6239,11 +3691,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/audit-my-own-red-proofs.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/rag-improvement/README.md",
         "section": "rag-improvement",
         "catalogued": true
@@ -6251,16 +3698,6 @@
       {
         "path": "docs/decisions/2026-09-26-organisation-check-warns-on-moves.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-7-addendum.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/recon-community-hub-dates.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -6279,26 +3716,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/reword-arm-audit-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/fold-rules-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-18-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-24-answer-citation-marks-one-colour.md",
         "section": "decisions",
         "catalogued": false
@@ -6309,18 +3726,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-decisions-2026-08-29.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
         "path": "docs/services-mode-governance.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -6329,23 +3736,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/design/referrals-and-out-of-area-derivation-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-08-24-compact-citations-kept-for-the-rail.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-2-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-8-9-questions.md",
-        "section": "root",
         "catalogued": false
       },
       {
@@ -6369,28 +3761,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/handover-assessment-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-owner-rulings-2026-09-01.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/register/ward-builder-one-findings.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/branch-progress-2026-07-05.md",
         "section": "archive",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-6-brief.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -6399,34 +3771,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/verifier-governance-sweep-prereg-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-1-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/allocation-b-corrected-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-pinned-clock-handover.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-25-unsupported-claims-carry-no-mark.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-review.md",
-        "section": "caring-contacts",
-        "catalogued": true
       },
       {
         "path": "docs/audit/gate-consolidation-audit-2026-09-02.md",
@@ -6459,24 +3806,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/coordinator-referral-surfaces.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/task-seed-timeline-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/brand/canvas/README.md",
         "section": "brand",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-figures-report.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/audit/codex-cloud-reliability-20260907.md",
@@ -6489,34 +3821,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/owner-rulings-2026-09-01-vocabulary-and-pathways.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-09-25-offline-pocket-pack.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/linked-prototype-handoff.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-12-journey-design.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-adaptive-answer.md",
@@ -6534,11 +3841,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/hazard-log.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/plans/2026-08-22-mode-aware-clinical-ask-implementation.md",
         "section": "superpowers",
         "catalogued": true
@@ -6546,21 +3848,6 @@
       {
         "path": "docs/agents/codex-desktop-worktree-setup.md",
         "section": "agents",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/wf-build3-005-ts-test-sweep.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-SPEC.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/progress.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
@@ -6584,39 +3871,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/fields-with-no-producer-2026-09-01.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-movement-step-track.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-builder-three-2026-09-02-closing.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-08-25-care-plan-records-when-patient-part-recorded.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/traps/comments-that-reverse-a-ruling.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-ledger.md",
-        "section": "root",
-        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/connected-execution.md",
@@ -6629,36 +3886,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-management-decisions.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/forced-colors-status-tokens-proposal-2026-09-06.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/clinical-changes-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/control/now.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/transport-stage-coherence-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-builder-two-2026-09-02-closing.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/audit/worktree-reconciliation-2026-08-23.md",
         "section": "audit",
         "catalogued": true
@@ -6669,11 +3896,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/task-3-brief.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/2026-08-25-care-plan-shorter-confidential-footer.md",
         "section": "decisions",
         "catalogued": false
@@ -6681,11 +3903,6 @@
       {
         "path": "docs/openai-rag-operations.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-08-14-caring-contact-coordination-rollout.md",
-        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -6699,34 +3916,9 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/task-11-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
         "path": "docs/archive/search-rag-pre-phase-2-diff-classification.md",
         "section": "archive",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/mockups/third-edition-kit/shell/SHELL-NOTES.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-pr-body.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-30-ward-flow-ward-forms-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/design/referral-intake-implementation-plan.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/agents/smart-agent-allocation.md",
@@ -6744,23 +3936,8 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/care-plan/reports/task-4-brief.md",
         "section": "care-plan",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/verifier-cross-branch-review-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-brief.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -6769,44 +3946,14 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/recon-figure-3-blocked-discharges.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-coordination-rules.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-pr-body.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-05-ward-flow-merges-1-3.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/audit/cloud-connection-acceptance-2026-08-05.md",
         "section": "audit",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/staleness-against-main-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/design-qa.md",
         "section": "archive",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/NEW-CHAT-PROMPTS-2026-09-05.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/decisions/2026-08-25-care-plan-no-false-joint-authorship.md",
@@ -6819,18 +3966,8 @@
         "catalogued": true
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-brief.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/worker-deploy-runbook.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/condensed-service-bar-report.md",
-        "section": "caring-contacts",
         "catalogued": true
       },
       {
@@ -6859,24 +3996,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-1-report.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/reports/ward-builder-community-route-2026-09-02-closing.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-25-calculator-governance-reference-not-linked.md",
         "section": "decisions",
         "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-context.md",
-        "section": "root",
-        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-22-accept-24-hour-recovery-point.md",
@@ -6884,34 +4006,9 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow/control/messages-are-not-arriving.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-working-instructions-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-handoff.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/superpowers/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-expected-free-time.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-fold-procedure.md",
-        "section": "root",
-        "catalogued": false
       },
       {
         "path": "docs/care-plan-context.md",
@@ -6921,11 +4018,6 @@
       {
         "path": "docs/decisions/2026-09-03-evidence-preview-excludes-per-document.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-28-ward-flow-ward-board-design.md",
-        "section": "superpowers",
         "catalogued": false
       },
       {
@@ -6954,26 +4046,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/whole-branch-review.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md",
-        "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-8-9-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
         "path": "docs/decisions/README.md",
         "section": "decisions",
         "catalogued": false
@@ -6984,39 +4056,14 @@
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/who-is-who.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-17-differential-code-is-clinical-risk.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-6a-report.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-placement-repair-report.md",
-        "section": "ward-flow",
         "catalogued": false
       },
       {
         "path": "docs/design-system/sweep-fix-duration-display.md",
         "section": "design-system",
         "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2a-sdd-archive/task-12-13-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-what-this-is-not.md",
-        "section": "root",
-        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-retrieval-composition.md",
@@ -7027,11 +4074,6 @@
         "path": "docs/superpowers/plans/2026-08-23-lighthouse-local-build-reliability.md",
         "section": "superpowers",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/traps/controls-that-certify-the-wrong-thing.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/care-plan/implementation-handoff.md",
@@ -7054,44 +4096,14 @@
         "catalogued": false
       },
       {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screen-ed-hub.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/owner-rulings-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/clinical-sign-off-how-to.md",
         "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-phase-3-workspace/task-10-brief.md",
-        "section": "ward-flow-phase-3-workspace",
         "catalogued": true
       },
       {
         "path": "docs/evidence/forms-pdf-publisher-comparison-2026-09-16.md",
         "section": "evidence",
         "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/allocation-b-third-pass-2026-09-02.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/wf-build3-004-dom-test-sweep.md",
-        "section": "ward-flow",
-        "catalogued": false
       },
       {
         "path": "docs/decisions/2026-08-22-developer-hub-review-state-panel.md",
@@ -7109,41 +4121,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow-process-review-prompt.md",
-        "section": "root",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-fixture-claims-brief.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-referral-and-search.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/vocabulary.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/session-handover-2026-09-04.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-09-12-mode-pill-opens-the-modes-pages-first.md",
         "section": "decisions",
         "catalogued": false
@@ -7154,43 +4131,13 @@
         "catalogued": true
       },
       {
-        "path": "docs/superpowers/plans/2026-08-27-ward-flow-phase-7-front-door.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/codex/tests-quality-gates/README.md",
         "section": "codex",
         "catalogued": true
       },
       {
-        "path": "docs/ward-flow/verifier-findings-2026-09-03.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow/unwired-symbols-2026-09-01.md",
-        "section": "ward-flow",
-        "catalogued": false
-      },
-      {
         "path": "docs/decisions/2026-08-18-plain-brief-replies.md",
         "section": "decisions",
-        "catalogued": false
-      },
-      {
-        "path": "docs/ward-flow-roadmap.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-report.md",
-        "section": "caring-contacts",
-        "catalogued": true
-      },
-      {
-        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/RAIL-MAP.md",
-        "section": "ward-flow",
         "catalogued": false
       }
     ],
@@ -7214,9 +4161,6 @@
         "name": "care-plan"
       },
       {
-        "name": "caring-contacts"
-      },
-      {
         "name": "cme"
       },
       {
@@ -7224,9 +4168,6 @@
       },
       {
         "name": "decisions"
-      },
-      {
-        "name": "deployment"
       },
       {
         "name": "design-system"
@@ -7266,12 +4207,6 @@
       },
       {
         "name": "superpowers"
-      },
-      {
-        "name": "ward-flow"
-      },
-      {
-        "name": "ward-flow-phase-3-workspace"
       }
     ]
   },

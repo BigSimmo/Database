@@ -2,13 +2,12 @@
 //
 // Removes comments from TypeScript/TSX source, leaving string and template literals intact.
 //
-// WHY THIS EXISTS, AND WHY IT IS NOT A REGEX. Two guards in this repo scan source text for a
-// forbidden name -- `tests/caring-contacts-explained-automation.dom.test.tsx` looks for the
-// service-state record in a client component's whole module graph, and
-// `tests/caring-contacts-plan-draft.dom.test.tsx` looks for `localStorage` anywhere in the
-// activation wizard. Both have to read CODE rather than prose, because both files they scan
-// explain in comments exactly why the forbidden thing is forbidden, and a raw text match reports
-// the explanation as the offence. The fix for that must never be to delete the explanation:
+// WHY THIS EXISTS, AND WHY IT IS NOT A REGEX. Guards in this repo scan source text for a
+// forbidden name (it was first written for two guards in the since-retired Caring Contacts
+// prototype, one looking for a service-state record in a client component's module graph and one
+// for `localStorage` in an activation wizard). They have to read CODE rather than prose, because
+// the files they scan explain in comments exactly why the forbidden thing is forbidden, and a raw
+// text match reports the explanation as the offence. The fix for that must never be to delete the explanation:
 // `tests/route-reachability.test.ts` records the same trap in its own words, having once passed
 // with a real link mutated away because a comment satisfied its regex.
 //
@@ -44,11 +43,10 @@
 //     It is left in because closing it means teaching the line-comment branch to consume a trailing
 //     comment's text without stripping it — a real change to the deliberate first bullet, not a
 //     tweak — and because the shape needed to trigger it (a trailing `//` comment containing `/*`,
-//     with a later `*/` in the file) does not occur in either scanned tree today. The case named
-//     `pins the one place it errs UNSAFELY, so a green suite cannot be read as closing it` in
-//     `tests/caring-contacts-explained-automation.dom.test.tsx` pins the CURRENT behaviour and is
-//     labelled as pinning a limitation, so nobody can conclude from a green suite that it is closed.
-//     Tighten it deliberately, with that test rewritten to the new behaviour, or leave it alone.
+//     with a later `*/` in the file) did not occur in any scanned tree when this was written. The
+//     test that pinned this CURRENT behaviour was retired with the Caring Contacts prototype, so no
+//     green suite today says anything either way about it. Tighten it deliberately, with a test
+//     that pins the new behaviour, or leave it alone.
 
 // Named rather than written as backslash escapes. A newline escape inside a source string is
 // exactly what a careless scripted rewrite of this file turns into a real line break, and it did —
@@ -103,9 +101,8 @@ export function blankCssComments(css: string): string {
  * `stripSourceComments`; the only difference is that a `//` does not have to start its line.
  *
  * 🔴 WHY THIS IS A SECOND FUNCTION RATHER THAN A FLAG ON THE FIRST. `stripSourceComments` keeps a
- * trailing comment ON PURPOSE — three caring-contacts guards rely on still firing when a forbidden
- * name appears in one, and one of them pins that behaviour. Widening the shared function would
- * silently change what those guards catch. So the wider scan is opt-in, and only for guards where
+ * trailing comment ON PURPOSE — guards that use it rely on still firing when a forbidden name
+ * appears in one. Widening the shared function would silently change what those guards catch. So the wider scan is opt-in, and only for guards where
  * the realistic defect is CODE COMMENTED OUT rather than prose mentioning a name.
  *
  * ⚠️ USE IT ONLY FOR GUARDS THAT WATCH A CODE WRITE. For a guard watching prose or structure, the

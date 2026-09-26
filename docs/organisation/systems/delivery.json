@@ -27,7 +27,6 @@
     "docs/ci-operations.md",
     "docs/continuous-integration.md",
     "docs/deployment-architecture.md",
-    "docs/deployment/**",
     "docs/framework-dependency-modernization-checklist.md",
     "docs/launch-operator-runbook.md",
     "docs/no-unchecked-indexed-access-migration-plan.md",

@@ -92,7 +92,6 @@
     "tests/ui-style-contract.spec.ts",
     "tests/ui-token-layer-resolution.spec.ts",
     "tests/ui-v2-*",
-    "tests/ui-visual-*",
-    "tests/use-dirty-state-guard.dom.test.tsx"
+    "tests/ui-visual-*"
   ]
 }

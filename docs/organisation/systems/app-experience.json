@@ -298,6 +298,7 @@
     "tests/universal-*",
     "tests/use-*",
     "tests/viewer-zoom.test.ts",
-    "tests/visual-evidence-tabs.dom.test.tsx"
+    "tests/visual-evidence-tabs.dom.test.tsx",
+    "tests/ward-output.test.ts"
   ]
 }

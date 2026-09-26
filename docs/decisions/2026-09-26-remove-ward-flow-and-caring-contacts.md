@@ -1,8 +1,8 @@
-# Decision: Ward Flow and Caring Contacts are being removed
+# Decision: Ward Flow and Caring Contacts are retired
 
 - **Status:** decided 2026-09-26
-- **Source:** `docs/organisation/ignored.json`, find "Being removed from the project (owner decision 2026-09-26)"
+- **Source:** `mockups/README.md`, find "approving the plan to retire and delete Ward Flow and Caring Contacts"
 
-Ward Flow and Caring Contacts are being removed from the project. Until their files go, the organisation map ignores them, and every other rule still applies to them.
+Ward Flow and Caring Contacts were retired and their files removed from the project on 2026-09-26. They can be recovered from git history.
 
 If this summary and the source ever differ, the source wins.

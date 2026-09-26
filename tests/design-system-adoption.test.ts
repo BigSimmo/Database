@@ -36,11 +36,9 @@ function writeFixtureFile(fixtureRoot: string, relativePath: string, content: st
 
 // Mirrors CANONICAL_NON_VISUAL_ROUTES / adoption-contract.json's `nonVisualRouteContracts`.
 // The Ward Flow constellation redirect used to be the second entry here; it left this list
-// (not merely repointed to its new /mockups/ward-flow path) when Ward Flow's sandbox move took
-// every one of its routes out of the production census — see the "66 = 59 + 6 + 1" comment
-// below. `analyzeNextRedirectOnlyRoute` is still exercised against the moved file directly in
-// "recognises the retired constellation route as redirect-only" below; this list is only the
-// fixture set for declared, census-tracked non-visual routes.
+// when Ward Flow's sandbox move took every one of its routes out of the production census, and
+// the prototype has since been retired entirely. This list is only the fixture set for declared,
+// census-tracked non-visual routes.
 const NON_VISUAL_REDIRECT_PAGES = ["src/app/(search-app)/documents/source/page.tsx"] as const;
 
 function writeNonVisualRedirectFixtures(fixtureRoot: string) {
@@ -413,15 +411,6 @@ describe("design-system adoption manifest", () => {
       analyzeNextRedirectOnlyRoute(
         "src/app/(search-app)/documents/source/page.tsx",
         read("src/app/(search-app)/documents/source/page.tsx"),
-      ).redirectOnly,
-    ).toBe(true);
-  });
-
-  it("recognises the retired constellation route as redirect-only", () => {
-    expect(
-      analyzeNextRedirectOnlyRoute(
-        "src/app/mockups/ward-flow/constellation/page.tsx",
-        read("src/app/mockups/ward-flow/constellation/page.tsx"),
       ).redirectOnly,
     ).toBe(true);
   });
@@ -1446,9 +1435,8 @@ describe("design-system adoption manifest", () => {
     // home, eight remaining workspace routes, ED/ward/officer role screens, the per-patient
     // detail route, the Phase 4 shift handover, escalation board and patient search, and the
     // retired constellation redirect) that used to bring this to 82 left the production census
-    // entirely in the sandbox move: it now lives at `/mockups/ward-flow/**`, developer-gated
-    // like Care Plan and Caring Contacts, and `discoveredRoutes` excludes every `/mockups`
-    // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
+    // entirely in the sandbox move to the developer-gated mockups area (it has since been
+    // retired), and `discoveredRoutes` excludes every `/mockups` route. Redirect stubs keep legacy deep links
     // resolving and still count as declared routes. This is a census, so a route nobody
     // intended to add still fails the contract.
     //
@@ -1482,7 +1470,11 @@ describe("design-system adoption manifest", () => {
     // 114 -> 115 on 2026-09-26: `/on-call/shifts`, On Call "My shifts", the owner's own roster.
     //
     // 115 -> 116 on 2026-09-26: `/psychiatry`, the Psychiatry mode's dashboard.
-    expect(manifest.routeCoverage.discovered).toHaveLength(116);
+    //
+    // 116 -> 105 on 2026-09-26: the Caring Contacts prototype was retired, taking its eleven
+    // workspace routes (Today, Patients, one patient, the activation wizard, Schedule, Templates,
+    // one template, Guidance, Reports, Team and the manual Referral Intake) out of the census.
+    expect(manifest.routeCoverage.discovered).toHaveLength(105);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

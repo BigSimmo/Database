@@ -333,8 +333,8 @@ Read from the Actions API for PR runs `36110977826`, `36113010077`, `36107996148
   varies by up to ~100 seconds per shard (the same shard ran 6.0m on one run and 6.8m on the
   next). The profile in `scripts/playwright-pr-shards.mjs` now carries those means, and
   `ui-sources` and `ui-stress` moved to shard 2, giving estimates of 414s / 409s / 413s
-  post-critical. Shard 3 also boots the seeded Caring Contacts server, which the profile does
-  not model.
+  post-critical. Shard 3 also booted the seeded Caring Contacts server (retired 2026-09-26), which the
+  profile did not model.
 - **Not acted on — unit coverage partitions.** Vitest `--shard` splits by file count, and the two
   partitions ran 8.1m vs 6.6m and 8.4m vs 7.0m. For a code change without UI scope this is the
   critical path.

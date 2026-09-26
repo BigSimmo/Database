@@ -6,12 +6,10 @@
 #
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-accelerate==1.14.0 \
-    --hash=sha256:41b9c4377a54e0b460a959b0defa1b736e4ca0a2373252d9a539964c2afe3c8d \
-    --hash=sha256:e94390c2863b873be18f623f9df48a0d8fe5eff13ea7f1a00092b0a7904888c6
-    # via
-    #   docling-ibm-models
-    #   docling-slim
+accelerate==1.15.0 \
+    --hash=sha256:5654f8c5eaa0d4fa68b33e287a97765da6849bf6d51dcac874e73fbbddfb6134 \
+    --hash=sha256:97eacca0b73e45cb867dbf8c5d5d4dc32219544300e0c8992c7334dc2ef33cec
+    # via docling-slim
 annotated-doc==0.0.5 \
     --hash=sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101 \
     --hash=sha256:c7e58ce09192557605d8bbd92836d7e1d520ac9580096042c0bfd197efacf1bb
@@ -31,7 +29,6 @@ attrs==26.1.0 \
     --hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309 \
     --hash=sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32
     # via
-    #   jsonlines
     #   jsonschema
     #   referencing
 beautifulsoup4==4.15.0 \
@@ -244,52 +241,51 @@ doclang==0.7.3 \
     --hash=sha256:9440c4ca9f7e061a7b8d33bdf15b1029be69a4c13cd8952dd6ce541884e4c685 \
     --hash=sha256:ca50615357e46ebf9597bb9065b9112367103ec24bd539f8ae12649224cf50b0
     # via docling-core
-docling==2.124.0 \
-    --hash=sha256:822474679fc3f14081db8a5aa985057de3ec889390fc24534a8c269225af0b48 \
-    --hash=sha256:bff775aea776429e3bc1d20972dc173e80cd748b1202ebadc4c3ab64c156cdb5
+docling==2.128.0 \
+    --hash=sha256:71d19966cacaf970a7fc90640cd4f9141b4c5600e7ef1c604f864ba6e73b6fbe \
+    --hash=sha256:84d30ee769c1f5963070b5b9c82801b641c57ca7b9f4d8f5fde6ed55362e94b3
     # via -r requirements.in
-docling-core[chunking]==2.91.0 \
-    --hash=sha256:4949a5dd77ae1daf4153c095897d3bdde1c870f2bbe401bf94d8834bef867998 \
-    --hash=sha256:dc40fe76524a2700f869265015a9ef86027888e73b5652f324b3b5c52a2df240
+docling-core[chunking]==2.97.1 \
+    --hash=sha256:bd506e8bf3780e2868be3223d24ffd648d2a625161b9a5ecc10853218dff95a2 \
+    --hash=sha256:e4edca6d2d2c57a4352e5a9e33d8401fdbfaef68473389a790ed23f494711930
     # via
-    #   docling-ibm-models
     #   docling-parse
     #   docling-slim
-docling-ibm-models==3.14.0 \
-    --hash=sha256:795d39cd0f7b1e14a702e681b0ef0f9bd31deaedddb4e2686ad577296ecb8fc9 \
-    --hash=sha256:def964e3d524f66c7321ef9d48d4021278f14319f01d3f78058cd2324f641e22
+docling-ibm-models==4.0.3 \
+    --hash=sha256:509e89af75e06b48500977dca11ecb6022e81b1526c90dd54587a60ccc82bdb6 \
+    --hash=sha256:82c6c6ad6622aa9e58c4d745c26fba12eef54927f32d44f21f24bcb5be5464ff
     # via docling-slim
-docling-parse==7.17.0 \
-    --hash=sha256:14153776cf5d22bc38e3948c828ab020fc026e8fece8ee9d702d6a8240a4991a \
-    --hash=sha256:17e70b97933513f6447ec99c562ebfe5366e543ca4ef458b2d8d7fcb3363e851 \
-    --hash=sha256:21768a5d76b2a6d35dc5ca4d505f3e82dec59e6496a57d86dca43297b4566420 \
-    --hash=sha256:26550b0f46b750f3cd12231e168e7baebcb0bb74275e6dc1a8b8ea81b9ae1e21 \
-    --hash=sha256:2ee55fc0615cbda8c97db81ef58d81a1a2e1e9ac3f9c0e1052aedcf294f58efe \
-    --hash=sha256:471649910296847d3404453d6ae8fde266d1b4522e6c19a1f9c7878c83febf94 \
-    --hash=sha256:48d3fb853c4f548d4c6be2a13436d98fed427aa4ff10c4ce9ead7fc6f1d43e0d \
-    --hash=sha256:4c9b598e8aa409b0a9cdf435eb2852a282c70bb9f9f6499f845ca5b1ed8f3899 \
-    --hash=sha256:4d8a523de79705ab325ed71b7bc8823478c919f0ff7151b1a50f303bed05c213 \
-    --hash=sha256:4ec263ef4b5bdd92665ce8f26db3321daff00bc9276c5667af50d101f31e8ee2 \
-    --hash=sha256:52de9e465695ce9d6ef010df79ae00e13afa008b5038b1fbf1059908bc6eed63 \
-    --hash=sha256:6343051318ed76ed86ea34f8c1f937cea72cd7ddcf2d97220cc351f99f02802a \
-    --hash=sha256:70180169609745dcec0af003cdda14246d51ffde358f67676efc0cd759b1e64a \
-    --hash=sha256:7a8c5a70dc797161b9c1b5c955a02e1f606db64ca0086901b5c114f7da00d546 \
-    --hash=sha256:804a7525225bd1b6475bdec2c41bdfb388ff7c16bcef8dbcb6837db35d6be494 \
-    --hash=sha256:8919116dc8393b8aafbfc52a1aee38e9d2f8ec58d733461dceafc4a019446524 \
-    --hash=sha256:97868f46617af09fefeac311aa0fdc4fc66e9fc112409d86e0a78585083f49e4 \
-    --hash=sha256:a313c860eff89b35018a97505b7d469370fd3d4e8add9bdc5d29d637fcc4d796 \
-    --hash=sha256:adb40747c28843ad3fbe41f9551d588ee9f6e663416040dad58855fb35aed218 \
-    --hash=sha256:ba55d264e4f8cc3c4721d3259399b799c942b8c5549115b93d6f61d57d2478a0 \
-    --hash=sha256:c47117d8ffeb024a7665e5ffc557cc2534cdf272a9afe5bab405af35b34b3b3d \
-    --hash=sha256:ce61e82dc52576b81b84c88300e25edf6af160a614ec307611a0a8646b93279e \
-    --hash=sha256:dbc5530bfc0c03f256f96473946a48c0657e87012eb31cafa85514d3622e5f36 \
-    --hash=sha256:e2ed9d82808f9952300e64dbbb80f51360d43eeb49957e6784350affd9b8c31c \
-    --hash=sha256:edca5f6d63fea1f53e5fa6584ff5549e698f35a52778d66fef02e104340f5a74 \
-    --hash=sha256:ee6352a24b26d11492cc1e57759f19318dc42ab866fa6de3cd1ee245729c04c2
+docling-parse==7.20.0 \
+    --hash=sha256:0c6ac68740805c74f57e7c24f824a580bd3443e0b2c134fa1aac9044f24a21e0 \
+    --hash=sha256:0f65c1e11b8a95b32c4245dc8d526d38d95c157e1e3a9266b8834196ab914840 \
+    --hash=sha256:18958ef146f56e7a2f633a99f2659c881dbd0697db4fdb79e0e418a68e054cff \
+    --hash=sha256:2c74fbe25c1d1a63d77c2d927027356aa1f5136d5d34f608d08a078f1130dc4a \
+    --hash=sha256:2ce463c4b8aafd5f360671adc0386ad74257b54412958897a3a2a48451d7b283 \
+    --hash=sha256:318c85584896cc07b39d10ea5f5206caa29a3e30070b1ff804487de462ca8fa4 \
+    --hash=sha256:31cf7ea773840ec38ce295e4896cba5bfe7ab109a0f762fa5782ef244ff1282e \
+    --hash=sha256:4192fb22d57a3d8dec76b31245312ef0b2b52fe02c2df19a6b96ca7ce5d73b22 \
+    --hash=sha256:45f89a679beee6a5efff3616a05fd352a75940912222cd7588510c830c9c231c \
+    --hash=sha256:50ef253c52e0b013a9c3443abed2813fce243b30388b035cf8d5bf44a238912a \
+    --hash=sha256:51034fcff987fd99cc26d5f347f235e13a6f24aae5f69cecba30b63039091c0d \
+    --hash=sha256:58e87bb03a33ec3adbc96e2ed967bbc875ebdf6712312514a6ef3d77e0a22d25 \
+    --hash=sha256:59bd61d67862758cfe211f767d42b246fedf2c64426e112f6154c8009e251c71 \
+    --hash=sha256:61a75361338ae05db6bffdf57842e4313173e8e109cf0a6425d30e6df294006b \
+    --hash=sha256:696ff285006e78ac05947931493381d56fad9d7682e6f6e8dc947fad15eb63eb \
+    --hash=sha256:8b85bab767935515929c5d8e51d1367cf6dec9130f6b90c39c9d048f4fcd4064 \
+    --hash=sha256:91b3b6ccdd965167b3305f73b3ed3f4640245060e894dfe59f221fb0867a31b7 \
+    --hash=sha256:95fc238b534ba75bc3b1347fec41cfac8553a055e0ff56400cd9029d31386213 \
+    --hash=sha256:b326aa150d36222873c9e934d01ff79ef42d4953ceb6daa95081000644f07cae \
+    --hash=sha256:c3420a8f48b154a9134fa773afc0b65629d5a83aa5d00f4beaf244bc77638c60 \
+    --hash=sha256:ca7818357eacfc96894b11e8fc13326bf5f99c8ef9a7bbc2d09ece1383fe0b3f \
+    --hash=sha256:db07f30d045f80e7d2dd6e7459a87f49bc59faf0c188570188d26964e7415549 \
+    --hash=sha256:ec57e3911790708dc596c39e8bc502de97d31ea5042111e3d0853074cfdcc473 \
+    --hash=sha256:f0073bfd6af72919154fe123692007d966dd0457af9549bc9d6c228add672979 \
+    --hash=sha256:f1751e254ce135122373b75de1fcf3bd4c9d4a9c810ad8e5cf993574f9222489 \
+    --hash=sha256:fce05fff0465f5130f1a473fec1c328db9f405204ae020f6f49462452445c8b1
     # via docling-slim
-docling-slim[standard]==2.124.0 \
-    --hash=sha256:2c7c667394d3eae9080bc15143ed6f1d39a4838090d9e3f29be212606e6676bd \
-    --hash=sha256:f38f0fb4d325d189cd2bae4ff53c236582191b211e39ec0c565a5d619ac700b3
+docling-slim[standard]==2.128.0 \
+    --hash=sha256:19c361a3ea1d3f14c621d68fef34ccacfcf69592643ddc43b1c3a590bbba6210 \
+    --hash=sha256:a0d95e856016147c3eb0cdedc6e986a2ece86a99830bc3e8be7887b234552170
     # via docling
 et-xmlfile==2.0.0 \
     --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa \
@@ -368,10 +364,6 @@ jinja2==3.1.6 \
     --hash=sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
     # via torch
-jsonlines==4.0.0 \
-    --hash=sha256:0c6d2c09117550c089995247f605ae4cf77dd1533041d366351f6f298822ea74 \
-    --hash=sha256:185b334ff2ca5a91362993f42e83588a360cf95ce4b71a73548502bda52a7c55
-    # via docling-ibm-models
 jsonref==1.1.0 \
     --hash=sha256:32fe8e1d85af0fdefbebce950af85590b22b60f9e95443176adbde4e1ecea552 \
     --hash=sha256:590dc7773df6c21cbf948b5dac07a72a251db28b0238ceecce0a2abfa8ec30a9
@@ -384,6 +376,10 @@ jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
     --hash=sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d
     # via jsonschema
+langcodes==3.5.1 \
+    --hash=sha256:40bff315e01b01d11c2ae3928dd4f5cbd74dd38f9bd912c12b9a3606c143f731 \
+    --hash=sha256:b6a9c25c603804e2d169165091d0cdb23934610524a21d226e4f463e8e958a72
+    # via docling-slim
 latex2mathml==3.81.0 \
     --hash=sha256:4b959cdc3cac8686bc0e3e5aece8127dfb1b81ca1241bed8e00ef31b82bb4022 \
     --hash=sha256:d317710393fe20579aea39cfe8928fa2ad9b8780896e585326c75e89c1d1d1a4
@@ -993,7 +989,6 @@ pydantic==2.13.4 \
     --hash=sha256:c40756b57adaa8b1efeeced5c196f3f3b7c435f90e84ea7f443901bec8099ef6
     # via
     #   docling-core
-    #   docling-ibm-models
     #   docling-parse
     #   docling-slim
     #   pydantic-settings
@@ -1404,6 +1399,7 @@ requests==2.34.2 \
     --hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0 \
     --hash=sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed
     # via
+    #   docling-core
     #   docling-slim
     #   rapidocr
 rich==15.0.0 \
@@ -1542,9 +1538,7 @@ rtree==1.4.1 \
     --hash=sha256:efa8c4496e31e9ad58ff6c7df89abceac7022d906cb64a3e18e4fceae6b77f65 \
     --hash=sha256:efe125f416fd27150197ab8521158662943a40f87acab8028a1aac4ad667a489 \
     --hash=sha256:f155bc8d6bac9dcd383481dee8c130947a4866db1d16cb6dff442329a038a0dc
-    # via
-    #   docling-ibm-models
-    #   docling-slim
+    # via docling-slim
 safetensors[numpy,torch]==0.8.0 \
     --hash=sha256:040070828e36dc8e122178bbbd5830ff9e97920affb84cbe0f46442497bed358 \
     --hash=sha256:096ec1a98435df7beb08853bb5aa9081a84f23d0adc67ed1a0a10550f608373f \
@@ -1805,7 +1799,6 @@ tqdm==4.70.0 \
     --hash=sha256:55b0b0dbd97462d06ebee91e4dac24ed4d4702be82b24f07e6c1d27e08cea220 \
     --hash=sha256:7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953
     # via
-    #   docling-ibm-models
     #   docling-slim
     #   huggingface-hub
     #   mpire

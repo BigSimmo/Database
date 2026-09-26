@@ -29,7 +29,7 @@ issue ledger and its inbox, and code comments. Three kinds are left out on purpo
   and [`../archive/operator-decisions-2026-07-06.md`](../archive/operator-decisions-2026-07-06.md));
 - questions still waiting for a decision, which live in [`../outstanding-issues.md`](../outstanding-issues.md)
   until the owner answers;
-- Ward Flow and Caring Contacts, which are being removed from the project (see
+- Ward Flow and Caring Contacts, which were retired and removed from the project (see
   [`2026-09-26-remove-ward-flow-and-caring-contacts.md`](2026-09-26-remove-ward-flow-and-caring-contacts.md)).
 
 Related records that are not owner rulings: architecture decision records in [`../adr/`](../adr/),

@@ -180,30 +180,30 @@ gate's own classification) and is pinned in `debtByPath.visibleLiveRegions` so n
 further without failing the gate, and any one of them can be closed independently in a future round
 by moving its baseline entry to 0.
 
-| File                                                                    | Line       |
-| ----------------------------------------------------------------------- | ---------- |
-| `src/components/clinical-dashboard/answer-status.tsx`                   | 340        |
-| `src/components/clinical-dashboard/differentials-home.tsx`              | 119, 759   |
-| `src/components/clinical-dashboard/favourites-command-library-page.tsx` | 1289, 1725 |
-| `src/components/clinical-dashboard/result-filter-control.tsx`           | 975        |
-| `src/components/clinical-dashboard/search-results-header-band.tsx`      | 365        |
-| `src/components/clinical-dashboard/settings-dialog.tsx`                 | 1314       |
-| `src/components/clinical-dashboard/signed-image.tsx`                    | 222        |
-| `src/components/clinical-dashboard/universal-search-also-matches.tsx`   | 217        |
-| `src/components/developer-area/clinical-trust-cockpit.tsx`              | 266        |
-| `src/components/differentials/diagnosis-map-panel.tsx`                  | 738        |
-| `src/components/differentials/differential-detail-page.tsx`             | 1143       |
-| `src/components/differentials/differential-stream-workspace.tsx`        | 123        |
-| `src/components/document-viewer/document-viewer-state-surface.tsx`      | 56         |
-| `src/components/dsm/dsm-search-page.tsx`                                | 104        |
-| `src/components/forms/form-detail-page.tsx`                             | 759        |
-| `src/components/services/service-detail-page.tsx`                       | 654        |
-| `src/components/therapy-compass/recommend-scenario-control.tsx`         | 116        |
-| `src/components/therapy-compass/screens/recommend-screen.tsx`           | 95         |
-| `src/components/therapy-compass/therapy-card.tsx`                       | 159        |
-| `src/components/therapy-compass/workspace.tsx`                          | 30         |
-| `src/components/ward-management/ward-management-modes.tsx`              | 1027       |
-| `src/components/ward-management/ward-management-network.tsx`            | 447        |
+| File                                                                            | Line       |
+| ------------------------------------------------------------------------------- | ---------- |
+| `src/components/clinical-dashboard/answer-status.tsx`                           | 340        |
+| `src/components/clinical-dashboard/differentials-home.tsx`                      | 119, 759   |
+| `src/components/clinical-dashboard/favourites-command-library-page.tsx`         | 1289, 1725 |
+| `src/components/clinical-dashboard/result-filter-control.tsx`                   | 975        |
+| `src/components/clinical-dashboard/search-results-header-band.tsx`              | 365        |
+| `src/components/clinical-dashboard/settings-dialog.tsx`                         | 1314       |
+| `src/components/clinical-dashboard/signed-image.tsx`                            | 222        |
+| `src/components/clinical-dashboard/universal-search-also-matches.tsx`           | 217        |
+| `src/components/developer-area/clinical-trust-cockpit.tsx`                      | 266        |
+| `src/components/differentials/diagnosis-map-panel.tsx`                          | 738        |
+| `src/components/differentials/differential-detail-page.tsx`                     | 1143       |
+| `src/components/differentials/differential-stream-workspace.tsx`                | 123        |
+| `src/components/document-viewer/document-viewer-state-surface.tsx`              | 56         |
+| `src/components/dsm/dsm-search-page.tsx`                                        | 104        |
+| `src/components/forms/form-detail-page.tsx`                                     | 759        |
+| `src/components/services/service-detail-page.tsx`                               | 654        |
+| `src/components/therapy-compass/recommend-scenario-control.tsx`                 | 116        |
+| `src/components/therapy-compass/screens/recommend-screen.tsx`                   | 95         |
+| `src/components/therapy-compass/therapy-card.tsx`                               | 159        |
+| `src/components/therapy-compass/workspace.tsx`                                  | 30         |
+| src/components/ward-management/ward-management-modes.tsx (retired 2026-09-26)   | 1027       |
+| src/components/ward-management/ward-management-network.tsx (retired 2026-09-26) | 447        |
 
 The most consequential of these is `search-results-header-band.tsx:365` — the shared search-result
 count/status word rendered on every search route, `role="status" aria-live={faulted ? "off" :

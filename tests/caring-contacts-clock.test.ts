@@ -48,7 +48,7 @@ describe("caring-contacts clock", () => {
 
   it("spans a whole strip in both directions without crossing a boundary by accident", () => {
     // The Schedule screen's day strip: three days back, then six forward from there. This is the
-    // exact arithmetic `src/app/caring-contacts/schedule/page.tsx` performs, and it is the case a
+    // exact arithmetic the retired Caring Contacts schedule screen performed, and it is the case a
     // midnight-based implementation gets wrong -- the AWST day and the UTC day differ for every
     // instant before 08:00 AWST, so stepping from midnight lands on the previous UTC date.
     const from = awstCalendarDayOffset("2026-09-01", -3);
