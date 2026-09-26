@@ -8,8 +8,8 @@ import { culturalNotesForForm, type FormCulturalNote } from "@/lib/forms-cultura
 /**
  * `data/forms-cultural-notes.json` is a shared-interface contract
  * (plan-v2.md "Shared-interface contracts"): `{notes: [{formCode, kind,
- * text, sourceId, status}]}`. These tests pin that shape, that every note
- * is still drafted (never a self-attested review), that every citation is a
+ * text, sourceId, status}]}`. These tests pin that shape, that an unsigned note
+ * stays drafted and a signed one carries a complete sign-off, that every citation is a
  * well-formed ledger id, and that the render hook filters by form code
  * correctly.
  *
@@ -41,15 +41,23 @@ describe("data/forms-cultural-notes.json shape", () => {
     expect(notes.length).toBeGreaterThan(0);
   });
 
-  it("every note has the exact required fields and nothing else", () => {
+  it("every note has the exact required fields, plus the three sign-off fields once signed", () => {
+    const base = ["formCode", "kind", "sourceId", "status", "text"];
     for (const note of notes) {
-      expect(Object.keys(note).sort()).toEqual(["formCode", "kind", "sourceId", "status", "text"]);
+      const expected =
+        note.status === "reviewed" ? [...base, "reviewedAt", "reviewedBy", "reviewedContentSha256"] : base;
+      expect(Object.keys(note).sort()).toEqual(expected.sort());
     }
   });
 
-  it("every note is drafted — no agent-recorded review", () => {
+  it("an unsigned note stays drafted; a signed one carries a reviewer, a timestamp and a 64-hex pin", () => {
     for (const note of notes) {
-      expect(note.status, `${note.formCode} ${note.kind} must be drafted`).toBe("drafted");
+      const label = `${note.formCode} ${note.kind}`;
+      expect(["drafted", "reviewed"], label).toContain(note.status);
+      if (note.status !== "reviewed") continue;
+      expect(note.reviewedBy?.trim(), `${label} reviewedBy`).toBeTruthy();
+      expect(Number.isFinite(Date.parse(note.reviewedAt ?? "")), `${label} reviewedAt`).toBe(true);
+      expect(note.reviewedContentSha256, `${label} pin`).toMatch(/^[a-f0-9]{64}$/);
     }
   });
 

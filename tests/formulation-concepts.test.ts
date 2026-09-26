@@ -227,9 +227,17 @@ describe("formulation concept library", () => {
   });
 
   it("never marks unreviewed content as clinically approved", () => {
+    // A record is either awaiting review with no reviewer, or signed off by a named
+    // reviewer through npm run clinical:review, whose content pin
+    // tests/clinical-signoff-kinds.test.ts keeps current.
     for (const record of [...formulationConcepts, ...formulationGuides]) {
-      expect(record.review.reviewer).toBeNull();
-      expect(record.review.status).toBe("clinical_review_required");
+      if (record.review.status === "reviewed") {
+        expect(record.review.reviewer?.trim()).toBeTruthy();
+        expect(record.review.reviewedContentSha256).toMatch(/^[a-f0-9]{64}$/);
+      } else {
+        expect(record.review.reviewer).toBeNull();
+        expect(record.review.status).toBe("clinical_review_required");
+      }
     }
   });
 });

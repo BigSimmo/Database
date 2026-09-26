@@ -94,7 +94,11 @@ function StandardItem({ standard }: { standard: ChiefPsychiatristStandard }) {
         </summary>
         <div className="grid gap-2 border-t border-[color:var(--border)] px-3 py-3">
           <p className="text-sm leading-6 text-[color:var(--text)]">{standard.summary}</p>
-          {standard.reviewed ? null : (
+          {standard.reviewed ? (
+            <p className={cn("text-xs leading-5", textMuted)} data-testid={`cp-standard-reviewed-${standard.id}`}>
+              {`Drafted from the Office of the Chief Psychiatrist's published standard. Reviewed by ${standard.reviewedBy}.`}
+            </p>
+          ) : (
             <p className={cn("text-xs leading-5", textMuted)}>
               Drafted from the Office of the Chief Psychiatrist&apos;s published standard and awaiting clinical review.
             </p>
