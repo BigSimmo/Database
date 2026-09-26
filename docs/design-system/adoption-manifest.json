@@ -1812,11 +1812,7 @@
         "src/components/on-call/on-call-call-now-page.tsx",
         "src/components/on-call/on-call-search-box.tsx"
       ],
-      "productImportFiles": [
-        "src/components/cme/cme-log-page.tsx",
-        "src/components/on-call/on-call-call-now-page.tsx",
-        "src/components/on-call/on-call-search-box.tsx"
-      ],
+      "productImportFiles": ["src/components/cme/cme-log-page.tsx", "src/components/on-call/on-call-call-now-page.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1853,6 +1849,7 @@
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/on-call/now/shift-lists.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
@@ -1868,6 +1865,7 @@
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/on-call/now/shift-lists.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
@@ -1912,6 +1910,7 @@
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/whos-on/whos-on-page.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -1921,6 +1920,7 @@
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/whos-on/whos-on-page.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -1991,6 +1991,8 @@
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/kit/dial-sheet.tsx",
         "src/components/on-call/kit/hospital-line.tsx",
+        "src/components/on-call/now/shift-lists.tsx",
+        "src/components/on-call/now/your-team.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -2028,8 +2030,12 @@
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/mode-kit/dial-sheet.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/on-call/kit/dial-sheet.tsx",
         "src/components/on-call/kit/hospital-line.tsx",
+        "src/components/on-call/now/shift-lists.tsx",
+        "src/components/on-call/now/your-team.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",

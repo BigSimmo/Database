@@ -127,6 +127,42 @@ export function onCallShiftContext(input: {
   return { kind: "none", shiftKey: `clock:${periodStartDate(period, now)}:${period}`, period, phase: "unknown" };
 }
 
+const DAY_MS = 24 * HOUR_MS;
+/** Perth is UTC+8 all year (no daylight saving). */
+const PERTH_OFFSET_MS = 8 * HOUR_MS;
+/** The Perth wall-clock hours at which `onCallClockPeriod` changes. */
+const CLOCK_BOUNDARY_HOURS = [8, 17, 22] as const;
+
+/**
+ * How long until `onCallShiftContext` could give a different answer: a roster
+ * shift starting, leaving its first two hours, entering its last hour or
+ * ending; a pick expiring; or the Perth clock crossing 08:00, 17:00 or 22:00.
+ * Now wakes itself then, so a page left open on a desk moves to the end-of-shift
+ * list (and a new shift's key) without being touched.
+ */
+export function msUntilOnCallShiftContextChange(input: {
+  readonly shifts: readonly OnCallShift[];
+  readonly pick: OnCallShiftPick | null;
+  readonly now: Date;
+}): number {
+  const at = input.now.getTime();
+  const candidates: number[] = [];
+  for (const shift of input.shifts) {
+    const start = Date.parse(shift.startsAt);
+    const end = Date.parse(shift.endsAt);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+    candidates.push(start, start + ON_CALL_SHIFT_START_WINDOW_MS, end - ON_CALL_SHIFT_END_WINDOW_MS, end);
+  }
+  const pickedAt = input.pick ? Date.parse(input.pick.at) : Number.NaN;
+  if (Number.isFinite(pickedAt)) candidates.push(pickedAt + ON_CALL_SHIFT_PICK_TTL_MS);
+  const perthMidnight = at - ((((at + PERTH_OFFSET_MS) % DAY_MS) + DAY_MS) % DAY_MS);
+  for (const day of [0, 1]) {
+    for (const hour of CLOCK_BOUNDARY_HOURS) candidates.push(perthMidnight + day * DAY_MS + hour * HOUR_MS);
+  }
+  const next = Math.min(...candidates.filter((candidate) => candidate > at));
+  return Math.max(1_000, next - at);
+}
+
 const pickSchema = z.object({ period: z.enum(PERIODS), at: z.string().min(1) }).strict();
 
 function isLive(pick: OnCallShiftPick, now: Date): boolean {

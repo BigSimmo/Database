@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { clearOnCallDeviceState, onCallShiftPickStorageKey } from "@/lib/on-call/device-state-keys";
 import {
+  msUntilOnCallShiftContextChange,
   onCallClockPeriod,
   onCallShiftContext,
   readOnCallShiftPick,
@@ -85,5 +86,36 @@ describe("the one-tap pick", () => {
     saveOnCallShiftPick("night");
     clearOnCallDeviceState();
     expect(readOnCallShiftPick()).toBeNull();
+  });
+});
+
+describe("msUntilOnCallShiftContextChange", () => {
+  const MINUTE = 60_000;
+
+  it("wakes at the next Perth clock boundary with no roster and no pick", () => {
+    // 16:30 Perth: the evening begins at 17:00.
+    expect(msUntilOnCallShiftContextChange({ shifts: [], pick: null, now: at("2026-09-26T08:30:00.000Z") })).toBe(
+      30 * MINUTE,
+    );
+    // 23:00 Perth: the next boundary is 08:00 tomorrow.
+    expect(msUntilOnCallShiftContextChange({ shifts: [], pick: null, now: at("2026-09-26T15:00:00.000Z") })).toBe(
+      9 * 60 * MINUTE,
+    );
+  });
+
+  it("wakes when a rostered shift enters its last hour, so the end-of-shift list comes forward untouched", () => {
+    // 06:30 Perth on the 27th; the night ends at 08:00, so its last hour starts at 07:00.
+    const now = at("2026-09-26T22:30:00.000Z");
+    expect(msUntilOnCallShiftContextChange({ shifts: [NIGHT], pick: null, now })).toBe(30 * MINUTE);
+    expect(onCallShiftContext({ shifts: [NIGHT], pick: null, now: at("2026-09-26T23:00:00.000Z") }).phase).toBe("end");
+  });
+
+  it("wakes when a pick expires", () => {
+    // Picked 20:00 Perth on the 25th; it expires at 12:00 Perth on the 26th.
+    const pick = { period: "evening" as const, at: "2026-09-25T12:00:00.000Z" };
+    // 11:50 Perth: the pick's expiry (12:00) comes before the 17:00 boundary.
+    expect(msUntilOnCallShiftContextChange({ shifts: [], pick, now: at("2026-09-26T03:50:00.000Z") })).toBe(
+      10 * MINUTE,
+    );
   });
 });

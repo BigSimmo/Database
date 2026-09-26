@@ -14,8 +14,6 @@ const ROOTS = ["src/components/on-call", "src/app/(search-app)/on-call"];
 
 /** Files a page lane owns and clears in its own build; Task 6 empties this set. */
 const LANE_PENDING = new Set([
-  "src/components/on-call/on-call-home.tsx",
-  "src/components/on-call/on-call-search-box.tsx",
   "src/components/on-call/service-page.tsx",
   "src/components/on-call/service-handbook.tsx",
   "src/components/on-call/service-entry-editor.tsx",
