@@ -138,6 +138,8 @@ export type CmeDashboardProps = {
    * 1 January until the college's reporting date. Null outside that window.
    */
   readonly reportingReminder?: CmeReportingReminder | null;
+  /** Saved drafts whose next step is the owner's own. Shown first in the Next row; never hours. */
+  readonly draftsToFinish?: number;
 };
 
 export type CmeReportingReminder = {
@@ -263,6 +265,7 @@ export function CmeDashboard({
   onLogRoutine = () => {},
   onOpenCustomise = () => {},
   reportingReminder = null,
+  draftsToFinish = 0,
 }: CmeDashboardProps) {
   const { moduleIds } = useCmeModuleOrder();
   const { totalHours, statuses, unmet } = evaluateYear({ set, entries });
@@ -478,6 +481,15 @@ export function CmeDashboard({
           <p data-testid="cme-pace-sentence" className={cn(textMuted, "mt-3 text-sm")}>
             {paceSentence(pace, set.totalHours, endLabel)}
           </p>
+        ) : null}
+        {draftsToFinish > 0 && !set.closedAt ? (
+          <Link
+            data-testid="cme-drafts-to-finish"
+            href="/cme/log#cme-drafts"
+            className="mt-3 inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+          >
+            {draftsToFinish === 1 ? "Drafts to finish: 1 activity" : `Drafts to finish: ${draftsToFinish} activities`}
+          </Link>
         ) : null}
         <div className="mt-3">{nextActionControl}</div>
       </section>
