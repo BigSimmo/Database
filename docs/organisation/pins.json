@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "pins": {
+    "docs/DOCS-SYSTEM.md": "ccbd5f6dcc8d0898d0927a91d4f4c4f0c4d13d99",
+    "docs/README.md": "9ff54eb157a021e90b9fa26e46289489204f8495",
+    "docs/agents-guide.md": "f3dcc21d61d84f8fd87e49e01a7bdd17ccefdbe6",
+    "docs/agents/verification-gates.md": "fa948fa7cc51362bbcb4138d6a4f155c48d4cb40",
+    "docs/care-plan/CLAUDE-START-HERE.md": "55b814365036068b6b92f6b5476f626187c38ade",
+    "docs/clinical-governance.md": "8a110c4cae121e04141ab4cf3d3a12e1a92e791e",
+    "docs/codebase-index.md": "19ef0619a8052b0a1649cf0c39f7f803e42897e5",
+    "docs/database-drift-detection.md": "bf150d20dd7559035d5c8a600912ca8a152a2bfa",
+    "docs/deployment-architecture.md": "e7b3ee44a04cbdddc3597766a9b2c047cb8bd100",
+    "docs/design-system/README.md": "75e93ba520cc82f96731b2def7962f0245ed12fc",
+    "docs/frontend-architecture.md": "d5264d554f7a6442677b511987c38bf5ca063266",
+    "docs/ingestion-state-machine.md": "8d9c2905c92e4b4e9edf9356f288ea73768766fa",
+    "docs/rag-behaviour/README.md": "11be5f4795a26188d32fbb17d65d88b7976c8447",
+    "docs/rag-behaviour/safeguards.md": "494e801b91976e7db3767ddfc4c2ac1f2fe5832f",
+    "docs/reindex-runbook.md": "f05cb98af2b044bfc5a4d4a85f74a7d78ed118f0",
+    "docs/search-chrome-behaviour.md": "f3fb99a42db11f204c47bb4918ba820705f7707f",
+    "docs/source-acquisition-protocol.md": "11faabb521631f8afcc45a1017a62ebb11c8a989",
+    "docs/supabase-migration-reconciliation.md": "7d1c94cb2bf804983544c83fa3a8c8ad7a5252b1",
+    "docs/superpowers/specs/2026-09-04-on-call-mode-design.md": "964042b6cee47364f3e3ce04becff28a79d6ab5b",
+    "docs/testing.md": "89ff97ee9528384fd8ac75ffb86c9c4aa75eb4b2",
+    "docs/worker-deploy-runbook.md": "2dc1b6ee22d1eb79d2cf81845c0a258d050ff3bc"
+  }
+}

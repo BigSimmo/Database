@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "match": "caring-contacts/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "deploy/australia/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "docs/caring-contacts/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "docs/ward-flow-*",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "docs/ward-flow-phase-3-workspace/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "docs/ward-flow/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "scripts/ward-flow/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/app/api/caring-contacts/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/app/caring-contacts/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/app/mockups/caring-contacts/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/app/mockups/ward-flow/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/components/caring-contacts/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/components/ward-management/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/lib/caring-contacts-server/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "src/lib/caring-contacts/**",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "tests/caring-*",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "tests/ui-caring-*",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "tests/ui-ward-*",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    },
+    {
+      "match": "tests/ward-*",
+      "reason": "Being removed from the project (owner decision 2026-09-26); every other rule still applies until then."
+    }
+  ]
+}

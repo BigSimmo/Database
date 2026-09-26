@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "source-intake",
+  "kind": "area",
+  "name": "Source intake and indexing",
+  "owns": "Any source becoming searchable: upload, extraction, OCR, captions, chunking, embeddings, index units and the ingestion worker.",
+  "canonicalDocs": ["docs/ingestion-state-machine.md", "docs/reindex-runbook.md", "docs/worker-deploy-runbook.md"],
+  "paths": [
+    "eval/docling/**",
+    "src/app/api/ingestion/**",
+    "src/app/api/jobs/**",
+    "src/app/api/upload/**",
+    "src/lib/documents/**",
+    "src/lib/extractors/**",
+    "supabase/functions/indexing-v3-agent/**",
+    "worker/**"
+  ]
+}

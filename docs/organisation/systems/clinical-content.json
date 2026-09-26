@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "clinical-content",
+  "kind": "area",
+  "name": "Clinical reference content",
+  "owns": "Facts a clinician reads in the reference modes (medications, DSM, differentials, forms, services, therapy, calculators and more) and where each came from.",
+  "canonicalDocs": ["docs/clinical-governance.md", "docs/source-acquisition-protocol.md"],
+  "paths": [
+    "data/calculators/**",
+    "docs/governance/**",
+    "public/forms-pdf/**",
+    "public/therapy-compass-data/**",
+    "src/app/api/differentials/**",
+    "src/app/api/medications/**",
+    "src/app/api/registry/**",
+    "src/app/api/site-content/**",
+    "src/lib/calculators/**",
+    "src/lib/dictionary-editorial/**",
+    "src/lib/services-canonical-data/**",
+    "src/lib/site-content/**",
+    "src/lib/sources/**",
+    "supabase/functions/site-content-sync/**"
+  ]
+}

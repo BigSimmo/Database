@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "data-platform",
+  "kind": "area",
+  "name": "Data platform and access",
+  "owns": "Database schema, migrations and drift guards, auth, owner scope, privacy, environment, proxy, security headers and observability.",
+  "canonicalDocs": ["docs/database-drift-detection.md", "docs/supabase-migration-reconciliation.md"],
+  "paths": [
+    ".env.example",
+    "scripts/sql/**",
+    "src/app/api/account/**",
+    "src/app/api/health/**",
+    "src/app/api/webhooks/**",
+    "src/app/auth/**",
+    "src/instrumentation-client.ts",
+    "src/instrumentation.ts",
+    "src/lib/observability/**",
+    "src/lib/supabase/**",
+    "src/lib/validation/**",
+    "src/lib/webhooks/**",
+    "src/proxy.ts",
+    "src/sentry.edge.config.ts",
+    "src/sentry.server.config.ts",
+    "supabase/**",
+    "tests/sql/**"
+  ]
+}

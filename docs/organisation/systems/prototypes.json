@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "prototypes",
+  "kind": "workstream",
+  "name": "Prototypes",
+  "owns": "Admin-only work that is not yet part of the product: Care Plan, the developer hub and design-scratch mock-ups.",
+  "canonicalDocs": ["docs/care-plan/CLAUDE-START-HERE.md"],
+  "paths": [
+    "docs/care-plan/**",
+    "mockups/**",
+    "public/mockups/**",
+    "src/app/mockups/**",
+    "src/components/calculator-mockups/**",
+    "src/components/care-plan/**",
+    "src/components/developer-area/**",
+    "src/components/dsm-favourites-mockups/**",
+    "src/components/favourites-phone-perfected-mockups/**",
+    "src/components/settings-search-mockups/**",
+    "src/components/therapy-navigation-mockups/**",
+    "src/components/therapy-recommend-popup-mockups/**",
+    "src/components/therapy-scenario-popup-mockups/**",
+    "src/components/tools-page-mockups/**",
+    "src/lib/developer-area/**"
+  ]
+}

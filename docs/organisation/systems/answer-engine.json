@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "id": "answer-engine",
+  "kind": "area",
+  "name": "Answer engine",
+  "owns": "Turning a question into a cited answer: retrieval, ranking, answer building, citation checks, the clinical-ask pipeline and the eval harness.",
+  "canonicalDocs": ["docs/rag-behaviour/README.md", "docs/rag-behaviour/safeguards.md"],
+  "paths": [
+    "docs/rag-behaviour/**",
+    "docs/rag-improvement/**",
+    "scripts/fixtures/**",
+    "src/app/api/answer-feedback/**",
+    "src/app/api/answer/**",
+    "src/app/api/clinical-ask/**",
+    "src/app/api/eval-cases/**",
+    "src/app/api/search/**",
+    "src/lib/clinical-ask/**",
+    "src/lib/rag/**"
+  ]
+}

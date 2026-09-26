@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "design-system",
+  "kind": "workstream",
+  "name": "Design system",
+  "owns": "Visual tokens, primitives, brand and the lint rules that enforce them; serves every screen.",
+  "canonicalDocs": ["docs/design-system/README.md"],
+  "paths": [
+    ".design-sync/**",
+    "docs/brand/**",
+    "docs/design-system/**",
+    "docs/redesign/**",
+    "eslint-rules/**",
+    "postcss.config.mjs",
+    "public/brand/**",
+    "src/app/ckb-v2-tokens.css",
+    "src/app/globals.css",
+    "src/components/primitive-recipes/**",
+    "src/components/ui/**",
+    "src/fonts/**",
+    "tailwind.config.ts"
+  ]
+}

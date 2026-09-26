@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "path": "next.config.ts",
+      "systems": ["data-platform", "delivery"],
+      "reason": "Build config that also carries the security headers and content security policy."
+    }
+  ]
+}

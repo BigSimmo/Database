@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "personal-practice",
+  "kind": "area",
+  "name": "Personal practice",
+  "owns": "The clinician's own records and tools, end to end including their screens: On Call, CME/CPD, favourites and calendar.",
+  "canonicalDocs": ["docs/superpowers/specs/2026-09-04-on-call-mode-design.md", "docs/codebase-index.md"],
+  "paths": [
+    "docs/cme/**",
+    "docs/on-call/**",
+    "src/app/(search-app)/cme/**",
+    "src/app/(search-app)/favourites/**",
+    "src/app/(search-app)/on-call/**",
+    "src/app/api/calendar/**",
+    "src/app/api/cme/**",
+    "src/app/api/on-call/**",
+    "src/components/calendar/**",
+    "src/components/cme/**",
+    "src/components/favourites/**",
+    "src/components/on-call/**",
+    "src/lib/calendar/**",
+    "src/lib/cme/**",
+    "src/lib/on-call/**"
+  ]
+}
