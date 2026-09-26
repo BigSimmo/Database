@@ -129,7 +129,7 @@ describe("CI cache safety", () => {
     expect(producer).not.toContain("uses: ./.github/actions/setup-ui-e2e");
     expect(producer).toContain('PLAYWRIGHT_BUILD_ONLY: "true"');
     // Every lane that launches a browser keeps the full UI setup.
-    for (const job of ["ui-critical-fast", "ui-critical", "ui-ward-journeys"]) {
+    for (const job of ["ui-critical-fast", "ui-critical"]) {
       const segment = new RegExp(`\\n  ${job}:\\n([\\s\\S]*?)(?=\\n  [a-z][\\w-]*:\\n)`).exec(workflow)?.[1] ?? "";
       expect(segment, job).toContain("uses: ./.github/actions/setup-ui-e2e");
     }

@@ -727,8 +727,8 @@
     },
     {
       "path": "tests/ci-cache-safety.test.ts",
-      "before": 72,
-      "after": 69,
+      "before": 75,
+      "after": 72,
       "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
       "approvedOn": "2026-09-26"
     },
