@@ -6,12 +6,15 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   areasFor,
+  defaultStateDir,
   editHookOutput,
   editNotes,
+  pruneOldMemory,
   repoRelativePath,
   sessionHealthLine,
   sessionHookOutput,
   stateKey,
+  usableStateDir,
 } from "../scripts/organisation/agent-hooks.mjs";
 import { safetyClassesFor } from "../scripts/organisation/safety-lists.mjs";
 
@@ -340,6 +343,118 @@ describe("edit warning: paths", () => {
   });
 });
 
+const posixOnly = process.platform === "win32";
+
+describe("edit warning: symlinked targets", () => {
+  it.skipIf(posixOnly)("judges a link to a ranking file as the file it points to", () => {
+    const root = fixture();
+    const stateDir = tempDir("organisation-hooks-state-");
+    const link = path.join(root, "docs/innocent.ts");
+    fs.symlinkSync(path.join(root, "src/lib/rag/sample.ts"), link);
+    expect(repoRelativePath(link)?.rel).toBe("src/lib/rag/sample.ts");
+    expect(contextOf(editHookOutput(editPayload(link), { stateDir }))).toContain(
+      "src/lib/rag/sample.ts is ranking-protected",
+    );
+  });
+
+  it.skipIf(posixOnly)("judges a link leading out of the checkout, or a broken one, by its own path", () => {
+    const root = fixture();
+    const outside = tempDir("organisation-hooks-outside-");
+    fs.writeFileSync(path.join(outside, "x.ts"), "export {};\n");
+    fs.symlinkSync(path.join(outside, "x.ts"), path.join(root, "docs/out.ts"));
+    fs.symlinkSync(path.join(root, "gone.ts"), path.join(root, "docs/broken.ts"));
+    expect(repoRelativePath(path.join(root, "docs/out.ts"))?.rel).toBe("docs/out.ts");
+    expect(repoRelativePath(path.join(root, "docs/broken.ts"))?.rel).toBe("docs/broken.ts");
+  });
+});
+
+describe("edit warning: memory folder", () => {
+  it("uses a per-user folder, and none in a per-run `hook-` sandbox temp folder", () => {
+    const user = process.getuid?.() ?? os.userInfo().username;
+    expect(defaultStateDir(path.join("/tmp", "x"))).toBe(
+      path.join("/tmp", "x", `psychsift-organisation-hooks-${String(user).replace(/[^A-Za-z0-9_.-]/g, "_")}`),
+    );
+    expect(defaultStateDir(path.join("/tmp", "hook-abc123"))).toBeNull();
+  });
+
+  it("gives only the every-edit notes when memory is unavailable in a sandbox", () => {
+    const root = fixture();
+    for (let i = 0; i < 2; i++) {
+      const ranking = contextOf(
+        editHookOutput(editPayload(path.join(root, "src/lib/rag/sample.ts")), { stateDir: null }),
+      );
+      expect(ranking).toContain("ranking-protected");
+      expect(ranking).not.toContain("First edit in");
+      expect(editHookOutput(editPayload(path.join(root, "data/records/sample.json")), { stateDir: null })).toBeNull();
+    }
+  });
+
+  it.skipIf(posixOnly)("trusts only a private real directory owned by this user", () => {
+    const base = tempDir("organisation-hooks-state-");
+    expect(usableStateDir(path.join(base, "fresh"))).toBe(true);
+    expect((fs.statSync(path.join(base, "fresh")).mode & 0o077) === 0).toBe(true);
+    const open = path.join(base, "open");
+    fs.mkdirSync(open);
+    fs.chmodSync(open, 0o777);
+    expect(usableStateDir(open)).toBe(false);
+    fs.symlinkSync(path.join(base, "fresh"), path.join(base, "link"));
+    expect(usableStateDir(path.join(base, "link"))).toBe(false);
+    fs.writeFileSync(path.join(base, "file"), "");
+    expect(usableStateDir(path.join(base, "file"))).toBe(false);
+    expect(usableStateDir(null)).toBe(false);
+  });
+
+  it.skipIf(posixOnly)("repeats the notes and writes nothing in an untrusted folder", () => {
+    const root = fixture();
+    const stateDir = tempDir("organisation-hooks-state-");
+    fs.chmodSync(stateDir, 0o777);
+    const file = path.join(root, "data/records/sample.json");
+    for (let i = 0; i < 2; i++) {
+      expect(contextOf(editHookOutput(editPayload(file), { stateDir }))).toContain("Clinical Governance Preflight");
+    }
+    expect(fs.readdirSync(stateDir)).toEqual([]);
+  });
+
+  it.skipIf(posixOnly)("refuses a state file that is a link, and never writes through it", () => {
+    const root = fixture();
+    const stateDir = tempDir("organisation-hooks-state-");
+    const elsewhere = path.join(tempDir("organisation-hooks-outside-"), "planted.json");
+    const planted = `${JSON.stringify({ version: 1, clinical: true, areas: ["records"] })}\n`;
+    fs.writeFileSync(elsewhere, planted);
+    fs.symlinkSync(elsewhere, path.join(stateDir, "session-one.json"));
+    const file = path.join(root, "data/records/sample.json");
+    expect(contextOf(editHookOutput(editPayload(file), { stateDir }))).toContain("Clinical Governance Preflight");
+    expect(fs.readFileSync(elsewhere, "utf8")).toBe(planted);
+  });
+
+  it.skipIf(posixOnly)("writes a private state file and leaves no temp file behind", () => {
+    const root = fixture();
+    const stateDir = tempDir("organisation-hooks-state-");
+    editHookOutput(editPayload(path.join(root, "data/records/sample.json")), { stateDir });
+    expect(fs.readdirSync(stateDir).sort()).toEqual([".last-prune", "session-one.json"]);
+    expect(fs.statSync(path.join(stateDir, "session-one.json")).mode & 0o777).toBe(0o600);
+  });
+
+  it("prunes week-old memory at most once a day, by a marker file's mtime", () => {
+    const stateDir = tempDir("organisation-hooks-state-");
+    const now = Date.UTC(2030, 0, 10);
+    const day = 24 * 60 * 60 * 1000;
+    const age = (name: string, ms: number) => {
+      fs.writeFileSync(path.join(stateDir, name), "{}\n");
+      fs.utimesSync(path.join(stateDir, name), (now - ms) / 1000, (now - ms) / 1000);
+    };
+    age("old.json", 8 * day);
+    age("recent.json", day);
+    expect(pruneOldMemory(stateDir, now)).toBe(true);
+    expect(fs.readdirSync(stateDir).sort()).toEqual([".last-prune", "recent.json"]);
+    age("old2.json", 8 * day);
+    expect(pruneOldMemory(stateDir, now + day / 2)).toBe(false);
+    expect(fs.existsSync(path.join(stateDir, "old2.json"))).toBe(true);
+    expect(pruneOldMemory(stateDir, now + day + 1)).toBe(true);
+    expect(fs.existsSync(path.join(stateDir, "old2.json"))).toBe(false);
+  });
+});
+
 const garbage = [
   "",
   "not json",
@@ -407,6 +522,20 @@ describe.skipIf(process.platform === "win32")("hook wrappers: exit 0 and never d
     expect(spoke, "the ranking and migration samples must produce a warning").toBeGreaterThanOrEqual(6);
   });
 
+  it("in a per-run `hook-` temp folder, keeps the ranking note, drops the area note and writes nothing", () => {
+    const sandbox = tempDir("hook-");
+    const result = runHook(EDIT_HOOK, editPayload(path.join(repoRoot, "src/lib/rag/sample.ts")), {
+      TMPDIR: sandbox,
+      TEMP: sandbox,
+      TMP: sandbox,
+    });
+    expect(result.status).toBe(0);
+    const context = contextOf(result.stdout);
+    expect(context).toContain("ranking-protected");
+    expect(context).not.toContain("First edit in");
+    expect(fs.readdirSync(sandbox)).toEqual([]);
+  });
+
   it("exits 0 with no output when node is missing", () => {
     const bash = spawnSync("bash", ["-c", "command -v bash"], { encoding: "utf8" }).stdout.trim();
     const emptyPath = tempDir("organisation-hooks-nopath-");
@@ -464,6 +593,15 @@ describe("session line", () => {
     expect(line).not.toContain("\n");
     const noFix = sessionHealthLine({ exitCode: 0, totals: { unplaced: 1 }, findings: [] });
     expect(noFix).toBe("[organisation] Map health: 1 unplaced file. `npm run check:organisation` lists them.");
+  });
+
+  it("stays silent when the only count is files not yet placed (a normal, recorded state)", () => {
+    expect(sessionHealthLine({ exitCode: 0, totals: { unplaced: 0, notYetPlaced: 40 }, findings: [] })).toBeNull();
+    const root = fixture({
+      ...fixtureFiles({ nyp: [{ path: "misc/pending.ts", reason: "waiting for a home" }] }),
+      "misc/pending.ts": "export {};\n",
+    });
+    expect(sessionHookOutput("{}", { root, stateDir: tempDir("organisation-hooks-state-") })).toBeNull();
   });
 
   it("prints nothing for a clean map and writes no report or lock", () => {

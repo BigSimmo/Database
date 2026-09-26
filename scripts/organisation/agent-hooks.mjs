@@ -8,19 +8,22 @@
 //            clinical-risk files (884 of them, so repeating it would be noise). On the first edit
 //            in each area of the organisation map it also names the area and its key docs.
 //   session  SessionStart. One line of map health when something needs attention (map problems,
-//            unplaced files, stale entries, rules matching nothing, files not yet placed); silent
-//            when all is clean.
+//            unplaced files, stale entries, rules matching nothing); silent when all is clean.
+//            Files not yet placed are a normal, recorded state, so they alone never trigger it.
 //
 // Contract (docs/agents/claude-hook-scripts.md): it warns and never blocks. It never emits
 // `permissionDecision` (an "allow" would skip the user's permission prompt), always exits 0, and
 // prints nothing at all on any error, so a failure leaves the tool call exactly as it was. It
-// writes no report and takes no lock; its only write is a small per-session memory file in the OS
-// temp folder, so that a once-per-session note is not repeated.
+// writes no report and takes no lock; its only write is a small per-session memory file in a
+// per-user folder in the OS temp folder, so that a once-per-session note is not repeated. That
+// folder is trusted only when it is a real directory owned by this user and not writable by
+// others; otherwise the hook runs without memory and simply repeats those notes.
 //
 // PreToolUse context travels in `hookSpecificOutput.additionalContext`. Claude Code accepts that
 // field with `permissionDecision` absent and then leaves the permission flow untouched (checked
 // against the CLI's own hook-output schema and handler, 2026-09-26).
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -35,6 +38,9 @@ const MAP_LISTS = ["shared.json", "not-yet-placed.json", "ignored.json", "kinds.
 const EDIT_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 const STATE_DIR_NAME = "psychsift-organisation-hooks";
 const STATE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const PRUNE_MARKER = ".last-prune";
+const SANDBOX_TMP_PREFIX = "hook-";
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const GIT_TIMEOUT_MS = 3000;
 const CHECKER_TIMEOUT_MS = 10_000;
@@ -66,8 +72,50 @@ function parsePayload(raw) {
   }
 }
 
-export function defaultStateDir() {
-  return path.join(os.tmpdir(), STATE_DIR_NAME);
+function userSuffix() {
+  let id = process.getuid?.();
+  if (id === undefined) {
+    try {
+      id = os.userInfo().username;
+    } catch {
+      id = "user";
+    }
+  }
+  return String(id).replace(/[^A-Za-z0-9_.-]/g, "_") || "user";
+}
+
+/**
+ * This user's memory folder in the OS temp folder, or null for "memory unavailable".
+ *
+ * A temp folder named `hook-…` is a per-run sandbox folder: it is new for every hook call, so memory
+ * written there can never reach the next edit. Rather than repeat the once-per-session notes
+ * (clinical-risk and area) on every edit, the edit hook then skips memory entirely and gives only
+ * the every-edit notes (ranking and migration).
+ */
+export function defaultStateDir(tmpDir = os.tmpdir()) {
+  if (path.basename(tmpDir).startsWith(SANDBOX_TMP_PREFIX)) return null;
+  return path.join(tmpDir, `${STATE_DIR_NAME}-${userSuffix()}`);
+}
+
+/**
+ * Whether a memory folder can be trusted. After creating it, it must be a real directory (not a
+ * link), owned by this user where the platform has user ids, and on POSIX not writable by group or
+ * others: in a shared temp folder anyone can create the name first. When it fails, the hook runs
+ * as if it had no memory, so the once-per-session notes are shown every time.
+ */
+export function usableStateDir(stateDir) {
+  if (typeof stateDir !== "string" || !stateDir) return false;
+  try {
+    fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    const stat = fs.lstatSync(stateDir);
+    if (!stat.isDirectory()) return false;
+    const uid = process.getuid?.();
+    if (uid !== undefined && stat.uid !== uid) return false;
+    if (process.platform !== "win32" && (stat.mode & 0o022) !== 0) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -89,7 +137,10 @@ function emptyMemory() {
 function loadMemory(stateDir, key) {
   if (!key) return emptyMemory();
   try {
-    const data = JSON.parse(fs.readFileSync(path.join(stateDir, `${key}.json`), "utf8"));
+    const file = path.join(stateDir, `${key}.json`);
+    // A link could point anywhere: only a plain file is read.
+    if (!fs.lstatSync(file).isFile()) return emptyMemory();
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
     return {
       clinical: data?.clinical === true,
       areas: Array.isArray(data?.areas) ? data.areas.filter((id) => typeof id === "string") : [],
@@ -99,30 +150,49 @@ function loadMemory(stateDir, key) {
   }
 }
 
-function saveMemory(stateDir, key, memory) {
+function saveMemory(stateDir, key, memory, now) {
   if (!key) return;
+  let temp = null;
   try {
-    fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+    pruneOldMemory(stateDir, now);
     const file = path.join(stateDir, `${key}.json`);
-    if (!fs.existsSync(file)) pruneOldMemory(stateDir);
-    // Write then rename, so a parallel edit never reads half a file.
-    const temp = `${file}.${process.pid}.tmp`;
-    fs.writeFileSync(temp, `${JSON.stringify({ version: 1, ...memory })}\n`);
+    // Write a new private file then rename, so a parallel edit never reads half a file, and
+    // `wx` with a random name never follows or reuses anything already there.
+    temp = `${file}.${randomUUID()}.tmp`;
+    fs.writeFileSync(temp, `${JSON.stringify({ version: 1, ...memory })}\n`, { flag: "wx", mode: 0o600 });
     fs.renameSync(temp, file);
+    temp = null;
   } catch {
     // Memory is a convenience; without it a note is simply shown again.
+  } finally {
+    if (temp) fs.rmSync(temp, { force: true });
   }
 }
 
-function pruneOldMemory(stateDir, now = Date.now()) {
+/**
+ * Removes memory files older than a week, at most once a day: a marker file's mtime records the
+ * last prune. Returns whether it pruned.
+ */
+export function pruneOldMemory(stateDir, now = Date.now()) {
+  const marker = path.join(stateDir, PRUNE_MARKER);
+  try {
+    if (now - fs.lstatSync(marker).mtimeMs < PRUNE_INTERVAL_MS) return false;
+  } catch {
+    // no marker yet: prune now
+  }
   try {
     for (const name of fs.readdirSync(stateDir)) {
+      if (name === PRUNE_MARKER) continue;
       const file = path.join(stateDir, name);
-      if (now - fs.statSync(file).mtimeMs > STATE_MAX_AGE_MS) fs.rmSync(file, { force: true });
+      if (now - fs.lstatSync(file).mtimeMs > STATE_MAX_AGE_MS) fs.rmSync(file, { force: true });
     }
+    fs.rmSync(marker, { force: true });
+    fs.writeFileSync(marker, "", { flag: "wx", mode: 0o600 });
+    fs.utimesSync(marker, now / 1000, now / 1000);
   } catch {
     // best effort
   }
+  return true;
 }
 
 // ---------- edit mode ----------
@@ -165,8 +235,19 @@ export function repoRelativePath(filePath, cwd = process.cwd()) {
     const topRaw = gitTopLevel(realDir);
     if (!topRaw) return null;
     const top = fs.realpathSync.native(topRaw);
+    const inside = (rel) => Boolean(rel) && rel !== ".." && !rel.startsWith("../") && !path.isAbsolute(rel);
     const rel = path.relative(top, path.join(realDir, ...missing)).replaceAll("\\", "/");
-    if (!rel || rel === ".." || rel.startsWith("../") || path.isAbsolute(rel)) return null;
+    if (!inside(rel)) return null;
+    // A link to a protected file is judged as that file, so the note is not lost by linking. A link
+    // leading out of this checkout (or a broken one) is judged by its own path, as before.
+    if (missing.length === 1 && fs.lstatSync(target, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      try {
+        const resolved = path.relative(top, fs.realpathSync.native(target)).replaceAll("\\", "/");
+        if (inside(resolved)) return { top, rel: resolved };
+      } catch {
+        // broken link: keep the link's own path
+      }
+    }
     return { top, rel };
   } catch {
     return null;
@@ -222,8 +303,9 @@ export function areasFor(mapRoot, rel) {
 /**
  * The notes for one edit, and the session memory after it. Pure: `classes` are the safety lists
  * covering the file, `areas` its map areas, `memory` what this session has already been told.
+ * `onceNotes: false` leaves out the once-per-session notes (clinical-risk and area) altogether.
  */
-export function editNotes({ rel, classes, areas, memory }) {
+export function editNotes({ rel, classes, areas, memory, onceNotes = true }) {
   const lines = [];
   const next = { clinical: memory?.clinical === true, areas: new Set(memory?.areas ?? []) };
   if (classes.includes("ragRanking")) {
@@ -236,6 +318,7 @@ export function editNotes({ rel, classes, areas, memory }) {
       `[organisation] ${rel} is a database migration: merging it applies it to the live clinical database within seconds, so never edit one already on main and merge only inside an approved window.`,
     );
   }
+  if (!onceNotes) return { lines, memory: { clinical: next.clinical, areas: [...next.areas].sort() } };
   if (classes.includes("clinicalRisk") && !next.clinical) {
     lines.push(
       `[organisation] ${rel} is on the clinical-risk list, so the PR will need a complete \`## Clinical Governance Preflight\` section (said once per session).`,
@@ -254,7 +337,7 @@ export function editNotes({ rel, classes, areas, memory }) {
 }
 
 /** The PreToolUse hook's stdout for one payload, or null when there is nothing to say. */
-export function editHookOutput(raw, { stateDir = defaultStateDir(), ownRoot = OWN_ROOT } = {}) {
+export function editHookOutput(raw, { stateDir = defaultStateDir(), ownRoot = OWN_ROOT, now = Date.now() } = {}) {
   const payload = parsePayload(raw);
   if (!payload) return null;
   if (payload.tool_name !== undefined && !EDIT_TOOLS.has(payload.tool_name)) return null;
@@ -274,11 +357,14 @@ export function editHookOutput(raw, { stateDir = defaultStateDir(), ownRoot = OW
   } catch {
     areas = [];
   }
-  const key = stateKey(payload);
+  // stateDir null: a per-run sandbox temp folder (see defaultStateDir), so no memory and no
+  // once-per-session notes. An untrusted folder: no memory, so those notes are shown every time.
+  const onceNotes = stateDir !== null;
+  const key = onceNotes && stateKey(payload) && usableStateDir(stateDir) ? stateKey(payload) : null;
   const memory = loadMemory(stateDir, key);
-  const { lines, memory: next } = editNotes({ rel: located.rel, classes, areas, memory });
+  const { lines, memory: next } = editNotes({ rel: located.rel, classes, areas, memory, onceNotes });
   if (JSON.stringify(next) !== JSON.stringify({ clinical: memory.clinical, areas: [...memory.areas].sort() })) {
-    saveMemory(stateDir, key, next);
+    saveMemory(stateDir, key, next, now);
   }
   if (lines.length === 0) return null;
   return `${JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: lines.join("\n") } })}\n`;
@@ -291,8 +377,9 @@ function count(value) {
 }
 
 /**
- * One line of map health from a checker report (`--no-report --json`), or null when every count
- * is zero or the checker could not run (exit 2): an advisory line must not add noise.
+ * One line of map health from a checker report (`--no-report --json`), or null when nothing needs
+ * attention (no map problems, unplaced files, stale entries or rules matching nothing) or the
+ * checker could not run (exit 2): an advisory line must not add noise.
  */
 export function sessionHealthLine(report) {
   if (!report || typeof report !== "object" || ![0, 1].includes(report.exitCode)) return null;
@@ -303,23 +390,25 @@ export function sessionHealthLine(report) {
     findings.filter((f) => f?.level === "warning" && typeof f.key === "string" && kinds.has(f.key.split(":")[0]))
       .length;
   const stale = warningsOf(STALE_KINDS);
-  const parts = [
+  const needsAttention = [
     [problems, "map problem", "map problems"],
     [count(totals.unplaced), "unplaced file", "unplaced files"],
     [stale, "stale entry", "stale entries"],
     [warningsOf(EMPTY_KINDS), "rule matching nothing", "rules matching nothing"],
-    [count(totals.notYetPlaced), "file not yet placed", "files not yet placed"],
-  ]
+  ];
+  // Files not yet placed are a normal, recorded state: counted when the line prints, never a
+  // reason to print it.
+  if (!needsAttention.some(([n]) => n > 0)) return null;
+  const parts = [...needsAttention, [count(totals.notYetPlaced), "file not yet placed", "files not yet placed"]]
     .filter(([n]) => n > 0)
     .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
-  if (parts.length === 0) return null;
   const fix = stale > 0 ? ", and `npm run check:organisation -- --fix` tidies the stale entries" : "";
   return `[organisation] Map health: ${parts.join(", ")}. \`npm run check:organisation\` lists them${fix}.`;
 }
 
 function forgetSession(payload, stateDir) {
   const key = stateKey({ session_id: payload?.session_id });
-  if (!key) return;
+  if (!key || typeof stateDir !== "string") return;
   try {
     fs.rmSync(path.join(stateDir, `${key}.json`), { force: true });
   } catch {

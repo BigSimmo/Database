@@ -13,7 +13,7 @@
 # would skip the user's permission prompt), never exits non-zero, and makes no
 # decision, so a missing node, a malformed payload or a crash leaves the tool
 # call exactly as it was. It writes no report and takes no lock; its only write
-# is a small per-session memory file in the OS temp folder.
+# is a small per-session memory file in a per-user folder in the OS temp folder.
 set -uo pipefail
 
 root="${CLAUDE_PROJECT_DIR:-}"
@@ -24,8 +24,9 @@ fi
 script="$root/scripts/organisation/agent-hooks.mjs"
 
 if [ -z "$root" ] || [ ! -f "$script" ] || ! command -v node >/dev/null 2>&1; then
-  # Drain stdin with a builtin so the caller never blocks on an unread pipe.
-  IFS= read -r -d '' drained || true
+  # Drain stdin so the caller never blocks on an unread pipe. `cat` rather than a
+  # `read` loop: `read` stops at a NUL byte and can leave the rest of the pipe unread.
+  cat >/dev/null 2>&1 || true
   exit 0
 fi
 
