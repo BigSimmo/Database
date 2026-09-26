@@ -53,8 +53,8 @@ export const cmeMissedSessionCreateSchema = z
   .strict();
 
 export type CmeMissedSessionCreateInput = z.infer<typeof cmeMissedSessionCreateSchema>;
-export const cmeMissedSessionUpdateSchema = cmeMissedSessionCreateSchema;
-export type CmeMissedSessionUpdateInput = z.infer<typeof cmeMissedSessionUpdateSchema>;
+/** An edit is a full replace, so it takes the same body as a create. */
+export type CmeMissedSessionUpdateInput = CmeMissedSessionCreateInput;
 
 /** `replacementEntryId: null` unlinks; a uuid links (or re-links) a replacement. */
 export const cmeMissedSessionReplacementSchema = z

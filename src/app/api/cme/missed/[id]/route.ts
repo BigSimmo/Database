@@ -8,7 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
-import { cmeMissedSessionReplacementSchema, cmeMissedSessionUpdateSchema } from "@/lib/cme/missed-sessions";
+import { cmeMissedSessionCreateSchema, cmeMissedSessionReplacementSchema } from "@/lib/cme/missed-sessions";
 import {
   deleteOwnerCmeMissedSession,
   setOwnerCmeMissedSessionReplacement,
@@ -75,7 +75,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ missedSession });
     }
 
-    const parsed = cmeMissedSessionUpdateSchema.safeParse(rawBody);
+    // An edit is a full replace, so it takes the same body as a create.
+    const parsed = cmeMissedSessionCreateSchema.safeParse(rawBody);
     if (!parsed.success) return publicErrorResponse("Invalid missed session.", 400);
     const missedSession = await updateOwnerCmeMissedSession(supabase, user.id, id, parsed.data);
     return NextResponse.json({ missedSession });
