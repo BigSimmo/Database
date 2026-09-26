@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "18ef9b8d-0bc2-40bf-852d-7f7ce1392f8d",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#F9HZEG",
+    "detail": "UPDATE 2026-09-26 (offline read of main c417e7b1c): PARTLY DONE, not yet run. PR #3021 added scripts/lib/cross-tenant-records-probe.ts, called from scripts/test-cross-tenant-staging.ts after the document checks, with fake-server tests in tests/cross-tenant-records-probe.test.ts. It is deliberately read-only and uses records user A already owns: user B's CME list must not contain A's entries, B must not read evidence on A's CME entries, and B must get 403/404 on A-only On Call services. When A owns nothing to probe it reports the gap in the evidence file's notExercised list instead of passing silently. Route code already scopes CME and On Call entry PATCH/DELETE by owner_id and returns 404 for another owner's row (src/app/api/cme/entries/[id]/route.ts, src/app/api/on-call/entries/[id]/route.ts). STILL NOT COVERED at the endpoint level: cross-owner writes (PATCH/DELETE), On Call entry lists (which are deliberately shared within a service), invitations, join, membership revocation, verification, CME export and evidence signed URLs, and concurrency races. Those need disposable fixtures the harness creates itself, which is a larger change. The staging run itself is still the owner-approved step (provider-backed). PRIOR DETAIL: Verified offline: scripts/test-cross-tenant-staging.ts exercises /api/answer, /api/documents, /api/health, /api/search and /api/search/universal and has zero CME or On Call references. Unit-level root-bundle isolation tests exist (cme-root-bundle-isolation, on-call-root-bundle-isolation) but are not endpoint attacks. Next action: extend the existing two-user harness to CME records/evidence/storage signed URLs and On Call services/invitations/membership/reports/orientation, including revocation and concurrency races. Staging execution is provider-backed and needs explicit approval. Related: #057 (runs the existing harness; does not widen it).",
+    "baseRowFingerprint": "0af0ed06141fcbf13ab568b4e5f9456d16c58ac329fda0da01ac0c1696926445"
+  }
+}
