@@ -274,7 +274,7 @@ export function OnCallCallPage() {
               autoComplete="off"
             />
           </div>
-          <p role="status" aria-live="polite" className={cn(onCallSecondaryText, "px-3", searching ? "" : "sr-only")}>
+          <p role="status" aria-live="polite" className="sr-only">
             {searching ? `${resultCount} ${resultCount === 1 ? "result" : "results"}` : ""}
           </p>
           {!searching && groups.length > 1 ? (

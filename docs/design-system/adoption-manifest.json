@@ -1812,12 +1812,14 @@
       "directImportFiles": [
         "src/components/cme/cme-log-page.tsx",
         "src/components/on-call/call/call-page.tsx",
+        "src/components/on-call/find/find-page.tsx",
         "src/components/on-call/on-call-call-now-page.tsx",
         "src/components/on-call/on-call-search-box.tsx"
       ],
       "productImportFiles": [
         "src/components/cme/cme-log-page.tsx",
         "src/components/on-call/call/call-page.tsx",
+        "src/components/on-call/find/find-page.tsx",
         "src/components/on-call/on-call-call-now-page.tsx",
         "src/components/on-call/on-call-search-box.tsx"
       ],
@@ -1994,6 +1996,7 @@
         "src/components/mode-kit/dial-sheet.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
+        "src/components/on-call/find/handbook-item-row.tsx",
         "src/components/on-call/kit/dial-sheet.tsx",
         "src/components/on-call/kit/hospital-line.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
@@ -2035,6 +2038,7 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
+        "src/components/on-call/find/handbook-item-row.tsx",
         "src/components/on-call/kit/dial-sheet.tsx",
         "src/components/on-call/kit/hospital-line.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
