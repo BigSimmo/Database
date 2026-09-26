@@ -226,6 +226,7 @@
     "check:migration-role": "node scripts/check-hosted-migration-role.mjs",
     "migrations:seal": "node scripts/check-migration-immutability.mjs --write",
     "check:function-grants": "node scripts/check-function-grants.mjs",
+    "check:organisation": "node scripts/check-organisation.mjs",
     "check:owner-scope": "node scripts/check-owner-scope-api.mjs",
     "check:locality-metadata": "node scripts/run-tsx.mjs scripts/verify-locality-metadata.ts",
     "recover:ingestion": "node scripts/run-tsx.mjs scripts/recover-ingestion-queue.ts",

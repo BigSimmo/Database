@@ -248,6 +248,28 @@ async function waitForProject(port) {
   return false;
 }
 
+// Advisory organisation-map check (docs/organisation/README.md). Runs only when a new server
+// starts, alongside its boot, prints to stderr, writes no report, and never changes this
+// script's exit code. Skipped under --print-url, whose stdout Playwright parses as a bare URL.
+function startOrganisationCheck() {
+  if (printUrlOnly || process.env.ENSURE_SKIP_ORGANISATION_CHECK === "1") return;
+  try {
+    const child = spawn(
+      process.execPath,
+      [path.join(projectRoot, "scripts", "check-organisation.mjs"), "--no-report", "--quiet"],
+      {
+        cwd: projectRoot,
+        stdio: ["ignore", 2, 2],
+        timeout: 20_000,
+        env: { ...process.env, ORGANISATION_CHECK_MODE: "" },
+      },
+    );
+    child.on("error", () => {});
+  } catch {
+    // advisory only
+  }
+}
+
 async function main() {
   const stablePort = stableProjectPort(projectRoot);
   debug(`stable port ${stablePort}`);
@@ -291,6 +313,7 @@ async function main() {
     }
 
     startDevServer(target.port);
+    startOrganisationCheck();
 
     if (await waitForProject(target.port)) {
       console.log(printUrlOnly ? localUrl(target.port) : `PsychSift is running at ${localUrl(target.port)}`);

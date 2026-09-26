@@ -100,6 +100,10 @@ this navigator does not make every linked procedure a mandatory startup step.
   its gates remain product design authority. Cursor Cloud does not inherit Desktop
   OAuth. Use Chrome DevTools for relevant performance/debugging work without
   leaving redundant browser MCP servers active.
+- [The organisation map](organisation/README.md) records which area owns every
+  file and each area's canonical docs; `npm run check:organisation -- --files <path>`
+  answers "where does this belong and what do I read first". Placing a file never
+  grants clinical, ranking, privacy or database approval.
 - [The documentation index](README.md) distinguishes maintained instructions,
   generated views and historical evidence. Correct the maintained source and its
   necessary references; do not rewrite historical reports to make old results look

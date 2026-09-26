@@ -489,6 +489,17 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run typecheck
 
+      # Organisation map (docs/organisation/README.md). Deliberately unconditional and last:
+      # a map-only PR is docs-light and a workflow-only PR sets no scope predicate, yet either
+      # can break the map. It blocks only map breakage this change introduced (never inherited
+      # findings, never a date); files not yet placed are warnings in the job summary.
+      - name: Organisation map
+        env:
+          ORGANISATION_CHECK_MODE: ci
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: npm run check:organisation
+
   safety:
     name: Safety and config checks
     needs: changes
