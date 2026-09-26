@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "460ada28-7c3f-4bdc-8303-fe6e45ede1d0",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#C2D9JF",
+    "pri": "P3",
+    "detail": "OWNER DECISION 2026-09-26 (Josh, decision card 'Keep as is'): keep current behaviour; the pinned divergence stays by design. Reason, found offline 2026-09-26: this case runs through the extractiveNeedsReviewFallback branch in src/lib/rag/rag.ts, the same branch that produces the deliberate source-backed review stub (#J8SJQ9). In the adversarial harness 14 of 24 cases share the identical shape (grounded false, confidence unsupported, one review_only citation), and the pipeline cannot tell an irrelevant pointer from a relevant-but-ungenerated one, so stripping citations on unsupported abstentions would also strip the useful pointer from real stubs such as antipsychotic metabolic monitoring. The citation is already labelled review_only, and owner scope is enforced at retrieval, so other-owner content is never read. Only revisit with a relevance test at the fallback (new heuristic on a protected surface; needs a canary pair once the canary is green again). Do not delete the harness pin.",
+    "baseRowFingerprint": "5d0be3138f8450300d7ee91bb8b3f854f4800841cc159007368b25d92f7be7dc"
+  }
+}
