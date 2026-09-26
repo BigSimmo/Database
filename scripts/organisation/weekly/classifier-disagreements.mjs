@@ -36,7 +36,7 @@ const LIST_CAP = 30;
 const CHUNK = 400;
 
 /**
- * @typedef {{ cls: string, flag: string, expect: string[] }} Pairing
+ * @typedef {{ cls: string, flag: string, expect: string[], only?: RegExp }} Pairing
  * @typedef {{ id: string, name: string, pairings: Pairing[], notCompared: string,
  *   classify?: (root: string, candidates: Map<string, string[]>) => Promise<Map<string, string[]>> }} Classifier
  * @typedef {{ classifier: string, file: string, area: string }} BaselineEntry
@@ -124,8 +124,18 @@ export const CLASSIFIERS = [
       { cls: "ranking-protected", flag: "ragRanking", expect: ["answer-engine", "source-intake"] },
       { cls: "migration", flag: "migration", expect: ["data-platform"] },
       { cls: "operational-risk", flag: "operationalRisk", expect: ["delivery"] },
+      // Every page sits in App experience whatever mode it serves (owner decision, 2026-09-26), so
+      // a page filed in any other area is misplaced. Only pages: route handlers (`route.ts`) are server
+      // code, and the UI class also covers components and assets that an area's tools may keep.
+      {
+        cls: "UI pages",
+        flag: "ui",
+        only: /^src\/app\/(?!api\/)(?!.*\/route\.[cm]?[jt]sx?$)/,
+        expect: ["app-experience", "design-system", "prototypes"],
+      },
     ],
-    notCompared: "its clinical-risk and UI classes sort by risk, which spans areas by design",
+    notCompared:
+      "its clinical-risk class sorts by risk, which spans areas by design, and its UI class is compared for pages only",
     async classify(root, candidates) {
       const { classifyPullRequestFiles } = await importFromRoot(root, "scripts/pr-policy.mjs");
       const flags = new Map(this.pairings.map((p) => [p.cls, p.flag]));
@@ -229,7 +239,9 @@ export async function findDisagreements({ root, classifiers = CLASSIFIERS } = {}
     const candidates = new Map(
       classifier.pairings.map((p) => [
         p.cls,
-        placed.filter((f) => !f.areas.some((a) => p.expect.includes(a))).map((f) => f.file),
+        placed
+          .filter((f) => (!p.only || p.only.test(f.file)) && !f.areas.some((a) => p.expect.includes(a)))
+          .map((f) => f.file),
       ]),
     );
     let found;

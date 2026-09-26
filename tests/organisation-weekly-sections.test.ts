@@ -315,7 +315,7 @@ describe("classifier disagreements", () => {
   type Classifier = {
     id: string;
     name: string;
-    pairings: Array<{ cls: string; flag: string; expect: string[] }>;
+    pairings: Array<{ cls: string; flag: string; expect: string[]; only?: RegExp }>;
     notCompared: string;
     classify?: (root: string, candidates: Map<string, string[]>) => Promise<Map<string, string[]>>;
   };
@@ -351,6 +351,15 @@ describe("classifier disagreements", () => {
     expect(disagreements).toEqual([
       { classifier: "Fake: database", file: "src/feature/db-client.ts", area: "eng", expected: ["data"] },
     ]);
+  });
+
+  it("compares a pairing with `only` for the matching files alone", async () => {
+    const root = mapRepo();
+    const classifier = fakeClassifier({
+      pairings: [{ cls: "database", flag: "db", expect: ["data"], only: /\.sql$/ }],
+    });
+    const { disagreements } = await findDisagreements({ root, classifiers: [classifier] });
+    expect(disagreements).toEqual([]);
   });
 
   it("reports only disagreements missing from the baseline, and counts resolved ones", async () => {
@@ -411,6 +420,17 @@ describe("classifier disagreements", () => {
       ]),
     );
     for (const c of CLASSIFIERS) expect(c.notCompared.length).toBeGreaterThan(10);
+  });
+
+  it("compares pr-policy's UI class for pages only, never route handlers or components", () => {
+    const pages = CLASSIFIERS.find((c) => c.id === "pr-policy")!.pairings.find((p) => p.cls === "UI pages")!;
+    expect(pages.expect).toContain("app-experience");
+    const only = pages.only!;
+    expect(only.test("src/app/(search-app)/my-work/page.tsx")).toBe(true);
+    expect(only.test("src/app/layout.tsx")).toBe(true);
+    expect(only.test("src/app/auth/callback/route.ts")).toBe(false);
+    expect(only.test("src/app/api/cme/route.ts")).toBe(false);
+    expect(only.test("src/components/on-call/board.tsx")).toBe(false);
   });
 
   it("calls the real classifiers without side effects", async () => {
