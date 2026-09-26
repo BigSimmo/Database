@@ -1,5 +1,5 @@
 [functions.indexing-v3-agent]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingestion-worker]
 verify_jwt = true
