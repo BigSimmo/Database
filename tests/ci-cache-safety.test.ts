@@ -118,7 +118,9 @@ describe("CI cache safety", () => {
     for (const input of ["eslint.config.mjs", "eslint-rules/**", "package-lock.json", "tsconfig.typecheck.json"]) {
       expect(restore).toContain(`'${input}'`);
     }
-    expect(staticJob).toContain("run: npm run lint -- --cache-strategy content");
+    expect(staticJob).toMatch(/\n\s+run: npm run lint\n/);
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect(packageJson.scripts["lint:internal"]).toContain("--cache-strategy content");
   });
 
   it("uses npm's download cache but recreates node_modules on every job", () => {

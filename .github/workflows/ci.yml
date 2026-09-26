@@ -229,7 +229,7 @@ jobs:
       # every run because both caches live in places a fresh runner never has. Both tools already
       # run incrementally locally; this carries their caches between runs. Neither can skip a
       # changed file: ESLint re-lints any file whose content hash changed (`--cache-strategy
-      # content` on the Lint step; the default mtime strategy misses on every fresh checkout),
+      # content` in lint:internal; the default mtime strategy misses on every fresh checkout),
       # and tsc re-checks everything a changed file can affect. Custom rules, config, Node and
       # dependency versions are in the key with no fallback across them, because ESLint's own
       # cache key does not see rule code. The gate-receipt store in node_modules/.cache is NOT
@@ -511,7 +511,7 @@ jobs:
 
       - name: Lint
         if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run lint -- --cache-strategy content
+        run: npm run lint
 
       - name: Typecheck
         if: needs.changes.outputs.static_heavy_changed == 'true'
