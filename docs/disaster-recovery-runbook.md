@@ -119,8 +119,8 @@ it before you need it:
   as its login token).
 - **Custom GUCs** — `20260702160000` reads the agent URL from a database GUC;
   re-set it (`alter database ... set ...`) on the restored project.
-- **Edge functions** — deploy `indexing-v3-agent` (and the ingestion worker
-  function) separately via the CLI.
+- **Edge functions** — deploy `indexing-v3-agent` and `site-content-sync`
+  separately via the CLI.
 - **Dashboard config** — auth providers (magic link, Apple/Google/Microsoft SSO
   redirect URLs and the rotating Apple web OAuth secret), connection-pool caps (the documented 10-connection auth cap
   is dashboard-only), API keys (publishable + service role are per-project;
@@ -149,7 +149,7 @@ A schema restore is not operationally complete until all five environment-owned 
    - Re-set custom parameters (e.g. `app.indexing_agent_url`) via `ALTER DATABASE postgres SET ...`.
    - Sanity check: Run `SELECT name, setting, source FROM pg_settings WHERE name LIKE 'app.%';`.
 4. **Supabase Edge Functions:**
-   - Redeploy required functions (`indexing-v3-agent`, ingestion worker) with the Deno v2.x toolchain in an approved change window:
+   - Redeploy required functions (`indexing-v3-agent`, `site-content-sync`) with the Deno v2.x toolchain in an approved change window:
      ```bash
      supabase functions deploy indexing-v3-agent --project-ref <PROJECT_REF>
      ```
