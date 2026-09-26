@@ -10,6 +10,8 @@ import {
   keywordQueryFromNaturalLanguage,
   makeSearchError,
   progressForRetry,
+  searchRetrySlowFailureMs,
+  shouldRetryFailedAttempt,
 } from "@/components/clinical-dashboard/search-utils";
 import type { RagAnswer } from "@/lib/types";
 
@@ -67,6 +69,14 @@ describe("clinical dashboard search utilities", () => {
   it("classifies retryable search errors", () => {
     expect(isRetryableError(makeSearchError("Service is currently unavailable.", 503, true))).toBe(true);
     expect(isRetryableError(makeSearchError("Search request was not authorized by the server.", 401))).toBe(false);
+  });
+
+  it("retries a quick retryable failure but not one that already took a long time", () => {
+    const blip = makeSearchError("Service is currently unavailable.", 503, true);
+    expect(shouldRetryFailedAttempt(blip, 1_200)).toBe(true);
+    expect(shouldRetryFailedAttempt(blip, searchRetrySlowFailureMs)).toBe(false);
+    expect(shouldRetryFailedAttempt(blip, 15_000)).toBe(false);
+    expect(shouldRetryFailedAttempt(makeSearchError("Not authorized.", 401), 100)).toBe(false);
   });
 
   it("formats retry progress without exposing impossible counts", () => {

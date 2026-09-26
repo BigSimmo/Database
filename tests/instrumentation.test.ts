@@ -58,6 +58,12 @@ const FULLY_CONFIGURED = {
   RAG_QUERY_HASH_SECRET: "test-secret-at-least-16-chars",
 } as const;
 
+// The boot warm of /api/setup-status would otherwise make real Supabase calls from every case.
+const warmSetupStatus = vi.hoisted(() =>
+  vi.fn<(request: Request) => Promise<Response>>(async () => new Response(null)),
+);
+vi.mock("@/app/api/setup-status/route", () => ({ GET: warmSetupStatus }));
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.resetModules();
@@ -139,6 +145,15 @@ describe("instrumentation boot guard", () => {
   it("starts a fully configured production server", async () => {
     const register = await loadRegister(FULLY_CONFIGURED);
     await expect(register()).resolves.toBeUndefined();
+  });
+
+  it("warms the setup status once at boot through a non-loopback request", async () => {
+    const register = await loadRegister(FULLY_CONFIGURED);
+    await register();
+    expect(warmSetupStatus).toHaveBeenCalledTimes(1);
+    const [request] = warmSetupStatus.mock.calls[0]!;
+    // A loopback host on an unmanaged port would be refused by the local-origin guard.
+    expect(new URL(request.url).hostname).toBe("startup-warm.invalid");
   });
 
   it("is a no-op outside production, apart from the answer-feedback warning", async () => {
