@@ -3023,7 +3023,9 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       message: "phone compare queue owner",
       timeout: 30_000,
     });
-    const mobileOpen = page.getByTestId("differential-compare-open");
+    // Scope to the visible owner: the hidden streaming copy of the page (#093)
+    // can still be in the tree after the navigation above.
+    const mobileOpen = visibleByTestId(page, "differential-compare-open");
     await expect(mobileOpen).toHaveAttribute("href", /\/differentials\/presentations\/acute-confusion-encephalopathy/);
     await mobileOpen.scrollIntoViewIfNeeded();
     await Promise.all([
