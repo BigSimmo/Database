@@ -241,8 +241,8 @@ describe("source dispositions", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
-    expect(admitted).toHaveLength(18);
-    expect(heldDictionarySources()).toHaveLength(40);
+    expect(admitted).toHaveLength(26);
+    expect(heldDictionarySources()).toHaveLength(32);
   });
 
   it("names a blocker and a next action for every held source", () => {
@@ -413,7 +413,7 @@ describe("publisher re-reads", () => {
   it("still refuses a published record with no publication date", () => {
     // The old rule is intact for everything that is genuinely published. The new
     // date model is an added state, not a relaxation.
-    const published = sourceAcquisitionRecords.find((record) => record.dateModel !== "continuously_updated");
+    const published = sourceAcquisitionRecords.find((record) => (record.dateModel ?? "published") === "published");
     expect(published).toBeDefined();
     const undated = { ...published!, publicationDate: null };
     expect(acquisitionLedgerIssues([undated]).join(" ")).toMatch(/publicationDate is required/);
@@ -471,13 +471,39 @@ describe("publisher re-reads", () => {
 
   it("does not register a publisher field that is a description rather than an agency", () => {
     // "Government of Western Australia" would resolve every WA government document
-    // to one authority. Four records stay held rather than buy admission with a
-    // catch-all.
+    // to one authority. Four records stayed held rather than buy admission with a
+    // catch-all. On 2026-09-26 their pages were read (#JHT39N): three named a real
+    // agency and were corrected, and 4AT still names none. A record whose publisher
+    // is still a description stays held. The corrected ones may be admitted only
+    // under the agency their page names — after the 2026-09-26 owner decision on
+    // update stamps, WA-MHAS and WA-MHERL were — and never under the description.
     const vague = dictionarySourceDispositions.filter((disposition) =>
       disposition.blockers.some((blocker) => blocker.code === "publisher_field_is_a_description_not_an_agency"),
     );
-    expect(vague.length).toBeGreaterThanOrEqual(3);
+    expect(vague.length).toBeGreaterThanOrEqual(1);
     for (const disposition of vague) expect(disposition.ledgerOutcome).toBe("held");
+    const descriptions = new Set([
+      "Government of Western Australia",
+      "WA Health service providers",
+      "Mental Health Commission / WA Health",
+      "4AT developers",
+    ]);
+    for (const id of ["WA-MHAS", "WA-AHLO", "WA-MHERL", "4AT-OFFICIAL"]) {
+      const disposition = dictionarySourceDispositions.find((candidate) => candidate.handoverSourceId === id);
+      expect(disposition?.publisherCheck?.checkedOn, id).toBe("2026-09-26");
+      if (disposition?.ledgerOutcome !== "admitted_as_candidate") {
+        expect(disposition?.ledgerOutcome, id).toBe("held");
+        continue;
+      }
+      const record = sourceAcquisitionRecords.find((row) => row.id === disposition.ledgerRecordId);
+      expect(record, id).toBeDefined();
+      expect(descriptions.has(record!.publisher), `${id} admitted under a description`).toBe(false);
+      expect(acquisitionRecordGeography(record!), `${id} publisher is not a registered agency`).not.toBe("unknown");
+    }
+    for (const id of ["WA-AHLO", "4AT-OFFICIAL"]) {
+      const disposition = dictionarySourceDispositions.find((candidate) => candidate.handoverSourceId === id);
+      expect(disposition?.ledgerOutcome, id).toBe("held");
+    }
   });
 });
 
@@ -629,9 +655,17 @@ describe("a blocker list is a complete remediation path", () => {
       .filter((issue) => !(rungIsDownstream && /rung/i.test(issue)));
   }
 
-  // The three sources whose publisher page could not be read: the date is known to be
-  // missing, so whatever else the gate reports is what the blocker list must already name.
+  // The three sources whose publisher page could not be read on 2026-09-16: the date is known
+  // to be missing, so whatever else the gate reports is what the blocker list must already
+  // name. All three were read on 2026-09-26: the two NSW ACI pages stated a date and were
+  // admitted, and COPE's page states none.
   const UNREADABLE = ["COPE-EPDS-2026", "NSW-ACI-SCI", "nsw-mental-assessment"];
+  /** Blockers that stand for the missing date itself, or for sign-off once admitted. */
+  const DATE_BLOCKERS = new Set([
+    "publisher_page_unreadable_from_this_session",
+    "publication_event_not_stated_by_the_publisher",
+    "proposed_candidate_only_native_gate_and_authorisation_required",
+  ]);
 
   for (const handoverSourceId of UNREADABLE) {
     const disposition = () => {
@@ -656,7 +690,7 @@ describe("a blocker list is a complete remediation path", () => {
       const surviving = simulate(handoverSourceId);
       for (const blocker of disposition().blockers) {
         // The date itself, which the simulation supplies.
-        if (blocker.code === "publisher_page_unreadable_from_this_session") continue;
+        if (DATE_BLOCKERS.has(blocker.code)) continue;
         if (GOVERNANCE_ONLY.has(blocker.code)) continue;
         const pattern = GATE_ENFORCED.find(([, code]) => code === blocker.code)?.[0];
         expect(pattern, `${handoverSourceId}: blocker ${blocker.code} is mapped to no gate issue`).toBeDefined();
@@ -671,6 +705,14 @@ describe("a blocker list is a complete remediation path", () => {
       // Clearing every gate-enforced blocker must NOT be enough to admit the source, or the
       // remediation path ends with "Not established" published as this source's version.
       const entry = disposition();
+      if (entry.ledgerOutcome === "admitted_as_candidate") {
+        // Admitted only once the publisher's own version or date statement replaced the placeholder.
+        const record = sourceAcquisitionRecords.find((row) => row.id === entry.ledgerRecordId);
+        expect(record?.version, `${handoverSourceId} admitted with a placeholder version`).not.toMatch(
+          /not established|live official reference/i,
+        );
+        return;
+      }
       expect(
         entry.blockers.map((blocker) => blocker.code),
         `${handoverSourceId} drops the governance blocker the gate cannot catch`,
@@ -714,21 +756,16 @@ describe("a blocker list is a complete remediation path", () => {
   });
 });
 
-describe("an update stamp is not a review and not a publication", () => {
-  it("banks update statements without admitting them", () => {
-    // WA's Chief Psychiatrist, RCH and AIHW's monitoring hubs all stamp a
-    // last-updated date and nothing else. The reading is recorded so it is not
-    // repeated, and the record stays held: the register has no update event, and
-    // filing one under reviewDate would claim a review nobody did.
-    const updated = dictionarySourceDispositions.filter((disposition) => disposition.establishedUpdateStatement);
-    expect(updated.length).toBeGreaterThanOrEqual(4);
-    for (const disposition of updated) {
-      expect(disposition.ledgerOutcome, disposition.handoverSourceId).toBe("held");
-      expect(disposition.ledgerRecordId).toBeNull();
-      expect(disposition.blockers[0]?.code).toBe("publisher_states_an_update_stamp_not_a_publication_or_review_date");
-      expect(disposition.establishedReviewDate).toBeUndefined();
-    }
-  });
+// Owner decision, 2026-09-26: the register may carry a publisher's "last updated"
+// stamp for a continuously maintained page, but only ever as "last updated". An
+// update is still a third event — a page can be updated for a data refresh, a broken
+// link or a typo without anyone reviewing it — so the stamp lives in its own field,
+// `lastUpdatedDate`, under its own date model, and never in publicationDate or
+// reviewDate.
+describe("an update stamp is recorded only as last updated", () => {
+  const STAMP_BLOCKER = "publisher_states_an_update_stamp_not_a_publication_or_review_date";
+  const byId = new Map(sourceAcquisitionRecords.map((record) => [record.id, record]));
+  const stamped = () => dictionarySourceDispositions.filter((disposition) => disposition.establishedUpdateStatement);
 
   // The stamps are prose ("Updated 14 Aug 2026") and the ledger's date fields are
   // ISO strings, so comparing the two raw would pass however badly the invariant
@@ -739,6 +776,12 @@ describe("an update stamp is not a review and not a publication", () => {
 
   /** Every ISO date a stamp could plausibly have been filed as, day and month precision alike. */
   function datesAStampCouldBecome(statement: string): string[] {
+    // WA Health pages write the stamp numerically, day first ("20/02/2026").
+    const numeric = statement.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+    if (numeric) {
+      const mm = numeric[2].padStart(2, "0");
+      return [`${numeric[3]}-${mm}`, `${numeric[3]}-${mm}-${numeric[1].padStart(2, "0")}`];
+    }
     const month = MONTHS.findIndex((m) => new RegExp(`\\b${m}`, "i").test(statement));
     const year = statement.match(/\b(\d{4})\b/);
     if (month < 0 || !year) return [];
@@ -749,10 +792,52 @@ describe("an update stamp is not a review and not a publication", () => {
     return dates;
   }
 
-  it("normalises each banked update stamp to a date, and finds it in no ledger date field", () => {
-    const stamps = dictionarySourceDispositions
-      .map((disposition) => disposition.establishedUpdateStatement)
-      .filter((statement): statement is string => Boolean(statement));
+  it("admits a banked stamp only as lastUpdatedDate under the last_updated date model", () => {
+    const admitted = stamped().filter((disposition) => disposition.ledgerOutcome === "admitted_as_candidate");
+    expect(admitted.length).toBeGreaterThanOrEqual(5);
+    for (const disposition of admitted) {
+      const id = disposition.handoverSourceId;
+      const record = disposition.ledgerRecordId ? byId.get(disposition.ledgerRecordId) : undefined;
+      expect(record, `${id} ledger record`).toBeDefined();
+      expect(record!.dateModel, `${id} dateModel`).toBe("last_updated");
+      // Neither a publication nor a review may be filled from an update stamp.
+      expect(record!.publicationDate, `${id} publicationDate`).toBeNull();
+      expect(record!.reviewDate, `${id} reviewDate`).toBeNull();
+      // The date recorded is the publisher's own stamp, normalised — never invented.
+      const dates = datesAStampCouldBecome(disposition.establishedUpdateStatement!);
+      const recorded = record!.lastUpdatedDate ?? "";
+      if (record!.datePrecision === "month") {
+        expect(recorded.endsWith("-01"), `${id} month precision is the first of the month`).toBe(true);
+        expect(dates, `${id} lastUpdatedDate is not its stamp`).toContain(recorded.slice(0, 7));
+      } else {
+        expect(record!.datePrecision, `${id} datePrecision`).toBe("day");
+        expect(dates, `${id} lastUpdatedDate is not its stamp`).toContain(recorded);
+      }
+      // The stamp is no longer a blocker once it is recorded, and it is not a review.
+      expect(disposition.blockers.map((blocker) => blocker.code)).not.toContain(STAMP_BLOCKER);
+      expect(disposition.establishedReviewDate).toBeUndefined();
+    }
+  });
+
+  it("keeps every still-held stamped source held on a blocker other than the stamp", () => {
+    // The owner decision removed the stamp as an obstacle. A stamped source that is
+    // still held must therefore be held for some other, named reason.
+    for (const disposition of stamped()) {
+      if (disposition.ledgerOutcome === "admitted_as_candidate") continue;
+      const codes = disposition.blockers.map((blocker) => blocker.code);
+      expect(
+        codes.some((code) => code !== STAMP_BLOCKER),
+        `${disposition.handoverSourceId} is held on the update stamp alone`,
+      ).toBe(true);
+      expect(codes, `${disposition.handoverSourceId} still records the resolved stamp blocker`).not.toContain(
+        STAMP_BLOCKER,
+      );
+      expect(disposition.ledgerRecordId).toBeNull();
+    }
+  });
+
+  it("normalises each banked update stamp to a date, and finds it in no publication or review field", () => {
+    const stamps = stamped().map((disposition) => disposition.establishedUpdateStatement!);
     expect(stamps.length).toBeGreaterThanOrEqual(4);
 
     // A stamp the normaliser cannot read would make the comparison below vacuous,
@@ -774,17 +859,30 @@ describe("an update stamp is not a review and not a publication", () => {
     }
   });
 
-  it("gives the sources that carry an update stamp no ledger date at all", () => {
-    const byId = new Map(sourceAcquisitionRecords.map((record) => [record.id, record]));
-    const stamped = dictionarySourceDispositions.filter((disposition) => disposition.establishedUpdateStatement);
-    expect(stamped.length).toBeGreaterThanOrEqual(4);
-    for (const disposition of stamped) {
-      // Held sources have no record; if one is ever admitted, neither date event
-      // may be filled from the update stamp that is all its publisher states.
-      const record = disposition.ledgerRecordId ? byId.get(disposition.ledgerRecordId) : undefined;
-      if (!record) continue;
-      expect(record.publicationDate, `${disposition.handoverSourceId} publicationDate`).toBeFalsy();
-      expect(record.reviewDate, `${disposition.handoverSourceId} reviewDate`).toBeFalsy();
+  it("carries lastUpdatedDate on no record outside the last_updated date model", () => {
+    const lastUpdated = sourceAcquisitionRecords.filter((record) => record.dateModel === "last_updated");
+    expect(lastUpdated.length).toBeGreaterThanOrEqual(5);
+    for (const record of sourceAcquisitionRecords) {
+      if (record.dateModel === "last_updated") {
+        expect(record.lastUpdatedDate, `${record.id} lastUpdatedDate`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(record.publicationDate, `${record.id} publicationDate`).toBeNull();
+        expect(record.reviewDate, `${record.id} reviewDate`).toBeNull();
+      } else {
+        expect(record.lastUpdatedDate ?? null, `${record.id} lastUpdatedDate`).toBeNull();
+      }
+    }
+  });
+
+  it("names the stamp as last updated in the catalogue, never as published or reviewed", () => {
+    const lastUpdated = sourceAcquisitionRecords.filter((record) => record.dateModel === "last_updated");
+    const entries = canonicalizeSourceReferences(acquisitionSourceReferences(lastUpdated));
+    expect(entries).toHaveLength(lastUpdated.length);
+    for (const entry of entries) {
+      expect(entry.lastUpdatedDate, entry.title).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(entry.publicationDate, entry.title).toBeNull();
+      expect(entry.reviewDate, entry.title).toBeNull();
+      // Dated, so the stamp satisfies the catalogue's date requirement on its own.
+      expect(entry.warnings, entry.title).not.toContain("missing_dates");
     }
   });
 });

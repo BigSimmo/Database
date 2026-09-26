@@ -18,6 +18,12 @@ export type SourceGeographyScope = "wa" | "australian_national" | "australian_st
 export type SourceLifecycleStatus = "active" | "inactive" | "excluded";
 export type SourceContentMode = "indexed_content" | "link_only" | "metadata_only";
 export type SourceQualityBand = "A" | "B" | "C" | "D" | "excluded";
+/**
+ * How a catalogue date is named to a reader. "last updated" is a publisher's
+ * update stamp and is never shown as a publication or a review.
+ */
+export type SourceDateLabel = "published" | "reviewed" | "last updated";
+
 export type SourceCatalogueWarning =
   | "ambiguous_identity"
   | "metadata_conflict"
@@ -57,6 +63,13 @@ export type ClinicalSourceReferenceInput = {
   version: string | null;
   publicationDate: string | null;
   reviewDate: string | null;
+  /**
+   * A publisher's "last updated" stamp on a continuously maintained page. It is a
+   * third event, neither a publication nor a review, and is only ever shown as
+   * "last updated". Optional because only the acquisition ledger's `last_updated`
+   * records carry it.
+   */
+  lastUpdatedDate?: string | null;
   expiryDate: string | null;
   jurisdiction: string | null;
   evidenceType: ClinicalSourceType;
@@ -109,6 +122,8 @@ export type ClinicalSourceCatalogueEntry = {
   topics: string[];
   publicationDate: string | null;
   reviewDate: string | null;
+  /** Present only when a reference carried an update stamp; see the input type. */
+  lastUpdatedDate?: string | null;
   expiryDate: string | null;
   documentStatus: ClinicalSourceReferenceInput["documentStatus"];
   validationStatus: ClinicalSourceReferenceInput["validationStatus"];

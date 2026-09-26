@@ -104,9 +104,28 @@ export function parseSourceCatalogueFilters(
   };
 }
 
-/** Exported so the browse surfaces narrow on exactly the terms the catalogue matches. */
+/**
+ * Exported so the browse surfaces narrow on exactly the terms the catalogue matches.
+ * Punctuation becomes a space, so "ADHD?" searches for "adhd" and "5-HT" matches "5 HT".
+ */
 export function normalizeSearchValue(value: string) {
-  return value.normalize("NFKC").trim().toLocaleLowerCase("en-AU").replace(/\s+/g, " ");
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-AU")
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Whether `needle` occurs in `text` starting at a word, so "tics" finds "tics" and "tic
+ * disorders" but not "statistics" or "ethics". Both arguments must already be normalised.
+ */
+export function matchesAtWordStart(text: string, needle: string) {
+  for (let index = text.indexOf(needle); index !== -1; index = text.indexOf(needle, index + 1)) {
+    if (index === 0 || /\s/.test(text[index - 1] ?? "")) return true;
+  }
+  return false;
 }
 
 function matchesAny<T>(selection: readonly T[], values: readonly T[]) {
@@ -119,7 +138,7 @@ function matchesFilters(entry: ClinicalSourceClientEntry, filters: SourceCatalog
     query &&
     ![entry.title, ...entry.aliases, entry.publisher ?? "", ...entry.topics]
       .map(normalizeSearchValue)
-      .some((value) => value.includes(query))
+      .some((value) => matchesAtWordStart(value, query))
   ) {
     return false;
   }
@@ -141,14 +160,19 @@ function matchesFilters(entry: ClinicalSourceClientEntry, filters: SourceCatalog
   return true;
 }
 
-function dateValue(value: string | null) {
+function dateValue(value: string | null | undefined) {
   if (!value) return Number.NEGATIVE_INFINITY;
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
 }
 
 function mostRecentDate(entry: ClinicalSourceClientEntry) {
-  return Math.max(dateValue(entry.publicationDate), dateValue(entry.reviewDate), dateValue(entry.expiryDate));
+  return Math.max(
+    dateValue(entry.publicationDate),
+    dateValue(entry.reviewDate),
+    dateValue(entry.lastUpdatedDate),
+    dateValue(entry.expiryDate),
+  );
 }
 
 export function filterAndSortSourceCatalogue(

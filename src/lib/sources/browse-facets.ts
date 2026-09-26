@@ -2,10 +2,11 @@ import type { AppModeId } from "@/lib/app-modes";
 import type {
   ClinicalSourceClientEntry,
   ClinicalSourceType,
+  SourceDateLabel,
   SourceGeographyScope,
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
-import { compareQuality, compareText, normalizeSearchValue } from "@/lib/sources/catalogue-view";
+import { compareQuality, compareText, matchesAtWordStart, normalizeSearchValue } from "@/lib/sources/catalogue-view";
 import { sourceAttentionFlags } from "@/lib/sources/source-status-presentation";
 
 /**
@@ -46,11 +47,11 @@ export type SourceBrowseSummary = {
   jurisdictions: readonly SourceGeographyScope[];
   /** The group's jurisdiction: the publisher group's scope, or a topic's dominant one. */
   scope: SourceGeographyScope;
-  /** The most recent publication or review date across the group, ISO, or null. */
+  /** The most recent publication, review or last-updated date across the group, ISO, or null. */
   latestDate: string | null;
   /** Which field `latestDate` came from, so the row can name it rather than
-      calling a publication date a review. */
-  latestDateLabel: "reviewed" | "published" | null;
+      calling a publication date a review, or an update stamp either. */
+  latestDateLabel: SourceDateLabel | null;
   /** The member the catalogue would list first. */
   leadEntry: { id: string; title: string } | null;
   /**
@@ -109,12 +110,15 @@ function dateValue(value: string | null) {
  * future expiry as recency is exactly the inference the Method page forbids.
  */
 function latestKnownDate(entries: readonly ClinicalSourceClientEntry[]) {
-  let best: { date: string; label: "reviewed" | "published" } | null = null;
+  let best: { date: string; label: SourceDateLabel } | null = null;
   let bestValue = Number.NEGATIVE_INFINITY;
   for (const entry of entries) {
     // Review wins a tie: when a source was published and reviewed on the same
-    // day, "reviewed" is the stronger of the two claims.
+    // day, "reviewed" is the stronger of the two claims. An update stamp is the
+    // weakest — it asserts neither a publication nor a review — so it is listed
+    // first and loses every tie.
     for (const [candidate, label] of [
+      [entry.lastUpdatedDate ?? null, "last updated"],
       [entry.publicationDate, "published"],
       [entry.reviewDate, "reviewed"],
     ] as const) {
@@ -256,7 +260,7 @@ export function derivePublisherBrowseSummaries(
 export function matchesBrowseQuery(summary: SourceBrowseSummary, query: string) {
   const needle = normalizeSearchValue(query);
   if (!needle) return true;
-  return summary.searchText.includes(needle);
+  return matchesAtWordStart(summary.searchText, needle);
 }
 
 export function sortBrowseSummaries(
