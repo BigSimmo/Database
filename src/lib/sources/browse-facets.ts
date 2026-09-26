@@ -5,7 +5,7 @@ import type {
   SourceGeographyScope,
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
-import { compareQuality, compareText, normalizeSearchValue } from "@/lib/sources/catalogue-view";
+import { compareQuality, compareText, matchesAtWordStart, normalizeSearchValue } from "@/lib/sources/catalogue-view";
 import { sourceAttentionFlags } from "@/lib/sources/source-status-presentation";
 
 /**
@@ -256,7 +256,7 @@ export function derivePublisherBrowseSummaries(
 export function matchesBrowseQuery(summary: SourceBrowseSummary, query: string) {
   const needle = normalizeSearchValue(query);
   if (!needle) return true;
-  return summary.searchText.includes(needle);
+  return matchesAtWordStart(summary.searchText, needle);
 }
 
 export function sortBrowseSummaries(
