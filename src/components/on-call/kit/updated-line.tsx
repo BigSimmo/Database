@@ -30,7 +30,7 @@ export function OnCallUpdatedLine({
   const date = updatedAt ? formatOnCallDate(updatedAt) : "";
   if (!date && !sources?.length) return null;
   return (
-    <span className="grid min-w-0 gap-0.5 text-xs text-[color:var(--text)]" data-testid={testId}>
+    <span className="grid min-w-0 gap-0.5 text-xs text-[color:var(--text-muted)]" data-testid={testId}>
       {date ? (
         <span className={cn(onCallNumberText, "break-words")}>
           Updated {date}

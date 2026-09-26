@@ -331,12 +331,7 @@ export function OnCallPlaybookSection({
   // which inverts to a bright block in dark mode (standard §10); the tinted
   // `featured` form is kept for Now alone.
   const whoDoICall = (
-    <OnCallHeroLink
-      href="/on-call/now"
-      title="Who do I call now?"
-      subtitle="Pick the situation, get the people to call in order."
-      testId="on-call-playbook-who-do-i-call"
-    />
+    <OnCallHeroLink href="/on-call/now" title="Who do I call now?" testId="on-call-playbook-who-do-i-call" />
   );
 
   if (playbookEntries.length === 0) {

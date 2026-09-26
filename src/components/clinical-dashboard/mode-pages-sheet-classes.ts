@@ -1,4 +1,4 @@
-import { cn } from "@/components/ui-primitives";
+import { cn, eyebrowText } from "@/components/ui-primitives";
 
 /**
  * The "<Mode> pages" level of the mode pill's sheet, on the 48/52 rule
@@ -38,6 +38,6 @@ export const modePagesLabelClass =
   "min-w-0 flex-1 break-words text-base-minus font-medium leading-5 text-[color:var(--text-heading)]";
 export const modePagesCheckClass = "size-icon-lg shrink-0 text-[color:var(--clinical-accent)]";
 export const modePagesSheetTitleClass = "text-lg-minus font-semibold tracking-[var(--tracking-display)]";
-export const modePagesGroupHeadingClass =
-  "px-2 text-2xs font-semibold uppercase tracking-kicker text-[color:var(--text-muted)]";
+/** The group eyebrow reuses the live `eyebrowText` recipe unchanged (standard §1). */
+export const modePagesGroupHeadingClass = cn("px-2", eyebrowText);
 export const modePagesGroupHintClass = "px-2 text-xs text-[color:var(--text-muted)]";
