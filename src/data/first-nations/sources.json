@@ -3,7 +3,7 @@
   "sources": [
     {
       "id": "mha-2014-communication-and-cultural-provisions",
-      "title": "Mental Health Act 2014 (WA), section 81 (examination in collaboration with Aboriginal or Torres Strait Islander mental health workers and community)",
+      "title": "Mental Health Act 2014 (WA): communication and cultural provisions (ss 6, 9, 50, 80, 81, 189 and Charter Principle 7)",
       "publisher": "Parliamentary Counsel's Office, WA",
       "url": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-02%5D.html?OpenElement",
       "aboriginalLed": false,
@@ -104,6 +104,22 @@
       "url": "https://catalogue.data.wa.gov.au/dataset/health-regions-health-003",
       "aboriginalLed": false,
       "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "wa-health-language-services-guidelines-2025",
+      "title": "Language Services Guidelines",
+      "publisher": "WA Health",
+      "url": "https://www.health.wa.gov.au/~/media/Corp/Policy-Frameworks/System-governance-risk-and-assurance/Language-Services-Policy/Supporting/Language-Services-Guidelines.pdf",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-25"
+    },
+    {
+      "id": "rurallink",
+      "title": "Rurallink",
+      "publisher": "East Metropolitan Health Service (WA Health)",
+      "url": "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink",
+      "aboriginalLed": false,
+      "checkedAt": "2026-08-20"
     }
   ]
 }
