@@ -1110,14 +1110,26 @@ function printConsole(report, args, ci) {
   }
   for (const finding of report.findings.filter((f) => f.blocking))
     out(`  BLOCKING ${finding.subject}: ${finding.message}`);
-  for (const finding of report.findings.filter((f) => f.loud)) {
-    out(`  SAFETY COVERAGE LOST ${finding.subject}: ${finding.message}`);
-    if (ci)
-      console.log(
-        `::warning file=${finding.subject},title=Safety coverage lost::${finding.message.replaceAll("`", "'")}`,
-      );
+  // A folder move gives one loud finding per file; say it once per folder pair, not per file.
+  const loud = report.findings.filter((f) => f.loud);
+  const groups = new Map();
+  for (const finding of loud) {
+    const key = finding.about ? `${path.posix.dirname(finding.about)} -> ${path.posix.dirname(finding.subject)}` : "";
+    groups.set(key, [...(groups.get(key) ?? []), finding]);
   }
-  const warnings = report.findings.filter((f) => !f.blocking);
+  for (const [key, items] of groups) {
+    const shown = key && items.length > 3 ? items.slice(0, 1) : items;
+    for (const finding of shown) {
+      const more = shown.length < items.length ? ` (and ${items.length - 1} more files moved ${key})` : "";
+      out(`  SAFETY COVERAGE LOST ${finding.subject}: ${finding.message}${more}`);
+      if (ci)
+        console.log(
+          `::warning file=${finding.subject},title=Safety coverage lost::${finding.message.replaceAll("`", "'")}${more}`,
+        );
+    }
+  }
+  // Loud findings are printed above; listing them again as warnings doubled every one.
+  const warnings = report.findings.filter((f) => !f.blocking && !f.loud);
   if (warnings.length) out(`  ${warnings.length} warning(s)${args.quiet ? "" : ":"}`);
   if (!args.quiet) {
     // In CI, annotate only what this change touched; inherited warnings stay in the summary.
