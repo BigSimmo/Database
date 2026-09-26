@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
+  // The cached payload lives on globalThis, so resetting modules alone no longer clears it.
+  delete (globalThis as Record<symbol, unknown>)[Symbol.for("psychsift.setupStatusCache")];
   vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -199,6 +201,48 @@ describe("/api/setup-status", () => {
     const generatedAtBefore = (await (await GET(request())).json()).generatedAt;
     expect(probeSupabaseHealth.mock.calls.length).toBe(callsBefore + 1);
     expect(generatedAtBefore).toBe(new Date(now).toISOString());
+  });
+
+  it("shares its cached payload with a separately loaded copy of the route, so the boot warm counts", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        OPENAI_API_KEY: "openai-key",
+        SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
+        SUPABASE_IMAGE_BUCKET: "clinical-images",
+        WORKER_POLL_MS: 1500,
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from, rpc: vi.fn() }) }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(),
+    }));
+    const probeSupabaseHealth = vi.fn(async () => ({ ok: true }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth,
+      isSupabaseUnavailableError: () => false,
+      formatSupabaseUnavailableError: (error: unknown) => String(error),
+    }));
+    vi.doMock("@/lib/supabase/project", () => ({
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
+      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+    }));
+
+    // instrumentation.ts warms through its own copy of the module in a production build.
+    const bootCopy = await import("../src/app/api/setup-status/route");
+    await bootCopy.GET(new Request("https://startup-warm.invalid/api/setup-status"));
+    vi.resetModules();
+    const routeCopy = await import("../src/app/api/setup-status/route");
+    const response = await routeCopy.GET(new Request("https://clinical.example/api/setup-status"));
+
+    expect(response.status).toBe(200);
+    expect(probeSupabaseHealth).toHaveBeenCalledTimes(1);
   });
 
   it("treats project warning status as ready when the URL ref matches", async () => {

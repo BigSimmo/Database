@@ -48,8 +48,20 @@ const SETUP_STATUS_IDLE_CACHE_MS = 30_000;
 const SETUP_STATUS_OUTAGE_CACHE_MS = 120_000;
 const SETUP_STATUS_MAX_STALE_MS = 10 * 60_000;
 
-let setupStatusCache: { expiresAt: number; payload: SetupStatusPayload } | null = null;
-let setupStatusInFlight: Promise<SetupStatusPayload> | null = null;
+/**
+ * Held on `globalThis` because a production build gives `instrumentation.ts` its own copy of this
+ * module (checked 2026-09-26, `next build --webpack`). The startup warm there only helps if the
+ * route handler reads the same cached payload.
+ */
+const setupStatusStateKey = Symbol.for("psychsift.setupStatusCache");
+type SetupStatusState = {
+  cache: { expiresAt: number; payload: SetupStatusPayload } | null;
+  inFlight: Promise<SetupStatusPayload> | null;
+};
+const setupStatusState = ((globalThis as { [setupStatusStateKey]?: SetupStatusState })[setupStatusStateKey] ??= {
+  cache: null,
+  inFlight: null,
+});
 let supabaseOutageBackoffUntil = 0;
 let supabaseOutageDetail: string | null = null;
 
@@ -446,8 +458,8 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
 
 async function readSetupStatusPayload() {
   const now = Date.now();
-  if (setupStatusCache && setupStatusCache.expiresAt > now) {
-    return setupStatusCache.payload;
+  if (setupStatusState.cache && setupStatusState.cache.expiresAt > now) {
+    return setupStatusState.cache.payload;
   }
 
   // Serve an expired payload at once and refresh it in the background. Building a fresh one takes
@@ -455,8 +467,8 @@ async function readSetupStatusPayload() {
   // health RPC, each crossing Singapore -> Sydney), and every page load, tab focus and poll asks
   // for it. A checklist one refresh behind is harmless; a stale payload older than the bound below
   // is not served, so a long-idle process still waits for current state.
-  if (setupStatusCache && now - setupStatusCache.expiresAt <= SETUP_STATUS_MAX_STALE_MS) {
-    const stalePayload = setupStatusCache.payload;
+  if (setupStatusState.cache && now - setupStatusState.cache.expiresAt <= SETUP_STATUS_MAX_STALE_MS) {
+    const stalePayload = setupStatusState.cache.payload;
     void refreshSetupStatusPayload().catch(() => undefined);
     return stalePayload;
   }
@@ -465,24 +477,24 @@ async function readSetupStatusPayload() {
 }
 
 async function refreshSetupStatusPayload() {
-  if (setupStatusInFlight) {
-    return setupStatusInFlight;
+  if (setupStatusState.inFlight) {
+    return setupStatusState.inFlight;
   }
 
   const promise = buildSetupStatusPayload().then((payload) => {
-    setupStatusCache = {
+    setupStatusState.cache = {
       expiresAt: Date.now() + setupStatusCacheTtl(payload),
       payload,
     };
     return payload;
   });
-  setupStatusInFlight = promise;
+  setupStatusState.inFlight = promise;
 
   try {
     return await promise;
   } finally {
-    if (setupStatusInFlight === promise) {
-      setupStatusInFlight = null;
+    if (setupStatusState.inFlight === promise) {
+      setupStatusState.inFlight = null;
     }
   }
 }
