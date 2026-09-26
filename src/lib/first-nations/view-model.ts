@@ -36,7 +36,7 @@ export type ContactView = {
   name: string;
   detail: string;
   number: string;
-  hours: ContactBlock["hours"] | null;
+  hours: NonNullable<ContactBlock["hours"]> | null;
   checkedAt: string;
   source: SourceView;
   reportHref: string | null;
