@@ -90,6 +90,7 @@ function CheckRow({ row, byId }: { row: CmeYearCheckRow; byId: ReadonlyMap<strin
       className={cn(cardSurface, "p-4")}
       data-testid={`cme-check-row-${row.id}`}
       data-ready={row.ready ? "true" : "false"}
+      data-not-checked={row.notChecked ? "true" : undefined}
     >
       <div className="flex items-start gap-3">
         <StatusIcon
@@ -99,7 +100,7 @@ function CheckRow({ row, byId }: { row: CmeYearCheckRow; byId: ReadonlyMap<strin
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-[color:var(--text)]">
             {row.label}
-            <span className="sr-only">{row.ready ? " — done" : " — to do"}</span>
+            <span className="sr-only">{row.notChecked ? " — not checked" : row.ready ? " — done" : " — to do"}</span>
           </p>
           <p className={cn(textMuted, "mt-0.5 text-sm")}>{row.summary}</p>
           {showProof ? (

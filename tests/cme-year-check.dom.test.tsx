@@ -56,6 +56,20 @@ describe("year check page", () => {
   });
 });
 
+describe("year check when evidence was not counted", () => {
+  it("shows the evidence row as not checked, with no link to fix it", () => {
+    const uncounted = ENTRIES.map((item) => ({ ...item, evidenceCount: undefined }));
+    render(<CmeYearCheckPage set={SET} entries={uncounted} />);
+    const evidence = screen.getByTestId("cme-check-row-evidence");
+    expect(evidence).toHaveAttribute("data-ready", "false");
+    expect(evidence).toHaveAttribute("data-not-checked", "true");
+    expect(evidence).toHaveTextContent("Evidence kept for each activity — not checked");
+    expect(evidence).toHaveTextContent("Not checked");
+    expect(within(evidence).queryByRole("link")).toBeNull();
+    expect(evidence).not.toHaveTextContent(/Every activity has a certificate/);
+  });
+});
+
 describe("dashboard shortcuts", () => {
   it("links to the year check and the calendar, and reminds about last year's copies", () => {
     render(

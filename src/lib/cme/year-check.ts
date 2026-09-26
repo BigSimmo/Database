@@ -19,6 +19,11 @@ export type CmeYearCheckRow = {
   readonly group: CmeYearCheckGroup;
   readonly label: string;
   readonly ready: boolean;
+  /**
+   * True when the app could not count this row (evidence counts that were never loaded).
+   * Such a row is never ready and never reported as missing: it says "Not checked".
+   */
+  readonly notChecked?: boolean;
   /** One plain status: what is reached, or exactly what is still to go. */
   readonly summary: string;
   /** Activities that count toward this row (targets) or still need attention (records). */
@@ -101,21 +106,46 @@ export function buildCmeYearCheck(set: CmeRequirementSet, allEntries: readonly C
     });
   }
 
-  // Evidence counts are only known when the loader supplied them; an entry with
-  // no count was never measured, so it is not reported as missing evidence.
-  const noEvidence = entries.filter((entry) => entry.evidenceCount === 0);
-  rows.push({
-    id: "evidence",
-    group: "records",
-    label: "Evidence kept for each activity",
-    ready: noEvidence.length === 0,
-    summary:
-      noEvidence.length === 0
-        ? "Every activity has a certificate or other evidence attached"
-        : `${activities(noEvidence.length)} with no evidence attached`,
-    entryIds: noEvidence.map((entry) => entry.id),
-    action: noEvidence.length === 0 ? null : { label: "Show them", href: `/cme/log?year=${set.year}&fix=evidence` },
-  });
+  // Evidence counts are only known when the loader supplied them. When any activity has no
+  // count (the demo year, or a read that did not include counts), the row says "Not checked"
+  // rather than a reassuring "every activity has evidence" or a false "missing" (spec section 5).
+  // With nothing logged there is nothing to vouch for, so it says so plainly.
+  if (entries.length === 0) {
+    rows.push({
+      id: "evidence",
+      group: "records",
+      label: "Evidence kept for each activity",
+      ready: true,
+      summary: "No activities yet",
+      entryIds: [],
+      action: null,
+    });
+  } else if (entries.some((entry) => entry.evidenceCount === undefined)) {
+    rows.push({
+      id: "evidence",
+      group: "records",
+      label: "Evidence kept for each activity",
+      ready: false,
+      notChecked: true,
+      summary: "Not checked",
+      entryIds: [],
+      action: null,
+    });
+  } else {
+    const noEvidence = entries.filter((entry) => entry.evidenceCount === 0);
+    rows.push({
+      id: "evidence",
+      group: "records",
+      label: "Evidence kept for each activity",
+      ready: noEvidence.length === 0,
+      summary:
+        noEvidence.length === 0
+          ? "Every activity has a certificate or other evidence attached"
+          : `${activities(noEvidence.length)} with no evidence attached`,
+      entryIds: noEvidence.map((entry) => entry.id),
+      action: noEvidence.length === 0 ? null : { label: "Show them", href: `/cme/log?year=${set.year}&fix=evidence` },
+    });
+  }
 
   const noReflection = entries.filter((entry) => entry.reflection.trim() === "");
   rows.push({
