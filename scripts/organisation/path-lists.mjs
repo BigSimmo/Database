@@ -3,10 +3,11 @@
 // Two questions, both answered from `scripts/pr-policy.mjs`, which owns the lists. This module
 // never edits a list and never decides policy; it only reports.
 //
-// 1. `coverageLossFindings`: did a rename in this change move a file off a safety list? A file
-//    silently losing its protection is a safety problem, not a tidiness one, so each finding is
-//    marked `loud` for the integrator to print prominently. Findings never block: the owner
-//    decided that only a self-contradictory map blocks a PR.
+// 1. `coverageLossFindings`: did a rename, copy or move in this change take a file off a safety
+//    list, judged against the lists as they were before the change? A file silently losing its
+//    protection is a safety problem, not a tidiness one, so those findings are marked `loud` for
+//    the integrator to print prominently. Findings never block: the owner decided that only a
+//    self-contradictory map blocks a PR.
 // 2. `deadEntryFindings`: does an exact file name on the ranking or clinical-risk list point at
 //    no tracked file, so the entry protects nothing?
 //
@@ -21,9 +22,10 @@
 // `scripts/check-organisation.mjs` prints), so either consumer can read them unchanged.
 
 import { spawnSync } from "node:child_process";
+import { posix as posixPath } from "node:path";
 
 import { safetyPathLists } from "../pr-policy.mjs";
-import { safetyClassesFor } from "./safety-lists.mjs";
+import { SAFETY_CLASSES, safetyClassesFor } from "./safety-lists.mjs";
 
 const POLICY_FILE = "scripts/pr-policy.mjs";
 
@@ -121,30 +123,109 @@ export function parseNameStatus(output) {
   return entries;
 }
 
+// Runs in a child `node --input-type=module` process so `coverageLossFindings` stays synchronous.
+// It loads one revision's copy of pr-policy (which imports only node builtins) from a data: URL
+// per side and classifies that side's paths with it. A side that cannot load reports an error.
+const CLASSIFY_WITH_POLICY_COPIES = `
+let input = "";
+for await (const chunk of process.stdin) input += chunk;
+const { copies, classes } = JSON.parse(input);
+const output = {};
+for (const [side, { source, files }] of Object.entries(copies)) {
+  try {
+    if (typeof source !== "string") throw new Error("no copy of the policy at this revision");
+    const policy = await import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
+    const result = {};
+    for (const file of files) {
+      const flags = policy.classifyPullRequestFiles([file]);
+      result[file] = classes.filter((name) => flags[name]);
+    }
+    output[side] = { classes: result };
+  } catch (error) {
+    output[side] = { error: String(error && error.message ? error.message : error) };
+  }
+}
+process.stdout.write(JSON.stringify(output));
+`;
+
+function policySourceAt(root, revision) {
+  const result = spawnSync("git", ["-C", root, "show", `${revision}:${POLICY_FILE}`], {
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, LC_ALL: "C", LANG: "C", GIT_OPTIONAL_LOCKS: "0" },
+  });
+  return !result.error && result.status === 0 ? result.stdout : null;
+}
+
 /**
- * Safety coverage a change loses by renaming files, as findings. Never blocking.
+ * Classifies old paths with the base revision's pr-policy and new paths with the head
+ * revision's, each loaded from git. A side that cannot be loaded comes back as null.
+ */
+function classifyWithPolicyCopies(root, sides) {
+  const copies = {};
+  for (const [side, { revision, files }] of Object.entries(sides)) {
+    copies[side] = { source: policySourceAt(root, revision), files };
+  }
+  const child = spawnSync(process.execPath, ["--input-type=module", "-e", CLASSIFY_WITH_POLICY_COPIES], {
+    input: JSON.stringify({ copies, classes: SAFETY_CLASSES }),
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 60_000,
+  });
+  const loaded = { base: null, head: null };
+  if (child.error || child.status !== 0) return loaded;
+  try {
+    const output = JSON.parse(child.stdout);
+    for (const side of Object.keys(loaded)) {
+      if (output[side] && output[side].classes) loaded[side] = output[side].classes;
+    }
+  } catch {
+    // Unreadable output: both sides fall back.
+  }
+  return loaded;
+}
+
+function listLabels(names) {
+  return names.map((name) => `${describeList(name).label} (${describeList(name).variable})`).join(" and ");
+}
+
+function listVariables(names) {
+  return names.map((name) => describeList(name).variable).join(" and ");
+}
+
+/**
+ * Safety coverage a change loses by moving files, as findings. Never blocking.
  *
- * - A rename whose new path is missing a safety list the old path was on gives one `loud`
+ * Old paths are judged against the BASE revision's lists and new paths against the HEAD
+ * revision's, so a change that renames a file and also deletes its name from pr-policy is still
+ * caught. Both copies are loaded from git in a child process (pr-policy imports only node
+ * builtins); a copy that cannot be loaded falls back to the head copy, then to the copy this
+ * module imported.
+ *
+ * - A rename, or a copy, whose new path is missing a list the old path was on gives one `loud`
  *   warning keyed `coverage-lost:<new>`, naming each lost list and how to restore it.
- * - A deleted file that was on a safety list gives a plain warning: deletion is not lost
- *   protection, but a move git did not recognise as a rename looks exactly like one.
- * - If git skipped rename detection (too many files), a `loud` warning says so, because a
- *   lost-protection rename would then show only as a deletion.
+ * - A deleted file that was on a list gives a plain warning keyed `coverage-deleted:<old>`:
+ *   deletion is not lost protection. It becomes `loud` when the same change adds a file with the
+ *   same name that is missing one of those lists, because that is what an undetected move looks
+ *   like.
+ * - If the base lists cannot be loaded and the change edits pr-policy while renaming or deleting
+ *   files, one `loud` warning says the old paths were judged against the edited lists.
+ * - If git skipped rename detection (too many files), a `loud` warning says so.
  *
- * `classify(path)` returns the list names covering a path; it defaults to pr-policy's lists via
- * `safetyClassesFor`. Throws when git cannot run or a revision cannot be read, so the caller can
- * report "could not check" instead of a false pass.
+ * `classify(path)`, when given, replaces pr-policy for both old and new paths (tests use it).
+ * Throws when git cannot run or a revision cannot be read, so the caller can report
+ * "could not check" instead of a false pass.
  *
  * @param {{ root: string, base: string, head?: string, classify?: (file: string) => readonly string[] }} options
  * @returns {PathListFinding[]}
  */
-export function coverageLossFindings({ root, base, head = "HEAD", classify = safetyClassesFor }) {
+export function coverageLossFindings({ root, base, head = "HEAD", classify }) {
   if (typeof root !== "string" || root.length === 0) throw new Error("root is required");
   checkRef("base", base);
   checkRef("head", head);
-  const diff = git(root, ["diff", "-M", "--name-status", "-z", "--no-color", "--no-ext-diff", base, head, "--"]);
+  const diff = git(root, ["diff", "-M", "-C", "--name-status", "-z", "--no-color", "--no-ext-diff", base, head, "--"]);
   const findings = [];
-  if (/rename detection was skipped/i.test(diff.stderr || "")) {
+  if (/(?:rename|copy) detection was skipped/i.test(diff.stderr || "")) {
     findings.push(
       warning({
         key: "coverage-rename-detection-skipped",
@@ -155,39 +236,99 @@ export function coverageLossFindings({ root, base, head = "HEAD", classify = saf
       }),
     );
   }
-  for (const entry of parseNameStatus(diff.stdout)) {
-    if (entry.status === "R") {
-      const before = classify(entry.from);
-      const after = new Set(classify(entry.path));
-      const lost = before.filter((name) => !after.has(name));
-      if (lost.length === 0) continue;
-      const details = lost.map((name) => {
-        const list = describeList(name);
-        return `${list.label} (${list.variable}): ${list.effect}`;
-      });
-      const variables = lost.map((name) => describeList(name).variable).join(" and ");
+  const entries = parseNameStatus(diff.stdout);
+  const moved = entries.filter((entry) => entry.status === "R" || entry.status === "C");
+  const deleted = entries.filter((entry) => entry.status === "D");
+  if (moved.length === 0 && deleted.length === 0) return findings;
+  const addedByName = new Map();
+  for (const entry of entries) {
+    if (entry.status !== "A" && entry.status !== "C") continue;
+    const name = posixPath.basename(entry.path);
+    addedByName.set(name, [...(addedByName.get(name) ?? []), entry.path]);
+  }
+  const deletedNames = new Set(deleted.map((entry) => posixPath.basename(entry.path)));
+
+  let classifyOld;
+  let classifyNew;
+  if (classify) {
+    classifyOld = classify;
+    classifyNew = classify;
+  } else {
+    const oldPaths = [...moved.map((entry) => entry.from), ...deleted.map((entry) => entry.path)];
+    const newPaths = [
+      ...moved.map((entry) => entry.path),
+      ...[...addedByName].filter(([name]) => deletedNames.has(name)).flatMap(([, paths]) => paths),
+    ];
+    const loaded = classifyWithPolicyCopies(root, {
+      base: { revision: base, files: [...new Set(oldPaths)] },
+      head: { revision: head, files: [...new Set(newPaths)] },
+    });
+    classifyNew = loaded.head ? (file) => loaded.head[file] ?? safetyClassesFor(file) : safetyClassesFor;
+    classifyOld = loaded.base ? (file) => loaded.base[file] ?? classifyNew(file) : classifyNew;
+    const policyEdited = entries.some((entry) => entry.path === POLICY_FILE || entry.from === POLICY_FILE);
+    if (!loaded.base && policyEdited) {
       findings.push(
         warning({
-          key: `coverage-lost:${entry.path}`,
-          subject: entry.path,
-          about: entry.from,
+          key: "coverage-base-lists-unavailable",
+          subject: POLICY_FILE,
           loud: true,
-          message: `renamed from \`${entry.from}\`, and the new path has lost its safety protection. It is no longer on ${details.join("; and no longer on ")}. To restore it, add \`${entry.path}\` to ${variables} in ${POLICY_FILE}.`,
+          message: `this change edits the safety lists and also renames or deletes files, but the base revision's copy of ${POLICY_FILE} could not be loaded. The old paths were judged against the edited lists instead, so a file whose protection was removed in the same change would not be flagged. Check the renamed and deleted files by hand.`,
         }),
       );
-    } else if (entry.status === "D") {
-      const lists = classify(entry.path);
-      if (lists.length === 0) continue;
-      const labels = lists.map((name) => `${describeList(name).label} (${describeList(name).variable})`).join(" and ");
+    }
+  }
+
+  for (const entry of moved) {
+    const from = /** @type {string} */ (entry.from);
+    const after = new Set(classifyNew(entry.path));
+    const lost = classifyOld(from).filter((name) => !after.has(name));
+    if (lost.length === 0) continue;
+    const details = lost.map((name) => {
+      const list = describeList(name);
+      return `${list.label} (${list.variable}): ${list.effect}`;
+    });
+    const how = entry.status === "C" ? "copied from" : "renamed from";
+    const copyNote =
+      entry.status === "C" ? " The original stays protected; this matters when the copy takes over its job." : "";
+    findings.push(
+      warning({
+        key: `coverage-lost:${entry.path}`,
+        subject: entry.path,
+        about: from,
+        loud: true,
+        message: `${how} \`${from}\`, and the new path has lost its safety protection. It is not on ${details.join("; and not on ")}.${copyNote} To restore it, add \`${entry.path}\` to ${listVariables(lost)} in ${POLICY_FILE}.`,
+      }),
+    );
+  }
+
+  for (const entry of deleted) {
+    const lists = classifyOld(entry.path);
+    if (lists.length === 0) continue;
+    const sameName = (addedByName.get(posixPath.basename(entry.path)) ?? []).filter((added) => {
+      const after = new Set(classifyNew(added));
+      return lists.some((name) => !after.has(name));
+    });
+    if (sameName.length > 0) {
+      const targets = sameName.map((added) => `\`${added}\``).join(", ");
       findings.push(
         warning({
           key: `coverage-deleted:${entry.path}`,
           subject: entry.path,
-          about: POLICY_FILE,
-          message: `was on ${labels} and has been deleted. Deleting a file is not lost protection, but if its content moved to a new file, add the new path to the same list in ${POLICY_FILE}.`,
+          about: sameName[0],
+          loud: true,
+          message: `was on ${listLabels(lists)} and has been deleted, and this change adds a file with the same name (${targets}) that is not on all of those lists. If the file moved there, its protection was lost: add the new path to ${listVariables(lists)} in ${POLICY_FILE}.`,
         }),
       );
+      continue;
     }
+    findings.push(
+      warning({
+        key: `coverage-deleted:${entry.path}`,
+        subject: entry.path,
+        about: POLICY_FILE,
+        message: `was on ${listLabels(lists)} and has been deleted. Deleting a file is not lost protection, but if its content moved to a new file, add the new path to the same list in ${POLICY_FILE}.`,
+      }),
+    );
   }
   return findings;
 }
@@ -197,14 +338,18 @@ const MAX_ALTERNATIVES = 512;
 /**
  * Expands an anchored regular expression that is only literal text, non-capturing alternation
  * groups and optional groups into every string it can match, e.g.
- * `/^src\/lib\/(?:a|b)\.ts$/` gives `{ anchoredEnd: true, texts: ["src/lib/a.ts", "src/lib/b.ts"] }`.
+ * `/^src\/lib\/(?:a|b)\.ts$/` gives `texts: ["src/lib/a.ts", "src/lib/b.ts"]`.
+ *
+ * `entries` groups those strings into the names the pattern lists: each alternative of a group
+ * is its own entry, while the variants an optional part produces (`\.tsx?` gives `.ts` and
+ * `.tsx`) stay together as one entry, so an entry is dead only when every variant is missing.
  *
  * Returns null for anything else (wildcards, character classes, `\b`, repetition, lookaround,
  * an unanchored start, a top-level `|`), which marks a keyword-style pattern with no literal
  * file names. Without a trailing `$` the texts are prefixes (usually folders).
  *
  * @param {RegExp | string} pattern
- * @returns {{ anchoredEnd: boolean, texts: string[] } | null}
+ * @returns {{ anchoredEnd: boolean, texts: string[], entries: string[][] } | null}
  */
 export function literalAlternatives(pattern) {
   const source = pattern instanceof RegExp ? pattern.source : String(pattern ?? "");
@@ -217,11 +362,20 @@ export function literalAlternatives(pattern) {
     body = body.slice(0, -1);
   }
   const state = { text: body, index: 0 };
-  const texts = parseAlternation(state, true);
-  if (texts === null || state.index !== body.length) return null;
-  return { anchoredEnd, texts: [...new Set(texts)] };
+  const items = parseAlternation(state, true);
+  if (items === null || state.index !== body.length) return null;
+  const grouped = new Map();
+  for (const item of items) {
+    const variants = grouped.get(item.key) ?? [];
+    if (!variants.includes(item.text)) variants.push(item.text);
+    grouped.set(item.key, variants);
+  }
+  return { anchoredEnd, texts: [...new Set(items.map((item) => item.text))], entries: [...grouped.values()] };
 }
 
+// Each parsed item is one string the pattern can match (`text`) plus the identity of the entry
+// it belongs to (`key`): literal text and chosen alternatives are part of the key, while an
+// optional part contributes the same marker whether or not it is taken.
 function parseAlternation(state, topLevel) {
   const options = parseSequence(state);
   if (options === null) return null;
@@ -237,7 +391,7 @@ function parseAlternation(state, topLevel) {
 }
 
 function parseSequence(state) {
-  let accumulated = [""];
+  let accumulated = [{ text: "", key: "" }];
   while (state.index < state.text.length) {
     const char = state.text[state.index];
     if (char === "|" || char === ")") break;
@@ -246,7 +400,7 @@ function parseSequence(state) {
       const escaped = state.text[state.index + 1];
       // `\b`, `\d`, `\w`, `\s`, back-references and the like are not literal text.
       if (escaped === undefined || /[A-Za-z0-9]/.test(escaped)) return null;
-      piece = [escaped];
+      piece = [{ text: escaped, key: escaped }];
       state.index += 2;
     } else if (char === "(") {
       if (state.text.startsWith("(?:", state.index)) state.index += 3;
@@ -259,16 +413,19 @@ function parseSequence(state) {
     } else if (".[]{}*+?^$".includes(char)) {
       return null;
     } else {
-      piece = [char];
+      piece = [{ text: char, key: char }];
       state.index += 1;
     }
     if (state.text[state.index] === "?") {
       state.index += 1;
-      piece = ["", ...piece];
+      const marker = `\0(${piece.map((item) => item.key).join("|")})?`;
+      piece = [{ text: "", key: marker }, ...piece.map((item) => ({ text: item.text, key: marker }))];
     }
     if (state.index < state.text.length && "*+?{".includes(state.text[state.index])) return null;
     const next = [];
-    for (const prefix of accumulated) for (const suffix of piece) next.push(prefix + suffix);
+    for (const prefix of accumulated) {
+      for (const suffix of piece) next.push({ text: prefix.text + suffix.text, key: prefix.key + suffix.key });
+    }
     if (next.length > MAX_ALTERNATIVES) return null;
     accumulated = next;
   }
@@ -283,7 +440,8 @@ function trackedFilesAt(root) {
  * Warnings for safety-list entries that point at nothing, so they protect nothing.
  *
  * - Every exact file name on each list (grouped alternations such as
- *   `src\/lib\/(?:a|b)\.ts$` are split into single names) that matches no tracked file.
+ *   `src\/lib\/(?:a|b)\.ts$` are split into single names) that matches no tracked file. A name
+ *   with an optional part (`\.tsx?`) is dead only when every variant is missing.
  * - Every literal folder or name prefix on a list that no tracked file starts with.
  * - A keyword-style pattern (no literal names) is not split; it warns only when it matches no
  *   tracked file at all.
@@ -301,7 +459,8 @@ export function deadEntryFindings({ root, trackedFiles, lists = safetyPathLists 
     files = trackedFilesAt(root);
   }
   const exact = new Set(files);
-  const lowerExact = new Set(files.map((file) => file.toLowerCase()));
+  const lowerFiles = files.map((file) => file.toLowerCase());
+  const lowerExact = new Set(lowerFiles);
   const findings = [];
   const seen = new Set();
   const push = (finding) => {
@@ -327,31 +486,27 @@ export function deadEntryFindings({ root, trackedFiles, lists = safetyPathLists 
         }
         continue;
       }
-      for (const text of expanded.texts) {
-        if (expanded.anchoredEnd) {
-          const present = ignoreCase ? lowerExact.has(text.toLowerCase()) : exact.has(text);
-          if (present) continue;
-          push(
-            warning({
-              key: `dead-entry:${name}:${text}`,
-              subject: text,
-              about: POLICY_FILE,
-              message: `is named on ${list.label} (${where}) but no tracked file has that path, so the entry protects nothing. If the file moved, add its new path to ${list.variable}; removing the name is the owner's call.`,
-            }),
-          );
-        } else {
-          const needle = ignoreCase ? text.toLowerCase() : text;
-          const present = files.some((file) => (ignoreCase ? file.toLowerCase() : file).startsWith(needle));
-          if (present) continue;
-          push(
-            warning({
-              key: `dead-entry:${name}:${text}`,
-              subject: text,
-              about: POLICY_FILE,
-              message: `is a folder or name prefix on ${list.label} (${where}) but no tracked file starts with it, so the entry protects nothing. If the files moved, add their new location to ${list.variable}; removing it is the owner's call.`,
-            }),
-          );
-        }
+      const exists = expanded.anchoredEnd
+        ? (text) => (ignoreCase ? lowerExact.has(text.toLowerCase()) : exact.has(text))
+        : (text) =>
+            ignoreCase
+              ? lowerFiles.some((file) => file.startsWith(text.toLowerCase()))
+              : files.some((file) => file.startsWith(text));
+      for (const variants of expanded.entries) {
+        if (variants.some(exists)) continue;
+        const [subject] = variants;
+        const others =
+          variants.length > 1 ? ` (nor does any variant: ${variants.map((v) => `\`${v}\``).join(", ")})` : "";
+        push(
+          warning({
+            key: `dead-entry:${name}:${subject}`,
+            subject,
+            about: POLICY_FILE,
+            message: expanded.anchoredEnd
+              ? `is named on ${list.label} (${where}) but no tracked file has that path${others}, so the entry protects nothing. If the file moved, add its new path to ${list.variable}; removing the name is the owner's call.`
+              : `is a folder or name prefix on ${list.label} (${where}) but no tracked file starts with it${others}, so the entry protects nothing. If the files moved, add their new location to ${list.variable}; removing it is the owner's call.`,
+          }),
+        );
       }
     }
   }

@@ -275,7 +275,10 @@ const ragRankingPatterns = [
   // The contract-pinning tests are protected too: weakening them is the evasion route.
   /^tests\/(?:rag-fast-path-ordering|ranking-tuning|retrieval-selection|rag-second-stage-ranking|eval-retrieval|rag-imputation-contract)\.test\.ts$/,
 ];
-export const safetyPathLists = Object.freeze({ ragRanking: ragRankingPatterns, clinicalRisk: clinicalRiskPatterns });
+export const safetyPathLists = Object.freeze({
+  ragRanking: Object.freeze(ragRankingPatterns.map((p) => new RegExp(p.source, p.flags))),
+  clinicalRisk: Object.freeze(clinicalRiskPatterns.map((p) => new RegExp(p.source, p.flags))),
+});
 
 const uiPatterns = [
   /^src\/app\/(?!api\/)/,

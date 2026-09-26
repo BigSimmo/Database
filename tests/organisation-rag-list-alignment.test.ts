@@ -8,19 +8,20 @@
 // checked: pr-policy may protect more than the prose lists.)
 //
 // Parsing rules, kept small on purpose:
-// - Only backticked paths under src/, scripts/, worker/ or tests/ count. Docs paths and prose
+// - Only backticked paths under src/, scripts/, worker/, tests/ or supabase/ count. Docs paths and prose
 //   ("the retrieval RPCs", `pr-policy`, `applyMemoryCardBoosts`) are ignored.
 // - A trailing `/**` or `/` marks a folder; a probe file inside it must be classified.
 // - A bare file name such as `keyword-query.ts` is shorthand for the folder of the nearest
-//   backticked path before it in the same list item, which is how the section writes lists.
+//   backticked path before it in the same list item, which is how the section writes lists. The
+//   file it resolves to must exist, so a wrong guess fails instead of checking a made-up path.
 // - `scripts/pr-policy.mjs` is named as the home of the list, not as a protected file.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { classifyPullRequestFiles } from "../scripts/pr-policy.mjs";
 
 const SECTION_HEADING = "# RAG ranking protection";
-const CODE_ROOTS = /^(?:src|scripts|worker|tests)\//;
+const CODE_ROOTS = /^(?:src|scripts|worker|tests|supabase)\//;
 const BARE_FILE_NAME = /^[\w.-]+\.(?:ts|tsx|mts|cts|js|mjs|cjs|py|json|sql)$/;
 const FOLDER_PROBE = "__organisation_alignment_probe__.ts";
 
@@ -43,7 +44,7 @@ function ragSection(markdown: string): string {
   return lines.slice(start + 1, end).join("\n");
 }
 
-type NamedPath = { written: string; path: string; folder: boolean };
+type NamedPath = { written: string; path: string; folder: boolean; bare: boolean };
 
 function namedCodePaths(section: string): NamedPath[] {
   const named: NamedPath[] = [];
@@ -56,11 +57,11 @@ function namedCodePaths(section: string): NamedPath[] {
         const folder = written.endsWith("/**") || written.endsWith("/");
         const path = written.replace(/\/\*\*$/, "").replace(/\/$/, "");
         lastFolder = folder ? path : path.slice(0, path.lastIndexOf("/"));
-        named.push({ written, path, folder });
+        named.push({ written, path, folder, bare: false });
       } else if (BARE_FILE_NAME.test(written) && lastFolder) {
-        named.push({ written, path: `${lastFolder}/${written}`, folder: false });
+        named.push({ written, path: `${lastFolder}/${written}`, folder: false, bare: true });
       } else if (BARE_FILE_NAME.test(written)) {
-        named.push({ written, path: "", folder: false });
+        named.push({ written, path: "", folder: false, bare: true });
       }
     }
   }
@@ -72,7 +73,7 @@ const section = ragSection(agents);
 const named = namedCodePaths(section);
 const checked = [
   ...new Map(
-    named.filter((entry) => !NAMED_AS_LIST_HOME.has(entry.path)).map((entry) => [entry.written, entry]),
+    named.filter((entry) => !NAMED_AS_LIST_HOME.has(entry.path)).map((entry) => [entry.path || entry.written, entry]),
   ).values(),
 ];
 
@@ -91,6 +92,17 @@ describe("AGENTS.md RAG ranking protection section can be read", () => {
     expect(
       unresolved,
       "these bare file names come before any full path in their list item, so their folder is unknown; write the full path in AGENTS.md",
+    ).toEqual([]);
+  });
+
+  it("resolves every bare file name to a file that exists", () => {
+    const missing = named
+      .filter((entry) => entry.bare && entry.path !== "")
+      .filter((entry) => !existsSync(new URL(`../${entry.path}`, import.meta.url)))
+      .map((entry) => `${entry.written} (read as ${entry.path})`);
+    expect(
+      missing,
+      "these bare file names were read as files in the folder of the path before them, but no such file exists; write the full path in AGENTS.md",
     ).toEqual([]);
   });
 
