@@ -33,7 +33,7 @@ set local statement_timeout = '120s';
 do $repair$
 declare
   -- The repair_candidates figure from the owner-approved read-only count, taken before merge.
-  c_expected constant integer := 0;
+  c_expected constant integer := 1935;
   v_updated integer;
 begin
   with targets as (
