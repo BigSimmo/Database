@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|call|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|call|now|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Timings: mean of the successful post-critical production Chromium reports from
@@ -75,6 +75,17 @@ export const prUiSpecProfiles = Object.freeze([
     criticalSeconds: 0,
   },
   {
+    // Board 01 Home is Now (v6 rebuild, plan C25). Ten tests (four journeys x
+    // light/dark, plus the dark-only bright-surface check and the Who's on
+    // redirect), estimated at ~3s each; no timing report yet, so criticalSeconds
+    // stays 0 until one exists. Rebalanced with the two moves below (added
+    // 2026-09-26).
+    file: "tests/ui-on-call-now.spec.ts",
+    shard: 1,
+    fullSeconds: 30,
+    criticalSeconds: 0,
+  },
+  {
     file: "tests/ui-phone-scroll-page-owned.spec.ts",
     shard: 2,
     fullSeconds: 34.8,
@@ -82,7 +93,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-accessibility.spec.ts",
-    shard: 1,
+    shard: 2,
     fullSeconds: 22.9,
     criticalSeconds: 0,
   },
@@ -220,7 +231,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-style-contract.spec.ts",
-    shard: 2,
+    shard: 3,
     fullSeconds: 11.4,
     criticalSeconds: 0,
   },
