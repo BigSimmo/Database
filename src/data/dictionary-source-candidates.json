@@ -1246,8 +1246,8 @@
     {
       "handoverSourceId": "WA-AHLO",
       "title": "Aboriginal Health Liaison Service",
-      "publisher": "WA Health service providers",
-      "publisherCode": null,
+      "publisher": "Fiona Stanley Fremantle Hospitals Group",
+      "publisherCode": "FSFHG",
       "canonicalUrl": "https://www.fsfhg.health.wa.gov.au/Our-services/Aboriginal-Health-Liaison-Service",
       "jurisdiction": "Australia/WA",
       "version": "Not established",
@@ -1343,7 +1343,7 @@
     {
       "handoverSourceId": "WA-MHAS",
       "title": "Mental Health Advocacy Service",
-      "publisher": "Government of Western Australia",
+      "publisher": "Mental Health Advocacy Service",
       "publisherCode": null,
       "canonicalUrl": "https://www.wa.gov.au/organisation/mental-health-advocacy-service",
       "jurisdiction": "Australia/WA",
@@ -1440,8 +1440,8 @@
     {
       "handoverSourceId": "WA-MHERL",
       "title": "Mental Health Emergency Response Line",
-      "publisher": "Mental Health Commission / WA Health",
-      "publisherCode": null,
+      "publisher": "Mental Health Commission WA",
+      "publisherCode": "MHCWA",
       "canonicalUrl": "https://www.mhc.wa.gov.au/getting-help/helplines/mental-health-emergency-response-line",
       "jurisdiction": "Australia/WA",
       "version": "Not established",

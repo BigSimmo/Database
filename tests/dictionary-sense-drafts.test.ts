@@ -471,13 +471,20 @@ describe("publisher re-reads", () => {
 
   it("does not register a publisher field that is a description rather than an agency", () => {
     // "Government of Western Australia" would resolve every WA government document
-    // to one authority. Four records stay held rather than buy admission with a
-    // catch-all.
+    // to one authority. Four records stayed held rather than buy admission with a
+    // catch-all. On 2026-09-26 their pages were read (#JHT39N): three named a real
+    // agency and were corrected, and 4AT still names none. Whatever the reason, a
+    // record whose publisher was a description stays held.
     const vague = dictionarySourceDispositions.filter((disposition) =>
       disposition.blockers.some((blocker) => blocker.code === "publisher_field_is_a_description_not_an_agency"),
     );
-    expect(vague.length).toBeGreaterThanOrEqual(3);
+    expect(vague.length).toBeGreaterThanOrEqual(1);
     for (const disposition of vague) expect(disposition.ledgerOutcome).toBe("held");
+    for (const id of ["WA-MHAS", "WA-AHLO", "WA-MHERL", "4AT-OFFICIAL"]) {
+      const disposition = dictionarySourceDispositions.find((candidate) => candidate.handoverSourceId === id);
+      expect(disposition?.ledgerOutcome, id).toBe("held");
+      expect(disposition?.publisherCheck?.checkedOn, id).toBe("2026-09-26");
+    }
   });
 });
 
@@ -739,6 +746,12 @@ describe("an update stamp is not a review and not a publication", () => {
 
   /** Every ISO date a stamp could plausibly have been filed as, day and month precision alike. */
   function datesAStampCouldBecome(statement: string): string[] {
+    // WA Health pages write the stamp numerically, day first ("20/02/2026").
+    const numeric = statement.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+    if (numeric) {
+      const mm = numeric[2].padStart(2, "0");
+      return [`${numeric[3]}-${mm}`, `${numeric[3]}-${mm}-${numeric[1].padStart(2, "0")}`];
+    }
     const month = MONTHS.findIndex((m) => new RegExp(`\\b${m}`, "i").test(statement));
     const year = statement.match(/\b(\d{4})\b/);
     if (month < 0 || !year) return [];

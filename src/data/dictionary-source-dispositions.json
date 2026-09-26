@@ -28,9 +28,9 @@
           "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
         },
         {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "code": "publication_event_not_stated_by_the_publisher",
+          "blocker": "The 4AT home page shows no version of the test and no publication or review date. A site copyright year is not a publication date.",
+          "nextAction": "Cite a dated 4AT document, such as the published validation paper or a dated test form, rather than the home page."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -48,8 +48,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-26",
+        "finding": "Read 2026-09-26 (automated page read, owner-approved). The site's copyright line reads '© 2026 the4AT' and credits the test to Professor Alasdair MacLullich, University of Edinburgh. It names no publishing agency and shows no version of the test and no publication or review date, so the publisher field and the held outcome are unchanged."
       }
     },
     {
@@ -1279,24 +1279,14 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "publisher_field_is_a_description_not_an_agency",
-          "blocker": "'WA Health service providers' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
-          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
+          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
+          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
+          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
           "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
           "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
         },
         {
           "code": "version_unknown",
@@ -1319,9 +1309,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-26",
+        "finding": "Read 2026-09-26 (automated page read, owner-approved). The page header names the Fiona Stanley Fremantle Hospitals Group, with the footer copyright line naming the Department of Health, Western Australia. The publisher field is corrected to the hospital group, which is in the authority register. The page states 'Last Updated: 20/02/2026' and gives no publication or review date."
+      },
+      "establishedUpdateStatement": "Last Updated: 20/02/2026"
     },
     {
       "handoverSourceId": "WA-CONSENT-2026",
@@ -1416,19 +1407,14 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
+          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
+          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
         },
         {
-          "code": "publisher_field_is_a_description_not_an_agency",
-          "blocker": "'Government of Western Australia' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
-          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "code": "established_publisher_not_in_authority_register",
+          "blocker": "The page names its publishing organisation as the Mental Health Advocacy Service. That agency is not in the source authority register, so the catalogue cannot place it in a jurisdiction.",
+          "nextAction": "Owner decision: whether to register the Mental Health Advocacy Service as a catalogue-identity-only publisher. Adding a publisher to the register is a retrieval-ranking surface under AGENTS.md."
         },
         {
           "code": "version_unknown",
@@ -1451,9 +1437,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-26",
+        "finding": "Read 2026-09-26 (automated page read, owner-approved). The wa.gov.au page names its organisation as the Mental Health Advocacy Service, not the Government of Western Australia; the publisher field is corrected to that agency. It states 'Last updated: 7 November 2025' and gives no publication or review date."
+      },
+      "establishedUpdateStatement": "Last updated: 7 November 2025"
     },
     {
       "handoverSourceId": "WA-MHC-FORM-LIST-2022",
@@ -1543,19 +1530,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "publisher_field_is_a_description_not_an_agency",
-          "blocker": "'Mental Health Commission / WA Health' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
-          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
+          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
+          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
         },
         {
           "code": "version_unknown",
@@ -1578,9 +1555,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-26",
+        "finding": "Read 2026-09-26 (automated page read, owner-approved). The page is published by the Mental Health Commission (logo and site name); the publisher field is corrected to that single agency, which is in the authority register. The page does not name who operates the line. It states 'Page last updated 1 May 2025' and gives no publication or review date."
+      },
+      "establishedUpdateStatement": "Page last updated 1 May 2025"
     },
     {
       "handoverSourceId": "WA-MHT",
