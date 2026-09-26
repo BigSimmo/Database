@@ -20,6 +20,8 @@ import {
 import { icsFileName, toIcs } from "@/lib/calendar/ics";
 import { monthGrid, monthGridRange, monthKeyOf, shiftMonth, WEEKDAY_SHORT_LABELS } from "@/lib/calendar/month-grid";
 import { googleCalendarUrl, outlookCalendarUrl } from "@/lib/calendar/provider-links";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { applyReminderAlarms, type ReminderSettings } from "@/lib/reminders/settings";
 
 /**
  * A phone-first month calendar with the day's list underneath.
@@ -74,8 +76,15 @@ function monthLabel(monthKey: string): string {
   return `${MONTHS_LONG[month - 1]} ${year}`;
 }
 
-function downloadIcs(events: readonly CalendarEvent[], name: string) {
-  const blob = new Blob([toIcs(events, { name })], { type: "text/calendar;charset=utf-8" });
+/**
+ * The file carries a calendar alarm on an event only when the owner turned
+ * that reminder's "Phone calendar alert" on in Settings; with the defaults it
+ * is exactly the file it always was.
+ */
+function downloadIcs(events: readonly CalendarEvent[], name: string, reminders: ReminderSettings) {
+  const now = new Date();
+  const withAlarms = applyReminderAlarms(events, reminders, now);
+  const blob = new Blob([toIcs(withAlarms, { name, now })], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -134,6 +143,8 @@ export type CalendarViewProps = {
 };
 
 export function CalendarView({ events, today, exportName, exportEvents, testId = "calendar-view" }: CalendarViewProps) {
+  const { preferences } = useAppPreferences();
+  const reminders = preferences.reminders;
   const [month, setMonth] = useState(() => monthKeyOf(today));
   const [selected, setSelected] = useState(today);
   const [sheetEvent, setSheetEvent] = useState<CalendarEvent | null>(null);
@@ -391,7 +402,7 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
           data-testid={`${testId}-export`}
           className={cn(floatingControl, "self-start")}
           disabled={downloadEvents.length === 0}
-          onClick={() => downloadIcs(downloadEvents, exportName)}
+          onClick={() => downloadIcs(downloadEvents, exportName, reminders)}
         >
           <Download aria-hidden="true" className="size-icon-sm" />
           Download calendar file
@@ -407,7 +418,7 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
         returnFocusRef={returnFocus}
         testId={`${testId}-add-sheet`}
       >
-        {sheetEvent ? <AddToCalendarOptions event={sheetEvent} /> : null}
+        {sheetEvent ? <AddToCalendarOptions event={sheetEvent} reminders={reminders} /> : null}
       </Sheet>
     </section>
   );
@@ -462,13 +473,13 @@ function CalendarEventRow({
   );
 }
 
-function AddToCalendarOptions({ event }: { event: CalendarEvent }) {
+function AddToCalendarOptions({ event, reminders }: { event: CalendarEvent; reminders: ReminderSettings }) {
   return (
     <div className="flex flex-col gap-3 pb-2">
       <button
         type="button"
         className={cn(floatingControl, "justify-start")}
-        onClick={() => downloadIcs([event], event.title)}
+        onClick={() => downloadIcs([event], event.title, reminders)}
         data-testid="calendar-add-file"
       >
         <Download aria-hidden="true" className="size-icon-sm" />
