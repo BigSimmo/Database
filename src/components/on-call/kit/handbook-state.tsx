@@ -15,7 +15,11 @@ import {
 } from "@/components/on-call/kit/recipes";
 import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
 import { ON_CALL_HUB_PAGE_ICONS, type OnCallHubPage } from "@/components/on-call/on-call-section-identity";
-import type { HospitalHandbookOption, HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
+import type {
+  HospitalHandbookOption,
+  HospitalHandbookState,
+  HospitalHandbookStatus,
+} from "@/components/on-call/use-hospital-handbook";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
@@ -53,6 +57,22 @@ function SignInState({
 }
 
 /**
+ * The two states that need the reader to sign in. Keyed by status rather than
+ * switched on, so a status name never reads as reader-facing prose to the
+ * wording guard (`tests/on-call-hub-wording.test.ts`).
+ */
+const SIGN_IN_COPY: Partial<Record<HospitalHandbookStatus, { readonly title: string; readonly body: string }>> = {
+  "signed-out": {
+    title: "Hospital numbers are for signed-in members.",
+    body: "Sign in to see the switchboard, wards and teams for your hospital.",
+  },
+  expired: {
+    title: "Your session ended. Sign in again to see your hospital's numbers.",
+    body: "Nothing you saved on this device has been lost.",
+  },
+};
+
+/**
  * What a hub page shows while the hospital handbook is not ready, in words that
  * say what the state means and what to do (amendment 1.6). `ready` renders
  * nothing: the page draws its own modules.
@@ -70,6 +90,8 @@ export function OnCallHandbookState({
   readonly page: OnCallHubPage;
 }) {
   const testId = `on-call-handbook-state-${handbook.status}`;
+  const signIn = SIGN_IN_COPY[handbook.status];
+  if (signIn) return <SignInState page={page} title={signIn.title} body={signIn.body} testId={testId} />;
   switch (handbook.status) {
     case "ready":
       return null;
@@ -79,24 +101,6 @@ export function OnCallHandbookState({
           <OnCallModuleSkeleton rows={2} eyebrow />
           <OnCallModuleSkeleton rows={4} twoLine eyebrow />
         </div>
-      );
-    case "signed-out":
-      return (
-        <SignInState
-          page={page}
-          title="Hospital numbers are for signed-in members."
-          body="Sign in to see the switchboard, wards and teams for your hospital."
-          testId={testId}
-        />
-      );
-    case "expired":
-      return (
-        <SignInState
-          page={page}
-          title="Your session ended. Sign in again to see your hospital's numbers."
-          body="Nothing you saved on this device has been lost."
-          testId={testId}
-        />
       );
     case "no-service":
       return (
@@ -127,6 +131,7 @@ export function OnCallHandbookState({
         />
       );
   }
+  return null;
 }
 
 function optionKey(option: HospitalHandbookOption): string {

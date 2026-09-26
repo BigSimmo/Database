@@ -159,7 +159,7 @@ export function OnCallPageMenuActions({
       <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-privacy">
         <Lock aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="grid gap-0.5">
-          <span className="font-bold">Private entries are yours alone</span>
+          <span className="font-semibold">Private entries are yours alone</span>
           <span className={cn(textMuted, "text-xs")}>
             An entry marked private is visible only when you are signed in, never on the printed card, and never to
             anyone else.
@@ -170,7 +170,7 @@ export function OnCallPageMenuActions({
       <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-tags">
         <Tag aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="grid gap-0.5">
-          <span className="font-bold">What the home shows</span>
+          <span className="font-semibold">What the home shows</span>
           <span className={cn(textMuted, "text-xs")}>
             {`Tick "Call first on the home" when editing a contact. Tag a contact "${ON_CALL_HOME_TAGS.switchboard}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home too.`}
           </span>

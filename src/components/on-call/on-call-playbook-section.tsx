@@ -117,7 +117,7 @@ function LinkedGuidance({
           </p>
           <Link
             href="/documents/search"
-            className="inline-flex min-h-tap items-center text-sm font-bold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-tap items-center text-sm font-semibold text-[color:var(--clinical-accent)]"
           >
             Search documents
           </Link>
@@ -451,7 +451,7 @@ function PlaybookGroup({
           </h3>
           {/* Outside the heading and hidden: the count is a glance, not part
               of the group's name. */}
-          <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+          <span aria-hidden="true" className="nums text-2xs font-medium text-[color:var(--text-muted)]">
             {count}
           </span>
         </div>
