@@ -2,7 +2,7 @@
 
 import { Check, CloudOff, RotateCw } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { focusRing } from "@/components/card-recipes";
@@ -130,10 +130,15 @@ function optionKey(option: HospitalHandbookOption): string {
 }
 
 /**
- * The hospitals a reader can change to, as a list of rows with a check on the
- * current one (a ruling: a segmented control cannot hold hospital names at
- * phone width). Names are text only (owner Q6). Renders nothing when there is
- * no choice to make.
+ * The hospitals a reader can change to, as a radio group of rows with a check
+ * on the current one (a ruling: a segmented control cannot hold hospital names
+ * at phone width). Names are text only (owner Q6). Renders nothing when there
+ * is no choice to make.
+ *
+ * The radios are the group's direct children (review S6), with one tab stop.
+ * Arrow keys, Home and End move focus; Space, Enter or a tap chooses. Moving
+ * does not choose, unlike a plain radio group, because a choice reloads the
+ * page's numbers and closes the sheet the list sits in.
  */
 export function OnCallHospitalChooser({
   handbook,
@@ -145,48 +150,91 @@ export function OnCallHospitalChooser({
   readonly onChosen?: () => void;
   readonly testId?: string;
 }) {
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const radios = useRef(new Map<string, HTMLButtonElement>());
   if (handbook.hospitals.length < 2) return null;
+  const keys = handbook.hospitals.map(optionKey);
+  const tabStop = keys.includes(focusKey ?? "")
+    ? focusKey
+    : keys.includes(handbook.hospitalKey ?? "")
+      ? handbook.hospitalKey
+      : keys[0];
+
+  const moveFocus = (from: string, key: string) => {
+    const index = keys.indexOf(from);
+    const last = keys.length - 1;
+    const target =
+      key === "ArrowDown" || key === "ArrowRight"
+        ? index === last
+          ? 0
+          : index + 1
+        : key === "ArrowUp" || key === "ArrowLeft"
+          ? index === 0
+            ? last
+            : index - 1
+          : key === "Home"
+            ? 0
+            : key === "End"
+              ? last
+              : null;
+    if (target === null) return false;
+    const next = keys[target];
+    if (next === undefined) return false;
+    setFocusKey(next);
+    radios.current.get(next)?.focus();
+    return true;
+  };
+
   return (
-    <ul role="radiogroup" aria-label="Hospital" className={onCallModuleSurface} data-testid={testId}>
+    <div role="radiogroup" aria-label="Hospital" className={onCallModuleSurface} data-testid={testId}>
       {handbook.hospitals.map((option) => {
         const key = optionKey(option);
         const selected = key === handbook.hospitalKey;
         const name = option.siteName ?? option.serviceName;
         const detail = option.siteName ? option.serviceName : null;
         return (
-          <li key={key} className={cn(onCallInsetHairline, "min-w-0")}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => {
-                handbook.changeHospital(option.serviceId, option.siteId);
-                onChosen?.();
-              }}
-              className={cn(
-                focusRing,
-                onCallPressable,
-                detail ? onCallRowHeight.double : onCallRowHeight.single,
-                "flex w-full min-w-0 items-center gap-3 px-3 text-left",
-              )}
-            >
-              <span className="grid min-w-0 flex-1 gap-0.5 py-1.5">
-                <span className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
-                  {name}
-                </span>
-                {detail ? <span className={cn(onCallSecondaryText, "break-words")}>{detail}</span> : null}
+          <button
+            key={key}
+            ref={(node) => {
+              if (node) radios.current.set(key, node);
+              else radios.current.delete(key);
+            }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={key === tabStop ? 0 : -1}
+            onFocus={() => setFocusKey(key)}
+            onKeyDown={(event) => {
+              if (moveFocus(key, event.key)) event.preventDefault();
+            }}
+            onClick={() => {
+              handbook.changeHospital(option.serviceId, option.siteId);
+              onChosen?.();
+            }}
+            className={cn(
+              onCallInsetHairline,
+              focusRing,
+              onCallPressable,
+              detail ? onCallRowHeight.double : onCallRowHeight.single,
+              "flex w-full min-w-0 items-center gap-3 px-3 text-left",
+            )}
+          >
+            <span className="grid min-w-0 flex-1 content-center gap-0.5">
+              <span className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
+                {name}
               </span>
-              {selected ? (
-                <Check
-                  aria-hidden="true"
-                  strokeWidth={2}
-                  className="size-icon-lg shrink-0 text-[color:var(--clinical-accent)]"
-                />
-              ) : null}
-            </button>
-          </li>
+              {detail ? <span className={cn(onCallSecondaryText, "break-words")}>{detail}</span> : null}
+            </span>
+            {selected ? (
+              <Check
+                aria-hidden="true"
+                strokeWidth={2}
+                className="size-icon-lg shrink-0 text-[color:var(--clinical-accent)]"
+              />
+            ) : null}
+          </button>
         );
       })}
-    </ul>
+    </div>
   );
 }

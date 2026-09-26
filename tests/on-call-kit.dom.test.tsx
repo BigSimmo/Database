@@ -493,6 +493,28 @@ describe("OnCallHospitalLine and OnCallHospitalChooser", () => {
     expect(state.changeHospital).toHaveBeenCalledWith("s1", "b");
   });
 
+  it("puts the radios directly in the radiogroup, one tab stop, arrows to move (review S6)", async () => {
+    const state = twoHospitals();
+    render(<OnCallHospitalChooser handbook={state} />);
+    const group = screen.getByRole("radiogroup", { name: "Hospital" });
+    expect(group.querySelectorAll("li")).toHaveLength(0);
+    expect([...group.children].map((child) => child.getAttribute("role"))).toEqual(["radio", "radio"]);
+    const [current, other] = within(group).getAllByRole("radio");
+    expect(current).toHaveAttribute("tabindex", "0");
+    expect(other).toHaveAttribute("tabindex", "-1");
+    current?.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(other).toHaveFocus();
+    // Moving never changes the hospital: that reloads the page's numbers.
+    expect(state.changeHospital).not.toHaveBeenCalled();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(current).toHaveFocus();
+    await userEvent.keyboard("{End}");
+    expect(other).toHaveFocus();
+    await userEvent.keyboard(" ");
+    expect(state.changeHospital).toHaveBeenCalledWith("s1", "b");
+  });
+
   it("offers no Change and no chooser when there is only one hospital", () => {
     const state = { ...twoHospitals(), hospitals: twoHospitals().hospitals.slice(0, 1) };
     const { container } = render(<OnCallHospitalChooser handbook={state} />);
