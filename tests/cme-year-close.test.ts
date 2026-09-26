@@ -31,6 +31,7 @@ import type { CmeEntry } from "@/lib/cme/types";
 import {
   buildCmeCloseEvaluation,
   canCloseCmeYear,
+  closedRequirementSummaryText,
   cmeYearClosableFromLabel,
   rowsToCmeYearClose,
 } from "@/lib/cme/year-close";
@@ -117,6 +118,31 @@ describe("the evaluation recorded at closing", () => {
     expect(close).toMatchObject({ shortfallNote: "Parental leave", totalHours: 45, targetHours: 50, entryCount: 2 });
     expect(close.requirements).toEqual([{ requirementId: "r1", label: "Total", met: false, summary: "5 hours short" }]);
     expect(close.amendments[0]!.after.allocations).toEqual([{ category: "educational", hours: 4 }]);
+  });
+});
+
+describe("a closed year's stored summaries, as shown", () => {
+  it("shows the old stored words in today's plain status, without changing what was stored", () => {
+    expect(closedRequirementSummaryText("Met")).toBe("Reached");
+    expect(closedRequirementSummaryText("5 hours short")).toBe("5 h to go");
+    expect(closedRequirementSummaryText("1 hour short")).toBe("1 h to go");
+    expect(closedRequirementSummaryText("2.5 hours short in measuring outcomes")).toBe(
+      "2.5 h to go in measuring outcomes",
+    );
+  });
+
+  it("passes every other summary through unchanged", () => {
+    for (const summary of [
+      "Reached",
+      "3 h to go",
+      "Ethical practice has nothing against it yet",
+      "2 of 4 have nothing against them yet",
+      "Done 12 January 2026",
+      "Not started",
+      "Metacognition workshop",
+    ]) {
+      expect(closedRequirementSummaryText(summary)).toBe(summary);
+    }
   });
 });
 

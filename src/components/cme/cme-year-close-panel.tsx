@@ -13,6 +13,7 @@ import type { CmeYearClose } from "@/lib/cme/types";
 import {
   amendedVersionHours,
   canCloseCmeYear,
+  closedRequirementSummaryText,
   cmeYearClosableFromLabel,
   CME_SHORTFALL_NOTE_MAX,
 } from "@/lib/cme/year-close";
@@ -48,7 +49,7 @@ function ClosedYearRecord({ year, close }: { year: number; close: CmeYearClose }
           {close.requirements.map((requirement) => (
             <li key={requirement.requirementId}>
               <span className={requirement.met ? undefined : "font-semibold"}>{requirement.label}</span>:{" "}
-              {requirement.summary}
+              {closedRequirementSummaryText(requirement.summary)}
             </li>
           ))}
         </ul>

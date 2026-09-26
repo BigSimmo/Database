@@ -36,7 +36,11 @@ const close: CmeYearClose = {
   totalHours: 2,
   targetHours: set.totalHours,
   entryCount: 1,
-  requirements: [{ requirementId: "total", label: "Total CPD hours", met: false, summary: "48 hours short" }],
+  // Stored in the words the app used before 2026-09; shown in today's words.
+  requirements: [
+    { requirementId: "total", label: "Total CPD hours", met: false, summary: "48 hours short" },
+    { requirementId: "educational", label: "Educational activities", met: true, summary: "Met" },
+  ],
   amendments: [
     {
       id: "a1",
@@ -113,6 +117,9 @@ describe("closing a year from the annual summary", () => {
     expect(record).toHaveTextContent("2026 closed on 20 December 2026");
     expect(record).toHaveTextContent(`At closing: 2 of ${set.totalHours} hours from 1 activity.`);
     expect(record).toHaveTextContent("Parental leave from August");
+    expect(record).toHaveTextContent("Total CPD hours: 48 h to go");
+    expect(record).toHaveTextContent("Educational activities: Reached");
+    expect(record).not.toHaveTextContent(/hours short|\bMet\b/);
     expect(record).toHaveTextContent("It does not reduce any requirement.");
     expect(screen.getByTestId("cme-year-amendments")).toHaveTextContent(
       "10 January 2027: Synthetic activity2 h on 1 September 2026 → 4 h on 1 September 2026Reason: Certificate shows 4 hours",

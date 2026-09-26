@@ -19,7 +19,7 @@ export type CmeYearCheckRow = {
   readonly group: CmeYearCheckGroup;
   readonly label: string;
   readonly ready: boolean;
-  /** One plain sentence: what is met, or exactly what is missing. */
+  /** One plain status: what is reached, or exactly what is still to go. */
   readonly summary: string;
   /** Activities that count toward this row (targets) or still need attention (records). */
   readonly entryIds: readonly string[];
@@ -82,7 +82,7 @@ export function buildCmeYearCheck(set: CmeRequirementSet, allEntries: readonly C
       group: "targets",
       label: `${set.totalHours} hours in total`,
       ready: shortBy <= 0,
-      summary: shortBy <= 0 ? `Met: ${total} hours logged` : `${total} hours logged, ${shortBy} short`,
+      summary: shortBy <= 0 ? `Reached · ${total} h logged` : `${total} h logged, ${shortBy} h to go`,
       entryIds: entries.map((entry) => entry.id),
       action: shortBy <= 0 ? null : { label: "Log an activity", href: `/cme/new?year=${set.year}` },
     });

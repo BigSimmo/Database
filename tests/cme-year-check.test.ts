@@ -55,8 +55,17 @@ describe("year check", () => {
     expect(educational.entryIds).toEqual(["a"]);
     const total = check.rows.find((row) => row.id === "total")!;
     expect(total.ready).toBe(false);
-    expect(total.summary).toBe("15 hours logged, 35 short");
+    expect(total.summary).toBe("15 h logged, 35 h to go");
     expect(total.action?.href).toBe("/cme/new?year=2026");
+  });
+
+  it("says Reached, with the hours logged, once the total is reached", () => {
+    const check = buildCmeYearCheck(SET, [entry({ id: "a", allocations: [{ category: "educational", hours: 52.5 }] })]);
+    const total = check.rows.find((row) => row.id === "total")!;
+    expect(total.ready).toBe(true);
+    expect(total.summary).toBe("Reached · 52.5 h logged");
+    expect(total.action).toBeNull();
+    expect(check.rows.find((row) => row.id === "requirement-educational")!.summary).toBe("Reached");
   });
 
   it("flags missing evidence, reflections and copies, and links to the filtered log", () => {
