@@ -47,7 +47,11 @@ describe("partitioned unit coverage verdict", () => {
 
   it("fails the required aggregate on unsuccessful or missing partitions", () => {
     expect(aggregate.needs).toContain("coverage-shards");
-    expect(aggregate.if).toContain("always()");
+    // Runs on a failed partition (to report it) but not on a cancelled run; the required
+    // aggregate keeps `always()` and fails an in-scope `skipped` coverage result.
+    expect(aggregate.if).toContain("!cancelled()");
+    expect(aggregate.if).not.toContain("always()");
+    expect(workflow.jobs["pr-required"].if).toBe("always()");
     expect(aggregate.steps[0].env.SHARD_RESULT).toBe("${{ needs.coverage-shards.result }}");
     expect(aggregate.steps[0].run).toBe('test "$SHARD_RESULT" = success');
     expect(aggregate.steps[0]["continue-on-error"]).toBeUndefined();
@@ -96,6 +100,27 @@ describe("CI cache safety", () => {
   });
   it("does not add a PR workflow that changes user-owned auto-merge state", () => {
     expect(existsSync(new URL("../.github/workflows/keep-pr-auto-merge.yml", import.meta.url))).toBe(false);
+  });
+
+  it("carries only ESLint and tsc incremental caches into static-pr, keyed so rule code cannot go stale", () => {
+    const staticJob = sourceSegment(workflow, "\n  static-pr:\n", "\n  safety:\n");
+    const restore = sourceSegment(
+      staticJob,
+      "name: Restore incremental lint and typecheck caches",
+      "- name: Runtime alignment",
+    );
+    expect(restore).toContain("node_modules/.cache/eslint");
+    expect(restore).toContain("${{ steps.static-cache.outputs.tsc }}");
+    // Never the gate-receipt store (node_modules/.cache/database-gate-receipts.json) or the
+    // whole .cache directory: a restored receipt could let a gate skip itself.
+    expect(restore).not.toMatch(/node_modules\/\.cache\s*$/m);
+    expect(restore).not.toContain("gate-receipts");
+    for (const input of ["eslint.config.mjs", "eslint-rules/**", "package-lock.json", "tsconfig.typecheck.json"]) {
+      expect(restore).toContain(`'${input}'`);
+    }
+    expect(staticJob).toMatch(/\n\s+run: npm run lint\n/);
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect(packageJson.scripts["lint:internal"]).toContain("--cache-strategy content");
   });
 
   it("uses npm's download cache but recreates node_modules on every job", () => {

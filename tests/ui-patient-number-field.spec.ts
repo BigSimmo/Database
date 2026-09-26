@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
 import { gotoApp } from "./helpers/spec-navigation";
+import { clickWhenHydrated } from "./playwright-settlement";
 import { PATIENT_PROFILE_STORAGE_KEY } from "../src/lib/patient-profile-storage";
 
 /**
@@ -100,7 +101,10 @@ async function openPatientStrip(page: Page): Promise<void> {
   // Exactly one. Two mounted copies would make every field id below ambiguous,
   // and a second copy of this form is the desync #WFARS3 was reported from.
   await expect(panel).toHaveCount(1, { timeout: 30_000 });
-  await panel.locator("summary").first().click();
+  // The panel's open state is React-controlled. A tap before hydration toggles
+  // the native <details> without React's onToggle, so React's state and the
+  // DOM can disagree and the field may never show.
+  await clickWhenHydrated(panel.locator("summary").first());
   const crcl = page.getByTestId("patient-crcl");
   await expect(crcl).toBeVisible({ timeout: 15_000 });
   await waitForHydratedField(crcl);
