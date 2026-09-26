@@ -165,9 +165,11 @@ export const modeSecondaryNavigationRegistry = {
     { id: "year", label: "This year", href: "/cme" },
     { id: "log", label: "Log", href: "/cme/log" },
     { id: "check", label: "Year check", href: "/cme/check" },
+    { id: "training", label: "Training", href: "/cme/training" },
     { id: "calendar", label: "Calendar", href: "/cme/calendar" },
     { id: "routines", label: "Routines", href: "/cme/routines" },
     { id: "plan", label: "Plan", href: "/cme/plan" },
+    { id: "learning", label: "Learning", href: "/cme/learning" },
     { id: "programme", label: "Programme", href: "/cme/programme" },
     { id: "setup", label: "Set up", href: "/cme/setup" },
   ],
@@ -321,9 +323,11 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   if (modeId === "cme") {
     if (pathname === "/cme/log") return "log";
     if (pathname === "/cme/check") return "check";
+    if (pathname === "/cme/training") return "training";
     if (pathname === "/cme/calendar") return "calendar";
     if (pathname === "/cme/routines") return "routines";
     if (pathname === "/cme/plan") return "plan";
+    if (pathname === "/cme/learning") return "learning";
     if (pathname === "/cme/programme") return "programme";
     if (pathname === "/cme/setup") return "setup";
     // Exact match only, for the same reason On Call's home is: a prefix test

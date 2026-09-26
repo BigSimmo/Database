@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
+import { BriefcaseMedical, Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
@@ -120,6 +120,19 @@ export function OnCallPageMenuActions({
           </span>
         </button>
       ) : null}
+
+      <Link
+        href="/on-call/shifts"
+        onClick={() => onNavigate?.()}
+        className={inPageActionRowClass}
+        data-testid="on-call-page-menu-shifts"
+      >
+        <BriefcaseMedical aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="grid gap-0.5">
+          <span>My shifts</span>
+          <span className={cn(textMuted, "text-xs font-normal")}>Your own roster. Only you can see it.</span>
+        </span>
+      </Link>
 
       <Link
         href="/on-call/card"
