@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-25T16:16:17.934Z",
+  "generated_at": "2026-09-26T05:11:14.993Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "7194a55675aa692ddb20a77cb0c991f5d3a3eb99e8d3a0ee6e278cc78df7e080",
-  "replay_seconds": 15,
+  "schema_sha256": "ea4a267ea9c2e30215ed9273fe9aed6255bb924a412321155811e60ff8727941",
+  "replay_seconds": 20,
   "snapshot": {
     "views": [
       {
@@ -953,6 +953,82 @@
           "postgres=arwdDxtm/postgres",
           "service_role=arwd/postgres"
         ],
+        "name": "cme_entry_drafts",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "follow_up_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "payload",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "waiting_note",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "waiting_on",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
         "name": "cme_entry_goals",
         "columns": [
           {
@@ -1105,6 +1181,98 @@
           },
           {
             "name": "uploaded_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_missed_sessions",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "kind",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "minutes_lost",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "occurred_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reason",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "replacement_entry_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
             "type": "timestamp with time zone",
             "default": "now()",
             "identity": "",
@@ -1343,6 +1511,174 @@
             "name": "usual_hours",
             "type": "numeric(5,2)",
             "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_training_milestones",
+        "columns": [
+          {
+            "name": "completed_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "due_fte_months",
+            "type": "numeric(5,2)",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "due_kind",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "due_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_training_periods",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "ends_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "fte",
+            "type": "numeric(3,2)",
+            "default": "1",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "kind",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "starts_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -8671,6 +9007,24 @@
         "def_hash": "ddfa7ecd685a0125235fb746d7c8bef6"
       },
       {
+        "def": "CREATE UNIQUE INDEX cme_entry_drafts_id_owner_key ON public.cme_entry_drafts USING btree (id, owner_id)",
+        "name": "cme_entry_drafts_id_owner_key",
+        "table": "cme_entry_drafts",
+        "def_hash": "709418e48dbf568b77c42d9ba32e1402"
+      },
+      {
+        "def": "CREATE INDEX cme_entry_drafts_owner_idx ON public.cme_entry_drafts USING btree (owner_id, updated_at DESC)",
+        "name": "cme_entry_drafts_owner_idx",
+        "table": "cme_entry_drafts",
+        "def_hash": "92c92be425e937acfef4311c7cfa598a"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_entry_drafts_pkey ON public.cme_entry_drafts USING btree (id)",
+        "name": "cme_entry_drafts_pkey",
+        "table": "cme_entry_drafts",
+        "def_hash": "3c8cbea5c027c164d43bf41fc6054c5e"
+      },
+      {
         "def": "CREATE INDEX cme_entry_goals_goal_idx ON public.cme_entry_goals USING btree (goal_id)",
         "name": "cme_entry_goals_goal_idx",
         "table": "cme_entry_goals",
@@ -8713,6 +9067,30 @@
         "def_hash": "bfc72ba1d6e9208b5bdf395c8ae90153"
       },
       {
+        "def": "CREATE UNIQUE INDEX cme_missed_sessions_id_owner_key ON public.cme_missed_sessions USING btree (id, owner_id)",
+        "name": "cme_missed_sessions_id_owner_key",
+        "table": "cme_missed_sessions",
+        "def_hash": "3abc7410218c7c039ee4680a1d3686d1"
+      },
+      {
+        "def": "CREATE INDEX cme_missed_sessions_owner_idx ON public.cme_missed_sessions USING btree (owner_id, occurred_on DESC)",
+        "name": "cme_missed_sessions_owner_idx",
+        "table": "cme_missed_sessions",
+        "def_hash": "fa5e487ec365f61721aaa4d08cdf26f7"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_missed_sessions_pkey ON public.cme_missed_sessions USING btree (id)",
+        "name": "cme_missed_sessions_pkey",
+        "table": "cme_missed_sessions",
+        "def_hash": "a54aaefb8ad6b876d529c4aac24af4b9"
+      },
+      {
+        "def": "CREATE INDEX cme_missed_sessions_replacement_idx ON public.cme_missed_sessions USING btree (replacement_entry_id) WHERE (replacement_entry_id IS NOT NULL)",
+        "name": "cme_missed_sessions_replacement_idx",
+        "table": "cme_missed_sessions",
+        "def_hash": "d83ff4302b947648c383ea7127013e99"
+      },
+      {
         "def": "CREATE UNIQUE INDEX cme_plan_goals_id_owner_key ON public.cme_plan_goals USING btree (id, owner_id)",
         "name": "cme_plan_goals_id_owner_key",
         "table": "cme_plan_goals",
@@ -8753,6 +9131,42 @@
         "name": "cme_routines_pkey",
         "table": "cme_routines",
         "def_hash": "675ece2c9db9188c051b01135aaa9595"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_training_milestones_id_owner_key ON public.cme_training_milestones USING btree (id, owner_id)",
+        "name": "cme_training_milestones_id_owner_key",
+        "table": "cme_training_milestones",
+        "def_hash": "bf1cc5d17f9bfabdfb4fcdd19a0e5083"
+      },
+      {
+        "def": "CREATE INDEX cme_training_milestones_owner_idx ON public.cme_training_milestones USING btree (owner_id)",
+        "name": "cme_training_milestones_owner_idx",
+        "table": "cme_training_milestones",
+        "def_hash": "5519c7880f36972092bd49b728baa663"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_training_milestones_pkey ON public.cme_training_milestones USING btree (id)",
+        "name": "cme_training_milestones_pkey",
+        "table": "cme_training_milestones",
+        "def_hash": "d6e39462f6a137685d78c13cefc9ca7b"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_training_periods_id_owner_key ON public.cme_training_periods USING btree (id, owner_id)",
+        "name": "cme_training_periods_id_owner_key",
+        "table": "cme_training_periods",
+        "def_hash": "583db556ea11f427bd5ae065ac271ab5"
+      },
+      {
+        "def": "CREATE INDEX cme_training_periods_owner_idx ON public.cme_training_periods USING btree (owner_id, starts_on)",
+        "name": "cme_training_periods_owner_idx",
+        "table": "cme_training_periods",
+        "def_hash": "ecd8cdeb60d143b64a5c893b4db932e5"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_training_periods_pkey ON public.cme_training_periods USING btree (id)",
+        "name": "cme_training_periods_pkey",
+        "table": "cme_training_periods",
+        "def_hash": "64d854b31032e52ea9d747679b2e40c5"
       },
       {
         "def": "CREATE INDEX cme_year_amendments_entry_idx ON public.cme_year_amendments USING btree (entry_id, owner_id)",
@@ -10504,12 +10918,36 @@
       },
       {
         "cmd": "ALL",
+        "name": "cme_entry_drafts service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_entry_drafts",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
         "name": "cme_entry_goals service role all",
         "qual": "true",
         "roles": [
           "service_role"
         ],
         "table": "cme_entry_goals",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_missed_sessions service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_missed_sessions",
         "schema": "public",
         "permissive": "PERMISSIVE",
         "with_check": "true"
@@ -10546,6 +10984,30 @@
           "service_role"
         ],
         "table": "cme_routines",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_training_milestones service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_training_milestones",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_training_periods service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_training_periods",
         "schema": "public",
         "permissive": "PERMISSIVE",
         "with_check": "true"
@@ -11283,6 +11745,11 @@
         "table": "cme_entries"
       },
       {
+        "def": "CREATE TRIGGER cme_entry_drafts_updated_at BEFORE UPDATE ON public.cme_entry_drafts FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
+        "name": "cme_entry_drafts_updated_at",
+        "table": "cme_entry_drafts"
+      },
+      {
         "def": "CREATE TRIGGER cme_entry_goal_guard BEFORE INSERT OR DELETE OR UPDATE ON public.cme_entry_goals FOR EACH ROW EXECUTE FUNCTION public.cme_guard_entry_goal()",
         "name": "cme_entry_goal_guard",
         "table": "cme_entry_goals"
@@ -11291,6 +11758,11 @@
         "def": "CREATE TRIGGER cme_evidence_insert_guard BEFORE INSERT ON public.cme_evidence FOR EACH ROW EXECUTE FUNCTION public.cme_guard_evidence_insert()",
         "name": "cme_evidence_insert_guard",
         "table": "cme_evidence"
+      },
+      {
+        "def": "CREATE TRIGGER cme_missed_sessions_updated_at BEFORE UPDATE ON public.cme_missed_sessions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
+        "name": "cme_missed_sessions_updated_at",
+        "table": "cme_missed_sessions"
       },
       {
         "def": "CREATE TRIGGER cme_plan_goal_closed_year_guard BEFORE INSERT OR DELETE OR UPDATE ON public.cme_plan_goals FOR EACH ROW EXECUTE FUNCTION public.cme_guard_plan_goal()",
@@ -11306,6 +11778,16 @@
         "def": "CREATE TRIGGER cme_requirement_closed_year_guard BEFORE INSERT OR DELETE OR UPDATE ON public.cme_requirements FOR EACH ROW EXECUTE FUNCTION public.cme_guard_requirement()",
         "name": "cme_requirement_closed_year_guard",
         "table": "cme_requirements"
+      },
+      {
+        "def": "CREATE TRIGGER cme_training_milestones_updated_at BEFORE UPDATE ON public.cme_training_milestones FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
+        "name": "cme_training_milestones_updated_at",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "CREATE TRIGGER cme_training_periods_updated_at BEFORE UPDATE ON public.cme_training_periods FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
+        "name": "cme_training_periods_updated_at",
+        "table": "cme_training_periods"
       },
       {
         "def": "CREATE TRIGGER cme_year_amendments_immutable BEFORE DELETE OR UPDATE ON public.cme_year_amendments FOR EACH ROW EXECUTE FUNCTION public.cme_guard_close_record()",
@@ -13450,6 +13932,36 @@
         "table": "cme_entries"
       },
       {
+        "def": "UNIQUE (id, owner_id)",
+        "name": "cme_entry_drafts_id_owner_key",
+        "table": "cme_entry_drafts"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_entry_drafts_owner_id_fkey",
+        "table": "cme_entry_drafts"
+      },
+      {
+        "def": "CHECK (((jsonb_typeof(payload) = 'object'::text) AND (octet_length((payload)::text) <= 16384)))",
+        "name": "cme_entry_drafts_payload_check",
+        "table": "cme_entry_drafts"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_entry_drafts_pkey",
+        "table": "cme_entry_drafts"
+      },
+      {
+        "def": "CHECK (((waiting_note IS NULL) OR (char_length(waiting_note) <= 200)))",
+        "name": "cme_entry_drafts_waiting_note_check",
+        "table": "cme_entry_drafts"
+      },
+      {
+        "def": "CHECK (((waiting_on IS NULL) OR (waiting_on = ANY (ARRAY['supervisor'::text, 'workforce'::text]))))",
+        "name": "cme_entry_drafts_waiting_on_check",
+        "table": "cme_entry_drafts"
+      },
+      {
         "def": "FOREIGN KEY (entry_id, owner_id) REFERENCES public.cme_entries(id, owner_id) ON DELETE CASCADE",
         "name": "cme_entry_goals_entry_owner_fk",
         "table": "cme_entry_goals"
@@ -13535,6 +14047,46 @@
         "table": "cme_evidence"
       },
       {
+        "def": "UNIQUE (id, owner_id)",
+        "name": "cme_missed_sessions_id_owner_key",
+        "table": "cme_missed_sessions"
+      },
+      {
+        "def": "CHECK ((kind = ANY (ARRAY['teaching'::text, 'supervision'::text])))",
+        "name": "cme_missed_sessions_kind_check",
+        "table": "cme_missed_sessions"
+      },
+      {
+        "def": "CHECK (((minutes_lost >= 1) AND (minutes_lost <= 600)))",
+        "name": "cme_missed_sessions_minutes_lost_check",
+        "table": "cme_missed_sessions"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_missed_sessions_owner_id_fkey",
+        "table": "cme_missed_sessions"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_missed_sessions_pkey",
+        "table": "cme_missed_sessions"
+      },
+      {
+        "def": "CHECK (((reason IS NULL) OR (char_length(reason) <= 200)))",
+        "name": "cme_missed_sessions_reason_check",
+        "table": "cme_missed_sessions"
+      },
+      {
+        "def": "FOREIGN KEY (replacement_entry_id, owner_id) REFERENCES public.cme_entries(id, owner_id) ON DELETE SET NULL (replacement_entry_id)",
+        "name": "cme_missed_sessions_replacement_owner_fk",
+        "table": "cme_missed_sessions"
+      },
+      {
+        "def": "CHECK (((char_length(btrim(title)) >= 3) AND (char_length(btrim(title)) <= 200)))",
+        "name": "cme_missed_sessions_title_check",
+        "table": "cme_missed_sessions"
+      },
+      {
         "def": "CHECK (((char_length(btrim(goal)) >= 3) AND (char_length(btrim(goal)) <= 300)))",
         "name": "cme_plan_goals_goal_check",
         "table": "cme_plan_goals"
@@ -13608,6 +14160,81 @@
         "def": "PRIMARY KEY (id)",
         "name": "cme_routines_pkey",
         "table": "cme_routines"
+      },
+      {
+        "def": "CHECK ((((due_kind = 'fte-months'::text) AND (due_fte_months IS NOT NULL) AND (due_on IS NULL)) OR ((due_kind = 'date'::text) AND (due_on IS NOT NULL) AND (due_fte_months IS NULL))))",
+        "name": "cme_training_milestones_due_check",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "CHECK (((due_fte_months IS NULL) OR ((due_fte_months >= (0)::numeric) AND (due_fte_months <= (600)::numeric))))",
+        "name": "cme_training_milestones_due_fte_months_check",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "CHECK ((due_kind = ANY (ARRAY['fte-months'::text, 'date'::text])))",
+        "name": "cme_training_milestones_due_kind_check",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "UNIQUE (id, owner_id)",
+        "name": "cme_training_milestones_id_owner_key",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "CHECK (((char_length(btrim(label)) >= 3) AND (char_length(btrim(label)) <= 200)))",
+        "name": "cme_training_milestones_label_check",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_training_milestones_owner_id_fkey",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_training_milestones_pkey",
+        "table": "cme_training_milestones"
+      },
+      {
+        "def": "CHECK (((ends_on IS NULL) OR (ends_on >= starts_on)))",
+        "name": "cme_training_periods_check",
+        "table": "cme_training_periods"
+      },
+      {
+        "def": "CHECK (((fte >= (0)::numeric) AND (fte <= (1)::numeric)))",
+        "name": "cme_training_periods_fte_check",
+        "table": "cme_training_periods"
+      },
+      {
+        "def": "CHECK ((((kind = 'break'::text) AND (fte = (0)::numeric)) OR ((kind = 'rotation'::text) AND (fte > (0)::numeric)) OR (kind = 'stage'::text)))",
+        "name": "cme_training_periods_fte_kind_check",
+        "table": "cme_training_periods"
+      },
+      {
+        "def": "UNIQUE (id, owner_id)",
+        "name": "cme_training_periods_id_owner_key",
+        "table": "cme_training_periods"
+      },
+      {
+        "def": "CHECK ((kind = ANY (ARRAY['stage'::text, 'rotation'::text, 'break'::text])))",
+        "name": "cme_training_periods_kind_check",
+        "table": "cme_training_periods"
+      },
+      {
+        "def": "CHECK (((char_length(btrim(label)) >= 1) AND (char_length(btrim(label)) <= 120)))",
+        "name": "cme_training_periods_label_check",
+        "table": "cme_training_periods"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_training_periods_owner_id_fkey",
+        "table": "cme_training_periods"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_training_periods_pkey",
+        "table": "cme_training_periods"
       },
       {
         "def": "FOREIGN KEY (entry_id, owner_id) REFERENCES public.cme_entries(id, owner_id) ON DELETE CASCADE",
