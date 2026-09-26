@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DeveloperHazardsPage from "@/app/mockups/development/hazards/page";
 import { loadHazardSnapshot, unmitigatedHazards } from "@/lib/developer-area/hazard-register";
+import { DOCUMENT_CAUTIONS } from "@/lib/document-cautions";
 
 // PanelPageShell's back control is a ContextualBackLink, which calls
 // next/navigation's useRouter for its history-aware click handler. Outside an
@@ -102,5 +103,19 @@ describe("developer hazard register page", () => {
 
     expect(page).toHaveTextContent(/Nothing here is clinical assurance/i);
     expect(page).not.toHaveTextContent(/every clinical risk/i);
+  });
+
+  it("lists every known source-document error with its governance decision and ledger id", () => {
+    render(<DeveloperHazardsPage />);
+    const section = screen.getByTestId("developer-hazards-document-cautions");
+    for (const caution of DOCUMENT_CAUTIONS) {
+      const item = within(section).getByTestId(`developer-hazards-document-caution-${caution.id}`);
+      expect(item).toHaveTextContent(caution.message);
+      expect(item).toHaveTextContent(caution.decision);
+      expect(item).toHaveTextContent(caution.ledger);
+    }
+    expect(
+      within(section).getByTestId("developer-hazards-document-caution-rkpg-clozapine-wbc-anc-labels"),
+    ).toHaveTextContent("#7VQ5RC");
   });
 });
