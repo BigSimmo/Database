@@ -5338,8 +5338,32 @@ test.describe("PsychSift UI smoke coverage", () => {
     // coalescing + exclusive-accordion open sync must keep a single click from
     // wrapping a two-hit search back to Hit 1 on Firefox. Keyboard coverage is
     // separate (activateFocusedControl elsewhere); do not substitute it here.
+    //
+    // A wrap-back and a lost click look identical from the counter ("Hit 1 of 2").
+    // The lost click is real: the viewer is still settling after the first hit
+    // opens, and on a slow runner the button moved ~70px between Playwright's
+    // press and release, so mouseup landed on a passage summary and the browser
+    // sent the click to their common ancestor (reproduced under 8x CPU throttle;
+    // failed on Firefox and desktop WebKit in runs 36214387379, 36210366372).
+    // Count the clicks the button itself receives and re-click only when it
+    // received none: an undelivered click is retried, while a delivered click
+    // that fails to advance still fails here and names its click count.
+    await nextHit.evaluate((button) => {
+      const counter = window as unknown as { __nextHitClicks: number };
+      counter.__nextHitClicks = 0;
+      button.addEventListener("click", () => {
+        counter.__nextHitClicks += 1;
+      });
+    });
+    const nextHitClicks = () => page.evaluate(() => (window as unknown as { __nextHitClicks: number }).__nextHitClicks);
     await nextHit.click();
-    await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
+    await expect(async () => {
+      if ((await nextHitClicks()) === 0) await nextHit.click();
+      await expect(
+        desktopTextPanel.getByText("Hit 2 of 2"),
+        `Next hit button received ${await nextHitClicks()} click(s)`,
+      ).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
     const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
     await expect(nextActiveHit).toHaveJSProperty("open", true);
     await expect(initialActiveDisclosure).toHaveJSProperty("open", false);
