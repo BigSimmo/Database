@@ -347,6 +347,42 @@ describe("On Call home layout", () => {
   });
 });
 
+describe("the Check these tile", () => {
+  const tile = () => screen.getByTestId("on-call-home-check");
+
+  it("never reads as checked when there is nothing to check", () => {
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("No entries");
+    expect(tile()).not.toHaveTextContent(/checked/i);
+  });
+
+  it("says it is loading, unavailable or needs a sign-in rather than all clear", () => {
+    storeState.loading = true;
+    const { unmount } = render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Loading");
+    unmount();
+
+    storeState.loading = false;
+    storeState.isOffline = true;
+    storeState.loadError = "failed";
+    const failed = render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Unavailable");
+    failed.unmount();
+
+    storeState.isOffline = false;
+    storeState.loadError = null;
+    storeState.signedOut = true;
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Sign in");
+  });
+
+  it("says none are due only once real entries were assessed", () => {
+    storeState.entries = [contact("switch", "Switchboard", [], "9224 0000")];
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("None due");
+  });
+});
+
 describe("On Call home tiles for Admin and Compliance", () => {
   // Admin and Compliance are ONE stored section (`logistics`) split on
   // `details.kind`, because `section` is a database CHECK constraint and a

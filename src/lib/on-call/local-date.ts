@@ -26,3 +26,14 @@ export function onCallLocalDateKey(now: Date): string {
   const day = `${now.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Milliseconds until the viewer's next local midnight, when
+ * `onCallLocalDateKey` starts returning a different day. A page left open
+ * overnight uses this to move "today" instead of keeping the day it opened on.
+ * Never less than one second, so a timer set from it cannot spin.
+ */
+export function msUntilNextOnCallLocalDay(now: Date): number {
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return Math.max(1000, next.getTime() - now.getTime());
+}

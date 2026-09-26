@@ -3,6 +3,7 @@
 import { CalendarPlus, ChevronLeft, ChevronRight, Download, Repeat } from "lucide-react";
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 
+import { Checkbox } from "@/components/ui/choice";
 import { Sheet } from "@/components/ui/sheet";
 import { ExternalTextLink, TextLink } from "@/components/ui/link";
 import { cardSurface } from "@/components/card-recipes";
@@ -85,6 +86,35 @@ function downloadIcs(events: readonly CalendarEvent[], name: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/**
+ * What an expiry becomes in a downloaded file when the owner keeps its name
+ * private. A calendar a file lands in is often shared with family or a PA, and
+ * "Police check expires" or a health-screening title says more than a date.
+ */
+const PLAIN_EXPIRY_TITLE = "Expiry date";
+
+/** The events that go in the downloaded file, after the owner's choices. */
+function selectDownloadEvents(
+  events: readonly CalendarEvent[],
+  excludedKinds: ReadonlySet<CalendarEventKind>,
+  plainExpiryTitles: boolean,
+): CalendarEvent[] {
+  return events
+    .filter((event) => !excludedKinds.has(event.kind))
+    .map((event) =>
+      plainExpiryTitles && event.kind === "expiry"
+        ? {
+            id: event.id,
+            date: event.date,
+            kind: event.kind,
+            title: PLAIN_EXPIRY_TITLE,
+            ...(event.startTime ? { startTime: event.startTime } : {}),
+            ...(event.recurrence ? { recurrence: event.recurrence } : {}),
+          }
+        : event,
+    );
+}
+
 /** Kinds present in the events, in a fixed order, for the legend. */
 function legendKinds(events: readonly CalendarEvent[]): CalendarEventKind[] {
   const order: CalendarEventKind[] = ["logged", "due", "deadline", "teaching", "expiry", "other"];
@@ -107,6 +137,16 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
   const [month, setMonth] = useState(() => monthKeyOf(today));
   const [selected, setSelected] = useState(today);
   const [sheetEvent, setSheetEvent] = useState<CalendarEvent | null>(null);
+  // When the day turns over on an open page, a reader still looking at "today"
+  // follows it to the new day; one who picked another day keeps their place.
+  const [shownToday, setShownToday] = useState(today);
+  if (shownToday !== today) {
+    setShownToday(today);
+    if (selected === shownToday) {
+      setSelected(today);
+      setMonth(monthKeyOf(today));
+    }
+  }
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
 
@@ -120,6 +160,21 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
   const selectedEvents = byDay.get(selected) ?? [];
   const laterThisMonth = visible.filter((event) => event.date > selected && monthKeyOf(event.date) === month);
   const kinds = legendKinds(events);
+  const downloadSource = exportEvents ?? events;
+  const downloadKinds = legendKinds(downloadSource);
+  const [excludedKinds, setExcludedKinds] = useState<ReadonlySet<CalendarEventKind>>(() => new Set());
+  const [plainExpiryTitles, setPlainExpiryTitles] = useState(true);
+  const downloadEvents = selectDownloadEvents(downloadSource, excludedKinds, plainExpiryTitles);
+  const includesExpiry = downloadKinds.includes("expiry") && !excludedKinds.has("expiry");
+
+  function toggleKind(kind: CalendarEventKind, include: boolean) {
+    setExcludedKinds((current) => {
+      const next = new Set(current);
+      if (include) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  }
 
   function goToMonth(next: string) {
     setMonth(next);
@@ -301,14 +356,42 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
       <div className={cn(cardSurface, "flex flex-col gap-2 p-4")}>
         <p className="text-sm font-semibold text-[color:var(--text)]">Put these in your own calendar</p>
         <p className={cn(textMuted, "text-sm")}>
-          Downloads one calendar file with every date above, repeats included. Open it on your phone or computer to add
-          them to Apple, Google or Outlook. The file is made on this device; nothing is sent anywhere.
+          Downloads one calendar file with the dates you choose, repeats included. Open it on your phone or computer to
+          add them to Apple, Google or Outlook. The file is made on this device; nothing is sent anywhere.
         </p>
+        <p className={cn(textMuted, "text-sm")} data-testid={`${testId}-export-snapshot`}>
+          It is a one-off copy of today&apos;s dates. If a date changes here later, the copy in your calendar does not
+          change with it; download a new file to catch up.
+        </p>
+        {downloadKinds.length > 1 ? (
+          <fieldset className="flex flex-col" data-testid={`${testId}-export-kinds`}>
+            <legend className="text-sm font-semibold text-[color:var(--text)]">What goes in the file</legend>
+            {downloadKinds.map((kind) => (
+              <Checkbox
+                key={kind}
+                label={calendarEventKindLabels[kind]}
+                checked={!excludedKinds.has(kind)}
+                onChange={(change) => toggleKind(kind, change.currentTarget.checked)}
+                data-testid={`${testId}-export-kind-${kind}`}
+              />
+            ))}
+          </fieldset>
+        ) : null}
+        {includesExpiry ? (
+          <Checkbox
+            label="Keep what each expiry is for private"
+            description={`The file says "${PLAIN_EXPIRY_TITLE}" instead of the item's name. Your calendar may be shared with others.`}
+            checked={plainExpiryTitles}
+            onChange={(change) => setPlainExpiryTitles(change.currentTarget.checked)}
+            data-testid={`${testId}-export-plain-expiry`}
+          />
+        ) : null}
         <button
           type="button"
           data-testid={`${testId}-export`}
           className={cn(floatingControl, "self-start")}
-          onClick={() => downloadIcs(exportEvents ?? events, exportName)}
+          disabled={downloadEvents.length === 0}
+          onClick={() => downloadIcs(downloadEvents, exportName)}
         >
           <Download aria-hidden="true" className="size-icon-sm" />
           Download calendar file
