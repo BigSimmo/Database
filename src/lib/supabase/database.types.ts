@@ -2536,6 +2536,156 @@ export type Database = {
         };
         Relationships: [];
       };
+      cme_training_periods: {
+        Row: {
+          created_at: string;
+          ends_on: string | null;
+          fte: number;
+          id: string;
+          kind: "stage" | "rotation" | "break";
+          label: string;
+          owner_id: string;
+          starts_on: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          ends_on?: string | null;
+          fte?: number;
+          id?: string;
+          kind: "stage" | "rotation" | "break";
+          label: string;
+          owner_id: string;
+          starts_on: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          ends_on?: string | null;
+          fte?: number;
+          id?: string;
+          kind?: "stage" | "rotation" | "break";
+          label?: string;
+          owner_id?: string;
+          starts_on?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      cme_training_milestones: {
+        Row: {
+          completed_on: string | null;
+          created_at: string;
+          due_fte_months: number | null;
+          due_kind: "fte-months" | "date";
+          due_on: string | null;
+          id: string;
+          label: string;
+          owner_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          completed_on?: string | null;
+          created_at?: string;
+          due_fte_months?: number | null;
+          due_kind: "fte-months" | "date";
+          due_on?: string | null;
+          id?: string;
+          label: string;
+          owner_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          completed_on?: string | null;
+          created_at?: string;
+          due_fte_months?: number | null;
+          due_kind?: "fte-months" | "date";
+          due_on?: string | null;
+          id?: string;
+          label?: string;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      cme_missed_sessions: {
+        Row: {
+          created_at: string;
+          id: string;
+          kind: "teaching" | "supervision";
+          minutes_lost: number;
+          occurred_on: string;
+          owner_id: string;
+          reason: string | null;
+          replacement_entry_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          kind: "teaching" | "supervision";
+          minutes_lost: number;
+          occurred_on: string;
+          owner_id: string;
+          reason?: string | null;
+          replacement_entry_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          kind?: "teaching" | "supervision";
+          minutes_lost?: number;
+          occurred_on?: string;
+          owner_id?: string;
+          reason?: string | null;
+          replacement_entry_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [{
+          foreignKeyName: "cme_missed_sessions_replacement_owner_fk";
+          columns: ["replacement_entry_id", "owner_id"];
+          isOneToOne: false;
+          referencedRelation: "cme_entries";
+          referencedColumns: ["id", "owner_id"];
+        }];
+      };
+      cme_entry_drafts: {
+        Row: {
+          created_at: string;
+          follow_up_on: string | null;
+          id: string;
+          owner_id: string;
+          payload: Json;
+          updated_at: string;
+          waiting_note: string | null;
+          waiting_on: "supervisor" | "workforce" | null;
+        };
+        Insert: {
+          created_at?: string;
+          follow_up_on?: string | null;
+          id?: string;
+          owner_id: string;
+          payload: Json;
+          updated_at?: string;
+          waiting_note?: string | null;
+          waiting_on?: "supervisor" | "workforce" | null;
+        };
+        Update: {
+          created_at?: string;
+          follow_up_on?: string | null;
+          id?: string;
+          owner_id?: string;
+          payload?: Json;
+          updated_at?: string;
+          waiting_note?: string | null;
+          waiting_on?: "supervisor" | "workforce" | null;
+        };
+        Relationships: [];
+      };
       on_call_shifts: {
         Row: {
           created_at: string;
