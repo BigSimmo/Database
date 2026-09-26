@@ -767,6 +767,64 @@ export const sourceAuthorityRegistry = [
     tier: "wa_validated",
     catalogueIdentityOnly: true,
   }),
+  /*
+   * Crisis and support lines the 2026-09-25 WA psychiatry build verified in
+   * `src/lib/crisis-contacts.ts` and the part-08 service records, registered on the
+   * owner's decision of 2026-09-26 (ledger #2TRAJA). Same safety setting as the
+   * block above: `catalogueIdentityOnly: true`, so each resolves a jurisdiction
+   * for the catalogue and the acquisition gate and never reaches the runtime
+   * classification that steers retrieval. Each is the issuer of its own service
+   * information and nothing wider. `tests/crisis-line-source-registration.test.ts`
+   * holds that boundary.
+   */
+  authority({
+    key: "lifeline-australia",
+    codes: ["LIFELINE"],
+    publisher: "Lifeline Australia",
+    publisherAliases: ["Lifeline"],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "suicide-call-back-service",
+    codes: ["SCBS"],
+    publisher: "Suicide Call Back Service",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "13yarn",
+    codes: ["13YARN"],
+    publisher: "13YARN",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "legal-aid-wa",
+    codes: ["LEGALAIDWA"],
+    publisher: "Legal Aid Western Australia",
+    publisherAliases: ["Legal Aid WA"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "tis-national",
+    codes: ["TISNATIONAL"],
+    publisher: "TIS National",
+    publisherAliases: ["Department of Home Affairs (TIS National)", "Translating and Interpreting Service"],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
 ] satisfies SourceAuthorityDefinition[];
 
 export function normalizeSourceAuthorityText(value: string | null | undefined) {
