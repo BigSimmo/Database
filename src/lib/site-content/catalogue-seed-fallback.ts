@@ -88,21 +88,34 @@ type Outcome<T> = {
  *
  * It is capped against the caller's own budget so it can never exceed it, and the search worst
  * case stays under the 2500 ms per-domain timeout the search budget is chosen against:
- * 1200 + 1000 = 2200 ms, paid at most once per scope+kind per process.
+ * 1200 + 1000 = 2200 ms, paid at most once per scope+kind per cold period (see `warmedAt`).
  */
 export const catalogueSeedFallbackRetryBudgetMs = 1_000;
 
 const cooldownUntil = new Map<string, number>();
 
 /**
- * Scope+kinds that have completed a canonical read in this process. Membership is what makes the
- * retry below cost nothing in steady state: it is offered to a cold path and never again, so a
- * genuine outage after warm-up falls back at exactly the speed it always did.
+ * When each scope+kind last completed a canonical read (or spent its retry). This is what makes the
+ * retry below cost nothing in steady state: it is offered to a cold path only, so a genuine outage
+ * after warm-up falls back at exactly the speed it always did.
+ *
+ * COLD AGAIN AFTER IDLE, not only once per process. Past `siteContentRecordCacheStaleMs` the record
+ * cache discards its entry and the next read is a full blocking read on a connection that has gone
+ * idle, which is the same cold penalty the retry exists for. The live monitor (#3037) probes every
+ * six hours, always after idle: forms answered in 1151 ms, just inside the 1200 ms budget, while
+ * the larger service and medication reads missed it with no retry left, because a Set spent the
+ * retry on the process's first read days earlier. A timestamp re-offers it once per idle period,
+ * which adds at most one retry budget per kind per ten minutes during a real outage.
  */
-const warmed = new Set<string>();
+const warmedAt = new Map<string, number>();
+
+function isColdKey(key: string, nowMs: number) {
+  const at = warmedAt.get(key);
+  return at === undefined || nowMs - at >= siteContentRecordCacheStaleMs;
+}
 
 /**
- * Process-level connection warm flag. Distinct from per-kind `warmed`: the measured cold penalty is
+ * Process-level connection warm flag. Distinct from per-kind `warmedAt`: the measured cold penalty is
  * connection setup on the FIRST catalogue read of a process, shared across kinds. Boot pre-warm
  * and the serialisation gate below both set this.
  */
@@ -335,7 +348,7 @@ export async function readCatalogueWithSeedFallback<T>(input: {
 
   const succeed = (records: T[]): Outcome<T> => {
     cooldownUntil.delete(key);
-    warmed.add(key);
+    warmedAt.set(key, now());
     markProcessConnectionWarmedAt(now());
     if (probing) reportRecovery(input.kind);
     return { records, degraded: false };
@@ -378,19 +391,20 @@ export async function readCatalogueWithSeedFallback<T>(input: {
           // (medication first 1268 ms; form, read last, 213 ms). So this is not a slow catalogue, it is
           // an unwarmed connection, and the very next call is fast.
           //
-          // That is why the retry is offered ONCE per scope+kind per process rather than on every
-          // failure. A retry-always would add its budget to every request of a genuine outage, which is
-          // the opposite of what this helper is for; gating on `warmed` makes the steady state
+          // That is why the retry is offered ONCE per scope+kind per cold period (first read, or
+          // first read after the record cache's idle ceiling) rather than on every failure. A
+          // retry-always would add its budget to every request of a genuine outage, which is the
+          // opposite of what this helper is for; gating on `warmedAt` makes the steady state
           // byte-for-byte what it was before.
           //
           // The process-level serialisation above is the other half: per-kind retry alone still lets
           // three cold kinds race under Promise.all and all miss the budget.
-          const cold = !warmed.has(key) && !(input.signal?.aborted ?? false);
+          const cold = isColdKey(key, now()) && !(input.signal?.aborted ?? false);
           if (cold) {
             // Consume the one-shot retry before attempting it. If both attempts fail, cooldown
             // still opens below; without this, expiry would make `cold` true again and re-offer
             // the retry budget on a genuine outage (and concurrent cold callers could each claim one).
-            warmed.add(key);
+            warmedAt.set(key, now());
             const retryBudgetMs = Math.min(budgetMs, input.retryBudgetMs ?? catalogueSeedFallbackRetryBudgetMs);
             try {
               const records = await attempt(retryBudgetMs);
@@ -446,7 +460,7 @@ export function withCatalogueDegradedNotice(heading: string, degraded: boolean |
 /** Test seam, and the hook an operator-triggered "try the database again now" would use. */
 export function clearCatalogueSeedFallbackCooldown() {
   cooldownUntil.clear();
-  warmed.clear();
+  warmedAt.clear();
   processHasWarmedCanonicalRead = false;
   processWarmedAtMs = null;
   processColdBypassSerialisation = false;
