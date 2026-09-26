@@ -516,9 +516,14 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
 
+      # Four ESLint workers: measured 134 s serial vs 69 s at four on a cold cache, identical
+      # output. Nothing here is type-aware, so the workers do not each build a TypeScript program,
+      # and the content-strategy cache still applies. Static PR checks gate every browser lane
+      # (`needs: static-pr`) and sometimes finish after the Playwright build, so this can sit on
+      # the critical path. CI only: local runs share the machine under the heavy-run lock.
       - name: Lint
         if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run lint
+        run: npm run lint -- --concurrency=4
 
       - name: Typecheck
         if: needs.changes.outputs.static_heavy_changed == 'true'
@@ -841,8 +846,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
+      # Node and dependencies only, not setup-ui-e2e: this job builds and uploads, it never
+      # launches a browser, so the Chromium download and apt-get install-deps (and their
+      # occasional mirror hang) stay off the critical path. run-playwright.mjs skips its
+      # browser preflight when PLAYWRIGHT_BUILD_ONLY=true; every consumer lane still runs it.
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
 
       - name: Build isolated Next app for Playwright
         env:

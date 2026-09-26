@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "946b8a9a-8f95-460c-9f77-e59a5ac414ce",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#057",
+    "detail": "UPDATE 2026-09-26 (read-only GitHub Actions read, no provider access): the nightly staging-tenancy.yml harness failed on every scheduled run checked (2026-09-21 to 2026-09-25) at its deployment-identity step: staging reported 0b858bb3a (the PR #3030 merge) while the run checked out newer main commits. Staging is not redeployed on pushes to main, so the SHA-bound harness cannot pass on a schedule until staging tracks main or is redeployed before each run. A failing main run now opens a pinned, assigned GitHub issue (label staging-tenancy-failure; branch claude/urgent-ledger-fixes-8dnh5c). The wider harness (CME and On Call writes, evidence, export, content; PR #3065) has not yet run on staging. Next action: owner decides whether staging should auto-deploy from main (Railway setting) or be redeployed before a dispatched run. PRIOR DETAIL: Staging migration parity is closed. Run SHA-bound tenancy evidence, transition the same candidate image from the offline tenancy profile to the authenticated auto-provider load profile, execute the staging soak, and rehearse rollback. Retain checkout/deployed SHA, latency, error, throttling, authentication, cleanup, and rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision.",
+    "baseRowFingerprint": "38937a23d9c8b79c24e10f9b52a468c3d1e66d22f516faa7d47cdf80a282d2d2"
+  }
+}

@@ -450,6 +450,51 @@ export function prPolicyBodyTransportViolation({ fileStatuses, files }) {
   return (files ?? []).some((file) => normalizePath(file) === PR_POLICY_BODY_FILENAME);
 }
 
+// The retrieval RPCs are ranking surfaces too, but they live in SQL, so no path pattern above can
+// see them: a new migration that rewrites match_document_chunks_hybrid is as much a ranking change
+// as an edit to src/lib/rag/, and before 2026-09-26 it drew no `RAG impact:` nudge. Applied
+// migrations are immutable, so every such change arrives as an ADDED migration, and the policy
+// already receives those files' text as addedMigrationContents. Matched by name family so a
+// future _v4 is covered without an edit here. search_schema_health is deliberately absent: it
+// reports on the indexes, it does not rank anything.
+const retrievalFunctionNamePattern =
+  /(?:match_document_chunks|match_documents_for_query|match_document_lookup_chunks_text|match_document_table_facts_text|match_document_embedding_fields_|match_document_index_units_hybrid|match_document_memory_cards_hybrid|match_governed_candidate_chunks|search_document_chunks|retrieval_owner_matches|correct_clinical_query_terms|corpus_topic_term_stats)\w*/;
+const retrievalFunctionStatementPattern = new RegExp(
+  String.raw`\b(?:create\s+(?:or\s+replace\s+)?|alter\s+|drop\s+)function\s+(?:if\s+exists\s+)?(?:"?public"?\s*\.\s*)?"?` +
+    retrievalFunctionNamePattern.source +
+    String.raw`(?!\w)`,
+  "i",
+);
+// The other way a migration has rewritten one: read its definition, patch the text, and execute the
+// result (20260628000000 did this to match_document_chunks), so no CREATE statement names it.
+const retrievalFunctionDefinitionReadPattern = new RegExp(
+  String.raw`\bpg_get_functiondef\s*\(\s*'(?:public\.)?` + retrievalFunctionNamePattern.source + String.raw`(?!\w)`,
+  "i",
+);
+const executeVariablePattern = /\bexecute\s+[a-z_]\w*\s*;/i;
+
+/**
+ * Added migrations that create, alter, drop or patch a retrieval function, from the path -> SQL map the
+ * workflow reads at the PR head. Comments are stripped first, so a migration that only mentions
+ * one of these functions in a comment is not flagged. Missing contents yield no paths: the nudge
+ * is advisory, so it degrades to the path patterns rather than failing closed.
+ */
+export function retrievalFunctionMigrationPaths(addedMigrationContents) {
+  if (!addedMigrationContents || typeof addedMigrationContents !== "object") return [];
+  return Object.entries(addedMigrationContents)
+    .filter(([, sql]) => {
+      const executable = String(sql ?? "")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/--[^\n]*/g, " ");
+      return (
+        retrievalFunctionStatementPattern.test(executable) ||
+        (retrievalFunctionDefinitionReadPattern.test(executable) && executeVariablePattern.test(executable))
+      );
+    })
+    .map(([path]) => normalizePath(path))
+    .sort();
+}
+
 // The `RAG impact:` declaration a ragRanking PR must carry: either an explicit
 // no-behaviour-change statement (with a reason) or a canary-pair reference. Matched anywhere
 // in the body, list-marker tolerant, case-insensitive.
@@ -923,6 +968,8 @@ export function evaluatePullRequestPolicy({
     ? fileStatuses.map((file) => file?.previous_filename).filter(Boolean)
     : [];
   const classification = classifyPullRequestFiles([...(files ?? []), ...renamedFromPaths]);
+  const retrievalMigrationPaths = retrievalFunctionMigrationPaths(addedMigrationContents);
+  if (retrievalMigrationPaths.length > 0) classification.ragRanking = true;
 
   // Blocking gate: PR_POLICY_BODY.md must never land on main — see the comment above
   // prPolicyBodyTransportViolation for why a lingering copy is dangerous.
@@ -977,7 +1024,11 @@ export function evaluatePullRequestPolicy({
     const ragImpact = ragImpactDeclared(body);
     if (!ragImpact.declared) {
       warnings.push(
-        "This PR touches RAG-ranking protected surfaces. Consider adding a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
+        "This PR touches RAG-ranking protected surfaces" +
+          (retrievalMigrationPaths.length > 0
+            ? ` (${retrievalMigrationPaths.join(", ")} changes a retrieval function)`
+            : "") +
+          ". Consider adding a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
       );
     } else if (!ragImpact.satisfied) {
       warnings.push(
