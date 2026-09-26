@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "40b3f58b-f718-4ceb-b3cd-ca43d989d3b5",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#GCB0DV",
+    "detail": "UPDATE 2026-09-26: the owner-approved timing probe has now run. Do not run it again. The result is recorded in #T9PRB9: for 'What FBC threshold should stop clozapine?', search took 9.2 s of 11.9 s on the server (database lookups 4.2 s plus re-ranking 4.1 s), the rate-limit check took 1.4 s, and generation recorded 0.0 s. So neither branch below applies as written: the first lever is search and re-ranking, not generation (#231/#100) or delivery (#016). Next action is #T9PRB9's: check why generation recorded 0.0 s, then repeat with 3-5 queries before tuning. PRIOR DETAIL: OWNER APPROVED 2026-09-26 (Josh, 'all as recommended'): one run of 'node scripts/probe-answer-timing.mjs --allow-provider' (a few cents of OpenAI credit). It cannot run from a Claude cloud session: the egress proxy refuses psychiatry.tools (CONNECT 403, checked 2026-09-26), so it must run from the owner's computer in Perth, which is also the measurement that matters. If generation dominates, the work is #231 and #100 Phase 2; if first byte dominates, it is delivery and #016. PRIOR DETAIL: owner reported 2026-09-18 15-45 s to something readable on every question. PRs #2849/#2855 fixed only the catalogue read path, not /api/answer. Production is not stale; catalogue latency is fixed. Last figures on file: retrieval ~1 s fast / ~6.7 s hybrid, generation ~19 s (#231); delivery is structurally uncached (layout headers()/cookies(), page connection(), no CDN, sw.js network-only navigations); app declared in Railway Singapore with Supabase in Sydney (145-340 ms round trip), live region unverified. Do not raise answerRouteBudgetMs and do not weaken a clinical gate.",
+    "baseRowFingerprint": "ad4aa24786738cb0de162e5dee32410134aaef4d8a303ac74a3ea3746a38c5b1"
+  }
+}
