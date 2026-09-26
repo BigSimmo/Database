@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "79aa4c1d-f2b0-4e6d-91ec-2a687bbfafda",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#B6JP6F",
+    "outcome": "Resolved 2026-09-26 with owner permission, via the Railway connector. Railway HTTP logs showed every delivery to /api/webhooks/railway on 2026-09-25 answered 401 and none arrived after 18:04 UTC. The stored webhook URL wrapped its token in angle brackets, but a test without the brackets was also refused, so the token itself did not match. The old secret could not be read (the connector returns variable names only), so a new 64-hex-character secret was set as RAILWAY_WEBHOOK_SECRET on the Database service in production (redeploy eb7131ed) and the same value put in the webhook URL (webhook 469b5a36, event list unchanged). Railway test-webhook then returned 200, delivered: true. Follow-up for a possible Doppler copy of the old value is tracked separately.",
+    "baseRowFingerprint": "31b4905a05e48c82466b55c250c75645e2df7ba6023310f085b27d03a113d405"
+  }
+}
