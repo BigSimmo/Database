@@ -640,7 +640,7 @@ describe("conductClinicalReview", () => {
 
 describe("review-clinical-record CLI", () => {
   it("has no batch, yes or answer flags", () => {
-    for (const flag of ["--yes", "-y", "--batch", "--all", "--answers"]) {
+    for (const flag of ["--yes", "-y", "--all", "--answers"]) {
       expect(() => parseClinicalReviewArgs([flag])).toThrow(/Unknown option/);
     }
     expect(() => parseClinicalReviewArgs(["--code", "3C", "--code", "10B"])).toThrow(/once/);
@@ -648,6 +648,14 @@ describe("review-clinical-record CLI", () => {
     expect(parseClinicalReviewArgs(["--write", "--walk", "--kind", "form"])).toMatchObject({ walk: true });
     expect(() => parseClinicalReviewArgs(["--walk", "--kind", "form"])).toThrow(/--write/);
     expect(() => parseClinicalReviewArgs(["--write", "--walk", "--kind", "form", "--code", "3C"])).toThrow(/--code/);
+    expect(parseClinicalReviewArgs(["--pack", "--kind", "form"])).toMatchObject({ pack: true, kind: "form" });
+    expect(() => parseClinicalReviewArgs(["--pack"])).toThrow(/--kind/);
+    expect(() => parseClinicalReviewArgs(["--pack", "--write", "--kind", "form"])).toThrow(/--pack/);
+    expect(() => parseClinicalReviewArgs(["--batch", "--kind", "form"])).toThrow(/--write/);
+    expect(() => parseClinicalReviewArgs(["--write", "--batch", "--walk", "--kind", "form"])).toThrow(/--batch/);
+    expect(() => parseClinicalReviewArgs(["--write", "--walk", "--kind", "form", "--exclude", "3C"])).toThrow(
+      /--exclude/,
+    );
   });
 
   it("refuses --write --walk without an interactive TTY and exits non-zero", () => {

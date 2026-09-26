@@ -8,6 +8,11 @@ import {
   reviewProblems,
   signOffQueue,
 } from "../scripts/lib/clinical-record-review-contract.mjs";
+import {
+  clinicalPackCode,
+  conductClinicalBatchReview,
+  renderClinicalPack,
+} from "../scripts/review-clinical-record.mjs";
 
 import differentialCuratedReview from "../data/differential-curated-review.json";
 import formulationConcepts from "../src/data/formulation-concepts.json";
@@ -191,5 +196,88 @@ describe("Differential overlay sign-off", () => {
     expect(curatedProvenanceFor({ ...entry, review: { reviewedBy: REVIEWER, reviewedAt: "not a date" } })).toBe(
       curatedProvenanceLabel,
     );
+  });
+});
+
+describe("batch sign-off from a review pack", () => {
+  const unsignedDifferentials = () => ({
+    entries: differentialCuratedReview.entries.map((entry) => ({
+      ...entry,
+      status: "drafted",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewedContentSha256: null,
+    })),
+  });
+  const answers = (...values: string[]) => {
+    const queue = [...values];
+    return async () => queue.shift() ?? "quit";
+  };
+  const sink = () => ({ write: () => true });
+
+  it("derives the code from the content, so an edit after the pack changes it", () => {
+    const records = collectionOf("differential", unsignedDifferentials());
+    const code = clinicalPackCode("differential", records, context);
+    expect(code).toMatch(/^[a-f0-9]{8}$/);
+    const edited = clone(curatedDifferentials);
+    edited.delirium.doNow = [...(edited.delirium.doNow ?? []), "An added step"];
+    expect(clinicalPackCode("differential", records, { curated: edited })).not.toBe(code);
+  });
+
+  it("writes a pack that carries the code and every record, with its text escaped", () => {
+    const records = collectionOf("differential", unsignedDifferentials());
+    const html = renderClinicalPack("differential", records, context, { reviewedBy: "PsychSift" });
+    expect(html).toContain(clinicalPackCode("differential", records, context));
+    for (const entry of differentialCuratedReview.entries) expect(html).toContain(`id="${entry.slug}"`);
+    expect(html).toContain("--reviewed-by &quot;PsychSift&quot;");
+    expect(html).not.toMatch(/<script/i);
+  });
+
+  it("signs every record not excluded, once the three answers are yes and the code matches", async () => {
+    const records = collectionOf("differential", unsignedDifferentials());
+    const code = clinicalPackCode("differential", records, context);
+    const result = await conductClinicalBatchReview({
+      kind: "differential",
+      records,
+      context,
+      reviewedBy: REVIEWER,
+      exclude: ["akathisia"],
+      ask: answers("yes", "yes", "yes", code.toUpperCase()),
+      output: sink(),
+      now: () => new Date(REVIEWED_AT),
+    });
+    expect(result.status).toBe("reviewed");
+    expect(result.signed).toHaveLength(records.length - 1);
+    expect(result.signed.map((record: Json) => record.slug)).not.toContain("akathisia");
+    for (const record of result.signed) {
+      expect(record).toMatchObject({ status: "reviewed", reviewedBy: REVIEWER, reviewedAt: REVIEWED_AT });
+      expect(recordPinState(record, "differential", context)).toBe("current");
+    }
+  });
+
+  it("signs nothing on a no, a quit, or a code that does not match", async () => {
+    const records = collectionOf("differential", unsignedDifferentials());
+    const code = clinicalPackCode("differential", records, context);
+    const run = (ask: () => Promise<string>) =>
+      conductClinicalBatchReview({ kind: "differential", records, context, reviewedBy: REVIEWER, ask, output: sink() });
+    expect(await run(answers("yes", "no"))).toEqual({ status: "incomplete", signed: [] });
+    expect(await run(answers("quit"))).toEqual({ status: "quit", signed: [] });
+    expect(await run(answers("yes", "yes", "yes", "00000000"))).toEqual({ status: "code-mismatch", signed: [] });
+    expect(code).not.toBe("00000000");
+  });
+
+  it("refuses to exclude a record that is not in the set", async () => {
+    const records = collectionOf("differential", unsignedDifferentials());
+    await expect(
+      conductClinicalBatchReview({
+        kind: "differential",
+        records,
+        context,
+        reviewedBy: REVIEWER,
+        exclude: ["not-a-slug"],
+        ask: answers(),
+        output: sink(),
+      }),
+    ).rejects.toThrow(/not-a-slug/);
   });
 });

@@ -6,8 +6,14 @@
  *
  * This is how the clinical owner attests clinical content. No agent may ever record a
  * sign-off: `--write` refuses anything but a real interactive terminal, asks every
- * checklist question one at a time, and needs an exact typed confirmation. There is no
- * batch, yes, answers or provider mode, and one confirmation signs exactly one record.
+ * checklist question itself, and needs an exact typed confirmation. There is no yes,
+ * answers or provider mode.
+ *
+ * Batch sign-off (owner decision, 2026-09-26): `--pack` writes every waiting record of one
+ * kind to a readable HTML review pack headed by a sign-off code; `--write --batch` asks the
+ * three questions once for the whole set and signs it only when the owner types that code.
+ * The code is derived from each record's content pin, recomputed at signing time, so a set
+ * that changed after its pack was written cannot be signed (scripts/lib/sign-off-pack.mjs).
  *
  * Report-only by default: it lists what is waiting and touches nothing.
  *
@@ -26,6 +32,7 @@ import {
   closeSync,
   existsSync,
   fsyncSync,
+  mkdirSync,
   openSync,
   readFileSync,
   renameSync,
@@ -44,6 +51,7 @@ import {
   reviewerAttributionProblem,
   recordId,
   recordKinds,
+  recordContentSha256,
   recordPinState,
   renderedFormGuidance,
   reviewProblems,
@@ -52,6 +60,7 @@ import {
   signOffQueue,
 } from "./lib/clinical-record-review-contract.mjs";
 import { createPrompt } from "./lib/confirm.mjs";
+import { parseExcludeList, renderSignOffPack, signOffPackCode } from "./lib/sign-off-pack.mjs";
 
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const KIND_NAMES = Object.keys(recordKinds);
@@ -61,6 +70,13 @@ function usage() {
     `Usage: npm run clinical:review -- [--kind <kind>] [--code <code>]`,
     "       npm run clinical:review -- --write --kind <kind> --code <code> --reviewed-by <public name>",
     "       npm run clinical:review -- --write --walk --kind <kind> --reviewed-by <public name>",
+    "       npm run clinical:review -- --pack --kind <kind> [--reviewed-by <public name>]",
+    "       npm run clinical:review -- --write --batch --kind <kind> --reviewed-by <public name> [--exclude a,b]",
+    "",
+    "--pack writes every waiting record of one kind to sign-off-packs/<kind>.html, headed by a",
+    "sign-off code. --batch signs that whole set with one set of answers once you type the code;",
+    "--exclude leaves out the records you are not happy with. If the set changed after the pack",
+    "was written, the code no longer matches and nothing is signed.",
     "",
     `Kinds: ${KIND_NAMES.join(", ")}.`,
     "",
@@ -84,12 +100,23 @@ function usage() {
 }
 
 export function parseClinicalReviewArgs(argv) {
-  const args = { help: false, write: false, walk: false, kind: undefined, code: undefined, reviewedBy: undefined };
+  const args = {
+    help: false,
+    write: false,
+    walk: false,
+    pack: false,
+    batch: false,
+    kind: undefined,
+    code: undefined,
+    reviewedBy: undefined,
+    exclude: undefined,
+  };
   const seen = new Set();
-  const valueFlags = { "--kind": "kind", "--code": "code", "--reviewed-by": "reviewedBy" };
+  const valueFlags = { "--kind": "kind", "--code": "code", "--reviewed-by": "reviewedBy", "--exclude": "exclude" };
+  const booleanFlags = new Set(["--help", "-h", "--write", "--walk", "--pack", "--batch"]);
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (token === "--help" || token === "-h" || token === "--write" || token === "--walk") {
+    if (booleanFlags.has(token)) {
       const name = token === "-h" ? "help" : token.slice(2);
       if (seen.has(name)) throw new Error(`${token} may only be supplied once.`);
       seen.add(name);
@@ -107,7 +134,7 @@ export function parseClinicalReviewArgs(argv) {
       continue;
     }
     throw new Error(
-      `Unknown option: ${token}. Sign-off answers cannot be supplied through yes, answers, batch or provider flags.`,
+      `Unknown option: ${token}. Sign-off answers cannot be supplied through yes, answers or provider flags.`,
     );
   }
   if (args.kind !== undefined && !KIND_NAMES.includes(args.kind)) {
@@ -116,6 +143,15 @@ export function parseClinicalReviewArgs(argv) {
   if (args.code !== undefined && args.kind === undefined) throw new Error("--code needs --kind as well.");
   if (args.walk && !args.write) throw new Error("--walk is a sign-off mode; use it with --write.");
   if (args.walk && args.code !== undefined) throw new Error("--walk goes through the whole queue; leave out --code.");
+  if (args.pack && (args.write || args.walk || args.batch || args.code !== undefined)) {
+    throw new Error("--pack only writes a review pack; use it with --kind alone (and optionally --reviewed-by).");
+  }
+  if (args.pack && args.kind === undefined) throw new Error("--pack needs --kind.");
+  if (args.batch && !args.write) throw new Error("--batch is a sign-off mode; use it with --write.");
+  if (args.batch && (args.walk || args.code !== undefined)) {
+    throw new Error("--batch signs the whole pack; leave out --walk and --code.");
+  }
+  if (args.exclude !== undefined && !args.batch) throw new Error("--exclude only applies to --batch.");
   return args;
 }
 
@@ -472,6 +508,139 @@ async function showOneRecord(kind, code, root, output) {
   );
 }
 
+/** The records a pack or batch covers: the kind's waiting queue, in walk order. */
+function packRecords(kind, records, context) {
+  return signOffQueue(kind, records, context).map((code) =>
+    records.find((record) => sameRecordId(recordId(record, kind), code)),
+  );
+}
+
+/** The sign-off code for one kind's waiting set, from each record's content pin as it is now. */
+export function clinicalPackCode(kind, records, context = {}) {
+  return signOffPackCode(
+    packRecords(kind, records, context).map((record) => ({
+      code: recordId(record, kind),
+      sha256: recordContentSha256(record, kind, context),
+    })),
+  );
+}
+
+function batchCommandFor(kind, reviewedBy) {
+  const name = reviewedBy ?? "<your public name>";
+  return `npm.cmd run clinical:review -- --write --batch --kind ${kind} --reviewed-by "${name}" --exclude <codes>`;
+}
+
+/**
+ * The HTML review pack: every waiting record exactly as the walk-through shows it.
+ *
+ * @param {string} kind
+ * @param {any[]} records
+ * @param {Record<string, unknown>} [context]
+ * @param {{ reviewedBy?: string, generatedAt?: Date }} [options]
+ */
+export function renderClinicalPack(kind, records, context = {}, { reviewedBy, generatedAt = new Date() } = {}) {
+  const waiting = packRecords(kind, records, context);
+  return renderSignOffPack({
+    title: `Sign-off pack: ${recordKinds[kind].heading}`,
+    code: clinicalPackCode(kind, records, context),
+    intro: [
+      "Everything below is shown exactly as the one-at-a-time walk-through shows it, and each record's sign-off is pinned to this text.",
+    ],
+    questions: recordKinds[kind].checklist.map((check) => check.question),
+    batchCommand: batchCommandFor(kind, reviewedBy),
+    generatedAt: generatedAt.toISOString(),
+    records: waiting.map((record) => {
+      const code = recordId(record, kind);
+      return {
+        code,
+        heading: `${recordKinds[kind].noun} ${code}`,
+        sections: DISPLAY[kind](record, context).map(([label, value]) => ({ label, text: printable(value) })),
+      };
+    }),
+  });
+}
+
+/**
+ * Testable interactive core of a batch sign-off. It asks the kind's questions once for the
+ * whole set, then requires the pack's sign-off code, recomputed here from the records as
+ * they are now. Returns the signed records (views); writes nothing.
+ *
+ * @param {{
+ *   kind: string,
+ *   records: any[],
+ *   context?: Record<string, unknown>,
+ *   reviewedBy: string,
+ *   exclude?: string[],
+ *   ask: (question: string) => Promise<string>,
+ *   output: { write: (chunk: string) => unknown },
+ *   now?: () => Date,
+ * }} options
+ * @returns {Promise<{ status: string, signed: any[] }>}
+ */
+export async function conductClinicalBatchReview({
+  kind,
+  records,
+  context = {},
+  reviewedBy,
+  exclude = [],
+  ask,
+  output,
+  now = () => new Date(),
+}) {
+  const attributionProblem = reviewerAttributionProblem(reviewedBy);
+  if (attributionProblem) throw new Error(attributionProblem);
+  const waiting = packRecords(kind, records, context);
+  const waitingCodes = waiting.map((record) => recordId(record, kind));
+  const unknown = exclude.filter((code) => !waitingCodes.some((id) => sameRecordId(id, code)));
+  if (unknown.length) {
+    throw new Error(`Not in this set, so cannot be excluded: ${unknown.join(", ")}. Check the codes in the pack.`);
+  }
+  const toSign = waiting.filter((record) => !exclude.some((code) => sameRecordId(code, recordId(record, kind))));
+  if (toSign.length === 0) {
+    writeLine(output, "Nothing to sign: every waiting record is excluded.");
+    return { status: "empty", signed: [] };
+  }
+  const expectedCode = clinicalPackCode(kind, records, context);
+
+  writeLine(
+    output,
+    `You are signing off ${toSign.length} ${recordKinds[kind].heading.toLowerCase()} as ${reviewedBy}.`,
+  );
+  if (exclude.length) writeLine(output, `Left out (stay awaiting review): ${exclude.join(", ")}.`);
+  writeLine(output, "Answer yes only if the statement is true of EVERY record in the pack you are signing.");
+  for (const [position, check] of recordKinds[kind].checklist.entries()) {
+    writeLine(output);
+    writeLine(output, `Question ${position + 1} of ${recordKinds[kind].checklist.length}: ${check.question}`);
+    let decision = null;
+    while (decision === null) {
+      decision = normalizeAnswer(await ask("Type yes, no, or quit: "));
+      if (decision === null) writeLine(output, "Please type exactly yes, no, or quit.");
+    }
+    if (decision === "quit") {
+      writeLine(output, "Stopped. Nothing was changed.");
+      return { status: "quit", signed: [] };
+    }
+    if (decision === false) {
+      writeLine(output, "Not signed. Nothing was changed. Exclude the records you are not happy with and try again.");
+      return { status: "incomplete", signed: [] };
+    }
+  }
+  const typed = String(await ask("\nType the sign-off code printed at the top of the pack: "))
+    .trim()
+    .toLowerCase();
+  if (typed !== expectedCode) {
+    writeLine(
+      output,
+      "That code does not match this set. Either it was mistyped, or a record changed after the pack was written. " +
+        "Nothing was signed. Write a fresh pack with --pack and read that one.",
+    );
+    return { status: "code-mismatch", signed: [] };
+  }
+  const reviewedAt = now().toISOString();
+  const signed = toSign.map((record) => finalizeClinicalReview(record, kind, { reviewedBy, reviewedAt, context }));
+  return { status: "reviewed", signed };
+}
+
 const SETUP_COMMAND = "npm ci --include=dev";
 
 /**
@@ -595,6 +764,57 @@ function regenerateFormsReviewSheet(root, errorOutput) {
   }
 }
 
+async function runBatch(args, { input, output, errorOutput, root }) {
+  if (!args.reviewedBy) throw new Error("--write needs --reviewed-by with your public display name.");
+  const attributionProblem = reviewerAttributionProblem(args.reviewedBy);
+  if (attributionProblem) throw new Error(attributionProblem);
+  const prettier = await loadFormatter();
+  const kind = args.kind;
+  const loaded = loadKindDocument(kind, { root });
+  if (loaded.status === "absent") throw new Error(`${recordKinds[kind].path} does not exist yet.`);
+  const context = await loadContext(kind, root);
+  const records = collectionOf(kind, loaded.document);
+  if (signOffQueue(kind, records, context).length === 0) {
+    writeLine(output, `Nothing waiting: every ${kind} is already signed off.`);
+    return 0;
+  }
+  writeLine(
+    errorOutput,
+    "CLINICAL AUTHORITY: only the clinical owner may sign this off, after reading the pack in full.",
+  );
+  writeLine(
+    errorOutput,
+    "PRIVACY: your reviewer name is shown publicly. Do not enter an email or registration number.",
+  );
+  const prompt = createPrompt({ input, output });
+  let result;
+  try {
+    result = await conductClinicalBatchReview({
+      kind,
+      records,
+      context,
+      reviewedBy: args.reviewedBy,
+      exclude: parseExcludeList(args.exclude),
+      ask: prompt.ask,
+      output,
+    });
+  } finally {
+    prompt.close();
+  }
+  if (result.status !== "reviewed") return 0;
+  let nextDocument = loaded.document;
+  for (const reviewed of result.signed) nextDocument = applyClinicalReview(nextDocument, kind, reviewed);
+  const problems = reviewProblems(collectionOf(kind, nextDocument), kind, context);
+  if (problems.length) throw new Error(`Refusing to write an invalid sign-off:\n- ${problems.join("\n- ")}`);
+  writeDataFileAtomically(loaded.path, await formatJson(prettier, nextDocument, loaded.path), loaded.raw, {
+    notice: (message) => writeLine(errorOutput, message),
+  });
+  if (kind === "form") regenerateFormsReviewSheet(root, errorOutput);
+  writeLine(output, `Saved: ${result.signed.length} records signed off.`);
+  writeLine(output, "Your sign-offs are saved on this computer. See the guide for how to send them.");
+  return 0;
+}
+
 export async function main(argv = process.argv.slice(2), io = {}) {
   const input = io.input ?? process.stdin;
   const output = io.output ?? process.stdout;
@@ -610,6 +830,25 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     if (args.reviewedBy !== undefined) {
       const problem = reviewerAttributionProblem(args.reviewedBy);
       if (problem) throw new Error(problem);
+    }
+    if (args.pack) {
+      const loaded = loadKindDocument(args.kind, { root });
+      if (loaded.status === "absent") throw new Error(`${recordKinds[args.kind].path} does not exist yet.`);
+      const records = collectionOf(args.kind, loaded.document);
+      const context = await loadContext(args.kind, root);
+      const count = signOffQueue(args.kind, records, context).length;
+      if (count === 0) {
+        writeLine(output, `Nothing waiting: every ${args.kind} is already signed off. No pack written.`);
+        return 0;
+      }
+      const directory = join(root, "sign-off-packs");
+      mkdirSync(directory, { recursive: true });
+      const path = join(directory, `${args.kind}.html`);
+      writeFileSync(path, renderClinicalPack(args.kind, records, context, { reviewedBy: args.reviewedBy }));
+      writeLine(output, `Review pack written: ${path}`);
+      writeLine(output, `${count} records. Sign-off code: ${clinicalPackCode(args.kind, records, context)}`);
+      writeLine(output, "Open it in your browser, read it all, then run the command printed at the top of the pack.");
+      return 0;
     }
     if (args.code !== undefined) {
       await showOneRecord(args.kind, args.code, root, output);
@@ -631,6 +870,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     throw new Error("--write requires an interactive TTY; piped, scripted and agent-supplied sign-offs are refused.");
   }
   if (!args.kind) throw new Error("--write needs one --kind.");
+  if (args.batch) return runBatch(args, { input, output, errorOutput, root });
   if (!args.walk && !args.code) {
     throw new Error("--write needs --code for one record, or --walk to step through the queue one record at a time.");
   }
