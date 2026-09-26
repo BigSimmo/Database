@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { diffRoster, rosterWindow } from "@/lib/on-call/shifts/diff";
-import type { OnCallShift, OnCallShiftInput } from "@/lib/on-call/shifts/model";
-import { ON_CALL_SHIFT_IMPORT_MAX, onCallShiftImportRequestSchema } from "@/lib/on-call/shifts/model";
-import { describeNextShift, shiftHours } from "@/lib/on-call/shifts/next-shift";
-import { parseRosterCsv } from "@/lib/on-call/shifts/parse-csv";
-import { parseRosterIcs } from "@/lib/on-call/shifts/parse-ics";
-import { formatPerthDay, perthWallToIso } from "@/lib/on-call/shifts/perth-time";
+import { diffRoster, rosterWindow } from "@/lib/roster/shifts/diff";
+import type { OnCallShift, OnCallShiftInput } from "@/lib/roster/shifts/model";
+import { ON_CALL_SHIFT_IMPORT_MAX, onCallShiftImportRequestSchema } from "@/lib/roster/shifts/model";
+import { describeNextShift, shiftHours } from "@/lib/roster/shifts/next-shift";
+import { parseRosterCsv } from "@/lib/roster/shifts/parse-csv";
+import { parseRosterIcs } from "@/lib/roster/shifts/parse-ics";
+import { formatPerthDay, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /*
  * My shifts: reading a roster on the device, working out what changed, the
@@ -36,13 +36,16 @@ vi.mock("@/lib/api-rate-limit", () => ({
   allowRateLimitInMemoryFallbackOnUnavailable: () => false,
 }));
 
-import { DELETE, GET, POST } from "@/app/api/on-call/shifts/route";
-import { PATCH } from "@/app/api/on-call/shifts/imports/[id]/route";
+import { DELETE, GET, POST } from "@/app/api/roster/shifts/route";
+import { PATCH } from "@/app/api/roster/shifts/imports/[id]/route";
+import { DELETE as deleteManualShiftSeries } from "@/app/api/roster/shifts/manual/[seriesId]/route";
+import { POST as postManualShift } from "@/app/api/roster/shifts/manual/route";
 import { AuthenticationError } from "@/lib/supabase/auth";
 
 const ownerId = "11111111-1111-4111-8111-111111111111";
 const otherOwnerId = "22222222-2222-4222-8222-222222222222";
 const importId = "33333333-3333-4333-8333-333333333333";
+const seriesId = "44444444-4444-4444-8444-444444444444";
 
 function shift(
   date: string,
@@ -200,7 +203,13 @@ describe("what a new roster changes", () => {
 });
 
 describe("the next shift", () => {
-  const stored = (input: OnCallShiftInput, id: string): OnCallShift => ({ ...input, id });
+  const stored = (input: OnCallShiftInput, id: string): OnCallShift => ({
+    ...input,
+    id,
+    source: "import",
+    seriesId: null,
+    workplace: null,
+  });
   const now = new Date("2026-10-05T01:00:00.000Z"); // 09:00 Monday in Perth
 
   it("says a shift is on now, then counts down to one within twelve hours", () => {
@@ -225,8 +234,15 @@ describe("the next shift", () => {
 });
 
 describe("the save request", () => {
+  const base = {
+    format: "ics" as const,
+    workplace: null,
+    fileName: null,
+    windowStart: "2026-10-05",
+    windowEnd: "2026-10-05",
+  };
+
   it("refuses more shifts than one import may carry, and shifts that are too long", () => {
-    const base = { format: "ics", windowStart: "2026-10-05", windowEnd: "2026-10-05" };
     const one = shift("2026-10-05", "08:00", "17:00");
     expect(onCallShiftImportRequestSchema.safeParse({ ...base, shifts: [one] }).success).toBe(true);
     const tooMany = Array.from({ length: ON_CALL_SHIFT_IMPORT_MAX + 1 }, () => one);
@@ -234,18 +250,36 @@ describe("the save request", () => {
     const tooLong = { ...one, endsAt: new Date(Date.parse(one.startsAt) + 40 * 3_600_000).toISOString() };
     expect(onCallShiftImportRequestSchema.safeParse({ ...base, shifts: [tooLong] }).success).toBe(false);
   });
+
+  it("keeps accepting a shift without a kind (old clients)", () => {
+    const noKind = shift("2026-10-05", "08:00", "17:00");
+    expect(onCallShiftImportRequestSchema.safeParse({ ...base, shifts: [{ ...noKind }] }).success).toBe(true);
+  });
+
+  it("accepts a shift with a kind", () => {
+    const withKind = shift("2026-10-05", "08:00", "17:00", "Day", { kind: "day" });
+    expect(onCallShiftImportRequestSchema.safeParse({ ...base, shifts: [withKind] }).success).toBe(true);
+  });
 });
 
 /**
  * A stand-in for the Supabase query builder that records every owner filter,
  * so a test can prove each query was scoped to the signed-in doctor.
  */
-type Recorded = { table: string; op: string; eq: Array<[string, unknown]> };
+type Recorded = {
+  table: string;
+  op: string;
+  eq: Array<[string, unknown]>;
+  /** Every `eq`/`is` filter, in call order, tagged with which one it was. */
+  filters: Array<[string, string, unknown]>;
+  /** Rows passed to `.insert(...)`, when this call was one. */
+  insertedRows?: unknown[];
+};
 
 function fakeSupabase(rows: Record<string, unknown[]>) {
   const calls: Recorded[] = [];
   mocks.from.mockImplementation((table: string) => {
-    const call: Recorded = { table, op: "select", eq: [] };
+    const call: Recorded = { table, op: "select", eq: [], filters: [] };
     calls.push(call);
     const result = () => {
       const owner = call.eq.find(([column]) => column === "owner_id")?.[1];
@@ -256,12 +290,23 @@ function fakeSupabase(rows: Record<string, unknown[]>) {
     for (const method of ["select", "gt", "gte", "lt", "order", "limit"]) builder[method] = () => builder;
     builder.update = () => ((call.op = "update"), builder);
     builder.delete = () => ((call.op = "delete"), builder);
-    builder.eq = (column: string, value: unknown) => (call.eq.push([column, value]), builder);
+    builder.insert = (payload: unknown) => ((call.op = "insert"), (call.insertedRows = payload as unknown[]), builder);
+    builder.eq = (column: string, value: unknown) => (
+      call.eq.push([column, value]),
+      call.filters.push(["eq", column, value]),
+      builder
+    );
+    builder.is = (column: string, value: unknown) => (call.filters.push(["is", column, value]), builder);
     builder.maybeSingle = async () => ({ data: result().data[0] ?? null, error: null });
     builder.then = (resolve: (value: unknown) => unknown) => resolve(result());
     return builder;
   });
   return calls;
+}
+
+/** Every `eq`/`is` filter recorded on a `select` query, across every call so far. */
+function selectFilters(calls: Recorded[]): Array<[string, string, unknown]> {
+  return calls.filter((call) => call.op === "select").flatMap((call) => call.filters);
 }
 
 const future = "2099-01-01T00:00:00.000Z";
@@ -291,12 +336,25 @@ const storedRows = {
 };
 
 function request(method: string, body?: unknown) {
-  return new Request("https://psychiatry.tools/api/on-call/shifts", {
+  return new Request("https://psychiatry.tools/api/roster/shifts", {
     method,
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
+
+function jsonRequest(body: unknown) {
+  return request("POST", body);
+}
+
+const validImportBody = {
+  format: "csv" as const,
+  workplace: null as string | null,
+  fileName: null as string | null,
+  windowStart: "2026-10-05",
+  windowEnd: "2026-10-05",
+  shifts: [shift("2026-10-05", "08:00", "17:00")],
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -329,32 +387,65 @@ describe("the My shifts API", () => {
 
   it("saves through one database call for the signed-in owner, with the change list worked out on the server", async () => {
     fakeSupabase(storedRows);
-    const body = {
-      format: "csv",
-      windowStart: "2026-10-05",
-      windowEnd: "2026-10-05",
-      shifts: [shift("2026-10-05", "08:00", "17:00")],
-    };
-    const response = await POST(request("POST", body));
+    const response = await POST(request("POST", validImportBody));
     expect(response.status).toBe(200);
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
     const [name, args] = mocks.rpc.mock.calls[0]!;
-    expect(name).toBe("on_call_shifts_replace");
-    expect(args).toMatchObject({ p_owner_id: ownerId, p_added: 1, p_changed: 0, p_removed: 0 });
+    expect(name).toBe("roster_own_shifts_replace");
+    expect(args).toMatchObject({
+      p_owner_id: ownerId,
+      p_workplace: null,
+      p_file_name: null,
+      p_added: 1,
+      p_changed: 0,
+      p_removed: 0,
+    });
+  });
+
+  it("saves an import for one workplace through roster_own_shifts_replace", async () => {
+    fakeSupabase(storedRows);
+    const response = await POST(
+      jsonRequest({
+        format: "xlsx",
+        workplace: "Example Hospital",
+        fileName: "oct.xlsx",
+        windowStart: "2026-10-01",
+        windowEnd: "2026-10-31",
+        shifts: [
+          {
+            startsAt: "2026-10-01T00:00:00.000Z",
+            endsAt: "2026-10-01T08:30:00.000Z",
+            title: "Day",
+            location: null,
+            sourceUid: null,
+            kind: "day",
+          },
+        ],
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "roster_own_shifts_replace",
+      expect.objectContaining({ p_format: "xlsx", p_workplace: "Example Hospital", p_file_name: "oct.xlsx" }),
+    );
+  });
+
+  it("compares a new import only with imported shifts from the same workplace", async () => {
+    const calls = fakeSupabase(storedRows);
+    await POST(jsonRequest({ ...validImportBody, workplace: "Example Hospital" }));
+    expect(selectFilters(calls)).toEqual(
+      expect.arrayContaining([
+        ["eq", "source", "import"],
+        ["eq", "workplace", "Example Hospital"],
+      ]),
+    );
   });
 
   it("refuses a body that names an owner, or a shift outside the roster's dates", async () => {
     fakeSupabase(storedRows);
-    const shifts = [shift("2026-10-05", "08:00", "17:00")];
-    const withOwner = {
-      format: "csv",
-      windowStart: "2026-10-05",
-      windowEnd: "2026-10-05",
-      shifts,
-      ownerId: otherOwnerId,
-    };
+    const withOwner = { ...validImportBody, ownerId: otherOwnerId };
     expect((await POST(request("POST", withOwner))).status).toBe(400);
-    const outside = { format: "csv", windowStart: "2026-10-06", windowEnd: "2026-10-07", shifts };
+    const outside = { ...validImportBody, windowStart: "2026-10-06", windowEnd: "2026-10-07" };
     expect((await POST(request("POST", outside))).status).toBe(400);
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
@@ -382,11 +473,75 @@ describe("the My shifts API", () => {
       on_call_shift_imports: [{ id: importId, owner_id: otherOwnerId }],
     });
     const patch = (id: string) =>
-      PATCH(new Request(`https://psychiatry.tools/api/on-call/shifts/imports/${id}`, { method: "PATCH" }), {
+      PATCH(new Request(`https://psychiatry.tools/api/roster/shifts/imports/${id}`, { method: "PATCH" }), {
         params: Promise.resolve({ id }),
       });
     expect((await patch(importId)).status).toBe(404);
     expect(calls[0]?.eq).toContainEqual(["owner_id", ownerId]);
     expect((await patch("not-a-uuid")).status).toBe(404);
+  });
+});
+
+describe("hand-added shifts", () => {
+  function manualRequest(body: unknown) {
+    return new Request("https://psychiatry.tools/api/roster/shifts/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("adds a shift and repeats it weekly, sharing one series ID", async () => {
+    const calls = fakeSupabase({ on_call_shifts: [] });
+    const response = await postManualShift(
+      manualRequest({ shift: shift("2026-10-05", "08:00", "17:00", "Clinic", { kind: "day" }), repeatWeeks: 2 }),
+    );
+    expect(response.status).toBe(200);
+    const insert = calls.find((call) => call.op === "insert");
+    const rows = insert?.insertedRows as Array<{ source: string; series_id: string | null; starts_at: string }>;
+    expect(rows).toHaveLength(3);
+    expect(rows.every((row) => row.source === "manual")).toBe(true);
+    expect(new Set(rows.map((row) => row.series_id)).size).toBe(1);
+    expect(rows[0]?.series_id).not.toBeNull();
+    expect(new Set(rows.map((row) => row.starts_at)).size).toBe(3);
+  });
+
+  it("keeps a single, non-repeating shift out of any series", async () => {
+    const calls = fakeSupabase({ on_call_shifts: [] });
+    await postManualShift(manualRequest({ shift: shift("2026-10-05", "08:00", "17:00"), repeatWeeks: 0 }));
+    const insert = calls.find((call) => call.op === "insert");
+    const rows = insert?.insertedRows as Array<{ series_id: string | null }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.series_id).toBeNull();
+  });
+
+  it("refuses to add a hand-added shift in demo mode", async () => {
+    mocks.demo.mockReturnValue(true);
+    expect(
+      (await postManualShift(manualRequest({ shift: shift("2026-10-05", "08:00", "17:00"), repeatWeeks: 0 }))).status,
+    ).toBe(400);
+  });
+
+  it("deletes a hand-added shift's whole series, never an import", async () => {
+    const calls = fakeSupabase({});
+    const response = await deleteManualShiftSeries(
+      new Request(`https://psychiatry.tools/api/roster/shifts/manual/${seriesId}`, { method: "DELETE" }),
+      { params: Promise.resolve({ seriesId }) },
+    );
+    expect(response.status).toBe(200);
+    const deletes = calls.filter((call) => call.op === "delete");
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0]?.eq).toContainEqual(["owner_id", ownerId]);
+    expect(deletes[0]?.eq).toContainEqual(["series_id", seriesId]);
+    expect(deletes[0]?.eq).toContainEqual(["source", "manual"]);
+  });
+
+  it("404s an unknown series ID instead of guessing", async () => {
+    fakeSupabase({});
+    const response = await deleteManualShiftSeries(
+      new Request("https://psychiatry.tools/api/roster/shifts/manual/not-a-uuid", { method: "DELETE" }),
+      { params: Promise.resolve({ seriesId: "not-a-uuid" }) },
+    );
+    expect(response.status).toBe(404);
   });
 });

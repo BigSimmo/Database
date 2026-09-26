@@ -11,12 +11,12 @@ import { EmptyState, InlineNotice } from "@/components/primitive-recipes/feedbac
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn, textMuted } from "@/components/ui-primitives";
-import { rosterWindow } from "@/lib/on-call/shifts/diff";
-import type { OnCallShift, OnCallShiftChange, OnCallShiftFormat, OnCallShiftInput } from "@/lib/on-call/shifts/model";
-import { shiftHours } from "@/lib/on-call/shifts/next-shift";
-import { parseRosterCsv } from "@/lib/on-call/shifts/parse-csv";
-import { parseRosterIcs, plural } from "@/lib/on-call/shifts/parse-ics";
-import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/on-call/shifts/perth-time";
+import { rosterWindow } from "@/lib/roster/shifts/diff";
+import type { OnCallShift, OnCallShiftChange, OnCallShiftFormat, OnCallShiftInput } from "@/lib/roster/shifts/model";
+import { shiftHours } from "@/lib/roster/shifts/next-shift";
+import { parseRosterCsv } from "@/lib/roster/shifts/parse-csv";
+import { parseRosterIcs, plural } from "@/lib/roster/shifts/parse-ics";
+import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 /**
  * MY SHIFTS — the doctor's own roster.
@@ -109,6 +109,8 @@ export function OnCallShiftsPage({ now: nowProp }: { now?: Date } = {}) {
     setSaving(true);
     const error = await state.save({
       format: preview.format,
+      workplace: null,
+      fileName: null,
       windowStart: preview.window.start,
       windowEnd: preview.window.end,
       shifts: preview.shifts,

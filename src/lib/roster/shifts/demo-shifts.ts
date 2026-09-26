@@ -1,5 +1,5 @@
-import type { OnCallShift } from "@/lib/on-call/shifts/model";
-import { addDaysToDate, perthDateOf, perthWallToIso } from "@/lib/on-call/shifts/perth-time";
+import type { OnCallShift } from "@/lib/roster/shifts/model";
+import { addDaysToDate, perthDateOf, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /**
  * Two obviously invented shifts for demo mode, dated from today so the demo
@@ -14,6 +14,10 @@ export function demoOnCallShifts(now: Date): OnCallShift[] {
     title: "Registrar on call (demo)",
     location: "Example Hospital",
     sourceUid: null,
+    kind: null,
+    source: "import",
+    seriesId: null,
+    workplace: "Example Hospital",
   });
   const tomorrow = addDaysToDate(today, 1);
   return [

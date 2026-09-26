@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallNextShift } from "@/components/on-call/on-call-next-shift";
 import type { OnCallShiftsState } from "@/components/on-call/use-on-call-shifts";
-import type { OnCallShift, OnCallShiftImportSummary } from "@/lib/on-call/shifts/model";
+import type { OnCallShift, OnCallShiftImportSummary } from "@/lib/roster/shifts/model";
 
 /*
  * My shifts on screen: the next-shift card on the On Call home, and the page
@@ -32,6 +32,10 @@ const nightShift: OnCallShift = {
   title: "Night registrar",
   location: "Example Hospital",
   sourceUid: null,
+  kind: "night",
+  source: "import",
+  seriesId: null,
+  workplace: "Example Hospital",
 };
 
 const unseenImport: OnCallShiftImportSummary = {

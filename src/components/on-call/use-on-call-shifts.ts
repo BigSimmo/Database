@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { OnCallShift, OnCallShiftImportRequest, OnCallShiftImportSummary } from "@/lib/on-call/shifts/model";
+import type { OnCallShift, OnCallShiftImportRequest, OnCallShiftImportSummary } from "@/lib/roster/shifts/model";
 
 /**
  * The signed-in doctor's own shifts, fetched from `/api/on-call/shifts`.

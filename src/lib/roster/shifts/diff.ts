@@ -3,8 +3,8 @@ import {
   shiftSnapshot,
   type OnCallShiftChange,
   type OnCallShiftInput,
-} from "@/lib/on-call/shifts/model";
-import { perthDateOf } from "@/lib/on-call/shifts/perth-time";
+} from "@/lib/roster/shifts/model";
+import { perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 /**
  * What a new roster changes, compared with what is already stored.

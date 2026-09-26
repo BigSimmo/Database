@@ -3,9 +3,9 @@ import {
   ON_CALL_SHIFT_LOCATION_MAX,
   ON_CALL_SHIFT_TITLE_MAX,
   type OnCallShiftInput,
-} from "@/lib/on-call/shifts/model";
-import { plural, type RosterParseResult } from "@/lib/on-call/shifts/parse-ics";
-import { addDaysToDate, perthWallToIso } from "@/lib/on-call/shifts/perth-time";
+} from "@/lib/roster/shifts/model";
+import { plural, type RosterParseResult } from "@/lib/roster/shifts/parse-ics";
+import { addDaysToDate, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /**
  * Reads shifts out of a simple spreadsheet export, on the device.

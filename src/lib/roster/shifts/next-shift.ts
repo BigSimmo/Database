@@ -1,5 +1,5 @@
-import type { OnCallShift } from "@/lib/on-call/shifts/model";
-import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/on-call/shifts/perth-time";
+import type { OnCallShift } from "@/lib/roster/shifts/model";
+import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
 /**
  * The shift the On Call home leads with: the one on now, or else the next one.

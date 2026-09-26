@@ -6,8 +6,8 @@ import Link from "next/link";
 import { cardSurface, focusRing } from "@/components/card-recipes";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { describeRosterChangeCounts, type OnCallShiftsState } from "@/components/on-call/use-on-call-shifts";
-import { describeNextShift } from "@/lib/on-call/shifts/next-shift";
-import { formatPerthDay, perthDateOf } from "@/lib/on-call/shifts/perth-time";
+import { describeNextShift } from "@/lib/roster/shifts/next-shift";
+import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 /**
  * The top of the On Call home: the shift on now, or the next one.

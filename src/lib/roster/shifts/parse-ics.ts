@@ -5,8 +5,8 @@ import {
   ON_CALL_SHIFT_UID_MAX,
   shiftLengthIsValid,
   type OnCallShiftInput,
-} from "@/lib/on-call/shifts/model";
-import { perthWallToIso } from "@/lib/on-call/shifts/perth-time";
+} from "@/lib/roster/shifts/model";
+import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /**
  * Reads shifts out of a calendar (`.ics`) file, on the device.

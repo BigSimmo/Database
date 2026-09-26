@@ -1,14 +1,19 @@
 import "server-only";
 
 import type { Json } from "@/lib/supabase/database.types";
-import { diffRoster } from "@/lib/on-call/shifts/diff";
+import { SHIFT_KINDS, type ShiftKind } from "@/lib/roster/shift-kind";
+import { diffRoster } from "@/lib/roster/shifts/diff";
 import {
+  ON_CALL_MANUAL_SHIFT_REPEAT_MAX_WEEKS,
   onCallShiftChangeSchema,
   type OnCallShift,
+  type OnCallShiftFormat,
   type OnCallShiftImportRequest,
   type OnCallShiftImportSummary,
-} from "@/lib/on-call/shifts/model";
-import { addDaysToDate, perthWallToIso } from "@/lib/on-call/shifts/perth-time";
+  type OnCallShiftInput,
+  type OnCallShiftSource,
+} from "@/lib/roster/shifts/model";
+import { addDaysToDate, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
@@ -18,8 +23,10 @@ type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminC
  * the request body: a doctor's roster is theirs alone.
  */
 
-const SHIFT_COLUMNS = "id,starts_at,ends_at,title,location,source_uid";
+const SHIFT_COLUMNS = "id,starts_at,ends_at,title,location,source_uid,kind,workplace,source,series_id";
 const IMPORT_COLUMNS = "id,imported_at,format,window_start,window_end,added,changed,removed,changes,seen_at";
+
+const KNOWN_SHIFT_FORMATS: ReadonlySet<string> = new Set(["ics", "csv", "xlsx", "pdf", "link"]);
 
 type ShiftRow = {
   id: string;
@@ -28,6 +35,10 @@ type ShiftRow = {
   title: string;
   location: string | null;
   source_uid: string | null;
+  kind: string | null;
+  workplace: string | null;
+  source: string;
+  series_id: string | null;
 };
 
 type ImportRow = {
@@ -43,6 +54,18 @@ type ImportRow = {
   seen_at: string | null;
 };
 
+function rowToShiftKind(kind: string | null): ShiftKind | null {
+  return kind !== null && (SHIFT_KINDS as readonly string[]).includes(kind) ? (kind as ShiftKind) : null;
+}
+
+function rowToShiftSource(source: string): OnCallShiftSource {
+  return source === "manual" ? "manual" : "import";
+}
+
+function rowToShiftFormat(format: string): OnCallShiftFormat {
+  return KNOWN_SHIFT_FORMATS.has(format) ? (format as OnCallShiftFormat) : "ics";
+}
+
 function rowToShift(row: ShiftRow): OnCallShift {
   return {
     id: row.id,
@@ -51,6 +74,10 @@ function rowToShift(row: ShiftRow): OnCallShift {
     title: row.title,
     location: row.location,
     sourceUid: row.source_uid,
+    kind: rowToShiftKind(row.kind ?? null),
+    source: rowToShiftSource(row.source),
+    seriesId: row.series_id ?? null,
+    workplace: row.workplace ?? null,
   };
 }
 
@@ -64,7 +91,7 @@ function rowToImport(row: ImportRow): OnCallShiftImportSummary {
   return {
     id: row.id,
     importedAt: row.imported_at,
-    format: row.format === "csv" ? "csv" : "ics",
+    format: rowToShiftFormat(row.format),
     windowStart: row.window_start,
     windowEnd: row.window_end,
     added: row.added,
@@ -110,21 +137,30 @@ export async function fetchLatestShiftImport(
   return data ? rowToImport(data) : null;
 }
 
+/**
+ * The owner's imported shifts inside a roster's dates, for one workplace. Only
+ * imported rows of that workplace are compared: a hand-added shift, and an
+ * import for a different workplace, are never touched by this roster's save.
+ */
 async function fetchOwnerShiftsInWindow(
   supabase: AdminClient,
   ownerId: string,
   window: { start: string; end: string },
+  workplace: string | null,
 ): Promise<OnCallShift[]> {
   const from = perthWallToIso(window.start, "00:00");
   const to = perthWallToIso(addDaysToDate(window.end, 1), "00:00");
   if (!from || !to) throw new Error("Invalid roster dates.");
-  const { data, error } = await supabase
+  const query = supabase
     .from("on_call_shifts")
     .select(SHIFT_COLUMNS)
     .eq("owner_id", ownerId)
+    .eq("source", "import")
     .gte("starts_at", from)
     .lt("starts_at", to)
     .limit(2000);
+  const scoped = workplace === null ? query.is("workplace", null) : query.eq("workplace", workplace);
+  const { data, error } = await scoped;
   if (error) throw error;
   return (data ?? []).map(rowToShift);
 }
@@ -141,13 +177,15 @@ export async function replaceOwnerShifts(
 ): Promise<string> {
   requireOwner(ownerId);
   const window = { start: request.windowStart, end: request.windowEnd };
-  const stored = await fetchOwnerShiftsInWindow(supabase, ownerId, window);
+  const stored = await fetchOwnerShiftsInWindow(supabase, ownerId, window, request.workplace);
   const diff = diffRoster(stored, request.shifts, window);
-  const { data, error } = await supabase.rpc("on_call_shifts_replace", {
+  const { data, error } = await supabase.rpc("roster_own_shifts_replace", {
     p_owner_id: ownerId,
     p_window_start: window.start,
     p_window_end: window.end,
     p_format: request.format,
+    p_workplace: request.workplace,
+    p_file_name: request.fileName,
     p_shifts: request.shifts as unknown as Json,
     p_changes: diff.changes as unknown as Json,
     p_added: diff.added,
@@ -170,7 +208,61 @@ export async function markShiftImportSeen(supabase: AdminClient, ownerId: string
   return (data ?? []).length > 0;
 }
 
-/** Delete every shift and import record the owner has. */
+function addWeeks(instant: string, weeks: number): string {
+  return new Date(Date.parse(instant) + weeks * 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * Add one or more shifts by hand. A shift never touched by an import (never
+ * has a workplace). When `repeatWeeks` is positive, every given shift repeats
+ * weekly that many more times, and every repeat shares one `seriesId` so they
+ * can all be removed together; a single shift keeps `seriesId` null.
+ */
+export async function addManualShifts(
+  supabase: AdminClient,
+  ownerId: string,
+  shifts: readonly OnCallShiftInput[],
+  repeatWeeks: number,
+): Promise<OnCallShift[]> {
+  requireOwner(ownerId);
+  const weeks = Math.max(0, Math.min(Math.trunc(repeatWeeks), ON_CALL_MANUAL_SHIFT_REPEAT_MAX_WEEKS));
+  const seriesId = weeks > 0 ? crypto.randomUUID() : null;
+  const rows = shifts.flatMap((input) =>
+    Array.from({ length: weeks + 1 }, (_unused, occurrence) => ({
+      owner_id: ownerId,
+      starts_at: addWeeks(input.startsAt, occurrence),
+      ends_at: addWeeks(input.endsAt, occurrence),
+      title: input.title,
+      location: input.location,
+      source_uid: null,
+      source: "manual",
+      kind: input.kind ?? null,
+      workplace: null,
+      series_id: seriesId,
+    })),
+  );
+  const { data, error } = await supabase.from("on_call_shifts").insert(rows).select(SHIFT_COLUMNS);
+  if (error) throw error;
+  return (data ?? []).map(rowToShift);
+}
+
+/** Remove every shift in one hand-added series (the shift and its weekly repeats). */
+export async function deleteManualSeries(supabase: AdminClient, ownerId: string, seriesId: string): Promise<void> {
+  requireOwner(ownerId);
+  const { error } = await supabase
+    .from("on_call_shifts")
+    .delete()
+    .eq("owner_id", ownerId)
+    .eq("series_id", seriesId)
+    .eq("source", "manual");
+  if (error) throw error;
+}
+
+/**
+ * Delete every shift and import record the owner has. Once calendar links
+ * (Task 3) and Roster settings (Task 5) exist, `DELETE /api/roster/shifts`
+ * should clear those too; this function only owns what Task 1 stores.
+ */
 export async function deleteOwnerShifts(supabase: AdminClient, ownerId: string): Promise<void> {
   requireOwner(ownerId);
   const shifts = await supabase.from("on_call_shifts").delete().eq("owner_id", ownerId);

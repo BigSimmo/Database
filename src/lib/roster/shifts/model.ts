@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { SHIFT_KINDS, type ShiftKind } from "@/lib/roster/shift-kind";
+
 /**
  * My shifts: the doctor's own roster, private to them.
  *
@@ -17,8 +19,18 @@ export const ON_CALL_SHIFT_IMPORT_MAX = 400;
 export const ON_CALL_SHIFT_MAX_HOURS = 36;
 /** Most change lines stored per import. The counts stay exact beyond it. */
 export const ON_CALL_SHIFT_CHANGES_MAX = 200;
+/** A workplace name, as recorded on an import. The database enforces the same limit. */
+export const ON_CALL_SHIFT_WORKPLACE_MAX = 80;
+/** An uploaded file's name, kept only on the import row, never the file itself. */
+export const ON_CALL_SHIFT_FILE_NAME_MAX = 120;
+/** Longest a hand-added shift may repeat weekly for. */
+export const ON_CALL_MANUAL_SHIFT_REPEAT_MAX_WEEKS = 26;
 
-export type OnCallShiftFormat = "ics" | "csv";
+/** A roster can arrive as a calendar file, a spreadsheet, a scanned PDF read on the server, or a live calendar link. */
+export type OnCallShiftFormat = "ics" | "csv" | "xlsx" | "pdf" | "link";
+
+/** Whether a shift row came from the doctor's latest roster import, or was added by hand in Roster. */
+export type OnCallShiftSource = "import" | "manual";
 
 /** One shift as parsed or stored. Times are ISO instants. */
 export type OnCallShiftInput = {
@@ -28,9 +40,18 @@ export type OnCallShiftInput = {
   readonly location: string | null;
   /** The source calendar's own ID for this shift, when it had one. Used to match revisions. */
   readonly sourceUid: string | null;
+  /** What kind of shift this is. Missing or null for an older client, or a shift whose kind was never resolved. */
+  readonly kind?: ShiftKind | null;
 };
 
-export type OnCallShift = OnCallShiftInput & { readonly id: string };
+export type OnCallShift = OnCallShiftInput & {
+  readonly id: string;
+  readonly source: OnCallShiftSource;
+  /** Groups the weekly repeats of one hand-added shift, so they can be removed together. Null for a single shift or any import. */
+  readonly seriesId: string | null;
+  /** The import's workplace. Null for a hand-added shift, or an import made before workplaces existed. */
+  readonly workplace: string | null;
+};
 
 /** What a shift looked like, for a change line. No IDs: it is shown, never acted on. */
 export type OnCallShiftSnapshot = Pick<OnCallShiftInput, "startsAt" | "endsAt" | "title" | "location">;
@@ -64,6 +85,7 @@ export const onCallShiftInputSchema = z
     title: z.string().trim().min(1).max(ON_CALL_SHIFT_TITLE_MAX),
     location: z.string().trim().max(ON_CALL_SHIFT_LOCATION_MAX).nullable(),
     sourceUid: z.string().trim().max(ON_CALL_SHIFT_UID_MAX).nullable(),
+    kind: z.enum(SHIFT_KINDS).nullable().optional(),
   })
   .strict()
   .refine((shift) => shiftLengthIsValid(shift.startsAt, shift.endsAt), {
@@ -85,10 +107,15 @@ export const onCallShiftChangeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("removed"), before: snapshotSchema }).strict(),
 ]);
 
-/** The body of a roster save. The change list is recomputed on the server, never trusted from here. */
+/**
+ * The body of a roster save. The change list is recomputed on the server, never trusted
+ * from here. The workplace belongs to the whole import, never to one shift within it.
+ */
 export const onCallShiftImportRequestSchema = z
   .object({
-    format: z.enum(["ics", "csv"]),
+    format: z.enum(["ics", "csv", "xlsx", "pdf", "link"]),
+    workplace: z.string().trim().min(1).max(ON_CALL_SHIFT_WORKPLACE_MAX).nullable(),
+    fileName: z.string().trim().min(1).max(ON_CALL_SHIFT_FILE_NAME_MAX).nullable(),
     windowStart: perthDate,
     windowEnd: perthDate,
     shifts: z.array(onCallShiftInputSchema).max(ON_CALL_SHIFT_IMPORT_MAX),
@@ -97,6 +124,16 @@ export const onCallShiftImportRequestSchema = z
   .refine((body) => body.windowEnd >= body.windowStart, { message: "The roster dates are the wrong way round." });
 
 export type OnCallShiftImportRequest = z.infer<typeof onCallShiftImportRequestSchema>;
+
+/** Add one or more hand-added shifts, optionally repeating weekly. */
+export const onCallManualShiftRequestSchema = z
+  .object({
+    shift: onCallShiftInputSchema,
+    repeatWeeks: z.number().int().min(0).max(ON_CALL_MANUAL_SHIFT_REPEAT_MAX_WEEKS),
+  })
+  .strict();
+
+export type OnCallManualShiftRequest = z.infer<typeof onCallManualShiftRequestSchema>;
 
 export function shiftLengthIsValid(startsAt: string, endsAt: string): boolean {
   const start = Date.parse(startsAt);
