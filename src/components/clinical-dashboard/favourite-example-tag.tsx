@@ -1,8 +1,8 @@
 /**
  * #358YM0: demo mode fills Favourites with fixtures ("last opened Today 08:44",
  * preset sets) that are not the clinician's own history. Every surface that shows
- * one marks it with this tag, the same idea as the Ward Flow sidebar's `example`
- * tag. Production never shows fixtures (they are gated on demo mode).
+ * one marks it with this tag, the same idea as the `example` tag the retired Ward
+ * Flow prototype used. Production never shows fixtures (they are gated on demo mode).
  */
 export const FAVOURITE_EXAMPLES_NOTICE = "Example favourites shown in demo mode";
 

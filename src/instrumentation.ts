@@ -78,68 +78,6 @@ export async function register() {
   // and are gated in next.config.ts — not re-checked here.
   requireSentryEnv();
 
-  // Caring Contacts live (non-demo) sovereign mode: fail closed unless a MAC-authenticated
-  // CSO attestation is present and valid (H-00 / H-04 / H-05). Demo/staging mode skips this.
-  if (process.env.CARING_CONTACTS_DEMO_ENABLED === "false") {
-    if (!process.env.CARING_CONTACTS_DATABASE_URL?.trim()) {
-      throw new Error(
-        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_DATABASE_URL (no in-memory fallback for real-patient writes).",
-      );
-    }
-    // Live mode resolves its actor from the signed production session cookie, never from the
-    // forgeable demo role cookie -- so it needs BOTH halves of that arrangement, and neither is
-    // checked anywhere else at boot.
-    //
-    // The secret is what `isCaringContactsLiveEnabled` tests. Without it the workspace is simply
-    // shut: every page calls `notFound()` and every API route answers 404. A deployment that has
-    // gone to the trouble of configuring a dedicated patient database plainly did not intend
-    // that, so it is a misconfiguration to refuse rather than a state to serve.
-    if (!process.env.CARING_CONTACTS_SESSION_HMAC_SECRET?.trim()) {
-      throw new Error(
-        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_SESSION_HMAC_SECRET. " +
-          "Without it the workspace stays closed and every route answers 404, which a live deployment did not intend.",
-      );
-    }
-    // The issuer is the half this repository does NOT contain. `signProductionSession` exists in
-    // src/lib/caring-contacts-server/session.ts and nothing calls it: there is no route, script or
-    // test that mints the cookie live mode demands. So a live deployment that is otherwise correct
-    // throws CaringContactsProductionSessionError out of every request -- configurable, but not
-    // operable. Requiring the operator to name the external issuer turns that into one refusal at
-    // boot with a reason, instead of a 500 per request with a stack trace. Set it to the issuing
-    // origin once enterprise sign-on is wired in.
-    if (!process.env.CARING_CONTACTS_SESSION_ISSUER?.trim()) {
-      throw new Error(
-        "Refusing to start: Caring Contacts live mode has no session issuer. This repository contains no route " +
-          "that mints the signed production session cookie live mode requires, so every request would fail. Wire up " +
-          "enterprise sign-on to call signProductionSession, then set CARING_CONTACTS_SESSION_ISSUER to its origin.",
-      );
-    }
-    const { createHmac, timingSafeEqual } = await import("node:crypto");
-    const { assertPilotGovernanceReady } = await import("@/lib/caring-contacts/pilot-governance");
-    const raw = process.env.CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON?.trim();
-    const mac = process.env.CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC?.trim();
-    const secret = process.env.CARING_CONTACTS_GOVERNANCE_HMAC_SECRET?.trim();
-    if (!raw || !mac || !secret) {
-      throw new Error(
-        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON, " +
-          "CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC, and CARING_CONTACTS_GOVERNANCE_HMAC_SECRET.",
-      );
-    }
-    const expectedMac = createHmac("sha256", secret).update(raw, "utf8").digest("hex");
-    const expectedBuf = Buffer.from(expectedMac, "utf8");
-    const providedBuf = Buffer.from(mac, "utf8");
-    if (expectedBuf.length !== providedBuf.length || !timingSafeEqual(expectedBuf, providedBuf)) {
-      throw new Error("Refusing to start: Caring Contacts governance attestation MAC failed authentication.");
-    }
-    let attestation: unknown;
-    try {
-      attestation = JSON.parse(raw);
-    } catch {
-      throw new Error("Refusing to start: Caring Contacts governance attestation JSON is not parseable.");
-    }
-    assertPilotGovernanceReady(false, attestation);
-  }
-
   // Warm rag_aliases so the first post-boot search skips the cold-cache DB RTT.
   // Non-blocking: failures are swallowed inside warmEnabledRagAliasCache.
   const { warmEnabledRagAliasCache } = await import("@/lib/rag/rag-retrieval-variants");

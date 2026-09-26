@@ -38,12 +38,13 @@ A `-v2`, `-final`, `-refined` or `-perfected` suffix is not evidence of anything
 
 ### 3. A third of the surface is not design scratch
 
-`/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan` and
-`/mockups/ward-flow` are **live in production** behind an administrator gate
-(`shouldBlockProductionMockups` in `src/proxy.ts` exempts them so `DeveloperAreaGate` runs
-instead of a 404), and `/mockups/development` is linked from production Settings. With their
-implementation modules that is ~199 files and ~45,000 lines — and 82 of those modules have no
-"mockup" anywhere in their name, so every glob in the repo misses them.
+`/mockups/development` and `/mockups/care-plan` are **live in production** behind an
+administrator gate (`shouldBlockProductionMockups` in `src/proxy.ts` exempts them so
+`DeveloperAreaGate` runs instead of a 404), and `/mockups/development` is linked from production
+Settings. When this policy was written, `/mockups/caring-contacts` and `/mockups/ward-flow` were
+gated the same way; with their implementation modules the four came to ~199 files and ~45,000
+lines — and 82 of those modules had no "mockup" anywhere in their name, so every glob in the repo
+missed them. Caring Contacts and Ward Flow were retired on 2026-09-26.
 
 ## Tiers — decided by evidence of a consumer, never by path
 

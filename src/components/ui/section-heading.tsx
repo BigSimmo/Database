@@ -36,7 +36,7 @@ export type SectionHeadingProps = {
  * 1. Eyebrow record headers (formulation, specifiers)
  * 2. Step-badged section headers (dictionary governance)
  * 3. Menu kicker headings (search pins, drawer sub-sections)
- * 4. Icon-badged panel headings with actions (clinical dashboard, caring contacts)
+ * 4. Icon-badged panel headings with actions (clinical dashboard)
  * 5. Mobile responsiveness (hiding description, compact sizing)
  */
 export function SectionHeading({

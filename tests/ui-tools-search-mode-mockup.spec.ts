@@ -139,7 +139,7 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     // The claim is self-consistency — the headline count matches the rows actually
     // rendered — so it reads the rendered count rather than pinning an absolute.
     // A hard-coded total silently rots the moment the catalogue gains a tool, which
-    // is what "Add Ward Flow" (#2140) did to the 14 this line used to carry.
+    // is what "Add Ward Flow" (#2140, since retired) did to the 14 this line used to carry.
     const results = mockup.locator('section[aria-label="Tool results"] article');
     const rendered = await results.count();
     expect(rendered, "the unfiltered mockup must render at least one tool").toBeGreaterThan(0);

@@ -26,7 +26,10 @@ where `"-"` is a slug separator, a keyboard key, or a parser token. Nothing was 
 
 ## 1 · Changed — the phrase is provable from the code
 
-### `src/components/ward-management/discharges/discharge-board.tsx:197` → `Not applicable`
+### src/components/ward-management/discharges/discharge-board.tsx:197 → `Not applicable`
+
+(The Ward Flow prototype this call site belonged to was retired on 2026-09-26; see git history at
+commit 8ec68fd32.)
 
 `release.blocker ?? "—"`. `ward-model.ts` types the field
 `blocker: BedReleaseBlocker | null` and documents it **"Non-null only while `state` is

@@ -750,8 +750,7 @@
         "tests/medication-interaction-surfaces.dom.test.tsx",
         "tests/privacy-ui.test.ts",
         "tests/ui-forms-section-nav.spec.ts",
-        "tests/ui-v2-components.dom.test.tsx",
-        "tests/ward-governance-thin-sample.test.ts"
+        "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1407,9 +1406,7 @@
         "src/components/clinical-dashboard/favourites-hub.tsx",
         "src/components/cme/cme-entry-page.tsx",
         "src/components/specifiers/specifier-reference-page.tsx",
-        "src/components/ui/date-display.tsx",
-        "src/components/ward-management/discharges/discharge-board.tsx",
-        "src/components/ward-management/ward-management-console.tsx"
+        "src/components/ui/date-display.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
@@ -1435,8 +1432,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/dose-line.dom.test.tsx",
-        "tests/ui-v2-answer-safety.dom.test.tsx",
-        "tests/ward-flow-seam.test.ts"
+        "tests/ui-v2-answer-safety.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1937,10 +1933,7 @@
         "tests/ui-formulation.spec.ts",
         "tests/ui-overlap.spec.ts",
         "tests/ui-smoke.spec.ts",
-        "tests/ui-v2-components.dom.test.tsx",
-        "tests/ui-ward-coordinator.spec.ts",
-        "tests/ui-ward-roles.spec.ts",
-        "tests/ward-delays-screen.dom.test.tsx"
+        "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1967,7 +1960,6 @@
         "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
-        "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
@@ -1998,8 +1990,7 @@
         "src/components/therapy-compass/record/key-facts.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/tools/tools-search-results-page.tsx",
-        "src/components/ui/confirm-dialog.tsx",
-        "src/components/ward-management/ward-management-navigation.tsx"
+        "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
@@ -2007,7 +1998,6 @@
         "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
-        "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
@@ -2050,9 +2040,6 @@
         "tests/accessible-table.dom.test.tsx",
         "tests/answer-source-rail.dom.test.tsx",
         "tests/answer-support-priority.dom.test.tsx",
-        "tests/caring-contacts-overlay-host.dom.test.tsx",
-        "tests/caring-contacts-overlay-trigger.dom.test.tsx",
-        "tests/caring-contacts-plan-wizard.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
@@ -2077,13 +2064,11 @@
         "tests/sheet.dom.test.tsx",
         "tests/therapy-global-convergence-contract.test.ts",
         "tests/ui-accessibility.spec.ts",
-        "tests/ui-caring-contacts-workspace.spec.ts",
         "tests/ui-overlay-css-contract.test.ts",
         "tests/ui-phone-scroll-page-owned.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-style-contract.spec.ts",
         "tests/viewport-fill-contract.test.ts",
-        "tests/ward-shell-print-ancestor.test.ts",
         "tests/xlsx-extraction-budget.test.ts"
       ],
       "baseline": {
@@ -2342,7 +2327,6 @@
         "tests/rsc-boundary.test.ts",
         "tests/therapy-compass-responsive-contract.test.ts",
         "tests/therapy-tabs.dom.test.tsx",
-        "tests/ui-caring-contacts-workspace.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -4209,173 +4193,6 @@
       ]
     },
     {
-      "id": "caring-contacts-workspace",
-      "disposition": "owned",
-      "documentedDisposition": null,
-      "routes": [
-        "src/app/caring-contacts/guidance/page.tsx",
-        "src/app/caring-contacts/intake/page.tsx",
-        "src/app/caring-contacts/page.tsx",
-        "src/app/caring-contacts/patients/[patientId]/page.tsx",
-        "src/app/caring-contacts/patients/page.tsx",
-        "src/app/caring-contacts/plans/new/page.tsx",
-        "src/app/caring-contacts/reports/page.tsx",
-        "src/app/caring-contacts/schedule/page.tsx",
-        "src/app/caring-contacts/team/page.tsx",
-        "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
-        "src/app/caring-contacts/templates/page.tsx"
-      ],
-      "routeRoots": true,
-      "proofApplicability": "required",
-      "nonVisualRoute": null,
-      "declaredShellState": "v2",
-      "observedShellState": "v2",
-      "v2ShellMounted": true,
-      "v2MountMode": "inherited-global-root",
-      "inheritedFrom": "src/app/layout.tsx",
-      "directV2MountFiles": [],
-      "proof": {
-        "browser": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "compact320": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "dark": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "forcedColours": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "print": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        }
-      },
-      "baseline": {
-        "status": "not-committed",
-        "files": []
-      },
-      "permittedComponentFamilies": [],
-      "sanctionedSpecialPatterns": ["CaringContactsShell"],
-      "roots": [
-        {
-          "file": "src/app/caring-contacts/guidance/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/intake/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/patients/[patientId]/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/patients/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/plans/new/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/reports/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/schedule/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/team/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        },
-        {
-          "file": "src/app/caring-contacts/templates/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CaringContactsShell"]
-        }
-      ]
-    },
-    {
       "id": "privacy-safety-and-reference",
       "disposition": "owned",
       "documentedDisposition": null,
@@ -4750,17 +4567,6 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/auth/reset-password/page.tsx",
-      "src/app/caring-contacts/guidance/page.tsx",
-      "src/app/caring-contacts/intake/page.tsx",
-      "src/app/caring-contacts/page.tsx",
-      "src/app/caring-contacts/patients/[patientId]/page.tsx",
-      "src/app/caring-contacts/patients/page.tsx",
-      "src/app/caring-contacts/plans/new/page.tsx",
-      "src/app/caring-contacts/reports/page.tsx",
-      "src/app/caring-contacts/schedule/page.tsx",
-      "src/app/caring-contacts/team/page.tsx",
-      "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
-      "src/app/caring-contacts/templates/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx"
@@ -4868,17 +4674,6 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/auth/reset-password/page.tsx",
-      "src/app/caring-contacts/guidance/page.tsx",
-      "src/app/caring-contacts/intake/page.tsx",
-      "src/app/caring-contacts/page.tsx",
-      "src/app/caring-contacts/patients/[patientId]/page.tsx",
-      "src/app/caring-contacts/patients/page.tsx",
-      "src/app/caring-contacts/plans/new/page.tsx",
-      "src/app/caring-contacts/reports/page.tsx",
-      "src/app/caring-contacts/schedule/page.tsx",
-      "src/app/caring-contacts/team/page.tsx",
-      "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
-      "src/app/caring-contacts/templates/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx"
@@ -4889,17 +4684,17 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 123,
+    "inheritedCkbV2RootCount": 112,
     "dynamicCkbV2RootCount": 0,
-    "v2MountedSurfaceCount": 15,
-    "declaredV2SurfaceCount": 15
+    "v2MountedSurfaceCount": 14,
+    "declaredV2SurfaceCount": 14
   },
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 124,
-    "productionRouteCount": 116,
-    "nextUiEntryCount": 182
+    "rootCount": 113,
+    "productionRouteCount": 105,
+    "nextUiEntryCount": 168
   }
 }
