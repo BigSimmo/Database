@@ -528,6 +528,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
         run: npm run check:organisation
 
+      # Instruction guards (docs/organisation/README.md): a retired rule restated in a live
+      # instruction file, or AGENTS.md/CLAUDE.md growing past their size budget. Judges only
+      # what this change adds, so it never blames a PR for main's own state or for the date.
+      - name: Instruction guards
+        env:
+          INSTRUCTIONS_CHECK_MODE: ci
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: npm run check:instructions
+
   safety:
     name: Safety and config checks
     needs: changes
