@@ -15,6 +15,7 @@ describe("api rate limiter dual-bucket & deny cache batching", () => {
     // First call: hit rate limit to populate deny cache for answer bucket
     mockRpc.mockResolvedValue({
       data: {
+        scope: "subject",
         limited: true,
         limit_value: 10,
         remaining: 0,
