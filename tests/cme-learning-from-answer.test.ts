@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cmeLearningFromSourceHref, parseCmeLearningPrefill } from "@/lib/cme/learning-source";
+import { cmeLearningFromRailHref, cmeLearningFromSourceHref, parseCmeLearningPrefill } from "@/lib/cme/learning-source";
 
 describe("Log as CPD from a clinical answer", () => {
   it("fills the new entry with the cited source's title and link", () => {
@@ -29,5 +29,21 @@ describe("Log as CPD from a clinical answer", () => {
   it("offers no link for a source with no usable title or address", () => {
     expect(cmeLearningFromSourceHref({ title: "  ", href: "/documents/x" })).toBeNull();
     expect(cmeLearningFromSourceHref({ title: "Guideline", href: "javascript:alert(1)" })).toBeNull();
+  });
+
+  it("takes the first cited rail row, skipping an 'also found' row placed before it", () => {
+    const href = cmeLearningFromRailHref([
+      { title: "Also found guideline", href: "/documents/also", cited: false },
+      { title: "Cited guideline", href: "/documents/cited" },
+      { title: "Second cited guideline", href: "/documents/second", cited: true },
+    ])!;
+    const url = new URL(href, "https://example.test");
+    expect(url.searchParams.get("title")).toBe("Cited guideline");
+    expect(url.searchParams.get("sourceUrl")).toBe("/documents/cited");
+  });
+
+  it("offers no link when the rail cites nothing", () => {
+    expect(cmeLearningFromRailHref([])).toBeNull();
+    expect(cmeLearningFromRailHref([{ title: "Also found", href: "/documents/a", cited: false }])).toBeNull();
   });
 });

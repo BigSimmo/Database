@@ -32,3 +32,15 @@ export function cmeLearningFromSourceHref(source: { title: string; href: string 
   if (!title || !sourceUrl) return null;
   return `/cme/new?${new URLSearchParams({ title, sourceUrl }).toString()}`;
 }
+
+/**
+ * The Log as CPD link for an answer's source rail: the first row the answer
+ * actually cites. An "also found" row (`cited === false`) is never offered as
+ * what the doctor learned from.
+ */
+export function cmeLearningFromRailHref(
+  rows: readonly { title: string; href: string; cited?: boolean }[],
+): string | null {
+  const lead = rows.find((row) => row.cited !== false);
+  return lead ? cmeLearningFromSourceHref(lead) : null;
+}
