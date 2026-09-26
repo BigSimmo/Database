@@ -3,6 +3,7 @@
 import { CalendarDays } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { CalendarSubscribe } from "@/components/calendar/calendar-subscribe";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
@@ -53,6 +54,7 @@ export function OnCallCalendarPage({ now: nowProp }: { now?: Date } = {}) {
         ) : (
           <CalendarView events={events} today={today} exportName="On Call" testId="on-call-calendar-view" />
         )}
+        <CalendarSubscribe testId="on-call-calendar-subscribe" />
       </InformationPageShell>
     </>
   );
