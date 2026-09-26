@@ -625,7 +625,10 @@ function main() {
   }
   // Strict unless pull-request CI asks for pr mode explicitly (REVIEW_DATE_MODE=pr with BASE_SHA and
   // HEAD_SHA); see scripts/organisation/review-date-scope.mjs. Local runs, main and release stay strict.
-  const reviewDateScope = resolveReviewDateScope({ env: process.env, root });
+  // --release pins strict whatever the environment says, as check-privacy-readiness does: a release
+  // must never ship on a lapsed hazard review.
+  const release = process.argv.includes("--release");
+  const reviewDateScope = resolveReviewDateScope({ env: release ? {} : process.env, root });
   const { errors, warnings } = evaluateClinicalHazardControls(manifest, { checkGit: !shallow, reviewDateScope });
   printReviewDateWarnings("CLINICAL_HAZARD_CONTROLS", reviewDateScope, warnings);
   if (errors.length) {

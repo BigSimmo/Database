@@ -19,7 +19,7 @@ import {
 
 const REGISTER = "docs/register.json";
 const listed = (files: string[]) => () => ({ ok: true as const, files });
-const PR_ENV = { REVIEW_DATE_MODE: "pr", BASE_SHA: "abc1234", HEAD_SHA: "def5678" };
+const PR_ENV = { REVIEW_DATE_MODE: "pr", BASE_SHA: "abc1234", HEAD_SHA: "def5678", GITHUB_EVENT_NAME: "pull_request" };
 
 describe("resolving the review-date scope", () => {
   it("is strict, silently, when nothing asks for pull-request mode", () => {
@@ -73,6 +73,19 @@ describe("resolving the review-date scope", () => {
       });
       expect(scope.mode).toBe("strict");
       expect(scope.notes.join(" ")).toContain(`the GitHub event is ${event}`);
+    }
+  });
+
+  it("refuses, with a note, when no GitHub event is named: pr mode is for pull-request CI only", () => {
+    for (const GITHUB_EVENT_NAME of [undefined, "", "   "]) {
+      const scope = resolveReviewDateScope({
+        env: { ...PR_ENV, GITHUB_EVENT_NAME },
+        root: ".",
+        listTouched: listed([]),
+      });
+      expect(scope.mode).toBe("strict");
+      expect(scope.notes.join(" ")).toContain("GITHUB_EVENT_NAME is not set");
+      expect(scope.notes.join(" ")).toContain("expired review dates block as usual");
     }
   });
 
@@ -141,6 +154,19 @@ describe("whether an expired date blocks", () => {
         coveredPaths: ["src/a.ts", "docs/pia.md#section-6", 42],
       }),
     ).toEqual({ blocking: true, because: "docs/pia.md" });
+  });
+
+  it("canonicalises covered paths before matching, and lets a folder cover the files under it", () => {
+    const covers = (touched: string[], coveredPaths: unknown[]) =>
+      expiredReviewDateDisposition(pr(touched), { registerPath: REGISTER, coveredPaths });
+    expect(covers(["src/a.ts"], ["./src/a.ts"])).toEqual({ blocking: true, because: "src/a.ts" });
+    expect(covers(["src/a.ts"], ["src//lib/../a.ts#anchor"])).toEqual({ blocking: true, because: "src/a.ts" });
+    expect(covers(["src/lib/deep/b.ts"], ["src/lib/"])).toEqual({ blocking: true, because: "src/lib/deep/b.ts" });
+    expect(covers(["src/lib/b.ts"], ["./src/lib"])).toEqual({ blocking: true, because: "src/lib/b.ts" });
+    // A folder prefix is a whole segment: src/lib does not cover src/library.ts.
+    expect(covers(["src/library.ts"], ["src/lib"]).blocking).toBe(false);
+    // The repository root is not a usable reference and never covers everything.
+    expect(covers(["src/a.ts"], ["./", ".", "/"]).blocking).toBe(false);
   });
 
   it("does not block a pull request that touches neither", () => {
@@ -236,13 +262,16 @@ describe("listing the files a change touched", () => {
 
   it("feeds pull-request mode end to end, and reports an unreachable base as a refusal", () => {
     const { root, base, head } = repo();
-    const scope = resolveReviewDateScope({ env: { REVIEW_DATE_MODE: "pr", BASE_SHA: base, HEAD_SHA: head }, root });
+    const scope = resolveReviewDateScope({
+      env: { REVIEW_DATE_MODE: "pr", BASE_SHA: base, HEAD_SHA: head, GITHUB_EVENT_NAME: "pull_request" },
+      root,
+    });
     expect(scope).toMatchObject({ mode: "pr", touched: ["src/keep.ts", "src/new.ts", "src/old.ts"] });
 
     const missing = "1".repeat(40);
     expect(gitTouchedFiles(root, missing, head).ok).toBe(false);
     const refused = resolveReviewDateScope({
-      env: { REVIEW_DATE_MODE: "pr", BASE_SHA: missing, HEAD_SHA: head },
+      env: { REVIEW_DATE_MODE: "pr", BASE_SHA: missing, HEAD_SHA: head, GITHUB_EVENT_NAME: "merge_group" },
       root,
     });
     expect(refused.mode).toBe("strict");

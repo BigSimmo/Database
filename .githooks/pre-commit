@@ -69,7 +69,7 @@ if [ "$sync_design_system_adoption" = "1" ]; then
   mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$adoption_inputs" | sed '/^$/d' | sort -u)
 fi
 if [ "$sync_organisation_areas" = "1" ]; then
-  organisation_inputs=$(printf '%s\n' "$working_files" | grep -E '^(docs/organisation/systems/|scripts/organisation/codebase-index-section\.mjs$)' || true)
+  organisation_inputs=$(printf '%s\n' "$working_files" | grep -E '^(docs/organisation/systems/[^/]+\.json$|scripts/organisation/codebase-index-section\.mjs$)' || true)
   mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$organisation_inputs" | sed '/^$/d' | sort -u)
 fi
 if [ -n "$mixed_inputs" ]; then

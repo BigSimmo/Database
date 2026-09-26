@@ -103,6 +103,21 @@ describe("Areas section content", () => {
     expect(text).not.toContain("`docs/t.md`");
   });
 
+  it("turns markdown links into their text and drops backticks, so it never carries a checkable link or path", () => {
+    const root = tempRoot([
+      {
+        id: "linky",
+        name: "Linky `area`",
+        owns: "Owns [the guide](docs/guide.md), `src/lib/x.ts` and ![a picture](img.png).",
+        canonicalDocs: ["`docs/a.md`", "[docs/b.md](docs/b.md)"],
+      },
+    ]);
+    const text = renderAreasSection(readAreas(root)).join("\n");
+    expect(text).toContain("- **Linky area** (`linky`): Owns the guide, src/lib/x.ts and a picture.");
+    expect(text).toContain("  Canonical docs: docs/a.md, docs/b.md");
+    expect(text).not.toMatch(/\]\(/);
+  });
+
   it("is already in Prettier's markdown layout, for the real map and for awkward characters", async () => {
     const options = { ...(await prettier.resolveConfig(path.join(REPO, INDEX_PATH))), parser: "markdown" };
     const real = `${renderAreasSection(readAreas(REPO)).join("\n")}\n`;
@@ -210,7 +225,8 @@ describe("Areas section placement in the real index", () => {
   });
 });
 
-describe("pre-commit docs sync", () => {
+// The hook runs through POSIX sh, which Windows runners do not provide.
+describe.skipIf(process.platform === "win32")("pre-commit docs sync", () => {
   function hookRepo({ withGenerator = true } = {}) {
     const root = tempRoot();
     const run = (...args: string[]) =>
@@ -275,6 +291,19 @@ describe("pre-commit docs sync", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Documentation inputs have unstaged or untracked changes");
     expect(readIndex(root)).toBe(INDEX);
+  });
+
+  it("ignores unstaged files under the area folder that the generator never reads", () => {
+    const { root, run, hook } = hookRepo();
+    editArea(root, "A brand new job.");
+    run("add", "docs/organisation/systems/delivery.json");
+    fs.writeFileSync(path.join(root, "docs/organisation/systems/notes.md"), "Scratch notes.\n");
+    fs.mkdirSync(path.join(root, "docs/organisation/systems/drafts"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs/organisation/systems/drafts/next.json"), "{}\n");
+    const result = hook();
+    expect(result.stderr).not.toContain("Documentation inputs have unstaged or untracked changes");
+    expect(result.stderr).toContain("Documentation changed or remains unstaged");
+    expect(readIndex(root)).toContain("A brand new job.");
   });
 
   it("skips the sync on a branch that does not carry the generator yet", () => {

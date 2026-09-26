@@ -28,8 +28,14 @@ const GENERATOR = "node scripts/organisation/codebase-index-section.mjs --write"
 
 class SectionError extends Error {}
 
+// Plain prose only: a markdown link becomes its text and backticks go, so the generated section
+// never carries a link or a code-span path that the docs link and path checks would then police.
 function oneLine(value) {
-  return String(value).replace(/\s+/g, " ").trim();
+  return String(value)
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/`/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Reads every area file in the working tree and keeps only the fields the section shows. */

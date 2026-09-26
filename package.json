@@ -196,7 +196,7 @@
     "classify:documents": "node scripts/run-tsx.mjs scripts/classify-documents.ts",
     "audit:source-governance": "node scripts/run-tsx.mjs scripts/audit-source-governance.ts",
     "audit:source-governance:release": "npm run audit:source-governance -- --debt-policy docs/release-source-metadata-debt-2026-06-30.json",
-    "governance:release": "npm run check:privacy-readiness:release && npm run check:clinical-hazard-controls && npm run check:document-label-coverage && npm run check:document-label-governance && npm run audit:source-governance:release",
+    "governance:release": "npm run check:privacy-readiness:release && npm run check:clinical-hazard-controls -- --release && npm run check:document-label-coverage && npm run check:document-label-governance && npm run audit:source-governance:release",
     "check:document-label-coverage": "node scripts/run-tsx.mjs scripts/check-document-label-coverage.ts",
     "check:document-label-governance": "node scripts/run-tsx.mjs scripts/check-document-label-governance.ts",
     "check:retrieval-owner-migration": "node scripts/run-tsx.mjs scripts/check-retrieval-owner-migration.ts",

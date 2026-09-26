@@ -435,14 +435,14 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
   });
 
   describe("the command-line check", () => {
-    function run(env: Record<string, string>, now: Date) {
+    function run(env: Record<string, string>, now: Date, args: string[] = []) {
       const childEnv: NodeJS.ProcessEnv = { ...process.env };
       for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_ACTIONS"]) {
         delete childEnv[key];
       }
       return spawnSync(
         process.execPath,
-        ["--import", fixedClockImport(now), "scripts/check-clinical-hazard-controls.mjs"],
+        ["--import", fixedClockImport(now), "scripts/check-clinical-hazard-controls.mjs", ...args],
         { encoding: "utf8", env: { ...childEnv, ...env } },
       );
     }
@@ -466,11 +466,25 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
       expect(prRun.stderr).toContain("CLINICAL_HAZARD_CONTROLS_REVIEW_DATE_WARNING: manifest: review has expired.");
     });
 
+    it.skipIf(!checkGit)("ignores pull-request mode under --release, as governance:release runs it", () => {
+      const releaseRun = run(PR_ENV, AFTER_EVERY_EXPIRY, ["--release"]);
+      expect(releaseRun.status).toBe(1);
+      expect(releaseRun.stderr).toContain("CLINICAL_HAZARD_CONTROLS_FAIL review-dates=strict");
+      expect(releaseRun.stderr).toContain("- manifest: review has expired\n");
+      // No refusal note either: release never asks the environment in the first place.
+      expect(releaseRun.stderr).not.toContain("CLINICAL_HAZARD_CONTROLS_REVIEW_DATE_MODE");
+      const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+      expect(packageJson.scripts["governance:release"]).toContain(
+        "npm run check:clinical-hazard-controls -- --release",
+      );
+    });
+
     it.skipIf(!checkGit)(
       "refuses pull-request mode outside a pull request, or without a base, and stays strict",
       () => {
         for (const env of [
           { ...PR_ENV, GITHUB_EVENT_NAME: "push" },
+          { ...PR_ENV, GITHUB_EVENT_NAME: "" },
           { ...PR_ENV, BASE_SHA: "" },
           { ...PR_ENV, BASE_SHA: "0".repeat(40) },
           { ...PR_ENV, BASE_SHA: "--output=/dev/null" },

@@ -72,8 +72,8 @@ force-push, or discard work.
    after PR #1944 merged.
 
 6. **Fill the PR form's area lines.** After the push, run `npm run pr:areas` (read-only; it
-   compares your commits with the local `origin/main` and never fetches) and paste every line
-   it prints under `## Summary`, in place of the template's `Areas touched` comment. When
+   compares your commits with the local `origin/main` and never fetches) and include every line
+   it prints in the body you write in step 7, under `## Summary`, in place of the template's `Areas touched` comment. When
    pr-policy classifies the change as ranking-protected it also prints a `RAG impact: ???`
    placeholder: replace that line with a real declaration, because pr-policy reports the
    placeholder as unsatisfied until you do. The ranking decision is pr-policy's, never the map's.

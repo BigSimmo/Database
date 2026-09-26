@@ -16,10 +16,11 @@
 // (scripts/organisation/weekly/review-dates.mjs) and by strict runs on main.
 //
 // FAIL CLOSED. Anything short of a clean, explicit pull-request request resolves to strict: the
-// variable unset or misspelt, a GitHub event other than a pull request or merge queue, a missing,
+// variable unset or misspelt, no GitHub event or one other than a pull request or merge queue, a missing,
 // malformed or unreachable base, or any git error. Strict is the behaviour before this change, so
 // a failure here can never make a check weaker than it was.
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 
 export const REVIEW_DATE_MODE_ENV = "REVIEW_DATE_MODE";
 const PR_EVENTS = new Set(["pull_request", "merge_group"]);
@@ -90,8 +91,11 @@ export function resolveReviewDateScope({ env = process.env, root, listTouched = 
   const refuse = (why) =>
     strict(`${REVIEW_DATE_MODE_ENV}=${requested} was not applied (${why}), so expired review dates block as usual.`);
   if (requested !== "pr") return refuse('the only other accepted value is "pr"');
+  // The event is required, not merely checked when present: pr mode exists for pull-request CI,
+  // where GitHub always sets it. A run without one (local, a script, a release gate) stays strict.
   const event = (env.GITHUB_EVENT_NAME ?? "").trim();
-  if (event && !PR_EVENTS.has(event)) return refuse(`the GitHub event is ${event}, not a pull request or merge queue`);
+  if (!event) return refuse("GITHUB_EVENT_NAME is not set, so this is not a pull request or merge queue");
+  if (!PR_EVENTS.has(event)) return refuse(`the GitHub event is ${event}, not a pull request or merge queue`);
   const base = (env.BASE_SHA ?? "").trim();
   const head = (env.HEAD_SHA ?? "").trim() || "HEAD";
   if (!base || ZERO_SHA.test(base)) return refuse("BASE_SHA is not set");
@@ -108,11 +112,27 @@ export function resolveReviewDateScope({ env = process.env, root, listTouched = 
   return { mode: "pr", touched: [...listed.files], base, head, notes: [] };
 }
 
-/** A register path reference without its `#anchor`, or null when it is not a usable string. */
+/**
+ * A register path reference in canonical form, without its `#anchor`: POSIX-normalised, with a
+ * leading "./" and any trailing "/" removed, so "./src/a.ts", "src//a.ts" and "src/lib/" compare
+ * with the paths git lists. Null when it is not a usable string or names the repository root.
+ */
 export function referencePath(value) {
   if (typeof value !== "string") return null;
-  const file = value.split("#", 1)[0].trim();
-  return file || null;
+  const raw = value.split("#", 1)[0].trim();
+  if (!raw) return null;
+  let file = path.posix.normalize(raw);
+  while (file.startsWith("./")) file = file.slice(2);
+  file = file.replace(/\/+$/, "");
+  return file && file !== "." ? file : null;
+}
+
+/** The touched path a covered reference matches: the file itself, or the first file under the folder. */
+function coveredTouch(touched, file) {
+  if (touched.has(file)) return file;
+  const prefix = `${file}/`;
+  for (const candidate of touched) if (candidate.startsWith(prefix)) return candidate;
+  return null;
 }
 
 /**
@@ -131,7 +151,8 @@ export function expiredReviewDateDisposition(scope, { registerPath, coveredPaths
   if (touched.has(registerPath)) return { blocking: true, because: registerPath };
   for (const covered of coveredPaths) {
     const file = referencePath(covered);
-    if (file && touched.has(file)) return { blocking: true, because: file };
+    const hit = file ? coveredTouch(touched, file) : null;
+    if (hit) return { blocking: true, because: hit };
   }
   return { blocking: false, because: null };
 }
