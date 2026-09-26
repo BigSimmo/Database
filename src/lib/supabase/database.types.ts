@@ -2515,6 +2515,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      calendar_feed_tokens: {
+        Row: {
+          created_at: string;
+          last_used_at: string | null;
+          owner_id: string;
+          token_hash: string;
+        };
+        Insert: {
+          created_at?: string;
+          last_used_at?: string | null;
+          owner_id: string;
+          token_hash: string;
+        };
+        Update: {
+          created_at?: string;
+          last_used_at?: string | null;
+          owner_id?: string;
+          token_hash?: string;
+        };
+        Relationships: [];
+      };
       cme_plan_goals: {
         Row: {
           created_at: string;
@@ -3652,6 +3673,9 @@ export type Database = {
       };
     };
     Functions: {
+      calendar_feed_rotate: { Args: { p_owner_id: string; p_token_hash: string }; Returns: undefined };
+      calendar_feed_revoke: { Args: { p_owner_id: string }; Returns: undefined };
+      calendar_feed_owner: { Args: { p_token_hash: string }; Returns: string | null };
       cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
       cme_save_plan_goals: { Args: { p_owner_id: string; p_year_id: string; p_goals: Json }; Returns: Json };
       cme_set_entry_goal: { Args: { p_owner_id: string; p_entry_id: string; p_goal_id: string | null }; Returns: Json };
