@@ -1474,7 +1474,9 @@ describe("design-system adoption manifest", () => {
     // 116 -> 105 on 2026-09-26: the Caring Contacts prototype was retired, taking its eleven
     // workspace routes (Today, Patients, one patient, the activation wizard, Schedule, Templates,
     // one template, Guidance, Reports, Team and the manual Referral Intake) out of the census.
-    expect(manifest.routeCoverage.discovered).toHaveLength(105);
+    //
+    // 105 -> 106 on 2026-09-26: `/my-work`, the My Work mode's dashboard.
+    expect(manifest.routeCoverage.discovered).toHaveLength(106);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

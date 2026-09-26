@@ -6,7 +6,7 @@ import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 
 export const metadata: Metadata = {
-  title: "Log an activity | CME | PsychSift",
+  title: "Log an activity | CPD | PsychSift",
   description: "Record one continuing-education activity, its hours, and how they split across categories.",
 };
 

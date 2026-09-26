@@ -5,7 +5,7 @@ import { CmeLearningPage } from "@/components/cme/cme-learning-page";
 import { loadLearningDirectory } from "@/lib/cme/learning-directory";
 
 export const metadata: Metadata = {
-  title: "Learning | CME | PsychSift",
+  title: "Learning | CPD | PsychSift",
   description: "Upcoming Western Australian courses and events for psychiatrists, curated and checked monthly.",
 };
 

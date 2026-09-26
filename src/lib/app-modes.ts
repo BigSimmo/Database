@@ -23,6 +23,7 @@ export const appModeIds = [
   "on-call",
   "cme",
   "psychiatry",
+  "my-work",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -527,7 +528,7 @@ export const appModeDefinitions = [
   },
   {
     id: "cme",
-    label: "CME",
+    label: "CPD",
     description: "Your continuing education: what you have done, and what is still short",
     href: "/cme",
     search: {
@@ -538,19 +539,19 @@ export const appModeDefinitions = [
       kind: "tools",
       placeholder: "Search your log — a meeting, an audit, a course...",
       inputAriaLabel: "Search your continuing education log",
-      submitIdleLabel: "CME",
-      submitBusyLabel: "CME",
+      submitIdleLabel: "CPD",
+      submitBusyLabel: "CPD",
       submitAriaLabel: "Search your continuing education log",
       emptyTitle: "Search your continuing education log",
       readyTitle: "Find an activity, a certificate or a reflection",
       progressLabel: "Searching your log.",
       resultKind: "tools",
-      resultHeading: "CME",
+      resultHeading: "CPD",
       // No results page. `/cme` is a dashboard and there is no `/cme/search`:
       // a retargeted composer would accept a query and land the reader on a
       // page that ignores it.
       resultsSurface: "none",
-      statusLabel: "CME",
+      statusLabel: "CPD",
       nextStep: "Open an entry",
       badgeLabel: null,
     },
@@ -580,6 +581,34 @@ export const appModeDefinitions = [
       resultsSurface: "none",
       statusLabel: "Psychiatry",
       nextStep: "Open a section",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "my-work",
+    label: "My Work",
+    description: "Paperwork, deadlines and checks: admin, compliance, your shifts and reminders",
+    href: "/my-work",
+    search: {
+      // My Work is a landing page that gathers pages which keep their own
+      // addresses (mostly On Call's admin pages); it has no catalogue of its
+      // own, so it borrows the benign "tools" command kind, as Psychiatry does.
+      kind: "tools",
+      placeholder: "Open a My Work page...",
+      inputAriaLabel: "Open a My Work page",
+      submitIdleLabel: "My Work",
+      submitBusyLabel: "My Work",
+      submitAriaLabel: "Open a My Work page",
+      emptyTitle: "Choose a My Work page",
+      readyTitle: "Admin, compliance, checks and shifts",
+      progressLabel: "Opening the page.",
+      resultKind: "tools",
+      resultHeading: "My Work",
+      // No results page. `/my-work` is a dashboard: what is due next, then
+      // links to the pages it gathers.
+      resultsSurface: "none",
+      statusLabel: "My Work",
+      nextStep: "Open a page",
       badgeLabel: null,
     },
   },
@@ -624,6 +653,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "on-call",
   "cme",
   "psychiatry",
+  "my-work",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
