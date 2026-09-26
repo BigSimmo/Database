@@ -218,6 +218,13 @@
       "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
       "recordedOn": "2026-09-25",
       "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "src/data/dictionary-source-dispositions.json",
+      "reason": "Changed by PR #3067 (ledgers #WY625D, #JHT39N): publisher names corrected, dated pages recorded, and sources with a stated publication, review or last-updated date admitted as unverified ledger candidates. The owner approved recording this exception on 2026-09-26 pending re-review; re-review, then re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-26, on the owner's typed approval ('go ahead with all recommendations'). Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-26",
+      "expiresOn": "2026-11-09"
     }
   ]
 }
