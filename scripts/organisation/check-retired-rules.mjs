@@ -326,7 +326,7 @@ export function runRetiredRulesCheck(options) {
           for (const hit of findRetiredRuleHits(whole.lines, changed)) {
             if (!known.has(`${hit.file}:${hit.line}:${hit.ruleId}`)) result.hits.push(hit);
           }
-          result.scope += `; new or edited rules (${changed.map((rule) => rule.id).join(", ")}) across the whole head`;
+          result.scope += `; new or edited rules (${changed.map((rule) => rule.id).join(", ")}) across all ${whole.files} in-scope files at the head`;
         }
       }
     } else if (mode === "paths") {

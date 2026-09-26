@@ -151,21 +151,24 @@ export function formatBudgetReport(result, { annotate = false } = {}) {
   );
   for (const r of result.results) {
     const excess = r.size - r.ceiling;
-    const growth =
-      r.baseSize === null ? (r.grew ? " (new in this change)" : "") : ` (was ${formatBytes(r.baseSize)} at the base)`;
+    const baseNote = r.baseSize === null ? "" : `was ${formatBytes(r.baseSize)} at the base`;
     if (r.blocking) {
       const why =
-        r.grew === null ? "" : r.baseSize === null ? ", and this change added it" : ", and this change grew it";
-      const message = `${r.file} is ${formatBytes(r.size)} bytes: ${formatBytes(excess)} over its ${formatBytes(r.ceiling)}-byte ceiling${why}${growth}.`;
+        r.grew === null
+          ? ""
+          : r.baseSize === null
+            ? ", and this change added the file"
+            : `, and this change grew it from ${formatBytes(r.baseSize)} bytes`;
+      const message = `${r.file} is ${formatBytes(r.size)} bytes: ${formatBytes(excess)} over its ${formatBytes(r.ceiling)}-byte ceiling${why}.`;
       out.push(`  OVER ${message}`);
       if (annotate) out.push(`::error file=${r.file},title=Instruction size budget::${message} ${FIX}`);
     } else if (r.over) {
       out.push(
-        `  warning ${r.file} is ${formatBytes(r.size)} bytes, already ${formatBytes(excess)} over its ${formatBytes(r.ceiling)}-byte ceiling; this change did not grow it${growth}.`,
+        `  warning ${r.file} is ${formatBytes(r.size)} bytes, already ${formatBytes(excess)} over its ${formatBytes(r.ceiling)}-byte ceiling; this change did not grow it${baseNote ? ` (${baseNote})` : ""}.`,
       );
     } else {
       out.push(
-        `  ${r.file}: ${formatBytes(r.size)} of ${formatBytes(r.ceiling)} bytes (${formatBytes(r.ceiling - r.size)} to spare)${growth}`,
+        `  ${r.file}: ${formatBytes(r.size)} of ${formatBytes(r.ceiling)} bytes, ${formatBytes(r.ceiling - r.size)} to spare${baseNote ? `; ${baseNote}` : ""}`,
       );
     }
   }
