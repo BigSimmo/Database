@@ -73,6 +73,8 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   cme: { file: "src/components/cme/cme-dashboard.tsx", mounts: false, because: NO_RESULTS_SURFACE },
   // Psychiatry, for the same reason: its home is a dashboard of links.
   psychiatry: { file: "src/components/psychiatry/psychiatry-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // My Work, likewise: a dashboard of what is due and links.
+  "my-work": { file: "src/components/my-work/my-work-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
 };
 
 function hasNoResultsSurface(modeId: AppModeId) {

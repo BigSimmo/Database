@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   ClipboardCopy,
+  GraduationCap,
   ListChecks,
   NotebookPen,
   Settings2,
@@ -470,7 +471,7 @@ export function CmeDashboard({
   return (
     <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-xl font-semibold text-[color:var(--text)]">CME</h1>
+        <h1 className="text-xl font-semibold text-[color:var(--text)]">CPD</h1>
         <Button variant="toolbar" size="sm" icon={Settings2} onClick={onOpenCustomise}>
           Customise
         </Button>
@@ -563,6 +564,16 @@ export function CmeDashboard({
           </span>
         </Link>
       </div>
+
+      <Link
+        href="/on-call/education"
+        data-testid="cme-teaching-link"
+        className={cn(cardSurface, "mt-3 flex min-h-tap items-center gap-3 px-4 py-3")}
+      >
+        <GraduationCap aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+        <span className="min-w-0 flex-1 text-sm font-semibold text-[color:var(--text)]">Teaching sessions</span>
+        <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+      </Link>
 
       <div className="mt-6 space-y-6">
         {moduleIds.map((moduleId) => {

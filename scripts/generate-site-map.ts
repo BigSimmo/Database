@@ -200,6 +200,8 @@ const routeDescriptions: Record<string, string> = {
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
   "/psychiatry":
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
+  "/my-work":
+    "My Work dashboard: what is due next (compliance items whose recorded date falls in the next 30 days or has passed, and On Call entries due their check), then one card each for Admin, Compliance, Check these, My shifts, Calendar, Orientation and reminder settings, linking to those pages at their own addresses. A dashboard, not a redirect to the shared search home — My Work has no search results surface.",
   "/cme":
     "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
   "/cme/log":
@@ -317,6 +319,7 @@ const routeOwnershipRows = [
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
   ["CME", "src/app/(search-app)/cme, src/components/cme"],
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
+  ["My Work", "src/app/(search-app)/my-work, src/components/my-work"],
   [
     "Caring Contacts workspace",
     "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
@@ -505,6 +508,7 @@ function renderModeRoutes() {
     "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
     psychiatry: appModeHomeHref("psychiatry"),
+    "my-work": appModeHomeHref("my-work"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -651,6 +655,13 @@ function renderModePageIndex() {
       search: appModeHomeHref("psychiatry"),
       detail:
         'No results page — `resultsSurface: "none"`, like On Call and CME. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
+    },
+    {
+      mode: "My Work",
+      home: appModeHomeHref("my-work"),
+      search: appModeHomeHref("my-work"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like Psychiatry. `/my-work` is a dashboard of what is due and links; the pages it gathers keep their On Call routes.',
     },
   ]);
 }

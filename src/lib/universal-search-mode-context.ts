@@ -33,6 +33,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // Psychiatry is a landing page for the modes it gathers; each of those keeps
   // its own domains, so the hub contributes none of its own.
   psychiatry: [],
+  // My Work is a landing page over pages that keep their own addresses; it
+  // contributes no search domains either.
+  "my-work": [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {

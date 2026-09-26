@@ -22,7 +22,7 @@ export function CmeStateNotice({
       <>
         <EmptyState
           testId="cme-signed-out"
-          title="Sign in to open your private CME record."
+          title="Sign in to open your private CPD record."
           body="Your activities and requirements are private to your account. Nothing from another account or the demo is shown here."
           actions={
             <Button variant="primary" onClick={() => setAccountOpen(true)}>
@@ -38,7 +38,7 @@ export function CmeStateNotice({
     return (
       <EmptyState
         testId="cme-unavailable"
-        title="Your CME record is temporarily unavailable."
+        title="Your CPD record is temporarily unavailable."
         body="No saved data is being guessed or replaced. Please try again when the connection is restored."
       />
     );

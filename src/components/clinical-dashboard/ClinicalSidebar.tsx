@@ -112,6 +112,7 @@ const sidebarMoreModeIds = [
   "on-call",
   "cme",
   "psychiatry",
+  "my-work",
 ] as const satisfies readonly AppModeId[];
 
 const sidebarModeItems = [

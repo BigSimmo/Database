@@ -116,14 +116,19 @@ const EXPECTED_MODE_TITLES: Record<
     subtitle: "Your service's numbers, escalation, orientation and teaching.",
   },
   cme: {
-    sharedTitle: "CME",
-    standaloneTitle: "CME",
+    sharedTitle: "CPD",
+    standaloneTitle: "CPD",
     subtitle: "What you have done this year, and what is still short.",
   },
   psychiatry: {
     sharedTitle: "Psychiatry",
     standaloneTitle: "Psychiatry",
     subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+  },
+  "my-work": {
+    sharedTitle: "My Work",
+    standaloneTitle: "My Work",
+    subtitle: "Paperwork, deadlines and checks, with what is due first.",
   },
 };
 
@@ -132,7 +137,7 @@ describe("ui-copy", () => {
     it("covers every declared app mode exactly once", () => {
       const definedModes = Object.keys(sharedHomePresentation) as AppModeId[];
       expect(definedModes.sort()).toEqual([...appModeIds].sort());
-      expect(definedModes).toHaveLength(19);
+      expect(definedModes).toHaveLength(20);
     });
 
     it.each(appModeIds)("provides non-empty title and subtitle for %s", (modeId) => {

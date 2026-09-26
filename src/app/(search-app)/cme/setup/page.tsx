@@ -5,7 +5,7 @@ import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 
 export const metadata: Metadata = {
-  title: "Set up | CME | PsychSift",
+  title: "Set up | CPD | PsychSift",
   description: "Four things to set up once, then the mode runs itself.",
 };
 

@@ -76,7 +76,7 @@ export function CmeRoutinesRoute({
     event.preventDefault();
     if (!editingId || saving) return;
     if (demoMode) {
-      setError("Demo mode is read-only. Sign in to save routines to a private CME record.");
+      setError("Demo mode is read-only. Sign in to save routines to a private CPD record.");
       return;
     }
     setSaving(true);

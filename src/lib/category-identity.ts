@@ -129,6 +129,7 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   "on-call": "phoneCall",
   cme: "graduationCap",
   psychiatry: "brain",
+  "my-work": "clipboardList",
 };
 
 /**
@@ -166,6 +167,7 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   "on-call": "purple",
   cme: "indigo",
   psychiatry: "purple",
+  "my-work": "slate",
 };
 
 /**

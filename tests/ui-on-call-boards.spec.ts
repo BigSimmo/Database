@@ -204,23 +204,6 @@ async function expectNoHorizontalOverflow(page: Page, label: string) {
   ).toBeNull();
 }
 
-/**
- * The number a home tile is currently showing.
- *
- * Read off the tile rather than out of the demo corpus, because the corpus is
- * the one thing a wrong count agrees with. The figure is the only one in a
- * tile and sits in its own `.nums` span beside the glyph; a tile drawn without
- * a count (Who's who) has no such span at all, so this fails by name instead
- * of quietly returning NaN for it.
- */
-async function tileCount(page: Page, key: string) {
-  const badge = visibleByTestId(page, `on-call-home-tile-${key}`).locator("span.nums");
-  await expect(badge, `the ${key} tile carries no count`).toHaveCount(1);
-  const text = ((await badge.textContent()) ?? "").trim();
-  expect(text, `the ${key} tile's count reads "${text}", which is not a number`).toMatch(/^\d+$/);
-  return Number(text);
-}
-
 /** Measures the rendered box, not the class name. */
 async function expectTapFloor(target: Locator, label: string) {
   const box = await target.boundingBox();
@@ -302,24 +285,15 @@ test.describe("01 Home", () => {
     await expect(card).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
   });
 
-  test("gives every section a tile, and gives Who's who no count", async ({ page }) => {
+  test("gives each shift-time page a tile, and gives Who's who no count", async ({ page }) => {
     await openBoard(page, ROUTES.home);
     const tiles = visibleByTestId(page, "on-call-home-sections").locator('[data-testid^="on-call-home-tile-"]');
-    // Eight, and the list underneath is the reason rather than the number.
-    // The grid draws the six STORED sections, then Compliance, then Who's who.
-    // Compliance earned its place by being wired: a tile pointing at
-    // `/on-call/compliance` and carrying a live count of the rows that page
-    // draws. It had neither for a while — it is a view over `logistics`, so
-    // the mode had the page before it had an honest number to put beside it,
-    // and the pill was the only way in.
-    //
-    // THE NUMBER IS NOT THE ASSERTION, and that is the whole point of this
-    // block. Raising a count to match a page nobody wired up is the failure
-    // guarded here, and a bare `toHaveCount` cannot tell that apart from real
-    // work — so the order below names every tile, and a new page has to earn a
-    // name here before the count moves. Adding a name for a route that does
-    // not exist fails the chrome loop at the foot of this file instead.
-    await expect(tiles).toHaveCount(8);
+    // Four, and the list underneath is the reason rather than the number.
+    // On 2026-09-26 Orientation, Teaching, Admin and Compliance moved off this
+    // home to My Work (`/my-work`), which keeps the page to what a shift needs.
+    // Their routes did not move. The order below names every tile, so a page
+    // has to earn a name here before the count moves.
+    await expect(tiles).toHaveCount(4);
     expect(
       await tiles.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid"))),
       "the tile grid is not the pages it should be, in the order it should draw them",
@@ -327,68 +301,25 @@ test.describe("01 Home", () => {
       "on-call-home-tile-contacts",
       "on-call-home-tile-playbook",
       "on-call-home-tile-referrals",
-      "on-call-home-tile-orientation",
-      "on-call-home-tile-education",
-      "on-call-home-tile-logistics",
-      // After the stored sections and before Who's who, which is where it
-      // belongs: like the six above it these are things to go and deal with,
-      // and unlike the one below it they are a list rather than an
-      // explanation.
-      "on-call-home-tile-compliance",
       "on-call-home-tile-who-is-who",
     ]);
-
-    // Real rather than merely counted: it goes somewhere, it is named, and it
-    // carries a figure. `href` against the route table, so a tile pointing at
-    // a page this file does not know about fails here.
-    const compliance = page.getByTestId("on-call-home-tile-compliance");
-    await expect(compliance).toHaveAttribute("href", ROUTES.compliance);
-    await expect(compliance).toContainText("Compliance");
-    await expect(compliance.locator("span.nums")).toHaveText(/^\d+$/);
-    await expectTapFloor(compliance, "compliance tile");
 
     // Board 01 draws this one differently and without a number: the others
     // count things to read, this one explains the ladder.
     await expect(page.getByTestId("on-call-home-tile-who-is-who")).not.toContainText(/\d/);
   });
 
-  test("counts Admin and Compliance from the rows each page draws, never from the stored section", async ({ page }) => {
-    // The bug the Compliance tile was worth adding for. Admin and Compliance
-    // are ONE stored section, told apart by `details.kind`, so a count taken
-    // BY SECTION reports the pair's total under `logistics`: an Admin tile
-    // promising rows that live on another page, and no figure at all for the
-    // page they are actually on.
-    //
-    // Both numbers are therefore read off the pages themselves. Literals here
-    // — 18 and 8 in today's demo corpus — would pass again the first time the
-    // two are reconfused, because the same mistake moves the rows and the
-    // tile together. Comparing the tile to what its page renders cannot.
+  test("sends the admin pages to My Work from the tool row", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    const adminTile = await tileCount(page, "logistics");
-    const complianceTile = await tileCount(page, "compliance");
-
-    await openBoard(page, ROUTES.logistics);
-    const adminRows = await page.locator('[data-testid^="on-call-logistics-row-"]').count();
-    await openBoard(page, ROUTES.compliance);
-    const complianceRows = await page.locator('[data-testid^="on-call-compliance-row-"]').count();
-
-    // An empty page would make every comparison below 0 = 0, which is the one
-    // way this test could pass while proving nothing.
-    expect(adminRows, "the demo corpus draws no Admin rows, so the counts below prove nothing").toBeGreaterThan(0);
-    expect(
-      complianceRows,
-      "the demo corpus draws no Compliance rows, so the counts below prove nothing",
-    ).toBeGreaterThan(0);
-
-    expect(adminTile, "the Admin tile promises a number of rows the Admin page does not draw").toBe(adminRows);
-    expect(complianceTile, "the Compliance tile promises a number of rows the Compliance page does not draw").toBe(
-      complianceRows,
-    );
-    // Stated separately because it is the exact shape of the old defect: the
-    // Admin tile carrying the whole stored section, compliance rows included.
-    expect(adminTile, "the Admin tile is counting the whole `logistics` section again").not.toBe(
-      adminRows + complianceRows,
-    );
+    const tools = visibleByTestId(page, "on-call-home-tools");
+    await expect(tools.getByTestId("on-call-home-first-night")).toBeVisible();
+    const myWork = tools.getByTestId("on-call-home-my-work");
+    await expect(myWork).toHaveAttribute("href", "/my-work");
+    await expect(myWork).toContainText("My Work");
+    await expectTapFloor(myWork, "My Work tile");
+    // "Check these" and "Calendar" live on My Work now, not here.
+    await expect(page.getByTestId("on-call-home-check")).toHaveCount(0);
+    await expect(page.getByTestId("on-call-home-calendar")).toHaveCount(0);
   });
 
   test("puts the page menu in the universal header, and offers no chat there", async ({ page }) => {
