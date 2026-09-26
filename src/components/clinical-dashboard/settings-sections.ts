@@ -221,7 +221,7 @@ export const SETTINGS_SEARCH_ENTRIES: ReadonlyArray<SettingsSearchEntry> = [
     id: "settings-row-development-page",
     section: "development",
     label: "Developer",
-    keywords: "prototype mockups experimental in progress caring contacts",
+    keywords: "prototype mockups experimental in progress",
   },
 ];
 

@@ -31,8 +31,8 @@ state was one API read away.
 
 In the same session, a second instance: the handover's §9 prescribed running a flake experiment
 "three times on a quiet tree, and three times on `origin/main`". That experiment had already been
-run — **ten runs**, tabulated in a _different_ document (`docs/ward-flow-complete-ledger.md`
-§5d-ii). The prescription was read; the result was not.
+run — **ten runs**, tabulated in a _different_ document (the Ward Flow complete ledger, §5d-ii — retired
+2026-09-26, see git history at commit 8ec68fd32). The prescription was read; the result was not.
 
 The pattern in both: **the stale instruction and the true record were in different documents, and
 the stale one was the one being read.**

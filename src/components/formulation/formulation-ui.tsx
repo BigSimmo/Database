@@ -174,7 +174,16 @@ export function MechanismCaveats({ items }: { items: string[] }) {
  * Saying so is the point: a clinician can still find the work, and nobody is
  * told the repository has admitted a location it has not.
  */
-export function EvidenceList({ evidence, label = "Evidence" }: { evidence: FormulationEvidenceRef[]; label?: string }) {
+export function EvidenceList({
+  evidence,
+  label = "Evidence",
+  reviewed = false,
+}: {
+  evidence: FormulationEvidenceRef[];
+  label?: string;
+  /** The record is signed off by a named clinician, so its claims are no longer unapproved. */
+  reviewed?: boolean;
+}) {
   if (!evidence.length) return null;
   return (
     <div className="grid gap-3">
@@ -221,7 +230,9 @@ export function EvidenceList({ evidence, label = "Evidence" }: { evidence: Formu
         </article>
       ))}
       <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-        {label} references only. Source metadata is reviewed; the clinical claim is not independently approved.
+        {reviewed
+          ? `${label} references only. Each source's own limitations still apply.`
+          : `${label} references only. Source metadata is reviewed; the clinical claim is not independently approved.`}
       </p>
     </div>
   );

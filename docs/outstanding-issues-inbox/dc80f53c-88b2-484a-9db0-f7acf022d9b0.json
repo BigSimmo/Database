@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dc80f53c-88b2-484a-9db0-f7acf022d9b0",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#G4YPNE",
+    "outcome": "Closed 2026-09-26: the owner retired the Ward Flow prototype and it was deleted from the repository in the removal PR (branch claude/remove-ward-flow-caring-contacts-ltxdgk), so this item no longer applies. Recover the code from git history before that PR if the feature is ever revived.",
+    "baseRowFingerprint": "851a174bb6fe9b09beb18adb015cf7f173db3bd6493cec4414d8529c60eeed98"
+  }
+}

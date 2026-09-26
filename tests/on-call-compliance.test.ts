@@ -697,9 +697,9 @@ function isMachinery(node: ts.Node): boolean {
  * Every string in one file that could reach a reader: JSX text, plus string and
  * template literals that are not plumbing.
  *
- * Not `tests/helpers/ast-string-literals.ts`, which answers a different
- * question — "does this file contain this known string" — and so deliberately
- * takes every literal including class names and test ids. This one has to
+ * Not the plain literal scanner the retired Ward Flow tests used, which answered
+ * a different question — "does this file contain this known string" — and so
+ * deliberately took every literal including class names and test ids. This one has to
  * decide what a reader SEES, which needs the literal's position as well as its
  * text, and it needs JSX text, which a literal scanner cannot return.
  */

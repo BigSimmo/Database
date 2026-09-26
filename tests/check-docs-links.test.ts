@@ -43,7 +43,7 @@ describe("collectDocumentFailures", () => {
   it("does not report the same relative-link shape when the target file exists", () => {
     // Negative control using a real repo file, so the assertion proves resolution
     // succeeded rather than merely that no logic ran.
-    const markdown = "Binding: see the [interaction matrix](../../caring-contacts/interaction-matrix.md).";
+    const markdown = "Binding: see the [design system](../../design-system/README.md).";
     const { failures, checked } = collectDocumentFailures({ target, markdown });
     expect(checked).toBe(1);
     expect(failures).toHaveLength(0);

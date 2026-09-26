@@ -485,7 +485,7 @@ describe("a finished plan's tick-boxes are formatting, not a backlog", () => {
 
   it("treats a superseded plan as history even though every box is unchecked", () => {
     const body = [
-      "# Ward Flow -- standalone prototype",
+      "# Example prototype -- standalone plan",
       "",
       "> **SUPERSEDED 2026-08-25** by the sandbox plan. Do not execute this plan.",
       "",

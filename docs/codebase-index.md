@@ -88,26 +88,24 @@ Both paths are owner-scoped: `owner-scope.ts`, `query-privacy.ts`, `authorizatio
 | `tests/`    | Vitest unit (`*.test.ts`) + Playwright E2E (`ui-*.spec.ts`)                                                                                            |
 | `docs/`     | Runbooks, governance, search/RAG plans, generated sitemap; design-system system of record is [`docs/design-system/README.md`](design-system/README.md) |
 | `public/`   | Static assets (`public/llms.txt`)                                                                                                                      |
-| `deploy/`   | Sovereign deployment profiles, Dockerfiles, and container orchestration (`deploy/australia/`)                                                          |
 | `.github/`  | CI workflows, PR template (clinical governance preflight)                                                                                              |
 
 Smaller top-level directories that are easy to miss:
 
-| Path               | Purpose                                                                                                                                                                                                                                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `caring-contacts/` | Isolated Caring Contacts module migrations and local database-test runner. These migrations are deliberately separate from `supabase/migrations/` and must never target the `Clinical KB Database` Supabase project.                                                                                                |
-| `data/`            | Committed clinical **snapshot exports** loaded at runtime by `src/lib/` (differentials, forms, medications, services, specifiers). Regenerate via the matching `scripts/import-*-export.ts` / `build-*-index.mjs`; do not hand-edit. Distinct from `src/data/`, which holds hand-authored static content.           |
-| `eval/`            | Isolated evaluation labs, outside the product/runtime dependency graph. `eval/docling/` is the sandboxed, dispatch-only Docling extraction benchmark (own hashed Python lock + venvs, egress-blocked Docker run, synthetic fixtures + hostile corpus, aggregate-only reports; `docs/rag-improvement/README.md` §B3) |
-| `eslint-rules/`    | Repo-specific lint rules enforced by `npm run lint` (button wiring, hardcoded hex, type/icon scale, z-index ladder)                                                                                                                                                                                                 |
-| `mockups/`         | Notes for the design-scratch routes under `src/app/mockups/` (the routes themselves 404 in production)                                                                                                                                                                                                              |
-| `plugins/`         | `plugins/clinical-kb/` Codex plugin manifest and workflow skill                                                                                                                                                                                                                                                     |
-| `.agents/`         | Canonical single-word skill catalogue (`npm run skills`); `npm run check:skills` also validates Claude, Cursor, and plugin skill policies                                                                                                                                                                           |
-| `.claude/`         | Claude Code agents, skills, hooks, settings — plus the `.claude/worktrees/` working copies                                                                                                                                                                                                                          |
-| `.codex/`          | Trusted Desktop/CLI config; tracked `config.toml` has disabled, secret-free Figma, Supabase, Railway, and Sentry MCP templates. Hosted ChatGPT/Codex apps are installed and authenticated separately; OAuth stays in the host credential store.                                                                     |
-| `.cursor/`         | Cursor project rules and local-agent configuration                                                                                                                                                                                                                                                                  |
-| `.design-sync/`    | Generated design-system package metadata, validation notes, and project-sync artifacts                                                                                                                                                                                                                              |
-| `.githooks/`       | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (user-owned auto-merge preservation, format, drift staleness, static lint+typecheck, ledger write discipline)                                                                                                                                  |
-| `.vscode/`         | Shared VS Code workspace recommendations and settings                                                                                                                                                                                                                                                               |
+| Path            | Purpose                                                                                                                                                                                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/`         | Committed clinical **snapshot exports** loaded at runtime by `src/lib/` (differentials, forms, medications, services, specifiers). Regenerate via the matching `scripts/import-*-export.ts` / `build-*-index.mjs`; do not hand-edit. Distinct from `src/data/`, which holds hand-authored static content.           |
+| `eval/`         | Isolated evaluation labs, outside the product/runtime dependency graph. `eval/docling/` is the sandboxed, dispatch-only Docling extraction benchmark (own hashed Python lock + venvs, egress-blocked Docker run, synthetic fixtures + hostile corpus, aggregate-only reports; `docs/rag-improvement/README.md` §B3) |
+| `eslint-rules/` | Repo-specific lint rules enforced by `npm run lint` (button wiring, hardcoded hex, type/icon scale, z-index ladder)                                                                                                                                                                                                 |
+| `mockups/`      | Notes for the design-scratch routes under `src/app/mockups/` (the routes themselves 404 in production)                                                                                                                                                                                                              |
+| `plugins/`      | `plugins/clinical-kb/` Codex plugin manifest and workflow skill                                                                                                                                                                                                                                                     |
+| `.agents/`      | Canonical single-word skill catalogue (`npm run skills`); `npm run check:skills` also validates Claude, Cursor, and plugin skill policies                                                                                                                                                                           |
+| `.claude/`      | Claude Code agents, skills, hooks, settings — plus the `.claude/worktrees/` working copies                                                                                                                                                                                                                          |
+| `.codex/`       | Trusted Desktop/CLI config; tracked `config.toml` has disabled, secret-free Figma, Supabase, Railway, and Sentry MCP templates. Hosted ChatGPT/Codex apps are installed and authenticated separately; OAuth stays in the host credential store.                                                                     |
+| `.cursor/`      | Cursor project rules and local-agent configuration                                                                                                                                                                                                                                                                  |
+| `.design-sync/` | Generated design-system package metadata, validation notes, and project-sync artifacts                                                                                                                                                                                                                              |
+| `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (user-owned auto-merge preservation, format, drift staleness, static lint+typecheck, ledger write discipline)                                                                                                                                  |
+| `.vscode/`      | Shared VS Code workspace recommendations and settings                                                                                                                                                                                                                                                               |
 
 Local task coordination lives in `.superpowers/`: ignored task briefs, review packets, and verification logs.
 
@@ -133,47 +131,36 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                                                                                                                                                                                           | File                                                                                                                                                                               |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                                                                                                                                                                                                                                                                             | `src/app/(search-app)/page.tsx`                                                                                                                                                    |
-| Shared mode-home route group (`/(search-app)`)                                                                                                                                                                                                                                  | `src/app/(search-app)/`                                                                                                                                                            |
-| Mode homes (`/?mode=<id>`; bare `/services`, `/dsm`, `/documents`, … redirect there)                                                                                                                                                                                            | `src/app/(search-app)/page.tsx` + `home-page-client.tsx`                                                                                                                           |
-| `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                                                                                                                          | `src/app/caring-contacts/`                                                                                                                                                         |
-| `/caring-contacts/patients` (permission-scoped caseload: one row per plan plus an authorised names-only projection; URL state filter and local name/identifier search)                                                                                                          | `src/app/caring-contacts/patients/page.tsx`                                                                                                                                        |
-| `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                                                                                                   | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                                                                                                            |
-| `/caring-contacts/plans/new` (the activation wizard: agreement, pathway, personalisation, review; started for one accepted referral named by `?referral=`)                                                                                                                      | `src/app/caring-contacts/plans/new/page.tsx`                                                                                                                                       |
-| `/caring-contacts/schedule` (the team's day: three approved sending windows, contacts at no approved send time, named exceptions; the day travels in `?day=`)                                                                                                                   | `src/app/caring-contacts/schedule/page.tsx`                                                                                                                                        |
-| `/caring-contacts/templates` (the governed pathway versions this team holds: lifecycle, publication and retirement facts, and the approvals behind each one, qualified by the record's provenance)                                                                              | `src/app/caring-contacts/templates/page.tsx`                                                                                                                                       |
-| `/caring-contacts/templates/[pathwayId]` (ONE governed version in full: its lifecycle, both approval seats with the record's provenance qualification, the wording that record holds together with that wording's approval status, and whether a new plan may be started on it) | `src/app/caring-contacts/templates/[pathwayId]/page.tsx`                                                                                                                           |
-| `/caring-contacts/guidance` (programme boundaries, incident and downtime behaviour, and the language rules; fixed text, one service-state read, no record about anybody)                                                                                                        | `src/app/caring-contacts/guidance/page.tsx`                                                                                                                                        |
-| `/caring-contacts/reports` (aggregate operational measures, and the §2.5 programme-reach section — which states that the field it would report on is not collected rather than showing an empty breakdown)                                                                      | `src/app/caring-contacts/reports/page.tsx`                                                                                                                                         |
-| `/caring-contacts/team` (where the team's work is sitting: plans sending, plans their own state is holding, coverage, exception backlog and unclaimed work against the 60-minute escalation — operational only, and it ranks nobody)                                            | `src/app/caring-contacts/team/page.tsx`                                                                                                                                            |
-| `/caring-contacts/intake` (manual hospital referral intake fallback; coordinator data entry when automated EMR feeds are unavailable or delayed — Hazard H-44)                                                                                                                  | `src/app/caring-contacts/intake/page.tsx`                                                                                                                                          |
-| `/applications` (307 to `/tools`)                                                                                                                                                                                                                                               | `src/app/applications/route.ts`                                                                                                                                                    |
-| `/differentials/search`, `/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, `/differentials/presentations`, `/differentials/presentations/[slug]`, `/differentials/compare`                                                                                         | `src/app/(search-app)/differentials/`                                                                                                                                              |
-| `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`, `/dsm/diagnoses/[slug]/differentials`                                                                                                                                                                                   | `src/app/(search-app)/dsm/`                                                                                                                                                        |
-| `/documents/search`, `/documents/[id]` (`/documents/source` and `/documents/source/evidence` redirect to `/documents/[id]`)                                                                                                                                                     | `src/app/(search-app)/documents/`                                                                                                                                                  |
-| `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`                                                                                                                                                                                                 | `src/app/(search-app)/factsheets/`                                                                                                                                                 |
-| `/dictionary/search` (Terms, one catalogue — `/browse` redirects to it), `/dictionary/topics`, `/dictionary/topics/[slug]`, `/dictionary/[slug]`, `/dictionary/compare`                                                                                                         | `src/app/(search-app)/dictionary/`                                                                                                                                                 |
-| `/sources/search`, `/sources/topics`, `/sources/publishers`, `/sources/method`, `/sources/[sourceId]`                                                                                                                                                                           | `src/app/(search-app)/sources/`                                                                                                                                                    |
-| `/favourites`                                                                                                                                                                                                                                                                   | `src/app/(search-app)/favourites/page.tsx`                                                                                                                                         |
-| `/forms/search`, `/forms/[slug]`                                                                                                                                                                                                                                                | `src/app/(search-app)/forms/`                                                                                                                                                      |
-| `/medications/[slug]` (bare `/medications` redirects to `/?mode=prescribing`)                                                                                                                                                                                                   | `src/app/(search-app)/medications/`                                                                                                                                                |
-| `/privacy`                                                                                                                                                                                                                                                                      | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx`                                                                                          |
-| `/reference/colour-coding`                                                                                                                                                                                                                                                      | `src/app/reference/`                                                                                                                                                               |
-| `/safety-plan`                                                                                                                                                                                                                                                                  | `src/app/safety-plan/page.tsx`                                                                                                                                                     |
-| `/calculators`, `/calculators/search`                                                                                                                                                                                                                                           | `src/app/(search-app)/calculators/`                                                                                                                                                |
-| `/services/search`, `/services/[slug]`                                                                                                                                                                                                                                          | `src/app/(search-app)/services/`                                                                                                                                                   |
-| `/therapy-compass/search`, `/recommend`, `/compare`, `/pathways`, `/review`, `/[slug]`, `/[slug]/brief`, `/[slug]/sheet`                                                                                                                                                        | `src/app/(search-app)/therapy-compass/`                                                                                                                                            |
-| `/on-call` (dashboard), `/on-call/card`, `/compliance`, `/contacts`, `/education`, `/logistics`, `/orientation`, `/playbook`, `/referrals`, `/service`, `/who-is-who`                                                                                                           | `src/app/(search-app)/on-call/` (see On Call mode below)                                                                                                                           |
-| `/cme` (dashboard), `/cme/log`, `/cme/log/[id]`, `/cme/new`, `/cme/plan`, `/cme/programme`, `/cme/routines`, `/cme/setup`, `/cme/summary`, `/cme/customise`                                                                                                                     | `src/app/(search-app)/cme/` (see Continuing education below)                                                                                                                       |
-| `/tools`                                                                                                                                                                                                                                                                        | `src/app/(search-app)/tools/`                                                                                                                                                      |
-| `/specifiers/search`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                                                                                                                                     | `src/app/(search-app)/specifiers/`                                                                                                                                                 |
-| `/formulation/search`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                                                                                                                                | `src/app/(search-app)/formulation/`                                                                                                                                                |
-| `/mockups/*`                                                                                                                                                                                                                                                                    | `src/app/mockups/` (404 in production; `/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, and `/mockups/ward-flow` are developer-gated instead — see below) |
-| `/auth/callback`                                                                                                                                                                                                                                                                | `src/app/auth/callback/route.ts`                                                                                                                                                   |
-| `/auth/reset-password`                                                                                                                                                                                                                                                          | `src/app/auth/reset-password/page.tsx`                                                                                                                                             |
-| PWA and SEO (`/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml`, OG image, icons)                                                                                                                                                                                           | `src/app/manifest.ts`, `robots.ts`, `sitemap.ts`, `opengraph-image.tsx`, `apple-icon.tsx`, `icons/[variant]/route.tsx`                                                             |
+| Route                                                                                                                                                                                   | File                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                                                                                                                                                                     | `src/app/(search-app)/page.tsx`                                                                                                 |
+| Shared mode-home route group (`/(search-app)`)                                                                                                                                          | `src/app/(search-app)/`                                                                                                         |
+| Mode homes (`/?mode=<id>`; bare `/services`, `/dsm`, `/documents`, … redirect there)                                                                                                    | `src/app/(search-app)/page.tsx` + `home-page-client.tsx`                                                                        |
+| `/applications` (307 to `/tools`)                                                                                                                                                       | `src/app/applications/route.ts`                                                                                                 |
+| `/differentials/search`, `/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, `/differentials/presentations`, `/differentials/presentations/[slug]`, `/differentials/compare` | `src/app/(search-app)/differentials/`                                                                                           |
+| `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`, `/dsm/diagnoses/[slug]/differentials`                                                                                           | `src/app/(search-app)/dsm/`                                                                                                     |
+| `/documents/search`, `/documents/[id]` (`/documents/source` and `/documents/source/evidence` redirect to `/documents/[id]`)                                                             | `src/app/(search-app)/documents/`                                                                                               |
+| `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`                                                                                                         | `src/app/(search-app)/factsheets/`                                                                                              |
+| `/dictionary/search` (Terms, one catalogue — `/browse` redirects to it), `/dictionary/topics`, `/dictionary/topics/[slug]`, `/dictionary/[slug]`, `/dictionary/compare`                 | `src/app/(search-app)/dictionary/`                                                                                              |
+| `/sources/search`, `/sources/topics`, `/sources/publishers`, `/sources/method`, `/sources/[sourceId]`                                                                                   | `src/app/(search-app)/sources/`                                                                                                 |
+| `/favourites`                                                                                                                                                                           | `src/app/(search-app)/favourites/page.tsx`                                                                                      |
+| `/forms/search`, `/forms/[slug]`                                                                                                                                                        | `src/app/(search-app)/forms/`                                                                                                   |
+| `/medications/[slug]` (bare `/medications` redirects to `/?mode=prescribing`)                                                                                                           | `src/app/(search-app)/medications/`                                                                                             |
+| `/privacy`                                                                                                                                                                              | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx`                                       |
+| `/reference/colour-coding`                                                                                                                                                              | `src/app/reference/`                                                                                                            |
+| `/safety-plan`                                                                                                                                                                          | `src/app/safety-plan/page.tsx`                                                                                                  |
+| `/calculators`, `/calculators/search`                                                                                                                                                   | `src/app/(search-app)/calculators/`                                                                                             |
+| `/services/search`, `/services/[slug]`                                                                                                                                                  | `src/app/(search-app)/services/`                                                                                                |
+| `/therapy-compass/search`, `/recommend`, `/compare`, `/pathways`, `/review`, `/[slug]`, `/[slug]/brief`, `/[slug]/sheet`                                                                | `src/app/(search-app)/therapy-compass/`                                                                                         |
+| `/on-call` (dashboard), `/on-call/card`, `/compliance`, `/contacts`, `/education`, `/logistics`, `/orientation`, `/playbook`, `/referrals`, `/service`, `/who-is-who`                   | `src/app/(search-app)/on-call/` (see On Call mode below)                                                                        |
+| `/cme` (dashboard), `/cme/log`, `/cme/log/[id]`, `/cme/new`, `/cme/plan`, `/cme/programme`, `/cme/routines`, `/cme/setup`, `/cme/summary`, `/cme/customise`                             | `src/app/(search-app)/cme/` (see Continuing education below)                                                                    |
+| `/tools`                                                                                                                                                                                | `src/app/(search-app)/tools/`                                                                                                   |
+| `/specifiers/search`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                                             | `src/app/(search-app)/specifiers/`                                                                                              |
+| `/formulation/search`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                                        | `src/app/(search-app)/formulation/`                                                                                             |
+| `/mockups/*`                                                                                                                                                                            | `src/app/mockups/` (404 in production; `/mockups/development` and `/mockups/care-plan` are developer-gated instead — see below) |
+| `/auth/callback`                                                                                                                                                                        | `src/app/auth/callback/route.ts`                                                                                                |
+| `/auth/reset-password`                                                                                                                                                                  | `src/app/auth/reset-password/page.tsx`                                                                                          |
+| PWA and SEO (`/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml`, OG image, icons)                                                                                                   | `src/app/manifest.ts`, `robots.ts`, `sitemap.ts`, `opengraph-image.tsx`, `apple-icon.tsx`, `icons/[variant]/route.tsx`          |
 
 ### API routes (`src/app/api/`)
 
@@ -198,7 +185,6 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 | Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                                                                                                                                                                                                                  | `health/`, `setup-status/`, `local-project-id/`                 |
 | Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                                                                                                                                                                                                            | `eval-cases/`, `jobs/`                                          |
 | Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                                                                                                                                                                                                                  | `webhooks/`                                                     |
-| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                                                                                                                                                                                                       | `caring-contacts/`                                              |
 | Site content     | `/api/site-content/publications` (administrator POST only)                                                                                                                                                                                                                                                                        | `site-content/publications/`                                    |
 
 ---
@@ -225,7 +211,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 | `rag/rag-hydration.ts`                                                                                                                                 | Per-request hydration: document ranking metadata, cached index quality, page visual evidence; `selectRankedRetrievalResults` hands off to `retrieval-selection` |
 | `rag/rag-cache.ts`, `rag/rag-retrieval-variants.ts`                                                                                                    | Bounded caches and retrieval variants                                                                                                                           |
 | `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`, `released-search-order.ts`, `semantic-rerank.ts`, `retrieval-rpc-rollout.ts` | Query modes, retrieval selection, released ordering, optional semantic rerank, retrieval RPC version choice                                                     |
-| `answer-ranking.ts`, `answer-verification.ts`, `answer-follow-up.ts`, `answer-render-policy.ts`, `answer-response.ts`, `answer-stream-contract.ts`     | Answer quality, rendering and the client/stream contract (`answer-formatting.ts` is used only by the Ward Flow note output, `ward-output.ts`)                   |
+| `answer-ranking.ts`, `answer-verification.ts`, `answer-follow-up.ts`, `answer-render-policy.ts`, `answer-response.ts`, `answer-stream-contract.ts`     | Answer quality, rendering and the client/stream contract (`answer-formatting.ts` is used only by the ward note output, `ward-output.ts`)                        |
 | `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                                                 | Evidence and synthesis                                                                                                                                          |
 | `ranking-config.ts`, `search-scope.ts`, `rag/rag-eval-cases.ts`                                                                                        | Ranking tuning and eval fixtures                                                                                                                                |
 | `clinical-ask/`                                                                                                                                        | Mode-aware Clinical Ask contracts, profiles, evidence, and orchestration                                                                                        |
@@ -256,14 +242,14 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Supabase, auth, env
 
-| Module                                                                                                                                                                                                    | Role                                                                                                                                                                                                  |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts` (`requireAuthenticatedUser`), `health.ts`, `project.ts`, `errors.ts`, `password-recovery-authorization.ts`, `proxy-auth-crypto.ts` | Clients and auth                                                                                                                                                                                      |
-| `src/lib/supabase/database.types.ts`                                                                                                                                                                      | Generated DB types                                                                                                                                                                                    |
-| `env.ts`                                                                                                                                                                                                  | Zod-validated environment                                                                                                                                                                             |
-| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                                                                                                                            | Multi-user scope and privacy                                                                                                                                                                          |
-| `authorization.ts`                                                                                                                                                                                        | `site_role === "administrator"` claim check                                                                                                                                                           |
-| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                                                                                                                                     | Signed-in-administrator gate for the Settings "Development" hub (`/mockups/development`, `/mockups/caring-contacts/**`, `/mockups/care-plan/**`); the production block itself lives in `src/proxy.ts` |
+| Module                                                                                                                                                                                                    | Role                                                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts` (`requireAuthenticatedUser`), `health.ts`, `project.ts`, `errors.ts`, `password-recovery-authorization.ts`, `proxy-auth-crypto.ts` | Clients and auth                                                                                                                                                       |
+| `src/lib/supabase/database.types.ts`                                                                                                                                                                      | Generated DB types                                                                                                                                                     |
+| `env.ts`                                                                                                                                                                                                  | Zod-validated environment                                                                                                                                              |
+| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                                                                                                                            | Multi-user scope and privacy                                                                                                                                           |
+| `authorization.ts`                                                                                                                                                                                        | `site_role === "administrator"` claim check                                                                                                                            |
+| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                                                                                                                                     | Signed-in-administrator gate for the Settings "Development" hub (`/mockups/development`, `/mockups/care-plan/**`); the production block itself lives in `src/proxy.ts` |
 
 ### Clinical product data
 
@@ -290,117 +276,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 | `validation/`                                                                                                                                                                                                           | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts`, `answer-request.ts`, `clinical-ask-request.ts`, `speech-transcription-request.ts`, `row-contracts.ts`     |
 | `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs`                                                                                                                        | Routing and project identity                                                                                                                                             |
 | `tailwind-merge.ts`                                                                                                                                                                                                     | The `extendTailwindMerge` config behind `cn()` — declares this repo's custom `@theme` scales so twMerge does not misclassify them (`docs/design-system/TOKENS.md`)       |
-
-### Caring Contacts
-
-`src/lib/caring-contacts/` is an isolated, synthetic caring-contact domain. It uses only
-relative imports within its directory, provides deny-by-default team-scoped permissions and
-privacy-safe audit records, and is exercised against both in-memory and local Postgres
-repositories. `src/lib/caring-contacts-server/` is the server-side seam for the demo session
-and optional separate database connection. It must fail closed in production and must never
-connect to the `Clinical KB Database` Supabase project. The standalone `src/app/caring-contacts/` workspace
-is noindex, visibly marked synthetic, and has a single inbound entry from the Tools catalogue.
-
-Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
-destination set: a destination carries an `href` only once its page exists, and every other one
-renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
-(Today), `/caring-contacts/patients` (the caseload), `/caring-contacts/patients/[patientId]`
-(one patient's episode), `/caring-contacts/plans/new` (the activation wizard),
-`/caring-contacts/schedule` (the team's day),
-`/caring-contacts/templates` (the governed pathway versions),
-`/caring-contacts/templates/[pathwayId]` (one of them in full), `/caring-contacts/guidance`,
-`/caring-contacts/reports` and `/caring-contacts/team` are what is built so far. Every one of them is a page that reads the
-store through `auditedRead` rather than over HTTP, using the same access identity the matching API
-route records; filtering and, on the patient overview, the choice of which plan to open are carried
-in the URL and read by the Server Component.
-
-The More panel carries the destinations the rail does not, and its entries carry an `href` under the
-same Ruling 89 rule. It ALSO carries the primary destinations the phone bar has no room for, in a
-`md:hidden` row derived from the two arrays rather than listed — which is what makes
-`/caring-contacts/templates` reachable below 768px, where there is no rail. It was not:
-`tests/route-reachability.test.ts` reads `shell.tsx` as text and cannot see which array an `href`
-sits in or what CSS governs it, so it passed on a shipped route no phone could reach. The assertion
-that can fail on that walks the rendered ancestor chain, in
-`tests/caring-contacts-workspace-shell.dom.test.tsx`, and clicks the link at 390px in
-`tests/ui-caring-contacts-workspace.spec.ts`.
-
-`/caring-contacts/reports` performs NO read of `caring_contacts.cultural_identity_reports`. Spec §2.5
-promises reach reporting over Aboriginal and Torres Strait Islander status, and this system records
-none — so the screen states what is and is not collected instead of rendering an empty breakdown,
-which would read as a statement about patients rather than about collection. The two halves of §2.5
-are in different states and the screen says so: the small-cell threshold IS set (the owner's decision
-of 2026-08-26, held with its provenance in `src/lib/caring-contacts/reach-reporting-governance.ts`,
-which is the file a governance change opens and the only place the number appears); a bounded
-category set is not. The suppression rule itself lives in
-`src/lib/caring-contacts/reach-reporting.ts`: it takes the threshold as a required argument, refuses
-one too low to hide anything, and suppresses complementary cells so that no hidden figure is
-recoverable by subtracting the published ones from a total.
-
-`/caring-contacts/team` renders `buildTeamWorkload` and draws three FEWER columns than the approved
-design does, each because nothing in this system holds the value (Task 17's findings 1–3, and none of
-them is an oversight). There is no staff display NAME: the stores hold an `ActorId` and nothing else
-about a person, and a staff directory is a system this build is not connected to — so the identifier
-is rendered as an identifier and the screen states that a name is not held. There is no ROLE column:
-nothing returns the roles an `ActorId` holds, `Actor` being assembled at the session seam for the one
-person acting. And there is no per-member UNCLAIMED count, because unclaimed means there is no owner
-to file the work under; the design's unclaimed row is rendered once, above both the desktop table and
-the compact roster, as the spec §4.4 pair — the escalation as an `AutomatedState` carrying the
-threshold that produced it and the one thing that clears it. Both ages it shows are upper bounds
-measured from the earliest instant the work could have been waiting, and are named for that rather
-than called a queue age. Its Reassign work control is a link to the caseload: a reassignment needs
-one plan, this read deliberately carries no plan id, and the control that performs one already exists
-on `plan-actions.tsx`.
-
-`/caring-contacts/templates` is a governance record viewer, and the LIBRARY shows no message wording
-at all. Ruling [127]: the one patient-visible message that exists is a specimen rather than a
-template, and there is no per-version message content anywhere, so a library that printed wording
-beside a version would claim a relationship the data does not have. The DETAIL route
-`/caring-contacts/templates/[pathwayId]` does show the wording, because a record states what it
-holds where a list cannot: it reads `snapshot.messageTextByType` back verbatim and never assembles
-a string. Beside it, the route states the wording's approval status in `message-copy.ts`'s own
-words — provisional, not clinically approved — read from the sealed domain rather than retyped
-(Ruling [131]), because a version's dual approval approves the VERSION and nothing in this system
-has approved the words. What both routes carry is `PathwayVersionSnapshot.provenance`, resolved
-through `pathwayVersionProvenanceWording` so that an approval line can never stand unqualified over
-a record nobody approved.
-
-The Schedule screen is the one that must not let two different days read the same. `disposition`
-alone cannot separate a quiet day from a stopped one, so the screen states each day from `counts`,
-which partition a day with nothing due into already-sent, held-by-its-own-plan and never-will-be; a
-plan somebody created and never started is surfaced as its own automated state, because a discharged
-patient receiving nothing while the plan record looks complete is an operational failure rather than
-a quiet day. It derives no schedule rule of its own -- the windows, the holds, the exceptions and the
-counts all come from `src/lib/caring-contacts/schedule-view.ts` -- and it is the one workspace screen
-that deliberately does NOT read `listPatientNames`, so that the trail row meaning "somebody read
-patients' names" is not written every time a coordinator glances at a day.
-
-`/caring-contacts/plans/new` is the one screen with a deliberate client boundary (Ruling [109]).
-The page itself is still a Server Component -- it makes the audited reads, decides the actor's
-capability, and fails closed -- and it hands a lazily-imported `PlanWizard` the referral and the
-approved pathway versions, and nothing else. The service state, which carries an incident note,
-stays on the server; `plan-wizard/stages.ts` is where Tasks 8 and 9 flip stages 3 and 4 from
-unbuilt to built, and the wizard's in-progress draft lives in `sessionStorage` alone
-(`plan-wizard/plan-draft.ts`, Ruling [110]).
-
-The patient overview is the only screen permitted to call `getEpisode`, which is the one read that
-releases a patient's name, mobile number, identifiers and cultural identity together. Every other
-screen is built to avoid it: the caseload uses `listPatientNames`, the names-only projection
-(Ruling 91). The overview calls it once, for one plan, and only after Ruling 97's rule has settled
-which plan — the route is keyed by patient, the reads are keyed by plan, and one patient can
-honestly hold two episodes, so the screen presents them and never picks. Ruling 94: do not restate
-
-The Patients caseload carries the workspace's other deliberate client boundary, and it exists for a
-confidentiality rule rather than a browser capability. Its search matches the patient's NAME, and
-while the box was a `method="get"` form that name travelled as `?q=` — into the address bar of a
-possibly-shared ward computer's history and the access log of every proxy in between. Ruling [111]
-forbids exactly that, so the typed text is React state in `patients-directory-client.tsx` and reaches
-no URL in any form. The page around it stays a Server Component and the payload it hands over is
-SMALLER than the HTML it replaced: rows are reduced to the row projection and pre-filtered by plan
-state on the server side.
-that as a count of client components — this paragraph has carried two such counts and both were
-wrong. What holds Ruling 13 is the module boundary, which does not decay as files are added:
-nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue
-names it by href, never by import), so the dashboard references no chunk exclusive to it.
+| `caring-contacts/` — `clock.ts`                                                                                                                                                                                         | The Perth-time clock kept from the retired Caring Contacts prototype; the Mental Health Act timeline (`mha-timeline.ts`) imports it                                      |
 
 ### On Call mode
 
@@ -660,7 +536,7 @@ Public-source control-plane tables: `public_source_policy_entries`, `public_sour
 
 Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json` (other RAG, adversarial and ranking-snapshot fixtures sit beside it).
 
-Subfolders: `scripts/lib/` (shared helpers, including the protected `clinical-aliases.ts`), `scripts/deploy/` (`await-migrations.mjs` Railway pre-deploy, `write-migration-manifest.mjs`), `scripts/sql/` (verify and parity SQL), `scripts/ward-flow/` (Ward Flow coordination and mutation tooling), `scripts/archive/` (historical, still referenced by two checks). `docs/scripts-index.md` is the full catalogue.
+Subfolders: `scripts/lib/` (shared helpers, including the protected `clinical-aliases.ts`), `scripts/deploy/` (`await-migrations.mjs` Railway pre-deploy, `write-migration-manifest.mjs`), `scripts/sql/` (verify and parity SQL), `scripts/archive/` (historical, still referenced by two checks). `docs/scripts-index.md` is the full catalogue.
 
 ---
 
@@ -724,97 +600,6 @@ sequenceDiagram
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
-
-### Ward Flow (`src/app/mockups/ward-flow/`, `src/components/ward-management/`)
-
-Synthetic prototype for WA metro psychiatry patient flow: getting a patient from an emergency
-department to an inpatient psychiatric bed. Offline and fixture-backed — no provider calls, no
-persistence, no patient-identifiable data. Advisory only: the system proposes destinations with
-visible reasons and a human confirms or overrides.
-
-Developer-gated sandbox, reached only through the developer page (`/mockups/development`), the
-same pattern as the Care Plan and Caring Contacts prototypes: `"/mockups/ward-flow"` is on
-`DEVELOPER_GATED_PATH_PREFIXES` (`src/lib/developer-area/headers.ts`), so `src/proxy.ts` lets it
-through the blanket `/mockups` production block and `DeveloperAreaGate`
-(`src/app/mockups/ward-flow/layout.tsx`) requires a signed-in administrator instead of rendering
-the prototype to an anonymous visitor. The move relocated and re-gated the route tree, and the
-Tools catalogue entry (`src/lib/tools-catalog.ts`, id `ward-management`) has since been removed,
-along with the applications-launcher, tools-search-results, and category-identity mentions that
-keyed off it, so the developer hub panel is the only entry point.
-
-- **Design spec:** `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`
-- **Glossary:** `docs/ward-management-context.md` · **Decisions:** `docs/ward-management-decisions.md`
-- **Route/role map:** `docs/ward-management-mode-map.md`
-- **Model:** `src/components/ward-management/ward-clock.ts` (the only module that reads the
-  wall clock), `ward-model.ts` (domain types only), `ward-eligibility.ts` (the eight
-  placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 22 units),
-  `ward-movements.ts` (48 movements, 9 bed releases), `ward-derivations.ts` (shared pure UI
-  derivations)
-- **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
-  workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`,
-  `src/app/mockups/ward-flow/constellation/page.tsx` (retired constellation; server redirect to
-  `/mockups/ward-flow/network`), `coordinator/coordinator-screen.tsx` (Phase 3 live coordinator screen — priority queue, statewide
-  flow diagram, explainable shortlist), `ward/ward-screen.tsx` (Task 8: one inpatient unit's own
-  view — `/mockups/ward-flow/ward/[unitId]`; capacity confirmation, incoming-referral accept/hold/
-  decline, restriction notices, withdrawn referrals), `officer/officer-screen.tsx` (Task 9: the
-  transport officer's phone — `/mockups/ward-flow/transport/officer`; every transport job not yet
-  arrived, since `TransportJob` carries a `provider` organisation and no officer identity;
-  queue-plus-pinned-action-bar pattern inherited from `shortlist-panel.tsx`, one job "active" at a
-  time with its four transport actions — accepted, en route, collected, arrived — pinned to the
-  viewport bottom on phone widths), `tracker/live-tracker.tsx` (Task 10: the coordinator's live
-  tracker, rewriting the existing route — `/mockups/ward-flow/transport`; every open movement that
-  carries a transport job, its leg via `tracker/tracker-derivations.ts`'s `trackerRowState`
-  (delegating to `transportLeg`) and how long since that leg's own stamp via `stampAgeText`; a
-  movement with no transport job at all is never listed as a row — the banner states the excluded
-  count in real text instead, the same on-screen-honesty discipline as the officer screen's "no
-  officer identity" notice), `ed/ed-screen.tsx` (Task 11: one emergency department's own view —
-  `/mockups/ward-flow/ed/[edId]`, resolved via `ward-sites.ts`'s `edById`; both clocks (time in
-  department from `openedAt`, the legal clock from `formedAt` where earlier, marked
-  `data-community-formed`), the 24-hour `ED_ACCESS_TARGET_MINUTES` departmental access target
-  — labelled and computed so it can never be mistaken for a legal deadline and never touches a
-  `LegalForm`/`dueAt` — a police-attendance flag, and each movement's single outstanding item; a
-  raise-referral form (`RAISE_REFERRAL`), a record-examination form (`RECORD_EXAMINATION`), and
-  the mark-handover-ready control (`HANDOVER_READY`) that is the only producer of a transport job;
-  statewide capacity shown read-only), `handover/handover-page.tsx` (Phase 4 Task 4: the shift
-  handover — `/mockups/ward-flow/handover`; four fixed, product-owner-approved sections in a fixed
-  order (longest waits, beds held, in transit, placement gone wrong) built by `ward-derivations.ts`'s
-  `handoverSnapshot`; read once from `useWardFlow()` inside a `useState` initialiser so the page is
-  frozen at the moment it is opened and never re-derives on the 30-second clock tick; every section
-  renders an explicit "None" line rather than hiding itself when empty; a Print button calls
-  `window.print()`, styled by `handover.module.css`'s own `@media print` block), `escalation/escalation-board.tsx`
-  (Phase 4 Task 5: the escalation board — `/mockups/ward-flow/escalation`; one place showing every
-  patient whose placement has gone wrong, via `ward-derivations.ts`'s `escalationBoard`; two
-  independently-computed, read-only sections — `escalated` (movements carrying a recorded
-  `Movement.escalation`: when, `triedUnitIds` resolved to real `Unit` objects, contact, wait) and
-  `nowhereEligible` (open movements with zero eligible wards right now, via `eligibleCandidatesAmong`
-  called with an unlimited-effective `limit` so nothing truncates); a movement can appear in both, and
-  on the real fixture at `NOW_ANCHOR` WF-009 does — it has a recorded escalation and, independently,
-  still has nowhere eligible. Unlike the handover, this page is NOT frozen: it reads the live clock on
-  every render, since a coordinator working this board wants the current picture. Records and shows
-  only — it computes no near-miss, no least-bad option, and no statement of what would need to change
-  for a ward to work), `search/patient-search.tsx` (Phase 4 Task 7: patient search — `/mockups/ward-flow/search`;
-  product owner's choice: its own page, reached from the left-hand menu, rather than a box on the
-  coordinator screen. A single live filter over `ward-derivations.ts`'s `searchMovements` — a free-text
-  field matching movement id, `originEdId`, the resolved destination unit's id/name, the stage's own
-  display label and `owner`, plus an exact-match stage `<select>` and department `<select>`, all three
-  combining as AND. Scoped to OPEN movements only (`isOpen`, applied before any other filter, so a
-  closed movement can never surface even when the query is its own id verbatim) and, like the
-  escalation board and unlike the frozen handover, reads the live `useWardFlow()` clock on every
-  render. Renders an explicit "No matches" note rather than an empty table when nothing fits. This is
-  the page's own single search composer — Ward Flow routes never mount the shared global shell
-  composer, so nothing else on the page competes with it)
-- **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
-  `src/app/mockups/ward-flow/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
-  `ward-flow-events.ts` (event/role table)
-- **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`,
-  `tests/ui-ward-coordinator.spec.ts`, `tests/ui-ward-roles.spec.ts`, `tests/ward-handover.test.ts`
-  (`handoverSnapshot`), `tests/ward-handover.dom.test.tsx` (the freeze and every section's empty
-  state), `tests/ward-escalation.test.ts` (`escalationBoard`, including the standard-night
-  `WF-009`/`WF-308` and scarce-night nine-movement measurements), `tests/ward-escalation.dom.test.tsx`
-  (both sections and their empty states), `tests/ward-patient-search.test.ts` (`searchMovements`,
-  including the closed-movement exclusion proven against both a real and a constructed fixture case),
-  `tests/ward-patient-search.dom.test.tsx` (the single-composer shape, live results, and the
-  "No matches" empty state)
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 
@@ -908,9 +693,8 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   page: freshness stamp, count tiles, a "blocking now" callout, the recommended running order
   (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
   and pending inbox requests. `/mockups/development/hazards` (`hazards/page.tsx`, Server Component)
-  — the snapshot-backed hazard register: it keeps the PsychSift and Caring Contacts registers
-  separate, surfaces unmitigated hazards first, recalculates review expiry in Australia/Perth at
-  render time, and states Ward Flow's missing register as an absence. `/mockups/development/routes` — every page and every app mode, from
+  — the snapshot-backed hazard register: it surfaces unmitigated hazards first and recalculates review
+  expiry in Australia/Perth at render time. `/mockups/development/routes` — every page and every app mode, from
   the repo awareness snapshot's route walk. `/mockups/development/documentation` — every tracked
   document, its area, and whether the codebase index lists it. `/mockups/development/test-health`
   — unstable and quarantined tests, from the flake ledger. `/mockups/development/review-state` —
@@ -1050,7 +834,6 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 | `Dockerfile`, `Dockerfile.worker`                                                  | App and worker images                                                |
 | `railway.app.json`, `railway.worker.json`                                          | Railway build, healthcheck and pre-deploy migration wait             |
 | `supabase/config.toml`                                                             | Edge Function config                                                 |
-| `deploy/australia/`                                                                | Sovereign-hosting kit for Caring Contacts                            |
 | `vitest.config.mts`, `playwright.config.ts`, `playwright.visual.config.ts`         | Test runners                                                         |
 | `tsconfig.typecheck.json`                                                          | Typecheck scope                                                      |
 | `bundle-budget.json`, `lighthouse-budget.json`, `diff-integrity.json`, `knip.json` | Bundle and Lighthouse budgets, test-deletion guard, dead-code config |

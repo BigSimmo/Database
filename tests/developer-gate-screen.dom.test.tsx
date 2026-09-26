@@ -73,14 +73,14 @@ describe("DeveloperGateScreen key field", () => {
   });
 
   it("submits the typed key as a full-document replace onto the requested page", () => {
-    renderScreen({ next: "/mockups/ward-flow/network" });
+    renderScreen({ next: "/mockups/care-plan/review" });
 
     fireEvent.change(screen.getByTestId("developer-gate-key-input"), { target: { value: KEY } });
     fireEvent.click(screen.getByTestId("developer-gate-key-submit"));
 
     expect(mocks.replace).toHaveBeenCalledTimes(1);
     const target = new URL(mocks.replace.mock.calls[0][0] as string, "https://psychiatry.tools");
-    expect(target.pathname).toBe("/mockups/ward-flow/network");
+    expect(target.pathname).toBe("/mockups/care-plan/review");
     expect(target.searchParams.get("devkey")).toBe(KEY);
   });
 
