@@ -441,7 +441,15 @@ never in the repository, so production cannot silently fall back to synthetic da
 shared shapes and the Zod schemas for every request and every database result (results are parsed
 too, so a field a database function should never return is dropped before it reaches a browser);
 join links that carry a meeting passcode are refused there. `checkin-token.ts` reads a scanned
-check-in token's shape without checking its MAC, which only the database can do.
+check-in token's shape without checking its MAC, which only the database can do. `time.ts` holds
+Perth wall-clock conversions (Perth has been UTC+8 all year since 2009, so it is a fixed offset).
+`relocated.ts` turns On Call's own teaching entries into `SessionSummary` rows shown inside
+Teaching's week, carrying only title, time and place — never the presenter or a recording link.
+`demo-programme.ts` is the made-up demo team and week/session/logbook fixtures served in demo mode.
+
+`src/lib/dates/recurring-session.ts` is the neutral home of the "roll a repeating anchor date
+forward to its next occurrence" arithmetic, used by Teaching and re-exported by On Call's
+`teaching-schedule.ts` under its older names so existing callers are unchanged.
 
 ---
 
