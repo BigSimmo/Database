@@ -2843,6 +2843,25 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     }
   });
 
+  it("requires a login token on indexing-v3-agent and has the cron invoker send one beside the shared secret", () => {
+    const config = readFileSync(new URL("../supabase/config.toml", import.meta.url), "utf8");
+    expect(config).toContain("[functions.indexing-v3-agent]\nverify_jwt = true");
+    const migration = readFileSync(
+      new URL("../supabase/migrations/20260926041100_indexing_v3_agent_cron_sends_jwt.sql", import.meta.url),
+      "utf8",
+    );
+    for (const sql of [schema, migration]) {
+      expect(sql).toContain("where name = 'cron_ingestion_jwt'");
+      expect(sql).toContain("jsonb_build_object('Authorization', 'Bearer ' || trim(v_jwt))");
+      expect(sql).toContain("'x-indexing-agent-secret', v_secret");
+      expect(sql).toContain("headers := v_headers,");
+    }
+    expect(migration).toContain(
+      "revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated",
+    );
+    expect(migration).toContain("grant execute on function public.invoke_indexing_v3_agent(integer) to service_role");
+  });
+
   it("retires invoke_ingestion_worker: unscheduled, dropped, and absent from the schema snapshot", () => {
     const retirement = readFileSync(
       new URL("../supabase/migrations/20260926041000_retire_invoke_ingestion_worker.sql", import.meta.url),

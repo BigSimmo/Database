@@ -4955,6 +4955,8 @@ as $$
 declare
   v_request_id bigint;
   v_secret     text;
+  v_jwt        text;
+  v_headers    jsonb;
   v_base_url   text;
 begin
   select decrypted_secret
@@ -4967,6 +4969,20 @@ begin
     raise exception 'indexing_v3_agent_secret is missing from Supabase Vault';
   end if;
 
+  select decrypted_secret
+    into v_jwt
+  from vault.decrypted_secrets
+  where name = 'cron_ingestion_jwt'
+  limit 1;
+
+  v_headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'x-indexing-agent-secret', v_secret
+  );
+  if nullif(trim(v_jwt), '') is not null then
+    v_headers := v_headers || jsonb_build_object('Authorization', 'Bearer ' || trim(v_jwt));
+  end if;
+
   -- Prefer the GUC; fall back to the hardcoded production URL so that
   -- existing deployments that have not yet set the GUC continue to work.
   v_base_url := coalesce(
@@ -4977,10 +4993,7 @@ begin
   select net.http_post(
     url := v_base_url || '/functions/v1/indexing-v3-agent?limit='
            || greatest(1, least(coalesce(p_limit, 1), 10))::text,
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-indexing-agent-secret', v_secret
-    ),
+    headers := v_headers,
     body := jsonb_build_object('source', 'pg_cron', 'worker', 'v3-indexing-worker', 'ts', now()),
     timeout_milliseconds := 60000
   ) into v_request_id;

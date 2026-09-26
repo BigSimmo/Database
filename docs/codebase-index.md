@@ -527,7 +527,7 @@ Google or Outlook sync; no account is connected today. The phone calendar view i
 
 ### Config and schema
 
-- **CLI:** `supabase/config.toml` — three Edge Functions: `indexing-v3-agent` (`verify_jwt = false`), `ingestion-worker` and `site-content-sync` (`verify_jwt = true`)
+- **CLI:** `supabase/config.toml` — three Edge Functions, all `verify_jwt = true`: `indexing-v3-agent` (plus its shared secret), `ingestion-worker` (retired, refuses every call) and `site-content-sync`
 - **Roles:** `supabase/roles.sql` — default-privilege bootstrap for objects `postgres` creates
 - **Schema mirror:** `supabase/schema.sql` (reference; migrations are source of truth)
 - **Migrations:** `supabase/migrations/*.sql` (chronological source of truth; do not hardcode a count)
