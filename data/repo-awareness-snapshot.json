@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-25"
+    "committed_at": "2026-09-26"
   },
   "routes": {
     "modes": [
@@ -3144,6 +3144,11 @@
         "path": "docs/superpowers/specs/2026-08-30-ward-flow-header-design.md",
         "section": "superpowers",
         "catalogued": false
+      },
+      {
+        "path": "docs/organisation/README.md",
+        "section": "organisation",
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
@@ -6661,6 +6666,9 @@
       },
       {
         "name": "on-call"
+      },
+      {
+        "name": "organisation"
       },
       {
         "name": "plans"
