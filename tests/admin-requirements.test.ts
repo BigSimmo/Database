@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ADMIN_REQUIREMENT_IDS } from "@/lib/admin/requirement-ids";
 import {
   ADMIN_REQUIREMENT_GROUPS,
   ADMIN_REQUIREMENTS_CATALOGUE,
@@ -8,6 +9,7 @@ import {
   requirementsRecordedCount,
   type AdminRequirementCatalogueItem,
 } from "@/lib/admin/requirements";
+import { onCallDetailsSchemaFor } from "@/lib/on-call/entry-model";
 import { complianceFixture } from "./helpers/on-call-entry-fixture";
 
 /** A minimal, self-contained catalogue item for tests that must not depend on
@@ -61,6 +63,15 @@ describe("the requirements catalogue (requirements-content.md)", () => {
     const ids = ADMIN_REQUIREMENTS_CATALOGUE.map((requirement) => requirement.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it(
+    "has exactly the ids ADMIN_REQUIREMENT_IDS lists, so the entry-model.ts schema that validates a " +
+      "stored requirementId against that leaf list can never drift from the catalogue it is meant to match",
+    () => {
+      const catalogueIds = ADMIN_REQUIREMENTS_CATALOGUE.map((requirement) => requirement.id).sort();
+      expect(catalogueIds).toEqual([...ADMIN_REQUIREMENT_IDS].sort());
+    },
+  );
 });
 
 describe("matching a doctor's own entries to the catalogue", () => {
@@ -94,6 +105,19 @@ describe("matching a doctor's own entries to the catalogue", () => {
     const rows = requirementChecklistRows(catalogue, [viaTitle]);
     expect(rows.find((row) => row.item.id === "req-b")?.entry).toBe(viaTitle);
   });
+
+  it("prefers an unflagged entry over a flagged one when two entries both match the same item", () => {
+    const flagged = complianceFixture("Some other name", {
+      category: "Registration",
+      requirementId: "req-a",
+      notForThisJob: true,
+    });
+    const unflagged = complianceFixture("Widget licence", { category: "Registration", expiresOn: "2027-05-01" });
+    const rows = requirementChecklistRows(catalogue, [flagged, unflagged]);
+    const row = rows.find((r) => r.item.id === "req-a");
+    expect(row?.entry).toBe(unflagged);
+    expect(row?.state).toBe("needs-action");
+  });
 });
 
 describe("the recorded count", () => {
@@ -120,6 +144,24 @@ describe("the recorded count", () => {
     });
     expect(requirementsRecordedCount(catalogue, [flagged])).toEqual({ recorded: 0, total: 2 });
   });
+
+  it(
+    "agrees with requirementChecklistRows when two entries match one item, one flagged and one not: the item " +
+      "counts as recorded, not as excluded (Important review issue: the count must never re-derive its own answer)",
+    () => {
+      const flagged = complianceFixture("Some other name", {
+        category: "Registration",
+        requirementId: "req-a",
+        notForThisJob: true,
+      });
+      const unflagged = complianceFixture("Widget licence", { category: "Registration", expiresOn: "2027-05-01" });
+      const entries = [flagged, unflagged];
+      expect(requirementsRecordedCount(catalogue, entries)).toEqual({ recorded: 1, total: 3 });
+      // Same answer requirementChecklistRows gives for the same item, from the same entries.
+      const row = requirementChecklistRows(catalogue, entries).find((r) => r.item.id === "req-a");
+      expect(row?.entry).toBe(unflagged);
+    },
+  );
 });
 
 describe("checklist ordering (spec review 29: soonest first)", () => {
@@ -152,5 +194,37 @@ describe("requirementDateDescription", () => {
     );
     expect(requirementDateDescription("2026-01-01", now)).not.toMatch(/expired/i);
     expect(requirementDateDescription(undefined, now)).toBe("");
+  });
+});
+
+describe("requirementId (entry-model.ts): a short slug, and one of the catalogue's own ids", () => {
+  const base = { category: "Registration" };
+  const schema = onCallDetailsSchemaFor("logistics");
+
+  it("accepts a real catalogue id", () => {
+    for (const id of ADMIN_REQUIREMENT_IDS) {
+      expect(schema.safeParse({ ...base, requirementId: id }).success, id).toBe(true);
+    }
+  });
+
+  it("accepts no requirementId at all", () => {
+    expect(schema.safeParse(base).success).toBe(true);
+  });
+
+  it("refuses an id that is not in the catalogue, even if it is slug-shaped", () => {
+    expect(schema.safeParse({ ...base, requirementId: "not-a-real-requirement" }).success).toBe(false);
+  });
+
+  it("refuses anything that is not a short lowercase slug", () => {
+    for (const requirementId of [
+      "",
+      "Medical-Registration-Renewal", // uppercase
+      "medical registration renewal", // spaces
+      "medical_registration_renewal", // underscores
+      "a".repeat(41), // over the 40-character cap
+      "jane.citizen@example.com", // identifier-shaped, and not a slug either
+    ]) {
+      expect(schema.safeParse({ ...base, requirementId }).success, JSON.stringify(requirementId)).toBe(false);
+    }
   });
 });

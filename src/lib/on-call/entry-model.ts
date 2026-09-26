@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ADMIN_REQUIREMENT_IDS } from "@/lib/admin/requirement-ids";
+
 export const ON_CALL_SECTIONS = ["contacts", "playbook", "referrals", "orientation", "education", "logistics"] as const;
 
 export type OnCallSection = (typeof ON_CALL_SECTIONS)[number];
@@ -357,8 +359,23 @@ const logisticsDetails = z
      * (`src/lib/admin/requirements.ts`) by id, so a renamed or reworded entry
      * still matches its catalogue slot. Optional: most rows match by title
      * instead, and a row with no catalogue counterpart carries none.
+     *
+     * A short, fixed-charset slug — never free text, so it cannot be used to
+     * smuggle an unbounded or identifier-shaped string past `proofNote`'s own
+     * guard — and, when present, one of the catalogue's own ids. The id list
+     * lives in `@/lib/admin/requirement-ids`, a leaf module with no imports of
+     * its own, precisely so this schema can depend on it without closing a
+     * circular import back through `on-call/compliance.ts` into
+     * `admin/requirements.ts` (see that module's docblock).
      */
-    requirementId: trimmed.optional(),
+    requirementId: z
+      .string()
+      .regex(/^[a-z0-9-]{1,40}$/, "Use a short lowercase slug.")
+      .refine(
+        (value) => (ADMIN_REQUIREMENT_IDS as readonly string[]).includes(value),
+        "Not a Requirements catalogue id.",
+      )
+      .optional(),
   })
   .strict();
 

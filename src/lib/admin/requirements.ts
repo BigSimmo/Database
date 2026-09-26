@@ -30,6 +30,11 @@ export type AdminRequirementGroup = (typeof ADMIN_REQUIREMENT_GROUPS)[number];
 export type AdminRequirementStatus = "confirmed" | "needs-checking";
 
 export interface AdminRequirementCatalogueItem {
+  /** A short slug. Every REAL catalogue item's id is one of `ADMIN_REQUIREMENT_IDS` (the
+   *  list `on-call/entry-model.ts` validates a stored `requirementId` against) —
+   *  `tests/admin-requirements.test.ts` pins the two lists to match exactly. Left as
+   *  `string` here, not that literal union, so a test may build its own throwaway
+   *  catalogue items without coupling to the real 20 ids. */
   readonly id: string;
   /** 2-4 words, for a narrow checklist row. */
   readonly title: string;
@@ -87,7 +92,7 @@ export const ADMIN_REQUIREMENTS_CATALOGUE: readonly AdminRequirementCatalogueIte
     sourceUrl: "https://www.medicalboard.gov.au/sitecore/content/Home/Registration/Registration-Standards/PII.aspx",
     updated: CHECKED,
     whatIsUnconfirmed:
-      "Whether an employed hospital doctor covered by the employer's indemnity scheme still needs a personal declaration is not stated.",
+      "Whether an employed hospital doctor already insured under the employer's indemnity scheme still needs a personal declaration is not stated.",
   },
   {
     id: "medicare-provider-number",
@@ -109,7 +114,7 @@ export const ADMIN_REQUIREMENTS_CATALOGUE: readonly AdminRequirementCatalogueIte
     sourceUrl:
       "https://www.wa.gov.au/organisation/department-of-communities/working-children-check-application-and-renewal-process",
     updated: CHECKED,
-    rule: "A WWC Card is valid for three years and can be renewed up to three months before it expires. It's an offence to do child-related work with an expired card and no pending renewal application.",
+    rule: "A WWC Card lasts three years and can be renewed up to three months before that three years is up. Doing child-related work once the card's three years have passed, with no renewal application pending, is an offence.",
   },
   {
     id: "wwc-check-applicability",
@@ -200,7 +205,7 @@ export const ADMIN_REQUIREMENTS_CATALOGUE: readonly AdminRequirementCatalogueIte
     sourceName: "Australian Resuscitation Council",
     sourceUrl: "https://resus.org.au/als-courses/",
     updated: CHECKED,
-    rule: "Australian Resuscitation Council ALS1/ALS2 course certification is valid for up to four years, with a shorter recertification course available before it lapses.",
+    rule: "Australian Resuscitation Council ALS1/ALS2 course certification runs for up to four years, with a shorter recertification course available before it lapses.",
   },
   {
     id: "credentialing-and-scope",
@@ -244,7 +249,7 @@ export const ADMIN_REQUIREMENTS_CATALOGUE: readonly AdminRequirementCatalogueIte
       "https://www.health.wa.gov.au/Careers/International-applicants/International-medical-graduates/Australian-visa-requirements",
     updated: CHECKED,
     whatIsUnconfirmed:
-      "No specific visa subclass, validity period or renewal detail is stated; visa rules sit with the Department of Home Affairs, outside this check.",
+      "No specific visa subclass, how long a visa lasts, or renewal detail is stated; visa rules sit with the Department of Home Affairs, which this review did not look at directly.",
   },
   {
     id: "code-of-conduct",
@@ -274,6 +279,30 @@ function normalizedTitle(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function entryRequirementId(entry: OnCallEntry): unknown {
+  const details = entry.details;
+  return typeof details === "object" && details !== null
+    ? (details as { requirementId?: unknown }).requirementId
+    : undefined;
+}
+
+/**
+ * Whether `entry` is this catalogue item's requirement AT ALL — by a stored
+ * `requirementId` or by title — regardless of whether it is flagged "not for
+ * this job". This is the one predicate `matchingEntry` and
+ * `requirementsRecordedCount` both build on, so the two can never disagree
+ * about which entries correspond to an item: see the Important review issue
+ * this fixes (two entries could both correspond to one catalogue item — a
+ * flagged one and an unflagged one — and the count must follow the same
+ * priority the checklist rows do, not re-derive its own answer).
+ */
+function isItemsEntry(entry: OnCallEntry, item: AdminRequirementCatalogueItem): boolean {
+  return (
+    isComplianceEntry(entry) &&
+    (entryRequirementId(entry) === item.id || normalizedTitle(entry.title) === normalizedTitle(item.title))
+  );
+}
+
 /**
  * The entry a catalogue item's requirement is recorded against, if any —
  * matched by a stored `requirementId` first, then by title. An entry flagged
@@ -281,17 +310,9 @@ function normalizedTitle(value: string): string {
  * does not apply to this doctor, so it must not read as recorded.
  */
 function matchingEntry(item: AdminRequirementCatalogueItem, entries: readonly OnCallEntry[]): OnCallEntry | null {
-  const candidates = entries.filter((entry) => isComplianceEntry(entry) && !entryNotForThisJob(entry));
-  const byId = candidates.find((entry) => {
-    const details = entry.details;
-    return (
-      typeof details === "object" &&
-      details !== null &&
-      (details as { requirementId?: unknown }).requirementId === item.id
-    );
-  });
-  if (byId) return byId;
-  return candidates.find((entry) => normalizedTitle(entry.title) === normalizedTitle(item.title)) ?? null;
+  const candidates = entries.filter((entry) => isItemsEntry(entry, item) && !entryNotForThisJob(entry));
+  const byId = candidates.find((entry) => entryRequirementId(entry) === item.id);
+  return byId ?? candidates[0] ?? null;
 }
 
 export type RequirementRowState = "needs-action" | "no-end-date" | "not-recorded";
@@ -340,6 +361,12 @@ export function requirementChecklistRows(
  * "not for this job" leaves the count entirely — it is neither recorded nor
  * counted as outstanding, mirroring `groupComplianceEntries` in
  * `src/lib/admin/renewals.ts`.
+ *
+ * Built entirely from `matchingEntry` (the same function
+ * `requirementChecklistRows` uses) rather than re-deriving its own match, so
+ * the two can never disagree: an unflagged entry, when one exists, always
+ * wins over a flagged one for the same item — the item is excluded from the
+ * count only when NO unflagged entry matches it but a flagged one does.
  */
 export function requirementsRecordedCount(
   catalogue: readonly AdminRequirementCatalogueItem[],
@@ -348,16 +375,15 @@ export function requirementsRecordedCount(
   let recorded = 0;
   let total = 0;
   for (const item of catalogue) {
-    const excluded = entries.some(
-      (entry) =>
-        isComplianceEntry(entry) &&
-        entryNotForThisJob(entry) &&
-        (((entry.details as { requirementId?: unknown } | null)?.requirementId ?? null) === item.id ||
-          normalizedTitle(entry.title) === normalizedTitle(item.title)),
-    );
-    if (excluded) continue;
+    const entry = matchingEntry(item, entries);
+    if (entry) {
+      total += 1;
+      recorded += 1;
+      continue;
+    }
+    const flaggedMatch = entries.some((candidate) => isItemsEntry(candidate, item) && entryNotForThisJob(candidate));
+    if (flaggedMatch) continue;
     total += 1;
-    if (matchingEntry(item, entries)) recorded += 1;
   }
   return { recorded, total };
 }
