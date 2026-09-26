@@ -1,0 +1,116 @@
+/**
+ * Every On Call store that lives on the device, and the one operation the
+ * sign-out path needs to wipe them — deliberately alone in a module that
+ * imports nothing.
+ *
+ * Sibling of `recent-storage-keys.ts`, `checklist-storage-keys.ts` and
+ * `entry-cache-keys.ts`, and here for the same measured reason:
+ * `src/app/layout.tsx` mounts the auth provider on every page, so importing a
+ * store instead would pull the On Call domain model into every page's bundle —
+ * that cost 21 KiB gzip on `/` last time.
+ *
+ * Adding a store to the rebuilt On Call pages means adding its key to
+ * `ON_CALL_DEVICE_STATE_KEYS` below, not inventing a second sign-out path.
+ * None of these stores holds a phone number: they hold ids, titles, times,
+ * yes/no answers and the reader's own choices.
+ *
+ * Keep it free of imports. Anything added here is added to every page.
+ */
+
+/** `{ serviceId, siteId }` — the hospital this reader last chose. */
+export const onCallHospitalChoiceStorageKey = "clinical-kb-on-call-hospital-choice";
+/** `{ [service:site]: { [entryId]: title } }` — titles only, to name a withdrawn row. */
+export const onCallHandbookSeenStorageKey = "clinical-kb-on-call-handbook-seen";
+/** Reports sent from this device, so one fault is reported once (30 days). */
+export const onCallHandbookReportedStorageKey = "clinical-kb-on-call-handbook-reported";
+/** "You called 02:14" (and lane B's "Didn't connect"): entry ids and times, 12 hours. */
+export const onCallCallMarksStorageKey = "clinical-kb-on-call-call-marks";
+/** The reader's own team, for Now's "Your team" block. */
+export const onCallMyTeamStorageKey = "clinical-kb-on-call-my-team";
+/** The shift the reader picked when the roster could not say. */
+export const onCallShiftPickStorageKey = "clinical-kb-on-call-shift-pick";
+/** Lane D's hospital copy for no-signal areas. Used only if the owner approves lane D. */
+export const onCallHandbookOfflineStorageKey = "clinical-kb-on-call-handbook-offline-v1";
+/**
+ * `{ [service:site]: boolean }` — whether the hospital showed a pinned emergency
+ * row last time. A yes or no only, never the number, so Now can reserve the
+ * space before the network answers (review F7).
+ */
+export const onCallEmergencyPinnedStorageKey = "clinical-kb-on-call-emergency-pinned";
+/**
+ * Whether the signed-in reader edits any hospital handbook. The pages sheet
+ * reads it to list "Manage service" for editors only (review F24) without a
+ * fetch of its own. It is a navigation hint, not a permission: the server still
+ * decides every edit.
+ */
+export const onCallEditorFlagStorageKey = "clinical-kb-on-call-editor";
+/** "Your usual": the order frozen at the start of this shift (review F8). */
+export const onCallUsualOrderStorageKey = "clinical-kb-on-call-usual-order";
+
+/** Fired once after `clearOnCallDeviceState`, so mounted stores drop in-memory copies. */
+export const onCallDeviceStateChangedEvent = "clinical-kb-on-call-device-state-changed";
+
+export const ON_CALL_DEVICE_STATE_KEYS: readonly string[] = [
+  onCallHospitalChoiceStorageKey,
+  onCallHandbookSeenStorageKey,
+  onCallHandbookReportedStorageKey,
+  onCallCallMarksStorageKey,
+  onCallMyTeamStorageKey,
+  onCallShiftPickStorageKey,
+  onCallHandbookOfflineStorageKey,
+  onCallEmergencyPinnedStorageKey,
+  onCallEditorFlagStorageKey,
+  onCallUsualOrderStorageKey,
+];
+
+/**
+ * Sign-out, session-expiry and account-switch boundary.
+ *
+ * Each key is removed inside its own `try`, so one blocked key cannot keep the
+ * rest on a shared ward phone. The event is dispatched in a separate `try`
+ * whatever happened to storage: a store holding an in-memory copy must drop it
+ * even when the device refused to delete the saved one. Called from
+ * `src/lib/supabase/client.tsx`; do not invent a second sign-out path.
+ */
+export function clearOnCallDeviceState(): void {
+  if (typeof window === "undefined") return;
+  for (const key of ON_CALL_DEVICE_STATE_KEYS) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Blocked storage: nothing further can be removed for this key.
+    }
+  }
+  try {
+    window.dispatchEvent(new Event(onCallDeviceStateChangedEvent));
+  } catch {
+    // No window events to send; nothing is listening either.
+  }
+}
+
+/** True only when the handbook last said this reader edits a hospital handbook. */
+export function readOnCallEditorFlag(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(onCallEditorFlagStorageKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Recorded by `useHospitalHandbook` whenever it reads the reader's services.
+ * A non-editor removes the key rather than storing "0", so a device nobody has
+ * edited from carries no trace of the flag.
+ */
+export function rememberOnCallEditorFlag(isEditor: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (isEditor === readOnCallEditorFlag()) return;
+    if (isEditor) window.localStorage.setItem(onCallEditorFlagStorageKey, "1");
+    else window.localStorage.removeItem(onCallEditorFlagStorageKey);
+    window.dispatchEvent(new Event(onCallDeviceStateChangedEvent));
+  } catch {
+    // Blocked storage: the sheet keeps its default, which hides Manage service.
+  }
+}
