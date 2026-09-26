@@ -75,6 +75,26 @@ describe("readSiteContentRecordsCached", () => {
     expect(second.rows).toEqual(first.rows);
   });
 
+  it("shares one cache across separately loaded copies of the module", async () => {
+    // A production build loads this module once for instrumentation.ts and again for the route
+    // handlers; the startup warm only helps if both copies read the same entries.
+    const time = clock();
+    const read = vi.fn(async () => rows("current"));
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+
+    vi.resetModules();
+    const otherCopy = await import("@/lib/site-content/site-content-record-cache");
+    const fromOtherCopy = await otherCopy.readSiteContentRecordsCached({
+      kind: "form",
+      slug: null,
+      read,
+      now: time.now,
+    });
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(fromOtherCopy.age).toBe("fresh");
+  });
+
   it("holds the fresh window, then refreshes once past it", async () => {
     const time = clock();
     const read = vi.fn(async () => rows("current"));
