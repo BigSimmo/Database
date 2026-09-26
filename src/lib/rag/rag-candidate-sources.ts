@@ -1031,6 +1031,16 @@ export async function searchDocumentLookupFastPath(args: {
     if (error || !data?.length) return [] as DocumentLookupRow[];
     return data as DocumentLookupRow[];
   };
+  // Independent of the lookup RPCs, so it runs alongside them instead of adding a serial round trip.
+  const titleAliasDocumentsPromise = fetchDocumentTitleAliasRows({
+    supabase: args.supabase,
+    query: args.query,
+    ownerId: args.ownerId,
+    accessScope: args.accessScope,
+    documentIds: args.documentIds,
+  });
+  // Keeps an early abort in the lookups below from also surfacing as an unhandled rejection here.
+  titleAliasDocumentsPromise.catch(() => undefined);
   const [primaryVariant, ...siblingVariants] = variants;
   const primaryDocuments = primaryVariant === undefined ? [] : await runDocumentLookup(primaryVariant, 12);
   const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryDocuments, 12);
@@ -1038,13 +1048,7 @@ export async function searchDocumentLookupFastPath(args: {
     ? [primaryDocuments]
     : [primaryDocuments, ...(await Promise.all(siblingVariants.map((variant) => runDocumentLookup(variant, 8))))];
   recordTextVariantFanout(args.telemetry, "match_documents_for_query", documentSets.length, skipSiblings);
-  const titleAliasDocuments = await fetchDocumentTitleAliasRows({
-    supabase: args.supabase,
-    query: args.query,
-    ownerId: args.ownerId,
-    accessScope: args.accessScope,
-    documentIds: args.documentIds,
-  });
+  const titleAliasDocuments = await titleAliasDocumentsPromise;
   const documentsById = new Map<string, DocumentLookupRow>();
   for (const document of [...titleAliasDocuments, ...documentSets.flat()]) {
     const existing = documentsById.get(document.id);
@@ -1177,7 +1181,28 @@ export async function loadChunksForMemoryCards(
   } else {
     documentQuery = documentQuery.is("owner_id", null);
   }
-  const { data: documents, error: documentsError } = await documentQuery;
+  const chunkColumns =
+    "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id";
+  const fetchChunks = (ids: string[], documentIdsForChunks: string[]) =>
+    supabase
+      .from("document_chunks")
+      .select(chunkColumns)
+      .in("id", ids)
+      .in("document_id", documentIdsForChunks)
+      .limit(ids.length);
+  // The chunk read only needs the document gate to filter its rows, not to build its query, so when
+  // the candidate set is small it runs alongside the document read instead of after it (one fewer
+  // cross-region round trip). The rows kept below are exactly the ones the serial read returned.
+  const candidateChunkIds = Array.from(
+    new Set(
+      cards.filter((card) => documentIds.includes(card.document_id)).flatMap((card) => card.source_chunk_ids ?? []),
+    ),
+  );
+  const prefetchChunks = candidateChunkIds.length > 0 && candidateChunkIds.length <= 80;
+  const [{ data: documents, error: documentsError }, prefetched] = await Promise.all([
+    documentQuery,
+    prefetchChunks ? fetchChunks(candidateChunkIds, documentIds) : Promise.resolve(null),
+  ]);
   if (documentsError || !documents?.length) return [] as SearchResult[];
 
   const documentById = new Map(documents.map((document) => [document.id, document]));
@@ -1188,14 +1213,12 @@ export async function loadChunksForMemoryCards(
     ),
   ).slice(0, 80);
   if (chunkIds.length === 0) return [] as SearchResult[];
-  const { data: chunks, error: chunksError } = await supabase
-    .from("document_chunks")
-    .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
-    )
-    .in("id", chunkIds)
-    .in("document_id", [...allowedDocumentIds])
-    .limit(chunkIds.length);
+  const chunkIdSet = new Set(chunkIds);
+  const { data: fetchedChunks, error: chunksError } =
+    prefetched ?? (await fetchChunks(chunkIds, [...allowedDocumentIds]));
+  const chunks = fetchedChunks?.filter(
+    (chunk) => chunkIdSet.has(chunk.id) && allowedDocumentIds.has(chunk.document_id),
+  );
   if (chunksError || !chunks?.length) return [] as SearchResult[];
   const bestCardByChunk = new Map<string, DocumentMemoryCard>();
   for (const card of cards) {
@@ -1241,6 +1264,9 @@ export async function loadChunksForMemoryCards(
 }
 
 type ChunkScopeRow = { id: string; document_id: string };
+
+const HYDRATED_CHUNK_COLUMNS =
+  "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id";
 
 type HydratedDocumentRow = {
   id: string;
@@ -1342,6 +1368,10 @@ export async function loadChunksForSignalMatches(args: {
   const accessScope = retrievalAccessScopeForArgs(args);
   const cacheScopeKey = retrievalAccessScopeKey(accessScope);
 
+  // The scope read fetches the full chunk rows, not just id + document_id, so the chunk read further
+  // down can use them once the document gate has passed instead of paying a third serial round trip.
+  // Rows reach the result only after that gate, exactly as before.
+  const prefetchedChunkRows = new Map<string, HydratedChunkRow>();
   const chunkScopesResults = await loadRowsWithCache<ChunkScopeRow>({
     cache: cache.chunkScopes,
     ids: chunkIds,
@@ -1349,9 +1379,10 @@ export async function loadChunksForSignalMatches(args: {
     fetchRows: async (missingChunkIds) => {
       const { data, error } = await args.supabase
         .from("document_chunks")
-        .select("id,document_id")
+        .select(HYDRATED_CHUNK_COLUMNS)
         .in("id", missingChunkIds)
         .limit(missingChunkIds.length);
+      if (!error) for (const row of (data ?? []) as HydratedChunkRow[]) prefetchedChunkRows.set(row.id, row);
       return { data: data as ChunkScopeRow[] | null, error };
     },
   });
@@ -1395,15 +1426,19 @@ export async function loadChunksForSignalMatches(args: {
     ids: allowedChunkIds,
     scopeKey: cacheScopeKey,
     fetchRows: async (missingAllowedChunkIds) => {
+      const prefetched = missingAllowedChunkIds
+        .map((id) => prefetchedChunkRows.get(id))
+        .filter((row): row is HydratedChunkRow => Boolean(row && allowedDocumentIds.has(row.document_id)));
+      const remainingIds = missingAllowedChunkIds.filter((id) => !prefetchedChunkRows.has(id));
+      if (remainingIds.length === 0) return { data: prefetched, error: null };
       const { data, error } = await args.supabase
         .from("document_chunks")
-        .select(
-          "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
-        )
-        .in("id", missingAllowedChunkIds)
+        .select(HYDRATED_CHUNK_COLUMNS)
+        .in("id", remainingIds)
         .in("document_id", [...allowedDocumentIds])
-        .limit(missingAllowedChunkIds.length);
-      return { data: data as HydratedChunkRow[] | null, error };
+        .limit(remainingIds.length);
+      if (error) return { data: null, error };
+      return { data: [...prefetched, ...((data ?? []) as HydratedChunkRow[])], error: null };
     },
   });
   const chunks = chunksResults.filter((chunk): chunk is HydratedChunkRow => chunk !== null);

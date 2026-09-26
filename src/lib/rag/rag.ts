@@ -800,6 +800,40 @@ function candidateMetadataExpansionTerms(query: string, candidates: SearchResult
   );
 }
 
+/**
+ * Starts a retrieval lane early with its own scratch telemetry, so a lane whose result is later
+ * discarded (an earlier fast path returned) cannot mark the search degraded or change its telemetry.
+ */
+function startSpeculativeRetrieval<T>(run: (laneTelemetry: SearchTelemetry) => Promise<T>) {
+  const laneTelemetry = {} as SearchTelemetry;
+  const startedAt = Date.now();
+  let settledAt: number | null = null;
+  const promise = run(laneTelemetry).finally(() => {
+    settledAt = Date.now();
+  });
+  // Consumed later or deliberately discarded; either way a rejection must not go unhandled.
+  promise.catch(() => undefined);
+  return {
+    promise,
+    telemetry: laneTelemetry,
+    durationMs: () => (settledAt ?? Date.now()) - startedAt,
+  };
+}
+
+/** Copies the only fields the candidate-source lanes write into the request's telemetry. */
+function mergeSpeculativeLaneTelemetry(telemetry: SearchTelemetry, laneTelemetry: SearchTelemetry) {
+  if (laneTelemetry.hybrid_rpc_errors) {
+    telemetry.hybrid_rpc_errors = { ...(telemetry.hybrid_rpc_errors ?? {}), ...laneTelemetry.hybrid_rpc_errors };
+  }
+  if (laneTelemetry.text_variant_rpc_calls) {
+    telemetry.text_variant_rpc_calls = {
+      ...(telemetry.text_variant_rpc_calls ?? {}),
+      ...laneTelemetry.text_variant_rpc_calls,
+    };
+  }
+  if (laneTelemetry.text_variant_early_exit) telemetry.text_variant_early_exit = true;
+}
+
 /** Expand clinical query with candidate metadata. */
 function expandClinicalQueryWithCandidateMetadata(query: string, expandedQuery: string, candidates: SearchResult[]) {
   const metadataTerms = candidateMetadataExpansionTerms(query, candidates);
@@ -1342,6 +1376,58 @@ async function searchChunksWithTiming(
   let embeddingStartedAt = 0;
 
   let textFastResults: SearchResult[] = [];
+  // Table-fact and document-lookup retrieval depend only on the query, never on the text lane's
+  // results, so once the text lane has not answered on its own they start and run alongside memory
+  // and visual hydration instead of after them (each lane is several Singapore-to-Sydney round
+  // trips). They are not started before the first text fast-path decision, so a query that text
+  // answers outright pays no extra database work. Their results are still consumed at the same
+  // points and in the same merge order below, so ranking is unchanged.
+  const independentLanes: {
+    tableFacts: ReturnType<
+      typeof startSpeculativeRetrieval<Awaited<ReturnType<typeof searchTableFactCandidates>>>
+    > | null;
+    documentLookup: ReturnType<typeof startSpeculativeRetrieval<SearchResult[]>> | null;
+  } = { tableFacts: null, documentLookup: null };
+  let independentLanesStarted = false;
+  const startIndependentLanes = () => {
+    if (independentLanesStarted) return;
+    independentLanesStarted = true;
+    if (
+      queryClassification.queryClass === "table_threshold" ||
+      queryClassification.queryClass === "medication_dose_risk"
+    ) {
+      independentLanes.tableFacts = startSpeculativeRetrieval((laneTelemetry) =>
+        searchTableFactCandidates({
+          supabase,
+          query: retrievalQuery,
+          queryVariants,
+          ownerId: args.ownerId,
+          accessScope: args.accessScope,
+          documentIds: documentFilterList,
+          allowGlobalSearch: args.allowGlobalSearch,
+          matchCount: Math.min(candidateCount, 48),
+          telemetry: laneTelemetry,
+          cache: chunkLoadCache,
+          signal: args.signal,
+        }),
+      );
+    }
+    if (shouldAttemptDocumentLookupFastPath(queryClassification.queryClass, queryAnalysis)) {
+      independentLanes.documentLookup = startSpeculativeRetrieval((laneTelemetry) =>
+        searchDocumentLookupFastPath({
+          supabase,
+          query: args.query,
+          queryVariants,
+          ownerId: args.ownerId,
+          accessScope: args.accessScope,
+          documentIds: documentFilterList,
+          matchCount: candidateCount,
+          telemetry: laneTelemetry,
+          signal: args.signal,
+        }),
+      );
+    }
+  };
   const textRpcStartedAt = Date.now();
   const textData = await searchTextChunkCandidates({
     supabase,
@@ -1404,6 +1490,7 @@ async function searchChunksWithTiming(
       return finishSearch(searchTiming, { results: textFastResults, telemetry });
     }
 
+    startIndependentLanes();
     const memoryBoost = await measureSearchPhase(searchTiming, "memory_hydration", () =>
       withMemoryBoostedCandidates({
         supabase,
@@ -1454,27 +1541,18 @@ async function searchChunksWithTiming(
     }
   }
 
-  if (
-    queryClassification.queryClass === "table_threshold" ||
-    queryClassification.queryClass === "medication_dose_risk"
-  ) {
-    const tableFactStartedAt = Date.now();
-    const tableFactCandidates = await searchTableFactCandidates({
-      supabase,
-      query: retrievalQuery,
-      queryVariants,
-      ownerId: args.ownerId,
-      accessScope: args.accessScope,
-      documentIds: documentFilterList,
-      allowGlobalSearch: args.allowGlobalSearch,
-      matchCount: Math.min(candidateCount, 48),
-      telemetry,
-      cache: chunkLoadCache,
-      signal: args.signal,
-    });
+  startIndependentLanes();
+  const speculativeTableFacts = independentLanes.tableFacts;
+  const speculativeDocumentLookup = independentLanes.documentLookup;
+  if (speculativeTableFacts) {
+    const tableFactWaitStartedAt = Date.now();
+    const tableFactCandidates = await speculativeTableFacts.promise;
     throwIfAborted(args.signal);
-    const tableFactLatencyMs = Date.now() - tableFactStartedAt;
-    telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
+    mergeSpeculativeLaneTelemetry(telemetry, speculativeTableFacts.telemetry);
+    // Only the time this request actually waited is on the critical path; the lane's own duration
+    // stays on its layer record.
+    telemetry.supabase_rpc_latency_ms += Date.now() - tableFactWaitStartedAt;
+    const tableFactLatencyMs = speculativeTableFacts.durationMs();
     recordRetrievalLayer(telemetry, "table_facts", tableFactCandidates.length, {
       latencyMs: tableFactLatencyMs,
       topScore: layerTopScore(tableFactCandidates),
@@ -1484,22 +1562,13 @@ async function searchChunksWithTiming(
     }
   }
 
-  if (shouldAttemptDocumentLookupFastPath(queryClassification.queryClass, queryAnalysis)) {
-    const documentLookupStartedAt = Date.now();
-    const documentLookupData = await searchDocumentLookupFastPath({
-      supabase,
-      query: args.query,
-      queryVariants,
-      ownerId: args.ownerId,
-      accessScope: args.accessScope,
-      documentIds: documentFilterList,
-      matchCount: candidateCount,
-      telemetry,
-      signal: args.signal,
-    });
+  if (speculativeDocumentLookup) {
+    const documentLookupWaitStartedAt = Date.now();
+    const documentLookupData = await speculativeDocumentLookup.promise;
     throwIfAborted(args.signal);
-    const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
-    telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;
+    mergeSpeculativeLaneTelemetry(telemetry, speculativeDocumentLookup.telemetry);
+    telemetry.supabase_rpc_latency_ms += Date.now() - documentLookupWaitStartedAt;
+    const documentLookupLatencyMs = speculativeDocumentLookup.durationMs();
     recordRetrievalLayer(telemetry, "document_lookup", documentLookupData.length, {
       latencyMs: documentLookupLatencyMs,
       topScore: layerTopScore(documentLookupData as SearchResult[]),
