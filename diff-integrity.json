@@ -741,8 +741,8 @@
     },
     {
       "path": "tests/developer-hazards-page.dom.test.tsx",
-      "before": 7,
-      "after": 6,
+      "before": 8,
+      "after": 7,
       "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
       "approvedOn": "2026-09-26"
     },
