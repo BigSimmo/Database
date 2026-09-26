@@ -8,9 +8,9 @@
 // Modes (shared by both checks):
 //   (no arguments)              the working tree (local use)
 //   --base <sha> --head <sha>   what the change did: added lines, and growth past a ceiling
-//   INSTRUCTIONS_CHECK_MODE=ci  the same, reading BASE_SHA and HEAD_SHA from the environment; both
-//                               must be set, except that an all-zero BASE_SHA (first push of a new
-//                               branch) checks HEAD's in-scope files in full
+//   INSTRUCTIONS_CHECK_MODE=ci  the same, reading BASE_SHA and HEAD_SHA from the environment; an
+//                               empty or all-zero BASE_SHA (a scheduled run, or the first push of a
+//                               new branch) checks HEAD's in-scope files in full
 //   --paths <file|folder...>    retired rules only, over any files (the budget does not apply)
 // Option: --root <repo>.
 // Exit: the worst of the two checks — 0 pass, 1 a real problem, 2 could not check.

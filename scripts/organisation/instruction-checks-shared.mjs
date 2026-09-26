@@ -75,8 +75,9 @@ export function parseInstructionArgs(argv, env = process.env, { allow = [] } = {
         "INSTRUCTIONS_CHECK_MODE=ci takes the range from BASE_SHA and HEAD_SHA; do not pass flags too",
       );
     }
-    args.base = env.BASE_SHA ?? "";
-    args.head = env.HEAD_SHA ?? "";
+    // Scheduled and manual runs have no base: like the organisation map step, check HEAD in full.
+    args.base = (env.BASE_SHA ?? "").trim() || "0".repeat(40);
+    args.head = (env.HEAD_SHA ?? "").trim() || "HEAD";
     args.fromEnv = true;
   }
 

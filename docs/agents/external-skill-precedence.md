@@ -44,10 +44,11 @@ Output-style plugins such as caveman mode may compress prose. They must never co
   network/provider access requires explicit user confirmation per the "API and provider confirmation
   boundary" section.
 - **PR titles and descriptions are parsed input, not prose.** `.github/workflows/pr-policy.yml`
-  runs `scripts/pr-policy.mjs` against the exact PR title/body text and hard-blocks the merge
+  runs `scripts/pr-policy.mjs` against the exact PR title/body text. It hard-blocks the merge
   when a clinical-risk diff lacks a complete `## Clinical Governance Preflight` (every item from
-  `requiredClinicalGovernanceItems` checked) or a RAG-ranking-surface diff lacks a satisfying
-  `RAG impact:` line (see "RAG ranking protection" below). Caveman-style fragment-dropping breaks
+  `requiredClinicalGovernanceItems` checked), and warns (advisory since 2026-09-17) when a
+  RAG-ranking-surface diff lacks a satisfying `RAG impact:` line (see "RAG ranking protection" in
+  AGENTS.md). Caveman-style fragment-dropping breaks
   this exact-format contract — a paraphrased checklist item or a shortened `RAG impact:` reason can
   silently fail `governanceItemSatisfied`/`ragImpactDeclared` even though the PR is otherwise fine.
   `gh pr create`/`gh pr edit` bodies and any `PR_POLICY_BODY.md` content therefore always get

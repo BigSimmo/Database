@@ -362,7 +362,7 @@ describe("combined check-instructions", () => {
     expect(fail.out).not.toContain("docs/agents/a.md:1");
   });
 
-  it("in CI mode, checks the whole head for a new branch and refuses a missing range", () => {
+  it("in CI mode, checks the whole head for a new branch or a run with no base, and refuses an unreachable base", () => {
     const { root, base } = repo({ "docs/agents/a.md": "use the blue form\n" });
     const firstPush = run(COMBINED, ["--root", root], {
       INSTRUCTIONS_CHECK_MODE: "ci",
@@ -372,9 +372,10 @@ describe("combined check-instructions", () => {
     expect(firstPush.code).toBe(1);
     expect(firstPush.out).toContain("docs/agents/a.md:1 [blue-form]");
 
-    const missing = run(COMBINED, ["--root", root], { INSTRUCTIONS_CHECK_MODE: "ci", HEAD_SHA: base });
-    expect(missing.code).toBe(2);
-    expect(missing.out).toContain("BASE_SHA is missing");
+    // Scheduled and manual runs pass no base: they check the head in full, like the map step.
+    const noBase = run(COMBINED, ["--root", root], { INSTRUCTIONS_CHECK_MODE: "ci", HEAD_SHA: base });
+    expect(noBase.code).toBe(1);
+    expect(noBase.out).toContain("docs/agents/a.md:1 [blue-form]");
     const unreachable = run(COMBINED, ["--root", root], {
       INSTRUCTIONS_CHECK_MODE: "ci",
       BASE_SHA: "1".repeat(40),
