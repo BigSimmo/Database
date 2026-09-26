@@ -51,8 +51,10 @@ export const GOVERNED_SOURCE_HOSTS = [
   "www.wacountry.health.wa.gov.au",
   "www.who.int",
   "www.wslhd.health.nsw.gov.au",
+  "www.vinnies.org.au",
   "www.wungening.com.au",
   "www1.health.gov.au",
+  "youthfocus.com.au",
 ] as const;
 
 const governedSourceHosts = new Set<string>(GOVERNED_SOURCE_HOSTS);
