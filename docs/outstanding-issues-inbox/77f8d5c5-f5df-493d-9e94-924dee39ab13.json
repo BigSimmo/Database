@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "77f8d5c5-f5df-493d-9e94-924dee39ab13",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Release browser matrix: three intermittent WebKit/Firefox failures still unexplained after the 2026-09-26 fixes",
+    "detail": "Seen once each on main release-browser-matrix runs 36180096691 and 36181326702, all passing locally (32/32 including repeats): (1) firefox ui-smoke 'document detail back arrow restores its originating search' - the Open link click completed but no navigation followed for 30s (trace shows prefetches only; possible dropped client navigation); (2) webkit ui-clinical-ask:85 '@critical keeps local-only Smart search within five catalogue modes' - smart-search-intent-cue never rendered; (3) webkit + mobile-pwa-standalone ui-overlap:613 'the one-line prompt rail offers a real control to reach its clipped chips' - the scroll control did not move the rail. Diagnostics artifacts are on those runs. The tools details-panel and guide-centre failures from the same runs are fixed by the tools overflow-x-clip change and the guide opening-frame wait.",
+    "source": "CI efficiency follow-up session 2026-09-26",
+    "issueUlid": "01M3DSY3SDPTTS7XGG3632Q1Z7"
+  }
+}

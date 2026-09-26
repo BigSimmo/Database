@@ -473,7 +473,7 @@ export function ToolsSearchResultsPage({
   return (
     <main
       data-testid={testId}
-      className="mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-12 pt-4 text-[color:var(--text)] sm:px-6 sm:pt-6 lg:px-8 lg:pt-8"
+      className="mx-auto w-full max-w-[90rem] overflow-x-clip px-4 pb-12 pt-4 text-[color:var(--text)] sm:px-6 sm:pt-6 lg:px-8 lg:pt-8"
     >
       {desktopComposerSlotId ? (
         <DesktopComposerPortalSlot

@@ -695,6 +695,12 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       const detail = results.getByRole("complementary", { name: title });
       await expect(detail.locator(`a[href="${href}"]`).first()).toBeVisible();
     }
+    // The desktop details panel is sticky: scrolling to the end of the list must leave it on
+    // screen. An overflow-x-hidden page wrapper once made the wrapper the sticky scroll
+    // container, so the panel scrolled away and opening details jumped the page to the top.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+    await expect(results.getByRole("complementary", { name: "PsychSift Search" })).toBeInViewport();
     // External companion-app launchers were removed; no localhost links should remain.
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
