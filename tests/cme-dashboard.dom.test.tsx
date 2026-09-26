@@ -100,7 +100,8 @@ describe("the dashboard", () => {
     renderAt("2026-09-19T02:00:00Z");
     expect(screen.getByTestId("cme-total-hours")).toHaveTextContent("32.5");
     expect(screen.getByTestId("progress-mark")).toBeInTheDocument();
-    expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent(/45 hours by 31 December/);
+    expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent(/about 45 h by 31 December/);
+    expect(screen.getByTestId("cme-pace-sentence")).not.toHaveTextContent(/on track/i);
     expect(screen.getByTestId("cme-next-action")).toBeInTheDocument();
   });
 
@@ -177,9 +178,9 @@ describe("the dashboard", () => {
     render(<CmeDashboard set={set} entries={entries} now={new Date("2026-09-19T02:00:00Z")} />);
     const next = screen.getByTestId("cme-next-action");
     expect(next).toHaveTextContent(/total cpd hours/i);
-    expect(next).toHaveTextContent(/45 hours short/i);
+    expect(next).toHaveTextContent(/45 h to go/i);
     expect(next).toHaveAttribute("href", "/cme/new?year=2026");
-    expect(next).not.toHaveTextContent(/every requirement is met/i);
+    expect(next).not.toHaveTextContent(/every target is reached/i);
   });
 
   it("points the next action at whichever requirement is furthest from being met, not the first unmet in list order", () => {

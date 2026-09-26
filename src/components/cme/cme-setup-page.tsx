@@ -151,7 +151,7 @@ export function CmeSetupPage({
         </h1>
         <p className={cn(textMuted, "text-sm leading-relaxed")}>
           Start from the versioned Australian baseline + psychiatry peer-review preset, then edit it to match your own
-          CPD home. This preset is a starting draft, not a claim of full RANZCP CPD-home compliance.
+          CPD home. A preset is a starting draft, not a claim that it matches your CPD home&rsquo;s whole programme.
         </p>
 
         <section data-testid="cme-setup-preset" className={cn(cardSurface, "p-4")}>
@@ -177,7 +177,7 @@ export function CmeSetupPage({
 
         {demoMode ? (
           <InlineNotice tone="neutral">
-            Demo mode is read-only. The complete confirmation form remains visible for inspection.
+            Demo mode is read-only. The whole confirmation form stays visible so you can look through it.
           </InlineNotice>
         ) : null}
         {error ? <InlineNotice tone="neutral">{error}</InlineNotice> : null}
@@ -187,8 +187,8 @@ export function CmeSetupPage({
         {draft.requirements.length === 0 ? (
           <div>
             <InlineNotice tone="neutral">
-              This saved year has no complete requirement set yet. Existing log entries stay in place while you repair
-              the setup.
+              This saved year has no usable requirement set yet. Existing log entries stay in place while you repair the
+              setup.
             </InlineNotice>
             <div className="mt-3">
               <Button
@@ -436,7 +436,7 @@ export function CmeSetupPage({
                   {requirement.spec.shape === "activity-count" ? (
                     <div className="space-y-3">
                       <TextField
-                        label="Required domains"
+                        label="Practice domains"
                         id={`cme-requirement-${requirement.id}-domains`}
                         value={requirement.spec.buckets.join(", ")}
                         onChange={(event) =>
@@ -456,7 +456,7 @@ export function CmeSetupPage({
                         hint="Comma-separated; each selected domain is tracked separately."
                       />
                       <TextField
-                        label="Activities required per domain"
+                        label="Activities per domain"
                         id={`cme-requirement-${requirement.id}-count`}
                         type="number"
                         min="1"

@@ -31,19 +31,20 @@ export function CmeYearCheckPage({ set, entries }: { set: CmeRequirementSet; ent
     <main data-testid="cme-year-check" className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 sm:px-6">
       <p className={eyebrowText}>{set.year} year check</p>
       <h1 className="mt-1 text-xl font-semibold text-[color:var(--text)]">
-        {check.readyCount} of {check.rows.length} ready
+        {check.readyCount} of {check.rows.length} done
       </h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         Everything an audit of this year would ask for, and what each one rests on. Targets are the ones you confirmed
         for {set.year}
-        {set.confirmedOn ? ` on ${formatCalendarDateShort(set.confirmedOn)}` : ""}.
+        {set.confirmedOn ? ` on ${formatCalendarDateShort(set.confirmedOn)}` : ""}. It records what you checked and is
+        not certification.
       </p>
 
       <CheckGroup title="Targets" rows={targets} byId={byId} />
       <CheckGroup title="For every activity" rows={records} byId={byId} />
 
       <p className={cn(textMuted, "mt-6 text-sm")}>
-        Ready to hand over? Open your{" "}
+        To hand it over, open your{" "}
         <Link
           href={`/cme/summary?year=${set.year}`}
           className="inline-flex min-h-tap items-center font-semibold text-[color:var(--clinical-accent)]"
@@ -98,7 +99,7 @@ function CheckRow({ row, byId }: { row: CmeYearCheckRow; byId: ReadonlyMap<strin
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-[color:var(--text)]">
             {row.label}
-            <span className="sr-only">{row.ready ? " — ready" : " — not ready"}</span>
+            <span className="sr-only">{row.ready ? " — done" : " — to do"}</span>
           </p>
           <p className={cn(textMuted, "mt-0.5 text-sm")}>{row.summary}</p>
           {showProof ? (

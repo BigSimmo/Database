@@ -203,11 +203,10 @@ export function CmePaceChart({
 
   const linePoints = steps.map((step) => `${x(step.day).toFixed(1)},${y(step.hours).toFixed(1)}`).join(" ");
   const evenPaceToday = (targetHours * (endIndex + 1)) / yearDays;
-  const ahead = running >= evenPaceToday;
   const description =
     todayIndex === null
       ? `${formatHours(running)} hours logged in ${year}, against a target of ${formatHours(targetHours)}.`
-      : `${formatHours(running)} hours logged so far. An even pace to ${formatHours(targetHours)} hours by 31 December would be about ${Math.round(evenPaceToday)} by today, so you are ${ahead ? "ahead of" : "behind"} that pace.`;
+      : `${formatHours(running)} hours logged so far. An even pace to ${formatHours(targetHours)} hours by 31 December would be about ${Math.round(evenPaceToday)} by today.`;
 
   return (
     <figure data-testid="cme-pace-chart" className="m-0">

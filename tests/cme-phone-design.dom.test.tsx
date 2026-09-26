@@ -101,12 +101,13 @@ describe("the dashboard's progress picture", () => {
     render(<CmeDashboard set={SET} entries={ENTRIES} now={new Date("2026-09-01T02:00:00Z")} />);
     const chart = within(screen.getByTestId("cme-pace-chart")).getByRole("img");
     expect(chart).toHaveAccessibleName(/22\.5 hours logged so far/);
-    expect(chart).toHaveAccessibleName(/behind that pace/);
+    // A fact, never a grade: no "ahead" or "behind" (spec 2026-09-26, section 7.1).
+    expect(chart).not.toHaveAccessibleName(/ahead|behind/);
   });
 });
 
 describe("the pace chart", () => {
-  it("says ahead when logged hours are above an even pace", () => {
+  it("states the even pace as a number, never as ahead or behind", () => {
     render(
       <CmePaceChart
         entries={[entry({ id: "big", date: "2026-01-05", allocations: [{ category: "educational", hours: 40 }] })]}
@@ -115,7 +116,9 @@ describe("the pace chart", () => {
         todayIndex={60}
       />,
     );
-    expect(screen.getByRole("img")).toHaveAccessibleName(/ahead of that pace/);
+    expect(screen.getByRole("img")).toHaveAccessibleName(
+      "40 hours logged so far. An even pace to 50 hours by 31 December would be about 8 by today.",
+    );
   });
 });
 

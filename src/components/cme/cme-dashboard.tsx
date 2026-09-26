@@ -235,7 +235,7 @@ function computeNextAction(args: {
   }
 
   if (unmet.length === 0 && totalHours >= set.totalHours) {
-    return "Every requirement is met for this year. Keep logging activities as you go.";
+    return "Every target is reached for this year. Keep logging activities as you go.";
   }
 
   if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
@@ -252,7 +252,7 @@ function computeNextAction(args: {
   }
 
   if (unmet.length === 0) {
-    return `Next: Total CPD hours — ${formatCmeHours(set.totalHours - totalHours)} hours short`;
+    return `Next: Total CPD hours — ${formatCmeHours(set.totalHours - totalHours)} h to go`;
   }
 
   const next = furthestFromMet(set, unmet)!;
@@ -267,11 +267,12 @@ function paceSentence(
   endLabel: string,
 ): string {
   const projected = Math.round(pace.projectedHours);
+  const target = `${formatCmeHours(targetHours)} h`;
   if (pace.shortfallHours <= 0) {
-    return `At this rate, you're on track for about ${projected} hours by ${endLabel} — enough to meet your ${formatCmeHours(targetHours)}-hour target.`;
+    return `At this rate, about ${projected} h by ${endLabel}, which reaches your ${target} target.`;
   }
   const shortfall = Math.round(pace.shortfallHours);
-  return `At this rate, you're on track for about ${projected} hours by ${endLabel}, ${shortfall} short of your ${formatCmeHours(targetHours)}-hour target.`;
+  return `At this rate, about ${projected} h by ${endLabel}, ${shortfall} h under your ${target} target.`;
 }
 
 export function CmeDashboard({
@@ -547,7 +548,7 @@ export function CmeDashboard({
             Year check
           </span>
           <span className="text-sm font-semibold text-[color:var(--text)]">
-            {yearCheck.readyCount} of {yearCheck.rows.length} ready
+            {yearCheck.readyCount} of {yearCheck.rows.length} done
           </span>
         </Link>
         <Link

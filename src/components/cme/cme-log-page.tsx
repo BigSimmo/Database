@@ -54,7 +54,7 @@ export type CmeLogAttention = "evidence" | "reflection" | "copy";
 const ATTENTION_FILTERS: readonly { value: CmeLogAttention; label: string; matches: (entry: CmeEntry) => boolean }[] = [
   { value: "evidence", label: "Missing evidence", matches: (entry) => (entry.evidenceCount ?? 0) === 0 },
   { value: "reflection", label: "No reflection", matches: (entry) => entry.reflection.trim() === "" },
-  { value: "copy", label: "Not copied to MyCPD", matches: (entry) => !entry.transcribed },
+  { value: "copy", label: "Not copied", matches: (entry) => !entry.transcribed },
 ];
 
 type CategoryFilter = "all" | CmeCategory;
@@ -391,8 +391,8 @@ export function CmeLogPage({
       ) : null}
       {attention === "copy" ? (
         <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-log-copy-help">
-          Open each one and tap <span className="font-semibold">Copy for your CPD home</span>, then paste it into MyCPD.
-          Each is ticked off here as you copy it.
+          Open each one and tap <span className="font-semibold">Copy for your CPD home</span>, then paste it into your
+          CPD home&rsquo;s own record. Each is ticked off here as you copy it.
         </p>
       ) : null}
       {showArchived ? (

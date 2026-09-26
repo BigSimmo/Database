@@ -13,7 +13,7 @@ describe("CME requirement confirmation", () => {
   it("labels the versioned preset as a starting draft rather than full CPD-home compliance", () => {
     render(<CmeSetupPage year={2026} set={null} />);
     expect(screen.getByText(/Australian baseline \+ psychiatry peer-review preset/i)).toBeInTheDocument();
-    expect(screen.getByText(/not a claim of full RANZCP CPD-home compliance/i)).toBeInTheDocument();
+    expect(screen.getByText(/not a claim that it matches your CPD home’s whole programme/i)).toBeInTheDocument();
     expect(screen.getByText(/check your CPD-home programme structure/i)).toBeInTheDocument();
   });
 

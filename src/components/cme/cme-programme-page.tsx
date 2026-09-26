@@ -105,7 +105,7 @@ function targetRows(requirement: CmeRequirement): TargetRow[] {
         },
       ];
     case "task":
-      return [{ id: requirement.id, label: requirement.label, value: "Required" }];
+      return [{ id: requirement.id, label: requirement.label, value: "1" }];
   }
 }
 

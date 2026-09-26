@@ -175,7 +175,7 @@ export function CmeYearClosePanel({
             id="cme-year-close-note"
             hint={
               unmetCount > 0
-                ? `${unmetCount} ${unmetCount === 1 ? "requirement is" : "requirements are"} not met. A note — leave, illness, anything — goes on the record where an explanation belongs. It does not reduce the requirement.`
+                ? `${unmetCount} ${unmetCount === 1 ? "target is" : "targets are"} not reached yet. A note — leave, illness, anything — goes on the record where an explanation belongs. It does not reduce the requirement.`
                 : "A note goes on the record where an explanation belongs. It does not reduce any requirement."
             }
           >

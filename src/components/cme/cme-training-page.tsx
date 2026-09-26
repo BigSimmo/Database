@@ -155,7 +155,7 @@ function nextDueDetail(next: NextMilestone, today: string): string {
     return projectedOn === today ? "Due today." : `Due ${date}.`;
   }
   const target = milestone.dueFteMonths === null ? "its target" : formatFteMonths(milestone.dueFteMonths);
-  if (overdue) return `Overdue: your training clock reached ${target} on ${date}, and it is not marked complete.`;
+  if (overdue) return `Overdue: your training clock reached ${target} on ${date}, and it is not marked done.`;
   if (projectedOn <= today) return `Due today: your training clock reaches ${target} today.`;
   return `Projected for ${date}, when your training clock reaches ${target} at your current FTE. This is an estimate, not a college date.`;
 }
@@ -613,7 +613,7 @@ export function CmeTrainingPage({
               </>
             ) : (
               <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-training-next-detail">
-                {milestones.length === 0 ? "No milestones yet." : "Every milestone is marked complete."}
+                {milestones.length === 0 ? "No milestones yet." : "Every milestone is marked done."}
               </p>
             )}
           </section>
@@ -701,7 +701,7 @@ export function CmeTrainingPage({
                   <p className="font-semibold text-[color:var(--text)]">{milestone.label}</p>
                   <p className={cn(textMuted, "text-sm")}>
                     {milestone.completedOn
-                      ? `Completed ${formatCalendarDateLong(milestone.completedOn)}`
+                      ? `Done ${formatCalendarDateLong(milestone.completedOn)}`
                       : milestoneDueText(milestone)}
                   </p>
                 </div>
@@ -710,19 +710,19 @@ export function CmeTrainingPage({
                     <Button
                       variant="toolbar"
                       size="sm"
-                      aria-label={`Mark ${milestone.label} not complete`}
+                      aria-label={`Mark ${milestone.label} not done`}
                       onClick={() => void setCompleted(milestone, null)}
                     >
-                      Not complete
+                      Not done
                     </Button>
                   ) : (
                     <Button
                       variant="secondary"
                       size="sm"
-                      aria-label={`Mark ${milestone.label} complete`}
+                      aria-label={`Mark ${milestone.label} done`}
                       onClick={() => void setCompleted(milestone, today)}
                     >
-                      Mark complete
+                      Mark done
                     </Button>
                   )}
                   <Button

@@ -38,12 +38,13 @@ const ENTRIES = [
 ];
 
 describe("year check page", () => {
-  it("says how many rows are ready and states each status in words", () => {
+  it("says how many rows are done and states each status in words", () => {
     render(<CmeYearCheckPage set={SET} entries={ENTRIES} />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^\d+ of 10 ready$/);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^\d+ of 10 done$/);
+    expect(screen.getByText(/It records what you checked and is not certification\./)).toBeInTheDocument();
     const evidence = screen.getByTestId("cme-check-row-evidence");
     expect(evidence).toHaveAttribute("data-ready", "false");
-    expect(evidence).toHaveTextContent("Evidence kept for each activity — not ready");
+    expect(evidence).toHaveTextContent("Evidence kept for each activity — to do");
     expect(within(evidence).getByRole("link", { name: /^Peer review group/, hidden: true })).toHaveAttribute(
       "href",
       "/cme/log/b",
