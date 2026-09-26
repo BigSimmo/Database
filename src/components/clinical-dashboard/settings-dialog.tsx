@@ -1369,7 +1369,7 @@ export function SettingsDialog({
               <SettingsSection
                 id="development"
                 title="Owner panel"
-                note="Your own tools for running the app. Signing in with an administrator account is required to open them. Not clinical content."
+                note="Your own tools for running the app. Opens with a bookmarked owner link or an administrator sign-in; live pages such as the settings check need the sign-in. Not clinical content."
               >
                 <SettingsCard rowId="settings-row-development-page" padded>
                   <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Owner panel</p>
