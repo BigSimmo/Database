@@ -138,3 +138,8 @@ b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:
 # api-key still misclassifies those fields. DESCRIBED, NEVER QUOTED.
 2135b4aba3d2182a27944fce7b201f84de69cf8c:supabase/schema.sql:generic-api-key:13398
 2135b4aba3d2182a27944fce7b201f84de69cf8c:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
+# False positive: the migration seal entry for 20260925160000_calendar_feed_tokens.sql
+# is a SHA-256 of the migration file, keyed by a filename containing "tokens".
+# No credential material: the calendar feed stores only token hashes, never tokens.
+# Owner-approved in the PR #3038 session.
+19ef145378befcd1f8eb2a31f08e950fc389e66e:supabase/applied-migration-hashes.json:generic-api-key:274

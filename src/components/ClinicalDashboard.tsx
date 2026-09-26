@@ -3509,7 +3509,7 @@ function ClinicalDashboardContent({
                 ) : error ? (
                   <EmptyState
                     icon={CircleAlert}
-                    title="Answer unavailable"
+                    title={activeModeResultKind === "answer" ? "Answer unavailable" : "Search unavailable"}
                     body={error}
                     live="assertive"
                     tone="danger"
@@ -3691,6 +3691,7 @@ function ClinicalDashboardContent({
                         onDocumentFiltersApply={searchMode === "documents" ? handleDocumentFiltersApply : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
+                        searchFailed={searchMode === "documents" && Boolean(error) && errorKind !== "no-results"}
                       />
                     </>
                   )
