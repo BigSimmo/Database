@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { catalogToServiceRecord } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot } from "@/lib/service-catalog";
-import { detectClockTimeUrgency, detectServiceUrgentIntents } from "@/lib/service-urgent-routing";
+import {
+  detectClockTimeUrgency,
+  detectServiceUrgentIntents,
+  rankServiceUrgentRoutes,
+} from "@/lib/service-urgent-routing";
 import { rankServiceRecords } from "@/lib/service-ranker";
 import { serviceRecords } from "@/lib/services";
 import { serviceCatalogTags } from "@/lib/service-facets";
@@ -133,9 +137,38 @@ describe("Aboriginal, AOD, family violence and sexual assault urgent routing", (
     expect(titles("drunk and wants detox advice", 8).slice(0, 3)).toContain("Alcohol and Drug Support Line");
   });
 
-  it("pins 1800RESPECT for a family violence query", () => {
+  it("pins the Women's Domestic Violence Helpline first and 1800RESPECT second for a family violence query", () => {
+    // Owner decision (Josh, 2026-09-26): WA's own 24-hour helpline leads, 1800RESPECT straight after.
     expect(detectServiceUrgentIntents("partner hitting her")).toContain("family_violence");
-    expect(titles("partner hitting her", 8).slice(0, 3)).toContain("1800RESPECT");
+    const resultTitles = titles("partner hitting her", 8);
+    expect(resultTitles[0]).toBe("Women's Domestic Violence Helpline");
+    expect(resultTitles[1]).toBe("1800RESPECT");
+    expect(resultTitles.slice(0, 3)).toContain("1800RESPECT");
+
+    const urgent = rankServiceUrgentRoutes(serviceRecords, "partner hitting her");
+    expect(urgent.map(({ service }) => service.title)).toEqual(["Women's Domestic Violence Helpline", "1800RESPECT"]);
+    expect(urgent[0].score).toBeGreaterThan(urgent[1].score);
+  });
+
+  it("still pins 1800RESPECT first when the Women's Domestic Violence Helpline is unusable", () => {
+    const withoutHelpline = serviceRecords.filter((service) => service.title !== "Women's Domestic Violence Helpline");
+    expect(withoutHelpline.length).toBe(serviceRecords.length - 1);
+    const resultTitles = rankServiceRecords(withoutHelpline, "partner hitting her", 8, [], true).map(
+      ({ service }) => service.title,
+    );
+    expect(resultTitles[0]).toBe("1800RESPECT");
+    expect(resultTitles).not.toContain("Women's Domestic Violence Helpline");
+  });
+
+  it("keeps both family violence pins below an earlier emergency pin", () => {
+    const urgent = rankServiceUrgentRoutes(serviceRecords, "partner strangling her, can't breathe");
+    expect(urgent.map(({ service }) => service.title).slice(0, 3)).toEqual([
+      "Emergency services",
+      "Women's Domestic Violence Helpline",
+      "1800RESPECT",
+    ]);
+    const scores = urgent.map(({ score }) => score);
+    expect([...scores].sort((a, b) => b - a)).toEqual(scores);
   });
 
   it("pins SARC for a recent sexual assault query", () => {

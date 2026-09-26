@@ -706,9 +706,12 @@ export function repositorySourceReferenceIssues(
       issues.push(`Provider ${providerId} returned unsafe structured URL`);
     }
     if (
-      [sourceReference.publicationDate, sourceReference.reviewDate, sourceReference.expiryDate].some(
-        hasInvalidStructuredSourceDate,
-      )
+      [
+        sourceReference.publicationDate,
+        sourceReference.reviewDate,
+        sourceReference.lastUpdatedDate ?? null,
+        sourceReference.expiryDate,
+      ].some(hasInvalidStructuredSourceDate)
     ) {
       issues.push(`Provider ${providerId} returned an invalid structured date`);
     }

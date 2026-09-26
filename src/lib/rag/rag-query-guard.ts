@@ -49,9 +49,16 @@ export const clearlyOutsideCorpusMedicalPattern =
  * an outside-corpus override on those tokens would let exactly the queries the corpus cannot
  * answer through to a guess. `hyperkalaemia`/`hyperkalemia` are likewise NOT listed here:
  * they are the out-of-corpus token, not psychiatric context.
+ *
+ * The second line (#3944SV, 2026-09-26) adds psychiatric phenomena, risk terms and ward terms that a
+ * consumer question never carries. Without them "flight of ideas in mania", "gaming disorder",
+ * "car accident trauma assessment", "phone contact after discharge", "tv watching and negative
+ * symptoms" and "holiday leave from the ward" were refused on the consumer word alone. Passing
+ * this check does not force a search: the query still meets the soft tail, where
+ * `classifyCorpusGrounding` lets the corpus decide.
  */
 const psychiatricOrClinicalContextPattern =
-  /\b(?:ssri|antidepressant|antipsychotic|lithium|bipolar|depression|depressive|anxiety|psychiatry|psychiatric|triage|crisis|consultation|therapy|dose|dosage|medication|schizophrenia|catatonia)\b/i;
+  /\b(?:ssri|antidepressant|antipsychotic|lithium|bipolar|depression|depressive|anxiety|psychiatry|psychiatric|triage|crisis|consultation|therapy|dose|dosage|medication|schizophrenia|catatonia|flight of ideas|mania|manic|hypomania|hypomanic|psychosis|psychotic|trauma|traumatic|ptsd|disorder|symptoms?|discharge|ward|patients?|self[^a-z0-9]{0,3}harm|suicid(?:e|al|ality)|overdose)\b/i;
 
 export const unavailableDocumentNoisePattern =
   /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised|airport travel policy|gardening equipment checklist)\b/i;

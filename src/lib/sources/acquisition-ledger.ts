@@ -63,8 +63,18 @@ export type SourceAcquisitionDatePrecision = "day" | "month" | "year";
  * a real review date and must not carry a publication date, so it asserts exactly
  * what the publisher says and nothing more. Recording a review date in
  * `publicationDate` would still be wrong, and is still rejected.
+ *
+ * `last_updated` is a maintained page whose publisher states only when it was last
+ * updated — AIHW's monitoring hubs, the Royal Children's Hospital guidelines and
+ * several WA agency pages. An update is a third event, neither a publication nor a
+ * review: a page can be updated for a data refresh, a broken link or a typo without
+ * anyone reviewing it. The owner decided on 2026-09-26 that the register may carry
+ * that stamp, on condition that it is only ever shown and recorded as "last
+ * updated". So a `last_updated` record carries the stamp in `lastUpdatedDate` and
+ * must leave both `publicationDate` and `reviewDate` null; filing the stamp in
+ * either would assert an event the publisher never stated, and is rejected.
  */
-export type SourceDateModel = "published" | "continuously_updated";
+export type SourceDateModel = "published" | "continuously_updated" | "last_updated";
 
 export type SourceAcquisitionRecord = {
   id: string;
@@ -77,12 +87,18 @@ export type SourceAcquisitionRecord = {
   publicationDate: string | null;
   /**
    * The precision of whichever date the record carries — `publicationDate` for a
-   * published source, `reviewDate` for a continuously updated one.
+   * published source, `reviewDate` for a continuously updated one, and
+   * `lastUpdatedDate` for a last-updated one.
    */
   datePrecision: SourceAcquisitionDatePrecision;
   /** Omitted means `published`, which is the shape of most captures. */
   dateModel?: SourceDateModel;
   reviewDate: string | null;
+  /**
+   * The publisher's own "last updated" stamp, for a `last_updated` record only.
+   * Omitted (or null) on every other date model. Never a publication or review date.
+   */
+  lastUpdatedDate?: string | null;
   expiryDate: string | null;
   evidenceType: Exclude<ClinicalSourceType, "unknown">;
   documentStatus: "current" | "review_due" | "outdated";
@@ -190,6 +206,8 @@ function acquisitionReference(record: SourceAcquisitionRecord): ClinicalSourceRe
     version: record.version,
     publicationDate: record.publicationDate,
     reviewDate: record.reviewDate,
+    // Carried only when present, so every other record's reference is unchanged.
+    ...(record.lastUpdatedDate ? { lastUpdatedDate: record.lastUpdatedDate } : {}),
     expiryDate: record.expiryDate,
     jurisdiction: record.jurisdiction,
     evidenceType: record.evidenceType,
@@ -268,9 +286,18 @@ export function acquisitionLedgerIssues(
     requireText(record.capturedFor, "capturedFor", id, issues);
     requireStrictDate(record.publicationDate, "publicationDate", id, issues);
     requireStrictDate(record.reviewDate, "reviewDate", id, issues);
+    requireStrictDate(record.lastUpdatedDate ?? null, "lastUpdatedDate", id, issues);
     requireStrictDate(record.expiryDate, "expiryDate", id, issues);
     requireStrictDate(record.capturedAt, "capturedAt", id, issues);
     if (!record.capturedAt) issues.push(`${id}: capturedAt is required`);
+    // The update stamp is its own event and belongs only to the date model that
+    // says so; on any other record it would render as a date nobody asserted.
+    if (record.lastUpdatedDate && record.dateModel !== "last_updated") {
+      issues.push(
+        `${id}: lastUpdatedDate is recorded only under dateModel "last_updated"; ` +
+          `set dateModel to "last_updated" or remove lastUpdatedDate.`,
+      );
+    }
 
     // Completeness is required only of sources still in play. Metadata that could
     // not be established is frequently the reason a source was rejected, and a
@@ -278,18 +305,36 @@ export function acquisitionLedgerIssues(
     if (record.disposition !== "rejected") {
       requireText(record.version, "version", id, issues);
 
-      // A continuously updated page is dated by its review stamp, so that is the
-      // date the precision rules apply to — and it must not also claim a
-      // publication date it does not have.
+      // A continuously updated page is dated by its review stamp, and a
+      // last-updated page by its update stamp, so that is the date the precision
+      // rules apply to — and neither may also claim an event it does not have.
       const continuous = record.dateModel === "continuously_updated";
-      const datedField = continuous ? "reviewDate" : "publicationDate";
-      const dated = continuous ? record.reviewDate : record.publicationDate;
+      const lastUpdated = record.dateModel === "last_updated";
+      const datedField = lastUpdated ? "lastUpdatedDate" : continuous ? "reviewDate" : "publicationDate";
+      const dated = lastUpdated
+        ? (record.lastUpdatedDate ?? null)
+        : continuous
+          ? record.reviewDate
+          : record.publicationDate;
 
       if (!dated) issues.push(`${id}: ${datedField} is required`);
       if (continuous && record.publicationDate) {
         issues.push(
           `${id}: a continuously updated source has no publication event. Record the publisher's review ` +
             `date in reviewDate and leave publicationDate null, or set dateModel to "published".`,
+        );
+      }
+      if (lastUpdated && record.publicationDate) {
+        issues.push(
+          `${id}: a last-updated source has no publication event. Record the publisher's update stamp ` +
+            `in lastUpdatedDate and leave publicationDate null, or set dateModel to "published".`,
+        );
+      }
+      if (lastUpdated && record.reviewDate) {
+        issues.push(
+          `${id}: a last-updated source states no review. An update is not a review, so record the ` +
+            `publisher's update stamp in lastUpdatedDate and leave reviewDate null, or set dateModel ` +
+            `to "continuously_updated" if the publisher states a review.`,
         );
       }
       if (record.datePrecision === "year" && !dated?.endsWith("-01-01")) {

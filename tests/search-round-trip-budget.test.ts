@@ -144,6 +144,9 @@ afterEach(() => {
   vi.doUnmock("@/lib/supabase/admin");
   vi.doUnmock("@/lib/openai");
   vi.restoreAllMocks();
+  // The rag_aliases cache lives on globalThis (shared with the startup warm), so resetting
+  // modules no longer empties it; clear it so each scenario counts its own alias read.
+  (globalThis as { [key: symbol]: Map<string, unknown> | undefined })[Symbol.for("psychsift.ragAliasCache")]?.clear();
   vi.resetModules();
   vi.unstubAllEnvs();
 });
@@ -222,18 +225,19 @@ describe("Supabase round-trip budgets on the offline search retrieval core", () 
     ).toBeGreaterThan(0);
 
     // Measured, not derived — this is what the path does today, pinned so a
-    // change has to be deliberate. Update in the commit that moves it.
-    expect(counter.total(), `search round trips changed — ${JSON.stringify(counter.breakdown())}`).toBe(11);
+    // change has to be deliberate. Update in the commit that moves it. 11 -> 10 on 2026-09-26:
+    // a later page-image hydration reuses the rows an earlier read returned for the same pages.
+    expect(counter.total(), `search round trips changed — ${JSON.stringify(counter.breakdown())}`).toBe(10);
 
     // The shape matters as much as the total: a refactor that removed one probe
-    // and added an unrelated query would keep 11 while changing the traffic.
+    // and added an unrelated query would keep 10 while changing the traffic.
     expect(counter.breakdown(), "search round-trip shape changed").toEqual({
       "from:rag_aliases": 1,
       "rpc:match_document_chunks_text_v2": 3,
       "rpc:match_document_table_facts_text_v2": 3,
       "rpc:get_related_document_metadata_v2": 1,
       "from:document_index_quality": 1,
-      "from:document_images": 2,
+      "from:document_images": 1,
     });
   });
 
