@@ -308,7 +308,8 @@ describe("medications API", () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
     const { GET } = await import("../src/app/api/medications/route");
-    const vignette = "patient on lithium 900 mg nocte for bipolar affective disorder, recently started sertraline 50 mg for depression and taking regular ibuprofen for back pain, now tremulous and confused with vomiting since yesterday";
+    const vignette =
+      "patient on lithium 900 mg nocte for bipolar affective disorder, recently started sertraline 50 mg for depression and taking regular ibuprofen for back pain, now tremulous and confused with vomiting since yesterday";
 
     const response = await GET(request(`/api/medications?q=${encodeURIComponent(vignette)}`));
     const payload = (await response.json()) as { records: Array<{ slug: string }> };

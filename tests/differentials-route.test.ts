@@ -391,7 +391,8 @@ describe("differentials API routes", () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
     const { GET } = await import("../src/app/api/differentials/route");
-    const vignette = "patient on lithium 900 mg nocte for bipolar affective disorder, recently started sertraline 50 mg for depression and taking regular ibuprofen for back pain, now tremulous and confused with vomiting since yesterday";
+    const vignette =
+      "patient on lithium 900 mg nocte for bipolar affective disorder, recently started sertraline 50 mg for depression and taking regular ibuprofen for back pain, now tremulous and confused with vomiting since yesterday";
 
     const response = await GET(request(`/api/differentials?kind=diagnosis&q=${encodeURIComponent(vignette)}&limit=10`));
 
