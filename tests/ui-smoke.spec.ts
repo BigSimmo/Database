@@ -6392,6 +6392,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     const guideScrollBody = dialog.locator(".polished-scroll");
     const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
     const mobileHeader = dialog.locator('[data-sheet-header="true"]');
+    // Opening mounts the dock's scroll-hide reporter, which clears any hidden state on its
+    // first animation frame. WebKit on CI ran that frame after the scroll below, so the dock
+    // was hidden, then reset to visible before the focus probe. Let the opening frames run.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
     await guideScrollBody.evaluate((element) => {
       element.scrollTop = 140;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
