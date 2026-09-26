@@ -275,4 +275,38 @@ describe("Invited service handbook through the actual UI", () => {
     await waitFor(() => expect(api.writes).toHaveLength(2));
     expect(api.writes[1]).toEqual({ url: "/api/on-call/services/join", body: { code: "a".repeat(64) } });
   });
+  it("describes the report box with its no-patient-details hint", async () => {
+    const user = userEvent.setup();
+    mockServiceApi();
+    await openService();
+    await user.click(
+      within(screen.getByTestId(`service-entry-${contactId}`)).getByRole("button", { name: "Flag incorrect entry" }),
+    );
+    const box = screen.getByLabelText("What needs correcting?");
+    const describedBy = box.getAttribute("aria-describedby") ?? "";
+    expect(describedBy).not.toBe("");
+    const hint = describedBy
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(hint).toMatch(/Do not include patient details/);
+  });
+  it("shows Import and Needs checking to editors only", async () => {
+    mockServiceApi();
+    await openService();
+    const memberTabs = within(screen.getByRole("navigation", { name: "Service handbook sections" }));
+    expect(memberTabs.queryByRole("button", { name: "Import" })).toBeNull();
+    expect(memberTabs.queryByRole("button", { name: "Needs checking" })).toBeNull();
+    cleanup();
+    vi.restoreAllMocks();
+    const user = userEvent.setup();
+    mockServiceApi(true);
+    await openService();
+    const editorTabs = within(screen.getByRole("navigation", { name: "Service handbook sections" }));
+    await user.click(editorTabs.getByRole("button", { name: "Import" }));
+    expect(screen.getByLabelText("Choose a CSV file")).toBeInTheDocument();
+    await user.click(editorTabs.getByRole("button", { name: "Needs checking" }));
+    expect(screen.getByRole("heading", { name: "What needs checking" })).toBeInTheDocument();
+    expect(screen.getByTestId(`service-checking-row-${contactId}`)).toBeInTheDocument();
+  });
 });

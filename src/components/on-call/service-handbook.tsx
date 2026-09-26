@@ -90,7 +90,7 @@ function ServiceEntryCard({
       <div className="grid gap-3">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="break-words text-sm font-bold text-[color:var(--text-heading)]">
+            <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">
               <a
                 href={`#${onCallEntryAnchorId(entry.id)}`}
                 className={cn(focusRing, "inline-flex min-h-tap items-center break-words")}
@@ -157,7 +157,7 @@ function ServiceEntryCard({
 
         {entry.content.sources.length > 0 ? (
           <div className="grid gap-1.5">
-            <p className={cn(textMuted, "text-2xs font-bold uppercase tracking-kicker")}>Source links</p>
+            <p className={cn(textMuted, "text-2xs font-semibold uppercase tracking-kicker")}>Source links</p>
             {entry.content.sources.map((source) => (
               <a
                 key={`${source.url}:${source.label}`}
@@ -207,6 +207,7 @@ function ServiceEntryCard({
               {(field) => (
                 <textarea
                   id={field.id}
+                  aria-describedby={field.describedBy}
                   rows={3}
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
@@ -312,7 +313,7 @@ export function ServiceHandbook({
     <section aria-labelledby="service-handbook-heading" className="grid gap-5" data-testid="service-handbook">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="service-handbook-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+          <h2 id="service-handbook-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
             Service handbook
           </h2>
           <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -338,6 +339,7 @@ export function ServiceHandbook({
           {(field) => (
             <input
               id={field.id}
+              aria-describedby={field.describedBy}
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -355,7 +357,7 @@ export function ServiceHandbook({
         const groupEntries = entries.filter((entry) => entry.content.section === group);
         return (
           <section key={group} aria-labelledby={`service-${group}-heading`} className="grid gap-2">
-            <h3 id={`service-${group}-heading`} className="text-sm font-bold text-[color:var(--text-heading)]">
+            <h3 id={`service-${group}-heading`} className="text-sm font-semibold text-[color:var(--text-heading)]">
               {groupLabels[group]}
             </h3>
             {groupEntries.length > 0 ? (
@@ -386,7 +388,7 @@ export function ServiceHandbook({
 
       <section aria-labelledby="blank-note-structures-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
         <div>
-          <h3 id="blank-note-structures-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+          <h3 id="blank-note-structures-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
             Blank documentation structures
           </h3>
           <p className={cn(textMuted, "mt-1 text-xs leading-5")}>

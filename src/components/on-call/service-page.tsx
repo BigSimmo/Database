@@ -443,8 +443,8 @@ export function ServicePage({
   return (
     <InformationPageShell testId="service-page">
       <header className="grid gap-2">
-        <p className="text-xs font-bold uppercase tracking-kicker text-[color:var(--clinical-accent)]">On Call</p>
-        <h1 className="text-2xl font-bold text-[color:var(--text-heading)]">Service handbook</h1>
+        <p className="text-xs font-semibold uppercase tracking-kicker text-[color:var(--clinical-accent)]">On Call</p>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Service handbook</h1>
         <p className={cn(textMuted, "max-w-3xl text-sm leading-6")}>
           Practical service information, orientation and corrections maintained by the people who use it.
         </p>
@@ -494,6 +494,7 @@ export function ServicePage({
                 {(field) => (
                   <select
                     id={field.id}
+                    aria-describedby={field.describedBy}
                     value={selectedServiceId ?? ""}
                     onChange={(event) => {
                       if (!canLeaveEditor()) return;
@@ -515,6 +516,7 @@ export function ServicePage({
                 {(field) => (
                   <select
                     id={field.id}
+                    aria-describedby={field.describedBy}
                     value={selectedSiteId ?? ""}
                     onChange={(event) => {
                       if (!canLeaveEditor()) return;
@@ -597,6 +599,7 @@ export function ServicePage({
               entry={editingEntry}
               sites={detail.sites}
               defaultSiteId={selectedSiteId}
+              entries={detail.entries}
               onCancel={() => {
                 if (canLeaveEditor()) closeEditor();
               }}
@@ -663,7 +666,7 @@ export function ServicePage({
               <div>
                 <h2
                   id="service-membership-actions-heading"
-                  className="text-lg font-bold text-[color:var(--text-heading)]"
+                  className="text-lg font-semibold text-[color:var(--text-heading)]"
                 >
                   Create or join another service
                 </h2>
@@ -671,7 +674,7 @@ export function ServicePage({
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 <section aria-labelledby="create-service-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-                  <h3 id="create-service-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+                  <h3 id="create-service-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
                     Create service
                   </h3>
                   <TextField
@@ -697,7 +700,7 @@ export function ServicePage({
                   </Button>
                 </section>
                 <section aria-labelledby="join-service-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-                  <h3 id="join-service-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+                  <h3 id="join-service-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
                     Join with invitation
                   </h3>
                   <TextField
@@ -723,7 +726,7 @@ export function ServicePage({
         </Fragment>
       ) : services.length === 0 ? (
         <section aria-labelledby="first-service-heading" className="grid gap-4" data-testid="service-first-run">
-          <h2 id="first-service-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+          <h2 id="first-service-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
             Start your first service
           </h2>
           <div className="grid gap-4 lg:grid-cols-2">
