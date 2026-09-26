@@ -13,7 +13,7 @@ import {
   readPageOwnedFooterGeometry,
 } from "./helpers/phone-scroll";
 import { readPrimaryScrollAndDomGeometry } from "./playwright-scroll";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 /**
  * Page-owned phone chrome: the document viewer's own composer, the standalone
@@ -924,7 +924,9 @@ test("calculator results stay usable across the responsive and accessibility mat
   ]) {
     await page.emulateMedia(media);
     await gotoPhoneSurface(page, "/calculators?q=depression&run=1", 112);
-    await expect(page.getByTestId("calculators-search-page")).toBeVisible();
-    await expect(page.getByTestId("calculators-filter-trigger-phone")).toBeVisible();
+    // Visible owner only: each loop pass re-navigates, and a hidden streaming
+    // copy of the page root (#093) can briefly remain.
+    await expect(visibleByTestId(page, "calculators-search-page")).toBeVisible();
+    await expect(visibleByTestId(page, "calculators-filter-trigger-phone")).toBeVisible();
   }
 });

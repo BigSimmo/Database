@@ -4116,7 +4116,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     ]) {
       await page.setViewportSize(viewport);
       await gotoApp(page, "/factsheets/search?q=sertraline");
-      const factsheetsPage = page.getByTestId("factsheets-search-page");
+      // The visible owner only: a hidden streaming copy of the page root (#093)
+      // can linger after the second navigation.
+      const factsheetsPage = visibleByTestId(page, "factsheets-search-page");
       const queryRibbon = factsheetsPage.getByTestId("search-query-ribbon");
       const viewToolbar = factsheetsPage.getByTestId("factsheets-view-toolbar");
       await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();

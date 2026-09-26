@@ -231,7 +231,9 @@ test.describe("@mockup Caring Contact linked prototype", () => {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
       await gotoRoute(page, routes.states, "Component and system states");
       for (const [id, title, phoneModality, desktopModality] of overlayMatrix) {
-        const trigger = page.locator(`[data-overlay-trigger="${id}"]`);
+        // Visible owner only: a hidden streaming copy of the page (#093) can
+        // hold a second trigger with the same id.
+        const trigger = page.locator(`[data-overlay-trigger="${id}"]`).filter({ visible: true });
         await trigger.click();
         await expect(page).toHaveURL(new RegExp(`overlay=${id}`));
         const surface =
