@@ -51,26 +51,65 @@ describe("clinical hazard controls contract", () => {
     });
 
     /**
-     * Drift REPORTS, it does not fail — and that is deliberate. The commit check this replaces
-     * only ever asked whether a cited path existed at the reviewed commit. Failing on changed
-     * content would be a far harsher gate: once a register update lands its commit is unreachable
-     * for good, so every later pull request touching a cited control would go red until someone
-     * re-sealed. That pressure buys reflexive re-sealing, which is worse than no signal.
+     * Drift FAILS unless a reviewed, expiring exception covers it (audit F13, 2026-09-25).
+     * It used to only warn, and by then fourteen safety-behaviour changes had landed in
+     * src/lib/clinical-safety.ts and its neighbours since the 2026-08-23 review without anyone
+     * re-reviewing them. The exception route keeps the old worry in check: an intended change
+     * does not force a reflexive re-seal, but it does force a named, dated, time-limited record.
      */
-    it("warns but does not fail when a reviewed control has changed since it was sealed", () => {
+    function drifted() {
       const changed = orphaned();
       const [firstCitedPath] = citedRegisterPaths(changed);
       changed.reviewedPathDigests[firstCitedPath] = reviewedContentDigest("not what was sealed");
-      const warnings: string[] = [];
-      const restore = console.warn;
-      console.warn = (message: string) => void warnings.push(String(message));
-      try {
-        expect(validateClinicalHazardControls(changed, { checkGit: true })).toEqual([]);
-      } finally {
-        console.warn = restore;
-      }
-      expect(warnings.join("\n")).toContain("CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT");
-      expect(warnings.join("\n")).toContain(firstCitedPath);
+      return { changed, firstCitedPath };
+    }
+    const NOW = new Date("2026-09-25T00:00:00Z");
+    const exceptionFor = (path: string, overrides: Record<string, string> = {}) => ({
+      path,
+      reason: "Behaviour change under clinical re-review",
+      recordedBy: "Engineering (not a clinical review)",
+      recordedOn: "2026-09-25",
+      expiresOn: "2026-10-25",
+      ...overrides,
+    });
+
+    it("fails when a reviewed control has changed since it was sealed and no exception covers it", () => {
+      const { changed, firstCitedPath } = drifted();
+      const errors = validateClinicalHazardControls(changed, { checkGit: true, now: NOW }).join("\n");
+      expect(errors).toContain("CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT");
+      expect(errors).toContain(firstCitedPath);
+      expect(errors).toContain("npm run governance:seal-hazard-controls");
+    });
+
+    it("passes while a named, unexpired exception covers the drifted path", () => {
+      const { changed, firstCitedPath } = drifted();
+      changed.driftExceptions = [exceptionFor(firstCitedPath)];
+      expect(validateClinicalHazardControls(changed, { checkGit: true, now: NOW })).toEqual([]);
+    });
+
+    it("fails once the exception has expired", () => {
+      const { changed, firstCitedPath } = drifted();
+      changed.driftExceptions = [exceptionFor(firstCitedPath, { recordedOn: "2026-08-01", expiresOn: "2026-09-01" })];
+      const errors = validateClinicalHazardControls(changed, { checkGit: true, now: NOW }).join("\n");
+      expect(errors).toContain("has expired");
+      expect(errors).toContain(firstCitedPath);
+    });
+
+    it("rejects an exception without a reason or author, or one that runs longer than 45 days", () => {
+      const { changed, firstCitedPath } = drifted();
+      changed.driftExceptions = [
+        exceptionFor(firstCitedPath, { reason: " ", recordedBy: "", expiresOn: "2026-12-31" }),
+      ];
+      const errors = validateClinicalHazardControls(changed, { checkGit: true, now: NOW }).join("\n");
+      expect(errors).toContain("reason is required");
+      expect(errors).toContain("recordedBy is required");
+      expect(errors).toContain("at most 45 days");
+    });
+
+    it("drops the exceptions when the register is re-sealed, since nothing has drifted any more", () => {
+      const { changed, firstCitedPath } = drifted();
+      changed.driftExceptions = [exceptionFor(firstCitedPath)];
+      expect(sealReviewedPathDigests(changed).sealed.driftExceptions).toBeUndefined();
     });
 
     it("still fails when a cited path has no recorded digest at all", () => {

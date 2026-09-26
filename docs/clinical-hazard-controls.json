@@ -31,7 +31,7 @@
       "controlSymbols": ["sourceGovernanceWarnings", "deriveTrust"],
       "controlPaths": ["src/lib/source-governance.ts", "src/lib/answer-render-policy.ts"],
       "tests": ["tests/source-governance.test.ts", "tests/answer-render-policy.test.ts"],
-      "residualRisk": "Repository controls surface review state and cap high-risk trust, but source currency and clinical validation require human authority."
+      "residualRisk": "Repository controls surface review state and cap high-risk trust, but source currency and clinical validation require human authority. UPDATE 2026-09-25 (#WGMB4Z, owner decisions 3, 10 and 17): the words 'Strong support' now show only when every assessed claim is direct with approved or locally reviewed authority on each supporting chunk, and never when an answer has no assessed claims; such an answer reads 'Supported' instead (strongSupportLabelCapped in src/lib/answer-client-payload.ts, supportLabelTrust in src/lib/answer-render-policy.ts, pinned by tests/answer-render-policy.test.ts). This all-claims rule governs the label only: render trust and its caps (quote cards, related documents, tables and visual evidence, source and evidence-row counts, weak-evidence styling) are unchanged, and still cap only high-risk claims unless NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is exactly 'true'. An explicit 'false' makes the label follow trust again. Answers saved in the browser before this shipped carry no label flag and keep their old label until they expire."
     },
     {
       "id": "H3",
@@ -119,7 +119,7 @@
         "src/lib/clinical-safety.ts",
         "tests/clinical-safety.test.ts"
       ],
-      "residualRisk": "Safety chips are labelled by the first matching entry in a severity-ordered keyword list, over tokens common in ordinary clinical prose. The vocabulary half was approved and shipped on 2026-09-18 (cease, withhold, hold the dose, boxed warning, black box, hypersensitivity, anaphylaxis, and the immediate(?:ly)? adverb fix); that wording is a clinical judgement and remains unsigned. CORRECTION 2026-09-19, verified against main: the second half of this decision - whether a keyword-derived finding should hold the answer's headline support position - was raised on a premise that no longer holds. It cited answerSupportPriority in src/components/clinical-dashboard/evidence-panels.tsx, which returns a safety finding ahead of the 'Review source match' caution. That function and its AnswerSupportSummaryCard have NO caller anywhere in src/: the support card was removed from the answer surface on 2026-08-31 and replaced by the Key points rail, as tests/answer-support-priority.dom.test.tsx itself asserts. The shipped surface renders RetrievalStateBanner (grounding state) and the clinical points rail (safety findings) as separate elements, both visible, banner first, so no keyword match displaces the grounding caution and there is no headline contest to decide. What still needs a clinician is the vocabulary itself, not the ordering."
+      "residualRisk": "Safety chips are labelled by the first matching entry in a severity-ordered keyword list, over tokens common in ordinary clinical prose. The vocabulary half was approved and shipped on 2026-09-18 (cease, withhold, hold the dose, boxed warning, black box, hypersensitivity, anaphylaxis, and the immediate(?:ly)? adverb fix); that wording is a clinical judgement and remains unsigned apart from the 2026-09-25 urgent/seizure/transfer widening signed off by the owner (see the UPDATE below). CORRECTION 2026-09-19, verified against main: the second half of this decision - whether a keyword-derived finding should hold the answer's headline support position - was raised on a premise that no longer holds. It cited answerSupportPriority in src/components/clinical-dashboard/evidence-panels.tsx, which returns a safety finding ahead of the 'Review source match' caution. That function and its AnswerSupportSummaryCard have NO caller anywhere in src/: the support card was removed from the answer surface on 2026-08-31 and replaced by the Key points rail, as tests/answer-support-priority.dom.test.tsx itself asserts. The shipped surface renders RetrievalStateBanner (grounding state) and the clinical points rail (safety findings) as separate elements, both visible, banner first, so no keyword match displaces the grounding caution and there is no headline contest to decide. UPDATE 2026-09-25 (#51975R, owner decision): answerSupportPriority and AnswerSupportSummaryCard have been deleted, with their pinning tests, so no code path can promote a safety finding into a headline position any longer. What still needs a clinician is the vocabulary itself, not the ordering. UPDATE 2026-09-25 (#GHC4XZ): the owner (Josh, psychiatrist) signed off widening only the urgent tokens - red_flag now matches urgent(?:ly)? and seizures?, escalation now matches transfer(?:s|red|ring)? - as explicit suffix groups so transferrin and transference stay unlabelled. Further owner decisions the same day (decision 9, narrowed by decision 16) exclude only drug-passage phrases from the transfer match: transfer followed by into, across, via or to (the) breast milk, human milk, milk, placenta, fetus, foetus, CSF or blood-brain barrier (also 'breastmilk' as one word and 'maternal milk'), optionally after one -ly adverb ('transfers readily across the placenta'), including 'transfer of X across the placenta' with up to three words for X, and transfer preceded by placental or transplacental. So pharmacokinetic passages such as 'Sertraline transfers into breast milk' and 'Lithium is transferred across the placenta' get no Escalation chip, while a patient transfer phrased with any other object keeps Escalation ('Transfer into ICU was arranged.', 'transferred into the care of the inpatient team', 'Transferring the patient across to the medical ward'), or Red flag where an earlier entry such as urgently matches first. A named destination that starts with one of those objects keeps Escalation, because a service word after the object (accreta, praevia, shunt, clinic, service, unit, team, centre, ward, department) re-arms the chip: 'Transfer to the placenta accreta service', 'Transfer to the CSF shunt clinic'. The exclusion is a fixed list: a drug-passage phrase outside it (for example 'into the cerebrospinal fluid' spelled out) still gets an Escalation chip, and a drug switch ('transferring from paliperidone to aripiprazole') is over-called as Escalation. The listed drug-passage phrases and the patient-transfer cases are pinned in tests/clinical-safety.test.ts. Because the first matching entry wins, this also moves some passages up a tier (to Red flag from Escalation, Dose limit, Monitoring, Exclusion and Caveat; to Escalation from Dose limit, Monitoring, Exclusion and Caveat); each measured movement is pinned in tests/clinical-safety.test.ts. review, exclude, consider and caution still miss their inflected forms (reviewed, excluded, considered, cautious); that remainder was not covered by the sign-off and stays open."
     },
     {
       "id": "DICTIONARY-PUBLISHER-AGENCIES",
@@ -155,7 +155,7 @@
     "src/lib/rag/rag-claim-support.ts": "7cdcfc84e8b5516588f6ac08163330eb8fbd52d6c6750dc63955110516ab345c",
     "src/lib/rag/rag-source-block.ts": "984b3f655b468aabbf2d1f489eb6df66273fe7c9e85ea88df63affa986654ad2",
     "src/lib/source-authority-registry.ts": "e82b2f1aeaf053a321f76576da71a2c54f7fb4db485fbf6c4caf686ac6f2267c",
-    "src/lib/source-governance.ts": "581d8026a0d41362a06c12d1bba7df8bd6c301fa900f7c5ab7c7eaa69e9883c8",
+    "src/lib/source-governance.ts": "e3e1c09b0a7e446b7055f894088c771f1a5cc160a0f20f026f3cc291af5804fa",
     "src/lib/source-text-sanitizer.ts": "8d7a2bba424096b6334494a7c5760d4fc74381d8806b117d3d801e6b19e8138f",
     "tests/answer-render-policy.test.ts": "5e48ea66ca1902ac17a271444db7f6350a37c0100fe2152afd042e4fdb89427d",
     "tests/answer-verification.test.ts": "6c61453a04d7342b5c80ddb337df76b61f5dfe14e6de363c86348d97e71ccee3",
@@ -168,5 +168,56 @@
     "tests/rag-trust.test.ts": "416568e19e6ab8e67267ca53183b86a1703193543b4253269162d28736606eae",
     "tests/source-governance.test.ts": "0e9e126370a5500dbb72c722610fe1268c7e2f32e6b20b0a4f3ea401c54a645d",
     "tests/ward-output.test.ts": "bb9f417d63c769b8e059f41fe2c9a5c52f772cedd13e6352408b4a7716e00222"
-  }
+  },
+  "driftExceptions": [
+    {
+      "path": "src/lib/clinical-safety.ts",
+      "reason": "Drift predates the blocking gate. Safety-behaviour changes since the 2026-08-23 review (e.g. 41b5a025a escalate/monitoring matching, 64db243a9 stop-instruction labelling, 1aa717e88 no all-clear over a failed medication check) need clinical re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "src/components/clinical-dashboard/patient-profile-panel.tsx",
+      "reason": "Drift predates the blocking gate. Patient-profile changes since the 2026-08-23 review (3da15e805 clear generation, 8d49b16c4 number field) need re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "tests/clinical-safety.test.ts",
+      "reason": "Drift predates the blocking gate. Test changes accompanying the clinical-safety.ts changes above; re-seal together with it.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "docs/clinical-hazard-analysis.md",
+      "reason": "Changed by PR #3019 (1a3d89350) after the 2026-08-23 review: adds proposed hazard H7, the Mental Health Act timeline misstating a statutory deadline (H7a-c, all Critical). Needs owner review and a register entry, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "src/lib/source-authority-registry.ts",
+      "reason": "Changed on main by 309656a8 (#T9MZ7V, merge the duplicate American Psychiatric Association register entry) after the 2026-08-23 review; arrived in this branch via a main merge. Main only warns on drift; this branch makes drift blocking. Needs owner re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "src/lib/answer-render-policy.ts",
+      "reason": "Changed on main by #3031 (#WGMB4Z answer render-trust cap, #GHC4XZ) after the last seal; arrived in this branch via a main merge. Main only warns on drift; this branch makes drift blocking. Needs owner re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "tests/answer-render-policy.test.ts",
+      "reason": "Changed on main by #3031 (#WGMB4Z answer render-trust cap, #GHC4XZ) after the last seal; arrived in this branch via a main merge. Main only warns on drift; this branch makes drift blocking. Needs owner re-review, then a re-seal.",
+      "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-25",
+      "expiresOn": "2026-10-25"
+    }
+  ]
 }

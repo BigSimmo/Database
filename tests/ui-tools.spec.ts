@@ -1376,7 +1376,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       {
         path: "/?mode=prescribing",
         testId: "shared-home-empty-state",
-        heading: "Medication Guidance",
+        heading: "Medication Reference",
         headingLevel: 2,
       },
       {
@@ -3005,7 +3005,11 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy");
-    await expect(page.getByTestId("differential-compare-queue")).toBeVisible({ timeout: 30_000 });
+    // The navigation briefly overlaps the outgoing and incoming page roots; wait for one owner.
+    await expectSingleSettledOwner(page.getByTestId("differential-compare-queue"), {
+      message: "phone compare queue owner",
+      timeout: 30_000,
+    });
     const mobileOpen = page.getByTestId("differential-compare-open");
     await expect(mobileOpen).toHaveAttribute("href", /\/differentials\/presentations\/acute-confusion-encephalopathy/);
     await mobileOpen.scrollIntoViewIfNeeded();
@@ -3422,6 +3426,14 @@ test.describe("Responsive layout guards", () => {
     // flake is removed by tightening the assertion rather than loosening it.
     const patientCopyPanel = page.locator("[data-safety-plan-copy]");
     await expect(patientCopyPanel).toHaveCount(1);
+    // Below lg the builder and the patient copy are two tabs, so a phone user reaches the
+    // export buttons, and the warning beside them, through "Plan preview". Walk the same path.
+    const paneSwitch = page.getByRole("tablist", { name: "Safety plan view" });
+    const phonePanes = await paneSwitch.isVisible();
+    const showPane = async (name: "Build" | "Plan preview") => {
+      if (phonePanes) await paneSwitch.getByRole("tab", { name }).click();
+    };
+    await showPane("Plan preview");
     await expect(
       patientCopyPanel.getByText(/Copying, printing, or saving a PDF moves the plan outside PsychSift/i),
     ).toBeVisible();
@@ -3442,8 +3454,10 @@ test.describe("Responsive layout guards", () => {
     });
     appRequests.length = 0;
 
+    await showPane("Build");
     await page.getByLabel("e.g. Not sleeping for a couple of nights").fill("Not sleeping");
     await page.getByRole("button", { name: "Add" }).first().click();
+    await showPane("Plan preview");
     await page.getByRole("button", { name: "Copy" }).click();
 
     await expect

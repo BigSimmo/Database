@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useCallback, useId, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useId, useRef, useState } from "react";
 import {
   Activity,
   CircleAlert,
   CircleCheck,
   ChevronDown,
-  ChevronRight,
   ClipboardCheck,
   Copy,
   ExternalLink,
@@ -28,12 +27,7 @@ import {
 import { Sheet } from "@/components/ui/sheet";
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { ClinicalOutputPanel } from "@/components/clinical-dashboard/output-panel";
-import {
-  isPreformattedGroundedAnswer,
-  keyClinicalItemsFromSections,
-  keyClinicalItemsFromTable,
-  plainAnswerText,
-} from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer, plainAnswerText } from "@/components/clinical-dashboard/answer-content";
 import { CopyButton } from "@/components/clinical-dashboard/answer-status";
 import { StrengthBadge } from "@/components/clinical-dashboard/badges";
 import {
@@ -62,11 +56,10 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { answerUsesDegradedMode, type AnswerState } from "@/components/ui/answer-state";
+import { answerUsesDegradedMode } from "@/components/ui/answer-state";
 import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
-  extractSafetyFindings,
   formatSafetyFindingLabel,
   safetyFindingTone,
   sortSafetyFindingsBySeverity,
@@ -82,7 +75,7 @@ import type {
   ClientRagAnswerPayload,
   ClientSearchResult,
 } from "@/lib/answer-client-payload";
-import type { AnswerSection, EvidenceSummary, VisualEvidenceCard } from "@/lib/types";
+import type { EvidenceSummary, VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 import {
   type AnswerEvidenceMapRow,
@@ -101,78 +94,6 @@ export {
   simpleClinicalTableProps,
   sortClinicalDetailSections,
 } from "@/components/clinical-dashboard/clinical-output-helpers";
-
-type AnswerSupportPriority = {
-  title: string;
-  detail: string;
-  /**
-   * The finding's own severity word ("Red flag", "Contraindication"), split out
-   * of `detail` so the row can set it as a chip instead of running it into the
-   * citation. Only the safety-findings priority has one.
-   */
-  severityLabel?: string;
-  sourceLabel?: string;
-  tone: "priority" | "caution";
-};
-
-/**
- * PR 13 provenance adoption. `answerState` is the design system's projection of
- * the same payload (`answerStateFromRetrieval`), and it is read here so the live
- * "Review source match" caution and the DS `RetrievalStateBanner` cannot drift
- * apart as the answer surface adopts `AnswerCard`.
- *
- * It is an **addition**, never a replacement: the three original signals below
- * still fire on their own. Deriving the caution from the state alone would lose
- * cases, because the projection's precedence collapses an answer that is both
- * stale and ungrounded to `stale_evidence` — and a naive `kind === "ungrounded"`
- * check would then silently drop the very warning `#207` was raised to protect.
- *
- * Any degraded kind asks for source review. That makes the caution a strict
- * superset of the previous condition; the one case it newly covers is an answer
- * over overdue sources that is otherwise grounded, which the DS banner already
- * treats as caution and which a clinician should verify for the same reason.
- */
-export function answerSupportPriority(
-  answer: ClientRagAnswerPayload,
-  sections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>,
-  table: VisualEvidenceCard | null,
-  safetyFindings: ReturnType<typeof extractSafetyFindings>,
-  options: { grounded: boolean; weakEvidence: boolean; answerState?: AnswerState | null },
-): AnswerSupportPriority | null {
-  const firstSafetyFinding = sortSafetyFindingsBySeverity(safetyFindings)[0];
-  if (firstSafetyFinding) {
-    return {
-      title: "Safety findings",
-      severityLabel: firstSafetyFinding.label,
-      detail: formatCitationLabel(firstSafetyFinding.citation),
-      tone: "caution",
-    };
-  }
-
-  const degradedState = options.answerState != null && options.answerState.kind !== "ready";
-
-  if (answerUsesDegradedMode(answer) || !options.grounded || options.weakEvidence || degradedState) {
-    return {
-      title: "Review source match",
-      detail:
-        "Verify cited passages before using clinical numbers, monitoring, dose, route, timing, or risk decisions.",
-      sourceLabel: "Review",
-      tone: "caution",
-    };
-  }
-
-  const sectionItems = keyClinicalItemsFromSections(sections);
-  const tableItems = keyClinicalItemsFromTable(table);
-  const item = sectionItems[0] ?? tableItems[0] ?? null;
-  if (!item) return null;
-
-  return {
-    title: item.label ?? "Priority",
-    detail: item.detail,
-    sourceLabel: "S1",
-    tone: "priority",
-  };
-}
 
 /**
  * Quiet answer-level utilities under the source rail.
@@ -317,97 +238,6 @@ export function AnswerUtilityActions({
           />
         </Sheet>
       ) : null}
-    </section>
-  );
-}
-
-export function AnswerSupportSummaryCard({
-  priority,
-  safetyTriggerRef,
-  safetyFindingsCount = 0,
-  onOpenSafetyFindings,
-}: {
-  priority: AnswerSupportPriority | null;
-  safetyTriggerRef?: RefObject<HTMLButtonElement | null>;
-  safetyFindingsCount?: number;
-  onOpenSafetyFindings?: () => void;
-}) {
-  // The safety row is not optional chrome. `answerSupportPriority` returns a
-  // safety finding ahead of everything else, and this trigger is the only route
-  // to the safety-critical findings sheet.
-  if (!priority) return null;
-  const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
-  const rowClass = "grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-1.5 text-left";
-
-  return (
-    <section
-      data-testid="answer-support-card"
-      className="max-w-[68ch] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
-      aria-label="Answer support"
-    >
-      {safetyInteractive ? (
-        <button
-          ref={safetyTriggerRef}
-          id="answer-safety-findings-drawer-trigger"
-          data-testid="answer-safety-findings-trigger"
-          type="button"
-          onClick={onOpenSafetyFindings}
-          className={cn(
-            rowClass,
-            "w-full transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
-          )}
-          aria-label="Open safety-critical source findings"
-        >
-          <span
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-            aria-hidden="true"
-          >
-            <CircleAlert aria-hidden="true" className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
-            <span className={cn("mt-0.5 flex min-w-0 items-center gap-1.5 text-2xs leading-4", textMuted)}>
-              {priority.severityLabel ? (
-                <span className="shrink-0 rounded border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-1.5 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--warning)]">
-                  {priority.severityLabel}
-                </span>
-              ) : null}
-              <span className="truncate">{priority.detail}</span>
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2">
-            <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-2xs")}>{safetyFindingsCount}</span>
-            <ChevronRight aria-hidden="true" className="h-4 w-4 text-[color:var(--text-muted)]" />
-          </span>
-        </button>
-      ) : (
-        <div className={rowClass}>
-          <span
-            className={cn(
-              "grid h-7 w-7 shrink-0 place-items-center rounded-lg border",
-              priority.tone === "caution"
-                ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-            )}
-            aria-hidden="true"
-          >
-            {priority.tone === "caution" ? (
-              <CircleAlert aria-hidden="true" className="h-4 w-4" />
-            ) : (
-              <ShieldCheck aria-hidden="true" className="h-4 w-4" />
-            )}
-          </span>
-          <div className="min-w-0 sm:flex sm:min-w-0 sm:items-center sm:gap-2">
-            <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
-            <p className={cn("mt-0.5 line-clamp-1 text-2xs leading-4 sm:mt-0", textMuted)}>{priority.detail}</p>
-          </div>
-          {priority.sourceLabel ? (
-            <span className="nums inline-flex min-h-7 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-              {priority.sourceLabel}
-            </span>
-          ) : null}
-        </div>
-      )}
     </section>
   );
 }
@@ -1157,12 +987,13 @@ export function compactEvidenceSummary(
   sourceSummary?: EvidenceSummary,
   renderModel?: AnswerRenderModel,
 ) {
+  // Label-only cap (#WGMB4Z decision 17): the word follows supportLabelTrust, not trust.
   const support =
-    renderModel?.trust === "high"
+    renderModel?.supportLabelTrust === "high"
       ? "Strong support"
-      : renderModel?.trust === "medium"
+      : renderModel?.supportLabelTrust === "medium"
         ? "Supported"
-        : renderModel?.trust === "low"
+        : renderModel?.supportLabelTrust === "low"
           ? "Limited support"
           : "Review support";
   const claimCount = renderModel?.evidenceRows.length || answer.answerSections?.length || answer.citations.length;

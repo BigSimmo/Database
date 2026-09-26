@@ -107,11 +107,15 @@ export function visibleSectionItems(section: DifferentialSection, record: Differ
   return items;
 }
 
-const sectionBadgeSuffix: Partial<Record<DifferentialSection["tone"], string>> = {
-  fit: "present",
-  warning: "possible",
-  question: "positive",
-  action: "pending",
+/** The noun each counted section is made of, singular then plural. The badge
+ *  counts reference bullets, not findings about a patient, so it must name
+ *  what is counted and never read as an assessment state such as "present",
+ *  "possible", "positive" or "pending" (#KZDNNX, owner decision 2026-09-25). */
+const sectionBadgeNoun: Partial<Record<DifferentialSection["tone"], readonly [string, string]>> = {
+  fit: ["feature", "features"],
+  warning: ["cause", "causes"],
+  question: ["clue", "clues"],
+  action: ["step", "steps"],
 };
 
 /** Count badge text for a section row, using the cleaned item count so the
@@ -119,8 +123,9 @@ const sectionBadgeSuffix: Partial<Record<DifferentialSection["tone"], string>> =
 export function sectionBadgeLabel(section: DifferentialSection, record: DifferentialRecord): string | null {
   const count = visibleSectionItems(section, record).length;
   if (count === 0) return null;
-  const suffix = sectionBadgeSuffix[section.tone];
-  return suffix ? `${count} ${suffix}` : String(count);
+  const noun = sectionBadgeNoun[section.tone];
+  if (!noun) return String(count);
+  return `${count} ${count === 1 ? noun[0] : noun[1]}`;
 }
 
 export function differentialStatusLabel(status: DifferentialRecord["status"]): "Emergent" | "Urgent" | "Routine" {

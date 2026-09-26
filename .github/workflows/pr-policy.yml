@@ -25,21 +25,114 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Accept merge queue validation
-        if: github.event_name == 'merge_group'
-        run: echo "PR metadata was validated before merge-queue entry."
-
       # pull_request_target runs trusted workflow-revision code. Checkout
       # github.workflow_sha (not a moving base_ref tip, and not a potentially
       # stale pull_request.base.sha from an older PR) so the policy script is
       # always the exact revision that triggered this run. Never execute the PR
-      # head or persist credentials.
+      # head or persist credentials. The merge-queue step below loads the same
+      # script from the revision its own workflow file was read from.
       - name: Checkout trusted policy
-        if: github.event_name == 'pull_request_target'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
+
+      # PR metadata was validated on the pull_request_target run before the PR entered the
+      # queue. Migration ORDER was not: it was checked against main as it stood then, and a
+      # queued PR is re-based onto whatever merged ahead of it without ever being re-synced.
+      # With a merge queue, "require branches to be up to date" no longer forces that re-sync,
+      # so the history gate is re-run here against the queue entry's real base. Everything is
+      # read through the API; nothing from the queue head is checked out or executed.
+      - name: Recheck migration history against the queue base
+        if: github.event_name == 'merge_group'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
+            const { migrationHistoryVerdict, migrationVersionsFromEntries, mergeGroupPullRequestNumber } =
+              await import(moduleUrl);
+            const repo = { owner: context.repo.owner, repo: context.repo.repo };
+            const group = context.payload.merge_group;
+            if (!group?.base_sha || !group?.head_sha) {
+              core.setFailed("Missing merge_group base_sha/head_sha; migration history cannot be verified.");
+              return;
+            }
+
+            // Top-level supabase/migrations entries at a commit, as name -> blob sha. A directory
+            // listing stops at 1000 entries, so a full page fails closed rather than evaluating a subset.
+            const listMigrations = async (ref) => {
+              const { data } = await github.rest.repos.getContent({ ...repo, path: "supabase/migrations", ref });
+              if (!Array.isArray(data)) throw new Error(`supabase/migrations is not a directory at ${ref}`);
+              if (data.length >= 1000) throw new Error(`supabase/migrations listing at ${ref} may be truncated`);
+              return new Map(data.filter((entry) => entry.type === "file").map((entry) => [entry.name, entry.sha]));
+            };
+            let base;
+            let head;
+            try {
+              [base, head] = await Promise.all([listMigrations(group.base_sha), listMigrations(group.head_sha)]);
+            } catch (error) {
+              core.setFailed(
+                `Unable to list supabase/migrations for the queue entry: ${error instanceof Error ? error.message : String(error)}. Migration history cannot be verified.`,
+              );
+              return;
+            }
+            const baseMigrationVersions = migrationVersionsFromEntries([...base.keys()]);
+            if (baseMigrationVersions.length === 0) {
+              core.setFailed("The queue base lists no migration versions; migration history cannot be verified.");
+              return;
+            }
+
+            // What this entry changes in supabase/migrations on top of its base. A rename arrives as
+            // a removal plus an addition, which the history gate treats as the stricter of the two.
+            const fileStatuses = [];
+            for (const [name, sha] of head) {
+              if (!base.has(name)) fileStatuses.push({ filename: `supabase/migrations/${name}`, status: "added" });
+              else if (base.get(name) !== sha)
+                fileStatuses.push({ filename: `supabase/migrations/${name}`, status: "modified" });
+            }
+            for (const name of base.keys()) {
+              if (!head.has(name)) fileStatuses.push({ filename: `supabase/migrations/${name}`, status: "removed" });
+            }
+            if (fileStatuses.length === 0) {
+              core.info("This queue entry changes no migrations.");
+              return;
+            }
+
+            // The override (approval line plus a validation guard) needs the PR body and the added
+            // migrations' SQL. Without a readable PR the body is empty, so any violation fails closed.
+            const prNumber = mergeGroupPullRequestNumber(group.head_ref);
+            let body = "";
+            if (prNumber) {
+              try {
+                body = (await github.rest.pulls.get({ ...repo, pull_number: prNumber })).data.body || "";
+              } catch (error) {
+                core.warning(`Unable to read PR #${prNumber}: ${error instanceof Error ? error.message : String(error)}.`);
+              }
+            }
+            const addedMigrationContents = {};
+            for (const file of fileStatuses) {
+              if (file.status !== "added" || !file.filename.endsWith(".sql")) continue;
+              try {
+                const { data } = await github.rest.repos.getContent({ ...repo, path: file.filename, ref: group.head_sha });
+                if (data && !Array.isArray(data) && typeof data.content === "string") {
+                  addedMigrationContents[file.filename] = Buffer.from(data.content, data.encoding || "base64").toString(
+                    "utf8",
+                  );
+                }
+              } catch (error) {
+                core.warning(`Unable to read ${file.filename} at the queue head: ${error instanceof Error ? error.message : String(error)}.`);
+              }
+            }
+
+            const verdict = migrationHistoryVerdict({ fileStatuses, baseMigrationVersions, body, addedMigrationContents });
+            for (const warning of verdict.warnings) core.warning(warning);
+            if (verdict.errors.length > 0) {
+              for (const error of verdict.errors) core.error(error);
+              core.setFailed(
+                `Migration history no longer holds against the queue base (${group.base_sha.slice(0, 12)}): something that merged ahead of this PR changed it. Take the PR out of the queue, bring main in, give the migration the newest timestamp, and queue it again.`,
+              );
+            }
 
       - name: Validate pull request evidence
         if: github.event_name == 'pull_request_target'

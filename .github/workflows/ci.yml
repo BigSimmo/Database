@@ -1845,10 +1845,15 @@ jobs:
           - { engine: firefox, project: firefox, shard: 3, total: 3 }
           - { engine: webkit, project: webkit, shard: 1, total: 2 }
           - { engine: webkit, project: webkit, shard: 2, total: 2 }
-          - { engine: webkit, project: mobile-webkit, shard: 1, total: 2 }
-          - { engine: webkit, project: mobile-webkit, shard: 2, total: 2 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 2 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 2 }
+          # The iPhone projects run three shards: at two, shard 2 took 29-30 min
+          # against the 30-minute --global-timeout (run 36156676861), and
+          # mobile-pwa-standalone left 146 tests unrun.
+          - { engine: webkit, project: mobile-webkit, shard: 1, total: 3 }
+          - { engine: webkit, project: mobile-webkit, shard: 2, total: 3 }
+          - { engine: webkit, project: mobile-webkit, shard: 3, total: 3 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 3 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 3 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 3, total: 3 }
 
     steps:
       - name: Checkout
@@ -2081,6 +2086,23 @@ jobs:
                 .map(([name, value]) => `- \`${name}\`: ${value}`);
             }
 
+            // Route the alert to a person, not only a label (#TN512M): GitHub notifies an issue's
+            // assignee on their phone, for the opening and for every later comment. Best-effort, so
+            // a refused assignment can never cost the alert itself.
+            const alertAssignee = context.repo.owner;
+            async function assignAlert(issueNumber) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [alertAssignee],
+                });
+              } catch (error) {
+                core.warning(`Could not assign @${alertAssignee} to #${issueNumber}: ${error.message}`);
+              }
+            }
+
             const { data: open } = await github.rest.issues.listForRepo({ owner, repo, state: "open", labels: label });
             const owned = (issue) => String(issue.body ?? "").includes(MARKER) || issue.title === title;
             const existing = open.find(owned) ?? null;
@@ -2146,8 +2168,10 @@ jobs:
                 issue_number: existing.number,
                 body: `Still failing as of ${now} — ${runUrl}`,
               });
+              await assignAlert(existing.number);
               core.warning(`CI on main is failing; updated #${existing.number}.`);
             } else {
               const created = await github.rest.issues.create({ owner, repo, title, labels: [label], body });
+              await assignAlert(created.data.number);
               core.warning(`CI on main is failing; opened #${created.data.number}.`);
             }

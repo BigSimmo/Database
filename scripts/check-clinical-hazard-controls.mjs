@@ -167,13 +167,8 @@ export function reviewedDigestsProveContent(manifest) {
   if (missing.length) {
     return { proven: false, drifted, reason: `no recorded digest for ${missing.join(", ")}` };
   }
-  // Drift is REPORTED, not failed. The commit check this replaces only ever asked whether a cited
-  // path EXISTED at the reviewed commit, so failing on changed content would be a new and much
-  // harsher gate: once a register update lands, its commit is unreachable for good, and every
-  // later pull request touching a cited control — src/lib/clinical-safety.ts and friends change
-  // often — would go red until someone re-sealed. That pressure produces reflexive re-sealing,
-  // which is worse than no signal at all. So the pass condition matches the old one, and drift
-  // gets a warning naming the files, which is strictly more than the commit check ever gave.
+  // Proof of the reviewed CONTENT is separate from drift. Drift is judged by
+  // validateDriftExceptions, which fails it unless a reviewed, expiring exception covers it.
   return { proven: true, drifted, reason: null };
 }
 
@@ -215,6 +210,74 @@ function validateCommit(errors, commit, label, checkGit, contentProven = false) 
     }
   }
   return true;
+}
+
+const DRIFT_EXCEPTION_MAX_DAYS = 45;
+
+/**
+ * Drift in a reviewed control FAILS unless a named, dated, expiring exception covers that path
+ * (audit F13, 2026-09-25). It used to only warn: fourteen safety-behaviour changes then landed in
+ * src/lib/clinical-safety.ts and its neighbours after the 2026-08-23 review, and nobody re-reviewed
+ * them. The original worry about a blocking gate still holds, that it would push people to re-seal
+ * reflexively, so there is a second route: record an exception with a reason, an author and an
+ * expiry at most 45 days out. An intended change can land. An unreviewed one cannot linger unseen.
+ */
+function validateDriftExceptions(errors, manifest, drifted, today) {
+  const exceptions = Array.isArray(manifest?.driftExceptions) ? manifest.driftExceptions : [];
+  const covered = new Set();
+  exceptions.forEach((exception, index) => {
+    const path = typeof exception?.path === "string" ? exception.path.trim() : "";
+    const label = `driftExceptions[${index}]${path ? ` (${path})` : ""}`;
+    if (!path) {
+      errors.push(`${label}: path is required`);
+      return;
+    }
+    for (const field of ["reason", "recordedBy"]) {
+      if (typeof exception[field] !== "string" || !exception[field].trim())
+        errors.push(`${label}: ${field} is required`);
+    }
+    if (!validDate(exception.recordedOn) || !validDate(exception.expiresOn)) {
+      errors.push(`${label}: recordedOn and expiresOn must be ISO dates`);
+      return;
+    }
+    const days = (Date.parse(exception.expiresOn) - Date.parse(exception.recordedOn)) / 86_400_000;
+    if (days < 0 || days > DRIFT_EXCEPTION_MAX_DAYS) {
+      errors.push(`${label}: an exception may run at most ${DRIFT_EXCEPTION_MAX_DAYS} days from recordedOn`);
+    }
+    if (exception.recordedOn > today) errors.push(`${label}: recordedOn is in the future`);
+    if (exception.expiresOn < today) {
+      errors.push(
+        `${label}: drift exception has expired on ${exception.expiresOn}. Re-review the change and run ` +
+          "npm run governance:seal-hazard-controls.",
+      );
+      return;
+    }
+    covered.add(path);
+  });
+  const uncovered = drifted.filter((file) => !covered.has(file));
+  if (uncovered.length) {
+    errors.push(
+      `CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT: these reviewed paths have changed since they were sealed ` +
+        `and no current drift exception covers them: ${uncovered.join(", ")}. Re-review the change, then run ` +
+        "npm run governance:seal-hazard-controls; or, for an intended change still under review, add a " +
+        "driftExceptions entry (path, reason, recordedBy, recordedOn, expiresOn at most 45 days later).",
+    );
+  }
+  const stale = exceptions
+    .map((exception) => (typeof exception?.path === "string" ? exception.path.trim() : ""))
+    .filter((path) => path && !drifted.includes(path));
+  if (stale.length) {
+    console.warn(
+      `CLINICAL_HAZARD_CONTROLS_STALE_EXCEPTION: these drift exceptions cover paths that no longer drift and ` +
+        `can be removed: ${stale.join(", ")}.`,
+    );
+  }
+  if (drifted.length && !uncovered.length) {
+    console.warn(
+      `CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT_EXCEPTED: ${drifted.join(", ")} changed since sealing and are ` +
+        "covered by drift exceptions until they expire.",
+    );
+  }
 }
 
 function validateReviewDates(errors, reviewedAt, reviewExpiresAt, label, today) {
@@ -272,14 +335,7 @@ export function validateClinicalHazardControls(
         "so the register's claims were checked against the recorded digests instead.",
     );
   }
-  if (contentProof.drifted.length) {
-    console.warn(
-      `CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT: these reviewed paths have changed since they were ` +
-        `sealed: ${contentProof.drifted.join(", ")}. This is not a failure — the register still names ` +
-        "controls that exist — but the review is describing older content. Re-review if the control's " +
-        "behaviour moved, then run npm run governance:seal-hazard-controls.",
-    );
-  }
+  if (checkFiles) validateDriftExceptions(errors, manifest, contentProof.drifted, today);
   validateCommit(errors, manifest?.reviewedCommit, "manifest", checkGit, contentProven);
   validateReviewDates(errors, manifest?.reviewedAt, manifest?.reviewExpiresAt, "manifest", today);
   const hazards = Array.isArray(manifest?.hazards) ? manifest.hazards : [];
@@ -423,7 +479,10 @@ export function sealReviewedPathDigests(manifest) {
     }
     digests[file] = reviewedContentDigest(readFileSync(resolved.absolute, "utf8"));
   }
-  return { sealed: { ...manifest, reviewedPathDigests: digests }, unreadable };
+  // Sealing records the current content as reviewed, so nothing drifts and every exception lapses.
+  const sealed = { ...manifest, reviewedPathDigests: digests };
+  delete sealed.driftExceptions;
+  return { sealed, unreadable };
 }
 
 function seal() {

@@ -1804,6 +1804,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
     await expectNoPageHorizontalOverflow(page);
 
+    const setupScrollPort = setup.locator(".polished-scroll");
+    // Autofocus on the email field is proven above. Release it before resizing: WebKit keeps a
+    // focused field in view through a resize by scrolling the dialog body (measured at 320x700:
+    // scrollTop 224, field 888px -> 664px), which Chromium does not, and that scroll moves the
+    // workspace mark above the fold. This loop is about where the layout starts relative to the
+    // notch, not about focus-follow scrolling.
+    await setup.getByLabel("Email address").blur();
     for (const viewportSize of [
       { width: 320, height: 700 },
       { width: 430, height: 820 },
@@ -1816,13 +1823,15 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 320, height: 700 });
     const setupEmail = setup.getByLabel("Email address");
-    await setupEmail.scrollIntoViewIfNeeded();
+    const emailSubmit = setup.getByRole("button", { name: "Sign in with email" });
+    // Scroll to the lower of the pair. Scrolling to the field only worked where the engine centres
+    // it (Chromium); WebKit scrolls to the nearest edge and leaves the button just below the fold.
+    await emailSubmit.scrollIntoViewIfNeeded();
     await expect(setupEmail).toBeInViewport();
-    await expect(setup.getByRole("button", { name: "Sign in with email" })).toBeInViewport();
+    await expect(emailSubmit).toBeInViewport();
     await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
 
-    const setupScrollPort = setup.locator(".polished-scroll");
     await setupScrollPort.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
@@ -4942,7 +4951,10 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
     await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
+    // The mocked match carries no relevance verdict, so the first card is only the
+    // top result, not a "Best match" (owner decision 11, 2026-09-25).
+    await expect(documentResults).toContainText("Top result");
+    await expect(documentResults).not.toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
     // The three primary actions keep a symmetric 48px footer at every width.
@@ -5134,7 +5146,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
+    await expect(documentResults).toContainText("Top result");
   });
 
   test("dashboard defers source and administration requests until their surfaces open @critical", async ({ page }) => {
@@ -6073,6 +6085,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await page.getByRole("button", { name: "Open document actions" }).click();
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible();
+    // Opening search moves focus into the input two animation frames later. Wait for that
+    // before blurring: headless WebKit runs frames only when something asks for one, so
+    // blurring early let the deferred focus land mid-scroll and pin the composer open.
+    await expect(composer.locator("input")).toBeFocused();
     await composer.locator("input").evaluate((element) => element.blur());
     // The chunk deep link intentionally scrolls the highlighted passage into
     // view, which can initially hide the phone composer. Returning to the top

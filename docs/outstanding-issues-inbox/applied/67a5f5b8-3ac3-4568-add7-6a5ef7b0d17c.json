@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "67a5f5b8-3ac3-4568-add7-6a5ef7b0d17c",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "extractSafetyFindings takes about 89 seconds on a single 200,000-character passage, in the 260-character trimming step before any pattern runs",
+    "detail": "Found 2026-09-25 while adding a linear-time guard for the #GHC4XZ transfer pattern (PR B). The patterns themselves are linear (four 200k-character hostile inputs each under 500 ms via a tests-only hook), but extractSafetyFindings in src/lib/clinical-safety.ts spent about 89 s on one 200k-character passage in its trimming step. Real passages are chunk-sized, so this is unlikely to bite in normal use, but any caller that passes whole-document text would stall the thread. Not measured: which input sizes real callers pass. Likely fix: bound the input before trimming and add a timing test.",
+    "source": "PR B build 2026-09-25",
+    "issueUlid": "01M3CR7BFA747FC0DZTR28RYR2"
+  }
+}

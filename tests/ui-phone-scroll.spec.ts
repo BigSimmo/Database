@@ -252,6 +252,8 @@ test("phone header hide and reveal animate monotonically without a geometry jump
       const totalFrames = gesture === "down" ? 55 : 45;
       const gestureFrames = gesture === "down" ? 20 : 6;
       const frames: Array<{
+        time: number;
+        chromeTransitionMs: number;
         hidden: boolean;
         chromeHeight: number;
         chromeTop: number;
@@ -266,7 +268,19 @@ test("phone header hide and reveal animate monotonically without a geometry jump
         }
         await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
         const mainTop = main.getBoundingClientRect().top;
+        // A running transform transition on the stack, read from the Web Animations API. This is
+        // evidence of animation that does not depend on how many frames the engine paints.
+        const chromeTransition = stack
+          .getAnimations()
+          .find(
+            (animation) =>
+              animation.playState === "running" &&
+              /^(?:transform|translate)$/.test((animation as CSSTransition).transitionProperty ?? ""),
+          );
+        const chromeTransitionMs = Number(chromeTransition?.effect?.getTiming().duration ?? 0) || 0;
         frames.push({
+          time: performance.now(),
+          chromeTransitionMs,
           hidden: collapse.getAttribute("data-scroll-hidden") === "true",
           chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
           // Overlay translates the stack rather than collapsing it, so its
@@ -284,15 +298,28 @@ test("phone header hide and reveal animate monotonically without a geometry jump
     }, direction);
 
   const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+  // Every hide and reveal must run as a transform transition. Counting sampled positions is also
+  // required, but only when enough frames were painted inside the transition to resolve one:
+  // headless WebKit on a GPU-less runner paints 50-400 ms frames (measured 2026-09-25: one
+  // 390 ms frame spanned the whole 240 ms hide), so it can show only the start and end states.
+  // Chromium paints ~16 ms frames here, so it keeps the full intermediate-frame requirement.
+  const expectAnimatedTravel = (frames: Awaited<ReturnType<typeof sampleFrames>>, label: string) => {
+    const transitionMs = Math.max(...frames.map((frame) => frame.chromeTransitionMs));
+    expect(transitionMs, `${label} runs as a transform transition`).toBeGreaterThan(0);
+    const framesInsideTransition = frames.filter((frame) => frame.time - frames[0].time < transitionMs).length;
+    if (framesInsideTransition >= 5) {
+      expect(
+        new Set(frames.map((frame) => Math.round(frame.chromeTop))).size,
+        `${label} has intermediate frames`,
+      ).toBeGreaterThan(3);
+    }
+  };
 
   const hideFrames = await sampleFrames("down");
   const firstHiddenFrame = hideFrames.findIndex((frame) => frame.hidden);
   expect(firstHiddenFrame, "the stepped descent triggers hide").toBeGreaterThan(-1);
   const hiding = hideFrames.slice(firstHiddenFrame);
-  expect(
-    new Set(hiding.map((frame) => Math.round(frame.chromeTop))).size,
-    "hide has intermediate frames",
-  ).toBeGreaterThan(3);
+  expectAnimatedTravel(hiding, "hide");
   for (let index = 1; index < hiding.length; index += 1) {
     expect(hiding[index].chromeTop, "chrome offset never reverses during hide").toBeLessThanOrEqual(
       hiding[index - 1].chromeTop + 1,
@@ -319,10 +346,7 @@ test("phone header hide and reveal animate monotonically without a geometry jump
   const firstRevealedFrame = revealFrames.findIndex((frame) => !frame.hidden);
   expect(firstRevealedFrame, "the upward gesture triggers reveal").toBeGreaterThan(-1);
   const revealing = revealFrames.slice(firstRevealedFrame);
-  expect(
-    new Set(revealing.map((frame) => Math.round(frame.chromeTop))).size,
-    "reveal has intermediate frames",
-  ).toBeGreaterThan(3);
+  expectAnimatedTravel(revealing, "reveal");
   for (let index = 1; index < revealing.length; index += 1) {
     expect(revealing[index].chromeTop, "chrome offset never reverses during reveal").toBeGreaterThanOrEqual(
       revealing[index - 1].chromeTop - 1,

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5fdac649-8192-4a60-9571-7caf132e665f",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#KVYHWZ",
+    "detail": "RECHECKED 2026-09-25: no verification batch done. The cloud session's network egress refuses every publisher host (wa.gov.au, mhc.wa.gov.au, aihw.gov.au, ruah.org.au, youthfocus.com.au, passages.org.au, healthdirect.gov.au and others all returned connect_rejected on 2026-09-25), and the sources skill forbids taking a publisher, date or contact detail from anywhere but the publisher's own page, so this cannot be done from a cloud session. TO UNBLOCK: run it from an unrestricted network, for example a Remote Control session on the owner's PC, or have the owner approve each page fetch. Telephone confirmation and sign-off stay with the owner regardless. PRIOR DETAIL: Measured on data/services-snapshot.json, 2026-09-16: of 219 legacy service records, 100 carry no public source URL at all, 98 state no opening hours, and 100 were extracted from an earlier research document without ever being checked against a live page. Despite that, 159 are marked confidence High. Examples with no source link and High confidence: Armadale Community Mental Health Service, Bentley Older Adult, Butler CMHS, Child Protection Central Intake, and the Childbirth and Mental Illness Service at KEMH. The read-time ageing fix on this branch makes the deficiency visible rather than hiding it, because a record with no recorded review now reads as unknown instead of current, but it does not supply the missing evidence. A separate data error found while reconciling: the Mother and Baby Unit record (S115) conflates KEMH and Fiona Stanley into one entry, listing the Fiona Stanley number under a provider field naming both. NEXT: verify in risk order rather than alphabetically, per docs/services-mode-governance.md, taking crisis and urgent contacts first, then common referral routes, then descriptive content. Page checking and record drafting can be done per batch; telephone confirmation and sign-off cannot.",
+    "baseRowFingerprint": "295518d2bc2c98116fb2e421e38b9788c3f575781b2c47d60e19d82b831448dd"
+  }
+}

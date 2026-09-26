@@ -240,12 +240,12 @@ function WardChip({ entry, now }: { entry: OnCallEntry; now: Date }) {
       data-testid={`on-call-home-ward-${entry.slug}`}
       className={cn(
         cardSurface,
-        "grid min-h-tap w-32 shrink-0 content-center gap-0.5 px-3 py-2 no-underline",
+        "grid min-h-tap min-w-32 max-w-60 shrink-0 content-center gap-0.5 px-3 py-2 no-underline",
         "transition-colors motion-reduce:transition-none hover:border-[color:var(--border-strong)]",
         focusRing,
       )}
     >
-      <span className="truncate text-xs font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
+      <span className="text-xs font-semibold break-words text-[color:var(--text-heading)]">{entry.title}</span>
       <span className="nums text-sm font-bold text-[color:var(--text)]">{number.value}</span>
       <span className={cn(textMuted, "truncate text-3xs font-bold uppercase tracking-kicker")}>{number.label}</span>
     </Target>

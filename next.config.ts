@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { resolveSentryRelease } from "./src/lib/observability/sentry-release";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
@@ -117,7 +117,9 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+              // The one inline script is allowed by its hash only (On Call essentials;
+              // tests/pwa-manifest.test.ts recomputes it). It never fetches, so no network source is allowed.
+              `default-src 'none'; script-src 'sha256-WM3278q0h6oMCKXTkAFo3jBdi9H8JLx1nOAqSYxKvTI='; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
           },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },

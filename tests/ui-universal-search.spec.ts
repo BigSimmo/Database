@@ -144,10 +144,19 @@ async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
   return input;
 }
 
+// The typeahead dropdown is a fine-pointer desktop enhancement: useCommandDropdownDisplayable keeps
+// it closed on narrow or coarse-pointer screens, so the iPhone projects never render it. That phone
+// contract is pinned by "keeps cross-mode typeahead hidden on a landscape touch phone" below; the
+// tests that call this helper drive the dropdown itself, so they run only where it can open.
+function skipWhereTheDropdownNeverOpens() {
+  test.skip(test.info().project.use.isMobile === true, "the typeahead dropdown is desktop-only by design");
+}
+
 test.beforeEach(stubZeroTouchPoints);
 
 test.describe("universal search typeahead", () => {
   test("keeps calculator command suggestions local", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     let universalRequestCount = 0;
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       universalRequestCount += 1;
@@ -163,6 +172,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("shows grouped cross-entity results while typing", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockUniversalSearch(page);
     const input = await openComposer(page);
     await input.fill("acamprosate");
@@ -179,6 +189,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("exposes the keyboard-highlighted option from the focused combobox", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockUniversalSearch(page);
     const input = await openComposer(page);
     await input.fill("acamprosate");
@@ -210,6 +221,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("Escape dismisses the dropdown without erasing the typed query", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     // The composer input is `type="search"`, whose native Chromium Escape gesture
     // clears the field. Escape must only dismiss the dropdown; the query stays put
     // so a reader can reopen or edit it instead of retyping from scratch.
@@ -226,6 +238,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("does not count document-only hits as visible Medication rows", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       await fulfillUniversalSearch(route, {
         ...universalPayload,
@@ -250,6 +263,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("selecting a presentation result navigates to the workflow page", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockUniversalSearch(page);
     const input = await openComposer(page);
     await input.fill("acute confusion");
@@ -263,6 +277,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("selecting a grouped result navigates to the record", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockUniversalSearch(page);
     const input = await openComposer(page);
     await input.fill("acamprosate");
@@ -285,6 +300,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("Enter with nothing highlighted still runs the mode-scoped search", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockUniversalSearch(page);
     const input = await openComposer(page);
     await input.fill("clozapine monitoring");
@@ -298,6 +314,7 @@ test.describe("universal search typeahead", () => {
   });
 
   test("shows local saved content first in Favourites without uploading it", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockUniversalSearch(page);
     const input = await openComposer(page, "/favourites?focus=1");
     await input.fill("ward round");
@@ -487,6 +504,7 @@ test.describe("universal search smart affordances", () => {
   }
 
   test("shows the interpretation banner, a Best match, and an Ask-this bridge", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockSmartSearch(page);
     const input = await openComposer(page);
     await input.fill("acamprosat");
@@ -497,6 +515,7 @@ test.describe("universal search smart affordances", () => {
   });
 
   test("the Ask-this bridge navigates into Answer mode", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockSmartSearch(page);
     const input = await openComposer(page);
     await input.fill("acamprosat");
@@ -712,12 +731,17 @@ test.describe("universal search smart affordances", () => {
   });
 
   test("keeps a saved exact match first in Favourites", async ({ page }) => {
+    skipWhereTheDropdownNeverOpens();
     await mockSmartSearch(page);
     const input = await openComposer(page, "/favourites?focus=1");
     await input.fill("acamprosate");
 
     await expect(page.getByText("Best match")).toBeHidden();
     await expect(page.getByRole("option").first()).toContainText("Acamprosate renal screen");
-    await expect(page.getByRole("option").first()).toContainText("Saved");
+    // This row is a demo fixture, not the clinician's own favourite, so it reads "Example"
+    // and never "Saved" (#358YM0). The own-favourite "Saved" label is pinned in
+    // tests/favourites-demo-examples.dom.test.tsx.
+    await expect(page.getByRole("option").first()).toContainText("Example");
+    await expect(page.getByRole("option").first()).not.toContainText("Saved");
   });
 });

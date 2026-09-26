@@ -60,6 +60,8 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { RouteNotFoundPanel } from "@/components/route-not-found-panel";
+import { appModeHomeHref } from "@/lib/app-modes";
 import { Sheet } from "@/components/ui/sheet";
 
 const sectionIcons: Record<string, LucideIcon> = {
@@ -415,6 +417,13 @@ function MedicationRecordDetail({
   );
 }
 
+/** TGA eBS search of Product Information documents whose trade name or active ingredient matches. */
+function tgaProductInformationSearchUrl(name: string) {
+  const url = new URL("https://www.ebs.tga.gov.au/ebs/picmi/picmirepository.nsf/PICMI");
+  url.search = `OpenForm&q=${encodeURIComponent(name)}&t=pi`;
+  return url.toString();
+}
+
 export function MedicationRecordPage({
   slug,
   fallbackRecord,
@@ -424,7 +433,7 @@ export function MedicationRecordPage({
   fallbackRecord?: MedicationRecord;
   fallbackGovernance?: MedicationGovernance;
 }) {
-  const { data, loading, error } = useMedicationDetail(slug);
+  const { data, loading, error, notFound } = useMedicationDetail(slug);
   // Content-first: render the SSR fallback immediately, then swap in the live
   // (owner-aware) record once the hook resolves. Only fall back to the skeleton
   // when there is no server record to show (owner-only slugs) and the fetch is
@@ -447,7 +456,7 @@ export function MedicationRecordPage({
   return (
     <>
       <MedicationNavHeader
-        title={record?.name ?? slug}
+        title={record?.name ?? (notFound ? "Not found" : slug)}
         record={record}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
@@ -485,6 +494,16 @@ export function MedicationRecordPage({
             <MedicationRecordDetail record={record} governance={governance} activeTab={activeTab} />
           ) : loading ? (
             <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
+          ) : notFound ? (
+            // The API said this slug is not in the catalogue (after sign-in resolved),
+            // so name it and route back, as every other catalogue does, rather than
+            // showing a bare request failure that reads as the system being broken.
+            <RouteNotFoundPanel
+              title="Medication Not Found"
+              description="The requested medication could not be found in the catalogue."
+              returnHref={appModeHomeHref("prescribing")}
+              returnLabel="Return to medications"
+            />
           ) : (
             <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
               <div className="flex items-start gap-2">
@@ -495,8 +514,25 @@ export function MedicationRecordPage({
           )}
         </div>
         <InformationPageFooter className="mt-4 pb-1">
-          PsychSift is a clinical reference prototype, not validated decision support. Verify every dose and interaction
-          against the linked source before acting on it.
+          {/* No medication record carries its own source link yet (ledger #05WXHX). Until it does, the
+              footer links the owner's chosen default source, a TGA Product Information search. */}
+          PsychSift is a clinical reference prototype, not validated decision support. This record does not yet link to
+          its own sources: verify every dose and interaction against the current Australian product information or your
+          local guideline before acting on it.
+          {record ? (
+            <>
+              {" "}
+              <a
+                href={tgaProductInformationSearchUrl(record.name)}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[color:var(--clinical-accent)] underline underline-offset-2"
+              >
+                Search the TGA Product Information for {record.name}
+              </a>
+              .
+            </>
+          ) : null}
         </InformationPageFooter>
       </InformationPageShell>
     </>

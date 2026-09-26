@@ -39,6 +39,13 @@ export type ReviewAttributionAuditReport = {
   audited_record_count: number;
   reviewed_record_count: number;
   unattributed_reviewed_record_count: number;
+  /**
+   * Review-status values neither vocabulary list claims, counted by value. A
+   * non-empty map fails the gate: the audit cannot say whether those records
+   * were reviewed, and reporting "0 unattributed" over records it could not
+   * classify is the failure this gate exists to prevent.
+   */
+  unrecognised_review_status_counts: Record<string, number>;
   passed: boolean;
   violations: ReviewAttributionViolation[];
 };
@@ -131,23 +138,101 @@ export function isNonTrivialReviewerString(value: unknown): value is string {
   return true;
 }
 
+/**
+ * Statuses that ASSERT a review happened, so a named reviewer is required.
+ *
+ * `locally_reviewed` and `approved` are the vocabulary the documents actually
+ * use (`metadata.clinical_validation_status`), and both are shown to clinicians:
+ * `src/lib/document-filter-model.ts` renders `locally_reviewed` as "Locally
+ * reviewed", and `src/lib/answer-client-payload.ts` treats it as an authority
+ * level alongside `approved`.
+ */
+const REVIEWED_STATUS_VALUES = new Set([
+  "reviewed",
+  "locally_reviewed",
+  "locally reviewed",
+  "approved",
+  "clinician-reviewed-approved",
+]);
+
+/**
+ * Statuses that assert a review has NOT happened. Listed explicitly, rather than
+ * inferred from "not in the reviewed set", so that a status this gate has never
+ * seen cannot quietly take the same path as a known-unreviewed one.
+ */
+const NOT_REVIEWED_STATUS_VALUES = new Set([
+  "unverified",
+  "unknown",
+  "draft",
+  "not_reviewed",
+  "review_due",
+  "clinician-review-pending",
+  "needs-manual-or-clinician-verification",
+  "obvious-no-definition",
+]);
+
+/**
+ * Words that make a status a plain negative wherever they appear in it, so
+ * "needs_review", "Pending review" and "Pending qualified clinician review" do
+ * not each need their own entry above. Checked only AFTER the reviewed set, so a
+ * recognised review claim always wins; none of the reviewed values contains one
+ * of these words.
+ */
+const NOT_REVIEWED_STATUS_MARKERS = /\b(pending|needs|awaiting|required|unverified|unknown|due|draft)\b/;
+
+/**
+ * Does this record claim to have been reviewed?
+ *
+ * WHAT WENT WRONG. This read `reviewStatus` / `review_status` only, and required
+ * the exact string "reviewed". Documents do not record it there: they carry
+ * `metadata.clinical_validation_status`, whose reviewed value is
+ * `locally_reviewed`. So on the 2026-09-25 live run, 1,935 documents reported
+ * `clinical_validation_status: "locally_reviewed"` in the very same report that
+ * said 0 of 3,907 records were marked reviewed, and the attribution gate passed
+ * having examined none of them. The site was showing "Locally reviewed" on those
+ * 1,935 documents while nothing recorded who reviewed them.
+ *
+ * That is the same shape as the `?? []` catalogue defect: a gate reporting a
+ * clean verdict on a population it never looked at. So an unrecognised status is
+ * now reported rather than silently treated as unreviewed — "this gate does not
+ * know what this value means" and "this record was not reviewed" are different
+ * findings, and only one of them is safe to pass.
+ */
 export function isRecordMarkedReviewed(record: Record<string, unknown>): {
   isReviewed: boolean;
   rawStatus: string | null;
+  unrecognisedStatus: string | null;
 } {
   const metadata = metadataRecord(record.metadata);
-  const candidates = [record.reviewStatus, record.review_status, metadata.reviewStatus, metadata.review_status];
+  const candidates = [
+    record.reviewStatus,
+    record.review_status,
+    record.clinicalValidationStatus,
+    record.clinical_validation_status,
+    metadata.reviewStatus,
+    metadata.review_status,
+    metadata.clinicalValidationStatus,
+    metadata.clinical_validation_status,
+  ];
 
+  let unrecognisedStatus: string | null = null;
   for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      const normalized = candidate.trim().toLowerCase();
-      if (normalized === "reviewed") {
-        return { isReviewed: true, rawStatus: candidate.trim() };
-      }
+    if (typeof candidate !== "string" || !candidate.trim()) continue;
+    const trimmed = candidate.trim();
+    const normalized = trimmed.toLowerCase();
+    if (REVIEWED_STATUS_VALUES.has(normalized)) {
+      return { isReviewed: true, rawStatus: trimmed, unrecognisedStatus: null };
     }
+    // `_` and `-` are word characters to a regex, so `needs_review` would not
+    // match `\bneeds\b`. Separators become spaces before the marker test.
+    const spaced = normalized.replace(/[_-]+/g, " ");
+    if (NOT_REVIEWED_STATUS_VALUES.has(normalized) || NOT_REVIEWED_STATUS_MARKERS.test(spaced)) continue;
+    // Remember the first value neither list claims, but keep looking: an
+    // explicit reviewed status elsewhere on the record still decides the answer.
+    unrecognisedStatus ??= trimmed;
   }
 
-  return { isReviewed: false, rawStatus: null };
+  return { isReviewed: false, rawStatus: null, unrecognisedStatus };
 }
 
 export function extractReviewerAttribution(record: Record<string, unknown>): {
@@ -266,8 +351,13 @@ export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttrib
   const violations: ReviewAttributionViolation[] = [];
   let reviewedCount = 0;
 
+  const unrecognisedStatusCounts = new Map<string, number>();
+
   for (const item of records) {
-    const { isReviewed, rawStatus } = isRecordMarkedReviewed(item.record);
+    const { isReviewed, rawStatus, unrecognisedStatus } = isRecordMarkedReviewed(item.record);
+    if (unrecognisedStatus) {
+      unrecognisedStatusCounts.set(unrecognisedStatus, (unrecognisedStatusCounts.get(unrecognisedStatus) ?? 0) + 1);
+    }
     if (!isReviewed) continue;
 
     reviewedCount += 1;
@@ -294,11 +384,16 @@ export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttrib
     }
   }
 
+  const unrecognised = Object.fromEntries(
+    [...unrecognisedStatusCounts.entries()].sort(([a], [b]) => a.localeCompare(b)),
+  );
+
   return {
     audited_record_count: records.length,
     reviewed_record_count: reviewedCount,
     unattributed_reviewed_record_count: violations.length,
-    passed: violations.length === 0,
+    unrecognised_review_status_counts: unrecognised,
+    passed: violations.length === 0 && unrecognisedStatusCounts.size === 0,
     violations,
   };
 }

@@ -5,7 +5,7 @@ import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
-import { getOptionalAuthenticatedUser } from "@/lib/supabase/auth";
+import { AuthenticationError, getOptionalAuthenticatedUser } from "@/lib/supabase/auth";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -174,6 +174,36 @@ export async function publicAccessContext(request: Request, supabase: AdminClien
     ownerId: undefined,
     rateLimitSubject: { kind: "anonymous", subjectKey: anonymousApiSubjectKey(request) } satisfies RateLimitSubject,
   };
+}
+
+/**
+ * Access context for public catalogue GETs (Services, Forms, Medications,
+ * Differentials, universal search domains that read those catalogues).
+ *
+ * `publicAccessContext` deliberately refuses invalid credentials so a stale
+ * cookie cannot silently become "anonymous" on routes that also return private
+ * owner rows. Catalogue list/detail GETs are different: the public corpus is
+ * meant to stay readable without a session, and a hard 401 blanks the mode with
+ * "Could not load services/forms" for clinicians who still carry an expired PWA
+ * cookie. Fall back to anonymous rate-limit scope; private rows stay unreachable
+ * because anonymous reads never leave the public corpus.
+ */
+export async function publicCatalogueAccessContext(request: Request, supabase: AdminClient) {
+  try {
+    return await publicAccessContext(request, supabase);
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return {
+        authenticated: false,
+        ownerId: undefined,
+        rateLimitSubject: {
+          kind: "anonymous",
+          subjectKey: anonymousApiSubjectKey(request),
+        } satisfies RateLimitSubject,
+      };
+    }
+    throw error;
+  }
 }
 
 export async function enforceDocumentReadRateLimit(

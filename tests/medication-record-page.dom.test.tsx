@@ -24,8 +24,8 @@ vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
   MedicationInteractionCallout: () => <p>medication-interaction-callout</p>,
 }));
 
-function mockDetail(state: { data: unknown; loading: boolean; error: string | null }) {
-  useMedicationDetail.mockReturnValue(state);
+function mockDetail(state: { data: unknown; loading: boolean; error: string | null; notFound?: boolean }) {
+  useMedicationDetail.mockReturnValue({ notFound: false, ...state });
 }
 
 // Minimal record with no `src` "...checked" text, so the "Reviewed" identity
@@ -74,6 +74,21 @@ describe("MedicationRecordPage content-first states", () => {
     expect(screen.getByText("Network unavailable")).toBeInTheDocument();
   });
 
+  it("renders a named not-found with a route back when the medication does not exist (#W0T66R)", () => {
+    mockDetail({ data: null, loading: false, error: "Request failed (404)", notFound: true });
+    render(<MedicationRecordPage slug="zzz" />);
+    expect(screen.getByRole("heading", { level: 1, name: "Medication Not Found" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to medications" })).toHaveAttribute("href", "/medications");
+    expect(screen.queryByText("Request failed (404)")).not.toBeInTheDocument();
+  });
+
+  it("keeps a non-not-found failure as an error rather than a not-found (#W0T66R)", () => {
+    mockDetail({ data: null, loading: false, error: "Request failed (503)", notFound: false });
+    render(<MedicationRecordPage slug="zzz" />);
+    expect(screen.getByText("Request failed (503)")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Medication Not Found" })).not.toBeInTheDocument();
+  });
+
   it("drops fixture governance on error so a fixture 'Reviewed' badge does not persist as authoritative", () => {
     mockDetail({ data: null, loading: false, error: "boom" });
     render(
@@ -119,5 +134,27 @@ describe("MedicationRecordPage content-first states", () => {
     // Contrast to the error case: while loading (no error) the SSR-provided
     // governance is trusted, so the "Reviewed" badge shows.
     expect(screen.getByText("Reviewed")).toBeInTheDocument();
+  });
+});
+
+describe("MedicationRecordPage source link (#05WXHX)", () => {
+  // No medication record carries its own source link yet, so the footer points to the
+  // default source the owner chose on 2026-09-25: the TGA Product Information search.
+  it("links to the TGA Product Information search for the medicine", () => {
+    mockDetail({ data: { record: fallbackDrug }, loading: false, error: null });
+    render(<MedicationRecordPage slug="test-med" fallbackRecord={fallbackDrug} />);
+    const link = screen.getByRole("link", { name: `Search the TGA Product Information for ${fallbackDrug.name}` });
+    const href = new URL(link.getAttribute("href")!);
+    expect(href.origin).toBe("https://www.ebs.tga.gov.au");
+    expect(href.pathname).toBe("/ebs/picmi/picmirepository.nsf/PICMI");
+    expect(href.searchParams.get("q")).toBe(fallbackDrug.name);
+    expect(href.searchParams.get("t")).toBe("pi");
+    expect(link).toHaveAttribute("rel", "noreferrer");
+  });
+
+  it("offers no TGA link when there is no record to name", () => {
+    mockDetail({ data: null, loading: false, error: "Medication not found." });
+    render(<MedicationRecordPage slug="missing" />);
+    expect(screen.queryByRole("link", { name: /TGA Product Information/ })).not.toBeInTheDocument();
   });
 });

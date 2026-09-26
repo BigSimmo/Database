@@ -9,7 +9,8 @@ import { dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
 import { specifierCatalogItems, loadSpecifiersContent } from "@/lib/specifiers-content";
 import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
-import { isFormulationSignedOffStatus } from "@/lib/formulation-review-status";
+import { conceptReviewState, isFormulationSignedOffStatus } from "@/lib/formulation-review-status";
+import { formulationConcepts, formulationGuides } from "@/lib/formulation-concepts";
 
 /**
  * Every clinical record in this repository that is waiting for a person to sign
@@ -117,9 +118,18 @@ function formsFamily(): SignOffFamily {
 
 type FormulationMechanism = { id: string; name: string; reviewStatus: string };
 
+/**
+ * Formulation keeps its records in two files with two status fields: the 12
+ * mechanisms carry `reviewStatus` in `formulation-content.json`, and the 46
+ * contextual concepts and 6 guide modules carry `review.status` (plus a reviewer
+ * slot) in `formulation-concepts.json`. Reading only the first file hid 52 of
+ * the 64 unsigned records (ledger #33JDBW). Concepts and guides are filtered by
+ * `conceptReviewState`, the same fail-closed decision their pages render, so the
+ * queue and the badge cannot disagree about one record.
+ */
 function formulationFamily(): SignOffFamily {
   const mechanisms = (formulationContent as { mechanisms: FormulationMechanism[] }).mechanisms;
-  const rows = mechanisms
+  const mechanismRows = mechanisms
     .filter((mechanism) => !isFormulationSignedOffStatus(mechanism.reviewStatus))
     .map<SignOffRow>((mechanism) => ({
       family: "formulation",
@@ -132,14 +142,33 @@ function formulationFamily(): SignOffFamily {
         "A clinician confirms the mechanism description, its fit indicators and its treatment implications against the cited sources.",
       href: `/formulation/${mechanism.id}`,
     }));
+  const recordRows = [
+    ...formulationConcepts.map((record) => ({ record, kind: "concept" as const })),
+    ...formulationGuides.map((record) => ({ record, kind: "guide" as const })),
+  ]
+    .filter(({ record }) => !conceptReviewState(record).reviewed)
+    .map<SignOffRow>(({ record, kind }) => ({
+      family: "formulation",
+      key: `formulation-${kind}:${record.id}`,
+      id: record.id,
+      title: record.title,
+      nativeStatus: record.review.status,
+      statusLabel: "Clinical review required",
+      requires:
+        kind === "guide"
+          ? "A named clinician checks the guide module's instructions against the cited sources and records themselves as reviewer."
+          : "A named clinician checks the concept's summary, qualifications and warnings against the cited sources and records themselves as reviewer.",
+      // A held record 404s at /formulation/<id>, so it is listed unlinked.
+      href: record.release === "published" ? `/formulation/${record.id}` : null,
+    }));
   return {
     id: "formulation",
-    name: "Formulation mechanisms",
-    source: "src/data/formulation-content.json",
-    nativeField: "reviewStatus",
-    note: "Source metadata was reviewed; the clinical claims themselves are ungraded and carry no named confirmation.",
+    name: "Formulation mechanisms, concepts and guides",
+    source: "src/data/formulation-content.json, src/data/formulation-concepts.json",
+    nativeField: "reviewStatus (mechanisms); review.status + review.reviewer (concepts and guide modules)",
+    note: "Source metadata was reviewed; the clinical claims themselves are ungraded and carry no named confirmation. A concept or guide counts as signed off only with a named reviewer.",
     unrouted: false,
-    rows,
+    rows: [...mechanismRows, ...recordRows],
   };
 }
 

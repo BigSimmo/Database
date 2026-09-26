@@ -726,6 +726,56 @@ export function migrationHistoryEditApproval(body) {
   return { declared: true, satisfied: !placeholder && reason.length >= 12, reason };
 }
 
+/**
+ * The migration-history gate on its own: violations against `baseMigrationVersions`, with the
+ * one override (the approval body line plus a fail-fast validation guard migration) applied.
+ * `evaluatePullRequestPolicy` uses it for PR events; the merge queue calls it directly, because
+ * a queued PR is re-based onto whatever merged ahead of it and is never re-synced, so the
+ * ordering it was checked against at PR time can be stale by the time it lands.
+ */
+export function migrationHistoryVerdict({
+  fileStatuses,
+  baseMigrationVersions,
+  body = "",
+  addedMigrationContents = {},
+  now = new Date(),
+}) {
+  const errors = [];
+  const warnings = [];
+  const violations = migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions, now });
+  if (violations.length > 0) {
+    const override = migrationHistoryEditApproval(body);
+    if (override.satisfied) {
+      const guard = migrationHistoryOverrideGuard({ fileStatuses, addedMigrationContents });
+      if (guard.satisfied) {
+        warnings.push(
+          `Migration history edit approved (${override.reason}); validation guard ${guard.guardPaths.join(", ")}; ${violations.length} violation(s) accepted: ${violations.map((violation) => violation.path).join(", ")}.`,
+        );
+      } else {
+        for (const violation of violations) errors.push(violation.message);
+        errors.push(guard.reason);
+      }
+    } else {
+      for (const violation of violations) errors.push(violation.message);
+      if (override.declared && !override.satisfied) {
+        errors.push(
+          "`Migration history edit approved:` needs a specific reason (at least 12 characters, not a placeholder).",
+        );
+      }
+    }
+  }
+  return { violations, errors, warnings };
+}
+
+/**
+ * The PR number a merge-queue entry was built from, read from its temporary branch
+ * (`refs/heads/gh-readonly-queue/<base>/pr-<number>-<sha>`), or null when it cannot be read.
+ */
+export function mergeGroupPullRequestNumber(headRef) {
+  const match = String(headRef ?? "").match(/(?:^|\/)gh-readonly-queue\/.+\/pr-(\d+)-[0-9a-f]{7,40}$/);
+  return match ? Number(match[1]) : null;
+}
+
 // ---------------------------------------------------------------------------
 // Required-check forgery tripwire.
 //
@@ -999,28 +1049,16 @@ export function evaluatePullRequestPolicy({
   const migrationInputsSupplied =
     Array.isArray(fileStatuses) && Array.isArray(baseMigrationVersions) && baseMigrationVersions.length > 0;
   if (migrationInputsSupplied) {
-    historyViolations = migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions, now });
-    if (historyViolations.length > 0) {
-      const override = migrationHistoryEditApproval(body);
-      if (override.satisfied) {
-        const guard = migrationHistoryOverrideGuard({ fileStatuses, addedMigrationContents });
-        if (guard.satisfied) {
-          warnings.push(
-            `Migration history edit approved (${override.reason}); validation guard ${guard.guardPaths.join(", ")}; ${historyViolations.length} violation(s) accepted: ${historyViolations.map((violation) => violation.path).join(", ")}.`,
-          );
-        } else {
-          for (const violation of historyViolations) errors.push(violation.message);
-          errors.push(guard.reason);
-        }
-      } else {
-        for (const violation of historyViolations) errors.push(violation.message);
-        if (override.declared && !override.satisfied) {
-          errors.push(
-            "`Migration history edit approved:` needs a specific reason (at least 12 characters, not a placeholder).",
-          );
-        }
-      }
-    }
+    const verdict = migrationHistoryVerdict({
+      fileStatuses,
+      baseMigrationVersions,
+      body,
+      addedMigrationContents,
+      now,
+    });
+    historyViolations = verdict.violations;
+    errors.push(...verdict.errors);
+    warnings.push(...verdict.warnings);
   } else if (enforceMigrationHistory && classification.migration) {
     errors.push(
       "This PR touches supabase/migrations, but migration history could not be verified (file statuses or the trusted base migration versions were not supplied). Rerun the check; the policy fails closed until it can verify history.",
@@ -2163,6 +2201,45 @@ function requiredCheckForgerySelfTest(completeBody) {
     true,
     "a removed workflow cannot run and needs no content",
   );
+
+  // Merge queue: a PR checked against an older main is re-based onto whatever merged ahead of
+  // it and never re-synced. Its migration must be rejected if it is no longer the newest.
+  const queued = [{ filename: "supabase/migrations/20260901000000_queued.sql", status: "added" }];
+  const queueClock = new Date("2026-09-02T00:00:00Z");
+  assert.deepEqual(
+    migrationHistoryVerdict({ fileStatuses: queued, baseMigrationVersions: ["20260801000000"], now: queueClock })
+      .errors,
+    [],
+    "a queued migration newer than its base passes",
+  );
+  const overtaken = migrationHistoryVerdict({
+    fileStatuses: queued,
+    baseMigrationVersions: ["20260801000000", "20260901120000"],
+    now: queueClock,
+  });
+  assert.deepEqual(
+    overtaken.violations.map((violation) => violation.kind),
+    ["out-of-order"],
+    "a migration that merged ahead in the queue makes the queued one out of order",
+  );
+  assert.equal(overtaken.errors.length, 1, "an overtaken queued migration blocks the queue entry");
+  assert.equal(
+    migrationHistoryVerdict({
+      fileStatuses: queued,
+      baseMigrationVersions: ["20260801000000", "20260901120000"],
+      body: "Migration history edit approved: <reason>",
+      now: queueClock,
+    }).errors.length > 1,
+    true,
+    "a placeholder approval does not excuse an overtaken queued migration",
+  );
+  assert.equal(
+    mergeGroupPullRequestNumber("refs/heads/gh-readonly-queue/main/pr-3013-9559961465444c0cd72ddbcf199ee41a201eb734"),
+    3013,
+  );
+  assert.equal(mergeGroupPullRequestNumber("gh-readonly-queue/release/2026-09/pr-7-abcdef1"), 7);
+  assert.equal(mergeGroupPullRequestNumber("refs/heads/main"), null, "a non-queue ref has no PR number");
+  assert.equal(mergeGroupPullRequestNumber(undefined), null);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

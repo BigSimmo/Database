@@ -147,6 +147,19 @@ describe("On Call home layout", () => {
     expect(recent.compareDocumentPosition(wards) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("lets a ward chip grow and wrap its title instead of truncating it at a fixed width (#8RWKA0)", () => {
+    storeState.entries = [contact("demo-emergency", "Demo Emergency Department", ["ward"], "9224 1000")];
+
+    render(<OnCallHome />);
+
+    const chip = screen.getByTestId("on-call-home-ward-demo-emergency");
+    expect(chip.className).not.toMatch(/(^|\s)w-32(\s|$)/);
+    expect(chip.className).toMatch(/(^|\s)min-w-32(\s|$)/);
+    expect(chip.className).toMatch(/(^|\s)max-w-60(\s|$)/);
+    const title = within(chip).getByText("Demo Emergency Department");
+    expect(title.className).not.toMatch(/(^|\s)truncate(\s|$)/);
+  });
+
   it("gives an empty hub a first run block rather than a grid of zeroes", () => {
     storeState.entries = [];
 

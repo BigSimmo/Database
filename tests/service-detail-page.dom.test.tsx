@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ServiceDetailPage } from "@/components/services/service-detail-page";
 import type { ServiceRecord } from "@/lib/service-ranker";
 
+import { expectWellFormedDefinitionLists } from "./helpers/definition-list-shape";
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
   // InPageNavHeader derives its sheet state from the pathname; without this the
@@ -247,5 +249,10 @@ describe("ServiceDetailPage content cleanup", () => {
 
     const facts = within(screen.getByLabelText("Priority facts"));
     expect(facts.getAllByText("Eligible callers")).toHaveLength(2);
+  });
+
+  it("keeps the referral facts a well-formed description list (#Q80S8B)", () => {
+    const { container } = render(<ServiceDetailPage service={baseService()} />);
+    expectWellFormedDefinitionLists(container);
   });
 });

@@ -1001,8 +1001,9 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
           ["Reason", debtAcceptance.reason ?? "n/a"],
           ["Rejection reasons", debtAcceptance.rejection_reasons.join("; ") || "none"],
         ]);
+  // Every failed case, not the first ten: a truncated list is how an individually failing case
+  // hides behind the ones above it (audit F24).
   const failedRetrieval = report.retrieval.summary.failed_cases
-    .slice(0, 10)
     .map(
       (item) =>
         `- ${item.id}: ${item.failures.join("; ")}\n  Expected documents: ${
@@ -1018,7 +1019,6 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
     )
     .join("\n");
   const failedRag = report.rag.summary.failed_cases
-    .slice(0, 10)
     .map(
       (item) =>
         `- ${item.id}: ${item.failures.join("; ")}\n  Expected files: ${
