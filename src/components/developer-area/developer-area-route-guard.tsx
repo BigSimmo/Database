@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
  * written down rather than repeated here. The App Router preserves that
  * layout instance across
  * a soft client-side navigation between its own sibling pages — the hub to
- * `/ledger`, `/routes`, `/review-state`, ... — so the check is NOT re-run for
+ * `/ledger`, `/hazards`, `/ingestion`, ... — so the check is NOT re-run for
  * those navigations, only for a hard reload or a fresh top-level visit
  * (`docs/agents` verified against `node_modules/next/dist/docs`: "[navigation]
  * keeps any shared layouts and UI"). A session that signs out elsewhere or

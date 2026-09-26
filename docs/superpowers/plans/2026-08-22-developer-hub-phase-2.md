@@ -1,5 +1,7 @@
 # Developer hub Phase 2 (repo awareness) Implementation Plan
 
+> **SUPERSEDED (2026-09-26):** the four pages this plan built (routes, documentation, test health, review state) were retired on the owner's decision; see the retired-routes table in `mockups/README.md`. The snapshot generator, its gate and `data/repo-awareness-snapshot.json` remain. Kept as a historical record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fill the developer hub's four `phase: 2` panels — routes, documentation, test health, and review state — from one build-time snapshot of data the repository already keeps on disk.
