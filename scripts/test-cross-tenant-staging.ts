@@ -8,6 +8,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "../src/lib/supabase/database.types";
 import { probeCmeAndOnCallIsolation } from "./lib/cross-tenant-records-probe";
+import {
+  CROSS_TENANT_CME_YEAR,
+  probeCmeWriteIsolation,
+  probeOnCallServiceWriteIsolation,
+  type WriteProbeCreated,
+} from "./lib/cross-tenant-write-probe";
 
 loadEnvConfig(process.cwd());
 
@@ -546,6 +552,7 @@ async function cleanup(
   fixtures: Fixture[],
   userIds: string[],
   startedAt: string,
+  records: WriteProbeCreated[] = [],
 ) {
   if (!admin || !config) return [];
   const errors: string[] = [];
@@ -579,6 +586,22 @@ async function cleanup(
     await attempt("delete document_chunks", admin.from("document_chunks").delete().in("document_id", ids));
     await attempt("delete document_pages", admin.from("document_pages").delete().in("document_id", ids));
     await attempt("delete documents", admin.from("documents").delete().in("id", ids));
+  }
+  // Disposable CME and On Call records from the write probe. Entries go before their year; the
+  // year row is only registered when the probe created it, so a real CPD year is never removed.
+  const cmeEntryIds = records.flatMap((record) => (record.kind === "cme-entry" ? [record.id] : []));
+  if (cmeEntryIds.length > 0) {
+    await attempt("delete cme_entries", admin.from("cme_entries").delete().in("id", cmeEntryIds));
+  }
+  if (records.some((record) => record.kind === "cme-year") && userIds[0]) {
+    await attempt(
+      "delete cme_years",
+      admin.from("cme_years").delete().eq("owner_id", userIds[0]).eq("year", CROSS_TENANT_CME_YEAR),
+    );
+  }
+  const serviceIds = records.flatMap((record) => (record.kind === "on-call-service" ? [record.id] : []));
+  if (serviceIds.length > 0) {
+    await attempt("delete on_call_services", admin.from("on_call_services").delete().in("id", serviceIds));
   }
   const storagePaths = fixtures.map((fixture) => fixture.storagePath);
   if (storagePaths.length > 0) {
@@ -633,6 +656,7 @@ async function main() {
   const checkpoints: string[] = [];
   const notExercised: string[] = [];
   const fixtures: Fixture[] = [];
+  const createdRecords: WriteProbeCreated[] = [];
   const userIds: string[] = [];
   let config: HarnessConfig | null = null;
   let clientA: AppClient | null = null;
@@ -711,11 +735,41 @@ async function main() {
     checkpoints.push(...records.checkpoints);
     notExercised.push(...records.skipped);
     for (const note of records.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+
+    // CME and On Call writes, invitations and revocation, on disposable records user A creates.
+    const writeRequest = (token: string, path: string, init: { method?: string; body?: unknown }, expected: number[]) =>
+      requestJson(
+        config!,
+        token,
+        path,
+        { method: init.method, body: init.body === undefined ? undefined : JSON.stringify(init.body) },
+        expected,
+      );
+    const register = (created: WriteProbeCreated) => createdRecords.push(created);
+    const cmeWrites = await probeCmeWriteIsolation({
+      request: writeRequest,
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+      marker: fixtureA.marker,
+      register,
+    });
+    checkpoints.push(...cmeWrites.checkpoints);
+    notExercised.push(...cmeWrites.skipped);
+    for (const note of cmeWrites.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+    const serviceWrites = await probeOnCallServiceWriteIsolation({
+      request: writeRequest,
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+      userIdB: sessionB.userId,
+      marker: fixtureA.marker,
+      register,
+    });
+    checkpoints.push(...serviceWrites.checkpoints);
   } catch (error) {
     failure = error;
   }
 
-  const cleanupErrors = await cleanup(admin, config, fixtures, userIds, startedAt);
+  const cleanupErrors = await cleanup(admin, config, fixtures, userIds, startedAt, createdRecords);
   await Promise.allSettled([
     clientA?.auth.signOut() ?? Promise.resolve(),
     clientB?.auth.signOut() ?? Promise.resolve(),

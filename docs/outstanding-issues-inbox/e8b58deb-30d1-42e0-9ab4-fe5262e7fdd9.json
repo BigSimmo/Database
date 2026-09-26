@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e8b58deb-30d1-42e0-9ab4-fe5262e7fdd9",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#F9HZEG",
+    "detail": "UPDATE 2026-09-26 (branch claude/cross-tenant-cme-oncall-writes, offline; supersedes the same-day note queued in PR #3060): the two-user staging harness now covers CME and On Call writes, not only reads. PR #3021 had added a read-only probe (scripts/lib/cross-tenant-records-probe.ts) using records user A already owns. The new scripts/lib/cross-tenant-write-probe.ts has user A create disposable records through the real API and then proves: user B cannot list, archive, mark transcribed, fully edit or delete A's CME entry, and A's entry is unchanged afterwards (CPD year 2000, created only when A has none, removed in cleanup); a non-member cannot read A's On Call service, mint an invitation, add a site or change a member; an invitation A issues lets B join and read, while B as a plain member still cannot invite or promote itself; after A revokes B, B loses access and the used invitation cannot bring B back. tests/cross-tenant-write-probe.test.ts runs it against a fake API and against seven leaking variants, each failing on the expected boundary. STILL NOT COVERED: concurrency races (revocation during an in-flight read), CME export and evidence signed URLs, On Call reports and orientation. NOT YET RUN against staging: dispatching staging-tenancy.yml is provider-backed and needs the owner's approval. PRIOR DETAIL: Verified offline: scripts/test-cross-tenant-staging.ts exercises /api/answer, /api/documents, /api/health, /api/search and /api/search/universal and has zero CME or On Call references. Unit-level root-bundle isolation tests exist (cme-root-bundle-isolation, on-call-root-bundle-isolation) but are not endpoint attacks. Next action: extend the existing two-user harness to CME records/evidence/storage signed URLs and On Call services/invitations/membership/reports/orientation, including revocation and concurrency races. Staging execution is provider-backed and needs explicit approval. Related: #057 (runs the existing harness; does not widen it).",
+    "baseRowFingerprint": "0af0ed06141fcbf13ab568b4e5f9456d16c58ac329fda0da01ac0c1696926445"
+  }
+}
