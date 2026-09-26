@@ -113,7 +113,7 @@ export function CalendarSubscribe({ testId = "calendar-subscribe" }: { testId?: 
   return (
     <section data-testid={testId} aria-labelledby={`${testId}-title`} className={cn(cardSurface, "mt-5 p-4")}>
       <h2 id={`${testId}-title`} className="text-base font-semibold text-[color:var(--text)]">
-        Show these dates in your own calendar
+        Keep your calendar up to date automatically
       </h2>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         One private link keeps Google, Outlook or Apple Calendar up to date with your CME deadlines, routines and
