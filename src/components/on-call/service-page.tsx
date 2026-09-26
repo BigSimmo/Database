@@ -1,11 +1,21 @@
 "use client";
 
-import { BookOpen, Building2, ClipboardCheck, FileSpreadsheet, Settings, ShieldCheck, Users } from "lucide-react";
+import {
+  BookOpen,
+  Building2,
+  ClipboardCheck,
+  FileSpreadsheet,
+  ListTodo,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ServiceAdminPanel } from "@/components/on-call/service-admin-panel";
+import { ServiceCheckingPanel } from "@/components/on-call/service-checking-panel";
 import { ServiceEntryEditor } from "@/components/on-call/service-entry-editor";
 import { ServiceGovernancePanel } from "@/components/on-call/service-governance-panel";
 import { ServiceHandbook } from "@/components/on-call/service-handbook";
@@ -35,6 +45,7 @@ type OwnedDetail = { readonly contextKey: string; readonly value: ServiceDetail 
 const workspaceTabs = [
   { id: "handbook", label: "Handbook", icon: BookOpen },
   { id: "import", label: "Import", icon: FileSpreadsheet },
+  { id: "checking", label: "Needs checking", icon: ListTodo },
   { id: "orientation", label: "Orientation", icon: ClipboardCheck },
   { id: "review", label: "Review", icon: ShieldCheck },
   { id: "admin", label: "Members", icon: Users },
@@ -259,7 +270,7 @@ export function ServicePage({
     () =>
       workspaceTabs.filter((item) => {
         // Editor tools; members never see them (plan Task 4).
-        if (item.id === "import") return canEdit;
+        if (item.id === "import" || item.id === "checking") return canEdit;
         if (item.id === "review") return canReview;
         if (item.id === "admin") return detail?.membership.role === "admin";
         return true;
@@ -612,6 +623,15 @@ export function ServicePage({
               detail={detail}
               demo={demoMode}
               reload={reloadDetail}
+            />
+          ) : tab === "checking" && canEdit ? (
+            <ServiceCheckingPanel
+              detail={detail}
+              siteId={selectedSiteId}
+              onEdit={(entry) => {
+                openEditor(entry);
+                setTab("handbook");
+              }}
             />
           ) : tab === "orientation" ? (
             <ServiceOrientationPanel
