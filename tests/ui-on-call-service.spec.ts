@@ -1,4 +1,5 @@
 import { expect, test } from "playwright/test";
+import { clickWhenHydrated, expectHydrated } from "./playwright-settlement";
 
 test.describe("Invited handbook phone experience", () => {
   for (const width of [320, 390, 430, 1280]) {
@@ -34,8 +35,10 @@ test.describe("Invited handbook phone experience", () => {
   test("finds the exact local extension and never offers a public dial action", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/on-call/service");
-    await page.getByRole("searchbox", { name: "Search service handbook" }).fill("coordination extension");
-    await page.getByRole("button", { name: "Open first result" }).click();
+    const handbookSearch = page.getByRole("searchbox", { name: "Search service handbook" });
+    await expectHydrated(handbookSearch);
+    await handbookSearch.fill("coordination extension");
+    await clickWhenHydrated(page.getByRole("button", { name: "Open first result" }));
     const entry = page.getByTestId("service-entry-61000000-0000-4000-8000-000000000001");
     await expect(entry).toBeFocused();
     await expect(entry.getByRole("button", { name: /Copy extension/ })).toBeVisible();
