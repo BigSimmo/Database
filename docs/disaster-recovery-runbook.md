@@ -110,11 +110,13 @@ it before you need it:
   in the bare image. schema.sql declares vector/pg_trgm/uuid-ossp plus pg_cron
   (matching migration 20260901033250); drift-manifest replay must succeed on the
   pinned bare image when that declaration is present.
-- **pg_cron schedules** — the invoked functions (`invoke_ingestion_worker`,
-  `invoke_indexing_v3_agent`) are codified, but the `cron.schedule(...)` rows
-  themselves are live-only. After restore, re-create the cron jobs.
+- **pg_cron schedules** — the invoked function (`invoke_indexing_v3_agent`) is
+  codified, but the `cron.schedule(...)` rows themselves are live-only. After
+  restore, re-create its cron job. `invoke_ingestion_worker` was retired by
+  `20260926041000`; do not re-create it or schedule it.
 - **Vault secrets** — `cron_ingestion_jwt` (and any siblings) must be re-added
-  before the cron→edge-function chain works.
+  before the cron→edge-function chain works (`invoke_indexing_v3_agent` sends it
+  as its login token).
 - **Custom GUCs** — `20260702160000` reads the agent URL from a database GUC;
   re-set it (`alter database ... set ...`) on the restored project.
 - **Edge functions** — deploy `indexing-v3-agent` (and the ingestion worker

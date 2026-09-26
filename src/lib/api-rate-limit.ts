@@ -399,6 +399,68 @@ async function consumeAnonymousGenerationCeiling(args: {
 }
 
 /**
+ * The anonymous subject, global and (for generation buckets) aggregate-ceiling checks in ONE database
+ * round trip, in the same order and with the same stop-at-first-denial accounting as the serial calls
+ * below. Each serial call crossed from the app's region to the database's, so an anonymous answer
+ * used to spend ~1.4 s here. Returns null when the function is unavailable or returns an unreadable
+ * row, so the caller falls back to the serial path and its existing unavailable handling.
+ */
+async function consumeAnonymousRateLimitsAtomic(args: {
+  supabase: SupabaseAdmin;
+  subjectKey: string;
+  bucket: ApiRateLimitBucket;
+  limit: number;
+  windowSeconds: number;
+  globalKey: string;
+  globalLimit: number;
+  globalWindowSeconds: number;
+}): Promise<ApiRateLimitResult | null> {
+  const withCeiling = isAnonymousGenerationBucket(args.bucket);
+  const { data, error } = await args.supabase.rpc("consume_anonymous_rate_limits_atomic", {
+    p_subject_key: args.subjectKey,
+    p_bucket: args.bucket,
+    p_subject_limit: args.limit,
+    p_subject_window_seconds: args.windowSeconds,
+    p_global_key: args.globalKey,
+    p_global_limit: args.globalLimit,
+    p_global_window_seconds: args.globalWindowSeconds,
+    p_ceiling_key: withCeiling ? ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY : null,
+    p_ceiling_bucket: withCeiling ? ANONYMOUS_GENERATION_CEILING_BUCKET : null,
+    p_ceiling_limit: withCeiling ? ANONYMOUS_GENERATION_CEILING.limit : null,
+    p_ceiling_window_seconds: withCeiling ? ANONYMOUS_GENERATION_CEILING.windowSeconds : null,
+  });
+  if (error) return null;
+  const row = parseRateLimitRow(data) as (RateLimitRpcRow & { scope?: string | null }) | null;
+  if (!row || typeof row.limited !== "boolean") return null;
+  const denyingScope = row.limited ? row.scope : null;
+  if (row.limited && denyingScope !== "subject" && denyingScope !== "global" && denyingScope !== "ceiling") return null;
+
+  const fallbackWindowSeconds =
+    denyingScope === "ceiling"
+      ? ANONYMOUS_GENERATION_CEILING.windowSeconds
+      : denyingScope === "global"
+        ? args.globalWindowSeconds
+        : args.windowSeconds;
+  const result: ApiRateLimitResult = {
+    limited: row.limited,
+    limit: Number(row.limit_value ?? args.limit),
+    remaining: Number(row.remaining ?? 0),
+    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? fallbackWindowSeconds)),
+    resetAt: String(row.reset_at ?? new Date(Date.now() + fallbackWindowSeconds * 1000).toISOString()),
+  };
+  if (denyingScope === "ceiling") {
+    rememberDurableRateLimitDenyCache(
+      ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY,
+      ANONYMOUS_GENERATION_CEILING_BUCKET,
+      result,
+    );
+    return { ...result, scope: "anonymous_generation_ceiling" };
+  }
+  rememberDurableRateLimitDenyCache(denyingScope === "global" ? args.globalKey : args.subjectKey, args.bucket, result);
+  return result;
+}
+
+/**
  * Applies an API rate limit to an owner or anonymous subject.
  *
  * Anonymous requests to answer and document upload buckets are constrained by
@@ -525,6 +587,20 @@ export async function consumeSubjectApiRateLimit(args: {
   const cachedGlobalDenial = tryReadDurableRateLimitDenyCache(globalKey, args.bucket);
   if (cachedGlobalDenial) return cachedGlobalDenial;
 
+  const atomicResult = await consumeAnonymousRateLimitsAtomic({
+    supabase: args.supabase,
+    subjectKey: args.subject.subjectKey,
+    bucket: args.bucket,
+    limit,
+    windowSeconds,
+    globalKey,
+    globalLimit: globalDefaults.limit,
+    globalWindowSeconds: globalDefaults.windowSeconds,
+  });
+  if (atomicResult) return atomicResult;
+
+  // The one-round-trip function was unavailable (for example before its migration applied), so
+  // make the same checks as separate calls. Their own unavailable handling applies unchanged.
   const subjectResult = await consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
   if (subjectResult.limited) return subjectResult;
   const globalResult = await consumeAnonymousLimit(globalKey, globalDefaults.limit, globalDefaults.windowSeconds);
