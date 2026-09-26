@@ -13,11 +13,17 @@ export type ServiceUrgentIntent =
   | "suicide_aftercare"
   | "suicide_postvention";
 
-const CRISIS = /\b(?:suicid\w*|crisis|acute|unsafe|self[- ]?harm|mental health emergency)\b/i;
+// `self[- ]?harm\w*` so "self harming", "self-harmed" and "selfharm" are all crisis wording.
+const CRISIS = /\b(?:suicid\w*|crisis|acute|unsafe|self[- ]?harm\w*|mental health emergency)\b/i;
 const IMMEDIATE_DANGER =
   /\b(?:actively suicidal|immediate danger|life[- ]?threatening|severe injury|overdose|about to (?:kill|harm)|cannot keep (?:myself|them|him|her|the patient) safe|emergency (?:now|in progress)|strangl\w*|chok(?:ing|ed)?|can[’']?t breathe|cannot breathe)\b/i;
-const CHILD_OR_YOUTH =
-  /\b(?:child|teen(?:ager)?|adolescent|young person|(?:[0-9]|1[0-7])\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
+// Wording that says the person is under 18: CAMHS Crisis Connect alone.
+const CHILD =
+  /\b(?:child(?:ren)?|kids?|teen(?:ager)?s?|adolescents?|(?:[0-9]|1[0-7])\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
+// Owner decision 15 (Josh, 2026-09-25): plain youth wording does not say whether the person is
+// under or over 18, so a youth crisis pins both CAMHS Crisis Connect and the adult MHERL line,
+// CAMHS first. Explicit under-18 wording (CHILD) in the same query settles the age: CAMHS alone.
+const YOUTH = /\b(?:youths?|young (?:person|people))\b/i;
 const REGIONAL_WA =
   /\b(?:regional|rural|remote|bunbury|albany|geraldton|kalgoorlie|karratha|broome|port hedland|esperance|great southern|pilbara|kimberley|south west|wheatbelt|mid west|goldfields|kununurra|busselton|carnarvon|northam|derby|newman|katanning|merredin|exmouth)\b/i;
 // Keyword-only signal. A stated clock time is judged separately, by
@@ -168,10 +174,11 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
   const crisis = CRISIS.test(clean);
   const immediateDanger = IMMEDIATE_DANGER.test(clean);
   const postvention = POSTVENTION.test(clean);
-  const childOrYouth = CHILD_OR_YOUTH.test(clean);
+  const child = CHILD.test(clean);
+  const youthAnyAge = !child && YOUTH.test(clean);
 
   if (immediateDanger) intents.push("emergency");
-  if (crisis && childOrYouth) intents.push("camhs_crisis");
+  if (crisis && (child || youthAnyAge)) intents.push("camhs_crisis");
   if (ABORIGINAL.test(clean) && crisis) intents.push("aboriginal_crisis");
   if (FAMILY_VIOLENCE_NAMED.test(clean) || FAMILY_VIOLENCE_DESCRIBED.test(clean)) intents.push("family_violence");
   if (SEXUAL_ASSAULT.test(clean)) intents.push("sexual_assault");
@@ -188,7 +195,7 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
       intents.push("regional_after_hours");
     }
   }
-  if (crisis && !childOrYouth && (ADULT.test(clean) || METRO_OR_PEEL.test(clean))) {
+  if (crisis && !child && (youthAnyAge || ADULT.test(clean) || METRO_OR_PEEL.test(clean))) {
     intents.push("adult_metro_crisis");
   }
   if (AOD_TERMS.test(clean) && AOD_URGENCY.test(clean)) intents.push("aod_urgent");
