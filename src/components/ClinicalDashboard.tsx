@@ -95,6 +95,7 @@ import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { AnswerCrisisBanner } from "@/components/clinical-dashboard/answer-crisis-banner";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -223,6 +224,7 @@ import {
 } from "@/lib/private-search-scope";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
+import { hasCrisisWording } from "@/lib/crisis-wording";
 import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-deferred-registry-search";
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
@@ -3544,6 +3546,12 @@ function ClinicalDashboardContent({
                       ) : undefined
                     }
                   />
+                ) : null}
+
+                {activeModeResultKind === "answer" &&
+                (loading || answer) &&
+                hasCrisisWording(answerLifecycle.query ?? latestAnswerQuery) ? (
+                  <AnswerCrisisBanner />
                 ) : null}
 
                 {searchMode !== "prescribing" &&
