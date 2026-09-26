@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 import { focusRing } from "@/components/card-recipes";
-import { onCallControlShape, onCallTapArea } from "@/components/on-call/kit/recipes";
+import { onCallControlDisabled, onCallControlShape, onCallTapArea } from "@/components/on-call/kit/recipes";
 import { cn } from "@/components/ui-primitives";
 
 /**
@@ -33,11 +33,15 @@ export function OnCallActionButton({
   readonly testId?: string;
 }) {
   const shape = (
-    <span aria-hidden="true" className={onCallControlShape[tone]} data-testid={testId ? `${testId}-shape` : undefined}>
+    <span
+      aria-hidden="true"
+      className={cn(onCallControlShape[tone], onCallControlDisabled)}
+      data-testid={testId ? `${testId}-shape` : undefined}
+    >
       <Icon aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
     </span>
   );
-  const className = cn(onCallTapArea, focusRing, "rounded-md disabled:opacity-50");
+  const className = cn(onCallTapArea, focusRing, "group rounded-md disabled:cursor-not-allowed");
   if (href) {
     return (
       <Link href={href} aria-label={label} className={className} data-testid={testId}>

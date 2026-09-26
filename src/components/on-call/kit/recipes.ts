@@ -40,6 +40,15 @@ export const onCallControlShape = {
   command: "grid size-8.5 place-items-center rounded-md bg-[color:var(--command)] text-[color:var(--command-contrast)]",
 } as const;
 
+/**
+ * A disabled control is encoded, not faded (the `controlDisabled` rule in
+ * `primitive-recipes/recipes.ts`): the shape flattens to the subtle surface and
+ * the glyph moves to `--disabled`. Read from the tap-area button through
+ * `group`, because the visible shape is the inner span.
+ */
+export const onCallControlDisabled =
+  "group-disabled:border-[color:var(--border)] group-disabled:bg-[color:var(--surface-subtle)] group-disabled:text-[color:var(--disabled)]";
+
 /** The round call disc: neutral command fill, 36px, inside a 48px tap. */
 export const onCallCallDiscShape = {
   neutral: "grid size-9 place-items-center rounded-full bg-[color:var(--command)] text-[color:var(--command-contrast)]",
