@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { canonicalServiceRecords, canonicalServiceValidationErrors } from "@/lib/service-governance";
 import { sourceAuthorityIdentityForPublisher } from "@/lib/source-authority-registry";
+import { loadServicesSnapshot } from "@/lib/service-catalog";
 import part09 from "@/lib/services-canonical-data/part-09";
 
 const PART_09_IDS = [
@@ -16,6 +17,10 @@ const PART_09_IDS = [
   "SVC-YTH-020",
   "SVC-YTH-021",
   "SVC-URG-006",
+  "SVC-YTH-022",
+  "SVC-YTH-023",
+  "SVC-YTH-024",
+  "SVC-YTH-025",
 ] as const;
 
 describe("part-09 WA service records written 2026-09-26", () => {
@@ -46,5 +51,16 @@ describe("part-09 WA service records written 2026-09-26", () => {
     const links = part09.find((record) => record.id === "SVC-LEG-002");
     expect(links?.hours.verification_status).toBe("unable_to_verify");
     expect(links?.contacts.map((contact) => contact.value)).toContain("(08) 9218 4819");
+  });
+
+  it("keeps each health service's youth team on its own legacy entry", () => {
+    // Both Youth Hospital in the Home names once reduced to the same identity key, so the
+    // NMHS record overwrote the SMHS legacy entry (S211) and left S212 unverified.
+    const stableIdFor = (legacyId: string) =>
+      loadServicesSnapshot().services.find((service) => service.id === legacyId)?.stable_id;
+    expect(stableIdFor("S211")).toBe("SVC-YTH-022");
+    expect(stableIdFor("S212")).toBe("SVC-YTH-021");
+    expect(stableIdFor("S041")).toBe("SVC-YTH-024");
+    expect(stableIdFor("S123")).toBe("SVC-YTH-025");
   });
 });
