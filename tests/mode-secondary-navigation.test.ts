@@ -11,7 +11,7 @@ import {
   routedModeSecondaryNavigationCount,
 } from "@/lib/mode-secondary-navigation";
 
-/** Eight modes intentionally register no destinations at all — see `emptyRegistryModes`. */
+/** Nine modes intentionally register no destinations at all — see `emptyRegistryModes`. */
 const expectedLabels: Record<AppModeId, string[]> = {
   answer: [],
   documents: [],
@@ -52,6 +52,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Pocket card",
   ],
   cme: ["This year", "Log", "Year check", "Calendar", "Routines", "Plan", "Learning", "Programme", "Set up"],
+  psychiatry: [],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -73,10 +74,12 @@ const cleanLandingPath: Record<AppModeId, string> = {
   sources: "/sources/search",
   "on-call": "/on-call",
   cme: "/cme",
+  psychiatry: "/psychiatry",
 };
 
 /**
- * The eight modes that register nothing.
+ * The nine modes that register nothing. Psychiatry is the ninth: its home is
+ * itself the list of sections it gathers.
  *
  * Each used to carry one `action: "search"` entry rendering a lone <button>
  * inside its own <nav> landmark, whose only effect was focusing a composer
@@ -100,10 +103,11 @@ const emptyRegistryModes = [
   "prescribing",
   "tools",
   "calculators",
+  "psychiatry",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 17 modes with the approved destinations and no Home item", () => {
+  it("covers all 19 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
     expect(appModeIds).toHaveLength(18);
 
