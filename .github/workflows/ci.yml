@@ -1845,15 +1845,30 @@ jobs:
           - { engine: firefox, project: firefox, shard: 3, total: 3 }
           - { engine: webkit, project: webkit, shard: 1, total: 2 }
           - { engine: webkit, project: webkit, shard: 2, total: 2 }
-          # The iPhone projects run three shards: at two, shard 2 took 29-30 min
+          # The iPhone projects run FIVE shards. At two, shard 2 took 29-30 min
           # against the 30-minute --global-timeout (run 36156676861), and
-          # mobile-pwa-standalone left 146 tests unrun.
-          - { engine: webkit, project: mobile-webkit, shard: 1, total: 3 }
-          - { engine: webkit, project: mobile-webkit, shard: 2, total: 3 }
-          - { engine: webkit, project: mobile-webkit, shard: 3, total: 3 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 3 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 3 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 3, total: 3 }
+          # mobile-pwa-standalone left 146 tests unrun. At three it still timed
+          # out (runs 36210366372, 36214387379): 55 min of iPhone tests split
+          # 14.6 / 29.9 / 10.5 min, because `--shard` cuts by test COUNT in
+          # alphabetical file order and, with `fullyParallel: false`, a whole file
+          # goes to the shard its first test falls in. The adjacent phone-scroll
+          # family (~13.4 min) and ui-smoke (~10.8 min) landed together.
+          # Four shards leaves them together (26 min); five separates them
+          # (max ~16 min from the same per-file timings, ~22 min worst case when
+          # the suite grows or shrinks by 40-60 tests). Six is worse than five.
+          # Re-measure from the release-ui-timings artifacts before changing
+          # this; a duration-aware split like scripts/playwright-pr-shards.mjs is
+          # the durable fix. Every test still runs, one worker, zero retries.
+          - { engine: webkit, project: mobile-webkit, shard: 1, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 2, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 3, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 4, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 5, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 3, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 4, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 5, total: 5 }
 
     steps:
       - name: Checkout
