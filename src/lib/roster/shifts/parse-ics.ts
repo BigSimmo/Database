@@ -150,7 +150,7 @@ function clip(value: string, max: number): string {
   return value.length > max ? value.slice(0, max).trim() : value;
 }
 
-export function parseRosterIcs(text: string): RosterParseResult {
+export function parseRosterIcs(text: string, window?: { from: string; to: string }): RosterParseResult {
   const shifts: OnCallShiftInput[] = [];
   let allDay = 0;
   let cancelled = 0;
@@ -206,6 +206,10 @@ export function parseRosterIcs(text: string): RosterParseResult {
         unreadable += 1;
         continue;
       }
+      // A long-lived feed lists years of history before this shift's real window; drop
+      // out-of-window events here, before the import cap, so the cap is spent on shifts
+      // that matter rather than on old history the doctor never asked to import.
+      if (window && (start.iso < window.from || start.iso >= window.to)) continue;
       if (shifts.length >= ON_CALL_SHIFT_IMPORT_MAX) {
         overLimit += 1;
         continue;
