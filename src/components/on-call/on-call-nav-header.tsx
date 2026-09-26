@@ -4,6 +4,7 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { BrowserPrintButton } from "@/components/ui/print-output";
+import type { AppModeId } from "@/lib/app-modes";
 
 /**
  * The mode's in-page headers: one for the essentials card, one for the section
@@ -124,7 +125,7 @@ export function OnCallSectionNavHeader({
   title: string;
   sections: readonly PageSection[];
   /** The mode whose identity colour the rail wears. Admin > Renewals hosts an On Call view in `my-work`. */
-  modeIdentity?: string;
+  modeIdentity?: AppModeId;
 }) {
   const { sections: resolved, activeId, selectSection } = useInPageSectionNav(sections);
 

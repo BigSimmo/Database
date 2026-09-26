@@ -55,6 +55,7 @@ import AdminRenewalsRoute from "@/app/(search-app)/admin/renewals/page";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { ON_CALL_VIEW_TITLES, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
 import { ON_CALL_SECTIONS } from "@/lib/on-call/entry-model";
+import { universalHeaderTrailingSlotId } from "@/lib/mode-home-composer";
 
 type RouteCase = {
   view: OnCallPageView;
@@ -258,5 +259,25 @@ describe("on-call section routes", () => {
 
     expect(screen.getByTestId("on-call-contact-row-switchboard")).toBeInTheDocument();
     expect(screen.getByTestId("on-call-contact-edit-switchboard")).toBeInTheDocument();
+  });
+});
+
+describe("Admin > Renewals header menu", () => {
+  it("is named Renewals, and leaves adding to the one floating control", () => {
+    // The menu's trigger is portalled into the universal header's trailing slot,
+    // which renders nothing when the host element is absent.
+    const slot = document.createElement("div");
+    slot.id = universalHeaderTrailingSlotId;
+    document.body.append(slot);
+    try {
+      render(<AdminRenewalsRoute />);
+      const trigger = screen.getByTestId("on-call-page-menu-trigger");
+      expect(trigger).toHaveAttribute("aria-label", "Open Renewals actions");
+      fireEvent.click(trigger);
+      expect(screen.queryByTestId("on-call-page-menu-add")).toBeNull();
+      expect(screen.getAllByTestId("admin-renewals-add")).toHaveLength(1);
+    } finally {
+      slot.remove();
+    }
   });
 });

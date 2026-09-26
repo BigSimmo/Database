@@ -207,9 +207,12 @@ export function OnCallPageMenu({
   summary,
   notifications,
   onSnoozeNotifications,
+  title: titleOverride,
 }: {
   /** The page this menu belongs to, or `"home"` for the dashboard. */
   view: OnCallPageView | "home";
+  /** The page's name when another mode hosts the view (Admin > Renewals hosts `compliance`). */
+  title?: string;
   /** How many entries the page is showing, for the sheet's one-line summary. */
   entryCount?: number;
   /**
@@ -249,7 +252,7 @@ export function OnCallPageMenu({
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const title = view === "home" ? "On Call" : ON_CALL_VIEW_TITLES[view];
+  const title = titleOverride ?? (view === "home" ? "On Call" : ON_CALL_VIEW_TITLES[view]);
   const notificationCount = notifications?.length ?? 0;
   const description =
     summary ??

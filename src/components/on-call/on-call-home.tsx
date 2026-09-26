@@ -483,7 +483,11 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           <Link
             href={ADMIN_HELP_ON_SITE_HREF}
             data-testid="on-call-home-on-site"
-            className={cn(textMuted, focusRing, "text-sm underline-offset-2 hover:underline")}
+            className={cn(
+              textMuted,
+              focusRing,
+              "inline-flex min-h-12 items-center text-sm underline-offset-2 hover:underline",
+            )}
           >
             Building access, food and the on-call room are in Admin › Help › On site
           </Link>

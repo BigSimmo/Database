@@ -16,6 +16,7 @@ const ADMIN_VERDICTS: readonly VerdictPattern[] = [
   { pattern: /\beligible\b/i, why: "an entitlement ruling; Admin keeps no entitlement rules" },
   { pattern: /\bcleared\b/i, why: "a verdict on a check this app never ran ('Clearances', the category, is allowed)" },
   { pattern: /\bowed\b/i, why: "a pay ruling; Admin shows what was logged, never what is owed" },
+  { pattern: /\bverified\b/i, why: "a verdict on a check this app never made with the issuing body" },
 ];
 /** Status ticks. A plain checkbox the doctor ticks for their own to-do is a control, not a status. */
 const STATUS_TICK_ICONS = /\b(BadgeCheck|CheckCircle2?|CircleCheck(?:Big)?|ShieldCheck|SquareCheck(?:Big)?)\b/;

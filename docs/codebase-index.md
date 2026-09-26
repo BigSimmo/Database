@@ -379,8 +379,8 @@ from Admin goes to search or a model provider.
 
 Routes are `/admin` (Today), `/admin/renewals`, `/admin/new-job` and `/admin/help`; components are
 in `src/components/admin/`. `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to
-Admin pages (`staticRouteRedirects` in `src/proxy.ts`, with page backstops). Every clock time a
-reader sees comes from the shared 24-hour helper `src/lib/clock-time.ts`.
+Admin pages (`staticRouteRedirects` in `src/proxy.ts`, with page backstops). Admin's clock times,
+and every mode's as each is rebuilt, come from the shared 24-hour helper `src/lib/clock-time.ts`.
 
 ---
 

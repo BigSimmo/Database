@@ -462,6 +462,20 @@ describe("mode identity accent", () => {
     expect(forced).toContain("--mode-identity: LinkText;");
   });
 
+  it("keeps Admin's brown, soft and border shades equal to the forms tokens they copy", () => {
+    // The identity block writes `--type-form`'s values out as literals (the
+    // contrast cases above measure declarations directly), so pin each shade
+    // to its source token: a change to one without the other fails here.
+    for (const suffix of ["", "-soft", "-border"]) {
+      expect(identityBlock('[data-mode-identity="my-work"]').get(`--mode-identity${suffix}`)).toBe(
+        v2Light.get(`--type-form${suffix}`),
+      );
+      expect(identityBlock('.dark [data-mode-identity="my-work"]').get(`--mode-identity${suffix}`)).toBe(
+        v2Dark.get(`--type-form${suffix}`),
+      );
+    }
+  });
+
   it("delivers the hue by remapping the accent locally, never by a dynamic class", () => {
     // One attribute repaints the pill's filled circle and the bar's active
     // underline together, because both already read `--clinical-accent`; they

@@ -41,6 +41,7 @@ import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 import { isAdminWorkforceExplainer } from "@/lib/admin/placement";
+import type { AppModeId } from "@/lib/app-modes";
 
 /**
  * Generic, non-owner-specific framing for each view. Shown to every reader,
@@ -153,7 +154,7 @@ const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
 /** When another mode hosts one of these views (Admin > Renewals hosts `compliance`). */
 export type OnCallSectionPageChrome = {
   title: string;
-  modeIdentity: string;
+  modeIdentity: AppModeId;
   testId: string;
   /** Josh, 16:31Z: Admin adds through a floating dark "+ Add", not the in-page secondary button. */
   floatingAdd?: { label: string; testId: string };
@@ -348,7 +349,11 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
     entries: sectionEntries,
     onEditEntry: isAuthenticated
       ? (entry: OnCallEntry) => {
-          recordOnCallRecent({ id: entry.id, title: entry.title });
+          // On Call's Recent list lives in `localStorage`. A view another mode
+          // hosts records nothing there: Admin keeps nothing on the device
+          // (spec review 5), and Renewals' rows are a doctor's own
+          // registration, indemnity and clearances.
+          if (!chrome) recordOnCallRecent({ id: entry.id, title: entry.title });
           setEditorState({ open: true, entry });
         }
       : undefined,
@@ -408,11 +413,13 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
           has none. */}
       <OnCallPageMenu
         view={view}
+        title={chrome?.title}
         entryCount={visibleCount}
         summary={`${visibleCount} ${visibleCount === 1 ? "entry" : "entries"}. ${ON_CALL_VIEW_DESCRIPTIONS[view]}`}
         order={view === "contacts" ? contactsOrder : undefined}
         onOrderChange={view === "contacts" ? setContactsOrder : undefined}
-        onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
+        // A hosted view with its own floating add keeps one add control, not two.
+        onAdd={isAuthenticated && !chrome?.floatingAdd ? () => setEditorState({ open: true, entry: null }) : undefined}
         addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
         addHint={ON_CALL_ADD_HINT[view]}
         onVerifyAll={offersBulkVerify && isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
