@@ -1,14 +1,25 @@
 "use client";
 
-import { BookOpen, Building2, ClipboardCheck, Settings, ShieldCheck, Users } from "lucide-react";
+import {
+  BookOpen,
+  Building2,
+  ClipboardCheck,
+  FileSpreadsheet,
+  ListTodo,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ServiceAdminPanel } from "@/components/on-call/service-admin-panel";
+import { ServiceCheckingPanel } from "@/components/on-call/service-checking-panel";
 import { ServiceEntryEditor } from "@/components/on-call/service-entry-editor";
 import { ServiceGovernancePanel } from "@/components/on-call/service-governance-panel";
 import { ServiceHandbook } from "@/components/on-call/service-handbook";
+import { ServiceImportPanel } from "@/components/on-call/service-import-panel";
 import { ServiceOrientationPanel } from "@/components/on-call/service-orientation-panel";
 import { focusOnCallEntryFromHash } from "@/components/on-call/on-call-page-anchors";
 import { cardSurface, focusRing } from "@/components/card-recipes";
@@ -26,13 +37,15 @@ import {
 } from "@/lib/on-call/service-model";
 import { useAuthSession } from "@/lib/supabase/client";
 
-type WorkspaceTab = "handbook" | "orientation" | "review" | "admin" | "services";
+type WorkspaceTab = "handbook" | "import" | "checking" | "orientation" | "review" | "admin" | "services";
 type LoadState = "loading" | "ready" | "signed-out" | "unavailable";
 type OwnedServices = { readonly authEpoch: number; readonly items: ServiceSummary[] };
 type OwnedDetail = { readonly contextKey: string; readonly value: ServiceDetail };
 
 const workspaceTabs = [
   { id: "handbook", label: "Handbook", icon: BookOpen },
+  { id: "import", label: "Import", icon: FileSpreadsheet },
+  { id: "checking", label: "Needs checking", icon: ListTodo },
   { id: "orientation", label: "Orientation", icon: ClipboardCheck },
   { id: "review", label: "Review", icon: ShieldCheck },
   { id: "admin", label: "Members", icon: Users },
@@ -256,11 +269,13 @@ export function ServicePage({
   const visibleTabs = useMemo(
     () =>
       workspaceTabs.filter((item) => {
+        // Editor tools; members never see them (plan Task 4).
+        if (item.id === "import" || item.id === "checking") return canEdit;
         if (item.id === "review") return canReview;
         if (item.id === "admin") return detail?.membership.role === "admin";
         return true;
       }),
-    [canReview, detail?.membership.role],
+    [canEdit, canReview, detail?.membership.role],
   );
 
   function canLeaveEditor(): boolean {
@@ -278,6 +293,12 @@ export function ServicePage({
   }
 
   const renderedEditorSession = editorSession.current;
+
+  /** One detail reload for the import panel, at the end of each run (correction C14). */
+  async function reloadDetail(): Promise<void> {
+    if (demoMode || !selectedServiceId) return;
+    await loadDetail(selectedServiceId, selectedSiteId, rotation, contextKey);
+  }
 
   async function action(actionPayload: ServiceAction): Promise<Record<string, unknown>> {
     if (demoMode)
@@ -422,8 +443,8 @@ export function ServicePage({
   return (
     <InformationPageShell testId="service-page">
       <header className="grid gap-2">
-        <p className="text-xs font-bold uppercase tracking-kicker text-[color:var(--clinical-accent)]">On Call</p>
-        <h1 className="text-2xl font-bold text-[color:var(--text-heading)]">Service handbook</h1>
+        <p className="text-xs font-semibold uppercase tracking-kicker text-[color:var(--clinical-accent)]">On Call</p>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Service handbook</h1>
         <p className={cn(textMuted, "max-w-3xl text-sm leading-6")}>
           Practical service information, orientation and corrections maintained by the people who use it.
         </p>
@@ -473,6 +494,7 @@ export function ServicePage({
                 {(field) => (
                   <select
                     id={field.id}
+                    aria-describedby={field.describedBy}
                     value={selectedServiceId ?? ""}
                     onChange={(event) => {
                       if (!canLeaveEditor()) return;
@@ -494,6 +516,7 @@ export function ServicePage({
                 {(field) => (
                   <select
                     id={field.id}
+                    aria-describedby={field.describedBy}
                     value={selectedSiteId ?? ""}
                     onChange={(event) => {
                       if (!canLeaveEditor()) return;
@@ -576,6 +599,7 @@ export function ServicePage({
               entry={editingEntry}
               sites={detail.sites}
               defaultSiteId={selectedSiteId}
+              entries={detail.entries}
               onCancel={() => {
                 if (canLeaveEditor()) closeEditor();
               }}
@@ -592,6 +616,25 @@ export function ServicePage({
               onAdd={() => openEditor(null)}
               onEdit={openEditor}
               onAction={action}
+            />
+          ) : tab === "import" && canEdit ? (
+            <ServiceImportPanel
+              serviceId={detail.service.id}
+              siteId={selectedSiteId}
+              siteName={selectedSite?.name ?? null}
+              authEpoch={auth.authEpoch}
+              detail={detail}
+              demo={demoMode}
+              reload={reloadDetail}
+            />
+          ) : tab === "checking" && canEdit ? (
+            <ServiceCheckingPanel
+              detail={detail}
+              siteId={selectedSiteId}
+              onEdit={(entry) => {
+                openEditor(entry);
+                setTab("handbook");
+              }}
             />
           ) : tab === "orientation" ? (
             <ServiceOrientationPanel
@@ -623,7 +666,7 @@ export function ServicePage({
               <div>
                 <h2
                   id="service-membership-actions-heading"
-                  className="text-lg font-bold text-[color:var(--text-heading)]"
+                  className="text-lg font-semibold text-[color:var(--text-heading)]"
                 >
                   Create or join another service
                 </h2>
@@ -631,7 +674,7 @@ export function ServicePage({
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 <section aria-labelledby="create-service-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-                  <h3 id="create-service-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+                  <h3 id="create-service-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
                     Create service
                   </h3>
                   <TextField
@@ -657,7 +700,7 @@ export function ServicePage({
                   </Button>
                 </section>
                 <section aria-labelledby="join-service-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-                  <h3 id="join-service-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+                  <h3 id="join-service-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
                     Join with invitation
                   </h3>
                   <TextField
@@ -683,7 +726,7 @@ export function ServicePage({
         </Fragment>
       ) : services.length === 0 ? (
         <section aria-labelledby="first-service-heading" className="grid gap-4" data-testid="service-first-run">
-          <h2 id="first-service-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+          <h2 id="first-service-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
             Start your first service
           </h2>
           <div className="grid gap-4 lg:grid-cols-2">
