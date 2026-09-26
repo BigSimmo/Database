@@ -404,9 +404,7 @@ export function ServiceImportPanel({
       {parsed ? (
         <div className="grid min-w-0 gap-3" data-testid="service-import-preview">
           {parsed.missingTitleColumn ? (
-            <OnCallNotice tone="warning">
-              No title column. Name one column title, role, service, ward or contact.
-            </OnCallNotice>
+            <OnCallNotice>No title column. Name one column title, role, service, ward or contact.</OnCallNotice>
           ) : null}
           {parsed.truncated ? (
             <OnCallNotice>Only the first 200 rows are shown. Import the rest as a second file.</OnCallNotice>
