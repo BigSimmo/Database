@@ -257,6 +257,107 @@ describe("source acquisition metadata floor", () => {
   });
 });
 
+// Owner decision, 2026-09-26: a publisher's "last updated" stamp may be recorded for
+// a continuously maintained page, but only as that — never as a publication or a
+// review. The `last_updated` model is an added state beside the other two, not a
+// relaxation of either.
+describe("source acquisition last_updated date model", () => {
+  const lastUpdated: Partial<SourceAcquisitionRecord> = {
+    dateModel: "last_updated",
+    version: "Last updated: 5 December 2025",
+    publicationDate: null,
+    reviewDate: null,
+    lastUpdatedDate: "2025-12-05",
+    datePrecision: "day",
+  };
+
+  it("accepts a last_updated record that carries only its update stamp", () => {
+    expect(issuesFor(lastUpdated)).toEqual([]);
+  });
+
+  it("rejects a last_updated record that also claims a publication date", () => {
+    expect(issuesFor({ ...lastUpdated, publicationDate: "2025-12-05" }).join(" ")).toMatch(
+      /a last-updated source has no publication event/,
+    );
+  });
+
+  it("rejects a last_updated record that also claims a review date", () => {
+    expect(issuesFor({ ...lastUpdated, reviewDate: "2025-12-05" }).join(" ")).toMatch(
+      /a last-updated source states no review/,
+    );
+  });
+
+  it("rejects a last_updated record with no update stamp", () => {
+    expect(issuesFor({ ...lastUpdated, lastUpdatedDate: null })).toContain(
+      "ocp-wa-test-guideline: lastUpdatedDate is required",
+    );
+    const withoutField = record(lastUpdated);
+    delete withoutField.lastUpdatedDate;
+    expect(acquisitionLedgerIssues([withoutField])).toContain("ocp-wa-test-guideline: lastUpdatedDate is required");
+  });
+
+  it("requires a month-precision update stamp to be recorded as the first of the month", () => {
+    expect(issuesFor({ ...lastUpdated, lastUpdatedDate: "2024-12-19", datePrecision: "month" })).toContain(
+      "ocp-wa-test-guideline: month-precision lastUpdatedDate must be recorded as the first of the month",
+    );
+    expect(issuesFor({ ...lastUpdated, lastUpdatedDate: "2024-12-01", datePrecision: "month" })).toEqual([]);
+  });
+
+  it("requires a year-precision update stamp to be recorded as the first of January", () => {
+    expect(issuesFor({ ...lastUpdated, lastUpdatedDate: "2024-06-01", datePrecision: "year" })).toContain(
+      "ocp-wa-test-guideline: year-precision lastUpdatedDate must be recorded as the first of January",
+    );
+    expect(issuesFor({ ...lastUpdated, lastUpdatedDate: "2024-01-01", datePrecision: "year" })).toEqual([]);
+  });
+
+  it("requires the update stamp to be an exact date, not the publisher's prose", () => {
+    expect(issuesFor({ ...lastUpdated, lastUpdatedDate: "December 2024" })).toContain(
+      'ocp-wa-test-guideline: lastUpdatedDate must be an exact YYYY-MM-DD date, got "December 2024"',
+    );
+  });
+
+  it("refuses an update stamp on a record that is not last_updated", () => {
+    // A published or continuously updated record carrying the stamp would render a
+    // "last updated" date under a model that says the publisher gave something else.
+    expect(issuesFor({ lastUpdatedDate: "2025-12-05" }).join(" ")).toMatch(
+      /lastUpdatedDate is recorded only under dateModel "last_updated"/,
+    );
+    expect(
+      issuesFor({
+        dateModel: "continuously_updated",
+        publicationDate: null,
+        reviewDate: "2025-12-05",
+        lastUpdatedDate: "2025-12-05",
+      }).join(" "),
+    ).toMatch(/lastUpdatedDate is recorded only under dateModel "last_updated"/);
+  });
+
+  it("leaves the published and continuously updated rules unchanged", () => {
+    expect(issuesFor({ publicationDate: null }).join(" ")).toMatch(/publicationDate is required/);
+    expect(issuesFor({ dateModel: "continuously_updated", publicationDate: null, reviewDate: null }).join(" ")).toMatch(
+      /reviewDate is required/,
+    );
+  });
+
+  it("carries the stamp into the catalogue as its own date, so it is neither published nor reviewed", () => {
+    const captured = record(lastUpdated);
+    expect(acquisitionRecordWarnings(captured)).not.toContain("missing_dates");
+    const [reference] = acquisitionSourceReferences([captured]);
+    expect(reference.lastUpdatedDate).toBe("2025-12-05");
+    const [entry] = canonicalizeSourceReferences([reference]);
+    expect(entry.lastUpdatedDate).toBe("2025-12-05");
+    expect(entry.publicationDate).toBeNull();
+    expect(entry.reviewDate).toBeNull();
+  });
+
+  it("adds no lastUpdatedDate to a record or catalogue entry that has none", () => {
+    const [reference] = acquisitionSourceReferences([record()]);
+    expect("lastUpdatedDate" in reference).toBe(false);
+    const [entry] = canonicalizeSourceReferences([reference]);
+    expect("lastUpdatedDate" in entry).toBe(false);
+  });
+});
+
 describe("source acquisition dispositions", () => {
   it("refuses to let unreviewed evidence be adopted into clinical content", () => {
     expect(issuesFor({ disposition: "adopted" })).toContain(

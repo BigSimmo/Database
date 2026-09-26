@@ -25,6 +25,7 @@ import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-mo
 import type {
   ClinicalSourceClientEntry,
   SourceCatalogueFilters,
+  SourceDateLabel,
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
 import {
@@ -93,16 +94,25 @@ function modeLabel(modeId: AppModeId) {
  * unaffected. Rendering is not: `formatCatalogueMonth` parses the winner as a
  * local calendar date, because a UTC instant formatted west of UTC shows the
  * previous month.
+ *
+ * Candidates are listed strongest claim first and the sort is stable, so a tie
+ * goes to "reviewed", then "published", and a publisher's update stamp — which
+ * asserts neither — is named "last updated" and never borrows either label.
  */
 function latestKnownDate(entry: ClinicalSourceClientEntry) {
-  const candidates = [entry.reviewDate, entry.publicationDate].filter((value): value is string => Boolean(value));
+  const candidates: { value: string | null | undefined; label: SourceDateLabel }[] = [
+    { value: entry.reviewDate, label: "reviewed" },
+    { value: entry.publicationDate, label: "published" },
+    { value: entry.lastUpdatedDate, label: "last updated" },
+  ];
   const parsed = candidates
-    .map((value) => ({ value, time: Date.parse(value) }))
+    .filter((candidate): candidate is { value: string; label: SourceDateLabel } => Boolean(candidate.value))
+    .map((candidate) => ({ ...candidate, time: Date.parse(candidate.value) }))
     .filter((candidate) => !Number.isNaN(candidate.time))
     .sort((left, right) => right.time - left.time);
   const text = formatCatalogueMonth(parsed[0]?.value ?? null);
   if (!parsed[0] || !text) return null;
-  return { label: entry.reviewDate === parsed[0].value ? "reviewed" : "published", text };
+  return { label: parsed[0].label, text };
 }
 
 function SourceTile({ entry }: { entry: ClinicalSourceClientEntry }) {
