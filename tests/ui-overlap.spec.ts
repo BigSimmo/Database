@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import { clickWhenSettled } from "./playwright-settlement";
 
 /**
  * Element-overlap regression coverage.
@@ -634,7 +635,10 @@ test.describe("Tablet usability regressions", () => {
 
     const rail = promptRow.locator(".answer-suggestion-chips");
     const before = await rail.evaluate((node) => node.scrollLeft);
-    await forward.click();
+    // The composer mounts and measures its rail in the first second after load. A WebKit release
+    // run clicked the control while that was still happening and the rail never moved, so wait
+    // for the control to hold still before pressing it.
+    await clickWhenSettled(forward);
     await expect
       .poll(async () => rail.evaluate((node) => node.scrollLeft), {
         message: "the control must actually move the rail",
