@@ -397,7 +397,8 @@ async function postSpaced<T>(input: {
   readonly sleep?: (ms: number) => Promise<void>;
   readonly onProgress?: (done: number, total: number) => void;
 }): Promise<Stopped> {
-  const fetchImpl = input.fetchImpl ?? globalThis.fetch.bind(globalThis);
+  // Read at call time, so a fetch replaced after this module loaded (tests, polyfills) is the one used.
+  const fetchImpl: typeof fetch = input.fetchImpl ?? ((url, init) => globalThis.fetch(url, init));
   const sleep = input.sleep ?? realSleep(input.signal);
   const url = `/api/on-call/services/${input.serviceId}`;
   let sent = 0;

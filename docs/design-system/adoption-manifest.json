@@ -321,6 +321,7 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
         "src/components/on-call/service-handbook.tsx",
+        "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-orientation-panel.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
@@ -376,6 +377,7 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
         "src/components/on-call/service-handbook.tsx",
+        "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-orientation-panel.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
@@ -439,13 +441,15 @@
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
-        "src/components/on-call/on-call-entry-editor.tsx"
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/service-import-panel.tsx"
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
-        "src/components/on-call/on-call-entry-editor.tsx"
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/service-import-panel.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1128,6 +1132,7 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
         "src/components/on-call/service-handbook.tsx",
+        "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/ui/select.tsx",
         "src/components/ui/text-field.tsx"
@@ -1142,6 +1147,7 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
         "src/components/on-call/service-handbook.tsx",
+        "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/ui/select.tsx",
         "src/components/ui/text-field.tsx"
@@ -1854,6 +1860,7 @@
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/on-call/service-import-panel.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
@@ -1869,6 +1876,7 @@
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/on-call/service-import-panel.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
