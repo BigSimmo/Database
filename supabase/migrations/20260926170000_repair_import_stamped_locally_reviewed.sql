@@ -62,6 +62,10 @@ begin
       and nullif(btrim(d.metadata#>>'{clinical_validation_evidence,attested_by}'), '') is null
       and not (d.metadata ? 'attestation')
       and not (d.metadata ? 'validation_status_repair_2026_09')
+    -- Lock each candidate as it is chosen. If a review commits on a candidate meanwhile, the lock
+    -- waits for it and re-checks the reviewer markers above on the new row, so the reviewed
+    -- document drops out instead of being overwritten.
+    for update of d
   )
   update public.documents d
   set metadata = d.metadata
@@ -89,7 +93,15 @@ begin
 
   get diagnostics v_updated = row_count;
 
-  if v_updated <> 0 and v_updated <> c_expected then
+  -- Zero is accepted only on a fresh replay, which holds no 'locally_reviewed' documents at all.
+  -- Anywhere those labels exist, the match must equal the owner-approved count exactly.
+  if v_updated <> c_expected
+     and (v_updated <> 0
+          or exists (
+            select 1
+            from public.documents d
+            where d.metadata->>'clinical_validation_status' = 'locally_reviewed'
+          )) then
     raise exception 'locally_reviewed repair: matched % rows, owner approved %; aborting with no change',
       v_updated, c_expected;
   end if;
