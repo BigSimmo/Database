@@ -460,21 +460,6 @@ async function consumeAnonymousRateLimitsAtomic(args: {
   return result;
 }
 
-/**
- * Applies an API rate limit to an owner or anonymous subject.
- *
- * Anonymous requests to answer and document upload buckets are constrained by
- * both subject-specific and aggregate bucket limits. Limiter unavailability may
- * use an in-memory fallback when permitted.
- *
- * @param args - Rate-limiting configuration and request subject.
- * @param args.subject - The authenticated owner or anonymous subject to limit.
- * @param args.bucket - The API resource bucket being limited.
- * @param args.limit - Optional subject-specific request limit.
- * @param args.windowSeconds - Optional subject-specific rate-limit window.
- * @param args.allowInMemoryFallbackOnUnavailable - Whether local fallback may be used when the durable limiter is unavailable.
- * @returns The computed rate-limit outcome.
- */
 type SubjectRateLimitArgs = {
   supabase: SupabaseAdmin;
   subject: RateLimitSubject;
@@ -532,6 +517,21 @@ function consumeRegistryRateLimitDeferred(args: SubjectRateLimitArgs): ApiRateLi
   });
 }
 
+/**
+ * Applies an API rate limit to an owner or anonymous subject.
+ *
+ * Anonymous requests to answer and document upload buckets are constrained by
+ * both subject-specific and aggregate bucket limits. Limiter unavailability may
+ * use an in-memory fallback when permitted.
+ *
+ * @param args - Rate-limiting configuration and request subject.
+ * @param args.subject - The authenticated owner or anonymous subject to limit.
+ * @param args.bucket - The API resource bucket being limited.
+ * @param args.limit - Optional subject-specific request limit.
+ * @param args.windowSeconds - Optional subject-specific rate-limit window.
+ * @param args.allowInMemoryFallbackOnUnavailable - Whether local fallback may be used when the durable limiter is unavailable.
+ * @returns The computed rate-limit outcome.
+ */
 export async function consumeSubjectApiRateLimit(args: SubjectRateLimitArgs): Promise<ApiRateLimitResult> {
   if (deferRegistryDurableConsume(args.bucket)) return consumeRegistryRateLimitDeferred(args);
   return consumeSubjectApiRateLimitDurable(args);
