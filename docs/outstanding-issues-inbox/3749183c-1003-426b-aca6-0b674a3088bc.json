@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3749183c-1003-426b-aca6-0b674a3088bc",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Crisis numbers: re-verify all seven against their official sources every six months (next due by March 2027)",
+    "detail": "src/lib/crisis-contacts.ts is the single source for every real crisis number shown (safety plan, care plan, offline page). Four WA numbers verified 2026-08-20 and re-confirmed unchanged 2026-09-26 against EMHS MHERL (page updated 18/08/2026) and Rurallink pages; three national lines verified 2026-09-25. Nothing reminds anyone to re-check. When re-checking: compare number and hours to each sourceUrl, move verifiedOn only for entries actually re-checked, run npm run offline:build (bumps the offline page, so new CACHE_VERSION + hash pin in tests/pwa-manifest.test.ts), and update docs/care-plan/crisis-lines-verification.md.",
+    "source": "session 2026-09-26 calendar/on-call follow-ups",
+    "issueUlid": "01M3E3B723RAAB0J9TS2Y5EGR8"
+  }
+}

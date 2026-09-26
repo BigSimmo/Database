@@ -1469,10 +1469,12 @@ describe("design-system adoption manifest", () => {
     //
     // 114 -> 115 on 2026-09-26: `/on-call/shifts`, On Call "My shifts", the owner's own roster.
     //
-    // 115 -> 104 on 2026-09-26: the Caring Contacts prototype was retired, taking its eleven
+    // 115 -> 116 on 2026-09-26: `/psychiatry`, the Psychiatry mode's dashboard.
+    //
+    // 116 -> 105 on 2026-09-26: the Caring Contacts prototype was retired, taking its eleven
     // workspace routes (Today, Patients, one patient, the activation wizard, Schedule, Templates,
     // one template, Guidance, Reports, Team and the manual Referral Intake) out of the census.
-    expect(manifest.routeCoverage.discovered).toHaveLength(104);
+    expect(manifest.routeCoverage.discovered).toHaveLength(105);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

@@ -177,6 +177,8 @@ const routeDescriptions: Record<string, string> = {
   "/on-call":
     "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
+  "/psychiatry":
+    "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
   "/cme":
     "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
   "/cme/log":
@@ -292,6 +294,7 @@ const routeOwnershipRows = [
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
   ["CME", "src/app/(search-app)/cme, src/components/cme"],
+  ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -475,6 +478,7 @@ function renderModeRoutes() {
     sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
     "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
+    psychiatry: appModeHomeHref("psychiatry"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -614,6 +618,13 @@ function renderModePageIndex() {
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
       detail:
         'No results page — `resultsSurface: "none"`, like On Call. `/cme/log` full activity list, `/cme/log/[id]` one entry, `/cme/new` new-entry form, `/cme/routines` recurring activities and their due dates, `/cme/training` the trainee timeline, `/cme/learning` curated WA courses and events, plus `/cme/plan`, `/cme/programme`, `/cme/setup`, and `/cme/customise`.',
+    },
+    {
+      mode: "Psychiatry",
+      home: appModeHomeHref("psychiatry"),
+      search: appModeHomeHref("psychiatry"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like On Call and CME. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
     },
   ]);
 }

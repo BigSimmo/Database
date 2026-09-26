@@ -22,6 +22,7 @@ export const appModeIds = [
   "sources",
   "on-call",
   "cme",
+  "psychiatry",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -554,6 +555,34 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "psychiatry",
+    label: "Psychiatry",
+    description: "Diagnosis, specifiers, formulation, therapy and Mental Health Act forms in one place",
+    href: "/psychiatry",
+    search: {
+      // Psychiatry is a landing page that gathers existing modes; it has no
+      // catalogue of its own, so it borrows the benign "tools" command kind,
+      // as On Call and CME do.
+      kind: "tools",
+      placeholder: "Open a psychiatry section...",
+      inputAriaLabel: "Open a psychiatry section",
+      submitIdleLabel: "Psychiatry",
+      submitBusyLabel: "Psychiatry",
+      submitAriaLabel: "Open a psychiatry section",
+      emptyTitle: "Choose a psychiatry section",
+      readyTitle: "Diagnosis, formulation, therapy and forms",
+      progressLabel: "Opening the section.",
+      resultKind: "tools",
+      resultHeading: "Psychiatry",
+      // No results page. `/psychiatry` is a dashboard of links to the
+      // sections it gathers, each of which keeps its own search.
+      resultsSurface: "none",
+      statusLabel: "Psychiatry",
+      nextStep: "Open a section",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -594,6 +623,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "calculators",
   "on-call",
   "cme",
+  "psychiatry",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

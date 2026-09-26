@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BellOff,
   CalendarClock,
   CalendarDays,
   CalendarRange,
@@ -47,6 +48,13 @@ import {
 } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet, CmeRequirementSpec, CmeRequirementStatus } from "@/lib/cme/types";
 import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
+import {
+  DEFAULT_REMINDER_SETTINGS,
+  REMINDER_TYPE_LABELS,
+  showsReminderInApp,
+  type ReminderSettings,
+  type ReminderType,
+} from "@/lib/reminders/settings";
 
 /**
  * THE DASHBOARD — the screen the whole mode is judged by.
@@ -138,6 +146,14 @@ export type CmeDashboardProps = {
    * 1 January until the college's reporting date. Null outside that window.
    */
   readonly reportingReminder?: CmeReportingReminder | null;
+  /**
+   * The owner's reminder settings. "Show in the app" off, or a snooze running
+   * past today, hides the year-end claim banner ("cpd-year-end") and the
+   * routines-due list ("cpd-routines"). Defaults show both, as before.
+   */
+  readonly reminders?: ReminderSettings;
+  /** Snoozes one reminder type for a week. Omitted: no snooze buttons. */
+  readonly onSnoozeReminder?: (type: ReminderType) => void;
   /** Saved drafts whose next step is the owner's own. Shown first in the Next row; never hours. */
   readonly draftsToFinish?: number;
 };
@@ -265,6 +281,8 @@ export function CmeDashboard({
   onLogRoutine = () => {},
   onOpenCustomise = () => {},
   reportingReminder = null,
+  reminders = DEFAULT_REMINDER_SETTINGS,
+  onSnoozeReminder,
   draftsToFinish = 0,
 }: CmeDashboardProps) {
   const { moduleIds } = useCmeModuleOrder();
@@ -291,7 +309,26 @@ export function CmeDashboard({
     (sum, entry) => sum + entry.allocations.reduce((inner, allocation) => inner + allocation.hours, 0),
     0,
   );
-  const dueRoutines = routinesDueOn(routines, now);
+  const dueRoutines = showsReminderInApp(reminders, "cpd-routines", today) ? routinesDueOn(routines, now) : [];
+  const showReportingReminder =
+    reportingReminder !== null &&
+    reportingReminder.notCopied > 0 &&
+    showsReminderInApp(reminders, "cpd-year-end", today);
+
+  function snoozeButton(type: ReminderType) {
+    if (!onSnoozeReminder) return null;
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={BellOff}
+        aria-label={`Snooze for a week: ${REMINDER_TYPE_LABELS[type]}`}
+        onClick={() => onSnoozeReminder(type)}
+      >
+        Snooze for a week
+      </Button>
+    );
+  }
   const nextRequirementStatus = furthestFromMet(set, unmet);
   const nextRequirement = nextRequirementStatus
     ? set.requirements.find((requirement) => requirement.id === nextRequirementStatus.requirementId)
@@ -404,6 +441,7 @@ export function CmeDashboard({
               </Button>
             </li>
           ))}
+          {onSnoozeReminder ? <li>{snoozeButton("cpd-routines")}</li> : null}
         </ul>
       ) : null,
     "audited-today":
@@ -438,22 +476,25 @@ export function CmeDashboard({
         </Button>
       </div>
 
-      {reportingReminder && reportingReminder.notCopied > 0 ? (
-        <Link
-          href={`/cme/log?year=${reportingReminder.year}&copy=todo`}
-          data-testid="cme-reporting-reminder"
-          className={cn(cardSurface, "mt-4 flex min-h-tap items-center gap-3 p-4")}
-        >
-          <ClipboardCopy aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
-          <span className="min-w-0 flex-1 text-sm text-[color:var(--text)]">
-            <span className="font-semibold">
-              {reportingReminder.notCopied} {reportingReminder.notCopied === 1 ? "activity" : "activities"} from{" "}
-              {reportingReminder.year} not yet copied to MyCPD.
-            </span>{" "}
-            Your {reportingReminder.year} claim closes on {formatDayFullMonth(reportingReminder.closesOn)}.
-          </span>
-          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
-        </Link>
+      {showReportingReminder && reportingReminder ? (
+        <div className="mt-4 grid gap-1">
+          <Link
+            href={`/cme/log?year=${reportingReminder.year}&copy=todo`}
+            data-testid="cme-reporting-reminder"
+            className={cn(cardSurface, "flex min-h-tap items-center gap-3 p-4")}
+          >
+            <ClipboardCopy aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+            <span className="min-w-0 flex-1 text-sm text-[color:var(--text)]">
+              <span className="font-semibold">
+                {reportingReminder.notCopied} {reportingReminder.notCopied === 1 ? "activity" : "activities"} from{" "}
+                {reportingReminder.year} not yet copied to MyCPD.
+              </span>{" "}
+              Your {reportingReminder.year} claim closes on {formatDayFullMonth(reportingReminder.closesOn)}.
+            </span>
+            <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+          </Link>
+          {onSnoozeReminder ? <div>{snoozeButton("cpd-year-end")}</div> : null}
+        </div>
       ) : null}
 
       <section className={cn(cardSurface, "mt-4 p-4")}>

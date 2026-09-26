@@ -30,6 +30,8 @@ const MODE_HOME_LOADING_ROUTES = [
   // CME's dashboard, which is a standalone mode home for On Call's reason and
   // so must appear here — the assertion below requires it.
   "cme",
+  // Psychiatry's dashboard, a standalone mode home for the same reason.
+  "psychiatry",
 ] as const;
 
 describe("mode-home loading contract", () => {
