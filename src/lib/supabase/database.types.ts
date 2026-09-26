@@ -3895,6 +3895,29 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      consume_anonymous_rate_limits_atomic: {
+        Args: {
+          p_bucket: string;
+          p_ceiling_bucket: string | null;
+          p_ceiling_key: string | null;
+          p_ceiling_limit: number | null;
+          p_ceiling_window_seconds: number | null;
+          p_global_key: string;
+          p_global_limit: number;
+          p_global_window_seconds: number;
+          p_subject_key: string;
+          p_subject_limit: number;
+          p_subject_window_seconds: number;
+        };
+        Returns: {
+          limit_value: number;
+          limited: boolean;
+          remaining: number;
+          reset_at: string;
+          retry_after_seconds: number;
+          scope: string | null;
+        }[];
+      };
       consume_summary_rate_limits_atomic: {
         Args: {
           p_answer_limit: number;
