@@ -61,12 +61,13 @@
     },
     {
       "code": "3C",
-      "status": "drafted",
+      "status": "reviewed",
       "sections": ["55", "56"],
       "contextualSections": ["52", "53"],
       "basis": "Drafted from Mental Health Act 2014 (WA) s 55, s 56 with s 52, s 53 as context, and from the approved Form 3C as listed on the Office of the Chief Psychiatrist register.",
-      "reviewedBy": null,
-      "reviewedAt": null
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:14:18.043Z",
+      "reviewedContentSha256": "8bf94f175892125cf8bd077a2eab041930175c94f260b39bb82426c5954d847d"
     },
     {
       "code": "3D",
@@ -313,12 +314,13 @@
     },
     {
       "code": "10B",
-      "status": "drafted",
+      "status": "reviewed",
       "sections": ["231"],
       "contextualSections": ["232"],
       "basis": "Drafted from Mental Health Act 2014 (WA) s 231 with s 232 as context, and from the approved Form 10B as listed on the Office of the Chief Psychiatrist register.",
-      "reviewedBy": null,
-      "reviewedAt": null
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:14:23.764Z",
+      "reviewedContentSha256": "30dcd439366783c96abc3e827d0f8378c3f851b5f5044e65231313c97814e24f"
     },
     {
       "code": "10C",
@@ -340,12 +342,13 @@
     },
     {
       "code": "10E",
-      "status": "drafted",
+      "status": "reviewed",
       "sections": ["234", "238"],
       "contextualSections": [],
       "basis": "Drafted from Mental Health Act 2014 (WA) s 234, s 238, and from the approved Form 10E as listed on the Office of the Chief Psychiatrist register.",
-      "reviewedBy": null,
-      "reviewedAt": null
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:14:28.175Z",
+      "reviewedContentSha256": "b834adf3b6a3524672262d4b5dd3a387af38a57b6a23d753ed7f31811388e9c0"
     },
     {
       "code": "10F",
@@ -394,12 +397,13 @@
     },
     {
       "code": "11B",
-      "status": "drafted",
+      "status": "reviewed",
       "sections": ["215"],
       "contextualSections": ["216"],
       "basis": "Drafted from Mental Health Act 2014 (WA) s 215 with s 216 as context, and from the approved Form 11B as listed on the Office of the Chief Psychiatrist register.",
-      "reviewedBy": null,
-      "reviewedAt": null
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:14:35.024Z",
+      "reviewedContentSha256": "f146cf71bd4da3b092bccd2bad5693212109178265e5a8d8e7c684552705e642"
     },
     {
       "code": "11C",
