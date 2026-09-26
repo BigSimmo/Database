@@ -27,12 +27,14 @@ function readPinsAtHead(root) {
   }
 }
 
-// A pin names a commit. Anything else (a content id from before pins recorded commits, a typo)
-// resolves to null and is reported, never guessed at.
+// A pin names a commit. Something that is not a commit id (a content id from before pins recorded
+// commits, a typo) is unreadable; a commit id this clone does not have is "not in history".
 function resolvePin(root, value) {
-  if (typeof value !== "string" || !SHA.test(value)) return null;
-  if (git(root, ["cat-file", "-t", value], { allowFail: true })?.trim() !== "commit") return null;
-  return git(root, ["rev-parse", `${value}^{commit}`]).trim();
+  if (typeof value !== "string" || !SHA.test(value)) return { commit: null, readable: false };
+  const type = git(root, ["cat-file", "-t", value], { allowFail: true })?.trim();
+  if (type === undefined) return { commit: null, readable: true };
+  if (type !== "commit") return { commit: null, readable: false };
+  return { commit: git(root, ["rev-parse", `${value}^{commit}`]).trim(), readable: true };
 }
 
 function isAncestorOfHead(root, commit) {
@@ -56,6 +58,7 @@ function commitsSince(root, pin) {
  * is stale. Area files exclude the doc itself, the map folder, and generated files and records.
  * `now` is accepted for the report runner's shared signature; the result depends only on HEAD.
  *
+ * @param {{ root: string, now?: Date }} options
  * @returns {Array<{doc: string, area: string|null, pinnedCommit: string|null,
  *   status: "checked"|"no pin"|"pin unreadable"|"pin not in history"|"doc missing",
  *   commitsSinceInArea: number|null, docChangedSincePin: boolean|null,
@@ -66,10 +69,10 @@ export function pinStatus({ root } = {}) {
   const resolved = new Map();
   const logs = new Map();
   for (const [doc, value] of Object.entries(pins)) {
-    const commit = resolvePin(root, value);
+    const { commit, readable } = resolvePin(root, value);
     const inHistory = Boolean(commit) && isAncestorOfHead(root, commit);
     if (inHistory && !logs.has(commit)) logs.set(commit, commitsSince(root, commit));
-    resolved.set(doc, { commit, inHistory });
+    resolved.set(doc, { commit, readable, inHistory });
   }
 
   // Files deleted since a pin still count for their area, placed by today's rules.
@@ -113,7 +116,7 @@ export function pinStatus({ root } = {}) {
     };
     if (!map.files.has(doc)) row.status = "doc missing";
     else if (!pin) row.status = "no pin";
-    else if (!pin.commit) row.status = "pin unreadable";
+    else if (!pin.readable) row.status = "pin unreadable";
     else if (!pin.inHistory) row.status = "pin not in history";
     if (row.status !== "checked") {
       rows.push(row);

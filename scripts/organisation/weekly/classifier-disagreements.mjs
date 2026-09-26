@@ -35,6 +35,13 @@ const BASELINE_VERSION = 1;
 const LIST_CAP = 30;
 const CHUNK = 400;
 
+/**
+ * @typedef {{ cls: string, flag: string, expect: string[] }} Pairing
+ * @typedef {{ id: string, name: string, pairings: Pairing[], notCompared: string,
+ *   classify?: (root: string, candidates: Map<string, string[]>) => Promise<Map<string, string[]>> }} Classifier
+ * @typedef {{ classifier: string, file: string, area: string }} BaselineEntry
+ */
+
 async function importFromRoot(root, file) {
   const full = path.join(root, file);
   if (!fs.existsSync(full)) throw new Error(`${file} is missing`);
@@ -94,7 +101,12 @@ function runCiScope(root, files) {
   });
 }
 
-/** Files in `files` for which `test(list)` is true on their own, found by halving positive lists. */
+/**
+ * Files in `files` for which `test(list)` is true on their own, found by halving positive lists.
+ * @param {string[]} files
+ * @param {(list: string[]) => Promise<boolean>} test
+ * @returns {Promise<string[]>}
+ */
 export async function findPositives(files, test) {
   if (!files.length || !(await test(files))) return [];
   if (files.length === 1) return files;
@@ -103,6 +115,7 @@ export async function findPositives(files, test) {
   return halves.flat();
 }
 
+/** @type {Classifier[]} */
 export const CLASSIFIERS = [
   {
     id: "pr-policy",
@@ -199,6 +212,9 @@ export const CLASSIFIERS = [
 /**
  * Today's disagreements: files a classifier puts in a paired class while the map places them
  * outside every expected area. Unplaced, ignored and not-yet-placed files are not compared.
+ * @param {{ root: string, classifiers?: Classifier[] }} options
+ * @returns {Promise<{ disagreements: Array<BaselineEntry & { expected: string[] }>,
+ *   unavailable: Array<{ classifier: string, reason: string }> }>}
  */
 export async function findDisagreements({ root, classifiers = CLASSIFIERS } = {}) {
   const map = mapAtHead(root);
@@ -240,6 +256,11 @@ export async function findDisagreements({ root, classifiers = CLASSIFIERS } = {}
 
 const keyOf = (entry) => `${entry.classifier}\0${entry.file}`;
 
+/**
+ * The committed baseline from the working tree, or null when missing or unreadable.
+ * @param {string} root
+ * @returns {BaselineEntry[] | null}
+ */
 export function readBaseline(root) {
   try {
     const data = JSON.parse(fs.readFileSync(path.join(root, BASELINE_FILE), "utf8"));
@@ -255,7 +276,11 @@ export function baselineText(disagreements) {
   return `${JSON.stringify({ version: BASELINE_VERSION, disagreements: entries }, null, 2)}\n`;
 }
 
-/** Rewrites the baseline with today's disagreements. Refuses when a classifier could not run. */
+/**
+ * Rewrites the baseline with today's disagreements. Refuses when a classifier could not run.
+ * @param {{ root: string, classifiers?: Classifier[] }} options
+ * @returns {Promise<number>} how many disagreements were recorded
+ */
 export async function updateBaseline({ root, classifiers = CLASSIFIERS } = {}) {
   const { disagreements, unavailable } = await findDisagreements({ root, classifiers });
   if (unavailable.length) {
@@ -275,6 +300,10 @@ function describePairings(classifiers) {
   return { compared, skipped };
 }
 
+/**
+ * @param {{ root: string, now?: Date, classifiers?: Classifier[] }} options
+ * @returns {Promise<{ title: string, markdown: string }>}
+ */
 export async function section({ root, now, classifiers = CLASSIFIERS } = {}) {
   void now; // the result depends only on HEAD and the committed baseline
   const title = "Where the older path classifiers disagree with the map";

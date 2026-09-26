@@ -153,6 +153,7 @@ function resolveSpecifier(fromFile, specifier, fileSet) {
 
 /**
  * New code files that no test reaches. `now` defaults to HEAD's commit time, never the clock.
+ * @param {{ root: string, now?: Date | string | number, days?: number }} options
  * @returns {{ since: Date, until: Date, history: "complete"|"unavailable (shallow clone)",
  *   candidates: string[], untested: Array<{file: string, area: string}>, unparsed: string[] }}
  */
@@ -236,7 +237,9 @@ export async function section({ root, now } = {}) {
   if (result.history !== "complete") {
     return {
       title,
-      markdown: `Not checked: ${result.history}. Git history does not reach back ${WINDOW_DAYS} days in this checkout.\n`,
+      markdown:
+        `Not checked: this checkout is a shallow clone, so its git history does not reach back ${WINDOW_DAYS} ` +
+        "days and every file would look new. Run the report with full history (fetch depth 0).\n",
     };
   }
   const lines = [
