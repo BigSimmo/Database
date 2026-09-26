@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-26T04:35:43.150Z",
+  "generated_at": "2026-09-26T04:47:51.403Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "1c7066823adfea215531b4f3610238b1fcc0e0045c04e1e4ec453d903fa2cb0b",
-  "replay_seconds": 18,
+  "schema_sha256": "49528eeff635d2bb74a0a66e2cc9a5052096f13883e537d4d85e68eebb3d4f84",
+  "replay_seconds": 15,
   "snapshot": {
     "views": [
       {
@@ -12162,16 +12162,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "3ffdb174b4cef3905a3ed45e9b0dab6b",
+        "def_hash": "8054709ecce51370d5eb5e8ff033e5a9",
         "signature": "public.invoke_indexing_v3_agent(integer)"
-      },
-      {
-        "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
-        ],
-        "def_hash": "066ef1277bc11fa8092086fc66352d15",
-        "signature": "public.invoke_ingestion_worker(integer)"
       },
       {
         "acl": [

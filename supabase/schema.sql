@@ -3467,62 +3467,8 @@ $function$;
 revoke execute on function public.purge_expired_rag_query_misses(integer) from public, anon, authenticated;
 grant execute on function public.purge_expired_rag_query_misses(integer) to service_role;
 
--- Prefer app.ingestion_worker_base_url (GUC) with the hardcoded project URL as
--- fallback, matching invoke_indexing_v3_agent. Guarded ALTER DATABASE SET so
--- hosted Supabase (42501) still replays cleanly.
-do $$
-begin
-  execute format('alter database %I set app.ingestion_worker_base_url = %L',
-                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
-exception
-  when insufficient_privilege then
-    raise notice 'Skipping ALTER DATABASE SET app.ingestion_worker_base_url (insufficient privilege on hosted Supabase).';
-end
-$$;
-
-CREATE OR REPLACE FUNCTION public.invoke_ingestion_worker(p_limit integer DEFAULT 25)
- RETURNS bigint
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions', 'vault', 'pg_temp'
-AS $function$
-declare
-  v_request_id bigint;
-  v_jwt text;
-  v_limit integer := greatest(1, least(coalesce("p_limit", 25), 200));
-  v_base_url text;
-begin
-  select "decrypted_secret" into v_jwt
-  from "vault"."decrypted_secrets"
-  where "name" = 'cron_ingestion_jwt'
-  limit 1;
-
-  if v_jwt is null or length(trim(v_jwt)) = 0 then
-    raise exception 'Missing Vault secret: cron_ingestion_jwt';
-  end if;
-
-  v_base_url := coalesce(
-    nullif(current_setting('app.ingestion_worker_base_url', true), ''),
-    'https://sjrfecxgysukkwxsowpy.supabase.co'
-  );
-
-  select "net"."http_post"(
-    url := v_base_url || '/functions/v1/ingestion-worker?limit=' || v_limit::text,
-    headers := jsonb_build_object(
-      'Content-Type','application/json',
-      'Authorization','Bearer ' || v_jwt
-    ),
-    body := jsonb_build_object('source','pg_cron','worker','ingestion-worker','ts', now()),
-    timeout_milliseconds := 60000
-  )
-  into v_request_id;
-
-  return v_request_id;
-end;
-$function$;
-
-revoke execute on function public.invoke_ingestion_worker(integer) from public, anon, authenticated;
-grant execute on function public.invoke_ingestion_worker(integer) to service_role;
+-- public.invoke_ingestion_worker(integer) and its app.ingestion_worker_base_url
+-- setting were retired by 20260926041000_retire_invoke_ingestion_worker.sql.
 
 -- Full-inventory drift snapshot backing `npm run check:drift`. The expected
 -- state lives in supabase/drift-manifest.json (generated from a scratch replay
@@ -5009,6 +4955,8 @@ as $$
 declare
   v_request_id bigint;
   v_secret     text;
+  v_jwt        text;
+  v_headers    jsonb;
   v_base_url   text;
 begin
   select decrypted_secret
@@ -5021,6 +4969,20 @@ begin
     raise exception 'indexing_v3_agent_secret is missing from Supabase Vault';
   end if;
 
+  select decrypted_secret
+    into v_jwt
+  from vault.decrypted_secrets
+  where name = 'cron_ingestion_jwt'
+  limit 1;
+
+  v_headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'x-indexing-agent-secret', v_secret
+  );
+  if nullif(trim(v_jwt), '') is not null then
+    v_headers := v_headers || jsonb_build_object('Authorization', 'Bearer ' || trim(v_jwt));
+  end if;
+
   -- Prefer the GUC; fall back to the hardcoded production URL so that
   -- existing deployments that have not yet set the GUC continue to work.
   v_base_url := coalesce(
@@ -5031,10 +4993,7 @@ begin
   select net.http_post(
     url := v_base_url || '/functions/v1/indexing-v3-agent?limit='
            || greatest(1, least(coalesce(p_limit, 1), 10))::text,
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-indexing-agent-secret', v_secret
-    ),
+    headers := v_headers,
     body := jsonb_build_object('source', 'pg_cron', 'worker', 'v3-indexing-worker', 'ts', now()),
     timeout_milliseconds := 60000
   ) into v_request_id;
