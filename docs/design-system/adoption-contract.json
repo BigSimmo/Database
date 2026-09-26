@@ -121,6 +121,7 @@
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
+        "src/app/(search-app)/cme/learning/page.tsx",
         "src/app/(search-app)/cme/log/[id]/page.tsx",
         "src/app/(search-app)/cme/log/page.tsx",
         "src/app/(search-app)/cme/new/page.tsx",

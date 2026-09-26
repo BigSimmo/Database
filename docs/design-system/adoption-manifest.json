@@ -866,6 +866,7 @@
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/cme/cme-entry-page.tsx",
+        "src/components/cme/cme-learning-page.tsx",
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
@@ -889,6 +890,7 @@
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/cme/cme-entry-page.tsx",
+        "src/components/cme/cme-learning-page.tsx",
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
@@ -2668,6 +2670,7 @@
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
+        "src/app/(search-app)/cme/learning/page.tsx",
         "src/app/(search-app)/cme/log/[id]/page.tsx",
         "src/app/(search-app)/cme/log/page.tsx",
         "src/app/(search-app)/cme/new/page.tsx",
@@ -2785,6 +2788,16 @@
         },
         {
           "file": "src/app/(search-app)/cme/customise/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/cme/learning/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4582,6 +4595,7 @@
       "src/app/(search-app)/cme/calendar/page.tsx",
       "src/app/(search-app)/cme/check/page.tsx",
       "src/app/(search-app)/cme/customise/page.tsx",
+      "src/app/(search-app)/cme/learning/page.tsx",
       "src/app/(search-app)/cme/log/[id]/page.tsx",
       "src/app/(search-app)/cme/log/page.tsx",
       "src/app/(search-app)/cme/new/page.tsx",
@@ -4697,6 +4711,7 @@
       "src/app/(search-app)/cme/calendar/page.tsx",
       "src/app/(search-app)/cme/check/page.tsx",
       "src/app/(search-app)/cme/customise/page.tsx",
+      "src/app/(search-app)/cme/learning/page.tsx",
       "src/app/(search-app)/cme/log/[id]/page.tsx",
       "src/app/(search-app)/cme/log/page.tsx",
       "src/app/(search-app)/cme/new/page.tsx",
@@ -4812,7 +4827,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 120,
+    "inheritedCkbV2RootCount": 121,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4821,8 +4836,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 121,
-    "productionRouteCount": 113,
-    "nextUiEntryCount": 178
+    "rootCount": 122,
+    "productionRouteCount": 114,
+    "nextUiEntryCount": 179
   }
 }

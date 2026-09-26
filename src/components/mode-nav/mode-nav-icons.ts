@@ -13,6 +13,7 @@ import {
   ListChecks,
   Network,
   NotebookPen,
+  Presentation,
   Repeat,
   Printer,
   Search,
@@ -103,6 +104,7 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   calendar: CalendarRange,
   routines: Repeat,
   plan: Target,
+  learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
 };
