@@ -261,7 +261,13 @@ describe("developer hub page — section headings", () => {
 
     expect(environment).not.toBeNull();
     expect(environment!.querySelector("[data-testid='developer-hub-environment-strip']")).not.toBeNull();
-    expect(environment!.querySelectorAll("a, button")).toHaveLength(0);
+    // The one control the strip may carry is the build line's link to its
+    // commit, which renders only when a build sha is known (CI sets
+    // `GITHUB_SHA`, so it appears there and not on a developer machine).
+    const controls = [...environment!.querySelectorAll("a, button")];
+    expect(controls.filter((control) => control.getAttribute("data-testid") !== "developer-hub-build-link")).toEqual(
+      [],
+    );
   });
 });
 
