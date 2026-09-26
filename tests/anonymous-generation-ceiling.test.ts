@@ -19,19 +19,58 @@ type RpcArgs = { p_subject_key?: string; p_bucket?: string; p_limit?: number; p_
  */
 function limiterStub(limitedKeys: string[] = []) {
   const calls: RpcArgs[] = [];
-  const rpc = vi.fn(async (_name: string, args: RpcArgs) => {
+  const consume = (args: RpcArgs) => {
     calls.push(args);
     const limited = limitedKeys.includes(String(args.p_subject_key));
     return {
-      data: {
-        limited,
-        limit_value: args.p_limit ?? 0,
-        remaining: limited ? 0 : (args.p_limit ?? 0) - 1,
-        retry_after_seconds: args.p_window_seconds ?? 60,
-        reset_at: new Date(Date.now() + (args.p_window_seconds ?? 60) * 1000).toISOString(),
-      },
-      error: null,
+      limited,
+      limit_value: args.p_limit ?? 0,
+      remaining: limited ? 0 : (args.p_limit ?? 0) - 1,
+      retry_after_seconds: args.p_window_seconds ?? 60,
+      reset_at: new Date(Date.now() + (args.p_window_seconds ?? 60) * 1000).toISOString(),
     };
+  };
+  const rpc = vi.fn(async (name: string, args: RpcArgs & Record<string, unknown>) => {
+    if (name !== "consume_anonymous_rate_limits_atomic") return { data: consume(args), error: null };
+    // Mirrors the SQL function: the same per-key steps in order, stopping at the first denial.
+    const steps: Array<[string, RpcArgs]> = [
+      [
+        "subject",
+        {
+          p_subject_key: String(args.p_subject_key),
+          p_bucket: String(args.p_bucket),
+          p_limit: Number(args.p_subject_limit),
+          p_window_seconds: Number(args.p_subject_window_seconds),
+        },
+      ],
+      [
+        "global",
+        {
+          p_subject_key: String(args.p_global_key),
+          p_bucket: String(args.p_bucket),
+          p_limit: Number(args.p_global_limit),
+          p_window_seconds: Number(args.p_global_window_seconds),
+        },
+      ],
+    ];
+    if (args.p_ceiling_key) {
+      steps.push([
+        "ceiling",
+        {
+          p_subject_key: String(args.p_ceiling_key),
+          p_bucket: String(args.p_ceiling_bucket),
+          p_limit: Number(args.p_ceiling_limit),
+          p_window_seconds: Number(args.p_ceiling_window_seconds),
+        },
+      ]);
+    }
+    let first: ReturnType<typeof consume> | undefined;
+    for (const [scope, stepArgs] of steps) {
+      const row = consume(stepArgs);
+      first ??= row;
+      if (row.limited) return { data: { ...row, scope }, error: null };
+    }
+    return { data: { ...first, scope: null }, error: null };
   });
   return { calls, supabase: { rpc } as unknown as ReturnType<typeof createAdminClient> };
 }
