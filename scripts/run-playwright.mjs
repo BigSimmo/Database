@@ -52,7 +52,12 @@ const mockupProjectRequested =
 // Fail loud on missing browser binaries before the heavy lock or production build.
 // Otherwise launch failures surface as "N failed" product tests and are easy to misread
 // when a caller pipes output without `pipefail` (outstanding-issues #120).
-const browserPreflight = assertPlaywrightBrowsersReady(playwrightArgs);
+// A build-only run (CI's shared Playwright build) exits before any browser starts, so it
+// needs no browser and its job does not install one; every lane that runs tests still checks.
+const browserPreflight =
+  process.env.PLAYWRIGHT_BUILD_ONLY?.trim() === "true"
+    ? { checked: [] }
+    : assertPlaywrightBrowsersReady(playwrightArgs);
 const preinstalledChromium = browserPreflight.checked.find(
   (entry) => entry.source === "preinstalled container Chromium (PLAYWRIGHT_BROWSERS_PATH)",
 );
