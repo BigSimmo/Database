@@ -6,7 +6,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
-import { ON_CALL_WHOS_ON_ENABLED } from "@/lib/on-call/feature-flags";
+import { ON_CALL_ADMIN_ROWS_HREF, ON_CALL_WHOS_ON_ENABLED } from "@/lib/on-call/feature-flags";
 import { SOURCE_METHOD_ROUTE } from "@/lib/sources/rating-method";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
@@ -155,7 +155,7 @@ export const modeSecondaryNavigationRegistry = {
     // labels only: the stored section ids, route segments and database check
     // constraints stay `logistics` and `education`.
     { id: "compliance", label: "Compliance", href: "/on-call/compliance", group: "more" },
-    { id: "logistics", label: "Admin", href: "/on-call/logistics", group: "more" },
+    { id: "logistics", label: "Admin", href: ON_CALL_ADMIN_ROWS_HREF, group: "more" },
     { id: "teaching", label: "Teaching", href: "/on-call/education", group: "more" },
     { id: "shifts", label: "My shifts", href: "/on-call/shifts", group: "more" },
     { id: "calendar", label: "Calendar", href: "/on-call/calendar", group: "more" },

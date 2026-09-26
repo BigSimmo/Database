@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
  * and no arbitrary weight of 650 or more. The pill's own lines are guarded in
  * `tests/mode-pages-sheet-classes.test.ts`.
  */
-const HEAVY = /\bfont-(bold|extrabold|black)\b|font-\[(6[5-9]\d|[7-9]\d\d)\]/;
+const HEAVY = /\bfont-(bold|extrabold|black)\b|font-\[(6[5-9]\d|[7-9]\d\d)\]|font-\[var\(--font-weight-value\)\]/;
 const ROOTS = ["src/components/on-call", "src/app/(search-app)/on-call"];
 
 /** Files a page lane owns and clears in its own build; Task 6 empties this set. */
