@@ -13,10 +13,7 @@ const HEAVY = /\bfont-(bold|extrabold|black)\b|font-\[(6[5-9]\d|[7-9]\d\d)\]|fon
 const ROOTS = ["src/components/on-call", "src/app/(search-app)/on-call"];
 
 /** Files a page lane owns and clears in its own build; Task 6 empties this set. */
-const LANE_PENDING = new Set([
-  "src/components/on-call/on-call-home.tsx",
-  "src/components/on-call/on-call-search-box.tsx",
-]);
+const LANE_PENDING = new Set<string>([]);
 
 /** Teaching moves to Teaching mode; no new work here (owner). */
 const FROZEN_TEACHING = new Set(["src/components/on-call/on-call-teaching-strip.tsx"]);

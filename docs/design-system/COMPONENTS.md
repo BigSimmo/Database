@@ -1088,10 +1088,10 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RadioGroup`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
-| `SearchField`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
-| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              40 |
+| `SearchField`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              15 |
+| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              43 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
