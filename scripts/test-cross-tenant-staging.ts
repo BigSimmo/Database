@@ -14,6 +14,8 @@ import {
   probeOnCallServiceWriteIsolation,
   type WriteProbeCreated,
 } from "./lib/cross-tenant-write-probe";
+import { probeCmeEvidenceAndExportIsolation } from "./lib/cross-tenant-cme-evidence-probe";
+import { probeOnCallContentIsolation } from "./lib/cross-tenant-oncall-content-probe";
 
 loadEnvConfig(process.cwd());
 
@@ -765,6 +767,33 @@ async function main() {
       register,
     });
     checkpoints.push(...serviceWrites.checkpoints);
+
+    // Evidence and export on the disposable CME entry; skipped with the write probe's own note
+    // when user A already had a CPD year and no disposable entry was created.
+    if (cmeWrites.entryId) {
+      const cmeEvidence = await probeCmeEvidenceAndExportIsolation({
+        request: writeRequest,
+        tokenA: sessionA.token,
+        tokenB: sessionB.token,
+        entryId: cmeWrites.entryId,
+        marker: fixtureA.marker,
+        year: CROSS_TENANT_CME_YEAR,
+      });
+      checkpoints.push(...cmeEvidence.checkpoints);
+      notExercised.push(...cmeEvidence.skipped);
+      for (const note of cmeEvidence.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+    }
+    // Content, reports and orientation on the same disposable service, which B has just left.
+    const serviceContent = await probeOnCallContentIsolation({
+      request: writeRequest,
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+      userIdB: sessionB.userId,
+      serviceId: serviceWrites.serviceId,
+      siteId: serviceWrites.siteId,
+      marker: fixtureA.marker,
+    });
+    checkpoints.push(...serviceContent.checkpoints);
   } catch (error) {
     failure = error;
   }
