@@ -5,6 +5,7 @@ import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import type { CmeReportingReminder } from "@/components/cme/cme-dashboard";
 import { cmeReportingCloseDate } from "@/lib/cme/calendar-events";
 import { cpdYearOf, perthCalendarDate } from "@/lib/cme/cpd-year";
+import { groupDrafts } from "@/lib/cme/drafts";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 import { isDemoMode } from "@/lib/env";
 import type { CmeRequirementSet } from "@/lib/cme/types";
@@ -54,7 +55,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
   // Demo mode pins its own clock and year, where no earlier year is configured, so it never has one.
   const now = new Date();
   const [data, reportingReminder] = await Promise.all([
-    loadCmePageData(year),
+    loadCmePageData(year, { drafts: true }),
     isDemoMode() ? Promise.resolve(null) : loadReportingReminder(now, year ?? cpdYearOf(now)),
   ]);
   if (data.state !== "ready") {
@@ -72,6 +73,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
       nowIso={data.now.toISOString()}
       routines={data.routines}
       demoMode={data.demoMode}
+      draftsToFinish={groupDrafts(data.drafts).nextAction.length}
     />
   );
 }

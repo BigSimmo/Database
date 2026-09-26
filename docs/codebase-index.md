@@ -441,6 +441,15 @@ publishing, independent clinical/legal review, revision conflicts, correction re
 and owner-private orientation completion. They never pool legacy entries or personal
 CME/compliance. `handbook-resources` holds linked official WA starting points.
 
+**My shifts.** `/on-call/shifts` is the doctor's own roster, and the On Call home shows the shift on
+now or the next one. `src/lib/on-call/shifts/` reads an `.ics` or `.csv` export on the device
+(`parse-ics`, `parse-csv`), keeping only start, end, title, site and calendar ID, so descriptions and
+attendees never leave the browser. `diff` works out what a new roster changed; `repository` saves it
+through the `on_call_shifts_replace` RPC, which replaces the owner's shifts inside the roster's Perth
+dates and records the import in one transaction. `on_call_shifts` and `on_call_shift_imports` are
+private to their owner: service-role only, every query filtered by `owner_id`, never shared the way
+non-personal On Call entries are. The API is `/api/on-call/shifts` and `imports/[id]`.
+
 ---
 
 ### Continuing education (CME/CPD)
@@ -505,6 +514,12 @@ transaction gets through. See `docs/cme/design/cme-design-decisions.md` §9.
 activity served; both are written only through `cme_save_plan_goals` and `cme_set_entry_goal` and are
 frozen with a closed year (`src/lib/cme/plan-goals*.ts`).
 
+**CPD records.** `cme_training_periods` and `cme_training_milestones` hold a trainee's own timeline;
+`cme_missed_sessions` records teaching or supervision lost to clinical work, linked to the ordinary
+activity that replaced it; `cme_entry_drafts` holds half-finished activities, optionally waiting on a
+supervisor or workforce. None is tied to a CPD year or read by requirement evaluation, so none can
+change hours or a requirement status.
+
 Routes live at `/cme` and its sub-paths; components are in `src/components/cme/`. The API is
 `/api/cme/entries`, `[id]`, `[id]/goal`, `/api/cme/plan` and `/api/cme/year`. Demo-mode branching lives in those routes and
 never in the repository, so production cannot silently fall back to synthetic data.
@@ -548,7 +563,7 @@ calendar pages.
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `cme_evidence`, `cme_year_snapshots`, `cme_year_amendments`, `cme_plan_goals`, `cme_entry_goals`, `calendar_feed_tokens`, `on_call_services`, `on_call_service_sites`, `on_call_service_members`, `on_call_service_invitations`, `on_call_service_entries`, `on_call_service_reports`, `on_call_service_orientation`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `cme_evidence`, `cme_year_snapshots`, `cme_year_amendments`, `cme_plan_goals`, `cme_entry_goals`, `cme_training_periods`, `cme_training_milestones`, `cme_missed_sessions`, `cme_entry_drafts`, `calendar_feed_tokens`, `on_call_shift_imports`, `on_call_shifts`, `on_call_services`, `on_call_service_sites`, `on_call_service_members`, `on_call_service_invitations`, `on_call_service_entries`, `on_call_service_reports`, `on_call_service_orientation`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
 
 Public-source control-plane tables: `public_source_policy_entries`, `public_source_activation_events`, `public_source_versions`, `public_source_upload_attempts`, `public_source_activation_guards`, `public_source_cleanup_mutation_guards`.
 

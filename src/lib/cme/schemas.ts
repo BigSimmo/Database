@@ -47,7 +47,13 @@ const validCredit = (entry: { formalPeerReviewHours: number; allocations: { cate
   entry.formalPeerReviewHours <=
   entry.allocations.filter((a) => a.category === "reviewing").reduce((sum, a) => sum + a.hours, 0);
 export const cmeEntryCreateSchema = entryFields
-  .extend({ requestId: z.string().uuid().optional() })
+  .extend({
+    requestId: z.string().uuid().optional(),
+    // A saved draft this activity finishes: deleted only after the activity is saved.
+    draftId: z.string().uuid().optional(),
+    // A missed teaching or supervision session this activity replaces: linked after it is saved.
+    missedSessionId: z.string().uuid().optional(),
+  })
   .refine(validCredit, "Formal peer review credit cannot exceed reviewing hours.");
 // A complete replace prevents omitted fields from silently erasing prior records.
 export const cmeEntryUpdateSchema = entryFields
