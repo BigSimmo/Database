@@ -241,8 +241,8 @@ describe("source dispositions", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
-    expect(admitted).toHaveLength(18);
-    expect(heldDictionarySources()).toHaveLength(40);
+    expect(admitted).toHaveLength(21);
+    expect(heldDictionarySources()).toHaveLength(37);
   });
 
   it("names a blocker and a next action for every held source", () => {
@@ -636,9 +636,17 @@ describe("a blocker list is a complete remediation path", () => {
       .filter((issue) => !(rungIsDownstream && /rung/i.test(issue)));
   }
 
-  // The three sources whose publisher page could not be read: the date is known to be
-  // missing, so whatever else the gate reports is what the blocker list must already name.
+  // The three sources whose publisher page could not be read on 2026-09-16: the date is known
+  // to be missing, so whatever else the gate reports is what the blocker list must already
+  // name. All three were read on 2026-09-26: the two NSW ACI pages stated a date and were
+  // admitted, and COPE's page states none.
   const UNREADABLE = ["COPE-EPDS-2026", "NSW-ACI-SCI", "nsw-mental-assessment"];
+  /** Blockers that stand for the missing date itself, or for sign-off once admitted. */
+  const DATE_BLOCKERS = new Set([
+    "publisher_page_unreadable_from_this_session",
+    "publication_event_not_stated_by_the_publisher",
+    "proposed_candidate_only_native_gate_and_authorisation_required",
+  ]);
 
   for (const handoverSourceId of UNREADABLE) {
     const disposition = () => {
@@ -663,7 +671,7 @@ describe("a blocker list is a complete remediation path", () => {
       const surviving = simulate(handoverSourceId);
       for (const blocker of disposition().blockers) {
         // The date itself, which the simulation supplies.
-        if (blocker.code === "publisher_page_unreadable_from_this_session") continue;
+        if (DATE_BLOCKERS.has(blocker.code)) continue;
         if (GOVERNANCE_ONLY.has(blocker.code)) continue;
         const pattern = GATE_ENFORCED.find(([, code]) => code === blocker.code)?.[0];
         expect(pattern, `${handoverSourceId}: blocker ${blocker.code} is mapped to no gate issue`).toBeDefined();
@@ -678,6 +686,14 @@ describe("a blocker list is a complete remediation path", () => {
       // Clearing every gate-enforced blocker must NOT be enough to admit the source, or the
       // remediation path ends with "Not established" published as this source's version.
       const entry = disposition();
+      if (entry.ledgerOutcome === "admitted_as_candidate") {
+        // Admitted only once the publisher's own version or date statement replaced the placeholder.
+        const record = sourceAcquisitionRecords.find((row) => row.id === entry.ledgerRecordId);
+        expect(record?.version, `${handoverSourceId} admitted with a placeholder version`).not.toMatch(
+          /not established|live official reference/i,
+        );
+        return;
+      }
       expect(
         entry.blockers.map((blocker) => blocker.code),
         `${handoverSourceId} drops the governance blocker the gate cannot catch`,

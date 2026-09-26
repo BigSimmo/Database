@@ -19,7 +19,7 @@ into the published entries would lose the distinction that makes them worth havi
 | ------------------ | ---------------------------------------------- | ----------------------------------------------------- |
 | Sense drafts       | `src/data/dictionary-sense-drafts.json`        | 333 records, all pending approval                     |
 | Definition reviews | `src/data/dictionary-definition-reviews.json`  | 96 verdicts, 28 with proposed wording, none applied   |
-| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 18 admitted as ledger candidates, 40 held |
+| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 21 admitted as ledger candidates, 37 held |
 
 The typed readers are in `src/lib/dictionary-editorial/`. Re-import with
 `node scripts/import-dictionary-handover.mjs --package <dir>`; `--check` proves the committed files
