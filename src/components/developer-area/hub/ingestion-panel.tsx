@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
+import { floatingControl, primaryControl } from "@/components/primitive-recipes/recipes";
 import {
   CARD_CLASS,
   CountTile,
@@ -122,8 +123,7 @@ function parseReadyPayload(payload: Record<string, unknown>) {
 
 /**
  * Ruling I2 (plan §5): any status this panel does not recognise is shown,
- * verbatim, under its own bucket rather than dropped — same shape as
- * `otherPages` in `src/app/mockups/development/routes/page.tsx`, keyed on row
+ * verbatim, under its own bucket rather than dropped, keyed on row
  * identity (a `Set` of the row objects themselves) so two jobs can never
  * collide even if their other fields happen to match.
  */
@@ -140,15 +140,123 @@ function documentLabel(job: IngestionJobRow): string {
   return job.documents?.title || job.documents?.file_name || job.document_id || "unknown document";
 }
 
-function JobRow({ job }: { job: IngestionJobRow }) {
+/**
+ * Per-job retry state, keyed by job id so a row keeps its outcome line even
+ * after the refetch moves it from "Failed" to "Active".
+ */
+type RetryStatus =
+  { kind: "confirming" } | { kind: "pending" } | { kind: "queued" } | { kind: "error"; message: string };
+
+type RetryControls = {
+  statusFor: (jobId: string) => RetryStatus | undefined;
+  onRequest: (jobId: string) => void;
+  onCancel: (jobId: string) => void;
+  onConfirm: (jobId: string) => void;
+};
+
+const RETRY_SIGN_IN_MESSAGE = "Sign in as an administrator to retry. The developer key alone can't change anything.";
+
+/**
+ * Turns the retry route's response into the one line this row shows. The
+ * route (`src/app/api/ingestion/jobs/[id]/retry/route.ts`) replies `{ job }`
+ * on success and the shared `{ error, message, code }` envelope otherwise.
+ */
+function retryOutcome(status: number, payload: Record<string, unknown>): RetryStatus {
+  const serverMessage = typeof payload.error === "string" && payload.error.length > 0 ? payload.error : null;
+  if (status >= 200 && status < 300) return { kind: "queued" };
+  if (status === 401 || status === 403) return { kind: "error", message: RETRY_SIGN_IN_MESSAGE };
+  // 409 means the job already completed or a worker still holds it; the
+  // server's own sentence says which, so it is shown as given.
+  if (status === 409) return { kind: "error", message: serverMessage ?? "This job can't be retried right now." };
+  if (status === 429) return { kind: "error", message: "Too many requests. Try again shortly." };
+  return { kind: "error", message: `Retry failed: ${serverMessage ?? `the server replied with status ${status}.`}` };
+}
+
+function RetryOutcomeLine({ jobId, status }: { jobId: string; status: RetryStatus | undefined }) {
+  if (status?.kind === "queued") {
+    return (
+      <p
+        role="status"
+        data-testid={`developer-ingestion-retry-queued-${jobId}`}
+        className="basis-full text-sm text-[color:var(--text-heading)]"
+      >
+        Queued for indexing
+      </p>
+    );
+  }
+  if (status?.kind === "error") {
+    return (
+      <p
+        role="status"
+        data-testid={`developer-ingestion-retry-error-${jobId}`}
+        className="basis-full text-sm text-[color:var(--text-heading)]"
+      >
+        {status.message}
+      </p>
+    );
+  }
+  return null;
+}
+
+function RetryConfirm({ job, pending, controls }: { job: IngestionJobRow; pending: boolean; controls: RetryControls }) {
+  const promptId = `developer-ingestion-retry-prompt-${job.id}`;
+  return (
+    <div
+      role="group"
+      aria-labelledby={promptId}
+      aria-busy={pending}
+      data-testid={`developer-ingestion-retry-confirm-${job.id}`}
+      className="grid basis-full gap-2 rounded-lg border border-[color:var(--border)] p-3"
+    >
+      <p id={promptId} className="text-sm leading-6 text-[color:var(--text-heading)]">
+        Retry indexing {documentLabel(job)}? This re-runs indexing for this document and may use OpenAI credit.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={primaryControl} disabled={pending} onClick={() => controls.onConfirm(job.id)}>
+          Retry indexing
+        </button>
+        <button type="button" className={floatingControl} disabled={pending} onClick={() => controls.onCancel(job.id)}>
+          Cancel
+        </button>
+      </div>
+      {pending ? (
+        <p role="status" className={META_CLASS}>
+          Retrying…
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function JobRow({ job, retry }: { job: IngestionJobRow; retry: RetryControls }) {
+  const status = retry.statusFor(job.id);
+  // Retry is offered on failed jobs only: the route refuses completed jobs and
+  // jobs a worker still holds, so offering it anywhere else only invites a 409.
+  const retryable = job.status === "failed";
+  const confirming = status?.kind === "confirming" || status?.kind === "pending";
   return (
     <li data-testid={`developer-ingestion-job-${job.id}`} className={ROW_CLASS}>
-      <span className="text-sm font-bold text-[color:var(--text-heading)]">{documentLabel(job)}</span>
+      <span className="text-sm font-semibold text-[color:var(--text-heading)]">{documentLabel(job)}</span>
       <span className={MONO_CLASS}>{job.status}</span>
       {job.stage ? <span className={META_CLASS}>stage: {job.stage}</span> : null}
       {typeof job.progress === "number" ? <span className={META_CLASS}>progress: {job.progress}</span> : null}
       {job.error_message ? <span className={META_CLASS}>{job.error_message}</span> : null}
       {job.updated_at ? <span className={META_CLASS}>updated {job.updated_at}</span> : null}
+      {retryable && !confirming ? (
+        <button
+          type="button"
+          data-testid={`developer-ingestion-retry-${job.id}`}
+          className={`${floatingControl} ml-auto`}
+          aria-label={`Retry indexing ${documentLabel(job)}`}
+          onClick={() => retry.onRequest(job.id)}
+        >
+          Retry
+        </button>
+      ) : null}
+      {retryable && confirming ? (
+        <RetryConfirm job={job} pending={status?.kind === "pending"} controls={retry} />
+      ) : null}
+      <RetryOutcomeLine jobId={job.id} status={status} />
     </li>
   );
 }
@@ -158,11 +266,13 @@ function JobSection({
   heading,
   jobs,
   emptyNote,
+  retry,
 }: {
   testId: string;
   heading: string;
   jobs: IngestionJobRow[];
   emptyNote: string;
+  retry: RetryControls;
 }) {
   return (
     <section aria-labelledby={`${testId}-heading`} className="grid gap-3">
@@ -172,7 +282,7 @@ function JobSection({
       {jobs.length > 0 ? (
         <ul data-testid={`${testId}-list`} className="grid gap-2">
           {jobs.map((job) => (
-            <JobRow key={job.id} job={job} />
+            <JobRow key={job.id} job={job} retry={retry} />
           ))}
         </ul>
       ) : (
@@ -286,6 +396,59 @@ export function IngestionPanel() {
     }
     setState({ kind: "ready", fetchedAt, ...parsed });
   }, []);
+
+  const [retryStatuses, setRetryStatuses] = useState<Record<string, RetryStatus>>({});
+  // A ref as well as state, so a second click in the same tick cannot fire a
+  // second POST before React has re-rendered the disabled button.
+  const retryInFlightRef = useRef(new Set<string>());
+
+  const setRetryStatus = useCallback((jobId: string, status: RetryStatus | null) => {
+    setRetryStatuses((current) => {
+      const next = { ...current };
+      if (status === null) delete next[jobId];
+      else next[jobId] = status;
+      return next;
+    });
+  }, []);
+
+  const confirmRetry = useCallback(
+    async (jobId: string) => {
+      if (retryInFlightRef.current.has(jobId)) return;
+      retryInFlightRef.current.add(jobId);
+      setRetryStatus(jobId, { kind: "pending" });
+      let outcome: RetryStatus;
+      try {
+        // Same request shape as `ClinicalDashboard`'s `retryJob`: a bare
+        // same-origin POST. The CSRF guard in `src/proxy.ts` reads the
+        // browser's own Fetch Metadata and Origin, so no extra header is sent;
+        // the session cookie carries the administrator sign-in.
+        const response = await fetch(`/api/ingestion/jobs/${encodeURIComponent(jobId)}/retry`, {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        const payload = asRecord(await response.json().catch(() => ({})));
+        outcome = retryOutcome(response.status, payload);
+      } catch {
+        outcome = { kind: "error", message: "Retry failed: the panel could not reach the server." };
+      } finally {
+        retryInFlightRef.current.delete(jobId);
+      }
+      if (!mountedRef.current) return;
+      setRetryStatus(jobId, outcome);
+      if (outcome.kind === "queued") await load();
+    },
+    [load, setRetryStatus],
+  );
+
+  const retryControls: RetryControls = {
+    statusFor: (jobId) => retryStatuses[jobId],
+    onRequest: (jobId) => setRetryStatus(jobId, { kind: "confirming" }),
+    onCancel: (jobId) => setRetryStatus(jobId, null),
+    onConfirm: (jobId) => {
+      void confirmRetry(jobId);
+    },
+  };
 
   useEffect(() => {
     // Deferred through a timer, not called directly in the effect body — same
@@ -412,18 +575,21 @@ export function IngestionPanel() {
             heading={`Active · ${state.activeJobCount}`}
             jobs={active}
             emptyNote="No jobs are pending or processing right now."
+            retry={retryControls}
           />
           <JobSection
             testId="developer-ingestion-completed"
             heading={`Completed · ${completed.length}`}
             jobs={completed}
             emptyNote="No jobs have completed on this page."
+            retry={retryControls}
           />
           <JobSection
             testId="developer-ingestion-failed"
             heading={`Failed · ${failed.length}`}
             jobs={failed}
             emptyNote="No jobs have failed on this page."
+            retry={retryControls}
           />
           {other.length > 0 ? (
             <section
@@ -441,7 +607,7 @@ export function IngestionPanel() {
               </p>
               <ul data-testid="developer-ingestion-other-list" className="grid gap-2">
                 {other.map((job) => (
-                  <JobRow key={job.id} job={job} />
+                  <JobRow key={job.id} job={job} retry={retryControls} />
                 ))}
               </ul>
             </section>

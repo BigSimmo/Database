@@ -261,7 +261,13 @@ describe("developer hub page — section headings", () => {
 
     expect(environment).not.toBeNull();
     expect(environment!.querySelector("[data-testid='developer-hub-environment-strip']")).not.toBeNull();
-    expect(environment!.querySelectorAll("a, button")).toHaveLength(0);
+    // The one control the strip may carry is the build line's link to its
+    // commit, which renders only when a build sha is known (CI sets
+    // `GITHUB_SHA`, so it appears there and not on a developer machine).
+    const controls = [...environment!.querySelectorAll("a, button")];
+    expect(controls.filter((control) => control.getAttribute("data-testid") !== "developer-hub-build-link")).toEqual(
+      [],
+    );
   });
 });
 
@@ -398,5 +404,15 @@ describe("developer hub page — clinical answer failure band", () => {
     render(await DeveloperHubPage());
 
     expect(screen.queryByTestId("developer-hub-clinical-answer-failures-band")).toBeNull();
+  });
+});
+
+describe("owner panel page — today section", () => {
+  it("leads with what is waiting on the owner and links to the tools", async () => {
+    render(await DeveloperHubPage());
+    expect(screen.getByRole("heading", { level: 1, name: "Owner panel" })).toBeInTheDocument();
+    expect(screen.getByTestId("owner-panel-today-summary")).toHaveTextContent(/waiting on you/);
+    expect(screen.getByTestId("owner-panel-settings-link")).toHaveAttribute("href", "/mockups/development/settings");
+    expect(screen.getByTestId("owner-panel-uploads-link")).toHaveAttribute("href", "/mockups/development/ingestion");
   });
 });

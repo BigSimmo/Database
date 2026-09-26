@@ -25,7 +25,7 @@ export function PanelCard({ panel }: { panel: HubPanel }) {
         className={CARD_CLASS}
         data-testid={`developer-hub-panel-${panel.id}`}
       >
-        <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{panel.name}</span>
+        <span className="text-sm font-medium text-[color:var(--text-heading)]">{panel.name}</span>
         <span className="text-xs leading-5 text-[color:var(--text-muted)]">{panel.summary}</span>
         <span id={noteId} className="sr-only">
           Opens in a new tab
@@ -37,7 +37,7 @@ export function PanelCard({ panel }: { panel: HubPanel }) {
   if (panel.phase === 1 && panel.href) {
     return (
       <Link href={panel.href} className={CARD_CLASS} data-testid={`developer-hub-panel-${panel.id}`}>
-        <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{panel.name}</span>
+        <span className="text-sm font-medium text-[color:var(--text-heading)]">{panel.name}</span>
         <span className="text-xs leading-5 text-[color:var(--text-muted)]">{panel.summary}</span>
       </Link>
     );
@@ -57,9 +57,9 @@ export function PanelCard({ panel }: { panel: HubPanel }) {
       className={`${CARD_CLASS} opacity-70`}
       data-testid={`developer-hub-panel-${panel.id}`}
     >
-      <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{panel.name}</span>
+      <span className="text-sm font-medium text-[color:var(--text-heading)]">{panel.name}</span>
       <span className="text-xs leading-5 text-[color:var(--text-muted)]">{panel.summary}</span>
-      <span className="text-xs font-bold text-[color:var(--text-muted)]">Phase {panel.phase}</span>
+      <span className="text-xs font-medium text-[color:var(--text-muted)]">Phase {panel.phase}</span>
       <span id={noteId} className="sr-only">
         {panel.name} is not built yet. It arrives in phase {panel.phase}.
       </span>
