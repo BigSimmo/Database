@@ -1,7 +1,7 @@
 {
   "note": "sha256 of every migration this repository has shipped, with newlines normalised. An entry whose hash changes means an applied migration was edited, which cannot reach the live database. See scripts/check-migration-immutability.mjs.",
   "generator": "scripts/check-migration-immutability.mjs",
-  "sealed_at": "2026-09-26T05:10:17.723Z",
+  "sealed_at": "2026-09-26T05:34:08.696Z",
   "versions": {
     "20260527000000_bulk_ingestion.sql": "813e8e314064a6dcbaaa55e2765a8ce901d5783b304b4a7af7bb7417a07daf7c",
     "20260527001000_documents_policy_cleanup.sql": "559c26f3172bf75e545a41adef75538b2bf648ea7d53c8eb3d3ea7c244c65a48",
@@ -272,6 +272,9 @@
     "20260925064000_cme_year_close.sql": "a0acf3cb8887917820cce94870fa44e01883a1f55cb17a3a124f7e64bc86d2d1",
     "20260925102600_cme_plan_goals.sql": "43f7ab0944d60ac183b85472b981d94cb6f2607345e791622913fb6e57ddb59c",
     "20260925160000_calendar_feed_tokens.sql": "32e6fec4ac15b53910a5d6f277aa694e3986100a3512333484d633609d092436",
+    "20260926040000_anonymous_rate_limits_atomic.sql": "af977ae6728cab227278bd32bcc36efe8cdea6639ba4fe5b1666f5cfcb3b77ba",
+    "20260926041000_retire_invoke_ingestion_worker.sql": "d6d900e67a702d9b369ca1723d0f8d453f1c9712c185a9d37ed234b7c2ff406b",
+    "20260926041100_indexing_v3_agent_cron_sends_jwt.sql": "3ca22bc98e8683cb5296d5ef29132b09a0fa2b08abc51942b45f8fc162eb6740",
     "20260926060000_cme_cpd_records.sql": "4f3e111d652a3cc24de1eb9158b4aacdf36ba2ee183577111ee31ce8a5acd931"
   }
 }
