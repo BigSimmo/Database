@@ -21,6 +21,7 @@ import { OnCallNextShift } from "@/components/on-call/on-call-next-shift";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
+import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
 import { useOnCallShifts } from "@/components/on-call/use-on-call-shifts";
 import {
@@ -516,28 +517,34 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
 
         {!loading && !hasEntries && !loadFailed ? (
           <HomeModule id="on-call-home-first-run" label="Getting started">
-            <EmptyState
-              icon={ON_CALL_HOME_ICON}
-              title="Your On Call hub is empty"
-              body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
-              description="Adding and editing needs an account. Reading does not."
-              actions={
-                <div className="flex flex-col gap-3">
-                  <Link
-                    href={ON_CALL_SECTION_HREFS.contacts}
-                    className={cn(
-                      "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
-                      "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
-                      focusRing,
-                    )}
-                  >
-                    Open Contacts
-                    <ChevronRight aria-hidden="true" className="size-icon-xs" />
-                  </Link>
-                </div>
-              }
-              testId="on-call-home-first-run-empty"
-            />
+            {/* Signed out, the server sends no entries at all, so "empty" would
+                be a claim about a hub this reader cannot see. */}
+            {signedOut ? (
+              <OnCallSignedOut icon={ON_CALL_HOME_ICON} testId="on-call-home-signed-out" />
+            ) : (
+              <EmptyState
+                icon={ON_CALL_HOME_ICON}
+                title="Your On Call hub is empty"
+                body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
+                description="Adding and editing needs an account. Reading does not."
+                actions={
+                  <div className="flex flex-col gap-3">
+                    <Link
+                      href={ON_CALL_SECTION_HREFS.contacts}
+                      className={cn(
+                        "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
+                        "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
+                        focusRing,
+                      )}
+                    >
+                      Open Contacts
+                      <ChevronRight aria-hidden="true" className="size-icon-xs" />
+                    </Link>
+                  </div>
+                }
+                testId="on-call-home-first-run-empty"
+              />
+            )}
           </HomeModule>
         ) : null}
 

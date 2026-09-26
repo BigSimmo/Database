@@ -140,7 +140,7 @@ export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
  * is deliberately not: that constant answers "what may be stored", and this one
  * answers "what may be published", which is a different question with a
  * different reviewer. Adding a seventh section to the union does not add it
- * here, so a new section is withheld from anonymous readers until somebody
+ * here, so a new section is withheld from other readers until somebody
  * writes its name in this list on purpose — and `tests/on-call-repository.test.ts`
  * fails until they do.
  *
@@ -216,7 +216,7 @@ export { COMPLIANCE_MARKER_KEYS } from "@/lib/on-call/compliance";
 
 /**
  * Whether a raw row is — or might be — a compliance requirement, and therefore
- * must never leave this server to an anonymous caller.
+ * must never leave this server to anyone but its owner.
  *
  * The 2026-09-04 decision that made this surface world-readable was about ward
  * phone numbers and escalation ladders. The Compliance page stores something
@@ -256,12 +256,14 @@ export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boo
 
 /**
  * On Call is a shared reference surface: an entry in a section on `PUBLIC_ON_CALL_SECTIONS` is
- * readable by any visitor, signed in or not. That is a deliberate visibility decision (owner
- * request, 2026-09-04) and a reversal of this mode's original owner-only design — see
- * docs/superpowers/specs/2026-09-04-on-call-mode-design.md.
+ * readable by any signed-in user. The 2026-09-04 owner decision made it readable by any visitor,
+ * signed in or not, reversing this mode's original owner-only design (see
+ * docs/superpowers/specs/2026-09-04-on-call-mode-design.md); the owner decision of 2026-09-26
+ * reverses the anonymous read. This function has no viewer to check, so the only caller,
+ * `fetchVisibleOnCallEntries`, refuses before calling it when there is no signed-in owner.
  *
- * The app has no login wall, so "public" here means readable by anyone who reaches the site,
- * not "readable by signed-in colleagues". There is no cohort tier to fall back on.
+ * "Signed-in user" means any account on this site, not a colleague at the same service. There
+ * is no cohort tier to fall back on.
  *
  * These are never published, and stay with the account that wrote them, returned only to that
  * owner by `fetchOwnerOnCallEntries`:
@@ -295,7 +297,9 @@ export async function fetchSharedOnCallEntries(supabase: AdminClient, options: {
 
 /**
  * What a given viewer sees: every shared entry, plus their own entries including the personal
- * ones, the Teaching entries and the contact names the shared read withholds.
+ * ones, the Teaching entries and the contact names the shared read withholds. A caller with no
+ * signed-in owner sees nothing at all (owner decision, 2026-09-26) — the shared read is never run
+ * for them.
  *
  * Two queries rather than one `or(...)` filter, because a PostgREST `or=` string interpolates
  * the owner id into filter syntax where a comma or parenthesis stops being data — the trap
@@ -310,8 +314,8 @@ export async function fetchVisibleOnCallEntries(
   // `isOwn` is derived from WHICH query returned a row, not from an `owner_id` column: the shared
   // read's column list is part of a reviewed tenancy declaration and stays as narrow as it is.
   // A shared row the viewer owns also comes back from the owner query, and that copy wins below.
+  if (!viewerOwnerId) return [];
   const shared = (await fetchSharedOnCallEntries(supabase, options)).map((entry) => ({ ...entry, isOwn: false }));
-  if (!viewerOwnerId) return shared;
 
   const own = await fetchOwnerOnCallEntries(supabase, viewerOwnerId, options);
   const byId = new Map(shared.map((entry) => [entry.id, entry]));

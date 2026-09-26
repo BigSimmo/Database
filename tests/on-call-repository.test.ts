@@ -444,10 +444,7 @@ describe("contact names on the shared read", () => {
     expect(JSON.stringify(entry)).not.toContain("Dr A. Colleague");
   });
 
-  it("drops it for a signed-out viewer and for a signed-in viewer who is not the owner", async () => {
-    const anonymous = await fetchVisibleOnCallEntries(fakeClient([NAMED_ROW]) as never, undefined);
-    expect(JSON.stringify(anonymous)).not.toContain("Dr A. Colleague");
-
+  it("drops it for a signed-in viewer who is not the owner", async () => {
     const chain = {
       select: vi.fn(() => chain),
       eq: vi.fn(() => chain),
@@ -485,11 +482,13 @@ describe("contact names on the shared read", () => {
 });
 
 describe("fetchVisibleOnCallEntries", () => {
-  it("returns only the shared set for an anonymous viewer", async () => {
+  // Reversed on 2026-09-26: shared entries are for signed-in users only. Until then an anonymous
+  // viewer got the whole shared set here.
+  it("returns nothing to an anonymous viewer, without running either read", async () => {
     const client = fakeClient([SHARED_ROW]);
     const entries = await fetchVisibleOnCallEntries(client as never, undefined);
-    expect(entries.map((entry) => entry.title)).toEqual(["Switchboard"]);
-    expect(client.chain.eq).not.toHaveBeenCalledWith("owner_id", expect.anything());
+    expect(entries).toEqual([]);
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("adds the viewer's own entries, including the personal ones the shared read withholds", async () => {
@@ -521,11 +520,6 @@ describe("fetchVisibleOnCallEntries", () => {
     const entries = await fetchVisibleOnCallEntries(client as never, "owner-1");
     const byTitle = Object.fromEntries(entries.map((entry) => [entry.title, entry.isOwn]));
     expect(byTitle).toEqual({ Switchboard: true, Ward: false });
-  });
-
-  it("marks every row as not the reader's when nobody is signed in", async () => {
-    const entries = await fetchVisibleOnCallEntries(fakeClient([SHARED_ROW]) as never, undefined);
-    expect(entries.every((entry) => entry.isOwn === false)).toBe(true);
   });
 
   it("returns one object per entry when both reads see the same row", async () => {

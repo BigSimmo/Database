@@ -7,15 +7,14 @@ const detail = readFileSync("src/app/api/on-call/entries/[id]/route.ts", "utf8")
 const verify = readFileSync("src/app/api/on-call/entries/[id]/verify/route.ts", "utf8");
 
 describe("On Call entries route", () => {
-  // Reversed deliberately on 2026-09-04: On Call entries are readable by any visitor, so an
-  // anonymous caller now gets the shared set instead of an empty list. What must NOT come back
-  // is the rest of the old contract — the caller still passes the rate limiter first, and
-  // `signedOut` still reports whether there is an account, because the client uses it to decide
-  // whether to offer editing.
-  it("serves the shared entries to an anonymous caller rather than an empty list", () => {
+  // 2026-09-04 opened the shared entries to anonymous callers; 2026-09-26 reverses that: shared
+  // entries are for signed-in users only, so an anonymous caller gets an empty list and
+  // `signedOut: true`, which the client shows its sign-in state on. The caller still passes the
+  // rate limiter first. tests/on-call-entries-route.test.ts runs the handler itself.
+  it("answers an anonymous caller with no entries before reading anything", () => {
     expect(list).toContain("fetchVisibleOnCallEntries");
-    expect(list).not.toMatch(/entries:\s*\[\]/);
-    expect(list).toMatch(/signedOut:\s*!access\.ownerId/);
+    expect(list).toMatch(/if \(!access\.ownerId\) return NextResponse\.json\(\{ entries: \[\], signedOut: true \}\)/);
+    expect(list.indexOf("if (!access.ownerId)")).toBeLessThan(list.indexOf("await fetchVisibleOnCallEntries"));
   });
 
   it("still rate limits every caller before touching the database", () => {
