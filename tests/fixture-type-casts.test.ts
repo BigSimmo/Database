@@ -145,5 +145,7 @@ describe("fixture type cast discipline (#WRZJVR / #AQXXD8)", () => {
       `Found double-cast violations on domain models (bypassing shape checks):\n` +
         allViolations.map((v) => `  ${v.file}:${v.line} -> ${v.targetType}`).join("\n"),
     ).toEqual([]);
-  });
+    // A full parse of every file under tests/ grows with the suite; on CI runners it sat at the
+    // 30 s default and timed out, so this one whole-tree scan gets its own ceiling.
+  }, 120_000);
 });
