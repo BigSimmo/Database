@@ -9,6 +9,7 @@ import { OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
 import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
 import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, textMuted } from "@/components/ui-primitives";
@@ -109,7 +110,7 @@ function formatPrintedAt(now: Date): string {
  * and `tests/mode-nav-addon-slot.dom.test.tsx` holds it to one claimant.
  */
 export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
   // Read the clock once per mount. A `new Date()` default parameter re-reads it
   // on every render, so the printed timestamp and the staleness cut-off could
   // both move underneath a page the owner is in the middle of printing.
@@ -167,6 +168,8 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
           />
         ) : isOffline && entries.length === 0 ? (
           <OnCallLoadFailed reason={loadError} onRetry={retry} />
+        ) : signedOut && entries.length === 0 ? (
+          <OnCallSignedOut icon={Phone} testId="on-call-card-signed-out" />
         ) : groups.length === 0 ? (
           <EmptyState
             icon={Phone}

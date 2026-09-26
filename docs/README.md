@@ -5,8 +5,9 @@ each category, and an "Also catalogued" list completes it (the immutable
 `branch-review-records/` and `outstanding-issues-inbox/` files are indexed by their own
 generators, not here). Categories distinguish **maintained** documents (keep these current when
 behavior changes) from **point-in-time records** (historical; do not update, supersede with a
-new dated doc instead). `npm run check:repo-awareness-snapshot` reports any document this index
-does not list.
+new dated doc instead). No check fails when a document is missing from this index, so add each
+new document here when you write it. Owner decisions are indexed separately in
+[decisions/README.md](decisions/README.md).
 
 Check that repo paths referenced from the maintained docs still resolve with:
 
@@ -41,6 +42,10 @@ screen matches its design. When the checker is blocked, report that limitation
 and use a clearly scoped check for the affected documents without weakening the
 repository gate. The generated inventories remain governed by their own contracts.
 
+### Also catalogued (2026-09-26)
+
+- [DOCS-SYSTEM.md](DOCS-SYSTEM.md) — Documentation system — how project docs are kept accurate, logged and non-stale
+
 ## Core reference map
 
 | Doc                                               | What it is                                                                                                 |
@@ -61,7 +66,7 @@ repository gate. The generated inventories remain governed by their own contract
 - [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
 - [mockup-retirement-policy.md](mockup-retirement-policy.md) — when a mockup may be deleted, who decides, what evidence is required, and the three tiers that keep developer-gated prototypes out of cleanup scope
-- [developer-area-access.md](developer-area-access.md) — how the four developer-gated `/mockups` subtrees are protected, the passwordless `?devkey` link and its setup, what the link deliberately does not grant, and how to revoke it
+- [developer-area-access.md](developer-area-access.md) — how the developer-gated `/mockups` subtrees are protected, the passwordless `?devkey` link and its setup, what the link deliberately does not grant, and how to revoke it
 - [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
 - [on-call/design/2026-09-20-admin-compliance-and-folders.md](on-call/design/2026-09-20-admin-compliance-and-folders.md) — On Call's Admin/Compliance split: why Compliance rides the `logistics` section behind a `details.kind` discriminator instead of costing a CHECK-constraint migration, why the page may never render a verdict, why it sorts by consequence rather than expiry, the one-word folder rule, and what making Compliance a real section would actually cost
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
@@ -163,6 +168,14 @@ Every remaining tracked document in this category (operations, plus the `rag-beh
 - [rag-improvement/gate-b-decision-record-2026-08-18.md](rag-improvement/gate-b-decision-record-2026-08-18.md) — Gate B decision record — Docling extraction benchmark (owner run, 2026-08-18) — Status: PASS. This is the owner's filled copy of docs/rag-improvement/gate-b-decision-record.md for packet S6b (the Gate B run the S6 harnes…
 - [rag-improvement/gate-b-decision-record.md](rag-improvement/gate-b-decision-record.md) — Gate B decision record — Docling extraction benchmark (template) — Status: template — no verdict.
 
+### Also catalogued (2026-09-26)
+
+- [pr-batch-runner.md](pr-batch-runner.md) — Sequential PR batch runner — prepares and merges a fixed snapshot of pull requests one at a time
+- [production-readiness.md](production-readiness.md) — Production readiness and operational release requirements (points to the canonical checklist)
+- [site-content-sync-runbook.md](site-content-sync-runbook.md) — Site-content publication and synchronization runbook
+- [site-content-publication-handover.md](site-content-publication-handover.md) — Handover of the remaining site-content database work, written 2026-09-18
+- [supabase-remediation-closeout-notes.md](supabase-remediation-closeout-notes.md) — Supabase remediation closeout notes — short deferred list, no DDL
+
 ## Governance, safety, privacy
 
 - [clinical-governance.md](clinical-governance.md) — deployment and source governance checklist
@@ -188,6 +201,11 @@ Every remaining tracked document in this category, one line each; the descriptio
 - [medication-interaction-lexicon-review.md](medication-interaction-lexicon-review.md) — Medication interaction lexicon — clinical review sheet — Status: reviewed 2026-09-06 — see the sign-off at the bottom.
 - [medication-lexicon-review-worklist.md](medication-lexicon-review-worklist.md) — Medication lexicon — clinician reading worklist (#318) — This is a reading aid, not a review.
 - [services-mode-governance.md](services-mode-governance.md) — Services Mode Governance — A Services record is not “current” merely because its prose is plausible or its confidence is high.
+
+### Also catalogued (2026-09-26)
+
+- [governance/privacy-completion-drafts-2026-09-13.md](governance/privacy-completion-drafts-2026-09-13.md) — Privacy completion drafts, 2026-09-13 — prepared, unsigned, not approved for release
+- [governance/rag-adaptive-continuation-2026-09-13.md](governance/rag-adaptive-continuation-2026-09-13.md) — RAG adaptive activation: setup and continuation handoff
 
 ## Process and review
 
@@ -284,10 +302,25 @@ Every remaining tracked document in this category, one line each; the descriptio
 
 - [corpus-health-panel-handover.md](corpus-health-panel-handover.md) — Corpus health panel — handover — Status: both changes are merged to main.
 
+### Also catalogued (2026-09-26)
+
+- [cme/design/cme-design-decisions.md](cme/design/cme-design-decisions.md) — CPD mode (mode id `cme`) — design decisions
+- [on-call/design/2026-09-19-review-and-proposals.md](on-call/design/2026-09-19-review-and-proposals.md) — On Call — review of the shipped hub and what to build next, 2026-09-19
+- [on-call/design/mockup-conformance.md](on-call/design/mockup-conformance.md) — On Call hub — mockup conformance ledger
+- [on-call/design/on-call-hub-build-prompt.md](on-call/design/on-call-hub-build-prompt.md) — On Call hub redesign build prompt
+- [product/2026-09-19-doctor-compliance-and-feature-brainstorm.md](product/2026-09-19-doctor-compliance-and-feature-brainstorm.md) — Personal compliance tracker and feature brainstorm, 2026-09-19 — nothing decided
+- [product/2026-09-19-second-recommendations.md](product/2026-09-19-second-recommendations.md) — Seven more recommendations from reading the code, 2026-09-19 — nothing decided
+- [prompts/sources-mode-extraction.md](prompts/sources-mode-extraction.md) — Sources mode extraction prompt
+- [superpowers/plans/2026-09-04-on-call-mode.md](superpowers/plans/2026-09-04-on-call-mode.md) — On Call mode implementation plan
+- [superpowers/plans/2026-09-20-cme-mode-phase-1.md](superpowers/plans/2026-09-20-cme-mode-phase-1.md) — CPD mode (mode id `cme`) phase 1 implementation plan
+- [superpowers/plans/2026-09-25-wa-psychiatry-build.md](superpowers/plans/2026-09-25-wa-psychiatry-build.md) — WA Psychiatry build: fast-lane implementation plan (v2)
+- [superpowers/specs/2026-09-04-on-call-mode-design.md](superpowers/specs/2026-09-04-on-call-mode-design.md) — On Call mode design spec
+
 ## Subdirectory map
 
 | Directory                                        | What lives there                                                                                                                                                                                         |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [decisions/](decisions/)                         | The owner's recorded decisions, one short file each, indexed by [decisions/README.md](decisions/README.md). Checked by `npm run check:decisions`                                                         |
 | [organisation/](organisation/)                   | The organisation map: one file per area (`systems/`), shared, not-yet-placed and ignored lists, last-read pins. Checked by `npm run check:organisation`                                                  |
 | [agents/](agents/)                               | Agent-rule reference files `AGENTS.md` delegates to by name — the full text of rules its always-loaded core only points at                                                                               |
 | [rag-behaviour/](rag-behaviour/)                 | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.**                                                                                    |
@@ -500,6 +533,12 @@ Every remaining tracked document in this category (dated records and the `eviden
 - [superpowers/specs/2026-09-01-native-smart-catalogue-search-design.md](superpowers/specs/2026-09-01-native-smart-catalogue-search-design.md) — Native Smart Catalogue Search Design — Date: 2026-09-01…
 - [superpowers/specs/2026-09-01-services-safety-provenance-design.md](superpowers/specs/2026-09-01-services-safety-provenance-design.md) — Services Safety and Provenance Foundation — Design — Date: 2026-09-01 Repository base:
 - [superpowers/specs/2026-09-01-sources-mode-design.md](superpowers/specs/2026-09-01-sources-mode-design.md) — Sources Mode and Clinical Source Catalogue Design — Status: Approved design, written 2026-09-01 against 058693b97.
+
+### Also catalogued (2026-09-26)
+
+- [audit/2026-09-20-visual-ux-audit.md](audit/2026-09-20-visual-ux-audit.md) — Visual, UX and defect audit — master report, 2026-09-20
+- [design-system/drift-measurement-2026-09-02.md](design-system/drift-measurement-2026-09-02.md) — Design-token drift measurement, 2026-09-02
+- [design-system/sweep-fix-visible-live-regions.md](design-system/sweep-fix-visible-live-regions.md) — Sweep fix — visible live regions (closes finding 4 of the 2026-08-29 sweep)
 
 ## Archive
 

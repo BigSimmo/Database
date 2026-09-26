@@ -9,6 +9,7 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
 import { onCallEntryHref } from "@/components/on-call/on-call-entry-view";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { OnCallToolNavHeader } from "@/components/on-call/on-call-nav-header";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
@@ -33,7 +34,7 @@ import { msUntilOnCallHoursBoundary, ON_CALL_HOME_TAGS, onCallTelHref } from "@/
  * rule is wrong.
  */
 export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
   const [clock, setClock] = useState(() => nowProp ?? new Date());
   const now = nowProp ?? clock;
   const [query, setQuery] = useState("");
@@ -93,6 +94,8 @@ export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
           />
         ) : isOffline && entries.length === 0 ? (
           <OnCallLoadFailed reason={loadError} onRetry={retry} />
+        ) : signedOut && entries.length === 0 ? (
+          <OnCallSignedOut icon={Phone} testId="on-call-now-signed-out" />
         ) : scenarios.length === 0 ? (
           <EmptyState
             icon={Phone}

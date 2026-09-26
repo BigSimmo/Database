@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4edf804a-a3a9-420e-b23a-5f295ee86a3a",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#2AB2NJ",
+    "detail": "UPDATE 2026-09-26: the #GCB0DV timing probe has run (see #T9PRB9). It did not break out verification latency, so it does not yet answer whether verification latency matters. The owner decision to leave RAG_TELEMETRY_EXTENDED off stands; revisit when #T9PRB9's repeat runs report a verification split. PRIOR DETAIL: OWNER DECISION 2026-09-26 (Josh, 'all as recommended'): leave RAG_TELEMETRY_EXTENDED off. Revisit after the #GCB0DV timing probe shows whether verification latency matters. PRIOR DETAIL: PR #2056 persisted verification_latency_ms behind RAG_TELEMETRY_EXTENDED (typed, default false) with canary-absence tests. Enabling it is a Railway production env change on the Database service (explicit approval; rollback = set false), gated on a dashboard consumer existing. Do not enable speculatively; do not add unproven fields.",
+    "baseRowFingerprint": "ac10144c36ae80d7487b11ae30b59527997f038fd3896cec208b9350fae1066a"
+  }
+}

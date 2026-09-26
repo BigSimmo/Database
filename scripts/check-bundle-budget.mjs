@@ -423,7 +423,7 @@ export function measureBudgetRoutes(measuredFiles, routeChunks, routeBudgets) {
 
 /**
  * Measure static / server HTML page payloads generated in .next/server/app.
- * Guards large server pages such as /mockups/development/review-state against unchecked growth.
+ * Guards large server pages such as /mockups/development/clinical-sign-off against unchecked growth.
  *
  * @param {string} serverAppDir
  * @param {Record<string, { rawBytesCeiling?: number; gzipBytesCeiling?: number; maxRawBytes?: number; maxGzipBytes?: number; required?: boolean }>} [serverPagesConfig]
@@ -449,9 +449,9 @@ export function measureServerHtmlPayloads(serverAppDir, serverPagesConfig, fsOpt
   /** @type {Record<string, ServerHtmlPayloadMeasurement>} */
   const results = {};
   const defaults = {
-    "/mockups/development/review-state": {
-      rawBytesCeiling: 2_500_000,
-      gzipBytesCeiling: 350_000,
+    "/mockups/development/clinical-sign-off": {
+      rawBytesCeiling: 750_000,
+      gzipBytesCeiling: 110_000,
     },
   };
   const configs = serverPagesConfig ?? defaults;

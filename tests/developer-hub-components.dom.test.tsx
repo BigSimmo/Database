@@ -187,6 +187,10 @@ describe("EnvironmentStrip", () => {
     expect(strip).toHaveTextContent("Live data");
     expect(strip).toHaveTextContent("2,851 documents");
     expect(strip).toHaveTextContent("build e521988");
+    expect(screen.getByTestId("developer-hub-build-link")).toHaveAttribute(
+      "href",
+      "https://github.com/BigSimmo/Database/commit/e52198827abcdef",
+    );
     expect(strip).toHaveTextContent("dev@example.com");
     expect(strip).not.toHaveTextContent("environment unknown");
     expect(strip).not.toHaveTextContent("account unknown");

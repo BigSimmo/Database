@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3a361153-0593-4739-8d5e-658c721a5f42",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#X9ZHET",
+    "outcome": "Closed 2026-09-26: the owner retired the Ward Flow and Caring Contacts features and they were deleted from the repository by PR #3098 (merged 2026-09-26), including docs/ward-flow-coordination-rules.md and docs/ward-flow-fold-manifest-2026-08-31.md, so no committed document sends a session onto claude/Wardquestions or claude/Ward-design any more. Those two branches exist only on the owner's own computer and are backed up there.",
+    "baseRowFingerprint": "744f81439b23d00501ff2771a5ded4946180cb3f1f8d79e51cb2b8a7eee3778c"
+  }
+}

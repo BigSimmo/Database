@@ -315,6 +315,7 @@
         "src/components/on-call/on-call-notifications.tsx",
         "src/components/on-call/on-call-section-page.tsx",
         "src/components/on-call/on-call-shifts-page.tsx",
+        "src/components/on-call/on-call-signed-out.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
@@ -368,6 +369,7 @@
         "src/components/on-call/on-call-notifications.tsx",
         "src/components/on-call/on-call-section-page.tsx",
         "src/components/on-call/on-call-shifts-page.tsx",
+        "src/components/on-call/on-call-signed-out.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
@@ -1570,7 +1572,6 @@
       },
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
-        "tests/developer-review-state-page.dom.test.tsx",
         "tests/developer-sign-off-page.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],

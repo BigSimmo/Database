@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import {
+  isOnCallHttpUrl,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
   type OnCallEntry,
@@ -154,10 +155,12 @@ function EducationCard({
         </p>
       ) : null}
 
-      {details?.recordingUrl ? (
+      {isOnCallHttpUrl(details?.recordingUrl) ? (
         // Marked as leaving the app: `ExternalTextLink` is the one component
         // that carries the visible glyph, the sr-only "(opens in a new tab)",
         // and `rel="noopener noreferrer"` together — never a bare anchor.
+        // http(s) only: a `javascript:` link stored before the schema refused
+        // one is not drawn at all.
         <ExternalTextLink href={details.recordingUrl} className="min-h-tap items-center text-sm">
           Watch recording
         </ExternalTextLink>

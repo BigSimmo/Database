@@ -104,13 +104,12 @@ describe("SettingsDialog — destructive and account actions", () => {
     renderDialog();
     const development = document.querySelector('[data-settings-section="development"]');
     expect(development).not.toBeNull();
-    expect(development).toHaveTextContent("Developer");
+    expect(development).toHaveTextContent("Owner panel");
     expect(development).toHaveTextContent("Synthetic data only");
 
     const prototypeLink = screen.getByTestId("settings-row-development-page");
     expect(prototypeLink).toHaveAttribute("href", "/mockups/development");
-    expect(prototypeLink).toHaveTextContent("Developer");
-    expect(prototypeLink).toHaveTextContent("Temporary");
+    expect(prototypeLink).toHaveTextContent("Owner panel");
     expect(development?.contains(prototypeLink)).toBe(true);
 
     expect(screen.getByRole("navigation", { name: "Settings sections" }).closest("aside")).toHaveClass(

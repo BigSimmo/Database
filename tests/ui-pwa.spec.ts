@@ -473,7 +473,7 @@ test.describe("PsychSift PWA", () => {
         sortOrder: 0,
       };
       window.localStorage.setItem(
-        "clinical-kb-on-call-entries-cache",
+        "clinical-kb-on-call-entries-cache-v2",
         JSON.stringify({
           savedAt: new Date().toISOString(),
           entries: [
@@ -531,7 +531,7 @@ test.describe("PsychSift PWA", () => {
 
     await context.setOffline(false);
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.evaluate(() => window.localStorage.removeItem("clinical-kb-on-call-entries-cache"));
+    await page.evaluate(() => window.localStorage.removeItem("clinical-kb-on-call-entries-cache-v2"));
   });
 
   test("serves a cold offline fallback, recovers online, and keeps private URLs out of CacheStorage", async ({

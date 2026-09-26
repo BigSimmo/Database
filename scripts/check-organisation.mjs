@@ -41,6 +41,8 @@ const REASON_MAX = 120;
 const SUMMARY_MAX = 60_000;
 // Folders that mix areas: a wildcard sitting directly inside one must carry at least three
 // literal characters (for example `tests/rag-*`), so nobody can place a whole mixed folder at once.
+// A rule of `**` segments ending in a fixed file name (`src/app/**/page.tsx`) is exempt: it names one kind
+// of file.
 const MIXED_PARENTS = new Set([
   "",
   "src/",
@@ -149,7 +151,14 @@ function patternProblem(pattern) {
   if (segments.some((s) => s === "." || s === "..")) return "uses `.` or `..` segments";
   if (segments.some((s) => s.includes("**") && s !== "**")) return "uses `**` inside a segment";
   const prefix = literalPrefix(pattern);
-  if (prefix !== null) {
+  // A rule whose last segment is a fixed file name (`src/app/**/page.tsx`) names one kind of file,
+  // not a whole mixed folder, so the three-character rule does not apply to it.
+  // Only `**` qualifies: a single `*` segment (`src/lib/*/index.ts`) still sweeps a mixed folder.
+  const namedFile =
+    segments.length > 1 &&
+    !segments.at(-1).includes("*") &&
+    segments.every((segment) => !segment.includes("*") || segment === "**");
+  if (prefix !== null && !namedFile) {
     const dir = prefix.slice(0, prefix.lastIndexOf("/") + 1);
     if (MIXED_PARENTS.has(dir) && prefix.length - dir.length < 3) {
       return `is too broad: a wildcard directly inside \`${dir || "(repo root)"}\` needs at least three fixed characters`;
@@ -756,7 +765,12 @@ function writeReport(root, report) {
 function fixMap(root) {
   const snapshot = workingTreeSnapshot(root);
   const result = evaluate(snapshot);
-  const exists = (file) => typeof file === "string" && snapshot.blobs.has(file);
+  // A new file counts as existing before it is added to git: the tidy-up must never drop the map
+  // entry, pin or key-doc line written for a document that is simply not committed yet.
+  const exists = (file) =>
+    typeof file === "string" &&
+    (snapshot.blobs.has(file) ||
+      (!path.isAbsolute(file) && fs.statSync(path.join(root, file), { throwIfNoEntry: false })?.isFile() === true));
   const isExact = (pattern) => typeof pattern === "string" && literalPrefix(pattern) === null;
   const placedByRule = (file) => {
     const where = result.placement[file];
@@ -858,6 +872,23 @@ function runCi(root, env) {
   const baseEnv = (env.BASE_SHA ?? "").trim();
   const head = (env.HEAD_SHA ?? "").trim() || "HEAD";
   const headSnapshot = commitSnapshot(root, head);
+  const hasMap = (snapshot) =>
+    [...snapshot.blobs.keys()].some((f) => f.startsWith(`${SYSTEMS_DIR}/`) && f.endsWith(".json"));
+  const reachableBase =
+    baseEnv && !ZERO_SHA.test(baseEnv) ? git(root, ["merge-base", baseEnv, head], { allowFail: true })?.trim() : null;
+  if (!hasMap(headSnapshot) && !(reachableBase && hasMap(commitSnapshot(root, reachableBase)))) {
+    // A branch started before the map existed has nothing to check; it picks the map up when it
+    // next merges main. Passing here keeps such a branch from failing on a map it never had. A
+    // change that deletes a map its base had is not this case: it falls through and fails.
+    return {
+      scope: `no organisation map on ${headSnapshot.label} yet (branch predates it; nothing to check)`,
+      result: { findings: [], systems: [], totals: {}, placement: {}, files: [] },
+      baseKeys: null,
+      touched: [],
+      mergeBase: null,
+      head,
+    };
+  }
   if (!baseEnv || ZERO_SHA.test(baseEnv)) {
     // Scheduled or manual runs have no base: judge the whole tree honestly.
     return {
@@ -870,7 +901,17 @@ function runCi(root, env) {
     };
   }
   const mergeBase = git(root, ["merge-base", baseEnv, head], { allowFail: true })?.trim();
-  if (!mergeBase) throw new Incomplete(`the CI base ${baseEnv.slice(0, 9)} is not reachable from ${head.slice(0, 9)}`);
+  if (!mergeBase) {
+    // A force-push leaves the old tip unreachable. Judge the whole tree rather than failing to run.
+    return {
+      scope: `whole tree (${headSnapshot.label}; the CI base ${baseEnv.slice(0, 9)} is not reachable)`,
+      result: evaluate(headSnapshot),
+      baseKeys: null,
+      touched: null,
+      mergeBase: null,
+      head,
+    };
+  }
   const touched = changedFiles(root, mergeBase, head);
   const result = evaluate(headSnapshot);
   let baseKeys = new Set();
@@ -925,6 +966,18 @@ function touchesMap(touched) {
   );
 }
 
+// `--files` accepts repo-relative, `./`-prefixed, absolute and current-folder-relative paths.
+function repoPath(root, file, env, placement) {
+  const slashed = String(file)
+    .replaceAll("\\", "/")
+    .replace(/^(?:\.\/)+/, "");
+  if (slashed in placement) return slashed;
+  const from = env.INIT_CWD || process.cwd();
+  const relative = path.relative(root, path.resolve(from, String(file))).replaceAll("\\", "/");
+  if (relative && !relative.startsWith("../") && relative !== ".." && !path.isAbsolute(relative)) return relative;
+  return path.isAbsolute(slashed) ? null : slashed;
+}
+
 function parseArgs(argv) {
   const args = { staged: false, report: true, quiet: false, json: false, fix: false, root: null, files: null };
   for (let i = 0; i < argv.length; i++) {
@@ -967,7 +1020,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     if (ci) run = runCi(root, env);
     else {
       const snapshot = args.staged ? stagedSnapshot(root) : workingTreeSnapshot(root);
-      run = { scope: snapshot.label, result: evaluate(snapshot), baseKeys: null, touched: null };
+      run = { scope: snapshot.label, result: evaluate(snapshot), baseKeys: null, touched: null, snapshot };
     }
     const { result } = run;
     result.findings.push(...safetyListFindings(root, result, run, ci));
@@ -995,10 +1048,19 @@ export function main(argv = process.argv.slice(2), env = process.env) {
       report.untracked = splitZ(git(root, ["ls-files", "-z", "--others", "--exclude-standard"]));
     }
     if (args.files) {
-      report.lookup = args.files.map((file) => {
-        const area = result.placement[file.replaceAll("\\", "/")] ?? "(not tracked)";
+      const lookups = args.files.map((file) => ({ file, key: repoPath(root, file, env, result.placement) }));
+      // A file not in git yet is placed as if it were, so a planned file shows its future area.
+      const missing = lookups.filter((l) => l.key && !(l.key in result.placement)).map((l) => l.key);
+      let future = {};
+      if (missing.length && run.snapshot) {
+        const blobs = new Map([...run.snapshot.blobs, ...missing.map((file) => [file, "(new)"])]);
+        future = evaluate({ ...run.snapshot, blobs }).placement;
+      }
+      report.lookup = lookups.map(({ file, key }) => {
+        const tracked = key !== null && key in result.placement;
+        const area = tracked ? result.placement[key] : (future[key] ?? "(unplaced)");
         const system = result.systems.find((s) => s.id === area);
-        return { file, area, name: system?.name ?? null };
+        return { file, path: key, area: tracked ? area : `${area}, not tracked yet`, name: system?.name ?? null };
       });
     }
     report.touchesMap = ci ? touchesMap(run.touched) : null;
@@ -1058,14 +1120,26 @@ function printConsole(report, args, ci) {
   }
   for (const finding of report.findings.filter((f) => f.blocking))
     out(`  BLOCKING ${finding.subject}: ${finding.message}`);
-  for (const finding of report.findings.filter((f) => f.loud)) {
-    out(`  SAFETY COVERAGE LOST ${finding.subject}: ${finding.message}`);
-    if (ci)
-      console.log(
-        `::warning file=${finding.subject},title=Safety coverage lost::${finding.message.replaceAll("`", "'")}`,
-      );
+  // A folder move gives one loud finding per file; say it once per folder pair, not per file.
+  const loud = report.findings.filter((f) => f.loud);
+  const groups = new Map();
+  for (const finding of loud) {
+    const key = finding.about ? `${path.posix.dirname(finding.about)} -> ${path.posix.dirname(finding.subject)}` : "";
+    groups.set(key, [...(groups.get(key) ?? []), finding]);
   }
-  const warnings = report.findings.filter((f) => !f.blocking);
+  for (const [key, items] of groups) {
+    const shown = key && items.length > 3 ? items.slice(0, 1) : items;
+    for (const finding of shown) {
+      const more = shown.length < items.length ? ` (and ${items.length - 1} more files moved ${key})` : "";
+      out(`  SAFETY COVERAGE LOST ${finding.subject}: ${finding.message}${more}`);
+      if (ci)
+        console.log(
+          `::warning file=${finding.subject},title=Safety coverage lost::${finding.message.replaceAll("`", "'")}${more}`,
+        );
+    }
+  }
+  // Loud findings are printed above; listing them again as warnings doubled every one.
+  const warnings = report.findings.filter((f) => !f.blocking && !f.loud);
   if (warnings.length) out(`  ${warnings.length} warning(s)${args.quiet ? "" : ":"}`);
   if (!args.quiet) {
     // In CI, annotate only what this change touched; inherited warnings stay in the summary.
@@ -1077,7 +1151,7 @@ function printConsole(report, args, ci) {
     }
     if (shown.length > 30) out(`  …and ${shown.length - 30} more (see the report)`);
     for (const item of report.lookup ?? []) out(`  ${item.file}: ${item.area}${item.name ? ` (${item.name})` : ""}`);
-    if (report.lookup?.length) out(`  ${routingHint(report.lookup.map((item) => item.file))}`);
+    if (report.lookup?.length) out(`  ${routingHint(report.lookup.map((item) => item.path ?? item.file))}`);
   }
   if (report.reportPath) out(`  report: ${report.reportPath}`);
 }

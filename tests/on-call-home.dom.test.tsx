@@ -426,6 +426,21 @@ describe("the example-content module", () => {
     expect(screen.queryByTestId("on-call-demo-content-remove")).toBeNull();
   });
 
+  // 2026-09-26: shared entries are for signed-in users only, so the server sends
+  // a signed-out reader nothing. "Your On Call hub is empty" would be a claim
+  // about a hub they cannot see.
+  it("tells a signed-out reader to sign in instead of calling the hub empty", () => {
+    storeState.entries = [];
+    storeState.signedOut = true;
+
+    render(<OnCallHome />);
+
+    const signedOut = screen.getByTestId("on-call-home-signed-out");
+    expect(signedOut).toHaveTextContent("Sign in to see your hospital's On Call numbers");
+    expect(within(signedOut).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByTestId("on-call-home-first-run-empty")).toBeNull();
+  });
+
   it("is present for the signed-in owner whose account actually holds the rows", async () => {
     // Guard the two tests above: if the module never rendered at all they would
     // pass on a component that had simply been deleted.

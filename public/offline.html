@@ -488,10 +488,13 @@
       // ever parsed as markup. Personal entries are never in that copy, and it is
       // removed on sign-out; this script also refuses personal rows, a copy
       // older than seven days, a demo preview, and anything malformed, showing
-      // nothing rather than guessing. Editing this script changes its CSP hash:
-      // update next.config.ts (the offline.html header) in the same change.
+      // nothing rather than guessing. Since 2026-09-26 the app writes no fetched
+      // entries to that key (PERSIST_FETCHED_ON_CALL_ENTRIES in entry-store.ts),
+      // so this section stays hidden until that switch is turned back on.
+      // Editing this script changes its CSP hash: update next.config.ts (the
+      // offline.html header) in the same change.
       (function () {
-        var CACHE_KEY = "clinical-kb-on-call-entries-cache";
+        var CACHE_KEY = "clinical-kb-on-call-entries-cache-v2";
         var DEMO_KEY = "clinical-kb-on-call-demo-preview";
         var MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
         var MAX_CONTACTS = 40;
