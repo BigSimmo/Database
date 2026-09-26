@@ -51,7 +51,7 @@
     "scripts/check-retrieval-owner-migration.ts",
     "scripts/check-supabase-project.ts",
     "scripts/generate-drift-manifest.ts",
-    "scripts/lib/cross-tenant-records-probe.ts",
+    "scripts/lib/cross-tenant-*",
     "scripts/lib/find-owner-id-by-email.ts",
     "scripts/lib/operational-alerts.mjs",
     "scripts/lib/reviewed-commit-history-decision.mjs",
@@ -179,6 +179,7 @@
     "tests/source-review-schema.test.ts",
     "tests/spend-metrics.test.ts",
     "tests/sql/**",
+    "tests/staging-tenancy-workflow.test.ts",
     "tests/supabase-*",
     "tests/upload-size-contract.test.ts",
     "tests/webhooks-*"

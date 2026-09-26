@@ -323,6 +323,7 @@ describe("site content producer registry", () => {
       expect.objectContaining({ modeId: "sources", reason: "corpus_consumer", permanent: true, reviewed: true }),
       expect.objectContaining({ modeId: "on-call", reason: "private_user_state", permanent: true, reviewed: true }),
       expect.objectContaining({ modeId: "cme", reason: "private_user_state", permanent: true, reviewed: true }),
+      expect.objectContaining({ modeId: "psychiatry", reason: "operational_chrome", permanent: true, reviewed: true }),
     ]);
     expect(siteContentModeCoverage([...appModeIds, "future-mode"])).toEqual({
       complete: false,

@@ -11,6 +11,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  GraduationCap,
   Loader2,
   Plus,
   Quote,
@@ -107,11 +108,14 @@ export function AnswerUtilityActions({
   onCopy,
   pendingFeedback = null,
   onSubmitFeedback,
+  cpdHref = null,
 }: {
   copied: boolean;
   onCopy: () => void;
   pendingFeedback?: AnswerFeedbackType | null;
   onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
+  /** A new CME entry with the lead cited source filled in; absent when nothing was cited. */
+  cpdHref?: string | null;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const feedbackTriggerRef = useRef<HTMLButtonElement>(null);
@@ -152,6 +156,17 @@ export function AnswerUtilityActions({
           <Copy aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{copied ? "Copied with sources" : "Copy with sources"}</span>
         </button>
+        {cpdHref ? (
+          <Link
+            href={cpdHref}
+            data-testid="answer-log-cpd"
+            className={cn(chatMicroAction, "shrink-0")}
+            aria-label="Log learning from this answer's source as CPD"
+          >
+            <GraduationCap aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            Log as CPD
+          </Link>
+        ) : null}
         {onSubmitFeedback ? (
           <span className="ms-auto flex shrink-0 items-center gap-1">
             {/* One tap records the product's existing positive verdict rather

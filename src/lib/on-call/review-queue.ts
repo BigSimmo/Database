@@ -45,6 +45,8 @@ export type OnCallReviewQueue = {
   readonly overdue: readonly OnCallReviewItem[];
   readonly dueSoon: readonly OnCallReviewItem[];
   readonly total: number;
+  /** How many entries were actually assessed. Zero means nothing was checked, not that all is well. */
+  readonly assessed: number;
 };
 
 export function buildOnCallReviewQueue(
@@ -56,9 +58,11 @@ export function buildOnCallReviewQueue(
   const overdue: OnCallReviewItem[] = [];
   const dueSoon: OnCallReviewItem[] = [];
   const horizon = now.getTime() + windowDays * DAY_MS;
+  let assessed = 0;
 
   for (const entry of entries) {
     if (!onCallEntryIsEditable(entry) || isComplianceEntry(entry)) continue;
+    assessed += 1;
     const freshness = onCallEntryFreshness(entry, now);
     const dueAt = onCallReviewDueAt(freshness.lastVerifiedAt);
     if (freshness.state === "stale") {
@@ -73,5 +77,5 @@ export function buildOnCallReviewQueue(
   neverChecked.sort((a, b) => a.entry.title.localeCompare(b.entry.title));
   overdue.sort(byDue);
   dueSoon.sort(byDue);
-  return { neverChecked, overdue, dueSoon, total: neverChecked.length + overdue.length + dueSoon.length };
+  return { neverChecked, overdue, dueSoon, total: neverChecked.length + overdue.length + dueSoon.length, assessed };
 }

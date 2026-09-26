@@ -173,6 +173,9 @@ export const modeSecondaryNavigationRegistry = {
     { id: "programme", label: "Programme", href: "/cme/programme" },
     { id: "setup", label: "Set up", href: "/cme/setup" },
   ],
+  // Psychiatry's home is itself the list of sections it gathers, and each
+  // section keeps its own navigation, so the hub registers no destinations.
+  psychiatry: [],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
