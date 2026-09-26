@@ -494,15 +494,19 @@ describe("live-drift diagnostics artifact", () => {
 describe("production alert workflows route to a person (#TN512M)", () => {
   // The live monitor, CI on main, the eval canary, live drift and ingestion autopilot all
   // detected real failures and reported them only to a label. Each must assign the owner
-  // both when it opens its issue and when it updates an existing one.
-  it.each(["live-domain-monitor.yml", "ci.yml", "eval-canary.yml", "live-drift.yml", "ingestion-autopilot.yml"])(
-    "%s assigns its failure issue",
-    (file) => {
-      const source = readFileSync(path.join(repoRoot, ".github", "workflows", file), "utf8");
-      expect(source).toContain("github.rest.issues.addAssignees(");
-      expect(source).toContain("const alertAssignee = context.repo.owner;");
-      expect(source).toContain("await assignAlert(created.data.number);");
-      expect(source.match(/await assignAlert\(/g)?.length).toBe(2);
-    },
-  );
+  // both when it opens its issue and when it updates an existing one. ci.yml has a third path:
+  // it reopens its most recent closed issue rather than opening a new one (owner, 2026-09-26).
+  it.each([
+    ["live-domain-monitor.yml", 2],
+    ["ci.yml", 3],
+    ["eval-canary.yml", 2],
+    ["live-drift.yml", 2],
+    ["ingestion-autopilot.yml", 2],
+  ] as const)("%s assigns its failure issue", (file, assignPaths) => {
+    const source = readFileSync(path.join(repoRoot, ".github", "workflows", file), "utf8");
+    expect(source).toContain("github.rest.issues.addAssignees(");
+    expect(source).toContain("const alertAssignee = context.repo.owner;");
+    expect(source).toContain("await assignAlert(created.data.number);");
+    expect(source.match(/await assignAlert\(/g)?.length).toBe(assignPaths);
+  });
 });
