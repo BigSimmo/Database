@@ -309,6 +309,12 @@ describe("check-organisation", () => {
     expect(predates.code).toBe(0);
     expect(predates.report.scope).toMatch(/predates/);
 
+    const mapped = repo({ ...mapFiles({ knowledge: [MAP_RULE] }), "a.md": "" });
+    const mappedBase = git(mapped, "rev-parse", "HEAD");
+    const deleting = commit(mapped, {}, ["docs/organisation/systems/knowledge.json"]);
+    const deleted = check(mapped, [], { ORGANISATION_CHECK_MODE: "ci", BASE_SHA: mappedBase, HEAD_SHA: deleting });
+    expect(deleted.code).toBe(2);
+
     const root = repo({ ...mapFiles({ knowledge: [MAP_RULE, "keep.md"] }), "keep.md": "" });
     const head = git(root, "rev-parse", "HEAD");
     const gone = check(root, [], { ORGANISATION_CHECK_MODE: "ci", BASE_SHA: "1".repeat(40), HEAD_SHA: head });

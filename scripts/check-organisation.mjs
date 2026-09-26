@@ -867,9 +867,14 @@ function runCi(root, env) {
   const baseEnv = (env.BASE_SHA ?? "").trim();
   const head = (env.HEAD_SHA ?? "").trim() || "HEAD";
   const headSnapshot = commitSnapshot(root, head);
-  if (![...headSnapshot.blobs.keys()].some((f) => f.startsWith(`${SYSTEMS_DIR}/`) && f.endsWith(".json"))) {
+  const hasMap = (snapshot) =>
+    [...snapshot.blobs.keys()].some((f) => f.startsWith(`${SYSTEMS_DIR}/`) && f.endsWith(".json"));
+  const reachableBase =
+    baseEnv && !ZERO_SHA.test(baseEnv) ? git(root, ["merge-base", baseEnv, head], { allowFail: true })?.trim() : null;
+  if (!hasMap(headSnapshot) && !(reachableBase && hasMap(commitSnapshot(root, reachableBase)))) {
     // A branch started before the map existed has nothing to check; it picks the map up when it
-    // next merges main. Passing here keeps such a branch from failing on a map it never had.
+    // next merges main. Passing here keeps such a branch from failing on a map it never had. A
+    // change that deletes a map its base had is not this case: it falls through and fails.
     return {
       scope: `no organisation map on ${headSnapshot.label} yet (branch predates it; nothing to check)`,
       result: { findings: [], systems: [], totals: {}, placement: {}, files: [] },

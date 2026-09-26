@@ -200,10 +200,11 @@ function filesAt(root, revision) {
 // When a change edits pr-policy, a file that stays where it is can still lose its protection
 // because its pattern was removed or narrowed. Judge every file present on both sides with each
 // side's lists. A copy that cannot be loaded gives one loud "check by hand" finding instead.
-function listEditFindings(root, base, head, entries) {
-  const touched = new Set(entries.flatMap((entry) => [entry.path, entry.from].filter(Boolean)));
+function listEditFindings(root, base, head) {
+  // Every path present on both sides, including files edited in place; moved files are judged
+  // by the rename check instead, because their old and new paths are never both present.
   const before = new Set(filesAt(root, base));
-  const files = filesAt(root, head).filter((file) => before.has(file) && !touched.has(file));
+  const files = filesAt(root, head).filter((file) => before.has(file));
   const loaded = classifyWithPolicyCopies(root, {
     base: { revision: base, files },
     head: { revision: head, files },
@@ -294,7 +295,7 @@ export function coverageLossFindings({ root, base, head = "HEAD", classify }) {
   }
   const entries = parseNameStatus(diff.stdout);
   const policyEdited = entries.some((entry) => entry.path === POLICY_FILE || entry.from === POLICY_FILE);
-  if (policyEdited && !classify) findings.push(...listEditFindings(root, base, head, entries));
+  if (policyEdited && !classify) findings.push(...listEditFindings(root, base, head));
   const moved = entries.filter((entry) => entry.status === "R" || entry.status === "C");
   const deleted = entries.filter((entry) => entry.status === "D");
   if (moved.length === 0 && deleted.length === 0) return findings;

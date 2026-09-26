@@ -212,6 +212,18 @@ describe("coverageLossFindings: judged against the base lists", () => {
     expect(coverageLossFindings({ root, base: "HEAD~1", head: "HEAD" })).toEqual([]);
   });
 
+  it("flags loudly a file edited in place while its entry is taken off a list", () => {
+    const root = repo({
+      "scripts/pr-policy.mjs": policy(["/^lib\\/scoring\\.ts$/"]),
+      "lib/scoring.ts": BODY,
+    });
+    write(root, { "scripts/pr-policy.mjs": policy([]), "lib/scoring.ts": `${BODY}export const extra = 1;\n` });
+    commit(root);
+
+    const findings = coverageLossFindings({ root, base: "HEAD~1", head: "HEAD" });
+    expect(findings.map((finding) => [finding.key, finding.loud])).toEqual([["coverage-dropped:lib/scoring.ts", true]]);
+  });
+
   it("flags loudly a file that stays put but is taken off a list in the same change", () => {
     const root = repo({
       "scripts/pr-policy.mjs": policy(["/^lib\\/scoring\\.ts$/", "/^lib\\/rank\\//"]),
