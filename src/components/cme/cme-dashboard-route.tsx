@@ -19,6 +19,7 @@ export type CmeDashboardRouteProps = {
   readonly routines: readonly CmeRoutine[];
   readonly demoMode?: boolean;
   readonly reportingReminder?: CmeReportingReminder | null;
+  readonly draftsToFinish?: number;
 };
 
 /**
@@ -40,6 +41,7 @@ export function CmeDashboardRoute({
   routines,
   demoMode = false,
   reportingReminder = null,
+  draftsToFinish = 0,
 }: CmeDashboardRouteProps) {
   const router = useRouter();
   const { preferences, setPreference } = useAppPreferences();
@@ -59,6 +61,7 @@ export function CmeDashboardRoute({
         onSnoozeReminder={(type) =>
           setPreference("reminders", snoozeReminder(preferences.reminders, type, perthDateKey(now)))
         }
+        draftsToFinish={draftsToFinish}
       />
       <CmeQuickLog set={set} demoMode={demoMode} />
     </>

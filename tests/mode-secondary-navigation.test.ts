@@ -51,7 +51,18 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Service",
     "Pocket card",
   ],
-  cme: ["This year", "Log", "Year check", "Calendar", "Routines", "Plan", "Learning", "Programme", "Set up"],
+  cme: [
+    "This year",
+    "Log",
+    "Year check",
+    "Training",
+    "Calendar",
+    "Routines",
+    "Plan",
+    "Learning",
+    "Programme",
+    "Set up",
+  ],
   psychiatry: [],
 };
 

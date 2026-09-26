@@ -91,6 +91,13 @@ function noClinicalStatusColour(container: HTMLElement) {
 }
 
 describe("Log", () => {
+  it("says so when a saved activity could not be linked to its missed session", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} justSaved missedLinkFailed />);
+    expect(screen.getByTestId("cme-log-missed-unlinked")).toHaveTextContent(
+      "could not be linked to the missed session",
+    );
+  });
+
   it("shows a year tab per year the log holds data for", () => {
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
     const tabs = screen.getByTestId("cme-log-year-tabs");

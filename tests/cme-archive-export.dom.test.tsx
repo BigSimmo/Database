@@ -98,7 +98,7 @@ describe("Archive, annual record and learning journeys", () => {
     expect(screen.getByDisplayValue("Handbook learning")).toBeInTheDocument();
     expect(screen.getByDisplayValue("/on-call/handbook")).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^save entry$/i })).toBeDisabled();
   });
   it("prints the selected year only and invokes the browser print action", async () => {
     const user = userEvent.setup();
