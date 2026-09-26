@@ -206,6 +206,15 @@ const synonymGroups = [
   ["documentation", "document", "record", "form", "checklist", "required", "requirement"],
 ];
 
+/**
+ * The facet words above (dose, route, monitoring, threshold...) describe what is being asked
+ * about, not the subject. Catalogue search uses this to keep them out of its expansion lane,
+ * where they matched unrelated records ("sertraline dose" listing "Ziprasidone IM").
+ */
+export const clinicalFacetSynonymTerms: ReadonlySet<string> = new Set(
+  synonymGroups.flat().map((term) => term.toLowerCase()),
+);
+
 const deterministicRewriteRules: Array<{ from: string[]; to: string[] }> = [
   { from: ["dose", "dosage", "dosing"], to: ["dose", "dosage", "dosing"] },
   { from: ["monitor", "monitoring"], to: ["monitor", "monitoring", "monitoring plan"] },
