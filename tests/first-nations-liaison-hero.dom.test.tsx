@@ -65,6 +65,15 @@ describe("LiaisonHero", () => {
     expect(screen.getByText("9000 0001")).toBeTruthy();
   });
 
+  it("shows a liaison number that cannot be dialled as text, with no call control for it", () => {
+    const noNumber = { ...hospital, liaison: { ...hospital.liaison, number: "See website" } };
+    render(<LiaisonHero hospital={noNumber} clock={fixedClock("2026-09-22T06:20:00Z")} />);
+    expect(screen.getByText("See website").closest("a, button")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Call Aboriginal liaison team" })).toBeNull();
+    for (const link of document.querySelectorAll("a[href^='tel:']"))
+      expect(link.getAttribute("href")).toMatch(/^tel:\+?\d+$/);
+  });
+
   describe("the green dot's one pulse (Review Focus 11)", () => {
     it("is green but does not pulse when the page first computes 'Open now'", () => {
       reduceMotion(false);

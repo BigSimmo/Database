@@ -54,6 +54,14 @@ export function LiaisonHero({ hospital, clock = SYSTEM_CLOCK }: { hospital: Hosp
   const { label, tone } = status(state);
   const open = state.kind === "open";
   const target = open ? hospital.liaison : hospital.switchboard;
+  const targetHref = telHref(target.number);
+  // A number that cannot be dialled (for example "See website") shows as text, never a call control.
+  const liaisonNumber = (className: string) =>
+    telHref(hospital.liaison.number) ? (
+      <NumberButton contact={hospital.liaison} className={className} />
+    ) : (
+      <span className={className}>{hospital.liaison.number}</span>
+    );
   const hoursLine = hospital.liaison.hours ? hoursInWords(hospital.liaison.hours) : "Hours not set";
 
   return (
@@ -91,10 +99,7 @@ export function LiaisonHero({ hospital, clock = SYSTEM_CLOCK }: { hospital: Hosp
         <div className="grid min-w-0 text-sm-minus text-[color:var(--surface-summary-muted)]">
           {open ? (
             <>
-              <NumberButton
-                contact={hospital.liaison}
-                className="text-lg-minus text-[color:var(--surface-summary-ink)]"
-              />
+              {liaisonNumber("text-lg-minus text-[color:var(--surface-summary-ink)]")}
               <span>After hours, switchboard {hospital.switchboard.number}</span>
             </>
           ) : (
@@ -102,20 +107,20 @@ export function LiaisonHero({ hospital, clock = SYSTEM_CLOCK }: { hospital: Hosp
               <span>
                 {state.kind === "overdue" ? "Liaison hours need a recheck" : "Ask who covers liaison tonight"}
               </span>
-              <span>
-                Liaison <NumberButton contact={hospital.liaison} className="text-[color:var(--surface-summary-ink)]" />
-              </span>
+              <span>Liaison {liaisonNumber("text-[color:var(--surface-summary-ink)]")}</span>
             </>
           )}
         </div>
-        <a
-          href={telHref(target.number)}
-          aria-label={`Call ${target.name}`}
-          data-fn-filled=""
-          className="grid size-12 shrink-0 place-items-center rounded-full bg-[color:var(--surface-summary-ink)] text-[color:var(--surface-summary)]"
-        >
-          <Phone className="size-icon-md" aria-hidden="true" />
-        </a>
+        {targetHref ? (
+          <a
+            href={targetHref}
+            aria-label={`Call ${target.name}`}
+            data-fn-filled=""
+            className="grid size-12 shrink-0 place-items-center rounded-full bg-[color:var(--surface-summary-ink)] text-[color:var(--surface-summary)]"
+          >
+            <Phone className="size-icon-md" aria-hidden="true" />
+          </a>
+        ) : null}
       </div>
     </section>
   );
