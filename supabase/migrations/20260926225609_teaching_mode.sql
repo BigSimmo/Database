@@ -98,6 +98,8 @@ create table public.teaching_series (
   -- What's on (spec §5a): team-only until an organiser opens it to the team's health service.
   -- Only a verified or demo team with a platform-set health service may open (series.set_open_to).
   open_to text not null default 'team' check (open_to in ('team','health_service')),
+  -- "My level" (R4): who the series is aimed at. The viewer's own level stays on their device.
+  audience text not null default 'all_doctors' check (audience in ('interns','residents','registrars','consultants','all_doctors')),
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -122,6 +124,9 @@ create table public.teaching_occurrences (
   status text not null default 'scheduled' check (status in ('scheduled','moved','cancelled')),
   change_reason text check (change_reason is null or change_reason in ('presenter_unavailable','room_change','clinical_pressure','public_holiday','rescheduled','other')),
   changed_at timestamptz,
+  -- The start just before the latest move that changed the time ("Moved from 12:30"). A move of
+  -- the venue only keeps it as it was. session.read returns it only while the status is moved.
+  previous_starts_at timestamptz,
   -- Server-only. Never returned by any function (tests/teaching-migration-contract.test.ts).
   checkin_secret bytea not null default extensions.gen_random_bytes(32) check (octet_length(checkin_secret) = 32),
   created_at timestamptz not null default now(),
@@ -130,7 +135,8 @@ create table public.teaching_occurrences (
   foreign key (series_id, service_id) references public.teaching_series(id, service_id) on delete set null (series_id),
   check (ends_at > starts_at and ends_at <= starts_at + interval '8 hours'),
   check ((status = 'scheduled') = (change_reason is null)),
-  check ((change_reason is null) = (changed_at is null))
+  check ((change_reason is null) = (changed_at is null)),
+  check (previous_starts_at is null or status <> 'scheduled')
 );
 create index teaching_occurrences_service_starts on public.teaching_occurrences(service_id, starts_at);
 create index teaching_occurrences_presenter on public.teaching_occurrences(presenter_id, starts_at) where presenter_id is not null;
@@ -1000,6 +1006,8 @@ declare
   v_count integer;
   v_window bigint;
   v_is_presenter boolean;
+  v_visitor boolean;
+  v_audience text;
   v_needs_lock boolean;
 begin
   if p_actor_id is null then raise exception 'teaching_auth_required'; end if;
@@ -1222,20 +1230,36 @@ begin
 
   if p_action = 'session.read' then
     select * into v_series from public.teaching_series where id = v_occ.series_id;
+    -- A health-service visitor (R5, R15) has no Teaching role here and got past the gate above only
+    -- for an open series. They see time, place, join link and materials: no presenter name, and no
+    -- code or counts (so no register), even if they once presented here and have since left.
+    v_visitor := v_role is null;
+    if v_visitor then v_is_presenter := false; end if;
     return jsonb_build_object(
-      'occurrenceId', v_occ.id, 'serviceId', v_occ.service_id, 'title', v_occ.title,
+      'occurrenceId', v_occ.id, 'serviceId', v_occ.service_id, 'seriesId', v_occ.series_id, 'title', v_occ.title,
       'startsAt', v_occ.starts_at, 'endsAt', v_occ.ends_at, 'venue', v_occ.venue,
       'hasJoinLink', v_occ.join_url is not null, 'status', v_occ.status,
-      'isPresenter', v_is_presenter, 'source', 'teaching',
+      'previousStartsAt', case when v_occ.status = 'moved' then v_occ.previous_starts_at end,
+      'isPresenter', v_is_presenter, 'source', 'teaching', 'visitor', v_visitor,
       'joinUrl', v_occ.join_url,
-      'presenterName', case when v_occ.presenter_id is null then null else coalesce(
+      'presenterName', case when v_visitor or v_occ.presenter_id is null then null else coalesce(
         (select coalesce(m.display_name, 'Member') from public.on_call_service_members m
          where m.service_id = p_service_id and m.user_id = v_occ.presenter_id and m.revoked_at is null),
         'Former member') end,
       'materials', coalesce(v_series.materials, '[]'::jsonb),
       'changeReason', v_occ.change_reason,
+      -- The caller's own mark only, or null.
+      'myAttendance', (select jsonb_build_object('method', a.method, 'recordedAt', a.recorded_at)
+        from public.teaching_attendance a where a.occurrence_id = v_occ.id and a.user_id = p_actor_id),
+      'inCalendar', public.teaching_week_added(v_occ.id, p_actor_id),
       'canShowCode', v_is_presenter or coalesce(v_role = 'organiser', false),
       'counts', case when v_is_presenter or v_role in ('organiser','admin') then jsonb_build_object(
+        -- Expected: active members of the series' groups, or every active member when it has none.
+        'expected', case when cardinality(coalesce(v_series.group_ids, '{}')) > 0 then
+            (select count(distinct gm.user_id) from public.teaching_group_members gm
+             join public.on_call_service_members m on m.service_id = gm.service_id and m.user_id = gm.user_id and m.revoked_at is null
+             where gm.service_id = p_service_id and gm.group_id = any(v_series.group_ids))
+          else (select count(*) from public.on_call_service_members m where m.service_id = p_service_id and m.revoked_at is null) end,
         'code', (select count(*) from public.teaching_attendance a where a.occurrence_id = v_occ.id and a.method <> 'self'),
         'self', (select count(*) from public.teaching_attendance a where a.occurrence_id = v_occ.id and a.method = 'self' and not a.visitor),
         'visitors', (select count(*) from public.teaching_attendance a where a.occurrence_id = v_occ.id and a.visitor))
@@ -1340,7 +1364,10 @@ begin
     v_dates := public.teaching_date_array_arg(p_payload, 'skipDates', 60);
     v_venue := nullif(btrim(coalesce(public.teaching_text_arg(p_payload, 'venue'), '')), '');
     v_code := nullif(btrim(coalesce(public.teaching_text_arg(p_payload, 'joinUrl'), '')), '');
+    -- Optional: a new series defaults to all doctors, and a save without it keeps the current value.
+    v_audience := public.teaching_text_arg(p_payload, 'audience');
     if char_length(btrim(coalesce(public.teaching_text_arg(p_payload, 'title'), ''))) not between 3 and 160
+      or (p_payload ? 'audience' and coalesce(v_audience, '') not in ('interns','residents','registrars','consultants','all_doctors'))
       or coalesce(public.teaching_text_arg(p_payload, 'kind'), '') not in ('lecture','case','journal','grand_round','simulation','workshop','other')
       or coalesce(public.teaching_text_arg(p_payload, 'repeat'), '') not in ('once','weekly','fortnightly','monthly_nth')
       or v_text is null or v_text !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
@@ -1357,10 +1384,11 @@ begin
     if v_id is null then
       if (select count(*) from public.teaching_series where service_id = p_service_id) >= 500 then raise exception 'teaching_limit'; end if;
       insert into public.teaching_series(service_id, title, kind, group_ids, repeat, first_date, start_time, minutes,
-        venue, join_url, skip_dates, end_date, presenter_id, materials, last_confirmed_at, created_by)
+        venue, join_url, skip_dates, end_date, presenter_id, materials, audience, last_confirmed_at, created_by)
       values (p_service_id, btrim(public.teaching_text_arg(p_payload, 'title')), public.teaching_text_arg(p_payload, 'kind'),
         v_ids, public.teaching_text_arg(p_payload, 'repeat'), v_from, v_text::time, v_minutes,
-        v_venue, v_code, v_dates, v_to, v_user, coalesce(p_payload->'materials', '[]'::jsonb), now(), p_actor_id)
+        v_venue, v_code, v_dates, v_to, v_user, coalesce(p_payload->'materials', '[]'::jsonb),
+        coalesce(v_audience, 'all_doctors'), now(), p_actor_id)
       returning * into v_series;
     else
       update public.teaching_series set
@@ -1368,7 +1396,7 @@ begin
         group_ids = v_ids, repeat = public.teaching_text_arg(p_payload, 'repeat'), first_date = v_from,
         start_time = v_text::time, minutes = v_minutes, venue = v_venue, join_url = v_code, skip_dates = v_dates,
         end_date = v_to, presenter_id = v_user, materials = coalesce(p_payload->'materials', '[]'::jsonb),
-        last_confirmed_at = now(), updated_at = now()
+        audience = coalesce(v_audience, audience), last_confirmed_at = now(), updated_at = now()
       where id = v_id and service_id = p_service_id
       returning * into v_series;
       if not found then raise exception 'teaching_not_found'; end if;
@@ -1400,7 +1428,8 @@ begin
         raise exception 'teaching_invalid_request';
       end if;
       update public.teaching_occurrences set status = 'moved', starts_at = v_starts, ends_at = v_ends, venue = v_venue,
-        change_reason = v_reason, changed_at = now()
+        change_reason = v_reason, changed_at = now(),
+        previous_starts_at = case when v_starts <> v_occ.starts_at then v_occ.starts_at else v_occ.previous_starts_at end
       where id = v_occ.id;
       update public.teaching_display_links set expires_at = greatest(v_ends + interval '15 minutes', created_at + interval '1 second')
       where occurrence_id = v_occ.id and revoked_at is null;
@@ -1533,7 +1562,8 @@ begin
           'seriesId', s.id, 'title', s.title, 'kind', s.kind, 'groupIds', to_jsonb(s.group_ids), 'repeat', s.repeat,
           'firstDate', s.first_date, 'startTime', to_char(s.start_time, 'HH24:MI'), 'minutes', s.minutes,
           'venue', s.venue, 'joinUrl', s.join_url, 'skipDates', to_jsonb(s.skip_dates), 'endDate', s.end_date,
-          'presenterId', s.presenter_id, 'materials', s.materials, 'lastConfirmedAt', s.last_confirmed_at)
+          'presenterId', s.presenter_id, 'materials', s.materials, 'audience', s.audience, 'openTo', s.open_to,
+          'lastConfirmedAt', s.last_confirmed_at)
           order by s.first_date desc, s.id)
         from public.teaching_series s where s.service_id = p_service_id), '[]'::jsonb),
       'groups', coalesce((select jsonb_agg(jsonb_build_object(
@@ -2106,10 +2136,13 @@ begin
             'occurrenceId', o.id, 'serviceId', o.service_id, 'teamName', s.name, 'title', o.title,
             'startsAt', o.starts_at, 'endsAt', o.ends_at, 'venue', o.venue, 'hasJoinLink', o.join_url is not null,
             'joinUrl', o.join_url, 'status', o.status, 'isPresenter', o.presenter_id is not distinct from p_actor_id,
-            'source', 'teaching', 'own', x.own, 'inMyWeek', x.own or public.teaching_week_added(o.id, p_actor_id))
+            'source', 'teaching', 'own', x.own, 'inMyWeek', x.own or public.teaching_week_added(o.id, p_actor_id),
+            -- A one-off with no series is for everyone. The client filters "For my level" (R4).
+            'audience', coalesce(ser.audience, 'all_doctors'))
             order by o.starts_at, o.id)
           from public.teaching_occurrences o
           join public.on_call_services s on s.id = o.service_id
+          left join public.teaching_series ser on ser.id = o.series_id
           cross join lateral (select public.service_member_active(o.service_id, p_actor_id) as own) as x
           where o.starts_at >= (v_from::timestamp at time zone 'Australia/Perth')
             and o.starts_at < ((v_to + 1)::timestamp at time zone 'Australia/Perth')
