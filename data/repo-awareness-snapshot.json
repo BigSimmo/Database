@@ -2002,6 +2002,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-lapsed-review-date-blocks-only-its-own-edit.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/archive/search-rag-phase-5-source-review-ux.md",
         "section": "archive",
         "catalogued": true

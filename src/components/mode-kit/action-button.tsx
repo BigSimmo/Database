@@ -7,6 +7,20 @@ import { focusRing } from "@/components/card-recipes";
 import { modeControlDisabled, modeControlShape, modeTapArea } from "@/components/mode-kit/recipes";
 import { cn } from "@/components/ui-primitives";
 
+type ModeActionButtonBase = {
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly tone?: keyof typeof modeControlShape;
+  readonly testId?: string;
+};
+
+export type ModeActionButtonProps = ModeActionButtonBase &
+  (
+    | { readonly href: string; readonly onClick?: never; readonly disabled?: never }
+    | { readonly onClick: () => void; readonly href?: never; readonly disabled?: boolean }
+    | { readonly disabled: true; readonly href?: never; readonly onClick?: never }
+  );
+
 /**
  * A compact in-row control: a 34px visible shape at the 10px control radius,
  * inside a 48px tap area (standard §4: "32–36px inside 48px tap areas"). Icon
@@ -14,6 +28,11 @@ import { cn } from "@/components/ui-primitives";
  *
  * `tone="command"` is the neutral command fill, allowed on controls up to 48px
  * (standard §10); the default is the quiet outlined shape. Never the mode colour.
+ *
+ * Every button does something (the wiring rule in AGENTS.md "Page and button
+ * wiring"): the props require a destination (`href`), an action (`onClick`), or
+ * an explicit `disabled` state, so an enabled button that does nothing cannot
+ * be written.
  */
 export function ModeActionButton({
   icon: Icon,
@@ -23,15 +42,7 @@ export function ModeActionButton({
   tone = "neutral",
   disabled,
   testId,
-}: {
-  readonly icon: LucideIcon;
-  readonly label: string;
-  readonly onClick?: () => void;
-  readonly href?: string;
-  readonly tone?: keyof typeof modeControlShape;
-  readonly disabled?: boolean;
-  readonly testId?: string;
-}) {
+}: ModeActionButtonProps) {
   const shape = (
     <span
       aria-hidden="true"

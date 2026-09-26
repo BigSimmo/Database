@@ -156,6 +156,29 @@ describe("list, tiles and small parts", () => {
     expect(classesOf(screen.getByTestId("two"))).toContain("min-h-13");
   });
 
+  it("keeps a trailing control beside a linked row, never inside the link", () => {
+    render(
+      <ModeGroupedList>
+        <ModeRow
+          title="Registrar"
+          href="/on-call/whos-on"
+          trailing={<ModeActionButton icon={Siren} label="Report" onClick={() => {}} />}
+          testId="linked"
+        />
+      </ModeGroupedList>,
+    );
+    const link = screen.getByTestId("linked");
+    const button = screen.getByRole("button", { name: "Report" });
+    expect(link.contains(button)).toBe(false);
+    expect(link.closest("li")?.contains(button)).toBe(true);
+  });
+
+  it("will not type-check a button that does nothing", () => {
+    // @ts-expect-error: a button needs href, onClick or an explicit disabled state.
+    const noop = <ModeActionButton icon={Siren} label="Nothing" />;
+    expect(noop).toBeTruthy();
+  });
+
   it("reserves rows at the same heights as the rows they stand in for", () => {
     render(<ModeModuleSkeleton rows={2} twoLine testId="skeleton" />);
     const rows = screen.getByTestId("skeleton").querySelectorAll("[data-skeleton-row]");

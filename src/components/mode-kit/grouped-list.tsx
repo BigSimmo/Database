@@ -82,9 +82,9 @@ export function ModeGroupedList({
  * text wraps. Title at 500, the secondary line at 13px muted. Both lines are
  * 20px with 4px above and below, so two lines fill 52px exactly.
  *
- * With `href` the whole row is a link and ends in a chevron ("All roles ›");
- * otherwise the row is not itself a control, so a trailing control never sits
- * inside a link.
+ * With `href` the row's text is a link and ends in a chevron ("All roles ›").
+ * A `trailing` control always sits beside the link, never inside it; without
+ * `href` the row is not itself a control.
  */
 export function ModeRow({
   title,
@@ -105,43 +105,49 @@ export function ModeRow({
   readonly className?: string;
 }) {
   const twoLine = Boolean(subtitle) || Boolean(meta);
-  const body = (
-    <>
-      <span className="grid min-w-0 flex-1 basis-40 gap-0.5 py-1">
-        <span className={cn(modeNameText, "break-words text-base-minus leading-5 text-[color:var(--text-heading)]")}>
-          {title}
-        </span>
-        {subtitle ? <span className={cn(modeSecondaryText, "break-words leading-5")}>{subtitle}</span> : null}
-        {meta}
+  const height = twoLine ? modeRowHeight.double : modeRowHeight.single;
+  const text = (
+    <span className="grid min-w-0 flex-1 basis-40 gap-0.5 py-1">
+      <span className={cn(modeNameText, "break-words text-base-minus leading-5 text-[color:var(--text-heading)]")}>
+        {title}
       </span>
-      {trailing ? <span className="ml-auto flex shrink-0 items-center gap-1">{trailing}</span> : null}
-      {href && !trailing ? (
-        <ChevronRight aria-hidden="true" className="ml-auto size-icon-md shrink-0 text-[color:var(--text-muted)]" />
-      ) : null}
-    </>
+      {subtitle ? <span className={cn(modeSecondaryText, "break-words leading-5")}>{subtitle}</span> : null}
+      {meta}
+    </span>
   );
-  const rowClass = cn(
-    modeInsetHairline,
-    twoLine ? modeRowHeight.double : modeRowHeight.single,
-    "flex min-w-0 flex-wrap items-center gap-x-3 pl-3 pr-1",
-    className,
-  );
+  const trailingSlot = trailing ? <span className="ml-auto flex shrink-0 items-center gap-1">{trailing}</span> : null;
   if (href) {
+    // The link and any trailing control are siblings, never nested: a button
+    // inside an anchor is invalid and its taps would also follow the link.
     return (
-      <li className={cn(modeInsetHairline, "min-w-0")}>
+      <li className={cn(modeInsetHairline, "flex min-w-0 items-center pr-1", className)}>
         <Link
           href={href}
           data-testid={testId}
-          className={cn(rowClass, modePressable, focusRing, "before:hidden pr-3 no-underline")}
+          className={cn(
+            height,
+            modePressable,
+            focusRing,
+            "flex min-w-0 flex-1 flex-wrap items-center gap-x-3 pl-3 no-underline",
+            trailing ? "pr-1" : "pr-2",
+          )}
         >
-          {body}
+          {text}
+          {trailing ? null : (
+            <ChevronRight aria-hidden="true" className="ml-auto size-icon-md shrink-0 text-[color:var(--text-muted)]" />
+          )}
         </Link>
+        {trailingSlot}
       </li>
     );
   }
   return (
-    <li className={rowClass} data-testid={testId}>
-      {body}
+    <li
+      className={cn(modeInsetHairline, height, "flex min-w-0 flex-wrap items-center gap-x-3 pl-3 pr-1", className)}
+      data-testid={testId}
+    >
+      {text}
+      {trailingSlot}
     </li>
   );
 }
