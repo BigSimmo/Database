@@ -2091,7 +2091,7 @@
         {
           "code": "canonical_url_no_longer_serves_the_document",
           "blocker": "The address now redirects to the NSW Government's WSLHD agency page, not the handbook.",
-          "nextAction": "Searched 2026-09-26: the publisher no longer hosts the handbook anywhere found. Recommend retiring this source rather than admitting it."
+          "nextAction": "Searched 2026-09-26: the publisher no longer hosts the handbook anywhere found. Retired 2026-09-26 on the owner's approval: removed from the live dictionary, and each of the eight assessment entries and the MSE versus MMSE comparison now cites a page read that day (NSW Health GL2014_002, RCH, Healthdirect, RANZCP, NSW ACI, AMHOCN, Columbia). Not to be admitted."
         },
         {
           "code": "version_unknown",

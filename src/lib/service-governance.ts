@@ -328,7 +328,11 @@ function matchingCanonicalRecord(
   recordsByKey: ReadonlyMap<string, readonly CanonicalServiceInput[]>,
   usedIds: ReadonlySet<string>,
 ): CanonicalServiceInput | undefined {
-  const candidates = [...legacyKeys(legacy)].flatMap((key) => recordsByKey.get(key) ?? []);
+  // Exact name matches first: two legacy names can reduce to the same identity key (S211
+  // "Youth Hospital in the Home" and S212 "Youth Hospital in the Home (Youth-HITH)"), and
+  // which record claimed the shared key must not depend on the snapshot's array order.
+  const exactKeys = [slug(legacy.name), legacy.canonical_name_key].filter(Boolean);
+  const candidates = [...new Set([...exactKeys, ...legacyKeys(legacy)])].flatMap((key) => recordsByKey.get(key) ?? []);
   return candidates.find((record) => !usedIds.has(record.id));
 }
 
