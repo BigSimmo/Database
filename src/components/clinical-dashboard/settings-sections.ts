@@ -169,6 +169,13 @@ export const SETTINGS_SEARCH_ENTRIES: ReadonlyArray<SettingsSearchEntry> = [
     keywords: "alerts notify email favourites updated",
   },
   {
+    id: "settings-row-reminders",
+    section: "notifications",
+    label: "Reminders",
+    keywords:
+      "snooze quiet hours calendar alarm phone alert cpd routines year-end claim on call checks compliance dates teaching daily limit show in the app",
+  },
+  {
     id: "settings-row-save-recent-searches",
     section: "privacy",
     label: "Save recent searches",
@@ -214,7 +221,7 @@ export const SETTINGS_SEARCH_ENTRIES: ReadonlyArray<SettingsSearchEntry> = [
     id: "settings-row-development-page",
     section: "development",
     label: "Developer",
-    keywords: "prototype mockups experimental in progress caring contacts",
+    keywords: "prototype mockups experimental in progress",
   },
 ];
 

@@ -393,7 +393,7 @@ describe("smoke — the tool still works against real repository shapes", () => 
   // not acquire a dependency on where it is checked out. `tests/<file>` -> repository root.
   const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
-  const REAL_SURFACES = ["src/components/ward-management", "src/lib/rag", "src/components/caring-contacts", "worker"];
+  const REAL_SURFACES = ["src/lib/rag", "worker"];
 
   it.each(REAL_SURFACES)("%s: is walked, resolves cleanly, and its seed is inside its closure", (surface) => {
     const result = computeClosure({

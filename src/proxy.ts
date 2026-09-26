@@ -55,13 +55,6 @@ const staticRouteRedirects: Record<string, string> = {
   // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
   // thing there, so the query string travels unchanged.
   "/dictionary/browse": "/dictionary/search",
-  // Ward Flow Constellation was retired in Phase 2; keep
-  // /mockups/ward-flow/constellation as an intentional unlinked compatibility
-  // redirect to /mockups/ward-flow/network so historical deep-links match the
-  // page backstop (PR #2303). Ward Flow moved under the developer-gated
-  // /mockups/ward-flow prefix in the sandbox move (see
-  // src/lib/developer-area/headers.ts); the constellation redirect moved with it.
-  "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
   // The one mockup path that still redirects in production rather than 404ing
   // through `shouldBlockProductionMockups`. `mockups/README.md`, `docs/site-map.md`
   // and the site-map GENERATOR (`scripts/generate-site-map.ts`, which hardcodes the

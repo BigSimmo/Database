@@ -62,9 +62,8 @@ export function awstWallTimeToInstant(calendarDay: string, hour: number, minute 
  * accident. AWST is UTC+8 all year, so the margin is against arithmetic rather than against a clock
  * change -- there is no daylight-saving shift here for it to survive.
  *
- * `schedule-view.ts` enumerates a range the same way, privately, and predates this. The two are the
- * same arithmetic and one of them should go; collapsing them was outside Task 13's brief, which
- * froze that module, so the duplication is reported rather than resolved.
+ * The screen and the schedule module it read from belonged to the since-retired Caring Contacts
+ * prototype; this module outlived them because the Mental Health Act timeline imports it.
  */
 export function awstCalendarDayOffset(calendarDay: string, days: number): string {
   const midday = awstWallTimeToInstant(calendarDay, 12);

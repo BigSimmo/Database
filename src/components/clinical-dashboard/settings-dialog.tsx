@@ -66,6 +66,7 @@ import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-
 import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
 import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface } from "@/components/ui-primitives";
 import { ProviderBrandMark, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
+import { ReminderSettingsBlock } from "@/components/clinical-dashboard/settings-reminders";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
@@ -128,6 +129,7 @@ const FULL_RESET_KEYS: ReadonlyArray<keyof AppPreferences> = [
   "notifyGuidelineUpdates",
   "notifyProductNews",
   "notifySavedChanges",
+  "reminders",
 ];
 
 /**
@@ -1230,7 +1232,7 @@ export function SettingsDialog({
               <SettingsSection
                 id="notifications"
                 title="Notifications"
-                note="Saved on this device; notifications are not available yet."
+                note="Saved on this device; these three are not sent yet. The Reminders controls below work now."
                 noteId="settings-notifications-note"
               >
                 <SettingsGroup>
@@ -1256,6 +1258,16 @@ export function SettingsDialog({
                     describedBy="settings-notifications-note"
                   />
                 </SettingsGroup>
+                {/* Reminders work today, unlike the three switches above, so they
+                  sit in their own card and say so in their own words. */}
+                <div className="mt-3">
+                  <SettingsCard rowId="settings-row-reminders">
+                    <ReminderSettingsBlock
+                      reminders={preferences.reminders}
+                      onChange={(next) => setPreference("reminders", next)}
+                    />
+                  </SettingsCard>
+                </div>
               </SettingsSection>
 
               {/* Privacy */}
@@ -1362,8 +1374,8 @@ export function SettingsDialog({
                 <SettingsCard rowId="settings-row-development-page" padded>
                   <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Developer hub</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
-                    patient record, message or schedule on them is real.
+                    Index of the surfaces being built. Synthetic data only — no patient record, message or schedule on
+                    them is real.
                   </p>
                   <Link
                     href="/mockups/development"

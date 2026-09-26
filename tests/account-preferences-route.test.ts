@@ -204,3 +204,66 @@ describe("PUT /api/account/preferences", () => {
     expect(database.update).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("PUT /api/account/preferences reminders", () => {
+  function put(body: unknown) {
+    return new Request("http://local.test/api/account/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  const storedReminders = {
+    ...DEFAULT_PREFERENCES.reminders,
+    types: {
+      ...DEFAULT_PREFERENCES.reminders.types,
+      "compliance-dates": { showInApp: true, calendarAlert: "1d", snoozedUntil: null },
+    },
+    maxAlertsPerDay: 5,
+  };
+
+  it("accepts a partial nested reminders patch and keeps what it omits", async () => {
+    const database = mockPreferencesRoute({ ...DEFAULT_PREFERENCES, reminders: storedReminders });
+    const { PUT } = await import("@/app/api/account/preferences/route");
+    const response = await PUT(
+      put({ reminders: { types: { teaching: { snoozedUntil: "2026-10-03" } }, quietHours: { enabled: true } } }),
+    );
+    expect(response.status).toBe(200);
+    const saved = database.currentPreferences() as typeof DEFAULT_PREFERENCES;
+    expect(saved.reminders.types.teaching).toEqual({
+      showInApp: true,
+      calendarAlert: "off",
+      snoozedUntil: "2026-10-03",
+    });
+    expect(saved.reminders.types["compliance-dates"].calendarAlert).toBe("1d");
+    expect(saved.reminders.quietHours).toEqual({ enabled: true, start: "21:00", end: "07:00" });
+    expect(saved.reminders.maxAlertsPerDay).toBe(5);
+  });
+
+  it("keeps the stored reminders when an older client omits them", async () => {
+    const database = mockPreferencesRoute({ ...DEFAULT_PREFERENCES, reminders: storedReminders });
+    const { PUT } = await import("@/app/api/account/preferences/route");
+    const response = await PUT(put(previousClientPayload));
+    expect(response.status).toBe(200);
+    expect((database.currentPreferences() as typeof DEFAULT_PREFERENCES).reminders).toEqual(storedReminders);
+  });
+
+  it.each([
+    ["an unknown reminder type", { types: { shifts: { showInApp: false } } }],
+    ["an unknown field", { types: { teaching: { volume: 11 } } }],
+    ["an unknown lead time", { types: { teaching: { calendarAlert: "2d" } } }],
+    ["a date that does not exist", { types: { teaching: { snoozedUntil: "2026-02-30" } } }],
+    ["a time out of range", { quietHours: { start: "24:00" } }],
+    ["a cap above the limit", { maxAlertsPerDay: 11 }],
+    ["a cap below the limit", { maxAlertsPerDay: 0 }],
+    ["a fractional cap", { maxAlertsPerDay: 2.5 }],
+    ["an extra top-level key", { enabled: true }],
+  ])("rejects %s", async (_label, reminders) => {
+    const database = mockPreferencesRoute({ ...DEFAULT_PREFERENCES, reminders: storedReminders });
+    const { PUT } = await import("@/app/api/account/preferences/route");
+    const response = await PUT(put({ reminders }));
+    expect(response.status).toBe(400);
+    expect(database.update).not.toHaveBeenCalled();
+  });
+});

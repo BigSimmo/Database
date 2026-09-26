@@ -5,7 +5,7 @@ import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 
 export const metadata: Metadata = {
-  title: "Development plan | CME | PsychSift",
+  title: "Development plan | CPD | PsychSift",
   description: "Your yearly development plan: your goals, and how the year's hours fall across them.",
 };
 

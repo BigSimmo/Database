@@ -111,7 +111,6 @@ export const CLINICAL_TWMERGE_THEME = {
     "specifier-map-jump",
     "specifier-map-step-number",
     "tap",
-    "ward-phone-bar",
   ],
 
   // globals.css @theme --ease-*.

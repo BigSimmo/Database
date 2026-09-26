@@ -22,7 +22,9 @@ export type InformationPageMode =
   | "documents"
   | "sources"
   | "on-call"
-  | "cme";
+  | "cme"
+  | "psychiatry"
+  | "my-work";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -88,6 +90,12 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/cme")) return true;
   if (pathname === "/cme") return true;
   if (pathname.startsWith("/cme/log/") && !pathname.slice("/cme/log/".length).includes("/")) return true;
+  // The Psychiatry dashboard, for On Call's reason: the mode declares no search
+  // surface, so its home must not wear a composer. The sections it links to
+  // keep their own routes and their own composers.
+  if (pathname === "/psychiatry") return true;
+  // The My Work dashboard, for the same reason.
+  if (pathname === "/my-work") return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -129,4 +137,6 @@ export const informationPageShellModes = [
   "dsm",
   "on-call",
   "cme",
+  "psychiatry",
+  "my-work",
 ] as const satisfies readonly InformationPageMode[];

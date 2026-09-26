@@ -1,4 +1,5 @@
 import { deriveGovernanceColumns } from "@/lib/registry-records";
+import { serviceRecordSignOff } from "@/lib/service-record-sign-off";
 import { getServiceRecord, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { isRetainedBootstrapReleaseId } from "@/lib/site-content/site-content-health";
 
@@ -60,19 +61,35 @@ import { isRetainedBootstrapReleaseId } from "@/lib/site-content/site-content-he
  * seed path already does — that describes the publisher's page, which is true whether or not
  * this catalogue has been published — and pins `validationStatus` to `unverified` regardless of
  * what the record claims locally. These records have not been through the governed pipeline, so
- * they must never carry a sign-off label, and `unverified` is the conservative value the enum
- * already has. Same reasoning, and the same narrowing, as the Forms path.
+ * they must never carry a sign-off label they did not earn, and `unverified` is the conservative
+ * value the enum already has. Same reasoning, and the same narrowing, as the Forms path. The one
+ * exception is a record the clinical owner has signed off with `npm run clinical:review`
+ * (`src/lib/service-record-sign-off.ts`): that reads as `locally_reviewed`, and the sign-off is
+ * pinned to the record's exact text.
  */
 
-/** The governance a record served from the bundle alone may claim. Never a sign-off. */
+/**
+ * The governance a record served from the bundle alone may claim.
+ *
+ * `unverified` unless the clinical owner has signed this exact record off with
+ * `npm run clinical:review` (data/service-records-review.json, ledger #3E42FH): a `reviewed`
+ * row naming a reviewer and a parseable timestamp reads as `locally_reviewed`, the label for
+ * a local clinician review, never `approved`. The row's content pin is enforced by
+ * tests/signoff-services.test.ts, so a record edited after sign-off fails the suite rather than
+ * reaching the site still labelled reviewed. This does not publish anything.
+ */
 export function bundledServiceGovernance(record: ServiceRecord): {
   sourceStatus: string;
   validationStatus: string;
 } {
   const derived = deriveGovernanceColumns(record);
   // sourceStatus stays derived: it describes the publisher's page, which publication does not change.
-  // validationStatus is pinned rather than derived: nothing here has been published or signed off.
-  return { sourceStatus: derived.source_status, validationStatus: "unverified" };
+  // validationStatus is pinned rather than derived: nothing here has been published, and only a
+  // clinical-owner sign-off of this record may lift it.
+  return {
+    sourceStatus: derived.source_status,
+    validationStatus: serviceRecordSignOff(record) ? "locally_reviewed" : "unverified",
+  };
 }
 
 /**

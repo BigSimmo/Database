@@ -70,4 +70,45 @@ describe("calendar view", () => {
     expect(text).toContain("SUMMARY:End of the 2026 CPD year");
     expect(text).not.toContain("Journal club");
   });
+
+  it("says the downloaded file is a one-off copy", () => {
+    render(<CalendarView events={EVENTS} today="2026-09-25" exportName="CME 2026" />);
+    expect(screen.getByTestId("calendar-view-export-snapshot")).toHaveTextContent("one-off copy");
+  });
+
+  it("lets the owner leave a kind of date out, and hides what an expiry is for by default", async () => {
+    const user = userEvent.setup();
+    const createObjectURL = vi.fn(() => "blob:calendar");
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const events: CalendarEvent[] = [
+      { id: "teach", title: "Registrar teaching", date: "2026-09-29", kind: "teaching" },
+      {
+        id: "police",
+        title: "Police check expires",
+        date: "2026-10-10",
+        kind: "expiry",
+        notes: "National police certificate",
+      },
+    ];
+    render(<CalendarView events={events} today="2026-09-25" exportName="On Call" />);
+
+    await user.click(screen.getByTestId("calendar-view-export"));
+    const first = await (createObjectURL.mock.calls[0] as unknown as [Blob])[0].text();
+    expect(first).toContain("SUMMARY:Registrar teaching");
+    expect(first).toContain("SUMMARY:Expiry date");
+    expect(first).not.toContain("Police");
+
+    await user.click(screen.getByTestId("calendar-view-export-plain-expiry"));
+    await user.click(screen.getByTestId("calendar-view-export"));
+    const named = await (createObjectURL.mock.calls[1] as unknown as [Blob])[0].text();
+    expect(named).toContain("SUMMARY:Police check expires");
+
+    await user.click(screen.getByTestId("calendar-view-export-kind-expiry"));
+    expect(screen.queryByTestId("calendar-view-export-plain-expiry")).not.toBeInTheDocument();
+    await user.click(screen.getByTestId("calendar-view-export"));
+    const teachingOnly = await (createObjectURL.mock.calls[2] as unknown as [Blob])[0].text();
+    expect(teachingOnly).toContain("SUMMARY:Registrar teaching");
+    expect(teachingOnly).not.toContain("Expir");
+  });
 });

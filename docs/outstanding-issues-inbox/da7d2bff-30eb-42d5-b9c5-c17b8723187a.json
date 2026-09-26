@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "da7d2bff-30eb-42d5-b9c5-c17b8723187a",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#T82ND3",
+    "outcome": "CONFIRMED 2026-09-26: the main-failure routing job in ci.yml fired 25 times between 2026-09-25 and 2026-09-26 (issues #3020 to #3092, label main-ci-failure), each opened, updated in place and auto-closed on the next green main run. From PR #3017 every issue is assigned to the owner. The owner confirmed on 2026-09-26 at 10:56Z that open issue #3092 (opened 09:45Z, commit 035e3eb, #3091) appeared in his GitHub app Inbox. That meets this row's close condition: a real red main produced an issue that reached a person.",
+    "baseRowFingerprint": "31159b1c3e06aefdd578681b0cd18031c6ded0cfdba16165b4cc393caf809f0b"
+  }
+}

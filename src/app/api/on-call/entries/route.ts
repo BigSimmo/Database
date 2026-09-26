@@ -72,12 +72,12 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("On Call requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    // On Call is a shared reference surface: an anonymous caller gets the shared entries rather
-    // than an empty list. Deliberate owner decision (2026-09-04) — see the visibility note on
-    // fetchSharedOnCallEntries. `signedOut` still reports whether the caller has an account,
-    // because the client uses it to decide whether editing is offered, not whether to render.
+    // Shared entries are readable by any signed-in user; an anonymous caller gets none (owner
+    // decision 2026-09-26, reversing the 2026-09-04 anonymous read — see the visibility note on
+    // fetchSharedOnCallEntries). `signedOut: true` is what the client shows its sign-in state on.
+    if (!access.ownerId) return NextResponse.json({ entries: [], signedOut: true });
     const entries = await fetchVisibleOnCallEntries(supabase, access.ownerId, { section });
-    return NextResponse.json({ entries, signedOut: !access.ownerId });
+    return NextResponse.json({ entries, signedOut: false });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

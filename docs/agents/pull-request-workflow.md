@@ -50,6 +50,8 @@ body. Write it from `.github/pull_request_template.md` in full normal prose, wit
 line when a RAG-ranking surface is touched, and — when `classifyPullRequestFiles` reports
 clinical risk — a complete `## Clinical Governance Preflight`. Output-style compression never
 applies to PR titles and bodies.
+`npm run pr:areas` prints the `Areas touched:` line from the organisation map and, when a
+ranking-protected file changed, a `RAG impact:` placeholder to replace; include both in the body.
 
 - Complete the Preflight **truthfully**: check only the boxes that are actually true for this
   change. Never tick every box to satisfy the parser.
@@ -329,6 +331,14 @@ Squash-merge history has twice orphaned a late follow-up commit and once needed 
   work that did not make it — the classic auto-merge race. Never use three-dot
   `origin/main...<branch>` here: it diffs from the pre-merge merge base and reports a false orphan
   on every fresh merge.
+- **Squash of a branch that was behind `main` (always, under the merge queue):** the queue never
+  syncs branches, so the squash commit also carries `main` changes the branch never had and the
+  two-dot tree diff above is never empty. Compare the change the squash made with the change the
+  branch made since it last met `main` instead:
+  `git diff <squash-commit>^ <squash-commit> | git patch-id --stable` against
+  `git diff $(git merge-base <squash-commit>^ <your-branch-tip>) <your-branch-tip> | git patch-id --stable`.
+  The same id means the work landed as written. Different ids: read both diffs file by file before
+  concluding anything; only a change missing from the squash is work that did not land.
 - **Late commits:** if you pushed after auto-merge was armed, confirm those commits are in the
   merged result. If missing, fix-forward with a new PR — never force-push.
 - **Cleanup is separate.** Worktree removal, remote branch deletion, and `git branch -D` are

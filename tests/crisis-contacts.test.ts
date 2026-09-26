@@ -51,8 +51,8 @@ describe("crisis-contacts", () => {
   });
 
   it("uses the owner-authorised wording for Lifeline and 13YARN (Ruling [144])", () => {
-    // The exact patient-visible sentence authorised in
-    // src/lib/caring-contacts/message-rules.ts:117 is
+    // The exact patient-visible sentence the owner authorised (Ruling [144], first
+    // written for the since-retired Caring Contacts prototype's message rules) is
     // "If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76." —
     // these two numbers must match that sentence exactly.
     const lifeline = WA_CRISIS_CONTACTS.find((contact) => contact.name === "Lifeline");

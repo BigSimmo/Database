@@ -1,0 +1,314 @@
+"use client";
+
+import { Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+
+import { cardSurface } from "@/components/card-recipes";
+import { Button } from "@/components/ui/button";
+import { Select, type SelectOption } from "@/components/ui/select";
+import { TextField } from "@/components/ui/text-field";
+import { cn, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
+import {
+  CME_DRAFT_WAITING_NOTE_MAX_LENGTH,
+  draftTitle,
+  groupDrafts,
+  type CmeDraft,
+  type CmeDraftWaitingOn,
+} from "@/lib/cme/drafts";
+
+/**
+ * DRAFTS — a half-finished activity, saved to the account, shown on the log
+ * page in three groups: the owner's own next action, waiting for a
+ * supervisor, waiting for workforce. A draft never counts toward hours (see
+ * `src/lib/cme/drafts.ts`), and marking one "waiting" is never itself an
+ * approval — it is only a note to come back to.
+ *
+ * Hidden entirely when there are no drafts, so an owner who never saves one
+ * never sees an empty "Drafts" section on their log. Also hidden while signed
+ * out, the same as the rest of a private CME record: `cme-log-page.tsx` and
+ * `cme-plan-page.tsx` only ever render once a session is known-signed-in
+ * (their surrounding `CmeOwnerBoundary` withholds `children` otherwise and
+ * they take only a `demoMode` flag from there), so this section takes the
+ * matching three flags directly — `signedIn`, `demoMode`, `loadFailed` — so it
+ * can be gated and tested the same way without depending on that wiring.
+ */
+
+const WAITING_GROUP_LABEL = {
+  nextAction: "My next action",
+  supervisor: "Waiting for supervisor",
+  workforce: "Waiting for workforce",
+} as const;
+
+const waitingOnOptions: SelectOption[] = [
+  { value: "", label: "None — my next action" },
+  { value: "supervisor", label: "Waiting for supervisor" },
+  { value: "workforce", label: "Waiting for workforce" },
+];
+
+export type WaitingOnValue = {
+  readonly waitingOn: CmeDraftWaitingOn | null;
+  readonly waitingNote: string;
+  readonly followUpOn: string;
+};
+
+export type WaitingOnControlsProps = {
+  readonly value: WaitingOnValue;
+  readonly onWaitingOnChange: (waitingOn: CmeDraftWaitingOn | null) => void;
+  readonly onWaitingNoteChange: (note: string) => void;
+  /** Fired when the note field loses focus — the natural point to persist free text. */
+  readonly onWaitingNoteBlur?: () => void;
+  readonly onFollowUpOnChange: (date: string) => void;
+  readonly disabled?: boolean;
+  /** Namespaces every control's id, so more than one instance can sit on a page. */
+  readonly idPrefix: string;
+};
+
+/**
+ * The three "waiting on someone" controls — who, an optional note, a
+ * follow-up date — as a small controlled unit with no fetch logic of its own.
+ * Fully reusable: the entry form's own Save-as-draft flow renders the exact
+ * same component around its own draft state.
+ */
+export function WaitingOnControls({
+  value,
+  onWaitingOnChange,
+  onWaitingNoteChange,
+  onWaitingNoteBlur,
+  onFollowUpOnChange,
+  disabled = false,
+  idPrefix,
+}: WaitingOnControlsProps) {
+  return (
+    <div className="flex flex-col gap-3" data-testid={`${idPrefix}-waiting-controls`}>
+      <Select
+        label="Waiting on"
+        id={`${idPrefix}-waiting-on`}
+        options={waitingOnOptions}
+        value={value.waitingOn ?? ""}
+        disabled={disabled}
+        onChange={(event) =>
+          onWaitingOnChange(event.target.value === "" ? null : (event.target.value as CmeDraftWaitingOn))
+        }
+      />
+      {value.waitingOn ? (
+        <>
+          <TextField
+            label="Note (optional)"
+            id={`${idPrefix}-waiting-note`}
+            value={value.waitingNote}
+            maxLength={CME_DRAFT_WAITING_NOTE_MAX_LENGTH}
+            hint="Don't include patient details."
+            disabled={disabled}
+            onChange={(event) => onWaitingNoteChange(event.target.value)}
+            onBlur={onWaitingNoteBlur}
+          />
+          <TextField
+            label="Follow up on"
+            id={`${idPrefix}-follow-up`}
+            type="date"
+            value={value.followUpOn}
+            disabled={disabled}
+            onChange={(event) => onFollowUpOnChange(event.target.value)}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function DraftRow({
+  draft,
+  demoMode,
+  onChanged,
+  onDeleted,
+}: {
+  draft: CmeDraft;
+  demoMode: boolean;
+  onChanged: (draft: CmeDraft) => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [waitingOn, setWaitingOn] = useState<CmeDraftWaitingOn | null>(draft.waitingOn);
+  const [waitingNote, setWaitingNote] = useState(draft.waitingNote ?? "");
+  const [followUpOn, setFollowUpOn] = useState(draft.followUpOn ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(next: WaitingOnValue) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/cme/drafts/${draft.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          waitingOn: next.waitingOn,
+          waitingNote: next.waitingNote.trim() === "" ? null : next.waitingNote.trim(),
+          followUpOn: next.followUpOn === "" ? null : next.followUpOn,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as { draft?: CmeDraft; message?: string } | null;
+      if (!response.ok) throw new Error(body?.message ?? `Could not update this draft (${response.status}).`);
+      if (body?.draft) onChanged(body.draft);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not update this draft.");
+      setWaitingOn(draft.waitingOn);
+      setWaitingNote(draft.waitingNote ?? "");
+      setFollowUpOn(draft.followUpOn ?? "");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/cme/drafts/${draft.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message ?? `Could not delete this draft (${response.status}).`);
+      }
+      onDeleted(draft.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not delete this draft.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className={cn(cardSurface, "flex flex-col gap-3 p-3")} data-testid={`cme-draft-${draft.id}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{draftTitle(draft)}</p>
+          <p className={cn(textMuted, "mt-0.5 text-xs")}>
+            Last edited {formatCalendarDateLong(draft.updatedAt.slice(0, 10))}
+          </p>
+          {draft.followUpOn ? (
+            <p className={cn(textMuted, "mt-1 text-xs")}>Follow up {formatCalendarDateLong(draft.followUpOn)}</p>
+          ) : null}
+          {draft.waitingNote ? <p className="mt-1 text-sm text-[color:var(--text)]">{draft.waitingNote}</p> : null}
+        </div>
+        <Link
+          href={`/cme/new?draft=${draft.id}`}
+          data-testid={`cme-draft-continue-${draft.id}`}
+          className="min-h-tap inline-flex shrink-0 items-center font-semibold text-[color:var(--clinical-accent)]"
+        >
+          Continue
+        </Link>
+      </div>
+
+      {!demoMode ? (
+        <WaitingOnControls
+          idPrefix={`cme-draft-${draft.id}`}
+          value={{ waitingOn, waitingNote, followUpOn }}
+          disabled={busy}
+          onWaitingOnChange={(next) => {
+            setWaitingOn(next);
+            void save({ waitingOn: next, waitingNote, followUpOn });
+          }}
+          onWaitingNoteChange={setWaitingNote}
+          onWaitingNoteBlur={() => void save({ waitingOn, waitingNote, followUpOn })}
+          onFollowUpOnChange={(next) => {
+            setFollowUpOn(next);
+            void save({ waitingOn, waitingNote, followUpOn: next });
+          }}
+        />
+      ) : null}
+
+      {error ? <InlineNotice tone="neutral">{error}</InlineNotice> : null}
+
+      {!demoMode ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            icon={Trash2}
+            busy={busy}
+            busyLabel="Deleting…"
+            onClick={() => void remove()}
+            testId={`cme-draft-delete-${draft.id}`}
+          >
+            Delete
+          </Button>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+export type CmeDraftsSectionProps = {
+  readonly drafts: readonly CmeDraft[];
+  /** Demo mode is read-only: shown without the waiting controls or Delete. */
+  readonly demoMode?: boolean;
+  /** A draft is a private per-owner record; signed out, the section shows nothing. */
+  readonly signedIn?: boolean;
+  /** The drafts fetch failed — reported rather than silently hidden. */
+  readonly loadFailed?: boolean;
+};
+
+export function CmeDraftsSection({
+  drafts,
+  demoMode = false,
+  signedIn = true,
+  loadFailed = false,
+}: CmeDraftsSectionProps) {
+  const [items, setItems] = useState<readonly CmeDraft[]>(drafts);
+
+  if (!signedIn) return null;
+
+  if (loadFailed) {
+    return (
+      <section className="mt-6" data-testid="cme-drafts-section" aria-labelledby="cme-drafts-heading">
+        <h2 id="cme-drafts-heading" className={cn(eyebrowText, "mb-2")}>
+          Drafts
+        </h2>
+        <div data-testid="cme-drafts-load-failed">
+          <InlineNotice tone="neutral">Your drafts could not be loaded. Reload the page to try again.</InlineNotice>
+        </div>
+      </section>
+    );
+  }
+
+  if (items.length === 0) return null;
+
+  const groups = groupDrafts(items);
+  const sections = (["nextAction", "supervisor", "workforce"] as const)
+    .map((key) => ({ key, drafts: groups[key] }))
+    .filter((group) => group.drafts.length > 0);
+
+  function handleChanged(next: CmeDraft) {
+    setItems((current) => current.map((item) => (item.id === next.id ? next : item)));
+  }
+  function handleDeleted(id: string) {
+    setItems((current) => current.filter((item) => item.id !== id));
+  }
+
+  return (
+    <section className="mt-6" data-testid="cme-drafts-section" aria-labelledby="cme-drafts-heading">
+      <h2 id="cme-drafts-heading" className={cn(eyebrowText, "mb-2")}>
+        Drafts
+      </h2>
+      <div className="flex flex-col gap-5">
+        {sections.map((group) => (
+          <div key={group.key} data-testid={`cme-drafts-group-${group.key}`}>
+            <h3 className="text-sm font-semibold text-[color:var(--text)]">{WAITING_GROUP_LABEL[group.key]}</h3>
+            <ul className="mt-2 flex flex-col gap-2">
+              {group.drafts.map((draft) => (
+                <DraftRow
+                  key={draft.id}
+                  draft={draft}
+                  demoMode={demoMode}
+                  onChanged={handleChanged}
+                  onDeleted={handleDeleted}
+                />
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

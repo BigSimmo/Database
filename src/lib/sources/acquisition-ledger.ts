@@ -129,6 +129,7 @@ export type SourceAcquisitionRecord = {
    * (`scripts/lib/therapy-review-contract.mjs`), applied to the source ledger.
    */
   attestedBy?: string | null;
+  /** A UTC ISO timestamp as `npm run clinical:review` writes it, or an exact YYYY-MM-DD date. */
   attestedAt?: string | null;
   attestedAgainstSha256?: string | null;
 };
@@ -243,6 +244,17 @@ export function acquisitionRecordWarnings(record: SourceAcquisitionRecord): Sour
 export function acquisitionRecordGeography(record: SourceAcquisitionRecord): SourceGeographyScope {
   const [entry] = canonicalizeSourceReferences([acquisitionReference(record)]);
   return entry ? entry.geography.scope : "unknown";
+}
+
+const UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
+/** A real UTC ISO instant (never an offset, never a rolled-over calendar value), or null. */
+function strictUtcTimestamp(value: string): string | null {
+  if (!UTC_TIMESTAMP_PATTERN.test(value)) return null;
+  const milliseconds = Date.parse(value);
+  if (!Number.isFinite(milliseconds)) return null;
+  const normalized = value.includes(".") ? value : value.replace(/Z$/, ".000Z");
+  return new Date(milliseconds).toISOString() === normalized ? value : null;
 }
 
 /** An optional field counts as written only when it carries real text. */
@@ -395,7 +407,11 @@ export function acquisitionLedgerIssues(
         `${id}: an attestation must record attestedBy, attestedAt and attestedAgainstSha256; missing ${missing.join(", ")}`,
       );
     }
-    requireStrictDate(presentText(record.attestedAt), "attestedAt", id, issues);
+    // `npm run clinical:review -- --kind source` writes the exact UTC instant of the
+    // sign-off, the same rule every other sign-off kind holds; a bare date is still
+    // accepted for an attestation written by hand.
+    const attestedAt = presentText(record.attestedAt);
+    if (!attestedAt || !strictUtcTimestamp(attestedAt)) requireStrictDate(attestedAt, "attestedAt", id, issues);
     const attestedAgainst = presentText(record.attestedAgainstSha256);
     if (attestedAgainst && !SHA256_PATTERN.test(attestedAgainst)) {
       issues.push(`${id}: attestedAgainstSha256 must be a lower-case 64-character SHA-256 digest`);

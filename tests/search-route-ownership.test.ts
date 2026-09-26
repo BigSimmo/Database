@@ -15,6 +15,7 @@ import {
   isDashboardOwnedModeHomePath,
   isDictionaryCataloguePath,
   isStandaloneModeHomePath,
+  standaloneModeHomePaths,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
   standaloneModeHomeHref,
@@ -145,6 +146,16 @@ describe("shared-search route ownership", () => {
     ]) {
       expect(dashboardOwnedModeHomeModeId(pathname), pathname).toBeNull();
       expect(isDashboardOwnedModeHomePath(pathname), pathname).toBe(false);
+    }
+  });
+
+  // A standalone mode home renders its own body, so it must also skip the
+  // searchParams gate: otherwise a submitted `?q=…&run=1` link mounts the
+  // dashboard over that body. Psychiatry was added to the first list and missed
+  // from the second, which this case now catches for any future mode.
+  it("treats every standalone mode home as an always-standalone shell path", () => {
+    for (const pathname of standaloneModeHomePaths) {
+      expect(isAlwaysStandaloneShellPath(pathname), pathname).toBe(true);
     }
   });
 

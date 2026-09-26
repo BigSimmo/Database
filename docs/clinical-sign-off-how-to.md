@@ -2,7 +2,9 @@
 
 This guide is for the clinical owner. It explains, step by step, how to read and sign off
 the guidance for the WA Mental Health Act 2014 forms, the plain-English Act-section
-summaries and the Act deadlines on each form's Timeline. You do it on your own computer. Nothing is sent anywhere until the last step.
+summaries, the Act deadlines on each form's Timeline, the ten locally authored differential
+overlays, the Formulation guide modules, mechanisms and concepts, and the Therapy records.
+You do it on your own computer. Nothing is sent anywhere until the last step.
 
 Only you can sign off. Claude and other tools are blocked from doing it: the sign-off tool
 refuses to write anything unless a person is typing at a real terminal.
@@ -26,7 +28,8 @@ You need a terminal window open in your copy of the project folder on your compu
 - **Windows:** use Command Prompt, not PowerShell. Open the project folder in File Explorer,
   click the address bar at the top, type `cmd` and press Enter. A Command Prompt window opens
   already in the project folder. (If you do use PowerShell, type `npm.cmd` wherever this
-  guide says `npm`.)
+  guide says `npm`. PowerShell can refuse the plain `npm` command, and it can drop the `--`
+  that passes your answers' settings through to the tool.)
 
 Type each command below exactly as shown, then press Enter.
 
@@ -151,6 +154,125 @@ npm run clinical:review -- --write --walk --kind timeframe --reviewed-by "Dr <yo
 After you sign off a deadline, tell Claude: the offline page (the one the app shows with no
 internet) keeps its own copy of signed-off deadlines, and Claude must rebuild it.
 
+## Signing off the differential overlays
+
+Ten differentials carry assessment steps, safety facts and "how to tell it apart" rows that
+were written locally rather than exported from a source. Each page marks that content
+"Locally authored — verify before use". Once you sign one off, that line names you instead.
+
+The walk-through shows the highest-risk ones first: neuroleptic malignant syndrome,
+serotonin toxicity, delirium, hypoactive delirium and clozapine toxicity, then the rest. It
+shows every authored line exactly as the page does. Confirm each one by typing its short
+name, which the tool shows (for example `serotonin-toxicity`).
+
+```bash
+npm run clinical:review -- --write --walk --kind differential --reviewed-by "Dr <your surname>"
+```
+
+The three questions mean the same thing here. "The wording matches its source" means each
+statement matches what you would accept from a current guideline or standard text. A step
+that tells a clinician what to do, rather than what to check, deserves the closest read.
+
+## Signing off Formulation
+
+Formulation has three walk-throughs. Do the guide modules first, because they instruct
+rather than define. Guide 8, for example, makes a specific claim about NICE NG225 and
+suicide risk prediction. Then do the 12 mechanisms, then the 46 concepts.
+
+```bash
+npm run clinical:review -- --write --walk --kind formulation-guide --reviewed-by "Dr <your surname>"
+```
+
+```bash
+npm run clinical:review -- --write --walk --kind formulation-mechanism --reviewed-by "Dr <your surname>"
+```
+
+```bash
+npm run clinical:review -- --write --walk --kind formulation-concept --reviewed-by "Dr <your surname>"
+```
+
+Each screen shows every field of the record, including its evidence list. Confirm each one by
+typing its id, which the tool shows (for example `guide-08` or `avoidance`). Once signed, the
+record's badge changes from "Awaiting clinical review" to "Clinically reviewed" with your name.
+
+## Signing off Therapy
+
+Therapy uses its own tool, with seven questions per record instead of three: clinical
+accuracy, source correspondence, evidence appraisal, safety and cautions, the patient-facing
+explanation, proofreading, and Australian English. The walk-through goes through all 205 in
+catalogue order. Confirm each one by typing `REVIEW` and its short name, which the tool shows.
+
+```bash
+npm run therapy:review -- --write --walk --reviewed-by "Dr <your surname>"
+```
+
+47 Therapy records list no references yet. The walk-through leaves them out, because the
+source correspondence question cannot be answered yes without a source; they stay awaiting
+review until one is adopted. Type `skip` at any question to move on to the next record
+without saving the one on screen.
+
+## Indigenous content is never signed off here
+
+Owner rule, 2026-09-26. Any record that mentions Aboriginal or Torres Strait Islander people,
+First Nations, Indigenous, social and emotional wellbeing (SEWB), or an Indigenous-specific
+service is held back: it is left out of every walk-through, pack and batch, the tool refuses to
+sign it even by its code, and a record found signed anyway turns the project's checks red. It
+needs review under Aboriginal governance instead. The queue report shows how many are held in
+each set. The match is deliberately broad, so a record can be held for a passing mention; that
+only leaves it awaiting review, which is the safe state.
+
+## Specifiers and dictionary rewrites
+
+Two more sets work with the same walk-through, pack and batch commands:
+
+- `--kind specifier`: the 71 specifiers with a written definition plus the 18 general
+  specifiers. These definitions are hidden on the site today because an automated check found
+  scattered clinical errors among them; signing one says it is correct against DSM-5-TR, and the
+  page then shows it. The other 494 specifiers have no definition yet, so there is nothing to sign.
+- `--kind dictionary-rewrite`: the 28 proposed rewrites of existing dictionary definitions.
+  Approving one records your approval; the site keeps the current wording until the approved
+  rewrites are applied in a separate step.
+
+## Signing off a whole set at once (batch)
+
+Owner decision, 2026-09-26. Instead of answering the questions record by record, you can
+read a whole set in your browser and sign it in one go.
+
+1. Write the review pack for one set. It is saved in the `sign-off-packs` folder inside the
+   project folder:
+
+   ```bash
+   npm run clinical:review -- --pack --kind formulation-concept --reviewed-by "PsychSift"
+   ```
+
+2. Open the pack in your browser and read every record. At the top it shows a **sign-off
+   code** (eight letters and numbers) and the exact command to run. Note the code of any
+   record you are not happy with; it is shown under each record's title.
+
+3. Run the command from the top of the pack. Put the codes of the records you are not happy
+   with after `--exclude`, separated by commas with no spaces, or leave `--exclude` out:
+
+   ```bash
+   npm run clinical:review -- --write --batch --kind formulation-concept --reviewed-by "PsychSift" --exclude hopelessness,guilt
+   ```
+
+4. Answer the three questions once. Answer yes only if the statement is true of every
+   record you are signing. Then type the sign-off code from the top of the pack.
+
+If any record changed after the pack was written, the code will not match and nothing is
+signed. Write a fresh pack and read that one. Excluded records stay awaiting review.
+
+The same works for `--kind differential`, `formulation-guide`, `formulation-mechanism`,
+`form`, `section`, `timeframe`, `specifier` and `dictionary-rewrite`. For Therapy:
+
+```bash
+npm run therapy:review -- --pack --reviewed-by "PsychSift"
+```
+
+```bash
+npm run therapy:review -- --write --batch --reviewed-by "PsychSift" --exclude <slugs>
+```
+
 ## Saving and sending your sign-offs
 
 Your sign-offs are saved only on your computer until you send them. When you have finished
@@ -174,6 +296,24 @@ a session:
     git add data/mha-timeframes.json
     ```
 
+    For the differential overlays:
+
+    ```bash
+    git add data/differential-curated-review.json
+    ```
+
+    For Formulation (all three walk-throughs):
+
+    ```bash
+    git add src/data/formulation-concepts.json src/data/formulation-content.json
+    ```
+
+    For Therapy:
+
+    ```bash
+    git add src/data/therapies-source.json src/data/therapies-index.json src/data/therapy-catalogue-assets.ts public/therapy-compass-data
+    ```
+
 12. Save them with a short note:
 
     ```bash
@@ -181,7 +321,8 @@ a session:
     ```
 
     (For sections, use `"Clinical sign-off: Act sections"`; for deadlines,
-    `"Clinical sign-off: Act deadlines"`.)
+    `"Clinical sign-off: Act deadlines"`; otherwise name what you signed, for example
+    `"Clinical sign-off: differentials"`.)
 
 13. Send them, using the same date as your branch name:
 
@@ -192,7 +333,10 @@ a session:
     This can take a minute or two while the project runs its own checks.
 
 Then tell Claude in the chat: "open a PR for my sign-offs on clinical-signoff-2026-10-01"
-(with your date), and Claude will take it from there.
+(with your date), and Claude will take it from there. A sign-off also changes a few derived
+files and counts that the project's checks compare against (for example the site-content
+manifest fixture and the sign-off queue counts). Claude refreshes those in the pull request;
+you do not need to.
 
 If `git push` (or any step) fails, copy the last line of the message it printed and paste it
 to Claude in the chat. Your sign-offs are still saved on your computer, so nothing is lost.

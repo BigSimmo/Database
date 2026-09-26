@@ -104,8 +104,9 @@ choice and are worth stating plainly:
 - The 2026-09-02 audit's own fix sketch (finding L4) initially proposed twelve months ("fails loudly on 2027-08-20").
 
 Six months is the more conservative of the two, which is appropriate for numbers dialled in crisis
-at 3am. The 6-month re-verification cadence is now canonical across all care-plan and caring-contacts
-surfaces.
+at 3am. The 6-month re-verification cadence is now canonical across all care-plan
+surfaces. (The Caring Contacts prototype, which also printed crisis numbers on this cadence, was
+retired on 2026-09-26.)
 
 ### The procedure
 

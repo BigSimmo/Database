@@ -233,6 +233,31 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "sources", "on-call"],
     remoteSearchEnabled: false,
   },
+  psychiatry: {
+    // Psychiatry is a dashboard of links to the sections it gathers, each of
+    // which keeps its own search, so its command panel must not query the
+    // remote index; the cross-modes are those sections.
+    examples: [...sharedHomePresentation.psychiatry.suggestions],
+    suggestions: [
+      { text: "major depressive disorder", meta: "DSM-5 Diagnosis" },
+      { text: "behavioural activation", meta: "Therapy" },
+      { text: "Form 1A", meta: "Forms" },
+    ],
+    crossModes: ["dsm", "therapy-compass", "forms"],
+    remoteSearchEnabled: false,
+  },
+  "my-work": {
+    // My Work is a dashboard over the owner's own On Call admin pages, already
+    // in the browser, so its command panel must not query the remote index.
+    examples: [...sharedHomePresentation["my-work"].suggestions],
+    suggestions: [
+      { text: "leave", meta: "Admin" },
+      { text: "registration", meta: "Compliance" },
+      { text: "roster", meta: "My shifts" },
+    ],
+    crossModes: ["on-call", "cme", "documents"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ba7cb647-b4c7-43d4-a3f4-4e034bfec15f",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Payslip discrepancy enquiry pack and study budget/claim pack",
+    "detail": "Review items D16, F19, F31. Compare rostered, actual and paid hours for one pay period and produce an itemised enquiry pack (not an underpayment claim); link course fees, receipts, leave and reimbursement status. Outside the clinical core and needs the correct WA agreement and clauses verified first; lowest priority.",
+    "source": "Master product review 2026-09-26 (thread: Review master review ideas); cross-checked against main 004ab6301",
+    "issueUlid": "01M3DZQ0FFG20QE6E8HFCBFP3W"
+  }
+}

@@ -21,7 +21,7 @@ import {
 
 // The hazard register is the one developer-hub panel whose failure mode is
 // clinical rather than cosmetic: a row silently dropped, a status quietly
-// rounded to "controlled", or three registers merged into one list all
+// rounded to "controlled", or separate registers merged into one list all
 // under-report unmitigated risk on a page whose whole purpose is to report it.
 // These tests are written around those three failures, not around rendering.
 
@@ -97,7 +97,7 @@ describe("markdown parsing", () => {
 });
 
 describe("normaliseStatus", () => {
-  it("maps the three states the Caring Contacts document defines", () => {
+  it("maps the three states a markdown hazard log defines", () => {
     expect(normaliseStatus("UNMITIGATED")).toBe("unmitigated");
     expect(normaliseStatus("Partial")).toBe("partial");
     expect(normaliseStatus("Controlled — unreviewed")).toBe("controlled-unreviewed");
@@ -128,17 +128,20 @@ describe("reviewExpired", () => {
 });
 
 describe("buildHazardSnapshot against the real repository documents", () => {
-  // The generator is plain JavaScript, so TypeScript infers a loose union of
-  // the three register shapes from it. Asserting it to the loader's own type
+  // The generator is plain JavaScript, so TypeScript infers a loose shape
+  // from it. Asserting it to the loader's own type
   // here is what the page consumes, and doubles as a check that the generator
   // still produces that shape.
   const snapshot = buildHazardSnapshot(new Date("2026-09-08T00:00:00Z")) as HazardSnapshot;
 
-  it("keeps the three registers separate and never merges them into one list", () => {
-    expect(snapshot.registers.map((register) => register.id)).toEqual([
-      "psychsift-answer-pipeline",
-      "caring-contacts",
-      "ward-flow",
+  it("keeps each live register separate and never merges them into one list", () => {
+    expect(snapshot.registers.map((register) => register.id)).toEqual(["psychsift-answer-pipeline"]);
+  });
+
+  it("records the two registers retired with their prototypes by name, date and status only", () => {
+    expect(snapshot.retired).toEqual([
+      { name: "Caring Contacts", retiredAt: "2026-09-26", status: "draft never signed; retired" },
+      { name: "Ward Flow", retiredAt: "2026-09-26", status: "no register ever written; retired" },
     ]);
   });
 
@@ -151,41 +154,12 @@ describe("buildHazardSnapshot against the real repository documents", () => {
     expect(psychsift.authority).toContain("Static evidence register only");
   });
 
-  it("reads the Caring Contacts log as an unsigned draft whose Part A controls are governance-gated", () => {
-    const caringContacts = snapshot.registers[1];
-    expect(caringContacts.signedOff).toBe(false);
-    expect(caringContacts.authority).toContain("requires clinical sign-off by the owner before any real-patient use");
-    expect(caringContacts.authority).toContain("nothing in it constitutes approval of a pilot");
-    expect(caringContacts.authority).toContain(
-      "No row below has been reviewed, accepted, or signed off by a clinician",
-    );
-    const uncontrolled = caringContacts.hazards.filter((hazard) => hazard.status === "unmitigated");
-    expect(uncontrolled).toEqual([]);
-    const partA = caringContacts.hazards.filter((hazard) =>
-      ["H-00", "H-04", "H-05", "H-36", "H-44"].includes(hazard.id),
-    );
-    expect(partA.map((hazard) => hazard.id)).toEqual(["H-00", "H-04", "H-05", "H-36", "H-44"]);
-    expect(partA.every((hazard) => hazard.hasControl === true)).toBe(true);
-    expect(partA.every((hazard) => hazard.status === "controlled-unreviewed")).toBe(true);
-  });
-
-  it("records Ward Flow's missing register as a finding, with only its blocking ledger rows beside it", () => {
-    const wardFlow = snapshot.registers[2];
-    expect(wardFlow.exists).toBe(false);
-    expect(wardFlow.hazards).toEqual([]);
-    // Never called `hazards`: a summary text match is not a register.
-    const mentions = wardFlow.ledgerMentions ?? [];
-    expect(mentions.length).toBeGreaterThan(0);
-    expect(mentions.every((mention) => mention.priority === "P1")).toBe(true);
-    expect(mentions.every((mention) => /ward flow/i.test(mention.summary))).toBe(true);
-  });
-
   it("counts what is NOT controlled, and counts every row exactly once", () => {
     const counted = snapshot.registers.reduce((total, register) => total + register.hazards.length, 0);
     expect(snapshot.counts.hazards).toBe(counted);
     expect(snapshot.counts.unmitigated).toBe(0);
-    expect(snapshot.counts.registersMissing).toBe(1);
-    expect(snapshot.counts.registersUnsigned).toBe(2);
+    expect(snapshot.counts.registersMissing).toBe(0);
+    expect(snapshot.counts.registersUnsigned).toBe(1);
   });
 });
 
@@ -203,6 +177,7 @@ describe("the committed snapshot the page renders", () => {
     // regeneration and would make this a test of the clock.
     expect(committed.registers).toEqual(rebuilt.registers);
     expect(committed.counts).toEqual(rebuilt.counts);
+    expect(committed.retired).toEqual(rebuilt.retired);
   });
 
   it("surfaces every uncontrolled hazard with the register it came from", () => {
@@ -214,7 +189,7 @@ describe("the committed snapshot the page renders", () => {
   });
 
   it("names the areas with no register at all", () => {
-    expect(missingRegisters(loadHazardSnapshot()).map((register) => register.name)).toEqual(["Ward Flow"]);
+    expect(missingRegisters(loadHazardSnapshot()).map((register) => register.name)).toEqual([]);
   });
 
   it("breaks a register down without losing a row to an unrecognised status", () => {

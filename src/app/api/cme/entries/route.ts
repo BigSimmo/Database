@@ -8,6 +8,8 @@ import {
 } from "@/lib/api-rate-limit";
 import { cpdYearOf } from "@/lib/cme/cpd-year";
 import { DEMO_CME_ENTRIES, DEMO_CME_INSTANT, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
+import { deleteOwnerCmeDraft } from "@/lib/cme/drafts-repository";
+import { setOwnerCmeMissedSessionReplacement } from "@/lib/cme/missed-sessions-repository";
 import { assertValidCmeLinkedIds, fetchOwnerCmeEntries, fetchOwnerCmeYear, insertCmeEntry } from "@/lib/cme/repository";
 import { cmeEntryCreateSchema, cmeListQuerySchema } from "@/lib/cme/schemas";
 import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
@@ -32,7 +34,7 @@ function demoEntriesForYear(year: number): readonly CmeEntry[] {
 
 export async function GET(request: Request) {
   try {
-    const { year } = parseRequestQuery(request, cmeListQuerySchema, "Invalid CME query.");
+    const { year } = parseRequestQuery(request, cmeListQuerySchema, "Invalid CPD query.");
 
     if (isDemoMode()) {
       const targetYear = year ?? cpdYearOf(DEMO_CME_INSTANT);
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     const targetYear = year ?? cpdYearOf(new Date());
@@ -72,7 +74,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     if (isDemoMode()) {
-      return publicErrorResponse("CME entries cannot be created in demo mode.", 400, {
+      return publicErrorResponse("CPD entries cannot be created in demo mode.", 400, {
         code: "demo_mode_unavailable",
       });
     }
@@ -89,12 +91,12 @@ export async function POST(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     // One schema covers the whole entry — no polymorphic per-section shape the way On Call
     // has, so a single parse (reject rather than coerce) is the whole validation step.
-    const body = await parseJsonBody(request, cmeEntryCreateSchema, "Invalid CME entry.");
+    const body = await parseJsonBody(request, cmeEntryCreateSchema, "Invalid CPD entry.");
 
     // `activity_date` is a Perth calendar date the application already computed (see
     // `cme_entries.activity_date` in the migration) — the year it belongs to is read directly
@@ -135,7 +137,18 @@ export async function POST(request: Request) {
     });
 
     const created = await insertCmeEntry(supabase, user.id, yearRow.id, entry, body.requestId);
-    return NextResponse.json({ entry: created }, { status: 201 });
+    // Only once the activity is saved: finish the draft it came from and link the missed session it
+    // replaces. Either can fail without undoing the save; the draft or the link is simply left for
+    // the owner to tidy on the log. A repeat save returns the same entry, and deleting a draft that
+    // is already gone does nothing.
+    const followUps = await Promise.allSettled([
+      body.draftId ? deleteOwnerCmeDraft(supabase, user.id, body.draftId) : null,
+      body.missedSessionId
+        ? setOwnerCmeMissedSessionReplacement(supabase, user.id, body.missedSessionId, created.id)
+        : null,
+    ]);
+    const linkedMissedSession = Boolean(body.missedSessionId) && followUps[1].status === "fulfilled";
+    return NextResponse.json({ entry: created, linkedMissedSession }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

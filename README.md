@@ -232,7 +232,7 @@ prompt such as: _"Call Figma whoami and report only handle and plan tier."_
 
 ## Documentation
 
-Process and freshness (Documentation agent): [`docs/DOCS-SYSTEM.md`](docs/DOCS-SYSTEM.md) — pipeline, doc classes, recheck triggers, PsychSift + Ward Flow registry.
+Process and freshness (Documentation agent): [`docs/DOCS-SYSTEM.md`](docs/DOCS-SYSTEM.md) — pipeline, doc classes, recheck triggers, PsychSift registry.
 
 Full categorized index: `docs/README.md` (maintained docs vs point-in-time
 records vs archive). The most load-bearing entries:

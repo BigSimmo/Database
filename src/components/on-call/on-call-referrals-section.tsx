@@ -18,6 +18,7 @@ import { Disclosure } from "@/components/ui/disclosure";
 import { cn, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallTagFacet } from "@/lib/on-call/entry-filters";
 import {
+  isOnCallHttpUrl,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
   type OnCallEntry,
@@ -106,7 +107,7 @@ function ReferralPanel({ entry, details }: { entry: OnCallEntry; details: OnCall
           <OnCallCopyNumber value={details.phone} label={`Copy referral number for ${entry.title}`} />
         </div>
       ) : null}
-      {details.referralFormUrl ? (
+      {isOnCallHttpUrl(details.referralFormUrl) ? (
         <ExternalTextLink href={details.referralFormUrl} className="min-h-tap items-center text-sm">
           Referral form
         </ExternalTextLink>

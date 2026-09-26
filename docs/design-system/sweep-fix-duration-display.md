@@ -1,9 +1,11 @@
 # Design sweep fix: readable durations on the Team screen
 
 **Date:** 2026-08-29
-**File touched:** `src/components/caring-contacts/workspace/team-roster.tsx`
-**New file:** `src/lib/caring-contacts/duration-display.ts` (+ `tests/caring-contacts-duration-display.test.ts`)
-**Also touched (test-only):** `tests/caring-contacts-team-roster.dom.test.tsx`
+**Retired 2026-09-26:** the Caring Contacts files named below were removed with that prototype;
+read them from git history at commit 8ec68fd32.
+**File touched:** src/components/caring-contacts/workspace/team-roster.tsx
+**New file:** src/lib/caring-contacts/duration-display.ts (+ tests/caring-contacts-duration-display.test.ts)
+**Also touched (test-only):** tests/caring-contacts-team-roster.dom.test.tsx
 
 ## The defect
 
@@ -20,7 +22,7 @@ unclaimed plan) already read correctly, so the defect only appeared once a wait 
 ## What changed
 
 Presentation only. Added `formatMinutesDuration(totalMinutes: number): string` in
-`src/lib/caring-contacts/duration-display.ts` and used it at every place `team-roster.tsx` renders
+src/lib/caring-contacts/duration-display.ts and used it at every place `team-roster.tsx` renders
 a minute count as a wait:
 
 1. `unclaimedAgeSentence` (~line 148) — the escalation's screen-reader announcement and the
@@ -81,7 +83,7 @@ function; nothing here can let them drift from each other.
 
 ## Existing tests I had to change, and why
 
-`tests/caring-contacts-team-roster.dom.test.tsx` fixtures use `oldestMinutesUnclaimed: 145` in
+tests/caring-contacts-team-roster.dom.test.tsx fixtures use `oldestMinutesUnclaimed: 145` in
 several cases and asserted the literal string `"145 minutes"` (four assertions: the escalation
 group's text, a negative-control absence check, the "oldest has been waiting" sentence, and the
 combined-both-ages sentence). Fixing the display necessarily changes what those fixtures render —
@@ -91,8 +93,8 @@ in the same file stayed under an hour and needed no change; I left it and the as
 ("45 minutes since its scheduled send") untouched, and used it in one comment as the paired example
 of the short-duration path still being exact.
 
-No assertion in `tests/caring-contacts-team-page.dom.test.tsx`, `tests/caring-contacts-team-route.test.ts`,
-or `tests/caring-contacts-team-workload.test.ts` checks rendered minute text — the workload test
+No assertion in tests/caring-contacts-team-page.dom.test.tsx, tests/caring-contacts-team-route.test.ts,
+or tests/caring-contacts-team-workload.test.ts checks rendered minute text — the workload test
 asserts the raw domain numbers (`.toBe(90)`, `.toBe(UNCLAIMED_ESCALATION_MINUTES)`, etc.), which are
 untouched by a presentation-only change, so none of those needed edits.
 

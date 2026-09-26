@@ -155,7 +155,51 @@ describe("fetchSharedOnCallEntries is deny-by-default", () => {
       `${undeclared.join(", ")} can be stored but is not in PUBLIC_ON_CALL_SECTIONS. ` +
         "Decide whether an anonymous reader may see it, then add it there with a reason — or leave it out on purpose " +
         "and update this expectation.",
-    ).toEqual([]);
+      // `education` is left out on purpose (owner decision, 2026-09-26): a
+      // teaching list is its owner's own and reaches nobody else.
+    ).toEqual(["education"]);
+  });
+
+  it("does not serve Teaching entries on the shared read", async () => {
+    const TEACHING_ROW = {
+      ...SHARED_ROW,
+      id: "12121212-1212-4121-8121-121212121212",
+      section: "education",
+      slug: "grand-round",
+      title: "Grand round",
+      details: { topics: [] },
+    };
+    expect(PUBLIC_ON_CALL_SECTIONS as readonly string[]).not.toContain("education");
+    // Checked on the returned rows too, not only in the query, so a request
+    // for the section — or a row the filter somehow let through — gets nothing.
+    const client = fakeClient([SHARED_ROW, TEACHING_ROW]);
+    expect((await fetchSharedOnCallEntries(client as never)).map((entry) => entry.id)).toEqual([SHARED_ROW.id]);
+    expect(await fetchSharedOnCallEntries(fakeClient([TEACHING_ROW]) as never, { section: "education" })).toEqual([]);
+  });
+
+  it("still returns a viewer's own Teaching entries to them", async () => {
+    const TEACHING_ROW = {
+      ...SHARED_ROW,
+      id: "12121212-1212-4121-8121-121212121212",
+      section: "education",
+      slug: "grand-round",
+      title: "Grand round",
+      details: { topics: [] },
+    };
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      in: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({ data: [TEACHING_ROW], error: null }),
+    };
+    const entries = await fetchVisibleOnCallEntries({ from: vi.fn(() => chain) } as never, "owner-1", {
+      section: "education",
+    });
+    expect(entries.map((entry) => [entry.id, entry.isOwn])).toEqual([[TEACHING_ROW.id, true]]);
   });
 
   it("returns an explicit set of fields, so a new column is not published by being added", async () => {
@@ -380,12 +424,71 @@ describe("fetchSharedOnCallEntries and compliance requirements", () => {
   });
 });
 
+/**
+ * A colleague's name is the author's own note. The number and the role are what
+ * a covering doctor needs; the name went to every visitor and sat in their
+ * device cache for a week (owner decision, 2026-09-26).
+ */
+describe("contact names on the shared read", () => {
+  const NAMED_ROW = {
+    ...SHARED_ROW,
+    id: "13131313-1313-4131-8131-131313131313",
+    slug: "ed-reg",
+    title: "ED registrar",
+    details: { role: "ED registrar", phone: "9224 0001", contactName: "Dr A. Colleague", availability: "24/7" },
+  };
+
+  it("drops contactName from a shared row for a viewer who does not own it", async () => {
+    const [entry] = await fetchSharedOnCallEntries(fakeClient([NAMED_ROW]) as never);
+    expect(entry.details).toEqual({ role: "ED registrar", phone: "9224 0001", availability: "24/7" });
+    expect(JSON.stringify(entry)).not.toContain("Dr A. Colleague");
+  });
+
+  it("drops it for a signed-in viewer who is not the owner", async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      in: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi
+        .fn()
+        // The shared read sees the row; this viewer owns nothing.
+        .mockResolvedValueOnce({ data: [NAMED_ROW], error: null })
+        .mockResolvedValueOnce({ data: [], error: null }),
+    };
+    const otherViewer = await fetchVisibleOnCallEntries({ from: vi.fn(() => chain) } as never, "owner-2");
+    expect(otherViewer).toHaveLength(1);
+    expect(JSON.stringify(otherViewer)).not.toContain("Dr A. Colleague");
+  });
+
+  it("keeps contactName for the owner, whose own copy wins the merge", async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      in: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce({ data: [NAMED_ROW], error: null })
+        .mockResolvedValueOnce({ data: [NAMED_ROW], error: null }),
+    };
+    const [entry] = await fetchVisibleOnCallEntries({ from: vi.fn(() => chain) } as never, "owner-1");
+    expect(entry.isOwn).toBe(true);
+    expect(entry.details).toMatchObject({ contactName: "Dr A. Colleague" });
+    expect((await fetchOwnerOnCallEntries(fakeClient([NAMED_ROW]) as never, "owner-1"))[0].details).toMatchObject({
+      contactName: "Dr A. Colleague",
+    });
+  });
+});
+
 describe("fetchVisibleOnCallEntries", () => {
-  it("returns only the shared set for an anonymous viewer", async () => {
+  // Reversed on 2026-09-26: shared entries are for signed-in users only. Until then an anonymous
+  // viewer got the whole shared set here.
+  it("returns nothing to an anonymous viewer, without running either read", async () => {
     const client = fakeClient([SHARED_ROW]);
     const entries = await fetchVisibleOnCallEntries(client as never, undefined);
-    expect(entries.map((entry) => entry.title)).toEqual(["Switchboard"]);
-    expect(client.chain.eq).not.toHaveBeenCalledWith("owner_id", expect.anything());
+    expect(entries).toEqual([]);
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("adds the viewer's own entries, including the personal ones the shared read withholds", async () => {
@@ -417,11 +520,6 @@ describe("fetchVisibleOnCallEntries", () => {
     const entries = await fetchVisibleOnCallEntries(client as never, "owner-1");
     const byTitle = Object.fromEntries(entries.map((entry) => [entry.title, entry.isOwn]));
     expect(byTitle).toEqual({ Switchboard: true, Ward: false });
-  });
-
-  it("marks every row as not the reader's when nobody is signed in", async () => {
-    const entries = await fetchVisibleOnCallEntries(fakeClient([SHARED_ROW]) as never, undefined);
-    expect(entries.every((entry) => entry.isOwn === false)).toBe(true);
   });
 
   it("returns one object per entry when both reads see the same row", async () => {

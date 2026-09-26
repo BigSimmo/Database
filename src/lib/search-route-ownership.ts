@@ -50,6 +50,10 @@ export const standaloneModeHomePaths = [
   // a body, and the mode declares no search surface, so without it the mode pill
   // would retarget a composer CME has nowhere to send.
   "/cme",
+  // Psychiatry's dashboard of section links, for the same reason again.
+  "/psychiatry",
+  // My Work's dashboard, for the same reason again.
+  "/my-work",
 ] as const;
 
 /**
@@ -101,6 +105,13 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // the reader on a page that ignores it.
     case "cme":
       return "/cme";
+    // The Psychiatry dashboard at `/psychiatry`, on the same reasoning: it is a
+    // page of links to the sections it gathers, with no results surface.
+    case "psychiatry":
+      return "/psychiatry";
+    // The My Work dashboard at `/my-work`, likewise a page of links.
+    case "my-work":
+      return "/my-work";
     default:
       return null;
   }
@@ -165,6 +176,8 @@ const alwaysStandaloneShellPathPrefixes = [
   "/tools",
   "/on-call",
   "/cme",
+  "/psychiatry",
+  "/my-work",
 ] as const;
 
 /**

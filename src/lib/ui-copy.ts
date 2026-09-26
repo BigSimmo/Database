@@ -125,9 +125,20 @@ export const sharedHomePresentation = {
     suggestions: ["after-hours registrar", "acute behavioural disturbance", "ward 4B number"],
   },
   cme: {
-    title: "CME",
+    // "CPD", the RANZCP term; the mode id stays `cme` so no URL or stored key moves.
+    title: "CPD",
     subtitle: "What you have done this year, and what is still short.",
     suggestions: ["peer review group", "journal club", "audit"],
+  },
+  psychiatry: {
+    title: "Psychiatry",
+    subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+    suggestions: ["major depressive disorder", "behavioural activation", "Form 1A"],
+  },
+  "my-work": {
+    title: "My Work",
+    subtitle: "Paperwork, deadlines and checks, with what is due first.",
+    suggestions: ["leave", "registration", "roster"],
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 

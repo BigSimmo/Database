@@ -7,7 +7,7 @@ import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
 import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
-import { catalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
+import { catalogueDegradedNotice } from "@/lib/site-content/catalogue-degraded-notice";
 
 /**
  * How far the count can be trusted. This is a union rather than a pair of

@@ -70,7 +70,7 @@ import {
 } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { compactBestUseTitle } from "@/lib/compact-best-use-title";
-import { withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
+import { withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-degraded-notice";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,

@@ -70,6 +70,24 @@ export function recurrenceRule(recurrence: CalendarRecurrence): string {
   }
 }
 
+/**
+ * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant. Written only
+ * when the owner's reminder settings gave the event an alarm, so an event
+ * without one is byte-for-byte what it was before alarms existed.
+ */
+function alarmLines(event: CalendarEvent): string[] {
+  if (!event.alarmAt) return [];
+  const instant = new Date(event.alarmAt);
+  if (Number.isNaN(instant.getTime())) return [];
+  return [
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
+    `DESCRIPTION:${escapeIcsText(event.title)}`,
+    "END:VALARM",
+  ];
+}
+
 function eventLines(event: CalendarEvent, stamp: Date): string[] {
   const lines = ["BEGIN:VEVENT", `UID:${event.id}@${UID_DOMAIN}`, `DTSTAMP:${compactUtc(stamp)}`];
   const range = eventUtcRange(event);
@@ -86,6 +104,7 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
   lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
   if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);
+  lines.push(...alarmLines(event));
   lines.push("END:VEVENT");
   return lines;
 }

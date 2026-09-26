@@ -192,10 +192,10 @@ describe("annual summary PDF", () => {
       expect(document.title).toBe("CPD annual summary 2026");
       window.dispatchEvent(new Event("afterprint"));
     });
-    document.title = "Summary | CME";
+    document.title = "Summary | CPD";
     render(<CmeAnnualSummary set={SET} entries={ENTRIES} />);
     screen.getByTestId("cme-summary-save-pdf").click();
     expect(print).toHaveBeenCalledTimes(1);
-    expect(document.title).toBe("Summary | CME");
+    expect(document.title).toBe("Summary | CPD");
   });
 });

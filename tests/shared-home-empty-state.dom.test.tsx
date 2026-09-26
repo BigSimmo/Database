@@ -116,9 +116,21 @@ const expectedPresentations = [
   },
   {
     modeId: "cme",
-    title: "CME",
+    title: "CPD",
     subtitle: "What you have done this year, and what is still short.",
     iconClass: "lucide-graduation-cap",
+  },
+  {
+    modeId: "psychiatry",
+    title: "Psychiatry",
+    subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+    iconClass: "lucide-brain",
+  },
+  {
+    modeId: "my-work",
+    title: "My Work",
+    subtitle: "Paperwork, deadlines and checks, with what is due first.",
+    iconClass: "lucide-clipboard-list",
   },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;

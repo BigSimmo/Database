@@ -7,17 +7,17 @@
 // builds an href whose shape matches it. It does NOT prove a person can reach the page. A link built
 // inside a `.map()` may iterate a whole collection or a context-derived subset of one, and the two
 // are textually identical. Read a passing run as "something links this", never as "this is
-// reachable". `tests/ward-nav.test.ts` makes the same distinction in its own title and for the same
-// reason.
+// reachable". The retired Ward Flow prototype's navigation test made the same distinction in its
+// own title and for the same reason.
 //
 // WHY THIS FILE EXISTS AT ALL, since a reader will reasonably suspect it duplicates something.
 // `tests/route-reachability.test.ts` removes every dynamic route before it asserts anything
 // (`!entry.route.includes("[")`), by design — its header says interpolated hrefs are brittle to
 // pattern-match. `tests/site-map.test.ts` proves each route is DOCUMENTED, and regenerates that doc
-// from the same filesystem walk, so a route that moved updates both sides and stays green. And
-// `tests/ward-nav.test.ts` covers the design-scratch tree under `src/app/mockups/ward-flow/` only.
-// The result was an inversion: the mockups had a strong reachability guard and the pages real users
-// load had none.
+// from the same filesystem walk, so a route that moved updates both sides and stays green. And the
+// retired Ward Flow prototype's navigation test covered only its own design-scratch tree. The result
+// was an inversion: the mockups had a strong reachability guard and the pages real users load had
+// none.
 //
 // THREE THINGS HERE ARE LOAD-BEARING RATHER THAN TIDY. Each is a check that could not fail, found in
 // this repository rather than imagined:
@@ -62,8 +62,8 @@ import { stripAllComments } from "./helpers/strip-source-comments";
 
 const repoRoot = path.resolve(__dirname, "..");
 // `path.resolve(__dirname, "..")` rather than `process.cwd()`: a cwd-relative read passes or fails
-// depending on where the runner happened to start, which `tests/ward-flow-sandbox.test.ts`
-// documents having been caught by.
+// depending on where the runner happened to start, which a since-retired prototype's sandbox test
+// documented having been caught by.
 
 const APP_DIR = path.join(repoRoot, "src", "app");
 const SRC_DIR = path.join(repoRoot, "src");
@@ -266,10 +266,10 @@ function readTemplateLiteral(source: string, start: number): { body: string; end
 /**
  * ⚠️ HREFS ASSEMBLED FROM CONSTANTS, WHICH THIS SCAN COULD NOT SEE AND THEREFORE CALLED ORPHANS.
  *
- * `patientRoute()` returns `` `${CARING_CONTACTS_ROUTES.patients}/${encodeURIComponent(id)}` ``,
- * and `CARING_CONTACTS_ROUTES.patients` is itself `` `${CARING_CONTACTS_BASE}/patients` ``. So the
- * string `/caring-contacts/patients/` exists NOWHERE in the source, while three real
- * `<Link href={patientRoute(...)}>` controls point at the route. The scan reported two reachable
+ * Found on the since-retired Caring Contacts workspace: its `patientRoute()` returned
+ * `` `${ROUTES.patients}/${encodeURIComponent(id)}` ``, and `ROUTES.patients` was itself
+ * `` `${BASE}/patients` ``. So the literal patients path existed NOWHERE in the source, while three
+ * real `<Link href={patientRoute(...)}>` controls pointed at the route. The scan reported two reachable
  * routes as unreachable, and the tempting fix — adding them to the exception map — would have
  * recorded a falsehood about the codebase in the one place meant to hold the truth about it.
  *
@@ -295,7 +295,7 @@ function pathConstants(files: readonly { stripped: string }[]): ReadonlyMap<stri
     /([A-Za-z_][A-Za-z0-9_]*)\s*:\s*`([^`]*)`/g,
   ];
   const memberAlias = /([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*,/g;
-  // ⚠️ NOT `[^}]*`: an interpolation such as `${CARING_CONTACTS_BASE}` contains a closing brace,
+  // ⚠️ NOT `[^}]*`: an interpolation such as `${SOME_BASE}` contains a closing brace,
   // so that class truncates the object at its first composed member — which is exactly the
   // member this resolver exists to read. Match lazily to a brace at the start of a line.
   const objects = new RegExp("(?:export\\s+)?const\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*\\{([^]*?)\\n}", "g");
@@ -325,7 +325,8 @@ function pathConstants(files: readonly { stripped: string }[]): ReadonlyMap<stri
 
 /**
  * ⚠️ A ROUTE BUILDER'S OWN DEFINITION MUST NOT VOUCH FOR ITS ROUTE, and the first version of this
- * fix let it. `pathwayRoute()` returns `` `${CARING_CONTACTS_ROUTES.templates}/${id}` ``, so once
+ * fix let it. The since-retired Caring Contacts workspace's `pathwayRoute()` returned
+ * `` `${ROUTES.templates}/${id}` ``, so once
  * constants resolved, the routes module contained a string of the right shape — and the route
  * counted as referenced even with EVERY real `<Link>` to it deleted. Proved by mutation: removing
  * the only inbound link left this file green.
@@ -554,14 +555,6 @@ describe("production dynamic route reachability", () => {
     // Written out in full rather than counted. A seventeenth production dynamic route arriving here
     // should cost somebody a decision about how its instances are reached, not a number.
     expect([...dynamicRoutes].sort()).toEqual([
-      // ⚠️ THREE ARRIVED FROM `main` IN THE 2026-09-03 MERGE, and the two caring-contacts routes
-      // are the reason this file gained a constant resolver. `patientRoute()` builds
-      // `${CARING_CONTACTS_ROUTES.patients}/${id}`, so the literal path exists nowhere in the
-      // source while three real `<Link>` controls point at it. The scan called them orphans;
-      // adding them to the exception map would have recorded a falsehood about the codebase in
-      // the one place meant to hold the truth about it.
-      "/caring-contacts/patients/[patientId]",
-      "/caring-contacts/templates/[pathwayId]",
       // CME's one entry record. Reached from the log's rows, which build
       // `/cme/log/${entry.id}` — a template literal this scan reads directly.
       "/cme/log/[id]",

@@ -34,7 +34,7 @@ export async function PUT(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
     const body = await parseJsonBody(request, cmePlanGoalsSaveSchema, "Check your goals and try again.");
     const year = await fetchOwnerCmeYear(supabase, user.id, body.year);

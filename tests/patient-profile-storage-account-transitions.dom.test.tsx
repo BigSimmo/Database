@@ -6,7 +6,8 @@
 // already clear recent queries, the answer thread and the signed-URL cache. This
 // file pins the stores those paths were missing: the sessionStorage patient
 // physiology profile (2026-09-02 audit, M4), the favourites pins / last-opened
-// keys (L2) and the Caring Contacts plan draft (L6).
+// keys (L2) and the legacy plan-draft key left by the retired Caring Contacts
+// prototype (L6), which a browser that used it may still hold.
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -65,16 +66,8 @@ import {
   toggleFavouritePinnedId,
 } from "@/components/favourites/favourites-storage";
 import {
-  PLAN_DRAFT_STORAGE_KEY,
-  clearCaringContactsBrowserState,
-  clearPlanDraft,
-  emptyPlanDraft,
-  planDraftSnapshot,
-  subscribeToPlanDraft,
-  writePlanDraft,
-} from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
-import {
   ACCOUNT_TRANSITION_EVENT,
+  PLAN_DRAFT_STORAGE_KEY,
   clearAccountScopedBrowserStorage,
   subscribeAccountTransition,
 } from "@/lib/account-scoped-browser-state";
@@ -246,10 +239,9 @@ describe("account transitions clear favourites pins and last-opened keys (L2)", 
   }
 });
 
-describe("account transitions clear the Caring Contacts plan draft (L6)", () => {
+describe("account transitions clear the legacy Caring Contacts plan-draft key (L6)", () => {
   beforeEach(() => {
     cleanup();
-    clearPlanDraft();
     window.sessionStorage.clear();
     authApi.listeners.clear();
     authApi.signOut.mockClear();
@@ -261,57 +253,23 @@ describe("account transitions clear the Caring Contacts plan draft (L6)", () => 
 
   afterEach(() => {
     cleanup();
-    clearPlanDraft();
     window.sessionStorage.clear();
     vi.unstubAllEnvs();
-  });
-
-  function seedDraft() {
-    // From stage 3 the draft carries the patient's name and mobile; the stored
-    // key is what must be gone, whatever stage the draft reached.
-    const written = writePlanDraft({
-      ...emptyPlanDraft("SYN-REFERRAL-001", "SYN-PATHWAY-001"),
-      stage: "pathway",
-      assurances: { patientAgreed: true, mobileIsPatientControlled: true },
-    });
-    expect(written).toBe(true);
-    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
-  }
-
-  it("exposes one account-boundary seam that removes the draft and tells the wizard", () => {
-    seedDraft();
-    const onChange = vi.fn();
-    const unsubscribe = subscribeToPlanDraft(onChange);
-    try {
-      clearCaringContactsBrowserState();
-    } finally {
-      unsubscribe();
-    }
-    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
-    expect(planDraftSnapshot()).toBeNull();
-    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   for (const transition of transitions) {
     it(`removes the stored draft on ${transition.name}`, async () => {
       await mountAuthenticated();
-      seedDraft();
+      // Raw write, as a page load from before the prototype's retirement would
+      // have left it. Nothing writes this key any more; it must still be cleared.
+      window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify({ referralId: "SYN-REFERRAL-001" }));
+      expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
 
-      const onChange = vi.fn();
-      const unsubscribe = subscribeToPlanDraft(onChange);
-      try {
-        await transition.run();
-        await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent(transition.expectedStatus));
+      await transition.run();
+      await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent(transition.expectedStatus));
 
-        // Synchronous with the transition: the auth provider removes the key
-        // itself and the wizard module (when loaded) drops its cache and tells
-        // its subscribers in the same tick.
-        expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
-        expect(planDraftSnapshot()).toBeNull();
-        expect(onChange).toHaveBeenCalled();
-      } finally {
-        unsubscribe();
-      }
+      // Synchronous with the transition: the auth provider removes the key itself.
+      expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
     });
   }
 });
@@ -321,8 +279,8 @@ describe("account transitions clear the Caring Contacts plan draft (L6)", () => 
 // seam that names them directly, and the component stores learn about it
 // through one window event. Two things follow, and both are pinned here:
 // the keys are gone whether or not the owning component module has been
-// loaded in this page (after a full navigation the Caring Contacts wizard is
-// not loaded, but the sessionStorage key still is), and the removal happens
+// loaded in this page (after a full navigation the owning module may not be
+// loaded, but its storage key still is), and the removal happens
 // BEFORE any subscriber runs, so a store can never re-read the old value.
 describe("the lib-side account-transition seam", () => {
   beforeEach(() => {
@@ -374,37 +332,24 @@ describe("the lib-side account-transition seam", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it("makes the component stores drop their memoised caches and notify, without lib importing them", () => {
-    // Fill both component caches through their own APIs, then clear through the
-    // lib seam only — the component modules must react to the event, because the
-    // auth provider can no longer call them directly.
+  it("makes the component store drop its memoised caches and notify, without lib importing it", () => {
+    // Fill the component cache through its own API, then clear through the
+    // lib seam only — the component module must react to the event, because the
+    // auth provider can no longer call it directly.
     recordFavouriteOpened("lithium-monitoring-guideline", 1_700_000_000_000);
     toggleFavouritePinnedId("clozapine-initiation");
-    expect(
-      writePlanDraft({
-        ...emptyPlanDraft("SYN-REFERRAL-001", "SYN-PATHWAY-001"),
-        stage: "pathway",
-        assurances: { patientAgreed: true, mobileIsPatientControlled: true },
-      }),
-    ).toBe(true);
-    expect(planDraftSnapshot()).not.toBeNull();
 
     const favouritesChanged = vi.fn();
-    const draftChanged = vi.fn();
     const unsubscribeFavourites = subscribeFavouritesStorage(favouritesChanged);
-    const unsubscribeDraft = subscribeToPlanDraft(draftChanged);
     try {
       clearAccountScopedBrowserStorage();
     } finally {
       unsubscribeFavourites();
-      unsubscribeDraft();
     }
 
     expect(favouritesChanged).toHaveBeenCalledTimes(1);
-    expect(draftChanged).toHaveBeenCalledTimes(1);
     expect(loadFavouriteLastOpened()).toEqual({});
     expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
-    expect(planDraftSnapshot()).toBeNull();
   });
 
   it("is the only route the auth provider takes: src/lib never imports a component store", () => {
@@ -433,8 +378,8 @@ describe("the lib-side account-transition seam", () => {
 // which is before `initializeSession`'s `getUser()` round-trip returns, so the
 // ref holding the last published user id is still null. Reading that as
 // "null -> user-a", i.e. an account switch, wipes exactly the stores whose
-// contract is to survive a refresh: the Caring Contacts draft, the patient
-// profile and the favourites keys. Whether it happened at all depended on when
+// contract is to survive a refresh: the patient profile, the favourites keys
+// and the legacy plan-draft key. Whether it happened at all depended on when
 // React registered the listener, so the loss was intermittent. These cases pin
 // the boot replay as harmless and a real switch straight after it as still
 // clearing everything.
@@ -444,7 +389,6 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     window.localStorage.clear();
     window.sessionStorage.clear();
     resetFavouritesStorageForTesting();
-    clearPlanDraft();
     authApi.listeners.clear();
     authApi.signOut.mockClear();
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
@@ -458,7 +402,6 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     window.localStorage.clear();
     window.sessionStorage.clear();
     resetFavouritesStorageForTesting();
-    clearPlanDraft();
     vi.unstubAllEnvs();
   });
 
@@ -467,13 +410,7 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     writePatientProfile(PATIENT_A_PROFILE);
     recordFavouriteOpened("lithium-monitoring-guideline", 1_700_000_000_000);
     toggleFavouritePinnedId("clozapine-initiation");
-    expect(
-      writePlanDraft({
-        ...emptyPlanDraft("SYN-REFERRAL-001", "SYN-PATHWAY-001"),
-        stage: "pathway",
-        assurances: { patientAgreed: true, mobileIsPatientControlled: true },
-      }),
-    ).toBe(true);
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify({ referralId: "SYN-REFERRAL-001" }));
     expect(window.sessionStorage.getItem(PATIENT_PROFILE_STORAGE_KEY)).not.toBeNull();
     expect(window.localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY)).not.toBeNull();
     expect(window.localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).not.toBeNull();
@@ -484,7 +421,7 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     expect(getPatientProfileSnapshot()).toMatchObject({ ageYears: 82, egfr: 22 });
     expect(loadFavouriteLastOpened()).toHaveProperty("lithium-monitoring-guideline");
     expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(true);
-    expect(planDraftSnapshot()).not.toBeNull();
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
   }
 
   function expectEveryRefreshSurvivingStoreCleared() {
@@ -556,7 +493,6 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     expect(getPatientProfileSnapshot()).toEqual(EMPTY_PATIENT_PROFILE);
     expect(loadFavouriteLastOpened()).toEqual({});
     expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
-    expect(planDraftSnapshot()).toBeNull();
   });
 
   // The gate is "has the initial state been decided yet", not "did verification

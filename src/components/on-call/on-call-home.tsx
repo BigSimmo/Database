@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  CalendarCheck,
+  BriefcaseBusiness,
   CalendarDays,
   ChevronRight,
   Moon,
@@ -12,15 +12,18 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { OnCallNextShift } from "@/components/on-call/on-call-next-shift";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
+import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
+import { useOnCallShifts } from "@/components/on-call/use-on-call-shifts";
 import {
   ON_CALL_HOME_ICON,
   ON_CALL_SECTION_HREFS,
@@ -35,18 +38,18 @@ import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-cal
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, primaryControl, textMuted } from "@/components/ui-primitives";
 
-/** One of the three small tool tiles under "Who do I call now?". */
+/** One of the two small tool tiles under "Who do I call now?". */
 const homeToolTile = cn(
   cardSurface,
   focusRing,
   "flex min-h-tap flex-col items-start gap-0.5 p-3 text-sm font-semibold text-[color:var(--text)] no-underline",
 );
-import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
-import { onCallLocalDateKey } from "@/lib/on-call/local-date";
+import { msUntilNextOnCallLocalDay, onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
-import { deriveOnCallNotifications } from "@/lib/on-call/notifications";
-import { buildOnCallReviewQueue } from "@/lib/on-call/review-queue";
+import { deriveOnCallNotifications, visibleOnCallNotifications } from "@/lib/on-call/notifications";
+import { perthDateKey, snoozeReminder, type ReminderType } from "@/lib/reminders/settings";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
@@ -313,12 +316,16 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // boundary that would change the answer, and never on a fixed interval.
   const [tick, setTick] = useState(() => new Date());
   const now = pinnedNow ?? tick;
+  const shifts = useOnCallShifts();
 
   useEffect(() => {
     // A pinned clock is the caller's to move. Scheduling against it would drag a
     // print view or a test off the moment it deliberately stood on.
     if (pinnedNow) return;
-    const timer = setTimeout(() => setTick(new Date()), msUntilOnCallHoursBoundary(now));
+    // Midnight is a boundary too: "today" drives Coming up and the reminders,
+    // and the hours rule alone would leave it on yesterday until 08:00.
+    const delay = Math.min(msUntilOnCallHoursBoundary(now), msUntilNextOnCallLocalDay(now));
+    const timer = setTimeout(() => setTick(new Date()), delay);
     return () => clearTimeout(timer);
   }, [pinnedNow, now]);
 
@@ -374,8 +381,21 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // re-ran on a page nobody is touching: the ward strip would move to the
   // after-hours number on the next tick while the badge went on counting from
   // whenever the page was opened. One clock, one answer.
-  const notifications = useMemo(() => deriveOnCallNotifications(entries, now), [entries, now]);
-  const reviewCount = useMemo(() => buildOnCallReviewQueue(entries, now).total, [entries, now]);
+  //
+  // Then the owner's reminder settings (Settings, Notifications, Reminders):
+  // a type turned off in the app, or snoozed, drops out of both the list and
+  // the badge count, so the two cannot disagree.
+  const { preferences, setPreference } = useAppPreferences();
+  const reminders = preferences.reminders;
+  const reminderToday = perthDateKey(now);
+  const notifications = useMemo(
+    () => visibleOnCallNotifications(deriveOnCallNotifications(entries, now), reminders, reminderToday),
+    [entries, now, reminders, reminderToday],
+  );
+  const snoozeNotifications = useCallback(
+    (type: ReminderType) => setPreference("reminders", snoozeReminder(reminders, type, reminderToday)),
+    [reminders, reminderToday, setPreference],
+  );
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -390,41 +410,18 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     [recent, entriesById],
   );
 
-  // Admin and Compliance are one stored section split by `details.kind`, so
-  // `counts` — which counts by section — reports the pair's total under
-  // `logistics` and knows nothing about Compliance at all. Taking both numbers
-  // from the same partition the two pages render from is what stops the Admin
-  // tile promising eight rows that are not on the Admin page.
-  const { admin: adminEntries, compliance: complianceEntries } = useMemo(
-    () => partitionLogisticsEntries(entries),
-    [entries],
-  );
-
+  // The shift-time pages only. Orientation, Teaching, Admin and Compliance
+  // moved to My Work (`/my-work`) on 2026-09-26 to keep this page light; their
+  // routes are unchanged and the mode pill still lists them.
   const tiles = [
-    ...(["contacts", "playbook", "referrals", "orientation", "education", "logistics"] as const).map((section) => ({
+    ...(["contacts", "playbook", "referrals"] as const).map((section) => ({
       key: section,
       href: ON_CALL_SECTION_HREFS[section],
       title: ON_CALL_SECTION_TITLES[section],
       description: ON_CALL_SECTION_TILE_DESCRIPTIONS[section],
       icon: ON_CALL_SECTION_ICONS[section],
-      count: section === "logistics" ? adminEntries.length : (counts.get(section) ?? 0),
+      count: counts.get(section) ?? 0,
     })),
-    {
-      key: "compliance" as const,
-      // From the view maps rather than literals: the route, the name and the
-      // glyph here are the same three facts the rail, the page header and the
-      // search results read, and a tile is the last place they should be
-      // written out a second time.
-      href: ON_CALL_VIEW_HREFS.compliance,
-      title: ON_CALL_VIEW_TITLES.compliance,
-      description: "What has to stay current",
-      icon: ON_CALL_VIEW_ICONS.compliance,
-      // Counted, unlike Who's who below: these ARE a list of things to go and
-      // deal with, and the number is the one fact worth carrying to the home.
-      // It counts what is recorded and nothing else — a zero here means nobody
-      // has entered anything, never that nothing is outstanding.
-      count: complianceEntries.length,
-    },
     {
       key: "who-is-who" as const,
       href: ON_CALL_VIEW_HREFS["who-is-who"],
@@ -440,11 +437,10 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
 
   return (
     <>
-      {/* No section rail here either. This page IS the section list — its tile
-          grid names every page of the mode with its count — and the mode pill
-          above opens the same list. A bar between them would be the third
-          copy. */}
-      <OnCallPageMenu view="home" notifications={notifications} />
+      {/* No section rail here either. The tile grid names the shift-time pages
+          and the mode pill above opens every page of the mode. A bar between
+          them would be a third copy. */}
+      <OnCallPageMenu view="home" notifications={notifications} onSnoozeNotifications={snoozeNotifications} />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
@@ -453,6 +449,9 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         {/* Renders nothing but the field until something is typed, so it costs a
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
+
+        {/* The reader's own next shift. Draws nothing while signed out or loading. */}
+        <OnCallNextShift state={shifts} now={now} />
 
         <div className="grid gap-2" data-testid="on-call-home-tools">
           <Link
@@ -463,23 +462,18 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             <PhoneCall aria-hidden="true" className="size-icon-md" />
             Who do I call now?
           </Link>
-          <div className="grid grid-cols-3 gap-2">
-            <Link href="/on-call/check" data-testid="on-call-home-check" className={homeToolTile}>
-              <CalendarCheck aria-hidden="true" className="size-icon-sm" />
-              <span>Check these</span>
-              <span className={cn(textMuted, "nums text-xs font-medium")}>
-                {reviewCount === 0 ? "All checked" : `${reviewCount} due`}
-              </span>
-            </Link>
+          {/* "Check these" and "Calendar" used to sit here. They are admin, not
+              shift work, so they moved to My Work, which this tile opens. */}
+          <div className="grid grid-cols-2 gap-2">
             <Link href="/on-call/first-night" data-testid="on-call-home-first-night" className={homeToolTile}>
               <Moon aria-hidden="true" className="size-icon-sm" />
               <span>First night</span>
               <span className={cn(textMuted, "text-xs font-medium")}>Guide</span>
             </Link>
-            <Link href="/on-call/calendar" data-testid="on-call-home-calendar" className={homeToolTile}>
-              <CalendarDays aria-hidden="true" className="size-icon-sm" />
-              <span>Calendar</span>
-              <span className={cn(textMuted, "text-xs font-medium")}>Teaching</span>
+            <Link href="/my-work" data-testid="on-call-home-my-work" className={homeToolTile}>
+              <BriefcaseBusiness aria-hidden="true" className="size-icon-sm" />
+              <span>My Work</span>
+              <span className={cn(textMuted, "text-xs font-medium")}>Admin and checks now live here</span>
             </Link>
           </div>
         </div>
@@ -523,28 +517,34 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
 
         {!loading && !hasEntries && !loadFailed ? (
           <HomeModule id="on-call-home-first-run" label="Getting started">
-            <EmptyState
-              icon={ON_CALL_HOME_ICON}
-              title="Your On Call hub is empty"
-              body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
-              description="Adding and editing needs an account. Reading does not."
-              actions={
-                <div className="flex flex-col gap-3">
-                  <Link
-                    href={ON_CALL_SECTION_HREFS.contacts}
-                    className={cn(
-                      "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
-                      "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
-                      focusRing,
-                    )}
-                  >
-                    Open Contacts
-                    <ChevronRight aria-hidden="true" className="size-icon-xs" />
-                  </Link>
-                </div>
-              }
-              testId="on-call-home-first-run-empty"
-            />
+            {/* Signed out, the server sends no entries at all, so "empty" would
+                be a claim about a hub this reader cannot see. */}
+            {signedOut ? (
+              <OnCallSignedOut icon={ON_CALL_HOME_ICON} testId="on-call-home-signed-out" />
+            ) : (
+              <EmptyState
+                icon={ON_CALL_HOME_ICON}
+                title="Your On Call hub is empty"
+                body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
+                description="Adding and editing needs an account. Reading does not."
+                actions={
+                  <div className="flex flex-col gap-3">
+                    <Link
+                      href={ON_CALL_SECTION_HREFS.contacts}
+                      className={cn(
+                        "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
+                        "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
+                        focusRing,
+                      )}
+                    >
+                      Open Contacts
+                      <ChevronRight aria-hidden="true" className="size-icon-xs" />
+                    </Link>
+                  </div>
+                }
+                testId="on-call-home-first-run-empty"
+              />
+            )}
           </HomeModule>
         ) : null}
 
@@ -564,8 +564,8 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               // else.
               body={
                 homeIsUntagged
-                  ? `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift. The rest of this page works the same way: "${ON_CALL_HOME_TAGS.switchboard}" for the switchboard row, "${ON_CALL_HOME_TAGS.ward}" for tonight's wards, "${ON_CALL_HOME_TAGS.pinned}" for the reminder.`
-                  : `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift.`
+                  ? `Open a contact, choose Edit and tick "Call first on the home", and it appears here as the first number of the shift. The rest of this page works by tags: "${ON_CALL_HOME_TAGS.switchboard}" for the switchboard row, "${ON_CALL_HOME_TAGS.ward}" for tonight's wards, "${ON_CALL_HOME_TAGS.pinned}" for the reminder.`
+                  : `Open a contact, choose Edit and tick "Call first on the home", and it appears here as the first number of the shift.`
               }
               testId="on-call-home-call-first-empty"
             />

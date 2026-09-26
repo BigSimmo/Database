@@ -53,10 +53,10 @@ export function CmeOwnerBoundary({ serverOwnerId, serverAuthVerified, demoMode, 
     <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" data-testid="cme-owner-boundary">
       <p role="status">
         {signedOut
-          ? "Your private CME record is hidden. Sign in to continue."
+          ? "Your private CPD record is hidden. Sign in to continue."
           : unavailable
-            ? "Your session could not be verified. Your private CME record is hidden."
-            : "Checking your CME session…"}
+            ? "Your session could not be verified. Your private CPD record is hidden."
+            : "Checking your CPD session…"}
       </p>
       {unavailable ? (
         <button type="button" className="mt-3 min-h-tap underline" onClick={() => window.location.reload()}>
@@ -64,7 +64,7 @@ export function CmeOwnerBoundary({ serverOwnerId, serverAuthVerified, demoMode, 
         </button>
       ) : auth.status === "authenticated" ? (
         <button type="button" className="mt-3 min-h-tap underline" onClick={() => router.refresh()}>
-          Refresh CME
+          Refresh CPD
         </button>
       ) : null}
     </section>

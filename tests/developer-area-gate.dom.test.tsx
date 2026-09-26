@@ -2,9 +2,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
- * `DeveloperAreaGate` is the administrator gate every /mockups/development,
- * /mockups/caring-contacts, /mockups/care-plan and /mockups/ward-flow layout
- * wraps its children in. #L30 was a single public build-time flag
+ * `DeveloperAreaGate` is the administrator gate every /mockups/development
+ * and /mockups/care-plan layout wraps its children in. #L30 was a single public build-time flag
  * (`NEXT_PUBLIC_MOCKUPS_ENABLED=true`), set alone, disabling the gate in
  * production. `tests/developer-area-access.test.ts` proves the pure
  * `developerGateBypassAllowed()` predicate directly; this file proves the

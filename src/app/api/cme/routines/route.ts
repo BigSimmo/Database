@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       bucket: "cme",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
-    if (limit.limited) return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", limit);
+    if (limit.limited) return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", limit);
     return NextResponse.json(
       { routines: await fetchOwnerCmeRoutines(supabase, user.id) },
       { headers: { "Cache-Control": "private, no-store" } },
@@ -46,8 +46,8 @@ export async function POST(request: Request) {
       bucket: "cme",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
-    if (limit.limited) return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", limit);
-    const body = await parseJsonBody(request, cmeRoutineCreateSchema, "Invalid CME routine.");
+    if (limit.limited) return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", limit);
+    const body = await parseJsonBody(request, cmeRoutineCreateSchema, "Invalid CPD routine.");
     return NextResponse.json({ routine: await saveCmeRoutine(supabase, user.id, body) }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

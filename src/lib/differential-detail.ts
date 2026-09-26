@@ -140,6 +140,26 @@ export function differentialStatusLabel(status: DifferentialRecord["status"]): "
  *  authored content without importing every record's authored prose. */
 export const curatedProvenanceLabel = "Locally authored \u2014 verify before use";
 
+const reviewDateFormat = new Intl.DateTimeFormat("en-AU", {
+  timeZone: "Australia/Perth",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+/**
+ * The provenance line for one record's authored content. Once a clinician has signed
+ * the overlay off (`npm run clinical:review -- --kind differential`), it names them in
+ * place of "verify before use"; until then it is `curatedProvenanceLabel`.
+ */
+export function curatedProvenanceFor(curated: DifferentialCuratedEntry | null): string {
+  const review = curated?.review;
+  if (!review?.reviewedBy || !review.reviewedAt) return curatedProvenanceLabel;
+  const date = new Date(review.reviewedAt);
+  if (Number.isNaN(date.getTime())) return curatedProvenanceLabel;
+  return `Locally authored, reviewed by ${review.reviewedBy} on ${reviewDateFormat.format(date)}`;
+}
+
 export type DifferentialSafetyFact = {
   id: "high-risk" | "onset" | "course" | "treatable" | "causes" | "tests" | "actions" | "related";
   label: string;

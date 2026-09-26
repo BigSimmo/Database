@@ -182,3 +182,17 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     expect(label).toContain("answerGapWarningCount");
   });
 });
+
+describe("AnswerUtilityActions · Log as CPD", () => {
+  it("links to a new CME entry when the answer cites a source", () => {
+    render(<AnswerUtilityActions copied={false} onCopy={() => undefined} cpdHref="/cme/new?title=Guideline" />);
+    const link = screen.getByTestId("answer-log-cpd");
+    expect(link).toHaveAttribute("href", "/cme/new?title=Guideline");
+    expect(link).toHaveTextContent("Log as CPD");
+  });
+
+  it("is absent when nothing was cited", () => {
+    render(<AnswerUtilityActions copied={false} onCopy={() => undefined} />);
+    expect(screen.queryByTestId("answer-log-cpd")).not.toBeInTheDocument();
+  });
+});

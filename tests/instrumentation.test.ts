@@ -1,5 +1,3 @@
-import { createHmac } from "node:crypto";
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The boot guard (src/instrumentation.ts) must refuse to start a production server
@@ -26,13 +24,6 @@ const ENV_KEYS = [
   "LOCAL_NO_AUTH",
   "PLAYWRIGHT_OFFLINE_MODE",
   "NEXT_DIST_DIR",
-  "CARING_CONTACTS_DEMO_ENABLED",
-  "CARING_CONTACTS_DATABASE_URL",
-  "CARING_CONTACTS_SESSION_HMAC_SECRET",
-  "CARING_CONTACTS_SESSION_ISSUER",
-  "CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON",
-  "CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC",
-  "CARING_CONTACTS_GOVERNANCE_HMAC_SECRET",
 ] as const;
 
 async function loadInstrumentation(overrides: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>>) {
@@ -182,133 +173,5 @@ describe("instrumentation boot guard", () => {
   it("is a no-op on the Edge runtime", async () => {
     const register = await loadRegister({ NEXT_RUNTIME: "edge", NODE_ENV: "production" });
     await expect(register()).resolves.toBeUndefined();
-  });
-});
-
-/**
- * The Caring Contacts live-mode boot gate had NO test at all before this file gained the block
- * below: the MAC verification, the missing-database refusal and the attestation parse could each
- * have been weakened without a single check going red. Found while verifying an external audit
- * on 2026-09-17. Every case here was watched failing against the unpatched gate before being
- * trusted.
- *
- * `CARING_CONTACTS_DEMO_ENABLED === "false"` is what arms the gate, and it is deliberately a
- * SUPERSET of live mode: a deployment that has turned the demo off but configured nothing else
- * must still be told what it is missing rather than quietly serving a shut workspace.
- */
-const GOVERNANCE_SECRET = "governance-hmac-secret";
-
-function validAttestation(): string {
-  const validUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1_000).toISOString();
-  return JSON.stringify({
-    attestationVersion: "1.0.0",
-    clinicalSafetyOfficer: {
-      name: "Example Officer",
-      ahpraRegistrationNumber: "MED0001234567",
-      role: "Clinical Safety Officer",
-    },
-    hazardMitigations: {
-      h00SafetyOfficerApproved: true,
-      h04LivedExperienceReviewApproved: true,
-      h05AboriginalCulturalSafetyApproved: true,
-    },
-    pilotScope: { validUntilIso: validUntil },
-    digitalSignatureRef: "signature-reference-value",
-  });
-}
-
-function macFor(raw: string): string {
-  return createHmac("sha256", GOVERNANCE_SECRET).update(raw, "utf8").digest("hex");
-}
-
-/** Every live-mode requirement satisfied. Each case below removes exactly one of them. */
-function liveModeEnv(attestation = validAttestation()) {
-  return {
-    ...FULLY_CONFIGURED,
-    CARING_CONTACTS_DEMO_ENABLED: "false",
-    CARING_CONTACTS_DATABASE_URL: "postgres://example.invalid/caring_contacts",
-    CARING_CONTACTS_SESSION_HMAC_SECRET: "session-hmac-secret",
-    CARING_CONTACTS_SESSION_ISSUER: "https://sso.example.invalid",
-    CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON: attestation,
-    CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC: macFor(attestation),
-    CARING_CONTACTS_GOVERNANCE_HMAC_SECRET: GOVERNANCE_SECRET,
-  } as const;
-}
-
-describe("Caring Contacts live-mode boot gate", () => {
-  it("starts when every live-mode requirement is satisfied", async () => {
-    const register = await loadRegister(liveModeEnv());
-    await expect(register()).resolves.toBeUndefined();
-  });
-
-  it("leaves a demo-mode deployment alone", async () => {
-    // The gate is armed by the exact string "false". Demo staging must pass straight through it,
-    // attestation and all, or every sovereign demo deployment would refuse to boot.
-    const register = await loadRegister({ ...FULLY_CONFIGURED, CARING_CONTACTS_DEMO_ENABLED: "true" });
-    await expect(register()).resolves.toBeUndefined();
-  });
-
-  it("refuses live mode with no dedicated database, so real-patient writes cannot land in memory", async () => {
-    const register = await loadRegister({ ...liveModeEnv(), CARING_CONTACTS_DATABASE_URL: undefined });
-    await expect(register()).rejects.toThrow(/CARING_CONTACTS_DATABASE_URL/);
-  });
-
-  it("refuses live mode with no session secret rather than serving a silently shut workspace", async () => {
-    const register = await loadRegister({ ...liveModeEnv(), CARING_CONTACTS_SESSION_HMAC_SECRET: undefined });
-    await expect(register()).rejects.toThrow(/CARING_CONTACTS_SESSION_HMAC_SECRET/);
-  });
-
-  it("refuses live mode when no session issuer exists to mint the cookie it demands", async () => {
-    // The defect this closes: nothing in this repository calls signProductionSession, so a live
-    // deployment that is otherwise perfectly configured threw out of EVERY request. One refusal
-    // at boot beats a 500 per request.
-    const register = await loadRegister({ ...liveModeEnv(), CARING_CONTACTS_SESSION_ISSUER: undefined });
-    await expect(register()).rejects.toThrow(/no session issuer/);
-  });
-
-  it.each([
-    ["attestation", "CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON"],
-    ["MAC", "CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC"],
-    ["signing secret", "CARING_CONTACTS_GOVERNANCE_HMAC_SECRET"],
-  ] as const)("refuses live mode with no governance %s", async (_label, key) => {
-    const register = await loadRegister({ ...liveModeEnv(), [key]: undefined });
-    await expect(register()).rejects.toThrow(/CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON/);
-  });
-
-  it("refuses an attestation whose MAC does not authenticate it", async () => {
-    // The whole point of the MAC: an attestation that says every hazard is mitigated is worthless
-    // if anyone who can set an environment variable can write one.
-    const forged = validAttestation();
-    const register = await loadRegister({
-      ...liveModeEnv(forged),
-      CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC: macFor(forged).replace(/.$/, (c) => (c === "0" ? "1" : "0")),
-    });
-    await expect(register()).rejects.toThrow(/MAC failed authentication/);
-  });
-
-  it("refuses a MAC of a different length instead of throwing out of timingSafeEqual", async () => {
-    const register = await loadRegister({ ...liveModeEnv(), CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC: "short" });
-    await expect(register()).rejects.toThrow(/MAC failed authentication/);
-  });
-
-  it("refuses an authenticated attestation that is not parseable JSON", async () => {
-    const register = await loadRegister(liveModeEnv("{ not json"));
-    await expect(register()).rejects.toThrow(/not parseable/);
-  });
-
-  it("refuses an authenticated attestation with an unmitigated hazard flag", async () => {
-    // Authenticated but not approved: the MAC proves who wrote it, the validator decides whether
-    // what it says is enough. H-05 is the Aboriginal cultural safety review.
-    const payload = JSON.parse(validAttestation());
-    payload.hazardMitigations.h05AboriginalCulturalSafetyApproved = false;
-    const register = await loadRegister(liveModeEnv(JSON.stringify(payload)));
-    await expect(register()).rejects.toThrow(/Unmitigated clinical hazard flags/);
-  });
-
-  it("refuses an authenticated attestation that has expired", async () => {
-    const payload = JSON.parse(validAttestation());
-    payload.pilotScope.validUntilIso = new Date(Date.now() - 1_000).toISOString();
-    const register = await loadRegister(liveModeEnv(JSON.stringify(payload)));
-    await expect(register()).rejects.toThrow(/expired or has an invalid date/);
   });
 });

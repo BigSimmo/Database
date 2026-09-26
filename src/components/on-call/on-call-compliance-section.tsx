@@ -24,6 +24,7 @@ import {
 } from "@/lib/on-call/compliance";
 import {
   ON_CALL_COMPLIANCE_PROVENANCE,
+  isOnCallHttpUrl,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
   type OnCallComplianceConsequence,
@@ -471,7 +472,7 @@ function ComplianceRow({
         <OnCallStaleFlag freshness={freshness} />
       </div>
 
-      {details?.evidenceUrl ? (
+      {isOnCallHttpUrl(details?.evidenceUrl) ? (
         // A link the holder owns, not an upload: the default upload path
         // indexes a document and sends it to a provider, and a registration
         // certificate is identity data with no business in the clinical corpus.

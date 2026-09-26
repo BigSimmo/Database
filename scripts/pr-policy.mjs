@@ -55,10 +55,11 @@ const clinicalRiskPatterns = [
   // full token set.
   /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|therap|mode|review|policy|content|unreviewed|medication)/i,
   // Owner ruling 2026-09-17, after a clinical-governance review of the list above: patient
-  // addresses, referral intake and retention live in caring-contacts; the database clients
+  // addresses, referral intake and retention lived in caring-contacts (whose surviving
+  // clock.ts still times the Mental Health Act timeline); the database clients
   // hold the service-role key; on-call/repository.ts hides personal entries from other users.
   // None of those names matched the token set, so these changes could merge without review.
-  /^src\/lib\/caring-contacts(?:-server)?\//,
+  /^src\/lib\/caring-contacts\//,
   /^src\/lib\/supabase\//,
   /^src\/lib\/on-call\/repository\.ts$/,
   // Same gap, same shape, found on 2026-09-17 while verifying an external audit:
@@ -113,9 +114,9 @@ const clinicalRiskPatterns = [
   // That is a wider question about the token list itself, deliberately left for the owner.
   /^src\/lib\/(?:dictionary-data|factsheets-data|specifiers)\.ts$/,
   // Tests that act as clinical safety guards / prohibited wording chokepoints
-  // (e.g. Caring Contacts interface vocabulary, overlay definitions, clinical safety checks).
+  // (e.g. clinical safety checks).
   // Weakening or altering them is the clinical evasion route (#97W4FD).
-  /^tests\/(?:caring-contacts-(?:interface-vocabulary|overlay-definitions)\.test|calculator-mockup-clinical-safety\.test|helpers\/caring-contacts-prohibited-language)\.ts$/,
+  /^tests\/calculator-mockup-clinical-safety\.test\.ts$/,
   // Owner ruling 2026-09-17, after the clinical review of #2838: that PR withheld a
   // contaminated generated differential body (differential-curated.ts,
   // differential-detail.ts) and applied it at four separate call sites
@@ -275,6 +276,10 @@ const ragRankingPatterns = [
   // The contract-pinning tests are protected too: weakening them is the evasion route.
   /^tests\/(?:rag-fast-path-ordering|ranking-tuning|retrieval-selection|rag-second-stage-ranking|eval-retrieval|rag-imputation-contract)\.test\.ts$/,
 ];
+export const safetyPathLists = Object.freeze({
+  ragRanking: Object.freeze(ragRankingPatterns.map((p) => new RegExp(p.source, p.flags))),
+  clinicalRisk: Object.freeze(clinicalRiskPatterns.map((p) => new RegExp(p.source, p.flags))),
+});
 
 const uiPatterns = [
   /^src\/app\/(?!api\/)/,
@@ -444,6 +449,51 @@ export function prPolicyBodyTransportViolation({ fileStatuses, files }) {
     );
   }
   return (files ?? []).some((file) => normalizePath(file) === PR_POLICY_BODY_FILENAME);
+}
+
+// The retrieval RPCs are ranking surfaces too, but they live in SQL, so no path pattern above can
+// see them: a new migration that rewrites match_document_chunks_hybrid is as much a ranking change
+// as an edit to src/lib/rag/, and before 2026-09-26 it drew no `RAG impact:` nudge. Applied
+// migrations are immutable, so every such change arrives as an ADDED migration, and the policy
+// already receives those files' text as addedMigrationContents. Matched by name family so a
+// future _v4 is covered without an edit here. search_schema_health is deliberately absent: it
+// reports on the indexes, it does not rank anything.
+const retrievalFunctionNamePattern =
+  /(?:match_document_chunks|match_documents_for_query|match_document_lookup_chunks_text|match_document_table_facts_text|match_document_embedding_fields_|match_document_index_units_hybrid|match_document_memory_cards_hybrid|match_governed_candidate_chunks|search_document_chunks|retrieval_owner_matches|correct_clinical_query_terms|corpus_topic_term_stats)\w*/;
+const retrievalFunctionStatementPattern = new RegExp(
+  String.raw`\b(?:create\s+(?:or\s+replace\s+)?|alter\s+|drop\s+)function\s+(?:if\s+exists\s+)?(?:"?public"?\s*\.\s*)?"?` +
+    retrievalFunctionNamePattern.source +
+    String.raw`(?!\w)`,
+  "i",
+);
+// The other way a migration has rewritten one: read its definition, patch the text, and execute the
+// result (20260628000000 did this to match_document_chunks), so no CREATE statement names it.
+const retrievalFunctionDefinitionReadPattern = new RegExp(
+  String.raw`\bpg_get_functiondef\s*\(\s*'(?:public\.)?` + retrievalFunctionNamePattern.source + String.raw`(?!\w)`,
+  "i",
+);
+const executeVariablePattern = /\bexecute\s+[a-z_]\w*\s*;/i;
+
+/**
+ * Added migrations that create, alter, drop or patch a retrieval function, from the path -> SQL map the
+ * workflow reads at the PR head. Comments are stripped first, so a migration that only mentions
+ * one of these functions in a comment is not flagged. Missing contents yield no paths: the nudge
+ * is advisory, so it degrades to the path patterns rather than failing closed.
+ */
+export function retrievalFunctionMigrationPaths(addedMigrationContents) {
+  if (!addedMigrationContents || typeof addedMigrationContents !== "object") return [];
+  return Object.entries(addedMigrationContents)
+    .filter(([, sql]) => {
+      const executable = String(sql ?? "")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/--[^\n]*/g, " ");
+      return (
+        retrievalFunctionStatementPattern.test(executable) ||
+        (retrievalFunctionDefinitionReadPattern.test(executable) && executeVariablePattern.test(executable))
+      );
+    })
+    .map(([path]) => normalizePath(path))
+    .sort();
 }
 
 // The `RAG impact:` declaration a ragRanking PR must carry: either an explicit
@@ -919,6 +969,8 @@ export function evaluatePullRequestPolicy({
     ? fileStatuses.map((file) => file?.previous_filename).filter(Boolean)
     : [];
   const classification = classifyPullRequestFiles([...(files ?? []), ...renamedFromPaths]);
+  const retrievalMigrationPaths = retrievalFunctionMigrationPaths(addedMigrationContents);
+  if (retrievalMigrationPaths.length > 0) classification.ragRanking = true;
 
   // Blocking gate: PR_POLICY_BODY.md must never land on main — see the comment above
   // prPolicyBodyTransportViolation for why a lingering copy is dangerous.
@@ -932,7 +984,11 @@ export function evaluatePullRequestPolicy({
   // The summary must be its own prose: content nested under a sub-heading
   // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
   // cannot stand in for the required outcome summary.
-  const summaryDirect = summary.replace(/^[ \t]*#{1,6}[ \t]+\S[^]*$/m, "");
+  // The `Areas touched:` and `RAG impact:` lines that `npm run pr:areas` prints go under Summary
+  // too, but they are metadata, not the outcome: pasting them must not hide an empty Summary.
+  const summaryDirect = summary
+    .replace(/^[ \t]*#{1,6}[ \t]+\S[^]*$/m, "")
+    .replace(/^[ \t]*(?:[-*+][ \t]+)?(?:Areas touched|RAG impact):.*$/gim, "");
   const verification = section(body, "Verification");
   const riskAndRollout = section(body, "Risk and rollout");
   const governance = section(body, "Clinical Governance Preflight");
@@ -969,7 +1025,11 @@ export function evaluatePullRequestPolicy({
     const ragImpact = ragImpactDeclared(body);
     if (!ragImpact.declared) {
       warnings.push(
-        "This PR touches RAG-ranking protected surfaces. Consider adding a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
+        "This PR touches RAG-ranking protected surfaces" +
+          (retrievalMigrationPaths.length > 0
+            ? ` (${retrievalMigrationPaths.join(", ")} changes a retrieval function)`
+            : "") +
+          ". Consider adding a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
       );
     } else if (!ragImpact.satisfied) {
       warnings.push(
@@ -1404,8 +1464,7 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);
   // Owner ruling 2026-09-17: patient-address, referral and database-key code is clinical-risk
   // even though no file name carries a clinical token.
-  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts/assignment.ts"]).clinicalRisk, true);
-  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts-server/config.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts/clock.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/supabase/admin.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/on-call/repository.ts"]).clinicalRisk, true);
   // Still narrow: the rest of on-call is not swept in by the repository entry.
@@ -1471,6 +1530,23 @@ function selfTest() {
   });
   assert.equal(clinicalBare.ok, true, "a missing governance section must not block the merge");
   assert.match(clinicalBare.warnings.join(" "), /Clinical Governance Preflight/);
+  // The pr:areas lines are metadata: a Summary holding only them is still empty...
+  const summaryWarning = "Complete the `## Summary` section with the outcome and affected area.";
+  const areasOnly = evaluatePullRequestPolicy({
+    title: "docs: tidy the organisation map wording",
+    body: "## Summary\n\nAreas touched: Knowledge and records\n- RAG impact: ???\n\n## Verification\n\n- [x] `npm run verify:pr-local`",
+    headRef: "claude/map-wording",
+    files: ["docs/organisation/README.md"],
+  });
+  assert.ok(areasOnly.warnings.includes(summaryWarning), "pr:areas lines alone must not satisfy the Summary");
+  // ...and alongside real outcome prose they change nothing.
+  const areasWithProse = evaluatePullRequestPolicy({
+    title: "docs: tidy the organisation map wording",
+    body: "## Summary\n\n- Clarify how areas are named.\n\nAreas touched: Knowledge and records\n\n## Verification\n\n- [x] `npm run verify:pr-local`",
+    headRef: "claude/map-wording",
+    files: ["docs/organisation/README.md"],
+  });
+  assert.ok(!areasWithProse.warnings.includes(summaryWarning), "outcome prose beside pr:areas lines is a Summary");
   assert.equal(
     section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
@@ -1655,11 +1731,6 @@ function selfTest() {
   ]) {
     assert.equal(classifyPullRequestFiles([file]).clinicalRisk, expected, `${why}: ${file}`);
   }
-  assert.equal(
-    classifyPullRequestFiles(["tests/caring-contacts-interface-vocabulary.test.ts"]).clinicalRisk,
-    true,
-    "clinical test guards must require clinical governance preflight (#97W4FD)",
-  );
   assert.equal(
     classifyPullRequestFiles(["tests/calculator-mockup-clinical-safety.test.ts"]).clinicalRisk,
     true,

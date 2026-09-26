@@ -49,7 +49,7 @@ import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cleanDifferentialItem,
   curatedContentNote,
-  curatedProvenanceLabel,
+  curatedProvenanceFor,
   doNowStepsAreCurated,
   detailTabCounts,
   differentialGroupLabel,
@@ -617,7 +617,7 @@ function PhoneDoNow({ record, curated }: { record: DifferentialRecord; curated: 
         ))}
       </ol>
       {authored ? (
-        <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceLabel}</p>
+        <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceFor(curated)}</p>
       ) : null}
     </section>
   );
@@ -922,7 +922,7 @@ function FooterStatus({
           className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-4 py-3 text-xs leading-5 text-[color:var(--text-muted)]"
         >
           This record carries locally authored content alongside the exported source material. It is marked &ldquo;
-          {curatedProvenanceLabel}&rdquo; wherever it appears, and is not an extract from an indexed source.
+          {curatedProvenanceFor(curated)}&rdquo; wherever it appears, and is not an extract from an indexed source.
         </p>
       ) : null}
     </div>

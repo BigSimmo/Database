@@ -11,7 +11,7 @@ type CmeEntryRouteProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Entry | CME | PsychSift",
+  title: "Entry | CPD | PsychSift",
   description: "One recorded activity: its hours, the categories they count toward, and your reflection.",
 };
 

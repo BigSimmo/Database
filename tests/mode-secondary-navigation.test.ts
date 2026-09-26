@@ -11,7 +11,7 @@ import {
   routedModeSecondaryNavigationCount,
 } from "@/lib/mode-secondary-navigation";
 
-/** Eight modes intentionally register no destinations at all — see `emptyRegistryModes`. */
+/** Nine modes intentionally register no destinations at all — see `emptyRegistryModes`. */
 const expectedLabels: Record<AppModeId, string[]> = {
   answer: [],
   documents: [],
@@ -51,7 +51,20 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Service",
     "Pocket card",
   ],
-  cme: ["This year", "Log", "Year check", "Calendar", "Routines", "Plan", "Programme", "Set up"],
+  cme: [
+    "This year",
+    "Log",
+    "Year check",
+    "Training",
+    "Calendar",
+    "Routines",
+    "Plan",
+    "Learning",
+    "Programme",
+    "Set up",
+  ],
+  psychiatry: [],
+  "my-work": [],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -73,10 +86,13 @@ const cleanLandingPath: Record<AppModeId, string> = {
   sources: "/sources/search",
   "on-call": "/on-call",
   cme: "/cme",
+  psychiatry: "/psychiatry",
+  "my-work": "/my-work",
 };
 
 /**
- * The eight modes that register nothing.
+ * The ten modes that register nothing. Psychiatry and My Work are the last two: each home is
+ * itself the list of pages it gathers.
  *
  * Each used to carry one `action: "search"` entry rendering a lone <button>
  * inside its own <nav> landmark, whose only effect was focusing a composer
@@ -100,12 +116,14 @@ const emptyRegistryModes = [
   "prescribing",
   "tools",
   "calculators",
+  "psychiatry",
+  "my-work",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 17 modes with the approved destinations and no Home item", () => {
+  it("covers all 20 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(18);
+    expect(appModeIds).toHaveLength(20);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);

@@ -61,7 +61,7 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
   }, [savedNotice]);
 
   async function saveEntry(entry: CmeEntryDraft) {
-    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CPD record.");
     const response = await fetch("/api/cme/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

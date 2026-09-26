@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6a9517a9-9215-45a9-a345-d51a362cc3f9",
+  "createdOn": "2026-09-26",
+  "action": "cancel",
+  "payload": {
+    "requestId": "18ef9b8d-0bc2-40bf-852d-7f7ce1392f8d",
+    "reason": "Superseded by e8b58deb-30d1-42e0-9ab4-fe5262e7fdd9, which carries the fuller F9HZEG coverage note from PR #3065."
+  }
+}

@@ -1,4 +1,5 @@
 import {
+  isSpecifierClinicianReviewed,
   publicSpecifierRecords,
   type PublicSpecifierRecord,
   type SpecifierCatalogItem,
@@ -34,8 +35,9 @@ function catalogueBody(item: SpecifierCatalogItem) {
 }
 
 function catalogueValidation(item: SpecifierCatalogItem): SiteContentRecord["validationStatus"] {
-  const status = item.review.clinicianReviewStatus.toLowerCase();
-  return !item.review.changedSinceReview && /(^|[-_ ])(approved|reviewed)($|[-_ ])/.test(status)
+  // The same fail-closed decision every specifier surface renders: status, named reviewer and
+  // a parseable timestamp, and nothing changed since.
+  return !item.review.changedSinceReview && isSpecifierClinicianReviewed(item.review)
     ? "locally_reviewed"
     : "unverified";
 }

@@ -1,0 +1,35 @@
+{
+  "lastCheckedOn": "2026-09-26",
+  "items": [
+    {
+      "id": "global-mental-health-summit-perth-2026",
+      "title": "Global Mental Health Summit 2026",
+      "provider": "World Federation for Mental Health, with the WA Mental Health Commission",
+      "kind": "event",
+      "datesConfirmed": true,
+      "startsOn": "2026-10-14",
+      "endsOn": "2026-10-16",
+      "mode": "in-person",
+      "location": "Optus Stadium, Perth",
+      "costNote": null,
+      "url": "https://eecw.eventsair.com/global-mental-health-summit",
+      "sourceUrl": "https://www.linkedin.com/posts/mentalhealthwa_the-global-mental-health-summit-will-be-held-activity-7467802305170628608-7qEO",
+      "lastCheckedOn": "2026-09-26"
+    },
+    {
+      "id": "ranzcp-wa-one-day-branch-conference",
+      "title": "WA's One Day Branch Conference & Social Sundowner",
+      "provider": "RANZCP WA Branch",
+      "kind": "event",
+      "datesConfirmed": false,
+      "startsOn": null,
+      "endsOn": null,
+      "mode": "in-person",
+      "location": null,
+      "costNote": null,
+      "url": "https://www.ranzcp.org/events-learning/wa-s-one-day-branch-conference-social-sundowner",
+      "sourceUrl": "https://www.ranzcp.org/events-learning/wa-s-one-day-branch-conference-social-sundowner",
+      "lastCheckedOn": "2026-09-26"
+    }
+  ]
+}

@@ -242,7 +242,7 @@ export async function saveCmeEntry(
 ): Promise<CmeEntry> {
   if (!ownerId) throw new Error("Missing CME owner.");
   const parsed = cmeEntryCreateSchema.safeParse(entry);
-  if (!parsed.success) throw new PublicApiError("Invalid CME entry details or allocations.", 400);
+  if (!parsed.success) throw new PublicApiError("Invalid CPD entry details or allocations.", 400);
   const payload = parsed.data;
   const { data, error } = await supabase.rpc("cme_save_entry", {
     p_owner_id: ownerId,
@@ -267,7 +267,7 @@ export function cmeRepositoryError(error: { message: string }): Error {
     cme_close_conflict: ["Your record changed while the year was being closed. Reload and try again.", 409],
     cme_amendment_reason_invalid: ["Give a reason for this amendment (3 to 1000 characters).", 400],
     cme_year_not_confirmed: ["Confirm your CPD year before saving an entry.", 400],
-    cme_entry_not_found: ["CME entry not found.", 404],
+    cme_entry_not_found: ["CPD entry not found.", 404],
     cme_retry_conflict: [
       "This save request was already used for different details. Reload the saved entry before editing it.",
       409,
@@ -353,7 +353,7 @@ export async function saveCmeRoutine(
         .select("*")
         .single();
   if (result.error) throw cmeRepositoryError(result.error);
-  if (!result.data) throw new PublicApiError("CME routine not found.", 404);
+  if (!result.data) throw new PublicApiError("CPD routine not found.", 404);
   return rowToRoutine(result.data);
 }
 
@@ -418,7 +418,7 @@ export async function markCmeEntryTranscribed(
     .eq("owner_id", ownerId)
     .maybeSingle();
   if (existingError) throw new Error(existingError.message);
-  if (!existing) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
+  if (!existing) throw new PublicApiError("CPD entry not found.", 404, { code: "cme_entry_not_found" });
 
   if ((existing as Record<string, unknown>).archived_at) throw cmeRepositoryError({ message: "cme_entry_archived" });
   const confirmedYear = await fetchOwnerCmeYear(supabase, ownerId, Number(String(existing.activity_date).slice(0, 4)));
@@ -441,7 +441,7 @@ export async function markCmeEntryTranscribed(
     .select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)")
     .maybeSingle();
   if (updateError) throw cmeRepositoryError(updateError);
-  if (!updated) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
+  if (!updated) throw new PublicApiError("CPD entry not found.", 404, { code: "cme_entry_not_found" });
 
   const row = updated as Record<string, unknown>;
   const joined = (row.cme_allocations as { category: string; hours: number }[] | undefined) ?? [];
@@ -468,11 +468,11 @@ export async function replaceCmeAllocations(
 ): Promise<{ readonly written: CmeAllocation[]; readonly prior: CmeAllocation[] }> {
   if (!ownerId) throw new Error("CME allocations were replaced without an ownerId; refusing to run.");
   if (allocations.length === 0) {
-    throw new PublicApiError("A CME entry needs at least one category allocation.", 400);
+    throw new PublicApiError("A CPD entry needs at least one category allocation.", 400);
   }
   const categories = allocations.map((allocation) => allocation.category);
   if (new Set(categories).size !== categories.length) {
-    throw new PublicApiError("A CME entry cannot allocate hours to the same category twice.", 400);
+    throw new PublicApiError("A CPD entry cannot allocate hours to the same category twice.", 400);
   }
 
   const { data: priorRows, error: priorError } = await supabase
@@ -605,7 +605,7 @@ export async function amendClosedCmeEntry(
 ): Promise<CmeEntry> {
   if (!ownerId) throw new Error("Missing CME owner.");
   const parsed = cmeEntryCreateSchema.safeParse(entry);
-  if (!parsed.success) throw new PublicApiError("Invalid CME entry details or allocations.", 400);
+  if (!parsed.success) throw new PublicApiError("Invalid CPD entry details or allocations.", 400);
   const { data, error } = await supabase.rpc("cme_amend_closed_entry", {
     p_owner_id: ownerId,
     p_entry_id: entry.id,

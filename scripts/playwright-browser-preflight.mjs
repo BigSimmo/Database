@@ -14,10 +14,6 @@ export const playwrightProjectNames = Object.freeze({
   chromium: "chromium",
   chromiumMockups: "chromium-mockups",
   chromiumArtifacts: "chromium-artifacts",
-  // Runs against `run-playwright.mjs`'s second, demo-seeded server. A different server, but the
-  // same browser binary: the project uses `devices["Desktop Chrome"]`, so it belongs to the
-  // chromium family below like any other Chromium project.
-  chromiumCaringContactsSeeded: "chromium-caring-contacts-seeded",
   firefox: "firefox",
   webkit: "webkit",
   mobileWebkit: "mobile-webkit",
@@ -28,7 +24,6 @@ const DEFAULT_CONFIG_PROJECTS = Object.freeze({
   "playwright.config.ts": [
     playwrightProjectNames.chromium,
     playwrightProjectNames.chromiumMockups,
-    playwrightProjectNames.chromiumCaringContactsSeeded,
     playwrightProjectNames.firefox,
     playwrightProjectNames.webkit,
     playwrightProjectNames.mobileWebkit,
@@ -41,7 +36,6 @@ const PROJECT_BROWSER_FAMILIES = Object.freeze({
   [playwrightProjectNames.chromium]: "chromium",
   [playwrightProjectNames.chromiumMockups]: "chromium",
   [playwrightProjectNames.chromiumArtifacts]: "chromium",
-  [playwrightProjectNames.chromiumCaringContactsSeeded]: "chromium",
   [playwrightProjectNames.firefox]: "firefox",
   [playwrightProjectNames.webkit]: "webkit",
   [playwrightProjectNames.mobileWebkit]: "webkit",

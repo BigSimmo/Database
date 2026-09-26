@@ -31,7 +31,9 @@ import { MissingValue } from "@/components/ui/missing-value";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import {
   curatedEnrichmentFor,
+  isSpecifierClinicianReviewed,
   relatedCatalogItems,
+  specifierClinicianReviewLabel,
   type SpecifierCatalogItem,
   type SpecifierDefinitionStatus,
   type SpecifierSourceStatus,
@@ -122,18 +124,32 @@ function ReasoningList({
 export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem }) {
   const enrichment = curatedEnrichmentFor(item);
   const related = relatedCatalogItems(item);
-  // Generated definition text is withheld for ALL rows — including those whose
-  // SOURCE was verified. Automated review repeatedly found scattered clinical
-  // errors among the "source-verified" generated definitions, so none of the
-  // generated meaning/clinical-note is displayed as trusted; the catalogue shows
-  // only the specifier's structural facts (label, disorder, group, ICD-11 context),
-  // its review status, and hand-authored curated guidance, pending qualified
-  // clinician-authored definitions.
-  const hasWithheldDefinition = Boolean(item.definition);
+  // Generated definition text is withheld for every row that has not been signed off —
+  // including those whose SOURCE was verified. Automated review repeatedly found scattered
+  // clinical errors among the "source-verified" generated definitions, so an unsigned
+  // entry's meaning/clinical-note is never displayed as trusted; the page shows only the
+  // specifier's structural facts (label, disorder, group, ICD-11 context), its review
+  // status, and hand-authored curated guidance.
+  //
+  // The clinician sign-off (`npm run clinical:review -- --kind specifier`) exists to clear
+  // exactly that: an entry that passes the fail-closed isSpecifierClinicianReviewed test
+  // (status "clinician-reviewed" + named reviewer + parseable timestamp) shows its
+  // definition, attributed to the reviewer. The sign-off covers the definition and its
+  // placement only, not the curated enrichment below, which keeps its own labelling. Every
+  // "pending"/"reviewed" statement here reads the same helper, so a signed entry never
+  // still reads as pending and an unsigned one never as reviewed.
+  const clinicianReviewed = isSpecifierClinicianReviewed(item.review);
+  const clinicianReviewLabel = specifierClinicianReviewLabel(item.review);
+  // Only a real ("defined") definition is ever shown. The placeholder rows carry a stand-in
+  // definition object that is not clinical content, and are not signable anyway.
+  const reviewedDefinition = clinicianReviewed && item.definitionStatus === "defined" ? item.definition : null;
+  const hasWithheldDefinition = Boolean(item.definition) && !reviewedDefinition;
   const sourceManual = sourceManualLabel(item);
-  const description = hasWithheldDefinition
-    ? `“${item.label}” is recorded for ${item.disorderName}; its definition is pending qualified clinician verification — confirm against the current DSM-5-TR / ICD-11 text.`
-    : `“${item.label}” is recorded for ${item.disorderName} without a separate definition — read it against the current ${sourceManual} text.`;
+  const description = reviewedDefinition
+    ? `“${item.label}” is recorded for ${item.disorderName}; its definition below has been reviewed by a clinician — still confirm against the current DSM-5-TR / ICD-11 text.`
+    : hasWithheldDefinition
+      ? `“${item.label}” is recorded for ${item.disorderName}; its definition is pending qualified clinician verification — confirm against the current DSM-5-TR / ICD-11 text.`
+      : `“${item.label}” is recorded for ${item.disorderName} without a separate definition — read it against the current ${sourceManual} text.`;
 
   return (
     <>
@@ -191,7 +207,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
           <QuickTile
             icon={FileCheck2}
             label="Definition"
-            body={definitionStatusLabel[item.definitionStatus]}
+            body={reviewedDefinition ? "Clinician-reviewed definition" : definitionStatusLabel[item.definitionStatus]}
             tone="info"
           />
           <QuickTile
@@ -209,6 +225,20 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
               title="What this specifier records"
               body="Aide-memoire content for the specifier and how it sits within its diagnosis. Confirm against current DSM-5-TR / ICD-11 materials before documenting."
             />
+
+            {reviewedDefinition ? (
+              <InfoCard icon={BookOpenCheck} eyebrow="Definition" title="What this specifier means">
+                <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">
+                  {reviewedDefinition.meaning}
+                </p>
+                {reviewedDefinition.clinicalNote ? (
+                  <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                    {reviewedDefinition.clinicalNote}
+                  </p>
+                ) : null}
+                <p className="text-xs font-bold leading-5 text-[color:var(--text-muted)]">{clinicianReviewLabel}</p>
+              </InfoCard>
+            ) : null}
 
             {hasWithheldDefinition ? (
               <InfoCard icon={ShieldAlert} eyebrow="At a glance" title="Definition pending verification">
@@ -261,7 +291,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
                 {(
                   [
                     ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
-                    ["Clinician review", "Pending qualified review"],
+                    ["Clinician review", clinicianReviewLabel],
                     [
                       "Source family",
                       item.definition?.sourceFamily ?? item.review.sourceFamily ?? (

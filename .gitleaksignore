@@ -143,3 +143,10 @@ b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:
 # No credential material: the calendar feed stores only token hashes, never tokens.
 # Owner-approved in the PR #3038 session.
 19ef145378befcd1f8eb2a31f08e950fc389e66e:supabase/applied-migration-hashes.json:generic-api-key:274
+# Same false positive, re-sealed independently on the My shifts branch (PR #3078) before
+# PR #3038's seal reached main: identical SHA-256 line, no credential material.
+59e350abf361944beecbf43d17f83d3ef7961f2f:supabase/applied-migration-hashes.json:generic-api-key:274
+# Same false positive as the PR #3038 pin above: appending the next seal entry adds a
+# trailing comma to the calendar_feed_tokens.sql line, so gitleaks re-reports that
+# SHA-256 migration hash (filename contains "tokens"). No credential material (PR #3069).
+5157952b26c517d89402908813d4f504d46f72ec:supabase/applied-migration-hashes.json:generic-api-key:274

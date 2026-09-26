@@ -141,10 +141,24 @@ describe("a missing population is a coverage failure, never an audited zero", ()
     expect(items.records[0].record.reviewStatus).toBe("reviewed");
   });
 
-  it("leaves the real catalogue's 585 items pending, not reviewed", () => {
+  it("leaves every unsigned catalogue item pending, and every signed one attributed and pinned", () => {
+    // `npm run clinical:review -- --kind specifier` writes "clinician-reviewed" plus the
+    // reviewer, timestamp and content pin into the item's own review object. Anything
+    // else must still be the untouched pending state.
     const [items] = enumerateSpecifierAuditRecords(specifiersContent);
-    const statuses = new Set(items.records.map((record) => record.record.reviewStatus));
-    expect([...statuses]).toEqual(["clinician-review-pending"]);
+    for (const { identifier, record } of items.records) {
+      const review = (record as { review: Record<string, unknown> }).review;
+      if (record.reviewStatus === "clinician-reviewed") {
+        expect(
+          typeof review.reviewedBy === "string" && review.reviewedBy.trim(),
+          `${identifier} reviewer`,
+        ).toBeTruthy();
+        expect(Number.isFinite(Date.parse(String(review.reviewedAt))), `${identifier} reviewedAt`).toBe(true);
+        expect(review.reviewedContentSha256, `${identifier} pin`).toMatch(/^[0-9a-f]{64}$/);
+      } else {
+        expect(record.reviewStatus, identifier).toBe("clinician-review-pending");
+      }
+    }
   });
 });
 

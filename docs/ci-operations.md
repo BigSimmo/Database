@@ -108,7 +108,9 @@ eight pushes from 2026-09-13 with no workflow reporting it, and across the four 
 - **Delivery, not detection.** `.github/workflows/ci.yml` now ends with a `main-failure-routing` job.
   On a push to `main` it opens or updates one pinned issue labelled `main-ci-failure`, names the
   individual failing jobs (including each matrix leg), and **closes the issue on the next green
-  `main` run**. An open issue therefore means `main` is red right now, not that it once was.
+  `main` run**. An open issue therefore means `main` is red right now, not that it once was. When
+  `main` goes red again it **reopens the most recent issue it closed** (matched by its own marker)
+  rather than opening a new one, so the alert history stays in one place (owner decision, 2026-09-26).
 - **Report only.** It mutates no branch and re-runs nothing. `scripts/check-github-action-pins.mjs`
   forbids workflow-authored branch mutation, and a red `main` is a fact to deliver, not to repair
   automatically.

@@ -1,0 +1,180 @@
+{
+  "description": "Clinician sign-off for the curated WA service records that no published site-content release carries yet: the stand-alone records in src/lib/services-canonical-data added after the 2026-08-24 freeze (the 17 from PR #2814, Legal Yarn, TIS National and the records added since). One row per record; written only by npm run clinical:review. The content pin covers the whole curated record for the id.",
+  "entries": [
+    {
+      "id": "SVC-SV-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-FDV-003",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-SUI-003",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-SUI-004",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-POS-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-POS-002",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-POS-003",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-POS-004",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-004",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-014",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-015",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-DEV-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-PER-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-ED-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-GEN-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-NAV-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-REG-006",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-LEG-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-INT-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-HOU-003",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-LEG-002",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-017",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-018",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-019",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-023",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    }
+  ]
+}

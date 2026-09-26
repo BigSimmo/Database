@@ -130,8 +130,6 @@
      --row-compact is 36px row height and must not be reused as tap. */
   --spacing-compact-meta: 2.5rem;
   --spacing-phone-frame: 52.75rem;
-  /* Ward Flow's fixed phone navigation bar and the matching content reserve. */
-  --spacing-ward-phone-bar: 3.5rem;
 
   /* Shared reading measure, wide mockup study canvas, and Factsheets phone geometry. */
   --container-reading: 64rem;
@@ -5254,24 +5252,6 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   html.factsheets-printing .factsheet-print-portal,
   html.factsheets-printing .factsheet-print-sheet {
     display: block !important;
-  }
-}
-
-/* Caring Contacts workspace (/caring-contacts) print safeguard.
- * The transitional `header, nav, button { display: none }` rule above removes the
- * workspace header when printing, and the "fictional data only" marker lives in
- * it — so a printed page of invented patients would carry nothing saying they are
- * invented. That marker is a safeguard, not chrome. Restore it and only it,
- * scoped to its own attributes, the same way the safety-plan patient copy
- * restores its document header below. */
-@media print {
-  [data-synthetic-marker-host] {
-    display: block !important;
-    position: static !important;
-  }
-
-  [data-synthetic-marker] {
-    display: inline-flex !important;
   }
 }
 

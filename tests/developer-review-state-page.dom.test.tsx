@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Pagination is now real ?page=N navigation (ReviewStateTable renders next/link,
-// not client state) — mirrors tests/ward-capacity-view.dom.test.tsx: a plain <a>
+// not client state) — mirrors the retired Ward Flow capacity-view test: a plain <a>
 // avoids requiring an App Router context jsdom cannot provide, and lets these
 // tests assert the href a click would follow instead of simulating the
 // navigation itself.

@@ -530,8 +530,12 @@ const COMPLIANCE_SURFACES = [
   "src/app/(search-app)/on-call/compliance/page.tsx",
   /** The page summary and the add hint, both rendered in the actions sheet. */
   "src/components/on-call/on-call-section-page.tsx",
-  /** The hub tile: this page's name, count and one-line description. */
+  /** The hub home. Its Compliance tile moved to My Work on 2026-09-26; it
+   *  stays in scope because Recent still lists compliance rows by name. */
   "src/components/on-call/on-call-home.tsx",
+  /** My Work: the What's next rows print each requirement's recorded date,
+   *  and its Compliance card carries the page's one-line description. */
+  "src/components/my-work/my-work-home.tsx",
   /** The demo requirements, which ARE the page's content in demo mode. */
   "src/lib/on-call/demo-entries.ts",
   /** The compliance form's labels, hints and privacy sentence — and
@@ -693,9 +697,9 @@ function isMachinery(node: ts.Node): boolean {
  * Every string in one file that could reach a reader: JSX text, plus string and
  * template literals that are not plumbing.
  *
- * Not `tests/helpers/ast-string-literals.ts`, which answers a different
- * question — "does this file contain this known string" — and so deliberately
- * takes every literal including class names and test ids. This one has to
+ * Not the plain literal scanner the retired Ward Flow tests used, which answered
+ * a different question — "does this file contain this known string" — and so
+ * deliberately took every literal including class names and test ids. This one has to
  * decide what a reader SEES, which needs the literal's position as well as its
  * text, and it needs JSX text, which a literal scanner cannot return.
  */
