@@ -1,0 +1,161 @@
+"use client";
+
+import { Phone, Share2 } from "lucide-react";
+import { useSyncExternalStore } from "react";
+
+import { focusRing } from "@/components/card-recipes";
+import { OnCallActionButton } from "@/components/on-call/kit/action-button";
+import {
+  onCallCallDiscShape,
+  onCallInsetHairline,
+  onCallModuleSurface,
+  onCallRowHeight,
+  onCallTapArea,
+} from "@/components/on-call/kit/recipes";
+import { onCallDisplayNumberText, onCallNameText, onCallNumberText } from "@/components/on-call/kit/type";
+import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
+import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
+import { Sheet } from "@/components/ui/sheet";
+import { cn } from "@/components/ui-primitives";
+import { spokenOnCallNumber, type HandbookDial } from "@/lib/on-call/number-resolver";
+
+/** What to key on a hospital handset: the extension when there is one, otherwise the number. */
+export function onCallHospitalPhoneText(dial: HandbookDial): string {
+  if (dial.kind === "switchboard-extension") return `ext ${dial.extension}`;
+  return dial.display;
+}
+
+/** The route a mobile can ring, or null when none is recorded. */
+export function onCallMobileRoute(dial: HandbookDial, mobileDial?: HandbookDial | null): HandbookDial | null {
+  if (dial.tel) return dial;
+  return mobileDial?.tel ? mobileDial : null;
+}
+
+const noSubscription = () => () => {};
+const canShareNow = () => typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+/**
+ * "Dial from a desk phone" (amendment 1.6, I1): the sheet that opens when a
+ * row's number text is tapped.
+ *
+ * It names the role and the hospital, then shows what to key on a hospital
+ * handset in large 300-weight digits, the route from a mobile (with its own
+ * call link) or "Not recorded" in muted grey, Copy and Share, and the Updated
+ * line. Sizes, colours and radii come from the kit recipes, so a visual pass
+ * changes them in one place.
+ */
+export function OnCallDialSheet({
+  open,
+  onClose,
+  title,
+  hospitalName,
+  dial,
+  mobileDial,
+  updatedAt,
+  sources,
+  reviewedAt,
+  now,
+  onCall,
+  testId,
+}: {
+  readonly open: boolean;
+  readonly onClose: () => void;
+  /** The role or place, e.g. "Registrar". */
+  readonly title: string;
+  readonly hospitalName?: string | null;
+  readonly dial: HandbookDial;
+  /** The "From a mobile:" route recorded beside a short code, if any. */
+  readonly mobileDial?: HandbookDial | null;
+  readonly updatedAt?: string | null;
+  readonly sources?: readonly { readonly label: string; readonly url: string }[];
+  readonly reviewedAt?: string | null;
+  readonly now?: Date;
+  /** Called when the mobile call link is tapped, so the row can record it. */
+  readonly onCall?: () => void;
+  readonly testId?: string;
+}) {
+  const canShare = useSyncExternalStore(noSubscription, canShareNow, () => false);
+  const hospitalText = onCallHospitalPhoneText(dial);
+  const mobile = onCallMobileRoute(dial, mobileDial);
+  const copyLabel = `${dial.route === "hospital-phone" ? "Copy extension" : "Copy number"} for ${title}`;
+
+  const share = () => {
+    if (!canShareNow()) return;
+    const where = hospitalName ? `, ${hospitalName}` : "";
+    // A rejected or cancelled share is not an error worth showing.
+    navigator.share({ title, text: `${title}${where}: ${dial.display}` }).catch(() => {});
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} title={title} testId={testId}>
+      <div className="grid min-w-0 gap-4" data-testid={testId ? `${testId}-body` : undefined}>
+        {hospitalName ? (
+          <p className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-muted)]")}>
+            {hospitalName}
+          </p>
+        ) : null}
+
+        {dial.kind === "none" ? null : (
+          <div className="grid min-w-0 gap-1">
+            {dial.route ? <span className="text-sm text-[color:var(--text-muted)]">From a hospital phone</span> : null}
+            <span
+              data-testid={testId ? `${testId}-number` : undefined}
+              className={cn(onCallDisplayNumberText, "break-words text-hero text-[color:var(--text-heading)]")}
+            >
+              {hospitalText}
+            </span>
+          </div>
+        )}
+
+        <ul role="list" className={onCallModuleSurface}>
+          <li
+            className={cn(
+              onCallInsetHairline,
+              onCallRowHeight.double,
+              "flex min-w-0 flex-wrap items-center gap-x-3 py-1.5 pl-3 pr-1",
+            )}
+          >
+            <span className="grid min-w-0 flex-1 gap-0.5">
+              <span className="text-sm text-[color:var(--text-muted)]">From your mobile</span>
+              {mobile ? (
+                <span className={cn(onCallNumberText, "break-words text-base-minus text-[color:var(--text)]")}>
+                  {mobile.display}
+                </span>
+              ) : (
+                <span className="text-base-minus text-[color:var(--text-muted)]">Not recorded</span>
+              )}
+            </span>
+            {mobile?.tel ? (
+              <a
+                href={mobile.tel}
+                onClick={onCall}
+                aria-label={`Call ${title} from your mobile, ${spokenOnCallNumber(mobile.display)}`}
+                className={cn(onCallTapArea, focusRing, "ml-auto rounded-full")}
+              >
+                <span aria-hidden="true" className={onCallCallDiscShape.neutral}>
+                  <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
+                </span>
+              </a>
+            ) : null}
+          </li>
+        </ul>
+
+        <div className="flex min-w-0 flex-wrap items-start gap-2">
+          {dial.copy ? (
+            <OnCallCopyNumber value={dial.copy} label={copyLabel} testId={testId ? `${testId}-copy` : undefined} />
+          ) : null}
+          {canShare ? (
+            <OnCallActionButton
+              icon={Share2}
+              label={`Share ${title}`}
+              onClick={share}
+              testId={testId ? `${testId}-share` : undefined}
+            />
+          ) : null}
+        </div>
+
+        <OnCallUpdatedLine updatedAt={updatedAt ?? null} sources={sources} reviewedAt={reviewedAt} now={now} />
+      </div>
+    </Sheet>
+  );
+}
