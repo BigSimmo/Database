@@ -19,7 +19,7 @@ import type { LedgerOpenItem, LedgerSnapshot } from "./ledger-snapshot";
  * that renders it says so.
  */
 const OWNER_WORDING =
-  /^(clinical )?owner (design )?(decisions?|sign-?off)\b|owner to (confirm|decide|approve)|awaits? owner|fresh owner review/i;
+  /^(clinical )?owner (design )?(decisions?|sign-?off)\b|owner to (confirm|decide|approve)|awaits? owner|fresh owner review|needs? (an? )?owner (decisions?|review|sign-?off)\b/i;
 
 export function ownerDecisionItems(open: readonly LedgerOpenItem[]): LedgerOpenItem[] {
   return (
@@ -51,11 +51,18 @@ const PRIVACY_LABELS: Record<string, string> = {
 
 export type OpenPrivacyItem = { id: string; label: string; status: string; reviewBy: string | null };
 
+/**
+ * Statuses that need no further work: `verified`, and `accepted_decision`, the
+ * terminal state for a requirement the owner formally accepted as it stands
+ * (see scripts/check-privacy-readiness.mjs).
+ */
+const SETTLED_PRIVACY_STATUSES = new Set(["verified", "accepted_decision"]);
+
 export function openPrivacyItems(
   register: PrivacyRegister = privacyRegisterJson as PrivacyRegister,
 ): OpenPrivacyItem[] {
   return register.requirements
-    .filter((requirement) => requirement.status !== "verified")
+    .filter((requirement) => !SETTLED_PRIVACY_STATUSES.has(requirement.status))
     .map((requirement) => ({
       id: requirement.id,
       label: PRIVACY_LABELS[requirement.id] ?? requirement.id,

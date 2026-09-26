@@ -16,8 +16,13 @@ describe("owner panel — decisions waiting on the owner", () => {
       item("#D", "Sixteen candidate sources await owner review"),
       item("#E", "No deliberate tests; owner to confirm the behaviour"),
       item("#F", "Six sources need a fresh owner review"),
+      // #YTR84P's wording: the phrase sits mid-sentence, not at the start.
+      item(
+        "#G",
+        "Ward Flow pinned clock: the provider fix is on main; D5's rendered branch is untested AND unrendered, so it needs an owner decision before any test",
+      ),
     ]).map((entry) => entry.id);
-    expect(matched).toEqual(["#A", "#B", "#C", "#D", "#E", "#F"]);
+    expect(matched).toEqual(["#A", "#B", "#C", "#D", "#E", "#F", "#G"]);
   });
 
   it("ignores items that only mention the owner in their detail", () => {
@@ -55,9 +60,19 @@ describe("owner panel — privacy items", () => {
     ]);
   });
 
+  it("leaves out requirements the owner formally accepted", () => {
+    const items = openPrivacyItems({
+      requirements: [
+        { id: "PRIV-ACCEPTED", status: "accepted_decision" },
+        { id: "PRIV-OPEN", status: "pending" },
+      ],
+    });
+    expect(items.map((entry) => entry.id)).toEqual(["PRIV-OPEN"]);
+  });
+
   it("reads the committed register", () => {
     const items = openPrivacyItems();
-    for (const entry of items) expect(entry.status).not.toBe("verified");
+    for (const entry of items) expect(["verified", "accepted_decision"]).not.toContain(entry.status);
   });
 });
 
