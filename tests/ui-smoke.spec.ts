@@ -1970,13 +1970,16 @@ test.describe("PsychSift UI smoke coverage", () => {
     ]);
 
     // The full catalogue remains in one radio menu, but the phone presentation
-    // now groups it into the three clinical jobs clinicians scan for first.
+    // now groups it into the three clinical jobs clinicians scan for first, then
+    // On Call and CPD as areas of their own.
     const modeOptions = appModeMenu.getByRole("menuitemradio");
     const modeCount = await modeOptions.count();
     expect(modeCount).toBeGreaterThanOrEqual(10);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
     // Sources reached the desktop menu (built from `appModeDefinitions`) but not
@@ -4524,6 +4527,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^CME\b/ })).toBeAttached();
 

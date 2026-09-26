@@ -30,7 +30,23 @@ export const phoneModeGroups = [
     id: "care",
     label: "Care",
     hint: "Medication, calculators, reference, therapy",
-    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary", "on-call", "cme"],
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
+  },
+  // The groups above are the Clinical area. On Call and CPD are areas of their
+  // own rather than the tail of "Care", so the urgent screen is not buried at
+  // the bottom of the clinical list. A My Work area joins them once it has a
+  // home page of its own.
+  {
+    id: "on-call",
+    label: "On Call",
+    hint: "Who to ring, right now",
+    modeIds: ["on-call"],
+  },
+  {
+    id: "cpd",
+    label: "CPD",
+    hint: "Learning and evidence",
+    modeIds: ["cme"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
