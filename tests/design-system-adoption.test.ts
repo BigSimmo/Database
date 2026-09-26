@@ -1476,7 +1476,8 @@ describe("design-system adoption manifest", () => {
     // (drafted Mental Health Act 2014 section summaries and the Chief Psychiatrist's
     // Standards), declared in `adoption-contract.json` on the catalogues surface.
     // 112 -> 113 on 2026-09-26: `/cme/learning`, the CME WA learning directory.
-    expect(manifest.routeCoverage.discovered).toHaveLength(113);
+    // 113 -> 114 on 2026-09-26: `/psychiatry`, the Psychiatry mode's dashboard.
+    expect(manifest.routeCoverage.discovered).toHaveLength(114);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

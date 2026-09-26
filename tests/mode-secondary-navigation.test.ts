@@ -109,7 +109,7 @@ const emptyRegistryModes = [
 describe("mode secondary navigation registry", () => {
   it("covers all 19 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(18);
+    expect(appModeIds).toHaveLength(19);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
