@@ -41,7 +41,8 @@ const REASON_MAX = 120;
 const SUMMARY_MAX = 60_000;
 // Folders that mix areas: a wildcard sitting directly inside one must carry at least three
 // literal characters (for example `tests/rag-*`), so nobody can place a whole mixed folder at once.
-// A rule ending in a fixed file name (`src/app/**/page.tsx`) is exempt: it names one kind of file.
+// A rule of `**` segments ending in a fixed file name (`src/app/**/page.tsx`) is exempt: it names one kind
+// of file.
 const MIXED_PARENTS = new Set([
   "",
   "src/",
@@ -152,7 +153,11 @@ function patternProblem(pattern) {
   const prefix = literalPrefix(pattern);
   // A rule whose last segment is a fixed file name (`src/app/**/page.tsx`) names one kind of file,
   // not a whole mixed folder, so the three-character rule does not apply to it.
-  const namedFile = segments.length > 1 && !segments.at(-1).includes("*");
+  // Only `**` qualifies: a single `*` segment (`src/lib/*/index.ts`) still sweeps a mixed folder.
+  const namedFile =
+    segments.length > 1 &&
+    !segments.at(-1).includes("*") &&
+    segments.every((segment) => !segment.includes("*") || segment === "**");
   if (prefix !== null && !namedFile) {
     const dir = prefix.slice(0, prefix.lastIndexOf("/") + 1);
     if (MIXED_PARENTS.has(dir) && prefix.length - dir.length < 3) {

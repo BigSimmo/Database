@@ -239,6 +239,13 @@ describe("check-organisation", () => {
     expect(report.lookup.map((l: { area: string }) => l.area)).toEqual(["app", "clinic"]);
   });
 
+  it("still rejects a single-star segment under a mixed folder, even with a fixed file name", () => {
+    for (const rule of ["*/README.md", "src/lib/*/index.ts"]) {
+      const root = repo({ ...mapFiles({ app: [rule], knowledge: [MAP_RULE] }), "src/lib/a/index.ts": "" });
+      expect(check(root).blocking.map((f: { key: string }) => f.key)).toEqual([`rule-invalid:app:${rule}`]);
+    }
+  });
+
   it("--files accepts ./ and absolute paths, and places a file not in git yet", () => {
     const root = repo({ ...mapFiles({ app: ["src/app/pages/**"], knowledge: [MAP_RULE] }), "src/app/pages/a.ts": "" });
     const { report } = check(root, [
