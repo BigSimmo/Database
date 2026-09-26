@@ -1158,6 +1158,39 @@ body {
   }
 }
 
+/* Mode summary surface (mode design standard v13.3 §4).
+   ------------------------------------------------------------------
+   The dark "Right now" panel a mode home may build its hero from; every mode
+   reuses these rather than inventing its own dark card. Read through the
+   `modeSummary*` recipes in `src/components/mode-kit/recipes.ts`.
+   Light: the graphite command fill with its own light ink (16.5:1) and muted
+   ink (7.8:1). Dark: the raised lux surface with the ordinary dark text, so the
+   panel lifts instead of inverting. The aliases resolve on <html>, like the
+   mode identity block above. */
+:root {
+  --surface-summary: var(--command);
+  --surface-summary-ink: #f5f7f7;
+  --surface-summary-muted: #a4adb7;
+  --surface-summary-line: rgb(255 255 255 / 12%);
+}
+
+.dark {
+  --surface-summary: var(--surface-lux);
+  --surface-summary-ink: var(--text);
+  --surface-summary-muted: var(--text-muted);
+  --surface-summary-line: var(--border);
+}
+
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --surface-summary: Canvas;
+    --surface-summary-ink: CanvasText;
+    --surface-summary-muted: CanvasText;
+    --surface-summary-line: CanvasText;
+  }
+}
+
 @layer base {
   /* Interactive element defaults */
   button,
