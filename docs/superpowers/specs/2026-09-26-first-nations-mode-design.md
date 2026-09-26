@@ -10,8 +10,8 @@ answered 2026-09-26). Visual plan and phone mockups: the private plan page, vers
 A new standalone mode, `first-nations`, for hospital doctors caring for Aboriginal and Torres Strait
 Islander patients. It is about **better, culturally safe care**: reaching the right Aboriginal
 services fast, communicating well, involving family, avoiding common mistakes, and knowing what to
-be aware of. It is built for a health service: **East Metropolitan Health Service (EMHS), starting
-at Royal Perth Hospital**.
+be aware of. It is built for **all of WA Health**, with **East Metropolitan Health Service (EMHS), starting at
+Royal Perth Hospital**, as the first service to add its own layer.
 
 It is a **reference and contacts tool**. It is not clinical decision support, it holds **no disease
 or condition content** (owner, 2026-09-26: "this is not a medical condition tool"), it stores
