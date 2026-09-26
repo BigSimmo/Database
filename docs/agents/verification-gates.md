@@ -61,6 +61,41 @@ This does not license skipping verification. It licenses not re-running the _sam
 on content that has not changed. The smallest-correct-gate rule above still decides which
 gate is right.
 
+### The default for an ordinary PR push
+
+**Run the narrowest gate that covers the diff, plus `npm run format`. Let CI run the heavy jobs,
+and say in the PR body which ones you left to it.** CI is risk-scoped and runs them anyway on
+every push; a local repeat buys a verdict GitHub is about to reach, while holding the repository
+lock that other worktrees are queued behind.
+
+This is not a licence to push unverified work. The narrow gate still has to cover the diff's
+plausible failure classes — a two-file script change needs its own suites and `typecheck`, and a
+shared-foundation change still needs the broad gate. What it forbids is reaching for the broad
+gate because it is the familiar command.
+
+Three traps, all observed in one session on 2026-09-25:
+
+- **`verify:cheap` ran four times for changes of one script plus one test file.** Each run is
+  ~8 minutes and 23,000 tests over 1,500 files; the diff never exceeded two files, and CI repeated
+  the same suite on every push regardless. `npm run test:focused -- --files <the two suites>` plus
+  `npm run typecheck` was the gate that covered it, and takes seconds.
+- **Two of those four runs were spent re-running after `npm ci`.** The installed-lock-parity guard
+  fails whenever `main`'s lockfile has moved, which is a dependency state to repair, not a reason
+  to widen the gate. Reinstall, then run the narrow gate — not the broad one again.
+- **Exit 0 with no output is not a pass.** A backgrounded gate whose log is still buffering looks
+  identical to one that finished clean. Read the decisive line before reporting a verdict, and if
+  the log is empty, the run has not reported yet.
+
+In the PR body, name the focused gate and paste its decisive line, then list what you did not run
+locally:
+
+```
+Left to CI: Unit coverage, Build, Production UI, Container images.
+```
+
+That line is the point. It tells a reviewer what was deliberately deferred to the authoritative
+gate, which is different from — and much more useful than — silence about it.
+
 <!-- END:verification-gates -->
 
 ## The browser gate is narrowed, not deferred

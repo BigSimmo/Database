@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "41e0d3c2-ce51-4c5d-8a64-2f146aad2866",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#9V1TJ5",
+    "detail": "OWNER DECISION 2026-09-26 (Josh, 'all as recommended' in the project chat): keep uploaded-local retrieval fail-closed for now; turning it on is a separate, larger safety project (P16 generation-bound activation). Canary cases are NOT red because of this: #4WR2XZ's live search found the WA clozapine guidelines scoped public, so do not re-investigate that link. Remaining cleanup only: the app still treats uploaded_local (and international_supplementary, fail-closed by migration 20260901130000) as live scopes in src/lib/rag/rag-candidate-sources.ts, rag-governed-search.ts, source-conflict-section.ts and rag-reviewed-policy-input.ts while match_governed_candidate_chunks_v3 returns nothing for them; making app and database agree is a RAG-surface change needing the usual flag and canary. DO NOT route around the fail-closed migration.",
+    "baseRowFingerprint": "4aa6a4618a866a4d2cfc1a3596383d772eb61291f3c67bd1cc475db47ffc4340"
+  }
+}
