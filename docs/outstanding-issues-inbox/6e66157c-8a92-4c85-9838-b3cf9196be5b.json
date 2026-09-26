@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6e66157c-8a92-4c85-9838-b3cf9196be5b",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Private professional document passport and application-pack builder",
+    "detail": "Review items F05, F08, D17. Private evidence (registration, police check, indemnity) with issuer, dates and versions; recipient-specific pack preview, share receipts and expiring links that do not claim to recall downloaded copies. Must never enter clinical search, embeddings or AI. Blocked by #F9HZEG (two-user isolation proof for CME and On Call).",
+    "source": "Master product review 2026-09-26 (thread: Review master review ideas); cross-checked against main 004ab6301",
+    "issueUlid": "01M3DZQ0DK65TVV1T3MCR5XBB5"
+  }
+}
