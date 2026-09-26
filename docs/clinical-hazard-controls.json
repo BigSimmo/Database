@@ -225,6 +225,20 @@
       "recordedBy": "BigSimmo (owner), decision 2026-09-26. Engineering, not a clinical review; the owner must re-review.",
       "recordedOn": "2026-09-26",
       "expiresOn": "2026-10-26"
+    },
+    {
+      "path": "src/lib/rag/rag-source-block.ts",
+      "reason": "PR #3103 (#JYH1FH, step 1 of the locally_reviewed label repair): the model-facing source line reads \"clinical validation: unverified (endorsed by issuing WA service)\" for the new wa_document_control_endorsement basis. No live document carries that basis until the separately approved data migration, so current output is unchanged. Pending owner review, then a re-seal.",
+      "recordedBy": "BigSimmo (owner), decision 2026-09-26 (\"record the two step 1 files as changed and awaiting my review\"). Engineering, not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-26",
+      "expiresOn": "2026-11-09"
+    },
+    {
+      "path": "src/lib/source-governance.ts",
+      "reason": "PR #3103 (#JYH1FH, step 1 of the locally_reviewed label repair): claim-evidence eligibility accepts the wa_document_control_endorsement basis exactly as it accepts locally_reviewed, and the unverified-source warning gets honest wording for it (same code and severity). No live document carries that basis until the separately approved data migration. Pending owner review, then a re-seal.",
+      "recordedBy": "BigSimmo (owner), decision 2026-09-26 (\"record the two step 1 files as changed and awaiting my review\"). Engineering, not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-26",
+      "expiresOn": "2026-11-09"
     }
   ]
 }

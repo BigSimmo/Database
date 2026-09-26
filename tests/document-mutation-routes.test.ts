@@ -210,6 +210,45 @@ describe("/api/documents/bulk", () => {
     expect(invalidateRagCachesForOwner).not.toHaveBeenCalled();
   });
 
+  // #JYH1FH: the WA document-control endorsement keeps the WA authority tier, so its publisher
+  // identity stays as protected as it was under the old `locally_reviewed` stamp.
+  it("rejects identity edits on a WA document-control endorsed source", async () => {
+    const supabase = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return {
+          data: [
+            {
+              id: documentId,
+              title: "Endorsed WA guidance",
+              metadata: {
+                document_status: "review_due",
+                clinical_validation_status: "unverified",
+                clinical_validation_evidence: { status: "unverified", basis: "wa_document_control_endorsement" },
+              },
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+    const { invalidateRagCachesForOwner } = mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentIds: [documentId], metadata: { publisherCode: "BMJ" } }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: "reviewed_source_edit_blocked" });
+    expect(supabase.calls.filter((call) => call.operation !== "select")).toEqual([]);
+    expect(invalidateRagCachesForOwner).not.toHaveBeenCalled();
+  });
+
   it("applies owner-scoped metadata, title, and label edits", async () => {
     const supabase = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") {

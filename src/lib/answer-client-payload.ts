@@ -9,6 +9,7 @@ import {
 } from "@/lib/answer-client-fields";
 export type { ClientRelatedDocument } from "@/lib/answer-client-fields";
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
 import { isRagFallbackReasonCode, publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
 import type {
   BestSourceRecommendation,
@@ -894,16 +895,30 @@ export function trimSourceForClient(source: SearchResult): ClientSearchResult {
   return projected;
 }
 
-/** True when every claim is directly supported, and every chunk it rests on has approved or locally reviewed authority. */
+/**
+ * Owner decision point (#JYH1FH, 2026-09-26; recommended option): a WA document-control
+ * endorsement (`unverified` plus the `wa_document_control_endorsement` basis) is NOT reviewed
+ * authority for the render-trust cap or the "Strong support" wording, so those treat it like any
+ * unverified source. Setting this to `true` is the whole change if the owner decides otherwise.
+ */
+const WA_ENDORSEMENT_COUNTS_AS_REVIEWED_AUTHORITY: boolean = false;
+
+/** Whether the chunk a claim rests on has reviewed authority (approved or locally reviewed). */
+function chunkHasReviewedAuthority(answer: RagAnswer, chunkId: string): boolean {
+  const authority = answer.evidenceAssessments?.[chunkId]?.authority;
+  if (authority === "approved" || authority === "locally_reviewed") return true;
+  if (!WA_ENDORSEMENT_COUNTS_AS_REVIEWED_AUTHORITY || authority !== "unverified") return false;
+  const source = answer.sources.find((candidate) => candidate.id === chunkId);
+  return hasWaDocumentControlEndorsement(source?.source_metadata);
+}
+
+/** True when every claim is directly supported, and every chunk it rests on has reviewed authority. */
 function claimsHaveReviewedDirectSupport(answer: RagAnswer, claims: SupportedClaim[]): boolean {
   return claims.every(
     (claim) =>
       claim.supportStatus === "direct" &&
       claim.supportingChunkIds.length > 0 &&
-      claim.supportingChunkIds.every((chunkId) => {
-        const authority = answer.evidenceAssessments?.[chunkId]?.authority;
-        return authority === "approved" || authority === "locally_reviewed";
-      }),
+      claim.supportingChunkIds.every((chunkId) => chunkHasReviewedAuthority(answer, chunkId)),
   );
 }
 

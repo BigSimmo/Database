@@ -1,5 +1,6 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { estimateTokens } from "@/lib/chunking";
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
 import { metadataText, safeRecord } from "@/lib/rag/rag-answer-text";
 import {
   escapeEvidenceFenceSentinels,
@@ -90,10 +91,12 @@ function governanceValue(value: unknown, allowed: Set<string>, fallback: string)
 function sourceGovernanceLine(result: SearchResult) {
   const metadata = result.source_metadata;
   if (!metadata) return "metadata not recorded (absence is not an adverse finding)";
+  // Names the WA document-control endorsement (#JYH1FH) without claiming a review here.
+  const endorsement = hasWaDocumentControlEndorsement(metadata) ? " (endorsed by issuing WA service)" : "";
   return [
     `document status: ${governanceValue(metadata.document_status, DOCUMENT_STATUS, "unknown")}`,
     // Neutral fallback: never invent adverse "unverified" for missing/malformed values.
-    `clinical validation: ${governanceValue(metadata.clinical_validation_status, VALIDATION_STATUS, "unknown")}`,
+    `clinical validation: ${governanceValue(metadata.clinical_validation_status, VALIDATION_STATUS, "unknown")}${endorsement}`,
     `extraction quality: ${governanceValue(metadata.extraction_quality, EXTRACTION_QUALITY, "unknown")}`,
   ].join("; ");
 }

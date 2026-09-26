@@ -259,6 +259,9 @@ export function extractReviewerAttribution(record: Record<string, unknown>): {
     ["metadata.reviewer", metadata.reviewer],
     ["metadata.reviewer_id", metadata.reviewer_id],
     ["metadata.reviewer_name", metadata.reviewer_name],
+    // Written by record_source_review / _v2 with the reviewer's id, beside an immutable
+    // source_review_events row. Before this entry an RPC-reviewed document read as unattributed.
+    ["metadata.governance_updated_by", metadata.governance_updated_by],
     ["metadata.clinical_validation_evidence.attested_by", clinicalValidationEvidence.attested_by],
     ["metadata.clinical_validation_evidence.reviewer_id", clinicalValidationEvidence.reviewer_id],
     ["reviewChecklist.reviewedBy", reviewChecklist.reviewedBy],
@@ -339,6 +342,17 @@ export function extractReviewerAttribution(record: Record<string, unknown>): {
         }
       }
     }
+  }
+
+  // The review RPCs write this only together with a source_review_events row whose reviewer_id
+  // is NOT NULL, so the reviewer is traceable even where the id echo above is absent.
+  if (metadata.provenance_basis === "reviewer_verified") {
+    foundFields["metadata.provenance_basis"] = metadata.provenance_basis;
+    return {
+      hasAttribution: true,
+      attribution: "source_review_events (provenance_basis reviewer_verified)",
+      foundFields,
+    };
   }
 
   // Reached only when no identity field matched. A qualification present here is
@@ -957,7 +971,7 @@ export async function main(argv = process.argv.slice(2)) {
         .join(", ")}`,
     );
     console.log(
-      `Operational unattested review debt: ${report.operational_review_debt_counts.unattested_review_debt} (complete current BMJ attestations: ${report.operational_review_debt_counts.complete_bmj_third_party_attestations}; raw unverified: ${report.operational_review_debt_counts.raw_unverified_validation})`,
+      `Operational unattested review debt: ${report.operational_review_debt_counts.unattested_review_debt} (complete current BMJ attestations: ${report.operational_review_debt_counts.complete_bmj_third_party_attestations}; WA document-control endorsements, not reviewed here: ${report.operational_review_debt_counts.wa_document_control_endorsements}; raw unverified: ${report.operational_review_debt_counts.raw_unverified_validation})`,
     );
     console.log(
       `Extraction quality: ${Object.entries(report.extraction_quality_counts)

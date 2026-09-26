@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 import { loadEnvConfig } from "@next/env";
+import { WA_DOCUMENT_CONTROL_ENDORSEMENT_BASIS, hasRecordedReviewerMarker } from "@/lib/clinical-validation-basis";
 import {
   analyzeSourceLocality,
   assertLocalityMetadataPatch,
@@ -47,6 +48,10 @@ type ClinicalValidationEvidence = {
   basis: string;
   evidence_type: string;
   evidence_text: string | null;
+  /** Present only on the WA document-control endorsement shape: nobody reviewed it here. */
+  reviewed_here?: false;
+  /** Human-readable basis for `source_metadata_backfill_basis`; never written to the evidence. */
+  summary?: string;
 };
 
 const BACKFILL_VERSION = "source_metadata_backfill_2026_06_30_v1";
@@ -400,16 +405,33 @@ function validationSnippet(text: string, pattern: RegExp) {
   return normalizeWhitespace(text.slice(start, end));
 }
 
-function clinicalValidationEvidenceFor(args: {
+/**
+ * Document-control text in a WA publisher's own document shows that the issuing WA health
+ * service endorsed or approved it. That is not a review done here, so it is recorded as
+ * `unverified` with the `wa_document_control_endorsement` basis (#JYH1FH); before 2026-09-26
+ * this function wrote `locally_reviewed`, which the site then displayed as "Locally reviewed".
+ * A genuine review recorded through the review RPCs is preserved, like `approved`, so a rerun
+ * can neither re-stamp a false review nor erase a real one.
+ */
+export function clinicalValidationEvidenceFor(args: {
   publisherCode: string | null;
   text: string;
   existing: string;
+  hasRecordedReviewer?: boolean;
 }): ClinicalValidationEvidence {
   if (args.existing === "approved") {
     return {
       status: "approved",
       basis: "pre-existing approved status preserved",
       evidence_type: "manual_approved_status",
+      evidence_text: null,
+    };
+  }
+  if (args.existing === "locally_reviewed" && args.hasRecordedReviewer) {
+    return {
+      status: "locally_reviewed",
+      basis: "pre-existing reviewer-recorded locally_reviewed status preserved",
+      evidence_type: "recorded_source_review",
       evidence_text: null,
     };
   }
@@ -454,10 +476,12 @@ function clinicalValidationEvidenceFor(args: {
     const evidence = validationSnippet(args.text, pattern);
     if (evidence) {
       return {
-        status: "locally_reviewed",
-        basis: `local WA source with document-control ${type.replace(/_/g, " ")} evidence`,
+        status: "unverified",
+        basis: WA_DOCUMENT_CONTROL_ENDORSEMENT_BASIS,
         evidence_type: type,
         evidence_text: evidence,
+        reviewed_here: false,
+        summary: `local WA source with document-control ${type.replace(/_/g, " ")} evidence (endorsed by the issuing WA service, not reviewed here)`,
       };
     }
   }
@@ -513,7 +537,7 @@ function setIfChanged(metadata: Record<string, unknown>, key: string, value: unk
   changed.push(key);
 }
 
-function deriveMetadata(
+export function deriveMetadata(
   document: DocumentRow,
   text: string,
   quality: QualityRow | undefined,
@@ -542,6 +566,7 @@ function deriveMetadata(
     publisherCode,
     text,
     existing: existingValidation,
+    hasRecordedReviewer: hasRecordedReviewerMarker(metadata),
   });
   const clinicalValidationStatus = clinicalValidation.status;
   const extractionQuality = extractionQualityFor(quality, String(metadata.extraction_quality ?? "unknown"));
@@ -569,6 +594,7 @@ function deriveMetadata(
       basis: clinicalValidation.basis,
       evidence_type: clinicalValidation.evidence_type,
       evidence_text: clinicalValidation.evidence_text,
+      ...(clinicalValidation.reviewed_here === false ? { reviewed_here: false } : {}),
     },
     changedKeys,
   );
@@ -586,7 +612,7 @@ function deriveMetadata(
           ? `inferred review ${inferredReviewDate} from publication ${dates.publication?.date} + review cycle`
           : "not inferred"),
       publication_date: dates.publication?.raw ?? "not inferred",
-      clinical_validation_status: clinicalValidation.basis,
+      clinical_validation_status: clinicalValidation.summary ?? clinicalValidation.basis,
       extraction_quality: quality
         ? `document_index_quality:${quality.extraction_quality ?? "unknown"} score:${quality.quality_score ?? "unknown"}`
         : "existing metadata",
