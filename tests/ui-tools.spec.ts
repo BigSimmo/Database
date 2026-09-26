@@ -312,27 +312,32 @@ async function waitForReactEventHandler(locator: Locator, eventName: "onChange" 
 
 async function expectIdlePhoneHomeCentered(page: Page, homeTestId: string) {
   await expect(page.getByTestId(homeTestId)).toBeVisible();
-  const geometry = await page.evaluate((homeTestId) => {
-    const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
-      const rect = node.getBoundingClientRect();
-      const style = window.getComputedStyle(node);
-      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
-    });
-    const canvas = document.querySelector("[data-mode-home-canvas]");
-    const main = document.getElementById("main-content");
-    if (!home || !canvas || !main) return null;
-    const homeRect = home.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    return {
-      homeMidX: homeRect.left + homeRect.width / 2,
-      homeMidY: homeRect.top + homeRect.height / 2,
-      canvasMidX: canvasRect.left + canvasRect.width / 2,
-      canvasMidY: canvasRect.top + canvasRect.height / 2,
-      canvasHeight: canvasRect.height,
-      docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
-      mainOverflowY: main.scrollHeight - main.clientHeight,
-    };
-  }, homeTestId);
+  // Hydration/streaming can briefly swap the home, canvas or main node after the first
+  // visible paint; read the geometry once all three exist rather than on a single sample.
+  const readGeometry = () =>
+    page.evaluate((homeTestId) => {
+      const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
+        const rect = node.getBoundingClientRect();
+        const style = window.getComputedStyle(node);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      });
+      const canvas = document.querySelector("[data-mode-home-canvas]");
+      const main = document.getElementById("main-content");
+      if (!home || !canvas || !main) return null;
+      const homeRect = home.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        homeMidX: homeRect.left + homeRect.width / 2,
+        homeMidY: homeRect.top + homeRect.height / 2,
+        canvasMidX: canvasRect.left + canvasRect.width / 2,
+        canvasMidY: canvasRect.top + canvasRect.height / 2,
+        canvasHeight: canvasRect.height,
+        docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+        mainOverflowY: main.scrollHeight - main.clientHeight,
+      };
+    }, homeTestId);
+  await expect.poll(readGeometry, { message: "the idle home, canvas and main must all render" }).not.toBeNull();
+  const geometry = await readGeometry();
 
   expect(geometry).not.toBeNull();
   expect(geometry!.docOverflowY).toBeLessThanOrEqual(2);
