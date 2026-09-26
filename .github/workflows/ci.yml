@@ -504,16 +504,17 @@ jobs:
       # register's own reviewExpiresAt lapsing produced no PR signal. Needs the
       # fetch-depth 0 checkout above for the reviewedCommit ancestry checks; the
       # script says so and skips only those on a shallow clone. An expired
-      # reviewExpiresAt is strict on main, schedule and release runs; on a PR or in
-      # the merge queue it warns unless the change touches the register or a path
-      # the expired entry covers (REVIEW_DATE_MODE, owner decision 2026-09-26).
+      # reviewExpiresAt is strict on manual, release-branch and local runs; on a PR,
+      # in the merge queue or on a push to main it warns unless the change touches
+      # the register or a path the expired entry covers, and the weekly
+      # organisation report raises it (REVIEW_DATE_MODE, owner decisions 2026-09-26).
       - name: Clinical hazard-controls register
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:clinical-hazard-controls
         env:
-          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'pr' || 'strict' }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 'pr' || 'strict' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
 
       - name: Lint
         if: needs.changes.outputs.static_heavy_changed == 'true'
@@ -590,9 +591,9 @@ jobs:
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci
         env:
-          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'pr' || 'strict' }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 'pr' || 'strict' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
 
       # Fixtures for executable changes; full offline contracts (includes
       # fixtures) when retrieval/answer surfaces change. Recognised docs and

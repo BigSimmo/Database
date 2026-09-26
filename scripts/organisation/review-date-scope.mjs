@@ -7,16 +7,16 @@
 // passed, every such pull request went red whatever it changed: a date trap that blames unrelated
 // work and teaches people to ignore a red governance check.
 //
-// WHAT CHANGES, AND ONLY THIS. In pull-request or merge-queue CI (REVIEW_DATE_MODE=pr, with
-// BASE_SHA and HEAD_SHA naming the change), an EXPIRED review date is reported as a warning unless
+// WHAT CHANGES, AND ONLY THIS. In pull-request or merge-queue CI, and on a push to main
+// (REVIEW_DATE_MODE=pr, with BASE_SHA and HEAD_SHA naming the change), an EXPIRED review date is reported as a warning unless
 // the change touches the register file itself or a path the expired entry covers; then it still
 // blocks. Nothing else moves: a date in the future, the 45-day drift-exception cap and every
-// non-date check block exactly as before, and every other context (local runs, pushes to main,
-// release gates) stays strict. Lapsed dates are raised instead by the weekly review-date report
-// (scripts/organisation/weekly/review-dates.mjs) and by strict runs on main.
+// non-date check block exactly as before, and every other context (local runs, pushes to other
+// branches, manual runs, release gates) stays strict. Lapsed dates are raised instead by the weekly
+// review-date report (scripts/organisation/weekly/review-dates.mjs) and by release gates.
 //
-// FAIL CLOSED. Anything short of a clean, explicit pull-request request resolves to strict: the
-// variable unset or misspelt, no GitHub event or one other than a pull request or merge queue, a missing,
+// FAIL CLOSED. Anything short of a clean, explicit request resolves to strict: the variable unset
+// or misspelt, no GitHub event or one other than a pull request, merge queue or push to main, a missing,
 // malformed or unreachable base, or any git error. Strict is the behaviour before this change, so
 // a failure here can never make a check weaker than it was.
 import { spawnSync } from "node:child_process";
@@ -24,6 +24,7 @@ import path from "node:path";
 
 export const REVIEW_DATE_MODE_ENV = "REVIEW_DATE_MODE";
 const PR_EVENTS = new Set(["pull_request", "merge_group"]);
+const MAIN_REF = "refs/heads/main";
 const ZERO_SHA = /^0+$/;
 // A commit id or a plain ref. Never an option: a value starting with "-" would reach git as a flag.
 const SAFE_REVISION = /^(?!-)[A-Za-z0-9._/~^@{}-]{1,200}$/;
@@ -95,7 +96,15 @@ export function resolveReviewDateScope({ env = process.env, root, listTouched = 
   // where GitHub always sets it. A run without one (local, a script, a release gate) stays strict.
   const event = (env.GITHUB_EVENT_NAME ?? "").trim();
   if (!event) return refuse("GITHUB_EVENT_NAME is not set, so this is not a pull request or merge queue");
-  if (!PR_EVENTS.has(event)) return refuse(`the GitHub event is ${event}, not a pull request or merge queue`);
+  // A push to main is judged by what the push changed (BASE_SHA is the commit before it), so a
+  // review date lapsing on the calendar does not turn main red on every later push; the weekly
+  // report raises it instead (owner decision 2026-09-26). Pushes to any other branch, including
+  // release branches, stay strict.
+  const ref = (env.GITHUB_REF ?? "").trim();
+  if (event === "push" && ref !== MAIN_REF)
+    return refuse(`the GitHub event is push to ${ref || "an unnamed branch"}, not ${MAIN_REF}`);
+  if (event !== "push" && !PR_EVENTS.has(event))
+    return refuse(`the GitHub event is ${event}, not a pull request, merge queue or push to main`);
   const base = (env.BASE_SHA ?? "").trim();
   const head = (env.HEAD_SHA ?? "").trim() || "HEAD";
   if (!base || ZERO_SHA.test(base)) return refuse("BASE_SHA is not set");

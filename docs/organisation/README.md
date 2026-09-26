@@ -67,7 +67,7 @@ Each of these reports; none of them decides policy. `pr-policy`, the registers a
 - **Routing hint.** `check:organisation -- --files <path>` also names the planner to run before editing.
 - **Per-area index.** The section of `docs/codebase-index.md` between its organisation markers is generated from `systems/*.json` by the pre-commit hook; a stale copy is a warning.
 - **Weekly report** (`npm run organisation:weekly`, and the `Organisation weekly report` workflow on Mondays). One GitHub issue, updated in place: open issues by area, lapsing governance review dates, stale key docs, map tidiness, proposed homes for unplaced files, code no test imports, and where older classifiers disagree with the map. Proposals only; it never moves or edits a file.
-- **Review dates.** In pull-request CI an expired review date on the hazard or privacy register is a warning, unless the change touches the register or what the expired entry covers; then it still blocks. Local runs, main, schedules and release gates stay strict, and the weekly report raises lapsed dates.
+- **Review dates.** In pull-request CI and on pushes to main, an expired review date on the hazard or privacy register is a warning, unless the change touches the register or what the expired entry covers; then it still blocks. Local runs, other branches, manual runs and release gates stay strict, and the weekly report raises lapsed dates (owner decisions 2026-09-26).
 - **Decisions.** The owner's recorded decisions are indexed in [`../decisions/`](../decisions/README.md) (`npm run check:decisions`); each entry points at where the repository records it.
 - **Personal practice reviewer.** `.claude/agents/personal-practice-reviewer.md` reviews the Personal practice area by its job, not by page.
 

@@ -64,7 +64,26 @@ describe("resolving the review-date scope", () => {
     }
   });
 
-  it("refuses, with a note, on any other GitHub event: pushes to main, schedules, manual runs", () => {
+  it("judges a push to main by what the push changed, and keeps pushes to other branches strict", () => {
+    const main = resolveReviewDateScope({
+      env: { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/main" },
+      root: ".",
+      listTouched: listed(["docs/a.md"]),
+    });
+    expect(main.mode).toBe("pr");
+    expect(main.touched).toEqual(["docs/a.md"]);
+    for (const GITHUB_REF of ["refs/heads/release/2026-10", "refs/heads/feature", undefined]) {
+      const other = resolveReviewDateScope({
+        env: { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF },
+        root: ".",
+        listTouched: listed([]),
+      });
+      expect(other.mode).toBe("strict");
+      expect(other.notes.join(" ")).toContain("not refs/heads/main");
+    }
+  });
+
+  it("refuses, with a note, on any other GitHub event: pushes off main, schedules, manual runs", () => {
     for (const event of ["push", "schedule", "workflow_dispatch"]) {
       const scope = resolveReviewDateScope({
         env: { ...PR_ENV, GITHUB_EVENT_NAME: event },
