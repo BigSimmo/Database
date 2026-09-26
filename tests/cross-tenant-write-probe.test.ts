@@ -80,7 +80,7 @@ function fakeApi(leaks: Leaks = {}): WriteProbeRequest {
     if (path === "/api/on-call/services" && method === "POST") {
       const id = nextId();
       services.set(id, new Map([[userId[token]!, "admin"]]));
-      return reply(200, { serviceId: id });
+      return reply(200, { serviceId: id, siteId: nextId() });
     }
     if (path === "/api/on-call/services/join") {
       const invite = invites.get(String(body.code));
@@ -137,12 +137,13 @@ async function runBoth(leaks: Leaks = {}) {
 describe("CME and On Call cross-tenant write probe", () => {
   it("passes against an API that isolates owners, and registers every record it creates", async () => {
     const { cme, onCall, created } = await runBoth();
-    expect(cme).toEqual({ checkpoints: ["cme-write-isolation"], skipped: [] });
+    expect(cme).toEqual({ checkpoints: ["cme-write-isolation"], skipped: [], entryId: expect.any(String) });
     expect(onCall.checkpoints).toEqual([
       "on-call-service-write-isolation",
       "on-call-invitation-membership",
       "on-call-revocation",
     ]);
+    expect(onCall).toMatchObject({ serviceId: expect.any(String), siteId: expect.any(String) });
     expect(created.map((record) => record.kind)).toEqual(["cme-year", "cme-entry", "on-call-service"]);
   });
 

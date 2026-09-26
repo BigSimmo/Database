@@ -56,6 +56,7 @@ export async function probeCmeWriteIsolation(args: {
     return {
       checkpoints: [] as string[],
       skipped: [`CME writes: user A already has a ${year} CPD year, so the probe did not create a disposable one.`],
+      entryId: null,
     };
   }
 
@@ -128,7 +129,7 @@ export async function probeCmeWriteIsolation(args: {
   if (after.title !== marker || after.archivedAt || after.transcribed === true) {
     throw new Error("User A's CME entry changed after user B's rejected writes.");
   }
-  return { checkpoints: ["cme-write-isolation"], skipped: [] as string[] };
+  return { checkpoints: ["cme-write-isolation"], skipped: [] as string[], entryId };
 }
 
 export async function probeOnCallServiceWriteIsolation(args: {
@@ -147,6 +148,7 @@ export async function probeOnCallServiceWriteIsolation(args: {
     [200],
   );
   const serviceId = stringField(created, "serviceId", "On Call service create");
+  const siteId = stringField(created, "siteId", "On Call service create");
   register({ kind: "on-call-service", id: serviceId });
   const servicePath = `/api/on-call/services/${serviceId}`;
   const checkpoints: string[] = [];
@@ -197,5 +199,5 @@ export async function probeOnCallServiceWriteIsolation(args: {
   await request(tokenB, "/api/on-call/services/join", { method: "POST", body: { code } }, [400]);
   checkpoints.push("on-call-revocation");
 
-  return { checkpoints };
+  return { checkpoints, serviceId, siteId };
 }
