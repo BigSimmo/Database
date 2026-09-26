@@ -726,6 +726,11 @@
         "area": "product"
       },
       {
+        "path": "/cme/training",
+        "file": "src/app/(search-app)/cme/training/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/privacy",
         "file": "src/app/privacy/page.tsx",
         "area": "product"
@@ -1597,6 +1602,10 @@
         "file": "src/app/api/documents/[id]/table-facts/route.ts"
       },
       {
+        "path": "/api/cme/training/[id]",
+        "file": "src/app/api/cme/training/[id]/route.ts"
+      },
+      {
         "path": "/api/ingestion/batches",
         "file": "src/app/api/ingestion/batches/route.ts"
       },
@@ -1623,6 +1632,10 @@
       {
         "path": "/api/cme/year/close",
         "file": "src/app/api/cme/year/close/route.ts"
+      },
+      {
+        "path": "/api/cme/training",
+        "file": "src/app/api/cme/training/route.ts"
       },
       {
         "path": "/api/search/universal",
