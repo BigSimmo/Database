@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call/call",
@@ -41,7 +41,13 @@ const routes: { page: Exclude<OnCallHubPage, "now">; Route: () => ReactElement }
   { page: "find", Route: OnCallFindRoute },
 ];
 
-afterEach(cleanup);
+// Pinned: with no Supabase env, a dev run falls back to the demo handbook, and
+// these assertions are about the signed-in handbook's signed-out state.
+beforeEach(() => vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false"));
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+});
 
 describe("On Call hub routes", () => {
   it("lists every hub page in the pages sheet at the href the identity map names", () => {

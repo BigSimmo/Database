@@ -43,6 +43,9 @@ import { useAuthSession } from "@/lib/supabase/client";
 
 export type HospitalHandbookStatus = "loading" | "signed-out" | "expired" | "no-service" | "ready" | "unavailable";
 export type HandbookReportResult = "sent" | "already-reported" | "failed" | "demo";
+/** An entry this device saw that the hospital has since withdrawn: an id and when it went, nothing else. */
+export type OnCallRemovedEntry = { readonly id: string; readonly goneAt: string };
+
 export const ON_CALL_WITHDRAWN_MESSAGE = "This number was removed. Check with switchboard.";
 
 /** One choosable hospital: a service's site, named in text only (owner Q6). */
@@ -69,8 +72,8 @@ export type HospitalHandbookState = {
   readonly hospitalKey: string | null;
   /** Published only. */
   readonly items: readonly HandbookItem[];
-  /** Seen before on this device, gone now; kept 24 h. */
-  readonly removed: readonly { readonly id: string; readonly title: string }[];
+  /** Seen before on this device, gone now; kept 24 h. Ids and times only (review B2). */
+  readonly removed: readonly OnCallRemovedEntry[];
   /** Whether this hospital pinned an emergency row last time (a yes/no, never the number); null if never loaded. */
   readonly emergencyPinExpected: boolean | null;
   /** "device" only once lane D lands. */
@@ -138,41 +141,67 @@ function writeStoredChoice(choice: StoredChoice): void {
   }
 }
 
-/** A title that is still published, or a withdrawn one with the time it went. */
-type SeenValue = string | { readonly title: string; readonly goneAt: string };
-type SeenMap = Record<string, Record<string, SeenValue>>;
+/**
+ * Per hospital: when each published entry was last seen, and when each one
+ * went. Entry ids and ISO times ONLY, never a title, a name or a number (review
+ * B2): the handbook is members-only, and this map outlives the page on a
+ * shared phone until the sign-out wipe.
+ */
+type SeenHospital = { readonly seen: Record<string, string>; readonly gone: Record<string, string> };
+type SeenMap = Record<string, SeenHospital>;
 
+function isTimeMap(value: unknown): value is Record<string, string> {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value as Record<string, unknown>).every(
+      (time) => typeof time === "string" && Number.isFinite(Date.parse(time)),
+    )
+  );
+}
+
+/** Anything not in the id-and-time shape (an older format, another writer) reads as nothing seen. */
 function readSeen(): SeenMap {
   try {
     const parsed: unknown = JSON.parse(window.localStorage.getItem(onCallHandbookSeenStorageKey) ?? "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as SeenMap) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const map: SeenMap = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const hospital = value as { seen?: unknown; gone?: unknown } | null;
+      if (hospital && isTimeMap(hospital.seen) && isTimeMap(hospital.gone)) {
+        map[key] = { seen: hospital.seen, gone: hospital.gone };
+      }
+    }
+    return map;
   } catch {
     return {};
   }
 }
 
 /**
- * Compare this read with what the device saw last time, record the new titles
- * (titles only), and return what was withdrawn in the last 24 hours.
+ * Compare this read with what the device saw last time, record the ids seen
+ * now, and return what was withdrawn in the last 24 hours (ids and times).
+ * The row that names a withdrawn entry is drawn from the live handbook or not
+ * at all; nothing here can name it.
  */
 function reconcileSeen(hospitalKey: string, items: readonly HandbookItem[], now: Date) {
   const seen = readSeen();
-  const previous = seen[hospitalKey] ?? {};
-  const next: Record<string, SeenValue> = {};
-  const removed: { id: string; title: string }[] = [];
+  const previous = seen[hospitalKey] ?? { seen: {}, gone: {} };
+  const stamp = now.toISOString();
   const present = new Set(items.map((item) => item.id));
-  for (const item of items) next[item.id] = item.title;
-  for (const [id, value] of Object.entries(previous)) {
-    if (present.has(id)) continue;
-    const gone =
-      typeof value === "string"
-        ? { title: value, goneAt: now.toISOString() }
-        : value && typeof value === "object" && typeof value.title === "string" && typeof value.goneAt === "string"
-          ? value
-          : null;
-    if (!gone || now.getTime() - Date.parse(gone.goneAt) >= REMOVED_KEEP_MS) continue;
-    next[id] = gone;
-    removed.push({ id, title: gone.title });
+  const next: { seen: Record<string, string>; gone: Record<string, string> } = { seen: {}, gone: {} };
+  for (const item of items) next.seen[item.id] = stamp;
+  const removed: OnCallRemovedEntry[] = [];
+  const candidates: [string, string][] = [
+    ...Object.keys(previous.seen).map((id): [string, string] => [id, stamp]),
+    ...Object.entries(previous.gone),
+  ];
+  for (const [id, goneAt] of candidates) {
+    if (present.has(id) || id in next.gone) continue;
+    if (now.getTime() - Date.parse(goneAt) >= REMOVED_KEEP_MS) continue;
+    next.gone[id] = goneAt;
+    removed.push({ id, goneAt });
   }
   try {
     window.localStorage.setItem(onCallHandbookSeenStorageKey, JSON.stringify({ ...seen, [hospitalKey]: next }));
@@ -199,7 +228,7 @@ type DetailState =
       readonly key: string;
       readonly status: "ready";
       readonly detail: ServiceDetail;
-      readonly removed: { id: string; title: string }[];
+      readonly removed: OnCallRemovedEntry[];
     }
   | { readonly key: string; readonly status: ReadFailure; readonly error: string };
 

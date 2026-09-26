@@ -22,7 +22,7 @@ import type { HospitalHandbookState } from "@/components/on-call/use-hospital-ha
 import { readOnCallYouCalled } from "@/lib/on-call/call-marks";
 import { formatOnCallDate, formatOnCallShortDay, formatOnCallTime, onCallAgo } from "@/lib/on-call/display-dates";
 import { resolveHandbookPhone } from "@/lib/on-call/number-resolver";
-import { readOnCallRecent } from "@/lib/on-call/recent-storage";
+import { onCallRecentStorageKey, readOnCallRecent } from "@/lib/on-call/recent-storage";
 
 afterEach(() => {
   cleanup();
@@ -66,6 +66,9 @@ describe("OnCallDialRow", () => {
     expect(number.className).not.toMatch(/truncate/);
     await userEvent.click(call);
     expect(readOnCallRecent()[0]).toMatchObject({ id: "h1", source: "handbook", count: 1 });
+    // A hospital row is remembered by id, kind and time only (review B2).
+    expect(readOnCallRecent()[0]).not.toHaveProperty("title");
+    expect(window.localStorage.getItem(onCallRecentStorageKey)).not.toMatch(/Switchboard|9000/);
     expect(readOnCallYouCalled()[0]?.entryId).toBe("h1");
     expect(within(screen.getByTestId("row")).getByText(/^You called \d{2}:\d{2}$/)).toBeInTheDocument();
   });

@@ -31,6 +31,10 @@ export { clearOnCallRecent, onCallRecentChangedEvent, onCallRecentStorageKey };
  *     personal number cannot persist on a shared phone after the account that
  *     could see it has gone — and a row for an entry the reader may no longer
  *     see simply resolves to nothing.
+ *  4. **A hospital row stores no title either (review B2).** The handbook is
+ *     members-only, so a handbook row is an id, its kind and times. Its title
+ *     and number come from the signed-in handbook at render time
+ *     (`resolveOnCallUsual`), and a row that cannot be resolved is hidden.
  *
  * Built on `createBrowserStore` following `saved-registry-storage.ts`, the
  * precedent this repository already uses, rather than a new mechanism.
@@ -53,29 +57,46 @@ const recentItemSchema = z
   .object({
     /** The `on_call_entries` row (or handbook entry) this points at. */
     id: z.string().min(1),
-    /** Captured at record time so a row is still nameable if the entry is gone. */
-    title: z.string().min(1),
+    /**
+     * The reader's own entries only, captured at record time. Never stored for a
+     * handbook row (rule 4); an older list that held one is read without it.
+     */
+    title: z.string().min(1).optional(),
     at: z.string().min(1),
     source: z.enum(["entry", "handbook"]).default("entry"),
     /** Taps on this device; the list keeps the most-rung numbers. */
     count: z.number().int().positive().default(1),
     pinned: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  // An own-entry row with no title is a number nobody can identify: reject.
+  .refine((item) => item.source === "handbook" || Boolean(item.title))
+  .transform((item): OnCallRecentItem => (item.source === "handbook" ? withoutTitle(item) : item));
 
 const recentListSchema = z.array(recentItemSchema);
 
 export type OnCallRecentItem = {
   id: string;
-  title: string;
+  /** Present for the reader's own entries; never for a handbook row. */
+  title?: string;
   at: string;
   source: OnCallRecentSource;
   count: number;
   pinned: boolean;
 };
 
-/** What a caller supplies; the timestamp and count are added here. */
-export type OnCallRecentInput = { id: string; title: string; source?: OnCallRecentSource };
+/**
+ * What a caller supplies; the timestamp and count are added here. A handbook
+ * row takes no title, by type and again at write time (rule 4).
+ */
+export type OnCallRecentInput =
+  { id: string; title: string; source?: "entry" } | { id: string; source: "handbook"; title?: never };
+
+function withoutTitle<T extends { title?: string }>(item: T): Omit<T, "title"> {
+  const { title: _dropped, ...rest } = item;
+  void _dropped;
+  return rest;
+}
 
 /**
  * Parse the stored list, treating anything unexpected as no history.
@@ -145,18 +166,46 @@ export function recordOnCallRecent(input: OnCallRecentInput, now: Date = new Dat
   if (typeof window === "undefined") return;
   const existing = readOnCallRecent();
   const previous = existing.find((item) => item.id === input.id);
-  const next = capRecent([
-    {
-      id: input.id,
-      title: input.title,
-      at: now.toISOString(),
-      source: input.source ?? previous?.source ?? "entry",
-      count: (previous?.count ?? 0) + 1,
-      pinned: previous?.pinned ?? false,
-    },
-    ...existing.filter((item) => item.id !== input.id),
-  ]);
-  writeRecent(next);
+  const source = input.source ?? previous?.source ?? "entry";
+  const tapped: OnCallRecentItem = {
+    id: input.id,
+    at: now.toISOString(),
+    source,
+    count: (previous?.count ?? 0) + 1,
+    pinned: previous?.pinned ?? false,
+  };
+  // Rule 4: a title reaches storage only for the reader's own entries.
+  if (source === "entry" && input.title) tapped.title = input.title;
+  if (source === "entry" && !tapped.title) return;
+  writeRecent(capRecent([tapped, ...existing.filter((item) => item.id !== input.id)]));
+}
+
+/** A "Your usual" row ready to draw: its title, and the handbook entry it came from. */
+export type ResolvedOnCallUsualRow<T extends { readonly id: string; readonly title: string }> = {
+  readonly item: OnCallRecentItem;
+  readonly title: string;
+  /** The live handbook entry for a hospital row; null for the reader's own. */
+  readonly handbook: T | null;
+};
+
+/**
+ * Name each "Your usual" row at render time (rule 4). A hospital row takes its
+ * title (and, through `handbook`, its number) from the signed-in handbook, and
+ * is hidden when the handbook no longer has it or nobody is signed in. An own
+ * entry keeps the title it was stored with. Order is kept.
+ */
+export function resolveOnCallUsual<T extends { readonly id: string; readonly title: string }>(
+  items: readonly OnCallRecentItem[],
+  handbookItems: readonly T[],
+): ResolvedOnCallUsualRow<T>[] {
+  const byId = new Map(handbookItems.map((entry) => [entry.id, entry]));
+  return items.flatMap((item): ResolvedOnCallUsualRow<T>[] => {
+    if (item.source === "handbook") {
+      const entry = byId.get(item.id);
+      return entry ? [{ item, title: entry.title, handbook: entry }] : [];
+    }
+    return item.title ? [{ item, title: item.title, handbook: null }] : [];
+  });
 }
 
 /** Pin or unpin a row. A fifth pin is refused silently: the control shows the limit. */

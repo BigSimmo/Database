@@ -11,6 +11,7 @@ import {
   readOnCallRecent,
   readOnCallUsual,
   recordOnCallRecent,
+  resolveOnCallUsual,
   setOnCallUsualPinned,
 } from "@/lib/on-call/recent-storage";
 import { onCallUsualOrderStorageKey } from "@/lib/on-call/device-state-keys";
@@ -186,8 +187,65 @@ describe("what is stored", () => {
   });
 
   it("never stores a phone number, even for a hospital row", () => {
-    recordOnCallRecent({ id: "a", title: "Registrar", source: "handbook" });
+    recordOnCallRecent({ id: "a", source: "handbook" });
     expect(window.localStorage.getItem(onCallRecentStorageKey)).not.toMatch(/\d{4}\s?\d{4}/);
+  });
+
+  it("stores a hospital row as an id, a kind and times only, never its title (review B2)", () => {
+    // A caller that slips a title through anyway (a cast, plain JavaScript) still stores none.
+    recordOnCallRecent({ id: "h1", source: "handbook", title: "ICU: Registrar" } as never, NOW);
+    expect(storage.get(onCallRecentStorageKey) ?? "").not.toMatch(/Registrar|ICU|title/);
+    recordOnCallRecent({ id: "h1", source: "handbook" }, new Date(NOW.getTime() + 60_000));
+    const raw = storage.get(onCallRecentStorageKey) ?? "";
+    expect(raw).not.toMatch(/Registrar|ICU|title/);
+    const [stored] = JSON.parse(raw) as Record<string, unknown>[];
+    expect(Object.keys(stored ?? {}).sort()).toEqual(["at", "count", "id", "pinned", "source"]);
+    expect(stored).toMatchObject({ id: "h1", source: "handbook", count: 2, pinned: false });
+    expect(String(stored?.at)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
+  it("reads an older hospital row that held a title without it, and the next write drops it", () => {
+    storage.set(
+      onCallRecentStorageKey,
+      JSON.stringify([
+        {
+          id: "h1",
+          title: "ICU: Registrar",
+          at: "2026-09-25T00:00:00.000Z",
+          source: "handbook",
+          count: 1,
+          pinned: false,
+        },
+      ]),
+    );
+    expect(readOnCallRecent()).toEqual([
+      { id: "h1", at: "2026-09-25T00:00:00.000Z", source: "handbook", count: 1, pinned: false },
+    ]);
+    recordOnCallRecent({ id: "e1", title: "My own entry" }, NOW);
+    expect(storage.get(onCallRecentStorageKey)).not.toMatch(/Registrar|ICU/);
+  });
+});
+
+describe("resolveOnCallUsual (review B2)", () => {
+  const handbook = [
+    { id: "h1", title: "ICU: Registrar" },
+    { id: "h3", title: "Switchboard" },
+  ];
+
+  it("names a hospital row from the signed-in handbook, and hides one it cannot resolve", () => {
+    recordOnCallRecent({ id: "h1", source: "handbook" }, NOW);
+    recordOnCallRecent({ id: "h2", source: "handbook" }, new Date(NOW.getTime() + 60_000));
+    recordOnCallRecent({ id: "e1", title: "My own entry" }, new Date(NOW.getTime() + 120_000));
+    const rows = resolveOnCallUsual(readOnCallRecent(), handbook);
+    expect(rows.map((row) => [row.item.id, row.title, row.handbook?.id ?? null])).toEqual([
+      ["e1", "My own entry", null],
+      ["h1", "ICU: Registrar", "h1"],
+    ]);
+  });
+
+  it("hides every hospital row when no handbook is signed in", () => {
+    recordOnCallRecent({ id: "h1", source: "handbook" }, NOW);
+    expect(resolveOnCallUsual(readOnCallRecent(), [])).toEqual([]);
   });
 });
 
@@ -197,7 +255,7 @@ describe("Your usual", () => {
   });
 
   it("counts repeat taps and keeps pins above the most-tapped", () => {
-    recordOnCallRecent({ id: "a", title: "A", source: "handbook" }, new Date("2026-09-26T01:00:00Z"));
+    recordOnCallRecent({ id: "a", source: "handbook" }, new Date("2026-09-26T01:00:00Z"));
     recordOnCallRecent({ id: "b", title: "B" }, new Date("2026-09-26T01:01:00Z"));
     recordOnCallRecent({ id: "b", title: "B" }, new Date("2026-09-26T01:02:00Z"));
     setOnCallUsualPinned("a", true);

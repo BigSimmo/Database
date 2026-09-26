@@ -136,7 +136,9 @@ export function OnCallDialRow({
   const viaMobile = Boolean(callRoute && callRoute !== dial);
 
   const recordCall = () => {
-    recordOnCallRecent({ id, title, source });
+    // A hospital row is remembered by id and kind only; its title stays in the
+    // signed-in handbook (review B2).
+    recordOnCallRecent(source === "handbook" ? { id, source } : { id, title, source });
     if (ON_CALL_YOU_CALLED_ENABLED) rememberOnCallYouCalled(id);
   };
 

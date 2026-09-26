@@ -201,16 +201,61 @@ describe("useHospitalHandbook", () => {
     expect(getCalls(`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`)).toBe(2);
   });
 
-  it("names an entry withdrawn since this device last saw it", async () => {
+  it("names an entry withdrawn since this device last saw it, by id and time only", async () => {
+    const lastSeen = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    window.localStorage.setItem(
+      onCallHandbookSeenStorageKey,
+      JSON.stringify({ [`${SERVICE}:${SITE_A}`]: { seen: { e1: lastSeen, gone: lastSeen }, gone: {} } }),
+    );
+    const { result } = renderHook(() => useHospitalHandbook());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.removed).toHaveLength(1);
+    expect(result.current.removed[0]?.id).toBe("gone");
+    expect(Number.isFinite(Date.parse(result.current.removed[0]?.goneAt ?? ""))).toBe(true);
+    expect(ON_CALL_WITHDRAWN_MESSAGE).toBe("This number was removed. Check with switchboard.");
+  });
+
+  it("stores nothing but entry ids and times in the seen map (review B2)", async () => {
+    routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () =>
+      json(detail([entry("e1", content()), entry("e2", content({ title: "ICU: Registrar", phone: "9000 0002" }))]));
+    const first = renderHook(() => useHospitalHandbook());
+    await waitFor(() => expect(first.result.current.status).toBe("ready"));
+    first.unmount();
+    // A second read without e2 moves it to "gone": still an id and a time.
+    act(() => clearOnCallDeviceState());
+    window.localStorage.setItem(
+      onCallHandbookSeenStorageKey,
+      JSON.stringify({
+        [`${SERVICE}:${SITE_A}`]: { seen: { e1: new Date().toISOString(), e2: new Date().toISOString() }, gone: {} },
+      }),
+    );
+    routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () => json(detail([entry("e1", content())]));
+    const second = renderHook(() => useHospitalHandbook());
+    await waitFor(() => expect(second.result.current.status).toBe("ready"));
+    const stored = JSON.parse(window.localStorage.getItem(onCallHandbookSeenStorageKey) ?? "{}") as Record<
+      string,
+      { seen: Record<string, string>; gone: Record<string, string> }
+    >;
+    const hospital = stored[`${SERVICE}:${SITE_A}`];
+    expect(Object.keys(hospital ?? {}).sort()).toEqual(["gone", "seen"]);
+    expect(Object.keys(hospital?.seen ?? {})).toEqual(["e1"]);
+    expect(Object.keys(hospital?.gone ?? {})).toEqual(["e2"]);
+    for (const value of [...Object.values(hospital?.seen ?? {}), ...Object.values(hospital?.gone ?? {})]) {
+      expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    }
+    const raw = window.localStorage.getItem(onCallHandbookSeenStorageKey) ?? "";
+    expect(raw).not.toMatch(/Registrar|Medicine|ICU|9000/);
+  });
+
+  it("reads an older seen map that held titles as nothing seen, and rewrites it without them", async () => {
     window.localStorage.setItem(
       onCallHandbookSeenStorageKey,
       JSON.stringify({ [`${SERVICE}:${SITE_A}`]: { e1: "Medicine: Registrar on call", gone: "ICU: Registrar" } }),
     );
     const { result } = renderHook(() => useHospitalHandbook());
     await waitFor(() => expect(result.current.status).toBe("ready"));
-    expect(result.current.removed).toEqual([{ id: "gone", title: "ICU: Registrar" }]);
-    expect(ON_CALL_WITHDRAWN_MESSAGE).toBe("This number was removed. Check with switchboard.");
-    expect(window.localStorage.getItem(onCallHandbookSeenStorageKey)).not.toMatch(/9000/);
+    expect(result.current.removed).toEqual([]);
+    expect(window.localStorage.getItem(onCallHandbookSeenStorageKey)).not.toMatch(/Registrar|Medicine|ICU/);
   });
 
   it("remembers whether this hospital pins an emergency row, and whether the reader edits", async () => {
