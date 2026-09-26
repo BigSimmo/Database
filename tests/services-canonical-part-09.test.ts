@@ -4,7 +4,7 @@ import { canonicalServiceRecords, canonicalServiceValidationErrors } from "@/lib
 import { sourceAuthorityIdentityForPublisher } from "@/lib/source-authority-registry";
 import part09 from "@/lib/services-canonical-data/part-09";
 
-const PART_09_IDS = ["SVC-LEG-002", "SVC-CHP-001"] as const;
+const PART_09_IDS = ["SVC-LEG-002", "SVC-CHP-001", "SVC-FDV-004"] as const;
 
 describe("part-09 WA service records written 2026-09-26", () => {
   it("contains exactly the records written in this batch", () => {
