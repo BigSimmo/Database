@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Route } from "playwright/te
 import { demoAnswer } from "../src/lib/demo-data";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { clickWhenHydrated, expectSingleSettledOwner } from "./playwright-settlement";
 
 // Cross-entity universal typeahead in the command surface. The universal endpoint is
 // mocked so this spec exercises the UI contract (grouped sections, navigation,
@@ -373,7 +373,7 @@ test.describe("universal search typeahead", () => {
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeHidden();
 
-    await trigger.click();
+    await clickWhenHydrated(trigger);
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
     const accents = await alsoMatches
