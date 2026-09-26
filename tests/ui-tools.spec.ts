@@ -18,7 +18,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
+import { clickWhenSettled, expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -312,27 +312,32 @@ async function waitForReactEventHandler(locator: Locator, eventName: "onChange" 
 
 async function expectIdlePhoneHomeCentered(page: Page, homeTestId: string) {
   await expect(page.getByTestId(homeTestId)).toBeVisible();
-  const geometry = await page.evaluate((homeTestId) => {
-    const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
-      const rect = node.getBoundingClientRect();
-      const style = window.getComputedStyle(node);
-      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
-    });
-    const canvas = document.querySelector("[data-mode-home-canvas]");
-    const main = document.getElementById("main-content");
-    if (!home || !canvas || !main) return null;
-    const homeRect = home.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    return {
-      homeMidX: homeRect.left + homeRect.width / 2,
-      homeMidY: homeRect.top + homeRect.height / 2,
-      canvasMidX: canvasRect.left + canvasRect.width / 2,
-      canvasMidY: canvasRect.top + canvasRect.height / 2,
-      canvasHeight: canvasRect.height,
-      docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
-      mainOverflowY: main.scrollHeight - main.clientHeight,
-    };
-  }, homeTestId);
+  // Hydration/streaming can briefly swap the home, canvas or main node after the first
+  // visible paint; read the geometry once all three exist rather than on a single sample.
+  const readGeometry = () =>
+    page.evaluate((homeTestId) => {
+      const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
+        const rect = node.getBoundingClientRect();
+        const style = window.getComputedStyle(node);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      });
+      const canvas = document.querySelector("[data-mode-home-canvas]");
+      const main = document.getElementById("main-content");
+      if (!home || !canvas || !main) return null;
+      const homeRect = home.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        homeMidX: homeRect.left + homeRect.width / 2,
+        homeMidY: homeRect.top + homeRect.height / 2,
+        canvasMidX: canvasRect.left + canvasRect.width / 2,
+        canvasMidY: canvasRect.top + canvasRect.height / 2,
+        canvasHeight: canvasRect.height,
+        docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+        mainOverflowY: main.scrollHeight - main.clientHeight,
+      };
+    }, homeTestId);
+  await expect.poll(readGeometry, { message: "the idle home, canvas and main must all render" }).not.toBeNull();
+  const geometry = await readGeometry();
 
   expect(geometry).not.toBeNull();
   expect(geometry!.docOverflowY).toBeLessThanOrEqual(2);
@@ -544,7 +549,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 2, name: "PsychSift Search" })).toHaveCount(0);
     await categories.getByRole("radio", { name: /All tools/ }).click();
 
-    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+    // Below the fold at 1280x900: see clickWhenSettled for why this click must not scroll.
+    await clickWhenSettled(results.getByRole("button", { name: "View details for Medication Prescribing" }));
     await expect(results.getByRole("complementary", { name: "Medication Prescribing" })).toBeVisible();
     await expect(
       results.getByRole("complementary", { name: "Medication Prescribing" }).getByRole("link", {
@@ -691,7 +697,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       ["PsychSift Search", "/?mode=answer"],
     ] as const) {
       await expect(results.getByRole("link", { name: `Open ${title}` })).toHaveAttribute("href", href);
-      await results.getByRole("button", { name: `View details for ${title}` }).click();
+      // Most rows sit below the fold, and the header's scroll-hide moves them mid-click.
+      await clickWhenSettled(results.getByRole("button", { name: `View details for ${title}` }));
       const detail = results.getByRole("complementary", { name: title });
       await expect(detail.locator(`a[href="${href}"]`).first()).toBeVisible();
     }

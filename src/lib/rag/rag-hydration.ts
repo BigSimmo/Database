@@ -8,6 +8,7 @@ import { metadataText, safeRecord } from "@/lib/rag/rag-answer-text";
 import { compactContextText } from "@/lib/rag/rag-source-block";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
 import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
+import type { Database } from "@/lib/supabase/database.types";
 import {
   applyMemoryBoostArtifacts,
   loadMemoryBoostArtifacts,
@@ -28,6 +29,36 @@ export type DocumentRankingMetadataCache = {
     { labels: SearchResult["document_labels"]; summary: SearchResult["document_summary"] } | null
   >;
   indexQuality: Map<string, SearchResult["indexing_quality"] | null>;
+  /** Page-image rows already read in this search; see attachPageVisualEvidence. */
+  pageVisuals?: PageVisualCache;
+};
+
+type PageImageRow = Pick<
+  Database["public"]["Tables"]["document_images"]["Row"],
+  | "id"
+  | "document_id"
+  | "page_number"
+  | "storage_path"
+  | "caption"
+  | "bbox"
+  | "image_type"
+  | "searchable"
+  | "clinical_relevance_score"
+  | "source_kind"
+  | "width"
+  | "height"
+  | "labels"
+  | "metadata"
+>;
+
+/**
+ * Page-image rows one search has already read. `pages` holds a complete row list for every
+ * (document, page) pair a page read covered without reaching its row limit; `imagesById` holds each
+ * directly requested image id, null when no qualifying row exists.
+ */
+export type PageVisualCache = {
+  pages: Map<string, PageImageRow[]>;
+  imagesById: Map<string, PageImageRow | null>;
 };
 
 /** Create document ranking metadata cache. */
@@ -35,7 +66,14 @@ export function createDocumentRankingMetadataCache(): DocumentRankingMetadataCac
   return {
     documentMetadata: new Map(),
     indexQuality: new Map(),
+    pageVisuals: { pages: new Map(), imagesById: new Map() },
   };
+}
+
+const PAGE_IMAGE_ROW_LIMIT = 80;
+
+function pageVisualKey(documentId: string, pageNumber: number | null) {
+  return `${documentId}:${pageNumber}`;
 }
 
 /** Select ranked retrieval results and record the shared selection diagnostics. */
@@ -88,7 +126,7 @@ export async function prepareCoverageGateResults(args: {
     telemetry: args.telemetry,
   });
   let results = await measureSearchPhase(args.timing, "visual_hydration", () =>
-    attachPageVisualEvidence(args.supabase, selected, args.signal),
+    attachPageVisualEvidence(args.supabase, selected, args.signal, args.metadataCache),
   );
   results = applySecondStageRerankIfNeeded({
     queryClass: args.queryClass,
@@ -254,6 +292,7 @@ export async function attachPageVisualEvidence(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   signal?: AbortSignal,
+  cache?: DocumentRankingMetadataCache,
 ): Promise<SearchResult[]> {
   signal?.throwIfAborted();
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
@@ -274,31 +313,47 @@ export async function attachPageVisualEvidence(
 
   const selectColumns =
     "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata";
+  // Within one search the same pages are hydrated several times (text lane, memory boost, final
+  // selection). A page read that stayed under its row limit returned every qualifying row for each
+  // (document, page) pair it covered, so when a later call's pairs are all covered its rows are
+  // rebuilt from those lists with the same order and limit instead of another cross-region read.
+  const visualCache = cache?.pageVisuals;
+  const pairKeys = documentIds.flatMap((documentId) => pageNumbers.map((page) => pageVisualKey(documentId, page)));
+  const cachedPageRows =
+    visualCache && pageNumbers.length > 0 && pairKeys.every((key) => visualCache.pages.has(key))
+      ? pairKeys
+          .flatMap((key) => visualCache.pages.get(key) ?? [])
+          .sort((left, right) => right.clinical_relevance_score - left.clinical_relevance_score)
+          .slice(0, PAGE_IMAGE_ROW_LIMIT)
+      : null;
+  const missingImageIds = visualCache ? sourceImageIds.filter((id) => !visualCache.imagesById.has(id)) : sourceImageIds;
   const [pageData, directData] = await Promise.all([
-    pageNumbers.length > 0
+    cachedPageRows
+      ? Promise.resolve({ data: cachedPageRows, error: null })
+      : pageNumbers.length > 0
+        ? (() => {
+            let query = supabase
+              .from("document_images")
+              .select(selectColumns)
+              .in("document_id", documentIds)
+              .in("page_number", pageNumbers)
+              .eq("searchable", true)
+              .neq("image_type", "logo_decorative")
+              .order("clinical_relevance_score", { ascending: false })
+              .limit(PAGE_IMAGE_ROW_LIMIT);
+            if (signal) query = query.abortSignal(signal);
+            return query;
+          })()
+        : Promise.resolve({ data: [], error: null }),
+    missingImageIds.length > 0
       ? (() => {
           let query = supabase
             .from("document_images")
             .select(selectColumns)
-            .in("document_id", documentIds)
-            .in("page_number", pageNumbers)
+            .in("id", missingImageIds)
             .eq("searchable", true)
             .neq("image_type", "logo_decorative")
-            .order("clinical_relevance_score", { ascending: false })
-            .limit(80);
-          if (signal) query = query.abortSignal(signal);
-          return query;
-        })()
-      : Promise.resolve({ data: [], error: null }),
-    sourceImageIds.length > 0
-      ? (() => {
-          let query = supabase
-            .from("document_images")
-            .select(selectColumns)
-            .in("id", sourceImageIds)
-            .eq("searchable", true)
-            .neq("image_type", "logo_decorative")
-            .limit(sourceImageIds.length);
+            .limit(missingImageIds.length);
           if (signal) query = query.abortSignal(signal);
           return query;
         })()
@@ -306,8 +361,28 @@ export async function attachPageVisualEvidence(
   ]);
   signal?.throwIfAborted();
 
-  const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
-  if ((pageData.error && directData.error) || data.length === 0) return results;
+  if (visualCache && !cachedPageRows && pageNumbers.length > 0 && !pageData.error) {
+    const rows = (pageData.data ?? []) as PageImageRow[];
+    if (rows.length < PAGE_IMAGE_ROW_LIMIT) {
+      const rowsByPair = new Map(pairKeys.map((key) => [key, [] as PageImageRow[]]));
+      for (const row of rows) rowsByPair.get(pageVisualKey(row.document_id, row.page_number))?.push(row);
+      for (const [key, pairRows] of rowsByPair) visualCache.pages.set(key, pairRows);
+    }
+  }
+  if (visualCache && missingImageIds.length > 0 && !directData.error) {
+    const fetchedById = new Map(((directData.data ?? []) as PageImageRow[]).map((row) => [row.id, row]));
+    for (const id of missingImageIds) visualCache.imagesById.set(id, fetchedById.get(id) ?? null);
+  }
+  const directRows = visualCache
+    ? sourceImageIds.flatMap((id) => {
+        const row = visualCache.imagesById.get(id);
+        return row ? [row] : [];
+      })
+    : ((directData.data ?? []) as PageImageRow[]);
+  const directError = visualCache ? missingImageIds.length > 0 && directData.error : directData.error;
+
+  const data = [...((pageData.data ?? []) as PageImageRow[]), ...directRows];
+  if ((pageData.error && directError) || data.length === 0) return results;
 
   const committedGenerationByDocument = new Map(
     results.map((result) => [result.document_id, committedIndexGeneration(result.source_metadata)] as const),

@@ -199,12 +199,17 @@ function sourceWarnings(input: ClinicalSourceReferenceInput): SourceCatalogueWar
   if (!hasStableIdentity(input)) warnings.push("ambiguous_identity");
   if (authority.conflict) warnings.push("metadata_conflict");
   if (input.canonicalUrl && !safeHttpsUrl(input.canonicalUrl)) warnings.push("unsafe_location");
-  if ([input.publicationDate, input.reviewDate, input.expiryDate].some(hasInvalidStructuredSourceDate)) {
+  const lastUpdatedDate = input.lastUpdatedDate ?? null;
+  if (
+    [input.publicationDate, input.reviewDate, lastUpdatedDate, input.expiryDate].some(hasInvalidStructuredSourceDate)
+  ) {
     warnings.push("invalid_date");
   }
   if (!hasText(input.publisher)) warnings.push("missing_publisher");
   if (!hasText(input.version)) warnings.push("missing_version");
-  if (![input.publicationDate, input.reviewDate, input.expiryDate].some(hasText)) warnings.push("missing_dates");
+  if (![input.publicationDate, input.reviewDate, lastUpdatedDate, input.expiryDate].some(hasText)) {
+    warnings.push("missing_dates");
+  }
   if (!hasText(input.jurisdiction) || geographyFor(input).scope === "unknown") warnings.push("unknown_jurisdiction");
   if (input.evidenceType === "unknown") warnings.push("unknown_evidence_type");
   if (input.validationStatus === "unverified" || input.validationStatus === "unknown") {
@@ -236,7 +241,7 @@ function rateClinicalSourceWithWarnings(
   const traceability = [
     hasStableIdentity(input),
     Boolean(input.version),
-    Boolean(input.publicationDate || input.reviewDate || input.expiryDate),
+    Boolean(input.publicationDate || input.reviewDate || input.lastUpdatedDate || input.expiryDate),
     canonicalLocationFor([input]).kind !== "none",
     Boolean(input.usage.recordId && input.usage.recordLabel && input.usage.field),
   ].filter(Boolean).length;
@@ -343,6 +348,9 @@ function canonicalReferenceKey(input: ClinicalSourceReferenceInput) {
     input.usage.recordLabel,
     input.usage.field,
     input.referenceText,
+    // Appended only when present, so the key of every reference without an update
+    // stamp — and therefore its merge order — is byte-identical to before.
+    ...(input.lastUpdatedDate ? [input.lastUpdatedDate] : []),
   ]);
 }
 
@@ -390,6 +398,7 @@ function mergedReference(inputs: readonly ClinicalSourceReferenceInput[]): Clini
     version: firstString(ordered.map((input) => input.version)),
     publicationDate: firstString(ordered.map((input) => strictSourceDate(input.publicationDate))),
     reviewDate: firstString(ordered.map((input) => strictSourceDate(input.reviewDate))),
+    lastUpdatedDate: firstString(ordered.map((input) => strictSourceDate(input.lastUpdatedDate ?? null))),
     expiryDate: firstString(ordered.map((input) => strictSourceDate(input.expiryDate))),
     evidenceType: worstValue(
       ordered.map((input) => input.evidenceType),
@@ -463,6 +472,8 @@ function catalogueEntry(
     topics: merged.topics,
     publicationDate: merged.publicationDate,
     reviewDate: merged.reviewDate,
+    // Only on an entry that has one, so no other entry's shape or payload changes.
+    ...(merged.lastUpdatedDate ? { lastUpdatedDate: merged.lastUpdatedDate } : {}),
     expiryDate: merged.expiryDate,
     documentStatus: merged.documentStatus,
     validationStatus: merged.validationStatus,
