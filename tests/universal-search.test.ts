@@ -483,6 +483,25 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     expect(response.groups.find((group) => group.kind === "dsm")?.items[0]?.title).toContain("Bipolar I");
   });
 
+  it("keeps generic facet words out of the catalogue expansion lane", async () => {
+    // "sertraline dose" used to expand to "route", "oral", "IM" and "PRN", which listed
+    // Ziprasidone IM beside sertraline and imagery rescripting as the top therapy.
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({
+      query: "sertraline dose",
+      limitPerDomain: 3,
+      domains: ["medications", "therapies"],
+      demo: true,
+    });
+
+    expect(response.interpretation?.appliedExpansions).toEqual(["zoloft"]);
+    const medications = response.groups.find((group) => group.kind === "medications")?.items ?? [];
+    expect(medications[0]?.title).toBe("Sertraline");
+    expect(medications.map((item) => item.title)).not.toContain("Ziprasidone IM");
+    const therapies = response.groups.find((group) => group.kind === "therapies")?.items ?? [];
+    expect(therapies.map((item) => item.title)).not.toContain("Imagery rescripting");
+  });
+
   it("forwards the capped Smart expansion lane to every non-registry catalogue adapter", async () => {
     isolateNextModuleImport();
     const forwardedSpecifierExpansions: Array<readonly string[] | undefined> = [];
