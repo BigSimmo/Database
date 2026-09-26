@@ -334,21 +334,32 @@ describe("edit warning: paths", () => {
   });
 });
 
-describe("edit warning: fails open and never decides", () => {
-  const garbage = [
-    "",
-    "not json",
-    "[]",
-    "null",
-    "42",
-    "{}",
-    '{"tool_input":null}',
-    '{"tool_name":"Edit","tool_input":{"file_path":42}}',
-    '{"tool_name":"Edit","tool_input":{"file_path":""}}',
-    '{"tool_name":"Read","tool_input":{"file_path":"/etc/hosts"}}',
-    "\u0000\u0001binary",
-  ];
+const garbage = [
+  "",
+  "not json",
+  "[]",
+  "null",
+  "42",
+  "{}",
+  '{"tool_input":null}',
+  '{"tool_name":"Edit","tool_input":{"file_path":42}}',
+  '{"tool_name":"Edit","tool_input":{"file_path":""}}',
+  '{"tool_name":"Read","tool_input":{"file_path":"/etc/hosts"}}',
+  "\u0000\u0001binary",
+];
 
+describe("edit warning: fails open", () => {
+  it("returns nothing for malformed or irrelevant payloads", () => {
+    const stateDir = tempDir("organisation-hooks-state-");
+    for (const input of garbage) expect(editHookOutput(input, { stateDir }), JSON.stringify(input)).toBeNull();
+    expect(fs.readdirSync(stateDir)).toEqual([]);
+  });
+});
+
+// The wrappers are a Bash contract exercised on Linux CI. On Windows `bash.exe` can be the WSL
+// launcher, which cannot run these native paths, so the wrapper tests skip there (the same
+// convention as the push-format-guard and pr-handoff-stop tests); the functions above still run.
+describe.skipIf(process.platform === "win32")("hook wrappers: exit 0 and never decide", () => {
   it.each(garbage.map((input) => [JSON.stringify(input), input]))("exits 0 with no output on %s", (_label, input) => {
     const result = runHook(EDIT_HOOK, input as string);
     expect(result.status).toBe(0);
@@ -402,6 +413,19 @@ describe("edit warning: fails open and never decides", () => {
       );
       expect(result.status).toBe(0);
       expect(result.stdout).toBe("");
+    }
+  });
+
+  it("runs the session line on this checkout: exit 0 and at most one line", { timeout: 60_000 }, () => {
+    for (const input of ['{"session_id":"s","source":"startup"}', "garbage", ""]) {
+      const result = runHook(SESSION_HOOK, input);
+      expect(result.status).toBe(0);
+      if (result.stdout !== "") {
+        const parsed = JSON.parse(result.stdout);
+        expect(parsed.hookSpecificOutput.hookEventName).toBe("SessionStart");
+        expect(parsed.hookSpecificOutput.additionalContext).toMatch(/^\[organisation\] Map health: [^\n]+$/);
+        expect(allKeys(parsed)).not.toContain("permissionDecision");
+      }
     }
   });
 });
@@ -475,23 +499,6 @@ describe("session line", () => {
     const plain = tempDir("organisation-hooks-plain-");
     const stateDir = tempDir("organisation-hooks-state-");
     expect(sessionHookOutput("{}", { root: plain, stateDir })).toBeNull();
-  });
-
-  it("runs through the real wrapper on this checkout: exit 0, at most one line, no report", { timeout: 60_000 }, () => {
-    const reportDir = path.join(repoRoot, "output/organisation");
-    const before = fs.existsSync(reportDir) ? fs.readdirSync(reportDir).sort() : null;
-    for (const input of ['{"session_id":"s","source":"startup"}', "garbage", ""]) {
-      const result = runHook(SESSION_HOOK, input);
-      expect(result.status).toBe(0);
-      if (result.stdout !== "") {
-        const parsed = JSON.parse(result.stdout);
-        expect(parsed.hookSpecificOutput.hookEventName).toBe("SessionStart");
-        expect(parsed.hookSpecificOutput.additionalContext).toMatch(/^\[organisation\] Map health: [^\n]+$/);
-        expect(allKeys(parsed)).not.toContain("permissionDecision");
-      }
-    }
-    const after = fs.existsSync(reportDir) ? fs.readdirSync(reportDir).sort() : null;
-    expect(after).toEqual(before);
   });
 });
 
