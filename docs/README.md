@@ -43,16 +43,17 @@ repository gate. The generated inventories remain governed by their own contract
 
 ## Core reference map
 
-| Doc                                     | What it is                                                                                                 |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [codebase-index.md](codebase-index.md)  | Structured architecture map: layout, module map, Supabase schema, scripts, domain concepts                 |
-| [README.md](README.md)                  | This index — every tracked document under `docs/`, categorised                                             |
-| [site-map.md](site-map.md)              | **Generated** route map — regenerate with `npm run docs:update`, verify with `npm run sitemap:check`       |
-| [agents-guide.md](agents-guide.md)      | Task navigator, platform setup and skill ownership; rules in `AGENTS.md`                                   |
-| [scripts-index.md](scripts-index.md)    | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
-| [organisation/](organisation/README.md) | Organisation map: which area owns every file, checked by `npm run check:organisation`                      |
-| [codex-cloud.md](codex-cloud.md)        | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
-| [claude-cloud.md](claude-cloud.md)      | Claude Code on the web: the tiered container provisioner and the checked-in user profile                   |
+| Doc                                               | What it is                                                                                                 |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| [codebase-index.md](codebase-index.md)            | Structured architecture map: layout, module map, Supabase schema, scripts, domain concepts                 |
+| [README.md](README.md)                            | This index — every tracked document under `docs/`, categorised                                             |
+| [site-map.md](site-map.md)                        | **Generated** route map — regenerate with `npm run docs:update`, verify with `npm run sitemap:check`       |
+| [agents-guide.md](agents-guide.md)                | Task navigator, platform setup and skill ownership; rules in `AGENTS.md`                                   |
+| [scripts-index.md](scripts-index.md)              | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
+| [organisation/](organisation/README.md)           | Organisation map: which area owns every file, checked by `npm run check:organisation`                      |
+| [personal-practice/](personal-practice/README.md) | Personal practice area: what it owns and the rules every change there follows                              |
+| [codex-cloud.md](codex-cloud.md)                  | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
+| [claude-cloud.md](claude-cloud.md)                | Claude Code on the web: the tiered container provisioner and the checked-in user profile                   |
 
 ## Architecture
 
