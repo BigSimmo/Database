@@ -362,6 +362,37 @@ describe("combined check-instructions", () => {
     expect(fail.out).not.toContain("docs/agents/a.md:1");
   });
 
+  it("judges a branch that predates the lists by the checkout's copy, without sweeping old text", () => {
+    const root = tempDir();
+    git(root, "init", "-q", "-b", "main");
+    write(root, { "AGENTS.md": "short\n", "docs/agents/a.md": "use the blue form\n" });
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "-m", "before the lists");
+    git(root, "checkout", "-q", "-b", "old");
+    const oldHead = commit(root, { "docs/agents/b.md": "fine\n" });
+    git(root, "checkout", "-q", "main");
+    const base = commit(root, {
+      "docs/organisation/retired-rules.json": TEST_RULES,
+      "docs/organisation/instruction-budget.json": JSON.stringify({ version: 1, files: { "AGENTS.md": 100 } }),
+    });
+    git(root, "merge", "-q", "--no-ff", "-m", "merge", "old");
+    const result = run(COMBINED, ["--root", root], {
+      INSTRUCTIONS_CHECK_MODE: "ci",
+      BASE_SHA: base,
+      HEAD_SHA: oldHead,
+    });
+    expect(result.code).toBe(0);
+    expect(result.out).not.toContain("docs/agents/a.md:1");
+
+    git(root, "checkout", "-q", "old");
+    const bad = commit(root, { "docs/agents/b.md": "fine\nthe blue form again\n" });
+    git(root, "checkout", "-q", "main");
+    git(root, "merge", "-q", "--no-ff", "-m", "merge again", "old");
+    const fail = run(COMBINED, ["--root", root], { INSTRUCTIONS_CHECK_MODE: "ci", BASE_SHA: base, HEAD_SHA: bad });
+    expect(fail.code).toBe(1);
+    expect(fail.out).toContain("docs/agents/b.md:2 [blue-form]");
+  });
+
   it("in CI mode, checks the whole head for a new branch or a run with no base, and refuses an unreachable base", () => {
     const { root, base } = repo({ "docs/agents/a.md": "use the blue form\n" });
     const firstPush = run(COMBINED, ["--root", root], {

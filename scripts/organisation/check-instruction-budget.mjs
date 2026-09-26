@@ -105,9 +105,14 @@ export function runInstructionBudgetCheck(options) {
     let evaluation;
     if (mode === "range") {
       const { head, mergeBase } = resolveRange(root, options.base, options.head);
+      // A branch older than this check has no budget file at its head: use the checkout's copy (in
+      // CI, the merge with the base), so an open PR is never failed for predating the budget.
+      const headBudget = custom ? null : readAtCommit(root, head, BUDGET_FILE);
       const budget = custom
         ? loadBudget(readFile(custom), options.budgetPath)
-        : loadBudget(readAtCommit(root, head, BUDGET_FILE), `${BUDGET_FILE} at ${head.slice(0, 9)}`);
+        : headBudget === null
+          ? loadBudget(readAtCommit(root, "HEAD", BUDGET_FILE), `${BUDGET_FILE} in the checkout`)
+          : loadBudget(headBudget, `${BUDGET_FILE} at ${head.slice(0, 9)}`);
       const files = budget.map((entry) => entry.file);
       const headSizes = sizesAtCommit(root, head, files);
       const baseSizes = mergeBase === null ? null : sizesAtCommit(root, mergeBase, files);

@@ -282,9 +282,15 @@ export function runRetiredRulesCheck(options) {
     let lines;
     if (mode === "range") {
       const { head, mergeBase } = resolveRange(root, options.base, options.head);
+      // A branch older than this check has no rules file at its head: judge it by the checkout's
+      // copy (in CI, the merge with the base), so an open PR is never failed for predating the list.
+      const headRules = customRules ? null : readAtCommit(root, head, RULES_FILE);
+      const rulesFromCheckout = !customRules && headRules === null;
       rules = customRules
         ? loadRetiredRules(readRulesFile(customRules), options.rulesPath)
-        : loadRetiredRules(readAtCommit(root, head, RULES_FILE), `${RULES_FILE} at ${head.slice(0, 9)}`);
+        : rulesFromCheckout
+          ? loadRetiredRules(readAtCommit(root, "HEAD", RULES_FILE), `${RULES_FILE} in the checkout`)
+          : loadRetiredRules(headRules, `${RULES_FILE} at ${head.slice(0, 9)}`);
       if (mergeBase === null) {
         const whole = commitLines(root, head);
         result.scope = `every in-scope file at ${head.slice(0, 9)} (new branch: no base to compare with)`;
@@ -319,7 +325,8 @@ export function runRetiredRulesCheck(options) {
             baseKeys = new Set();
           }
         }
-        const changed = customRules ? [] : rules.filter((rule) => !baseKeys.has(ruleKey(rule)));
+        // The sweep is for the change that edits the list; a branch without the list edits nothing.
+        const changed = customRules || rulesFromCheckout ? [] : rules.filter((rule) => !baseKeys.has(ruleKey(rule)));
         if (changed.length > 0) {
           const whole = commitLines(root, head);
           const known = new Set(result.hits.map((hit) => `${hit.file}:${hit.line}:${hit.ruleId}`));
