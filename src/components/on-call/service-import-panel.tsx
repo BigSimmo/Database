@@ -168,7 +168,11 @@ function PublishRow({
     <a
       href={dial.tel}
       aria-label={`Call ${title}, ${spokenOnCallNumber(dial.display)}`}
-      className={cn(focusRing, onCallNumberText, "rounded-sm text-[color:var(--text)] underline underline-offset-2")}
+      className={cn(
+        focusRing,
+        onCallNumberText,
+        "inline-flex min-h-12 items-center rounded-sm text-[color:var(--text)] underline underline-offset-2",
+      )}
     >
       {dial.display}
     </a>
