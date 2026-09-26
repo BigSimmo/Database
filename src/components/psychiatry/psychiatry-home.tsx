@@ -7,21 +7,17 @@ import { PageHeader } from "@/components/ui/page-header";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
+import { phoneModeGroups } from "@/lib/phone-mode-groups";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
 /**
- * The sections Psychiatry gathers, in the order the dashboard shows them.
- * Each keeps its own address, so every existing link and bookmark still works.
- * The menu's Psychiatry group (`phone-mode-groups.ts`) lists the same modes.
+ * The sections Psychiatry gathers, read from the menu's Psychiatry group so the
+ * dashboard and the menu can never list different sections. Each keeps its own
+ * address, so every existing link and bookmark still works.
  */
-export const psychiatrySectionModeIds = [
-  "dsm",
-  "differentials",
-  "specifiers",
-  "formulation",
-  "therapy-compass",
-  "forms",
-] as const satisfies readonly AppModeId[];
+const psychiatryGroupModeIds: readonly AppModeId[] =
+  phoneModeGroups.find((group) => group.id === "psychiatry")?.modeIds ?? [];
+const psychiatrySectionModeIds = psychiatryGroupModeIds.filter((modeId) => modeId !== "psychiatry");
 
 /** A basic dashboard: one card per section, linking to that section's home. */
 export function PsychiatryHome() {
