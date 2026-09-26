@@ -204,6 +204,7 @@ describe("BMJ third-party source attestation policy", () => {
     ).toEqual({
       raw_unverified_validation: 5,
       complete_bmj_third_party_attestations: 1,
+      wa_document_control_endorsements: 0,
       unattested_review_debt: 4,
     });
   });
@@ -219,6 +220,7 @@ describe("BMJ third-party source attestation policy", () => {
     expect(countOperationalUnattestedReviewDebt([debtDocument(metadata)], [], now)).toEqual({
       raw_unverified_validation: 1,
       complete_bmj_third_party_attestations: 0,
+      wa_document_control_endorsements: 0,
       unattested_review_debt: 1,
     });
   });
@@ -230,6 +232,7 @@ describe("BMJ third-party source attestation policy", () => {
     expect(countOperationalUnattestedReviewDebt([missing, blank], [], now)).toEqual({
       raw_unverified_validation: 2,
       complete_bmj_third_party_attestations: 0,
+      wa_document_control_endorsements: 0,
       unattested_review_debt: 2,
     });
   });
@@ -253,6 +256,7 @@ describe("BMJ third-party source attestation policy", () => {
     expect(countOperationalUnattestedReviewDebt([debtDocument(metadata)], events, now)).toEqual({
       raw_unverified_validation: 1,
       complete_bmj_third_party_attestations: 0,
+      wa_document_control_endorsements: 0,
       unattested_review_debt: 1,
     });
   });
