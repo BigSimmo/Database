@@ -50,6 +50,8 @@ body. Write it from `.github/pull_request_template.md` in full normal prose, wit
 line when a RAG-ranking surface is touched, and — when `classifyPullRequestFiles` reports
 clinical risk — a complete `## Clinical Governance Preflight`. Output-style compression never
 applies to PR titles and bodies.
+`npm run pr:areas` prints the `Areas touched:` line from the organisation map and, when a
+ranking-protected file changed, a `RAG impact:` placeholder to replace; include both in the body.
 
 - Complete the Preflight **truthfully**: check only the boxes that are actually true for this
   change. Never tick every box to satisfy the parser.
