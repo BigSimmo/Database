@@ -62,8 +62,10 @@ function catalogueReads(calls: RpcCall[]) {
 }
 
 async function loadUniversalSearch() {
-  // A fresh module graph is a fresh cache, so each test starts cold rather than inheriting
-  // whatever the previous one warmed.
+  // Each test starts cold rather than inheriting whatever the previous one warmed. The record
+  // cache lives on globalThis, so a fresh module graph alone no longer empties it.
+  const { clearSiteContentRecordCache } = await import("@/lib/site-content/site-content-record-cache");
+  clearSiteContentRecordCache();
   vi.resetModules();
   return import("../src/lib/universal-search");
 }
