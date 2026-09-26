@@ -60,7 +60,8 @@ const differentialListQuerySchema = z.object({
   q: z
     .string()
     .trim()
-    .max(200)
+    // Matches the Answer/Documents search bound (api/search), so a pasted vignette searches instead of failing.
+    .max(2000)
     .optional()
     .transform((value) => (value ? value : undefined)),
   limit: queryInteger({ fallback: 100, min: 1, max: 200 }),

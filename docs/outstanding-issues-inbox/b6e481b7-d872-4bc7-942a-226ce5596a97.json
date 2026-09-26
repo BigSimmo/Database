@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b6e481b7-d872-4bc7-942a-226ce5596a97",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#F3SGCM",
+    "detail": "UPDATE 2026-09-26 (PR #3040, merged 103513f2d): the password-protected, damaged/truncated, zero-page and not-a-PDF classes are now enforced end to end at the extraction step. The Python extractor's exit 4 PDF_UNREADABLE refusal was previously swallowed and the JavaScript fallback indexed the file anyway; it now raises PdfUnreadableError, never falls back, is never retried, and the document fails with the extractor's plain reason (tests/pdf-unreadable-refusal.test.ts; checked by hand with the real PyMuPDF extractor on an AES-encrypted PDF and a text file renamed .pdf). Still open: the upload-to-answer matrix across all classes, with prompt-injected next. PRIOR DETAIL: Design covers rotated, password-protected, truncated, oversized, hidden-text, image-heavy and prompt-injected documents. Verified offline: prompt-injection tests exist (tests/rag-injection.test.ts) and forms handle passwordProtected, but no upload-to-answer matrix runs all classes. Next action: build the matrix, prompt-injected and password-protected first.",
+    "baseRowFingerprint": "4adba132d4eb223696281a309b540ba18f6e9748d5969039354d41aa2afae38a"
+  }
+}
