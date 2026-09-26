@@ -24,7 +24,7 @@ const records = mapCatalogToServiceRecords(loadServicesSnapshot().services);
 
 describe("service facets", () => {
   it("carries the full typed tag payload onto every ServiceRecord (the PR C runtime spike)", () => {
-    expect(records).toHaveLength(251);
+    expect(records).toHaveLength(252);
     for (const record of records) {
       expect(record.catalogPayload).toBeTruthy();
       const tags = serviceCatalogTags(record);

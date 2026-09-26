@@ -225,6 +225,34 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
 
+      # Lint and Typecheck were ~3 of this job's ~5 minutes, re-checking every file from cold on
+      # every run because both caches live in places a fresh runner never has. Both tools already
+      # run incrementally locally; this carries their caches between runs. Neither can skip a
+      # changed file: ESLint re-lints any file whose content hash changed (`--cache-strategy
+      # content` in lint:internal; the default mtime strategy misses on every fresh checkout),
+      # and tsc re-checks everything a changed file can affect. Custom rules, config, Node and
+      # dependency versions are in the key with no fallback across them, because ESLint's own
+      # cache key does not see rule code. The gate-receipt store in node_modules/.cache is NOT
+      # cached, so a restored cache can never let a receipt skip either step.
+      - name: Resolve incremental typecheck cache path
+        id: static-cache
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: >-
+          node --input-type=module -e "import path from 'node:path'; import { typescriptBuildInfoPath } from
+          './scripts/test-cache-path.mjs'; console.log('tsc=' + path.dirname(typescriptBuildInfoPath(process.cwd())));"
+          >> "$GITHUB_OUTPUT"
+
+      - name: Restore incremental lint and typecheck caches
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            node_modules/.cache/eslint
+            ${{ steps.static-cache.outputs.tsc }}
+          key: static-incremental-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json', 'eslint.config.mjs', 'eslint-rules/**', 'tsconfig.json', 'tsconfig.typecheck.json') }}-${{ github.sha }}
+          restore-keys: |
+            static-incremental-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json', 'eslint.config.mjs', 'eslint-rules/**', 'tsconfig.json', 'tsconfig.typecheck.json') }}-
+
       - name: Runtime alignment
         run: npm run check:runtime
 
@@ -612,8 +640,15 @@ jobs:
   coverage:
     name: Unit coverage
     needs: [changes, coverage-shards]
+    # `!cancelled()`, not `always()`: this job must still run when a partition FAILS, so it can
+    # report that failure, but it has nothing to say about a run that was cancelled. With
+    # `always()` it booked a runner, reinstalled dependencies and merged reports on every
+    # superseded run, and the next push's run (same concurrency group) waited for it:
+    # ~1.5 minutes per re-push, measured on run 36218035845 (2026-09-26). Skipping here cannot
+    # turn anything green: `pr-required` keeps `always()` and fails an in-scope coverage result
+    # of `skipped` exactly as it fails `failure`.
     if: >
-      always() && needs.changes.result == 'success' &&
+      !cancelled() && needs.changes.result == 'success' &&
       needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1856,15 +1891,30 @@ jobs:
           - { engine: firefox, project: firefox, shard: 3, total: 3 }
           - { engine: webkit, project: webkit, shard: 1, total: 2 }
           - { engine: webkit, project: webkit, shard: 2, total: 2 }
-          # The iPhone projects run three shards: at two, shard 2 took 29-30 min
+          # The iPhone projects run FIVE shards. At two, shard 2 took 29-30 min
           # against the 30-minute --global-timeout (run 36156676861), and
-          # mobile-pwa-standalone left 146 tests unrun.
-          - { engine: webkit, project: mobile-webkit, shard: 1, total: 3 }
-          - { engine: webkit, project: mobile-webkit, shard: 2, total: 3 }
-          - { engine: webkit, project: mobile-webkit, shard: 3, total: 3 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 3 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 3 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 3, total: 3 }
+          # mobile-pwa-standalone left 146 tests unrun. At three it still timed
+          # out (runs 36210366372, 36214387379): 55 min of iPhone tests split
+          # 14.6 / 29.9 / 10.5 min, because `--shard` cuts by test COUNT in
+          # alphabetical file order and, with `fullyParallel: false`, a whole file
+          # goes to the shard its first test falls in. The adjacent phone-scroll
+          # family (~13.4 min) and ui-smoke (~10.8 min) landed together.
+          # Four shards leaves them together (26 min); five separates them
+          # (max ~16 min from the same per-file timings, ~22 min worst case when
+          # the suite grows or shrinks by 40-60 tests). Six is worse than five.
+          # Re-measure from the release-ui-timings artifacts before changing
+          # this; a duration-aware split like scripts/playwright-pr-shards.mjs is
+          # the durable fix. Every test still runs, one worker, zero retries.
+          - { engine: webkit, project: mobile-webkit, shard: 1, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 2, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 3, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 4, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 5, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 3, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 4, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 5, total: 5 }
 
     steps:
       - name: Checkout
