@@ -21,9 +21,8 @@ import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content
  * path real requests take. Every canonical record is relabelled on the way out.
  * See `scopeDifferentialRecord` in `@/lib/differentials`.
  */
-export const readPresentationCandidateRecords = cache(async (slugs: readonly string[]) => {
-  const requested = new Set(slugs);
-  if (isDemoMode() || isLocalNoAuthMode()) return differentialRecords.filter((record) => requested.has(record.slug));
+export const readDifferentialCatalogueRecords = cache(async () => {
+  if (isDemoMode() || isLocalNoAuthMode()) return differentialRecords;
   await connection();
   const { records } = await readCanonicalSiteContentRecords({
     supabase: createAdminClient(),
@@ -35,7 +34,7 @@ export const readPresentationCandidateRecords = cache(async (slugs: readonly str
     // uncached on purpose, so an operator publishing a record sees it on its detail page at once.
     cache: true,
   });
-  return records.filter((record) => requested.has(record.slug)).map(scopeDifferentialRecord);
+  return records.map(scopeDifferentialRecord);
 });
 
 /** A page and its metadata read the same public publication within one request. */

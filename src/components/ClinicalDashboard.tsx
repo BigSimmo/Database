@@ -179,7 +179,7 @@ import {
   classifyAnswerError,
   createAnswerRequestWatchdog,
   generateQuerySuggestions,
-  isRetryableError,
+  shouldRetryFailedAttempt,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
   createSearchRequestDeadline,
@@ -1776,11 +1776,12 @@ function ClinicalDashboardContent({
   ) {
     let lastError: unknown;
     for (let attempt = 0; attempt <= searchRetryCount; attempt += 1) {
+      const attemptStartedAt = Date.now();
       try {
         return await operation();
       } catch (error) {
         lastError = error;
-        if (!isRetryableError(error) || attempt >= searchRetryCount) break;
+        if (!shouldRetryFailedAttempt(error, Date.now() - attemptStartedAt) || attempt >= searchRetryCount) break;
 
         const message = progressForRetry(attempt + 1);
         onProgress(message);

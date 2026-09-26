@@ -46,6 +46,7 @@ const SETUP_RECHECK_POLL_MS = 60_000;
 const SETUP_STATUS_ACTIVE_CACHE_MS = Math.max(2_000, Math.min(ACTIVE_INDEXING_POLL_MS, 5_000));
 const SETUP_STATUS_IDLE_CACHE_MS = 30_000;
 const SETUP_STATUS_OUTAGE_CACHE_MS = 120_000;
+const SETUP_STATUS_MAX_STALE_MS = 10 * 60_000;
 
 let setupStatusCache: { expiresAt: number; payload: SetupStatusPayload } | null = null;
 let setupStatusInFlight: Promise<SetupStatusPayload> | null = null;
@@ -449,6 +450,21 @@ async function readSetupStatusPayload() {
     return setupStatusCache.payload;
   }
 
+  // Serve an expired payload at once and refresh it in the background. Building a fresh one takes
+  // 1-12 s in production (Railway logs, 2026-09-19..26: exact counts, a storage listing and the
+  // health RPC, each crossing Singapore -> Sydney), and every page load, tab focus and poll asks
+  // for it. A checklist one refresh behind is harmless; a stale payload older than the bound below
+  // is not served, so a long-idle process still waits for current state.
+  if (setupStatusCache && now - setupStatusCache.expiresAt <= SETUP_STATUS_MAX_STALE_MS) {
+    const stalePayload = setupStatusCache.payload;
+    void refreshSetupStatusPayload().catch(() => undefined);
+    return stalePayload;
+  }
+
+  return refreshSetupStatusPayload();
+}
+
+async function refreshSetupStatusPayload() {
   if (setupStatusInFlight) {
     return setupStatusInFlight;
   }
