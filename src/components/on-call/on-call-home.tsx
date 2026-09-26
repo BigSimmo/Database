@@ -146,9 +146,14 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     () => usualTiles({ usual, handbookItems, removedIds, entries }),
     [usual, handbookItems, removedIds, entries],
   );
-  // A hospital row in Your usual arrives with the handbook, so while it loads
-  // the module holds its space rather than growing under the thumb.
-  const usualOutlines = handbookLoading && usual.some((item) => item.source === "handbook") ? usual.length : null;
+  // A hospital row in Your usual arrives with the handbook, and the reader's
+  // own rows with the first entries load, so while either is still coming the
+  // module holds its space rather than growing under the thumb (or claiming,
+  // before anything has arrived, that the list is empty).
+  const usualOutlines =
+    (handbookLoading && usual.some((item) => item.source === "handbook")) || (loading && entries.length === 0)
+      ? usual.length
+      : null;
 
   // "Needs you": the reader's own Playbook ladders, the calls made this shift
   // (ids and times only), and what each visible number row dials.

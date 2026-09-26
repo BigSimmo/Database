@@ -195,7 +195,7 @@ export function NowShiftLists({
                 label="Which shift are you on?"
                 layout="equal"
                 value={context.period}
-                onChange={(period) => saveOnCallShiftPick(period, now)}
+                onChange={(period) => saveOnCallShiftPick(period)}
                 options={PERIODS.map((period) => ({ value: period, label: ON_CALL_SHIFT_PERIOD_LABELS[period] }))}
               />
             </div>
