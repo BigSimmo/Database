@@ -2,7 +2,7 @@
 
 Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run docs:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
 
-_Updated 2026-09-25 — brought routes, API routes, RAG modules, Supabase, worker, scripts and config sections back in line with the tree._
+_Updated 2026-09-26 — added the generated Areas section from the organisation map._
 
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
 **Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
@@ -76,6 +76,39 @@ gates in `document_index_quality`. Reindex commits atomically per generation
 (`reindex-pipeline.ts`). Lifecycle detail: `docs/ingestion-state-machine.md`.
 
 Both paths are owner-scoped: `owner-scope.ts`, `query-privacy.ts`, `authorization.ts`.
+
+<!-- organisation-areas:start -->
+<!-- Generated from the area files in docs/organisation/systems/ by node scripts/organisation/codebase-index-section.mjs --write (the pre-commit docs sync runs it). Edit those files, not this section. -->
+
+## Areas (organisation map)
+
+Every tracked file belongs to one area of the organisation map, and an area describes a job, never a page or a mode. The guide is `docs/organisation/README.md`; `npm run check:organisation -- --files <path>` names the area that owns a file. This section lists only each area's job and canonical docs, so moving files never makes it stale.
+
+- **Answer engine** (`answer-engine`): Turning a question into a cited answer: retrieval, ranking, answer building, citation checks, the clinical-ask pipeline and the eval harness.
+  Canonical docs: docs/rag-behaviour/README.md, docs/rag-behaviour/safeguards.md
+- **App experience** (`app-experience`): Every page, the shared shell, navigation, search chrome, client-side search and filtering, demo mode and offline behaviour.
+  Canonical docs: docs/frontend-architecture.md, docs/search-chrome-behaviour.md
+- **Clinical reference content** (`clinical-content`): Facts a clinician reads, and where each came from: the records themselves, their sources, sign-off and publication.
+  Canonical docs: docs/clinical-governance.md, docs/source-acquisition-protocol.md
+- **Data platform and access** (`data-platform`): Database schema, migrations and drift guards, auth, owner scope, privacy, environment, proxy, security headers and observability.
+  Canonical docs: docs/database-drift-detection.md, docs/supabase-migration-reconciliation.md
+- **Delivery and assurance** (`delivery`): Getting a change safely from branch to live: CI, git hooks, gates, budgets, containers, deploy config and test tooling.
+  Canonical docs: docs/agents/verification-gates.md, docs/testing.md, docs/deployment-architecture.md
+- **Knowledge and records** (`knowledge`): How people and agents know how to work, and what has been decided, found or left open: entry docs, agent tooling, ledgers and records.
+  Canonical docs: docs/agents-guide.md, docs/README.md, docs/DOCS-SYSTEM.md
+- **Personal practice** (`personal-practice`): The clinician's own records and tools: their logic, data and server routes. Pages sit in App experience.
+  Canonical docs: docs/superpowers/specs/2026-09-04-on-call-mode-design.md, docs/codebase-index.md
+- **Source intake and indexing** (`source-intake`): Any source becoming searchable: upload, extraction, OCR, captions, chunking, embeddings, index units and the ingestion worker.
+  Canonical docs: docs/ingestion-state-machine.md, docs/reindex-runbook.md, docs/worker-deploy-runbook.md
+
+Workstreams cut across the areas:
+
+- **Design system** (`design-system`): Visual tokens, primitives, brand and the lint rules that enforce them; serves every screen.
+  Canonical docs: docs/design-system/README.md
+- **Prototypes** (`prototypes`): Admin-only work that is not yet part of the product: Care Plan, the developer hub and design-scratch mock-ups.
+  Canonical docs: docs/care-plan/CLAUDE-START-HERE.md
+
+<!-- organisation-areas:end -->
 
 ## Top-level layout
 
