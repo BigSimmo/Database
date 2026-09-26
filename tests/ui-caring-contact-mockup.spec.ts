@@ -3,6 +3,7 @@ import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 const base = "/mockups/caring-contacts";
 const routes = {
@@ -231,7 +232,9 @@ test.describe("@mockup Caring Contact linked prototype", () => {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
       await gotoRoute(page, routes.states, "Component and system states");
       for (const [id, title, phoneModality, desktopModality] of overlayMatrix) {
-        const trigger = page.locator(`[data-overlay-trigger="${id}"]`);
+        // Closing the previous overlay re-renders the states page; wait for the outgoing
+        // tree to leave rather than click whichever of two triggers resolves first.
+        const trigger = await expectSingleSettledOwner(page.locator(`[data-overlay-trigger="${id}"]`));
         await trigger.click();
         await expect(page).toHaveURL(new RegExp(`overlay=${id}`));
         const surface =
