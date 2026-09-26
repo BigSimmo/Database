@@ -193,6 +193,49 @@ function listVariables(names) {
   return names.map((name) => describeList(name).variable).join(" and ");
 }
 
+function filesAt(root, revision) {
+  return git(root, ["ls-tree", "-r", "-z", "--name-only", revision]).stdout.split("\0").filter(Boolean);
+}
+
+// When a change edits pr-policy, a file that stays where it is can still lose its protection
+// because its pattern was removed or narrowed. Judge every file present on both sides with each
+// side's lists. A copy that cannot be loaded gives one loud "check by hand" finding instead.
+function listEditFindings(root, base, head, entries) {
+  const touched = new Set(entries.flatMap((entry) => [entry.path, entry.from].filter(Boolean)));
+  const before = new Set(filesAt(root, base));
+  const files = filesAt(root, head).filter((file) => before.has(file) && !touched.has(file));
+  const loaded = classifyWithPolicyCopies(root, {
+    base: { revision: base, files },
+    head: { revision: head, files },
+  });
+  if (!loaded.base || !loaded.head) {
+    return [
+      warning({
+        key: "coverage-list-edit-unchecked",
+        subject: POLICY_FILE,
+        loud: true,
+        message: `this change edits the safety lists in ${POLICY_FILE}, but one side's copy could not be loaded, so files taken off a list were not checked. Compare the lists by hand.`,
+      }),
+    ];
+  }
+  const findings = [];
+  for (const file of files) {
+    const after = new Set(loaded.head[file] ?? []);
+    const lost = (loaded.base[file] ?? []).filter((name) => !after.has(name));
+    if (lost.length === 0) continue;
+    findings.push(
+      warning({
+        key: `coverage-dropped:${file}`,
+        subject: file,
+        about: POLICY_FILE,
+        loud: true,
+        message: `was on ${listLabels(lost)} before this change and is not any more, although the file did not move. If that is intended, say so in the PR; otherwise restore its entry in ${listVariables(lost)} in ${POLICY_FILE}.`,
+      }),
+    );
+  }
+  return findings;
+}
+
 /**
  * Safety coverage a change loses by moving files, as findings. Never blocking.
  *
@@ -223,7 +266,20 @@ export function coverageLossFindings({ root, base, head = "HEAD", classify }) {
   if (typeof root !== "string" || root.length === 0) throw new Error("root is required");
   checkRef("base", base);
   checkRef("head", head);
-  const diff = git(root, ["diff", "-M", "-C", "--name-status", "-z", "--no-color", "--no-ext-diff", base, head, "--"]);
+  // 30% similarity (git's default is 50%) so a file renamed and heavily rewritten in one change
+  // still reads as a move rather than an unrelated delete and add.
+  const diff = git(root, [
+    "diff",
+    "-M30%",
+    "-C30%",
+    "--name-status",
+    "-z",
+    "--no-color",
+    "--no-ext-diff",
+    base,
+    head,
+    "--",
+  ]);
   const findings = [];
   if (/(?:rename|copy) detection was skipped/i.test(diff.stderr || "")) {
     findings.push(
@@ -237,16 +293,19 @@ export function coverageLossFindings({ root, base, head = "HEAD", classify }) {
     );
   }
   const entries = parseNameStatus(diff.stdout);
+  const policyEdited = entries.some((entry) => entry.path === POLICY_FILE || entry.from === POLICY_FILE);
+  if (policyEdited && !classify) findings.push(...listEditFindings(root, base, head, entries));
   const moved = entries.filter((entry) => entry.status === "R" || entry.status === "C");
   const deleted = entries.filter((entry) => entry.status === "D");
   if (moved.length === 0 && deleted.length === 0) return findings;
-  const addedByName = new Map();
-  for (const entry of entries) {
-    if (entry.status !== "A" && entry.status !== "C") continue;
-    const name = posixPath.basename(entry.path);
-    addedByName.set(name, [...(addedByName.get(name) ?? []), entry.path]);
-  }
-  const deletedNames = new Set(deleted.map((entry) => posixPath.basename(entry.path)));
+  const added = entries.filter((entry) => entry.status === "A" || entry.status === "C").map((entry) => entry.path);
+  // A deleted safety-listed file is a suspected move when the same change adds an unlisted file
+  // with its name anywhere, or any unlisted file in its folder (a split or a heavy rewrite).
+  const suspects = (gone) =>
+    added.filter(
+      (file) =>
+        posixPath.basename(file) === posixPath.basename(gone) || posixPath.dirname(file) === posixPath.dirname(gone),
+    );
 
   let classifyOld;
   let classifyNew;
@@ -255,17 +314,13 @@ export function coverageLossFindings({ root, base, head = "HEAD", classify }) {
     classifyNew = classify;
   } else {
     const oldPaths = [...moved.map((entry) => entry.from), ...deleted.map((entry) => entry.path)];
-    const newPaths = [
-      ...moved.map((entry) => entry.path),
-      ...[...addedByName].filter(([name]) => deletedNames.has(name)).flatMap(([, paths]) => paths),
-    ];
+    const newPaths = [...moved.map((entry) => entry.path), ...deleted.flatMap((entry) => suspects(entry.path))];
     const loaded = classifyWithPolicyCopies(root, {
       base: { revision: base, files: [...new Set(oldPaths)] },
       head: { revision: head, files: [...new Set(newPaths)] },
     });
     classifyNew = loaded.head ? (file) => loaded.head[file] ?? safetyClassesFor(file) : safetyClassesFor;
     classifyOld = loaded.base ? (file) => loaded.base[file] ?? classifyNew(file) : classifyNew;
-    const policyEdited = entries.some((entry) => entry.path === POLICY_FILE || entry.from === POLICY_FILE);
     if (!loaded.base && policyEdited) {
       findings.push(
         warning({
@@ -304,8 +359,8 @@ export function coverageLossFindings({ root, base, head = "HEAD", classify }) {
   for (const entry of deleted) {
     const lists = classifyOld(entry.path);
     if (lists.length === 0) continue;
-    const sameName = (addedByName.get(posixPath.basename(entry.path)) ?? []).filter((added) => {
-      const after = new Set(classifyNew(added));
+    const sameName = suspects(entry.path).filter((file) => {
+      const after = new Set(classifyNew(file));
       return lists.some((name) => !after.has(name));
     });
     if (sameName.length > 0) {
@@ -316,7 +371,7 @@ export function coverageLossFindings({ root, base, head = "HEAD", classify }) {
           subject: entry.path,
           about: sameName[0],
           loud: true,
-          message: `was on ${listLabels(lists)} and has been deleted, and this change adds a file with the same name (${targets}) that is not on all of those lists. If the file moved there, its protection was lost: add the new path to ${listVariables(lists)} in ${POLICY_FILE}.`,
+          message: `was on ${listLabels(lists)} and has been deleted, and this change adds a file with the same name or in the same folder (${targets}) that is not on all of those lists. If the content moved there, its protection was lost: add the new path to ${listVariables(lists)} in ${POLICY_FILE}.`,
         }),
       );
       continue;

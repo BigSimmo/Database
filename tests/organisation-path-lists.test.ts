@@ -212,6 +212,19 @@ describe("coverageLossFindings: judged against the base lists", () => {
     expect(coverageLossFindings({ root, base: "HEAD~1", head: "HEAD" })).toEqual([]);
   });
 
+  it("flags loudly a file that stays put but is taken off a list in the same change", () => {
+    const root = repo({
+      "scripts/pr-policy.mjs": policy(["/^lib\\/scoring\\.ts$/", "/^lib\\/rank\\//"]),
+      "lib/scoring.ts": BODY,
+      "lib/rank/order.ts": BODY.replace("line0", "order0"),
+    });
+    write(root, { "scripts/pr-policy.mjs": policy(["/^lib\\/rank\\//"]) });
+    commit(root);
+
+    const findings = coverageLossFindings({ root, base: "HEAD~1", head: "HEAD" });
+    expect(findings.map((finding) => [finding.key, finding.loud])).toEqual([["coverage-dropped:lib/scoring.ts", true]]);
+  });
+
   it("says loudly when the base lists cannot be loaded and the change edits them", () => {
     const root = repo({ "scripts/pr-policy.mjs": "export const = ;\n", "lib/scoring.ts": BODY });
     write(root, { "scripts/pr-policy.mjs": policy(["/^lib\\/scoring\\.ts$/"]) });
@@ -254,6 +267,18 @@ describe("coverageLossFindings: deletions", () => {
       about: "lib/util/scoring.ts",
     });
     expect(findings[0].message).toContain("`lib/util/scoring.ts`");
+  });
+
+  it("is loud when an unlisted file is added in the same folder, as a split or heavy rewrite looks", () => {
+    const root = repo({ "lib/scoring.ts": BODY });
+    fs.rmSync(path.join(root, "lib/scoring.ts"));
+    write(root, { "lib/score-parts.ts": "export const rewritten = 1;\n" });
+    commit(root);
+
+    const findings = coverageLossFindings({ root, base: "HEAD~1", head: "HEAD", classify });
+    expect(findings.map((finding) => [finding.key, finding.loud, finding.about])).toEqual([
+      ["coverage-deleted:lib/scoring.ts", true, "lib/score-parts.ts"],
+    ]);
   });
 
   it("stays plain when the same-named added file keeps the lists", () => {
