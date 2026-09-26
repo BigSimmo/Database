@@ -9,6 +9,7 @@ import {
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { resolveFreshnessFrom } from "@/lib/developer-area/freshness";
+import { DOCUMENT_CAUTIONS } from "@/lib/document-cautions";
 import {
   loadHazardSnapshot,
   missingRegisters,
@@ -220,6 +221,35 @@ export default function DeveloperHazardsPage() {
             </ul>
           </PanelSection>
         ))}
+
+      <PanelSection
+        testId="developer-hazards-document-cautions"
+        headingId="developer-hazards-document-cautions-heading"
+        heading="Known errors in source documents"
+      >
+        <p className="text-sm leading-6 text-[color:var(--text-muted)]">
+          Errors in a source document itself, which re-indexing cannot fix. Each keeps its caution on every answer that
+          cites the document. The wording says &ldquo;appears&rdquo; because the caution asks the reader to check, it
+          does not correct the source.
+        </p>
+        <ul className="grid gap-2">
+          {DOCUMENT_CAUTIONS.map((caution) => (
+            <li
+              key={caution.id}
+              data-testid={`developer-hazards-document-caution-${caution.id}`}
+              className={CARD_CLASS}
+            >
+              <p className="text-sm leading-6 text-[color:var(--text-heading)]">{caution.message}</p>
+              <p className="text-sm leading-6 text-[color:var(--text-heading)]">
+                <span className="font-bold">Decision:</span> {caution.decision}
+              </p>
+              <p className={META_CLASS}>
+                <span className={MONO_CLASS}>{caution.ledger}</span> · recorded {caution.recordedOn}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </PanelSection>
     </PanelPageShell>
   );
 }
