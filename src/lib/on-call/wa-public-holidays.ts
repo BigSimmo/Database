@@ -10,10 +10,14 @@ import { onCallLocalDateKey } from "@/lib/on-call/local-date";
  * a service runs its after-hours arrangements. Every step stays visible either
  * way, so a missing date costs a glance, not a missed call.
  *
- * UPDATE YEARLY. The 2028 dates were not yet published when this list was
- * written; after the last listed year the app falls back to the weekday rule
- * alone. Regional King's Birthday dates (Karratha, Port Hedland) are not
- * included.
+ * The published list is authoritative for the years it covers. For any later
+ * year the dates come from `waPublicHolidaysByRule`, which applies the rules
+ * the WA Public and Bank Holidays Act 1972 sets out and reproduces every date
+ * above exactly (pinned by a test). One date in the rules is set by
+ * proclamation rather than by law, King's Birthday, taken here as the last
+ * Monday of September as in every recent year; add each year's published list
+ * when it appears so a moved proclamation is caught. Regional King's Birthday
+ * dates (Karratha, Port Hedland) are not included.
  */
 export const WA_PUBLIC_HOLIDAYS: ReadonlySet<string> = new Set([
   // 2026
@@ -47,8 +51,100 @@ export const WA_PUBLIC_HOLIDAYS: ReadonlySet<string> = new Set([
   "2027-12-28",
 ]);
 
-/** The last year the list covers, so a test can fail loudly once it runs out. */
+/** The last year the published list covers. Later years use the rules below. */
 export const WA_PUBLIC_HOLIDAYS_LAST_YEAR = 2027;
+
+function isoDate(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** 0 = Sunday … 6 = Saturday, for a calendar date (no time zone involved). */
+function weekday(year: number, month: number, day: number): number {
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function addDays(year: number, month: number, day: number, days: number): string {
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return isoDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+}
+
+/** Western (Gregorian) Easter Sunday, by the anonymous Gregorian algorithm. */
+function easterSunday(year: number): { month: number; day: number } {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return { month, day };
+}
+
+function firstMonday(year: number, month: number): string {
+  const offset = (8 - weekday(year, month, 1)) % 7;
+  return isoDate(year, month, 1 + offset);
+}
+
+function lastMonday(year: number, month: number): string {
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const offset = (weekday(year, month, lastDay) + 6) % 7;
+  return isoDate(year, month, lastDay - offset);
+}
+
+/** The day itself, plus the following Monday when it falls on a weekend. */
+function withMondaySubstitute(year: number, month: number, day: number): string[] {
+  const dow = weekday(year, month, day);
+  if (dow === 6) return [isoDate(year, month, day), addDays(year, month, day, 2)];
+  if (dow === 0) return [isoDate(year, month, day), addDays(year, month, day, 1)];
+  return [isoDate(year, month, day)];
+}
+
+/**
+ * WA public holidays for a year, from the rules rather than the published list.
+ * Christmas and Boxing Day share a weekend, so their substitutes are the next
+ * weekdays not already holidays: Saturday Christmas gives Monday 27 and Tuesday
+ * 28; Sunday Christmas gives Tuesday 27 (Boxing Day is the Monday); Saturday
+ * Boxing Day gives Monday 28.
+ */
+export function waPublicHolidaysByRule(year: number): string[] {
+  const easter = easterSunday(year);
+  const christmasDow = weekday(year, 12, 25);
+  const christmas: string[] = [isoDate(year, 12, 25), isoDate(year, 12, 26)];
+  if (christmasDow === 6) christmas.push(isoDate(year, 12, 27), isoDate(year, 12, 28));
+  else if (christmasDow === 0) christmas.push(isoDate(year, 12, 27));
+  else if (christmasDow === 5) christmas.push(isoDate(year, 12, 28));
+  return [
+    ...withMondaySubstitute(year, 1, 1),
+    ...withMondaySubstitute(year, 1, 26),
+    firstMonday(year, 3), // Labour Day
+    addDays(year, easter.month, easter.day, -2), // Good Friday
+    isoDate(year, easter.month, easter.day), // Easter Sunday
+    addDays(year, easter.month, easter.day, 1), // Easter Monday
+    ...withMondaySubstitute(year, 4, 25), // Anzac Day
+    firstMonday(year, 6), // Western Australia Day
+    lastMonday(year, 9), // King's Birthday (by proclamation; see above)
+    ...christmas,
+  ].sort();
+}
+
+const ruleCache = new Map<number, ReadonlySet<string>>();
+
+function holidaysFor(year: number): ReadonlySet<string> {
+  if (year <= WA_PUBLIC_HOLIDAYS_LAST_YEAR) return WA_PUBLIC_HOLIDAYS;
+  let set = ruleCache.get(year);
+  if (!set) {
+    set = new Set(waPublicHolidaysByRule(year));
+    ruleCache.set(year, set);
+  }
+  return set;
+}
 
 /**
  * Read in the viewer's own zone, like `isOnCallOutOfHours` beside it in "Who do
@@ -58,5 +154,6 @@ export const WA_PUBLIC_HOLIDAYS_LAST_YEAR = 2027;
  * set to Perth.
  */
 export function isWaPublicHoliday(now: Date): boolean {
-  return WA_PUBLIC_HOLIDAYS.has(onCallLocalDateKey(now));
+  const key = onCallLocalDateKey(now);
+  return holidaysFor(Number(key.slice(0, 4))).has(key);
 }

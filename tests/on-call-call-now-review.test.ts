@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { onCallCallNowPeriod, onCallCallNowScenarios, onCallCallNowSteps } from "@/lib/on-call/call-now";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { buildOnCallReviewQueue, onCallReviewDueAt } from "@/lib/on-call/review-queue";
-import { isWaPublicHoliday, WA_PUBLIC_HOLIDAYS, WA_PUBLIC_HOLIDAYS_LAST_YEAR } from "@/lib/on-call/wa-public-holidays";
+import {
+  isWaPublicHoliday,
+  WA_PUBLIC_HOLIDAYS,
+  WA_PUBLIC_HOLIDAYS_LAST_YEAR,
+  waPublicHolidaysByRule,
+} from "@/lib/on-call/wa-public-holidays";
 
 function entry(overrides: Partial<OnCallEntry> & Pick<OnCallEntry, "id" | "section">): OnCallEntry {
   return {
@@ -81,6 +86,56 @@ describe("WA public holidays", () => {
   it("never mixes clocks: a weekday morning is in hours unless that local date is a holiday", () => {
     expect(onCallCallNowPeriod(new Date(2026, 8, 29, 10, 0))).toBe("in-hours");
     expect(onCallCallNowPeriod(new Date(2026, 8, 28, 10, 0))).toBe("after-hours");
+  });
+
+  it("the rules reproduce every published year exactly, substitute days included", () => {
+    for (let year = 2026; year <= WA_PUBLIC_HOLIDAYS_LAST_YEAR; year += 1) {
+      const published = [...WA_PUBLIC_HOLIDAYS].filter((date) => date.startsWith(`${year}-`)).sort();
+      expect(waPublicHolidaysByRule(year)).toEqual(published);
+    }
+  });
+
+  it("keeps working after the published list runs out", () => {
+    const year = WA_PUBLIC_HOLIDAYS_LAST_YEAR + 1;
+    expect(year).toBe(2028);
+    // 2028: New Year on a Saturday (Monday 3rd off), Easter 16 April, Anzac Day
+    // a Tuesday, Christmas a Monday.
+    expect(waPublicHolidaysByRule(2028)).toEqual([
+      "2028-01-01",
+      "2028-01-03",
+      "2028-01-26",
+      "2028-03-06",
+      "2028-04-14",
+      "2028-04-16",
+      "2028-04-17",
+      "2028-04-25",
+      "2028-06-05",
+      "2028-09-25",
+      "2028-12-25",
+      "2028-12-26",
+    ]);
+    expect(isWaPublicHoliday(new Date(2028, 3, 14, 10))).toBe(true);
+    expect(isWaPublicHoliday(new Date(2028, 3, 18, 10))).toBe(false);
+  });
+
+  it("handles every Christmas weekday arrangement", () => {
+    // Saturday Christmas (2027), Sunday Christmas (2022), Friday Christmas (2026).
+    expect(waPublicHolidaysByRule(2027).filter((d) => d.startsWith("2027-12"))).toEqual([
+      "2027-12-25",
+      "2027-12-26",
+      "2027-12-27",
+      "2027-12-28",
+    ]);
+    expect(waPublicHolidaysByRule(2022).filter((d) => d.startsWith("2022-12"))).toEqual([
+      "2022-12-25",
+      "2022-12-26",
+      "2022-12-27",
+    ]);
+    expect(waPublicHolidaysByRule(2026).filter((d) => d.startsWith("2026-12"))).toEqual([
+      "2026-12-25",
+      "2026-12-26",
+      "2026-12-28",
+    ]);
   });
 
   it("covers every year up to the last listed one", () => {
