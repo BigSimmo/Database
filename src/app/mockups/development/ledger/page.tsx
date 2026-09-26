@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
 import { CARD_CLASS, CountTile, META_CLASS, PanelSection } from "@/components/developer-area/hub/panel-primitives";
-import { LEDGER_DETAIL_CLASS, LEDGER_DISCLOSURE_CLASS, LedgerItem } from "@/components/developer-area/hub/ledger-item";
+import { LedgerFilter, type LedgerFilterGroup } from "@/components/developer-area/hub/ledger-filter";
+import { LEDGER_DETAIL_CLASS, LEDGER_DISCLOSURE_CLASS } from "@/components/developer-area/hub/ledger-item";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import {
   loadLedgerSnapshot,
@@ -51,6 +52,21 @@ export default function DeveloperLedgerPage() {
   // an id-keyed set would swallow a second row that shared an id.
   const recognised = new Set<LedgerOpenItem>([...grouped.P1, ...grouped.P2, ...grouped.P3]);
   const unrecognised: LedgerOpenItem[] = snapshot.open.filter((item) => !recognised.has(item));
+
+  const openGroups: LedgerFilterGroup[] = PRIORITY_GROUPS.map((group) => ({
+    key: group.priority,
+    heading: group.heading,
+    note: group.note,
+    items: grouped[group.priority],
+  }));
+  if (unrecognised.length > 0) {
+    openGroups.push({
+      key: "other",
+      heading: "Other",
+      note: `These rows carry a priority this page does not recognise. They are shown as they are rather than dropped, so the list still adds up to the ${snapshot.counts.open} open items counted above.`,
+      items: unrecognised,
+    });
+  }
 
   return (
     <PanelPageShell testId="developer-ledger" title="Task ledger" freshness={freshness} freshnessLabel="Ledger">
@@ -133,53 +149,11 @@ export default function DeveloperLedgerPage() {
 
       <PanelSection headingId="developer-ledger-open-heading" heading="Open items">
         {/*
-         * A wrapper rather than one `<ul>`: each priority group needs its own
-         * heading, and a heading between `<li>` siblings is not valid list
-         * markup. Every open item still sits under this single test id, in
-         * P1 -> P2 -> P3 order.
+         * Search and filter run client-side over the groups built here, so the
+         * P1 -> P2 -> P3 -> other ordering stays decided in one place. The
+         * blocking list and the running order above stay unfiltered.
          */}
-        <div data-testid="developer-ledger-open" className="grid gap-6">
-          {PRIORITY_GROUPS.map((group) => {
-            const items = grouped[group.priority];
-            if (items.length === 0) return null;
-            const headingId = `developer-ledger-open-${group.priority}`;
-            return (
-              <PanelSection
-                key={group.priority}
-                headingId={headingId}
-                headingLevel="h3"
-                className="grid gap-2"
-                heading={`${group.heading} · ${items.length}`}
-              >
-                <p className={META_CLASS}>{group.note}</p>
-                <ul className="grid gap-3">
-                  {items.map((item) => (
-                    <LedgerItem key={item.id} item={item} />
-                  ))}
-                </ul>
-              </PanelSection>
-            );
-          })}
-
-          {unrecognised.length > 0 ? (
-            <PanelSection
-              headingId="developer-ledger-open-other"
-              headingLevel="h3"
-              className="grid gap-2"
-              heading={`Other · ${unrecognised.length}`}
-            >
-              <p className={META_CLASS}>
-                These rows carry a priority this page does not recognise. They are shown as they are rather than
-                dropped, so the list still adds up to the {snapshot.counts.open} open items counted above.
-              </p>
-              <ul className="grid gap-3">
-                {unrecognised.map((item) => (
-                  <LedgerItem key={item.id} item={item} />
-                ))}
-              </ul>
-            </PanelSection>
-          ) : null}
-        </div>
+        <LedgerFilter groups={openGroups} />
       </PanelSection>
 
       <PanelSection headingId="developer-ledger-pending-heading" heading="Requests not yet applied">

@@ -31,7 +31,7 @@ than CI, two of them by the second reader; review does not scale past two carefu
 | `arbitraryTracking`               | **0** (hard floor) | 0            |
 | `colourOnlyStatusIndicators`      | **0** (hard floor) | 0            |
 | `darkColorOverrides`              | **0** (hard floor) | 0            |
-| `disabledOpacityUses`             | 39                 | 25           |
+| `disabledOpacityUses`             | 39                 | 24           |
 | `edgeOwnershipConflicts`          | 5                  | 2            |
 | `elevationInversions`             | 6                  | 5            |
 | `errorStateCountProps`            | **0** (hard floor) | 0            |

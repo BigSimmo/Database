@@ -170,6 +170,8 @@ describe("retired rules: the list itself", () => {
     expect(isInstructionFile("AGENTS.md")).toBe(true);
     expect(isInstructionFile("docs/agents/pull-request-workflow.md")).toBe(true);
     expect(isInstructionFile(".claude/skills/handoff/SKILL.md")).toBe(true);
+    expect(isInstructionFile(".github/pull_request_template.md")).toBe(true);
+    expect(isInstructionFile("docs/agents-guide.md")).toBe(true);
     expect(isInstructionFile("docs/AGENTS.md")).toBe(false);
     expect(isInstructionFile("docs/outstanding-issues.md")).toBe(false);
   });

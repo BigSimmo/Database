@@ -23,19 +23,6 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/ledger",
   },
-  // The id stays `work-in-flight` on purpose (plan ruling R9): it is Phase 1's
-  // extension mechanism, and renaming it would be churn with a test to update
-  // and nothing gained. Only the name and summary changed, because the old
-  // ones promised live pull-request state (open changes, CI status) that this
-  // repository does not have on disk — only its own committed review records.
-  {
-    id: "work-in-flight",
-    name: "Review state",
-    summary: "Which branches were reviewed, at which head, with what outcome",
-    group: "work",
-    phase: 1,
-    href: "/mockups/development/review-state",
-  },
   // `decision-log` (phase 4) was removed 2026-08-25, along with `errors`,
   // `budgets` and `commands` below, and `database-drift` (phase 3) for the
   // same reason: `.github/workflows/live-drift.yml` already creates and
@@ -144,34 +131,21 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/corpus-health",
   },
+  // Live and administrator-only: it reads the running server's settings on each
+  // request and shows only Set/Missing/On/Off or an allow-listed mode name. The
+  // summary promises "never the values"; keep it that way.
   {
-    id: "test-health",
-    name: "Test health",
-    summary: "Unstable and quarantined tests",
+    id: "settings-check",
+    name: "Settings check",
+    summary: "Whether each production switch is on and each secret is in place — never the values",
     group: "system",
     phase: 1,
-    href: "/mockups/development/test-health",
+    href: "/mockups/development/settings",
   },
-
-  {
-    id: "documentation",
-    name: "Documentation",
-    summary: "Every document, its area, and whether the index lists it",
-    group: "reference",
-    phase: 1,
-    href: "/mockups/development/documentation",
-  },
-  {
-    id: "routes",
-    name: "Routes and modes",
-    // Audit L81: this summary used to state a mode count, which drifted every time
-    // a mode was added (the routes page below it renders the live count from the
-    // snapshot). Kept deliberately count-free — do not reintroduce a number here.
-    summary: "Every page and every app mode",
-    group: "reference",
-    phase: 1,
-    href: "/mockups/development/routes",
-  },
+  // `work-in-flight` (Review state), `test-health`, `documentation` and `routes`
+  // were retired 2026-09-26 on the owner's decision (see mockups/README.md,
+  // "Retired developer-gated routes"): engineering views the owner does not use.
+  // Their data still lives in data/repo-awareness-snapshot.json.
   // A static sheet, not a route: it is the generated brand preview, mirrored
   // from docs/brand/preview.html into public/ so the hub can link to it.
   // `tests/developer-hub-panels.test.ts` holds the two copies byte-identical,

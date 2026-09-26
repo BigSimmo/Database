@@ -104,8 +104,8 @@ forwarded in a message or copied off a screen; the corpus is the clinical
 library. Do not "simplify" those panels by having them trust the cookie.
 
 What a link holder _can_ read is the prototype content and the repository-derived
-panels: the task ledger, the hazard notes, review state, routes, documentation
-inventory, and the Care Plan prototype. Treat the
+panels: the task ledger, the hazard notes, the clinical sign-off queue, and the
+Care Plan prototype. Treat the
 link accordingly — it is roughly as sensitive as the internal notes themselves.
 
 ## Revoking access
