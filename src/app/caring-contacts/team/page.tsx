@@ -5,7 +5,7 @@ import { TeamRoster } from "@/components/caring-contacts/workspace/team-roster";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { systemClock } from "@/lib/caring-contacts/clock";
+import { caringContactsClock } from "@/lib/caring-contacts-server/workspace-clock";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
@@ -128,7 +128,7 @@ export default async function CaringContactsTeamPage() {
           assignment: await store.getAssignment(record.plan.id, { actor }),
         })),
       );
-      return buildTeamWorkload(ownership, systemClock().now());
+      return buildTeamWorkload(ownership, caringContactsClock().now());
     },
   );
   if (teamRead.outcome === "failed") {

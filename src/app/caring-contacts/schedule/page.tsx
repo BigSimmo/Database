@@ -10,7 +10,8 @@ import {
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { awstCalendarDay, awstCalendarDayOffset, systemClock } from "@/lib/caring-contacts/clock";
+import { awstCalendarDay, awstCalendarDayOffset } from "@/lib/caring-contacts/clock";
+import { caringContactsClock } from "@/lib/caring-contacts-server/workspace-clock";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PlanRecord } from "@/lib/caring-contacts/repository";
 import { buildScheduleRange } from "@/lib/caring-contacts/schedule-view";
@@ -81,8 +82,8 @@ export default async function CaringContactsSchedulePage({
 
   // "Today" is ambient time and is resolved here, at the edge, for the same reason
   // `schedule/route.ts` resolves it there: the domain takes the day as an argument precisely so it
-  // never reaches for a clock of its own. `systemClock()` is this seam's clock.
-  const todayCalendarDay = awstCalendarDay(systemClock().now());
+  // never reaches for a clock of its own. `caringContactsClock()` is this seam's clock.
+  const todayCalendarDay = awstCalendarDay(caringContactsClock().now());
   const selectedCalendarDay = parseScheduleDay(await searchParams, todayCalendarDay);
   const fromCalendarDay = awstCalendarDayOffset(selectedCalendarDay, -SCHEDULE_STRIP_DAYS_BEFORE);
   const toCalendarDay = awstCalendarDayOffset(fromCalendarDay, SCHEDULE_STRIP_DAYS - 1);

@@ -21,7 +21,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { invalidRequestResponse, readHandler } from "@/lib/caring-contacts-server/handler";
-import { awstCalendarDay, systemClock } from "@/lib/caring-contacts/clock";
+import { awstCalendarDay } from "@/lib/caring-contacts/clock";
+import { caringContactsClock } from "@/lib/caring-contacts-server/workspace-clock";
 import { isAwstCalendarDay } from "@/lib/caring-contacts/schedule";
 import { buildScheduleRange, type ScheduleRangeView } from "@/lib/caring-contacts/schedule-view";
 
@@ -41,10 +42,10 @@ const querySchema = z.object({ from: calendarDay.optional(), to: calendarDay.opt
  *
  * The default is resolved here rather than in the domain because "today" is ambient time, and
  * `schedule-view.ts` takes the day as an argument precisely so it never reaches for a clock of its
- * own. `systemClock()` is this seam's clock, the same one every other server-side read uses.
+ * own. `caringContactsClock()` is this seam's clock, the same one every other server-side read uses.
  */
 function resolveRange(from: string | undefined, to: string | undefined): { from: string; to: string } {
-  const today = awstCalendarDay(systemClock().now());
+  const today = awstCalendarDay(caringContactsClock().now());
   const start = from ?? today;
   return { from: start, to: to ?? start };
 }

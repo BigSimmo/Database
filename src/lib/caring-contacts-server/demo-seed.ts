@@ -63,10 +63,12 @@ import type { Actor, CaringContactActor } from "@/lib/caring-contacts/permission
 import type {
   CaringContactRepository,
   EpisodePatientDetail,
+  PlanRecord,
   StoredContact,
   WriteContext,
 } from "@/lib/caring-contacts/repository";
 import { buildApprovedSchedule, calendarDayPlusMonths } from "@/lib/caring-contacts/schedule";
+import { SYNTHETIC_CASELOAD_12_PATIENTS, type SyntheticPatientJourney } from "@/lib/caring-contacts/synthetic-caseload";
 import { FICTIONAL_CONTACTS_BY_ROLE } from "@/lib/caring-contacts/synthetic-contacts";
 
 import { demoActorForRole, demoSystemDispatcher, isCaringContactsDemoEnabled } from "./session";
@@ -185,6 +187,20 @@ type DemoPlanSeed = {
    * future, which is exactly the incoherent state this module exists not to seed.
    */
   attemptedContacts?: readonly { key: string; cadenceLabel: string; outcome: ProviderStatus }[];
+  /**
+   * Advance EVERY still-scheduled contact whose own AWST day is strictly before today through the
+   * same real dispatch path as `attemptedContacts`: each one `delivered`, except the most recent,
+   * which reports `lastOutcome`. Strictly before, never today: the contact due today is left
+   * `scheduled`, for the same reason "Month N" is never named above. Used by the synthetic journeys
+   * below, whose "N months since discharge" would otherwise leave every earlier contact unsent.
+   */
+  attemptContactsBeforeToday?: { lastOutcome: ProviderStatus };
+  /**
+   * A hospital status event recorded through `recordHospitalStatusEvent` once the plan's dispatch
+   * history is written -- the real write a readmission notification arrives through, so whatever
+   * the domain does to the plan and its contacts is the domain's, not this seed's.
+   */
+  hospitalEvent?: "readmission";
 };
 
 type DemoPersonSeed = {
@@ -195,6 +211,20 @@ type DemoPersonSeed = {
   referralState: "accepted" | "awaitingHandover";
   plan?: DemoPlanSeed;
 };
+
+/**
+ * The advertised synthetic journeys (../caring-contacts/synthetic-caseload.ts) this seed does NOT
+ * put into the store, each with the reason. Exported so the gap is stated, not silent (#2783).
+ *
+ * `completed` is the only one. A completed plan is one whose closing message went out, and no
+ * closing message has been written -- `DEMO_SEED_MESSAGE_TEXT.closing` is deliberately empty. Seeding
+ * a completed plan would claim that unwritten message had been sent.
+ */
+export const DEMO_SEED_UNSEEDED_SYNTHETIC_JOURNEY_STATES: Readonly<
+  Partial<Record<SyntheticPatientJourney["lifecycleState"], string>>
+> = Object.freeze({
+  completed: "A completed plan means the closing message was sent, and no closing message has been written yet.",
+});
 
 /**
  * The population.
@@ -347,7 +377,54 @@ const DEMO_SEED_PEOPLE: readonly DemoPersonSeed[] = Object.freeze([
     referralIdentifier: "demo-seed-referral-nima",
     referralState: "awaitingHandover",
   },
+  ...SYNTHETIC_CASELOAD_12_PATIENTS.filter((journey) => !isUnseededSyntheticJourney(journey)).map(syntheticJourneySeed),
 ]);
+
+function isUnseededSyntheticJourney(journey: SyntheticPatientJourney): boolean {
+  return journey.lifecycleState in DEMO_SEED_UNSEEDED_SYNTHETIC_JOURNEY_STATES;
+}
+
+/**
+ * One synthetic journey as a seed entry. The names are the journeys' own ("Synthetic Patient 01"),
+ * so, like every name above, none is new; the scenario note in brackets is dropped from the stored
+ * name because it is description, not a name. No preferred name was ever asked of an invented
+ * person, so it is recorded as never held (null) rather than derived from the name.
+ */
+function syntheticJourneySeed(journey: SyntheticPatientJourney): DemoPersonSeed {
+  const base = {
+    key: journey.id,
+    patientIdentifier: `demo-seed-patient-${journey.id}`,
+    referralIdentifier: `demo-seed-referral-${journey.id}`,
+  };
+  if (journey.lifecycleState === "awaitingHandover") return { ...base, referralState: "awaitingHandover" };
+  if (journey.lifecycleState === "accepted") return { ...base, referralState: "accepted" };
+
+  const finalState: DemoPlanSeed["finalState"] =
+    journey.lifecycleState === "paused" ? "paused" : journey.lifecycleState === "withdrawn" ? "withdrawn" : "active";
+  return {
+    ...base,
+    referralState: "accepted",
+    plan: {
+      planIdentifier: `demo-seed-plan-${journey.id}`,
+      // The journeys' "midday" window is not one the domain offers; the nearest it does is afternoon.
+      sendingPreference: journey.preferredSendingWindow === "midday" ? "afternoon" : journey.preferredSendingWindow,
+      finalState,
+      dischargeMonthsBeforeShared: journey.dischargeMonthsAgo,
+      claimedByCoordinator: journey.assignedCoordinatorId !== null,
+      attemptContactsBeforeToday: {
+        lastOutcome: journey.lifecycleState === "deliveryFailure" ? "numberInvalid" : "delivered",
+      },
+      ...(journey.lifecycleState === "readmitted" ? { hospitalEvent: "readmission" as const } : {}),
+      patientDetail: {
+        patientName: journey.patientName.replace(/\s*\(.*\)$/, ""),
+        preferredName: null,
+        patientMobileNumber: journey.fictionalMobile,
+        patientIdentifiers: [`SYN-UMRN-${journey.id.toUpperCase()}`],
+        culturalIdentity: CULTURAL_IDENTITY_NOT_STATED,
+      },
+    },
+  };
+}
 
 /**
  * The stores this module built, and therefore the only stores it will populate.
@@ -545,13 +622,18 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
       ),
     );
 
-    const activated = taken(
+    taken(
       `activatePlan:${person.key}`,
       await store.activatePlan(
         { planId: plan, expectedVersion: created.plan.version },
         writeAs(coordinator, `plan-activate-${person.key}`),
       ),
     );
+
+    // Claims, dispatch and hospital events can each move the plan's version on, so the lifecycle
+    // writes below read the plan as it stands rather than trusting the version activation returned.
+    const latestPlan = async () =>
+      taken(`getPlan:${person.key}`, await currentPlan(store, plan, coordinator, person.key));
 
     // ---- Ownership --------------------------------------------------------------------------
     // `claim` requires no plan state at all -- see ../assignment -- so this could run before or
@@ -573,10 +655,11 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
     // `startContactDispatch`), attributed to the system actor and never to a human demo role --
     // see `demoSystemDispatcher`. `startContactDispatch` refuses anything but an active plan, so
     // this must run before any pause/withdraw below, not after.
-    if (person.plan.attemptedContacts && person.plan.attemptedContacts.length > 0) {
+    const attempts = await plannedAttempts(store, plan, person, awstCalendarDay(dischargeAt));
+    if (attempts.length > 0) {
       const contactsForPlan: readonly StoredContact[] = await store.listContacts(plan, { actor: coordinator });
 
-      for (const attempt of person.plan.attemptedContacts) {
+      for (const attempt of attempts) {
         const stored = contactsForPlan.find((entry) => entry.planned.cadenceLabel === attempt.cadenceLabel);
         if (!stored) {
           throw new DemoSeedRefusedError(
@@ -614,11 +697,25 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
       }
     }
 
+    if (person.plan.hospitalEvent) {
+      taken(
+        `recordHospitalStatusEvent:${person.key}`,
+        await store.recordHospitalStatusEvent(
+          {
+            planId: plan,
+            expectedVersion: (await latestPlan()).plan.version,
+            event: { type: person.plan.hospitalEvent },
+          },
+          writeAs(coordinator, `hospital-event-${person.key}`),
+        ),
+      );
+    }
+
     if (person.plan.finalState === "paused") {
       taken(
         `pausePlan:${person.key}`,
         await store.pausePlan(
-          { planId: plan, expectedVersion: activated.plan.version },
+          { planId: plan, expectedVersion: (await latestPlan()).plan.version },
           writeAs(coordinator, `plan-pause-${person.key}`),
         ),
       );
@@ -628,7 +725,7 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
       taken(
         `withdrawPlan:${person.key}`,
         await store.withdrawPlan(
-          { planId: plan, expectedVersion: activated.plan.version, origin: "patient" },
+          { planId: plan, expectedVersion: (await latestPlan()).plan.version, origin: "patient" },
           writeAs(coordinator, `plan-withdraw-${person.key}`),
         ),
       );
@@ -636,6 +733,44 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
   }
 
   return { populated: true };
+}
+
+/**
+ * The contacts a plan's seed advances through dispatch: its named `attemptedContacts`, then -- when
+ * `attemptContactsBeforeToday` is set -- every still-scheduled contact whose own day is strictly
+ * before `today`, oldest first, the most recent taking `lastOutcome`.
+ */
+async function plannedAttempts(
+  store: CaringContactRepository,
+  plan: PlanId,
+  person: DemoPersonSeed,
+  today: string,
+): Promise<readonly { key: string; cadenceLabel: string; outcome: ProviderStatus }[]> {
+  const named = person.plan?.attemptedContacts ?? [];
+  const beforeToday = person.plan?.attemptContactsBeforeToday;
+  if (!beforeToday) return named;
+  const past = (await store.listContacts(plan, { actor: demoActorForRole("coordinator") }))
+    .filter((entry) => entry.contact.state === "scheduled" && entry.planned.calendarDay < today)
+    .sort((a, b) => a.planned.sequence - b.planned.sequence);
+  return [
+    ...named,
+    ...past.map((entry, index) => ({
+      key: `seq${entry.planned.sequence}`,
+      cadenceLabel: entry.planned.cadenceLabel,
+      outcome: index === past.length - 1 ? beforeToday.lastOutcome : ("delivered" as const),
+    })),
+  ];
+}
+
+/** The plan as it stands now, for a write that needs its current version. */
+async function currentPlan(
+  store: CaringContactRepository,
+  plan: PlanId,
+  actor: CaringContactActor,
+  personKey: string,
+): Promise<TransitionResult<PlanRecord>> {
+  const record = await store.getPlan(plan, { actor });
+  return record ? { ok: true, value: record } : { ok: false, reason: `plan-missing:${personKey}` };
 }
 
 /** The value of a write that succeeded. A refusal is raised, never absorbed -- see the class note. */

@@ -5,7 +5,7 @@ import { OperationalReports } from "@/components/caring-contacts/workspace/opera
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { systemClock } from "@/lib/caring-contacts/clock";
+import { caringContactsClock } from "@/lib/caring-contacts-server/workspace-clock";
 import {
   summariseDispatchDiscrepancies,
   summariseOperationalReport,
@@ -105,7 +105,7 @@ export default async function CaringContactsReportsPage() {
   if (!isCaringContactsWorkspaceEnabled()) notFound();
   const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
-  const now = systemClock().now();
+  const now = caringContactsClock().now();
 
   // "service" names the one service-wide record, matching the object id the API route records
   // against -- the access trail needs one stable identifier for it, not a per-caller one.

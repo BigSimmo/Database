@@ -54,6 +54,7 @@ import {
   CARING_CONTACTS_DEMO_SEED_VAR,
   createDemoWorkspaceStore,
   DEMO_SEED_PATHWAY_VERSION_ID,
+  DEMO_SEED_UNSEEDED_SYNTHETIC_JOURNEY_STATES,
   DEMO_SEED_UNSTARTED_REFERRAL_ID,
   DemoSeedForeignStoreError,
 } from "@/lib/caring-contacts-server/demo-seed";
@@ -65,6 +66,7 @@ import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-cop
 import { DISPATCHED_CONTACT_STATES } from "@/lib/caring-contacts/model";
 import { PATHWAY_VERSION_PROVENANCE_WORDING } from "@/lib/caring-contacts/pathway-versions";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
+import { SYNTHETIC_CASELOAD_12_PATIENTS } from "@/lib/caring-contacts/synthetic-caseload";
 import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 function clearCachedStore(): void {
@@ -242,7 +244,7 @@ describe("the seeded pathway version", () => {
 });
 
 describe("the seeded population", () => {
-  it("gives the wizard an accepted referral with no plan, and shows one still awaiting handover", async () => {
+  it("gives the wizard an accepted referral with no plan, and shows referrals still awaiting handover", async () => {
     const store = await seededStore();
 
     const referrals = await store.listReferrals({ actor: coordinator });
@@ -254,15 +256,45 @@ describe("the seeded population", () => {
     expect(unstarted?.pathwayVersionId).toBe(DEMO_SEED_PATHWAY_VERSION_ID);
     expect(patientsWithPlans.has(String(unstarted?.patientId))).toBe(false);
 
-    expect(referrals.filter((referral) => referral.state === "awaitingHandover")).toHaveLength(1);
+    // Nima, plus the two synthetic journeys still at intake (#2783).
+    expect(referrals.filter((referral) => referral.state === "awaitingHandover")).toHaveLength(3);
   });
 
   it("shows a plan that is running, one that is paused, and one that has been stopped", async () => {
     const store = await seededStore();
 
-    const states = (await store.listPlans({ actor: coordinator })).map((record) => record.plan.state).sort();
+    const states = new Set((await store.listPlans({ actor: coordinator })).map((record) => record.plan.state));
 
-    expect(states).toEqual(["active", "paused", "withdrawn"]);
+    expect(states).toEqual(new Set(["active", "paused", "withdrawn"]));
+  });
+
+  // #2783. The advertised 12-journey synthetic caseload is the demo population, apart from the one
+  // journey the seed states it cannot honestly represent.
+  it("seeds every synthetic journey except the ones it names as unseeded, and says why", async () => {
+    const store = await seededStore();
+    const referrals = await store.listReferrals({ actor: coordinator });
+    const seededPatients = new Set(referrals.map((referral) => String(referral.patientId)));
+
+    const unseeded = SYNTHETIC_CASELOAD_12_PATIENTS.filter(
+      (journey) => !seededPatients.has(`demo-seed-patient-${journey.id}`),
+    );
+
+    expect(SYNTHETIC_CASELOAD_12_PATIENTS).toHaveLength(12);
+    expect(unseeded.map((journey) => journey.lifecycleState)).toEqual(["completed"]);
+    for (const journey of unseeded) {
+      expect(DEMO_SEED_UNSEEDED_SYNTHETIC_JOURNEY_STATES[journey.lifecycleState]?.trim()).toBeTruthy();
+    }
+  });
+
+  it("shows the synthetic readmission and the synthetic failed delivery through real writes", async () => {
+    const store = await seededStore();
+    const auditActions = (await store.listAuditEvents({ actor: demoActorForRole("auditor") })).map(
+      (event) => event.action,
+    );
+    expect(auditActions).toContain("recordHospitalStatusEvent:readmission");
+
+    const unreachable = await store.listContacts(toPlanId("demo-seed-plan-syn-pt-youth-07"), { actor: coordinator });
+    expect(unreachable.some((entry) => entry.contact.state === "numberInvalid")).toBe(true);
   });
 
   it("names every patient in the caseload", async () => {

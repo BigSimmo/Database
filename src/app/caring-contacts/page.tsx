@@ -5,7 +5,8 @@ import { TodayDashboard } from "@/components/caring-contacts/workspace/today-das
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { awstCalendarDay, systemClock } from "@/lib/caring-contacts/clock";
+import { awstCalendarDay } from "@/lib/caring-contacts/clock";
+import { caringContactsClock } from "@/lib/caring-contacts-server/workspace-clock";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PlanRecord } from "@/lib/caring-contacts/repository";
 import { buildScheduleRange } from "@/lib/caring-contacts/schedule-view";
@@ -21,7 +22,7 @@ export default async function CaringContactsTodayPage() {
   const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
 
-  const now = systemClock().now();
+  const now = caringContactsClock().now();
   const todayCalendarDay = awstCalendarDay(now);
 
   // "service" names the one service-wide record, matching the object id the API route's

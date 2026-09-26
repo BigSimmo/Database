@@ -28,13 +28,13 @@
 // that it is skipped.
 import "server-only";
 
-import { systemClock } from "@/lib/caring-contacts/clock";
 import { createPostgresRepository } from "@/lib/caring-contacts/db/postgres-repository";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 
 import { assertNotClinicalKbProject, caringContactsDatabaseUrl } from "./config";
 import { createDemoWorkspaceStore } from "./demo-seed";
 import { createCaringContactsPool } from "./pool";
+import { caringContactsClock } from "./workspace-clock";
 
 export const CARING_CONTACTS_STORE_GLOBAL_KEY = "__caringContactsCachedStore";
 
@@ -79,12 +79,12 @@ async function buildStore(): Promise<CaringContactRepository> {
     // ./demo-seed.ts and tests/caring-contacts-demo-seed.test.ts, which fails if the Postgres
     // branch ever calls it. It returns the store unpopulated where the demo is unavailable, so a
     // production process still gets an empty store rather than synthetic content.
-    return createDemoWorkspaceStore(systemClock());
+    return createDemoWorkspaceStore(caringContactsClock());
   }
 
   // Kept alongside createCaringContactsPool's own internal check -- defence in depth on the one
   // path that ever constructs a pool, not a substitute for it.
   assertNotClinicalKbProject(url);
   const pool = createCaringContactsPool(url);
-  return createPostgresRepository(pool, systemClock());
+  return createPostgresRepository(pool, caringContactsClock());
 }

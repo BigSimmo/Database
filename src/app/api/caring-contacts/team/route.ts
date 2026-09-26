@@ -22,7 +22,7 @@
 import type { NextRequest } from "next/server";
 
 import { readHandler } from "@/lib/caring-contacts-server/handler";
-import { systemClock } from "@/lib/caring-contacts/clock";
+import { caringContactsClock } from "@/lib/caring-contacts-server/workspace-clock";
 import { buildTeamWorkload, type PlanOwnership, type TeamWorkloadView } from "@/lib/caring-contacts/team-workload";
 
 export const runtime = "nodejs";
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest): Promise<Response> {
       // Never null. An empty team is an empty roster, which is a 200 with empty arrays -- a null
       // here would reach `auditedRead` as DENIED and be answered 404, telling a coordinator that
       // their team does not exist.
-      return buildTeamWorkload(ownership, systemClock().now());
+      return buildTeamWorkload(ownership, caringContactsClock().now());
     },
   })(request);
 }
