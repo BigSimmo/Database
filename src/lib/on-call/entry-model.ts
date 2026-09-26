@@ -376,6 +376,28 @@ const logisticsDetails = z
         "Not a Requirements catalogue id.",
       )
       .optional(),
+    /**
+     * New job's checklist tick for this step — owner-only, same as
+     * `contactName` on a `contacts` row (see `OWNER_ONLY_DETAIL_KEYS`,
+     * `src/lib/on-call/repository.ts`, which strips it from every shared
+     * read). A colleague's progress through their own setup is not this
+     * doctor's business, and the ticks New job shows are real saved toggles,
+     * never a guess. Set by `setNewJobStepDone`
+     * (`src/lib/admin/new-job-progress.ts`).
+     */
+    done: z.boolean().optional(),
+    /**
+     * The Perth calendar date (`YYYY-MM-DD`, matched rather than parsed, as
+     * `expiresOn` is) the owner's new job starts — owner-only, stripped from
+     * shared reads the same way `done` above is. `selectNewJobProgress`
+     * (`src/lib/admin/new-job-progress.ts`) reads it from the most recently
+     * updated own New job row that carries one; every other own row's copy,
+     * if any, is ignored.
+     */
+    jobStartsOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+      .optional(),
   })
   .strict();
 

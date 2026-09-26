@@ -29,8 +29,10 @@ export function complianceExpiryHistory(entry: OnCallEntry): string[] {
     : [];
 }
 
-/** PATCH is a full replace (updateOnCallEntrySchema): every field round-trips unchanged. */
-function fullBody(entry: OnCallEntry, details: unknown): UpdateBody {
+/** PATCH is a full replace (updateOnCallEntrySchema): every field round-trips unchanged. Exported
+ *  so another Admin module patching one `details` key (`src/lib/admin/new-job-progress.ts`) can
+ *  build the same complete body rather than re-deriving this list of fields. */
+export function fullBody(entry: OnCallEntry, details: unknown): UpdateBody {
   return {
     section: entry.section,
     slug: entry.slug,
