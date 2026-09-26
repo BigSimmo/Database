@@ -1285,6 +1285,37 @@ git commit -m "First Nations: pocket card, links in, mode colour, weight guard a
 
 ---
 
+- [ ] **Step 8a: "Log as CPD" in the ••• menu (CPD integration, coordinator 2026-09-26)**
+
+Every First Nations page's ••• menu gets one "Log as CPD" item. It uses CPD's existing prefill helper and carries the page, never anything about a patient; opening the form logs nothing until the doctor saves. CPD's "Next step" points to `/first-nations/talking` when its "Culturally safe practice" domain has nothing logged, so that route must stay stable.
+
+```ts
+// src/components/first-nations/first-nations-nav-header.tsx (menu items)
+import { cmeLearningFromSourceHref } from "@/lib/cme/learning-source";
+
+const cpdHref = cmeLearningFromSourceHref({
+  title: `First Nations: ${page.title}`,
+  href: `/first-nations${page.slug ? `/${page.slug}` : ""}`,
+});
+// render only when cpdHref is not null: <Link href={cpdHref}>Log as CPD</Link>
+```
+
+```ts
+// tests/first-nations-cpd-link.test.ts
+import { describe, expect, it } from "vitest";
+import { cmeLearningFromSourceHref } from "@/lib/cme/learning-source";
+
+describe("First Nations Log as CPD", () => {
+  it("prefills the page title and route only", () => {
+    const href = cmeLearningFromSourceHref({ title: "First Nations: Talking", href: "/first-nations/talking" });
+    expect(href).toBe("/cme/new?title=First+Nations%3A+Talking&sourceUrl=%2Ffirst-nations%2Ftalking");
+  });
+});
+```
+
+Run: `npm run test:focused -- --files tests/first-nations-cpd-link.test.ts`
+Expected: PASS.
+
 ### Task 9: Generated files, full local proof, PR
 
 **Files:**
