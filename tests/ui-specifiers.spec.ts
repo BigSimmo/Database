@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page, type TestInfo } from "playwright/test";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { clickWhenSettled, expectSingleSettledOwner } from "./playwright-settlement";
 
 const axeWcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const axeBlockingImpacts = new Set(["critical", "serious"]);
@@ -447,7 +447,9 @@ test("guides choices into a reviewable and copyable diagnosis", async ({ page },
 
   const continueToFeatures = page.getByRole("button", { name: "Continue to features" });
   await waitForReactEventHandler(continueToFeatures, "onClick");
-  await continueToFeatures.click();
+  // Wait for the collapsing phone chrome to stop moving the button, so the tap
+  // lands on it rather than where it was a frame earlier.
+  await clickWhenSettled(continueToFeatures);
   await expect(page.getByRole("heading", { name: "Add episode features" })).toBeFocused();
   await page.getByText("Mixed features", { exact: true }).click();
   await page.getByRole("button", { name: "Continue to course" }).click();
