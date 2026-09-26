@@ -638,13 +638,70 @@ test.describe("Tablet usability regressions", () => {
     // The composer mounts and measures its rail in the first second after load. A WebKit release
     // run clicked the control while that was still happening and the rail never moved, so wait
     // for the control to hold still before pressing it.
+    //
+    // Evidence on failure only — the assertion below is unchanged. This journey has failed
+    // on WebKit alone (scrollLeft stays 0) and cannot be reproduced in Chromium, so record what
+    // WebKit actually did: whether the click reached the product handler, what the scroll call
+    // asked for and got, and whether the rail read afterwards is still the node that was clicked.
+    await rail.evaluate((node) => {
+      const record: Record<string, unknown> = { scrollByCalls: [] as unknown[], clicks: [] as string[] };
+      (window as unknown as { __railEvidence: typeof record }).__railEvidence = record;
+      node.setAttribute("data-rail-evidence", "clicked-rail");
+      const nativeScrollBy = node.scrollBy.bind(node);
+      node.scrollBy = ((...args: Parameters<Element["scrollBy"]>) => {
+        const beforeCall = node.scrollLeft;
+        nativeScrollBy(...args);
+        (record.scrollByCalls as unknown[]).push({
+          args,
+          beforeCall,
+          afterCall: node.scrollLeft,
+          connected: node.isConnected,
+        });
+      }) as Element["scrollBy"];
+      document.addEventListener(
+        "click",
+        (event) => {
+          const target = event.target as Element | null;
+          (record.clicks as string[]).push(
+            `${target?.tagName ?? "?"} in ${target?.closest("[data-testid]")?.getAttribute("data-testid") ?? "?"}`,
+          );
+        },
+        { capture: true },
+      );
+    });
     await clickWhenSettled(forward);
-    await expect
-      .poll(async () => rail.evaluate((node) => node.scrollLeft), {
-        message: "the control must actually move the rail",
-        timeout: 5_000,
-      })
-      .toBeGreaterThan(before);
+    try {
+      await expect
+        .poll(async () => rail.evaluate((node) => node.scrollLeft), {
+          message: "the control must actually move the rail",
+          timeout: 5_000,
+        })
+        .toBeGreaterThan(before);
+    } catch (error) {
+      const evidence = await page.evaluate(() => {
+        const rails = [...document.querySelectorAll<HTMLElement>(".answer-suggestion-chips-scroll")];
+        return {
+          ...(window as unknown as { __railEvidence?: Record<string, unknown> }).__railEvidence,
+          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+          activeElement: document.activeElement?.tagName,
+          rails: rails.map((rail) => {
+            const style = getComputedStyle(rail);
+            return {
+              clickedRail: rail.getAttribute("data-rail-evidence") === "clicked-rail",
+              visible: rail.getClientRects().length > 0,
+              scrollLeft: rail.scrollLeft,
+              scrollWidth: rail.scrollWidth,
+              clientWidth: rail.clientWidth,
+              overflowX: style.overflowX,
+              scrollBehavior: style.scrollBehavior,
+            };
+          }),
+        };
+      });
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}\nrail evidence: ${JSON.stringify(evidence)}`,
+      );
+    }
     await expect(promptRow.getByTestId("answer-suggestion-scroll-back")).toBeVisible();
 
     // The contract the affordance had to be designed around: one row of chips,
