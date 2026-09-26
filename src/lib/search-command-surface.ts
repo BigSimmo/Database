@@ -247,13 +247,14 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     remoteSearchEnabled: false,
   },
   "my-work": {
-    // My Work is a dashboard over the owner's own On Call admin pages, already
-    // in the browser, so its command panel must not query the remote index.
+    // Admin (formerly My Work) reads the owner's own records, already in the
+    // browser, so its command panel must not query the remote index. Nothing
+    // from Admin goes to search (spec).
     examples: [...sharedHomePresentation["my-work"].suggestions],
     suggestions: [
-      { text: "leave", meta: "Admin" },
-      { text: "registration", meta: "Compliance" },
-      { text: "roster", meta: "My shifts" },
+      { text: "registration", meta: "Renewals" },
+      { text: "leaving", meta: "New job" },
+      { text: "payroll", meta: "Help" },
     ],
     crossModes: ["on-call", "cme", "documents"],
     remoteSearchEnabled: false,

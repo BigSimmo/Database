@@ -1476,7 +1476,11 @@ describe("design-system adoption manifest", () => {
     // one template, Guidance, Reports, Team and the manual Referral Intake) out of the census.
     //
     // 105 -> 106 on 2026-09-26: `/my-work`, the My Work mode's dashboard.
-    expect(manifest.routeCoverage.discovered).toHaveLength(106);
+    //
+    // 106 -> 110 on 2026-09-26: Admin update 1. /admin, /admin/renewals, /admin/new-job and
+    // /admin/help arrived; /my-work, /on-call/compliance and /on-call/logistics stay as redirect
+    // backstop pages.
+    expect(manifest.routeCoverage.discovered).toHaveLength(110);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

@@ -111,9 +111,9 @@ describe("every On Call link to the moved rows lands on Help (spec review 19)", 
 
 describe("renewal dates", () => {
   it("starts a renewal thirty days before the recorded date unless the row says otherwise", () => {
-    expect(renewalStartOn(complianceFixture("Registration", { category: "Registration", expiresOn: "2026-10-20" }))).toBe(
-      "2026-09-20",
-    );
+    expect(
+      renewalStartOn(complianceFixture("Registration", { category: "Registration", expiresOn: "2026-10-20" })),
+    ).toBe("2026-09-20");
     expect(
       renewalStartOn(
         complianceFixture("Police check", { category: "Clearances", expiresOn: "2027-03-01", leadTimeDays: 90 }),
@@ -184,7 +184,9 @@ describe("where an old On Call admin row lives in Admin", () => {
 
   it("places no compliance row and no row from another section", () => {
     expect(adminPlacementForEntry(complianceFixture("Registration", { category: "Registration" }))).toBeNull();
-    expect(adminPlacementForEntry(onCallEntryFixture({ section: "contacts", details: { role: "Ward 4B" } }))).toBeNull();
+    expect(
+      adminPlacementForEntry(onCallEntryFixture({ section: "contacts", details: { role: "Ward 4B" } })),
+    ).toBeNull();
   });
 
   it("moves only the medical-workforce role explainer to Help > Contacts", () => {

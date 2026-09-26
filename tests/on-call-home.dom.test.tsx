@@ -350,7 +350,8 @@ describe("On Call home layout", () => {
 });
 
 describe("the home's tool row and tile grid after the My Work move", () => {
-  // On 2026-09-26 the admin pages moved off this home to My Work (`/my-work`).
+  // On 2026-09-26 the admin pages moved off this home to My Work, which became
+  // Admin (`/admin`) the same day (Admin update 1).
   // "Check these" and "Calendar" left the tool row, and Orientation, Teaching,
   // Admin and Compliance left the tile grid. Their routes are unchanged; only
   // the home stopped linking them. The review-count label that "Check these"
@@ -360,19 +361,29 @@ describe("the home's tool row and tile grid after the My Work move", () => {
   // `partitionLogisticsEntries` rather than by stored section, if it shows
   // those counts.
 
-  it("offers First night and My Work, and nothing else, under Who do I call now", () => {
+  it("offers First night and Admin, and nothing else, under Who do I call now", () => {
     storeState.entries = [...DEMO_ON_CALL_ENTRIES];
     render(<OnCallHome />);
 
     const tools = screen.getByTestId("on-call-home-tools");
     expect(within(tools).getByTestId("on-call-home-first-night")).toHaveAttribute("href", "/on-call/first-night");
-    const myWork = within(tools).getByTestId("on-call-home-my-work");
-    expect(myWork).toHaveAttribute("href", "/my-work");
-    expect(myWork).toHaveTextContent("My Work");
+    const admin = within(tools).getByTestId("on-call-home-admin");
+    expect(admin).toHaveAttribute("href", "/admin");
+    expect(admin).toHaveTextContent("Admin");
+    expect(screen.queryByTestId("on-call-home-my-work")).toBeNull();
 
     expect(screen.queryByTestId("on-call-home-check")).toBeNull();
     expect(screen.queryByTestId("on-call-home-calendar")).toBeNull();
     expect(within(tools).queryByText("Check these")).toBeNull();
+  });
+
+  it("links Tonight to Admin > Help > On site, where the building-access rows moved (spec)", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    render(<OnCallHome />);
+
+    const onSite = screen.getByTestId("on-call-home-on-site");
+    expect(onSite).toHaveAttribute("href", "/admin/help#admin-help-on-site");
+    expect(onSite).toHaveTextContent("Admin › Help › On site");
   });
 
   it("draws only the shift-time section tiles, in order", () => {

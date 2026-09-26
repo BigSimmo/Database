@@ -74,14 +74,17 @@ const ROUTES = {
   referrals: "/on-call/referrals",
   orientation: "/on-call/orientation",
   teaching: "/on-call/education",
-  logistics: "/on-call/logistics",
+  // On Call's Admin (`logistics`) rows and Compliance moved to the Admin mode on
+  // 2026-09-26 (Admin update 1): Admin > Help and Admin > Renewals. The keys keep
+  // their old names so every board that opens them still does.
+  logistics: "/admin/help",
   // A route of its own over rows that are not a section of their own.
   // Compliance is the `logistics` rows carrying `details.kind: "compliance"`,
   // split out because `section` is a database CHECK constraint and a seventh
   // value costs a migration against the live clinical database. It belongs in
   // this list all the same: the chrome loop at the foot of the file opens
   // every entry here, and a page left out of it is a page nothing checks.
-  compliance: "/on-call/compliance",
+  compliance: "/admin/renewals",
   whoIsWho: "/on-call/who-is-who",
 } as const;
 
@@ -92,8 +95,8 @@ const SECTION_LIST_TEST_IDS: Record<string, string> = {
   [ROUTES.referrals]: "on-call-referrals-section",
   [ROUTES.orientation]: "on-call-orientation-section",
   [ROUTES.teaching]: "on-call-education-section",
-  [ROUTES.logistics]: "on-call-logistics-section",
-  [ROUTES.compliance]: "on-call-compliance-section",
+  [ROUTES.logistics]: "admin-help-main",
+  [ROUTES.compliance]: "admin-renewals-main",
   [ROUTES.whoIsWho]: "on-call-who-is-who-section",
 };
 
@@ -290,7 +293,7 @@ test.describe("01 Home", () => {
     const tiles = visibleByTestId(page, "on-call-home-sections").locator('[data-testid^="on-call-home-tile-"]');
     // Four, and the list underneath is the reason rather than the number.
     // On 2026-09-26 Orientation, Teaching, Admin and Compliance moved off this
-    // home to My Work (`/my-work`), which keeps the page to what a shift needs.
+    // home to My Work, now Admin (`/admin`), which keeps the page to what a shift needs.
     // Their routes did not move. The order below names every tile, so a page
     // has to earn a name here before the count moves.
     await expect(tiles).toHaveCount(4);
@@ -309,15 +312,15 @@ test.describe("01 Home", () => {
     await expect(page.getByTestId("on-call-home-tile-who-is-who")).not.toContainText(/\d/);
   });
 
-  test("sends the admin pages to My Work from the tool row", async ({ page }) => {
+  test("sends the admin pages to Admin from the tool row", async ({ page }) => {
     await openBoard(page, ROUTES.home);
     const tools = visibleByTestId(page, "on-call-home-tools");
     await expect(tools.getByTestId("on-call-home-first-night")).toBeVisible();
-    const myWork = tools.getByTestId("on-call-home-my-work");
-    await expect(myWork).toHaveAttribute("href", "/my-work");
-    await expect(myWork).toContainText("My Work");
-    await expectTapFloor(myWork, "My Work tile");
-    // "Check these" and "Calendar" live on My Work now, not here.
+    const admin = tools.getByTestId("on-call-home-admin");
+    await expect(admin).toHaveAttribute("href", "/admin");
+    await expect(admin).toContainText("Admin");
+    await expectTapFloor(admin, "Admin tile");
+    // "Check these" and "Calendar" live on Admin now, not here.
     await expect(page.getByTestId("on-call-home-check")).toHaveCount(0);
     await expect(page.getByTestId("on-call-home-calendar")).toHaveCount(0);
   });

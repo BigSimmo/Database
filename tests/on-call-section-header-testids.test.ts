@@ -69,7 +69,9 @@ describe("the On Call section header's testids", () => {
     expect(modeSource).toContain('density: "wordmark-five"');
     // Teal by attribute. A dynamic Tailwind class (`var(--x-${id})`) produces
     // no CSS at all, and an inline style is ceilinged by the drift ratchet.
-    expect(modeSource).toContain('modeIdentity: "on-call"');
+    // Admin > Renewals hosts the compliance view in Admin's colour (Admin update 1),
+    // so the colour is a parameter whose default is On Call's own.
+    expect(modeSource).toContain('modeIdentity = "on-call"');
     // The mode pill above names the page and carries its actions, so the row
     // holds neither. Both would be a second copy in the same 96px block.
     expect(modeSource).toContain("titleHidden");

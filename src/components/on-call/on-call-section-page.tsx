@@ -150,6 +150,15 @@ const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
   compliance: "The expiry date you have, who issues it, and what lapsing would cost.",
 };
 
+/** When another mode hosts one of these views (Admin > Renewals hosts `compliance`). */
+export type OnCallSectionPageChrome = {
+  title: string;
+  modeIdentity: string;
+  testId: string;
+  /** Josh, 16:31Z: Admin adds through a floating dark "+ Add", not the in-page secondary button. */
+  floatingAdd?: { label: string; testId: string };
+};
+
 /**
  * The one module every On Call view route renders, following
  * `src/components/sources/sources-pages.tsx`'s factoring: peer surfaces off one
@@ -176,15 +185,6 @@ const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
  * names on their contacts. The add, edit and verify controls below are gated on
  * `isAuthenticated`, because their routes require one.
  */
-/** When another mode hosts one of these views (Admin > Renewals hosts `compliance`). */
-export type OnCallSectionPageChrome = {
-  title: string;
-  modeIdentity: string;
-  testId: string;
-  /** Josh, 16:31Z: Admin adds through a floating dark "+ Add", not the in-page secondary button. */
-  floatingAdd?: { label: string; testId: string };
-};
-
 export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chrome?: OnCallSectionPageChrome }) {
   const { isAuthenticated } = useAccountData();
   const [editorState, setEditorState] = useState<{ open: boolean; entry: OnCallEntry | null }>({

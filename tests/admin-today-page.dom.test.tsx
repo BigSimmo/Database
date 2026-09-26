@@ -134,7 +134,9 @@ describe("AdminTodayPage", () => {
   it("says nothing is recorded as due only when entries were loaded", () => {
     state.entries = [later];
     render(<AdminTodayPage now={NOW} />);
-    expect(screen.getByTestId("admin-today-next-empty")).toHaveTextContent("Nothing recorded as due in the next 30 days.");
+    expect(screen.getByTestId("admin-today-next-empty")).toHaveTextContent(
+      "Nothing recorded as due in the next 30 days.",
+    );
   });
 });
 

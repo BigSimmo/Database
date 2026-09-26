@@ -45,14 +45,13 @@ vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
     open ? <div data-testid="on-call-account-setup-dialog-open" /> : null,
 }));
 
-import OnCallComplianceRoute from "@/app/(search-app)/on-call/compliance/page";
 import OnCallContactsRoute from "@/app/(search-app)/on-call/contacts/page";
 import OnCallEducationRoute from "@/app/(search-app)/on-call/education/page";
-import OnCallLogisticsRoute from "@/app/(search-app)/on-call/logistics/page";
 import OnCallOrientationRoute from "@/app/(search-app)/on-call/orientation/page";
 import OnCallPlaybookRoute from "@/app/(search-app)/on-call/playbook/page";
 import OnCallReferralsRoute from "@/app/(search-app)/on-call/referrals/page";
 import OnCallWhoIsWhoRoute from "@/app/(search-app)/on-call/who-is-who/page";
+import AdminRenewalsRoute from "@/app/(search-app)/admin/renewals/page";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { ON_CALL_VIEW_TITLES, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
 import { ON_CALL_SECTIONS } from "@/lib/on-call/entry-model";
@@ -71,17 +70,20 @@ const routes: RouteCase[] = [
   // Titled "Teaching" everywhere a reader sees it, even though the section id
   // (route segment, database check constraint) stays "education".
   { view: "education", title: "Teaching", Route: OnCallEducationRoute },
-  // Titled "Admin" on the same terms as "Teaching" above: the section id, the
-  // route segment and the database check constraint all stay "logistics",
-  // because renaming them is a migration for no functional gain.
-  { view: "logistics", title: "Admin", Route: OnCallLogisticsRoute },
+  // No `logistics` row: On Call's Admin page moved to Admin > Help on 2026-09-26
+  // (Admin update 1), and `/on-call/logistics` is now a redirect backstop.
   { view: "who-is-who", title: "Who's who", Route: OnCallWhoIsWhoRoute },
   // Compliance is a view over `logistics` split on `details.kind`, exactly as
-  // Who's who is a view over `contacts`. It sits in this table rather than in a
-  // suite of its own so the newest page is held to every check the seven older
-  // routes are held to, from the day it lands.
-  { view: "compliance", title: "Compliance", Route: OnCallComplianceRoute },
+  // Who's who is a view over `contacts`. Since Admin update 1 it renders as
+  // Admin > Renewals, which hosts the same view under Admin's chrome, so it is
+  // still held to every check the older routes are held to.
+  { view: "compliance", title: "Renewals", Route: AdminRenewalsRoute },
 ];
+
+/** Admin > Renewals adds through a floating "+ Add" (Josh, 16:31Z), not the in-page button. */
+function addTestId(route: RouteCase): string {
+  return route.view === "compliance" ? "admin-renewals-add" : `on-call-${route.view}-add`;
+}
 
 // A contact verified today, so it sorts into an area group rather than the
 // "needs checking" list and carries no verify control of its own. This fixture
@@ -127,18 +129,27 @@ describe("on-call section routes", () => {
     // Compliance are not stored sections — they are `contacts` and `logistics`
     // rows behind `details.kind` — so they are named separately rather than
     // folded into the model's list.
-    expect(routes.map((route) => route.view)).toEqual([...ON_CALL_SECTIONS, "who-is-who", "compliance"]);
+    // `logistics` is left out because Admin > Help renders those rows now; its
+    // On Call route only redirects (tests/admin-foundations.dom.test.tsx).
+    expect(routes.map((route) => route.view)).toEqual([
+      ...ON_CALL_SECTIONS.filter((section) => section !== "logistics"),
+      "who-is-who",
+      "compliance",
+    ]);
 
     // The same guard for the half of this mode the model's list cannot see. A
     // view over an existing section costs no migration, which is exactly why one
     // can be built and shipped without anything here noticing: Compliance was.
     // Every page the identity map names must appear above, section or not.
-    const declaredViews: string[] = Object.keys(ON_CALL_VIEW_TITLES);
+    const declaredViews: string[] = Object.keys(ON_CALL_VIEW_TITLES).filter((view) => view !== "logistics");
     expect(routes.map((route) => route.view as string).sort()).toEqual(declaredViews.sort());
   });
 
   it("titles every route from the shared identity map, so no page invents its own name", () => {
-    for (const route of routes) expect(route.title).toBe(ON_CALL_VIEW_TITLES[route.view]);
+    // Except Compliance, which Admin hosts as "Renewals" (Admin update 1).
+    for (const route of routes) {
+      expect(route.title).toBe(route.view === "compliance" ? "Renewals" : ON_CALL_VIEW_TITLES[route.view]);
+    }
   });
 
   it.each(routes.map((route) => [route.title, route] as const))(
@@ -180,7 +191,9 @@ describe("on-call section routes", () => {
       // renders its own section component and its own add control, and the two
       // views over a section (Who's who, Compliance) are held to the same bar.
       expect(screen.getByTestId(`on-call-${route.view}-empty`)).toBeTruthy();
-      expect(screen.getByTestId(`on-call-${route.view}-add`)).toBeTruthy();
+      expect(screen.getByTestId(addTestId(route))).toBeTruthy();
+      // One add control per page: Renewals' floating button replaces the in-page one.
+      if (route.view === "compliance") expect(screen.queryByTestId("on-call-compliance-add")).toBeNull();
       expect(screen.queryByTestId(`on-call-${route.view}-signed-out`)).toBeNull();
     },
   );
@@ -215,7 +228,7 @@ describe("on-call section routes", () => {
       const signedOut = screen.getByTestId(`on-call-${route.view}-signed-out`);
       expect(signedOut).toHaveTextContent("Sign in to see your hospital's On Call numbers");
       expect(screen.queryByTestId(`on-call-${route.view}-empty`)).toBeNull();
-      expect(screen.queryByTestId(`on-call-${route.view}-add`)).toBeNull();
+      expect(screen.queryByTestId(addTestId(route))).toBeNull();
 
       // The button is the existing account dialog, not a dead end.
       expect(screen.queryByTestId("on-call-account-setup-dialog-open")).toBeNull();

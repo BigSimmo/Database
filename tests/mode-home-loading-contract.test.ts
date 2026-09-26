@@ -32,8 +32,8 @@ const MODE_HOME_LOADING_ROUTES = [
   "cme",
   // Psychiatry's dashboard, a standalone mode home for the same reason.
   "psychiatry",
-  // My Work's dashboard, likewise.
-  "my-work",
+  // Admin's Today (mode id `my-work`), likewise. Its route segment is `admin`.
+  "admin",
 ] as const;
 
 describe("mode-home loading contract", () => {

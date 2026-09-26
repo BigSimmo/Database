@@ -125,8 +125,9 @@ describe("On Call page menu: notifications", () => {
     const row = screen.getByTestId("on-call-notification-compliance-date-passed");
     expect(row.textContent).toContain("Basic life support");
     // Compliance is a VIEW over the logistics section, so a notification about
-    // a requirement must not land on the Logistics list it is filed under.
-    expect(row.getAttribute("href")).toMatch(/^\/on-call\/compliance#on-call-entry-/);
+    // a requirement must not land on the Logistics list it is filed under. The
+    // view lives at Admin > Renewals since Admin update 1 (2026-09-26).
+    expect(row.getAttribute("href")).toMatch(/^\/admin\/renewals#on-call-entry-/);
   });
 
   it("sends a plain section entry to its own section", () => {
@@ -161,8 +162,9 @@ describe("On Call page menu: notifications", () => {
     );
     fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
 
+    // Admin > Renewals since Admin update 1; the Admin page it is filed under is Admin > Help.
     expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toMatch(
-      /^\/on-call\/compliance#on-call-entry-/,
+      /^\/admin\/renewals#on-call-entry-/,
     );
   });
 

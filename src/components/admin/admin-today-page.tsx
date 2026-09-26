@@ -159,7 +159,10 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
           What&apos;s next
         </h2>
         {nextItems.length === 0 ? (
-          <p className={cn(cardSurface, cardPadding.compact, textMuted, "text-sm")} data-testid="admin-today-next-empty">
+          <p
+            className={cn(cardSurface, cardPadding.compact, textMuted, "text-sm")}
+            data-testid="admin-today-next-empty"
+          >
             {emptyMessage}
           </p>
         ) : (
@@ -218,7 +221,11 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
           </li>
           <li>
             <Link href="/admin/help" data-testid="admin-today-page-help" className={pageCard}>
-              <PageCardBody icon={LifeBuoy} title="Help" description="Crisis lines, support, guides and on-site detail" />
+              <PageCardBody
+                icon={LifeBuoy}
+                title="Help"
+                description="Crisis lines, support, guides and on-site detail"
+              />
             </Link>
           </li>
           <li>

@@ -45,6 +45,18 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
   ],
+  [
+    "/my-work",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
+  ],
+  [
+    "/on-call/compliance",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
+  ],
+  [
+    "/on-call/logistics",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
+  ],
 ]);
 
 function isMockupPath(relPosix: string) {

@@ -39,5 +39,7 @@ export function isAdminWorkforceExplainer(entry: OnCallEntry): boolean {
 
 /** Workforce and payroll numbers, REUSED (not moved) as New job's contacts. */
 export function isAdminJobContact(entry: OnCallEntry): boolean {
-  return entry.section === "contacts" && !isRoleExplainerEntry(entry) && WORKFORCE_ROLE.test(detailString(entry, "role"));
+  return (
+    entry.section === "contacts" && !isRoleExplainerEntry(entry) && WORKFORCE_ROLE.test(detailString(entry, "role"))
+  );
 }

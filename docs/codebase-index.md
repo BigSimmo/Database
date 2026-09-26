@@ -369,13 +369,13 @@ from Admin goes to search or a model provider.
 
 `src/lib/admin/`:
 
-| Module          | Role                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `own-entries`   | The reader's own rows (editable) versus other doctors' shared rows (read-only), and the load state     |
-| `renewal-dates` | Lead time, renewal start date, and the date wording ("12 Mar 2027", "in 9 weeks"), in Perth days       |
-| `placement`     | Which Admin page an old On Call `logistics` row belongs on (Help guides, Help on site, or New job)     |
-| `phone-display` | Short numbers inside the hospital's own list, `(08)` on outside lines; display only                    |
-| `download-file` | Hands the viewer a file to save (the renewal calendar file); nothing is uploaded                       |
+| Module          | Role                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `own-entries`   | The reader's own rows (editable) versus other doctors' shared rows (read-only), and the load state |
+| `renewal-dates` | Lead time, renewal start date, and the date wording ("12 Mar 2027", "in 9 weeks"), in Perth days   |
+| `placement`     | Which Admin page an old On Call `logistics` row belongs on (Help guides, Help on site, or New job) |
+| `phone-display` | Short numbers inside the hospital's own list, `(08)` on outside lines; display only                |
+| `download-file` | Hands the viewer a file to save (the renewal calendar file); nothing is uploaded                   |
 
 Routes are `/admin` (Today), `/admin/renewals`, `/admin/new-job` and `/admin/help`; components are
 in `src/components/admin/`. `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to

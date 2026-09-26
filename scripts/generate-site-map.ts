@@ -179,8 +179,21 @@ const routeDescriptions: Record<string, string> = {
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
   "/psychiatry":
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
-  "/my-work":
-    "My Work dashboard: what is due next (compliance items whose recorded date falls in the next 30 days or has passed, and On Call entries due their check), then one card each for Admin, Compliance, Check these, My shifts, Calendar, Orientation and reminder settings, linking to those pages at their own addresses. A dashboard, not a redirect to the shared search home — My Work has no search results surface.",
+  "/admin":
+    "Admin Today: renewals to start now (inside their lead time, blocking first), what is coming up in the next 90 days, things with no date recorded, and what is next, with a first-visit setup sheet for registration and indemnity dates. A dashboard, not a redirect to the shared search home — Admin has no search results surface.",
+  "/admin/renewals":
+    "The requirements a doctor keeps current for themselves, grouped by what lapsing costs, with a Renewed sheet, a one-off calendar file per renewal and a plain-text copy for medical workforce. Recorded dates only — never a check with the issuing body.",
+  "/admin/new-job":
+    "Starting and leaving a job: the service's before-start and leaving orientation items with your own ticks, logins and system access, workforce and payroll contacts, and a readable page of your own Admin records to copy or print.",
+  // Admin update 1 retired these three paths. Each keeps a page that only redirects, as a
+  // backstop behind the proxy's 307, which carries the query string.
+  "/my-work": "Compatibility redirect to `/admin`: My Work became Admin; the query string is carried across.",
+  "/on-call/compliance":
+    "Compatibility redirect to `/admin/renewals`, where On Call's Compliance page moved; the query string is carried across.",
+  "/on-call/logistics":
+    "Compatibility redirect to `/admin/help`, where On Call's Admin rows moved; the query string is carried across.",
+  "/admin/help":
+    "Crisis lines first, then support, guides, contacts and on-site detail (building access, food, the on-call room), with an everyday-word search that runs on the page.",
   "/cme":
     "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
   "/cme/log":
@@ -203,12 +216,6 @@ const routeDescriptions: Record<string, string> = {
     "The one-time setup checklist: confirm this year's requirement targets, set up routines, and the other steps this phase has not built yet.",
   "/cme/customise":
     "Choose which modules show on the CME dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
-  // The second On Call page that is a view rather than a stored section, and
-  // the second to need a line here for that reason: both are `details.kind`
-  // discriminators over an existing section, so neither has a section title
-  // for the generator to fall back on.
-  "/on-call/compliance":
-    "The requirements a doctor keeps current for themselves, grouped by what lapsing costs. Recorded dates only — never a check with the issuing body.",
   "/tools": "Clinical tools and applications launcher directory.",
   // Mockup routes deliberately carry no curated description here — the developer-gated
   // prototypes (see src/lib/developer-area/headers.ts) have none either — so they render with
@@ -297,7 +304,7 @@ const routeOwnershipRows = [
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
   ["CME", "src/app/(search-app)/cme, src/components/cme"],
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
-  ["My Work", "src/app/(search-app)/my-work, src/components/my-work"],
+  ["Admin", "src/app/(search-app)/admin, src/components/admin, src/lib/admin"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -631,11 +638,11 @@ function renderModePageIndex() {
         'No results page — `resultsSurface: "none"`, like On Call and CME. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
     },
     {
-      mode: "My Work",
+      mode: "Admin",
       home: appModeHomeHref("my-work"),
       search: appModeHomeHref("my-work"),
       detail:
-        'No results page — `resultsSurface: "none"`, like Psychiatry. `/my-work` is a dashboard of what is due and links; the pages it gathers keep their On Call routes.',
+        'No results page — `resultsSurface: "none"`, like Psychiatry. `/admin` is Today; `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to Admin pages (`staticRouteRedirects` in `src/proxy.ts`).',
     },
   ]);
 }
