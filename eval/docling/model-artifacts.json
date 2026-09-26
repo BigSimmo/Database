@@ -11,7 +11,7 @@
     "",
     "treeDigest is null because no build has recorded one yet. In that state the verifier",
     "prints the digest the download produced and exits 0 rather than failing, because the",
-    "digest can only be learned by running the download — refusing to build until one is",
+    "digest can only be learned by running the download \u2014 refusing to build until one is",
     "recorded would make the very build that produces it impossible.",
     "",
     "TO PIN IT (one operator action, needs Docker and HuggingFace egress):",
@@ -20,7 +20,7 @@
     "  3. Replace this file's contents with that block and commit it.",
     "From that commit on, any change to the upstream weights fails the image build."
   ],
-  "doclingVersion": "2.124.0",
+  "doclingVersion": "2.128.0",
   "recordedAt": null,
   "treeDigest": null,
   "files": {}
