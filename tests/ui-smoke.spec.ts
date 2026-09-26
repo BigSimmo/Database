@@ -26,7 +26,12 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
+import {
+  clickWhenHydrated,
+  clickWhenSettled,
+  expectSingleSettledOwner,
+  visibleByTestId,
+} from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { BRAND_NAME } from "../src/lib/brand";
@@ -4230,7 +4235,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     const firstResult = workspace.getByTestId("document-result-card").first();
     await expect(firstResult).toBeVisible({ timeout: 30_000 });
     const origin = new URL(page.url());
-    await firstResult.getByRole("link", { name: /^Open / }).click();
+    // The card is server-rendered, so it is visible before the client router owns its link. A
+    // Firefox release run clicked it in that gap and nothing navigated for 30 s.
+    const openLink = firstResult.getByRole("link", { name: /^Open / });
+    await waitForReactEventHandler(openLink, "onClick");
+    await openLink.click();
     await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
 
     await page.getByRole("link", { name: "Back to documents" }).click();
@@ -5320,7 +5329,11 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     // The fixed document composer is the single search owner; the indexed-text
     // disclosure must not duplicate a large search field inside its content.
-    await page.getByRole("button", { name: "Search document" }).click();
+    // The native <details> toggle above opens without React, so it does not prove
+    // hydration; wait for the handler or a pre-hydration click is dropped.
+    const searchDocumentButton = page.getByRole("button", { name: "Search document" });
+    await waitForReactEventHandler(searchDocumentButton, "onClick");
+    await searchDocumentButton.click();
     const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
     await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
     await waitForReactEventHandler(sourceSearch, "onChange");
@@ -5706,12 +5719,13 @@ test.describe("PsychSift UI smoke coverage", () => {
         await expect(disclosure).toHaveJSProperty("open", false);
       }
 
-      await indexedText.locator("summary").first().click();
+      // The accordion sits below the fold; clicking it mid-scroll-hide misses (clickWhenSettled).
+      await clickWhenSettled(indexedText.locator("summary").first());
       await expect(indexedText).toHaveJSProperty("open", true);
-      await passages.nth(0).locator("summary").click();
+      await clickWhenSettled(passages.nth(0).locator("summary"));
       await expect(passages.nth(0)).toHaveJSProperty("open", true);
       await expect(passages.nth(1)).toHaveJSProperty("open", false);
-      await passages.nth(1).locator("summary").click();
+      await clickWhenSettled(passages.nth(1).locator("summary"));
       await expect(passages.nth(1)).toHaveJSProperty("open", true);
       await expect(passages.nth(0)).toHaveJSProperty("open", false);
       await expectNoPageHorizontalOverflow(page);
@@ -6195,7 +6209,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     );
 
     const composer = page.locator("form.document-viewer-composer");
-    await page.getByRole("button", { name: "Open document actions" }).click();
+    await clickWhenHydrated(page.getByRole("button", { name: "Open document actions" }));
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
     await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
