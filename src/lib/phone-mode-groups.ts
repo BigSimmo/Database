@@ -3,8 +3,8 @@ import type { AppModeId } from "@/lib/app-modes";
 /**
  * How the phone mode sheet groups the app's modes.
  *
- * The desktop mode menu renders `appModeDefinitions` as one flat list, but an
- * nineteen-item list is unusable on a phone, so the sheet groups it. That makes
+ * A nineteen-item flat list is unusable on a phone, so the sheet groups it,
+ * and the desktop menu uses the same groups whenever it is not filtered. That makes
  * this a *second* list of mode ids, and a mode missing from every group here is
  * silently dropped from the sheet — `satisfies readonly AppModeId[]` constrains
  * membership but not exhaustiveness, so nothing in the type system catches it.
@@ -58,3 +58,21 @@ export const phoneModeGroups = [
   hint: string;
   modeIds: readonly AppModeId[];
 }>;
+
+const phoneModeGroupRank = new Map<AppModeId, number>(
+  phoneModeGroups.flatMap((group) => group.modeIds).map((modeId, rank) => [modeId, rank]),
+);
+
+/**
+ * `modes` in the order the grouped mode menus draw them: group by group, and
+ * within a group in `modeIds` order.
+ *
+ * The menus register each row's roving-tabindex index from this order, so
+ * arrow keys move to the row visibly below or above. Registry order is not the
+ * drawn order (Psychiatry is registered last but drawn second). A mode in no
+ * group, which the exhaustiveness test forbids, sorts last rather than vanishing.
+ */
+export function orderByPhoneModeGroups<T extends { readonly id: AppModeId }>(modes: readonly T[]): T[] {
+  const rankOf = (modeId: AppModeId) => phoneModeGroupRank.get(modeId) ?? Number.MAX_SAFE_INTEGER;
+  return [...modes].sort((a, b) => rankOf(a.id) - rankOf(b.id));
+}

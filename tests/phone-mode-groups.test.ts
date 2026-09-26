@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { appModeIds, type AppModeId } from "@/lib/app-modes";
-import { phoneModeGroups } from "@/lib/phone-mode-groups";
+import { orderByPhoneModeGroups, phoneModeGroups } from "@/lib/phone-mode-groups";
 
 /**
  * The phone mode sheet renders a grouped list rather than the flat
@@ -38,5 +38,13 @@ describe("phone mode groups", () => {
     expect(groupOf("on-call")).toMatchObject({ id: "on-call", label: "On Call", modeIds: ["on-call"] });
     expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD", modeIds: ["cme"] });
     expect(phoneModeGroups.map((group) => group.id)).toEqual(["find", "psychiatry", "care", "on-call", "cpd"]);
+  });
+
+  it("orders modes the way the grouped menus draw them, for arrow-key focus", () => {
+    const registryOrder = appModeIds.map((id) => ({ id }));
+    expect(orderByPhoneModeGroups(registryOrder).map((mode) => mode.id)).toEqual(groupedModeIds);
+    // A session that hides some modes keeps the drawn order for the rest.
+    const someModes = (["cme", "psychiatry", "forms", "answer"] as const).map((id) => ({ id }));
+    expect(orderByPhoneModeGroups(someModes).map((mode) => mode.id)).toEqual(["answer", "psychiatry", "forms", "cme"]);
   });
 });
