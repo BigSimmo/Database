@@ -32,7 +32,7 @@ const OFFLINE_GIT_ENV = { GIT_NO_LAZY_FETCH: "1", GIT_TERMINAL_PROMPT: "0" };
 
 export const NOT_BLOCKING_NOTE =
   "Not blocking this change, which touches neither the register nor a path this entry covers. It still " +
-  "blocks in local runs, on main and in release checks, and the weekly review-date report lists it.";
+  "blocks in local runs, on other branches and in release checks, and the weekly review-date report lists it.";
 
 /**
  * @typedef {{ mode: "strict" | "pr", touched: string[] | null, base: string | null, head: string | null,
