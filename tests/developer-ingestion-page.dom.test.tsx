@@ -8,8 +8,7 @@ import DeveloperIngestionPage from "@/app/mockups/development/ingestion/page";
 // next/navigation's useRouter for its history-aware click handler. Outside an
 // app-router tree that throws "invariant expected app router to be mounted",
 // so every render here needs the router mocked, same as every other panel
-// page test (`developer-test-health-page.dom.test.tsx`,
-// `developer-routes-page.dom.test.tsx`).
+// page test (for example `developer-panel-page-shell.dom.test.tsx`).
 vi.mock("next/navigation", () => ({
   usePathname: () => "/mockups/development/ingestion",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),

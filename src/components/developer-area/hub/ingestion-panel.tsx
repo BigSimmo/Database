@@ -123,8 +123,7 @@ function parseReadyPayload(payload: Record<string, unknown>) {
 
 /**
  * Ruling I2 (plan §5): any status this panel does not recognise is shown,
- * verbatim, under its own bucket rather than dropped — same shape as
- * `otherPages` in `src/app/mockups/development/routes/page.tsx`, keyed on row
+ * verbatim, under its own bucket rather than dropped, keyed on row
  * identity (a `Set` of the row objects themselves) so two jobs can never
  * collide even if their other fields happen to match.
  */

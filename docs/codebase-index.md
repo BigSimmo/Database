@@ -640,7 +640,8 @@ Login-gated internal hub for repository/task state, reachable only to a signed-i
 account (`DeveloperAreaGate`, `src/components/developer-area/developer-area-gate.tsx`; gate helpers
 `src/lib/developer-area/access.ts` + `headers.ts` — see the Supabase/auth/env table above). Phase 2
 shipped four more live panels (routes and modes, documentation, test health, review state) on top
-of Phase 1's task ledger. Phase 3 shipped the ingestion panel (below) and pruned four placeholder
+of Phase 1's task ledger; the owner retired those four on 2026-09-26, when the hub was renamed the
+Owner panel and gained a "Today" section and a settings check. Phase 3 shipped the ingestion panel (below) and pruned four placeholder
 registry entries (`errors`, `budgets`, `commands`, `decision-log`) that each restated a fact a gate
 or another document already guarantees — see the removal comment in `hub-panels.ts`. `hazard-register`
 (clinical) is the one remaining phase-4 placeholder, kept deliberately as a clinical-safety surface
@@ -727,13 +728,10 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
   and pending inbox requests. `/mockups/development/hazards` (`hazards/page.tsx`, Server Component)
   — the snapshot-backed hazard register: it surfaces unmitigated hazards first and recalculates review
-  expiry in Australia/Perth at render time. `/mockups/development/routes` — every page and every app mode, from
-  the repo awareness snapshot's route walk. `/mockups/development/documentation` — every tracked
-  document, its area, and whether the codebase index lists it. `/mockups/development/test-health`
-  — unstable and quarantined tests, from the flake ledger. `/mockups/development/review-state` —
-  which branches were reviewed, at which head, with what outcome, from the committed review
-  records; deliberately scoped to that recorded history rather than live pull-request/CI state,
-  which the repository has no access to without a network call. `/mockups/development/ingestion`
+  expiry in Australia/Perth at render time. The routes, documentation, test-health and
+  review-state panels were retired on 2026-09-26 on the owner's decision (see the retired-routes
+  table in `mockups/README.md`); their data still lives in the repo awareness snapshot.
+  `/mockups/development/ingestion`
   (`page.tsx`, Server Component rendering the client `IngestionPanel`) — whether an uploaded
   document actually indexed: queued, processing, finished, or stuck, polled live from
   `/api/ingestion/jobs` rather than a build-time snapshot (the one panel that cannot use one — a
@@ -777,8 +775,7 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `panel-primitives.tsx` (renamed from `count-tile.tsx` once it outgrew tile-only scope — the
   shared `CountTile`, the `CARD_CLASS`/`ROW_CLASS`/`MONO_CLASS`/`SECTION_HEADING_CLASS`/
   `META_CLASS` building blocks the developer sub-pages render their headline numbers and record
-  cards with), `quarantine-list.tsx` (the quarantined-test list, kept outside `test-health/page.tsx`
-  because a page module may only export the framework's reserved names), `ingestion-panel.tsx`
+  cards with), `ingestion-panel.tsx`
   (`"use client"`, `IngestionPanel` — fetch-on-mount plus a `pollAfterMs`-driven re-fetch that stops
   the moment the server reports no active jobs; renders its own live "last checked" stamp via
   `resolveFreshnessFrom`, since `PanelPageShell`'s own stamp is filled in server-side before any
@@ -788,8 +785,6 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `tests/developer-hub-page.dom.test.tsx`, `tests/developer-ledger-page.dom.test.tsx`,
   `tests/repo-awareness-generator.test.ts`, `tests/repo-awareness-gate.test.ts`,
   `tests/repo-awareness-snapshot.test.ts`, `tests/developer-panel-page-shell.dom.test.tsx`,
-  `tests/developer-routes-page.dom.test.tsx`, `tests/developer-documentation-page.dom.test.tsx`,
-  `tests/developer-test-health-page.dom.test.tsx`, `tests/developer-review-state-page.dom.test.tsx`,
   `tests/developer-ingestion-page.dom.test.tsx`, `tests/sign-off-queue.test.ts` (pins the per-family
   sign-off counts so the panel cannot silently report zero, and asserts the five review
   vocabularies stay unmerged), `tests/developer-sign-off-page.dom.test.tsx` (pins that one family's

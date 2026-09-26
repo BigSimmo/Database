@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
  * Shared building blocks for every developer-hub panel page: a labelled count
  * tile, a shared card-container class, and the two class strings ("section
  * heading", "meta caption") every panel section is built from. Extracted
- * after `ledger/page.tsx` (Task 8) and `routes/page.tsx` (Task 9) copied this
- * shape verbatim; three more pages were about to copy it again.
+ * after two panel pages copied this shape verbatim and three more were about to
+ * copy it again.
  *
  * Named for what it now holds, not for the tile that started it — by the time
  * `CARD_CLASS` and `ROW_CLASS` joined `CountTile` here, "count-tile.tsx" was
@@ -22,10 +22,8 @@ export const SECTION_HEADING_CLASS = "text-lg font-semibold text-[color:var(--te
 export const META_CLASS = "text-xs text-[color:var(--text-muted)]";
 
 /**
- * `MONO_CLASS` and `ROW_CLASS` were byte-identical copies in `routes/page.tsx`
- * and `documentation/page.tsx` before extraction (Task 11); a third and fourth
- * copy were about to land in `test-health/page.tsx` and the ledger page Task 12
- * adds. Moved here rather than left local, following the same reasoning that
+ * `MONO_CLASS` and `ROW_CLASS` were byte-identical copies in several panel pages
+ * before extraction (Task 11). Moved here rather than left local, following the same reasoning that
  * already pulled `CountTile`/`SECTION_HEADING_CLASS`/`META_CLASS` out — this
  * module already exceeds "tile-only" scope, so extending it beats standing up
  * a second shared module.
@@ -34,9 +32,8 @@ export const MONO_CLASS = "font-mono text-xs text-[color:var(--text-heading)]";
 export const ROW_CLASS = "flex flex-wrap items-baseline gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2";
 
 /**
- * The rounded-card container for one record: a ledger "pending" item, a
- * review-state row, a quarantined-test entry, and `CountTile` below. All four
- * were byte-identical copies of this exact string before extraction; kept
+ * The rounded-card container for one record, such as a ledger "pending" item
+ * and `CountTile` below. These were byte-identical copies of this exact string before extraction; kept
  * byte-identical here so adopting it changes zero rendered pixels.
  */
 export const CARD_CLASS = "grid gap-1 rounded-xl border border-[color:var(--border)] p-4";
