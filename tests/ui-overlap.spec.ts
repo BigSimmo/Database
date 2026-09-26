@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import { clickWhenSettled } from "./playwright-settlement";
 
 /**
  * Element-overlap regression coverage.
@@ -634,11 +635,14 @@ test.describe("Tablet usability regressions", () => {
 
     const rail = promptRow.locator(".answer-suggestion-chips");
     const before = await rail.evaluate((node) => node.scrollLeft);
-    // Evidence only — the assertion below is unchanged. This journey has failed
-    // on WebKit alone (scrollLeft stays 0) and cannot be reproduced in Chromium,
-    // so record what WebKit actually did: whether the click reached the product
-    // handler, what the scroll call asked for and got, and whether the rail read
-    // afterwards is still the node that was clicked.
+    // The composer mounts and measures its rail in the first second after load. A WebKit release
+    // run clicked the control while that was still happening and the rail never moved, so wait
+    // for the control to hold still before pressing it.
+    //
+    // Evidence on failure only — the assertion below is unchanged. This journey has failed
+    // on WebKit alone (scrollLeft stays 0) and cannot be reproduced in Chromium, so record what
+    // WebKit actually did: whether the click reached the product handler, what the scroll call
+    // asked for and got, and whether the rail read afterwards is still the node that was clicked.
     await rail.evaluate((node) => {
       const record: Record<string, unknown> = { scrollByCalls: [] as unknown[], clicks: [] as string[] };
       (window as unknown as { __railEvidence: typeof record }).__railEvidence = record;
@@ -665,7 +669,7 @@ test.describe("Tablet usability regressions", () => {
         { capture: true },
       );
     });
-    await forward.click();
+    await clickWhenSettled(forward);
     try {
       await expect
         .poll(async () => rail.evaluate((node) => node.scrollLeft), {
