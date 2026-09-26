@@ -123,6 +123,18 @@ export function areasOf(placementValue) {
 }
 
 /** Escapes text for a Markdown table cell or list item. */
+/**
+ * A Markdown code span holding `text` verbatim. Backslash escapes do not work inside a code span,
+ * so the fence is one backtick longer than any run inside, padded when the text touches a backtick.
+ */
+export function codeSpan(text) {
+  const value = String(text).replace(/[\r\n]+/g, " ");
+  const longest = Math.max(0, ...(value.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = "`".repeat(longest + 1);
+  const pad = value.startsWith("`") || value.endsWith("`") ? " " : "";
+  return `${fence}${pad}${value}${pad}${fence}`;
+}
+
 export function mdEscape(text) {
   return String(text).replace(/[\\`*_[\]<>|]/g, (c) => `\\${c}`);
 }
