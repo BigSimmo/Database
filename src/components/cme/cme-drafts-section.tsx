@@ -99,6 +99,7 @@ export function WaitingOnControls({
             id={`${idPrefix}-waiting-note`}
             value={value.waitingNote}
             maxLength={CME_DRAFT_WAITING_NOTE_MAX_LENGTH}
+            hint="Don't include patient details."
             disabled={disabled}
             onChange={(event) => onWaitingNoteChange(event.target.value)}
             onBlur={onWaitingNoteBlur}

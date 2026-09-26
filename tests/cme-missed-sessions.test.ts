@@ -173,6 +173,13 @@ function fakeClient(responsesByTable: Record<string, FakeResponse[]>) {
   return { from, calls };
 }
 
+const YEAR_ID = "44444444-4444-4444-8444-444444444444";
+/** An activity that may replace a missed session: not archived, in an open year. */
+const LINKABLE_ENTRY = {
+  cme_entries: [{ data: { archived_at: null, year_id: YEAR_ID }, error: null }],
+  cme_years: [{ data: { closed_at: null }, error: null }],
+};
+
 const ROW = {
   id: SESSION_ID,
   owner_id: OWNER,
@@ -268,18 +275,50 @@ describe("missed-sessions repository, owner predicate", () => {
   it("setOwnerCmeMissedSessionReplacement filters by id and owner_id, and can clear the link", async () => {
     const { setOwnerCmeMissedSessionReplacement } = await import("@/lib/cme/missed-sessions-repository");
     const client = fakeClient({
+      ...LINKABLE_ENTRY,
       cme_missed_sessions: [{ data: { ...ROW, replacement_entry_id: ENTRY_ID }, error: null }],
     });
     const result = await setOwnerCmeMissedSessionReplacement(client as never, OWNER, SESSION_ID, ENTRY_ID);
-    expect(client.calls[0].chain.update).toHaveBeenCalledWith({ replacement_entry_id: ENTRY_ID });
-    expect(client.calls[0].chain.eq).toHaveBeenCalledWith("id", SESSION_ID);
-    expect(client.calls[0].chain.eq).toHaveBeenCalledWith("owner_id", OWNER);
+    expect(client.calls.map((call) => call.table)).toEqual(["cme_entries", "cme_years", "cme_missed_sessions"]);
+    for (const call of client.calls) expect(call.chain.eq).toHaveBeenCalledWith("owner_id", OWNER);
+    expect(client.calls[2].chain.update).toHaveBeenCalledWith({ replacement_entry_id: ENTRY_ID });
+    expect(client.calls[2].chain.eq).toHaveBeenCalledWith("id", SESSION_ID);
     expect(result.replacementEntryId).toBe(ENTRY_ID);
+  });
+
+  it("refuses to link an archived activity, or one in a closed year, like plan goals", async () => {
+    const { setOwnerCmeMissedSessionReplacement } = await import("@/lib/cme/missed-sessions-repository");
+    const archived = fakeClient({
+      cme_entries: [{ data: { archived_at: "2026-09-01T00:00:00Z", year_id: YEAR_ID }, error: null }],
+    });
+    await expect(
+      setOwnerCmeMissedSessionReplacement(archived as never, OWNER, SESSION_ID, ENTRY_ID),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(archived.calls.map((call) => call.table)).toEqual(["cme_entries"]);
+
+    const closed = fakeClient({
+      cme_entries: [{ data: { archived_at: null, year_id: YEAR_ID }, error: null }],
+      cme_years: [{ data: { closed_at: "2026-09-10T00:00:00Z" }, error: null }],
+    });
+    await expect(
+      setOwnerCmeMissedSessionReplacement(closed as never, OWNER, SESSION_ID, ENTRY_ID),
+    ).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(closed.calls.map((call) => call.table)).toEqual(["cme_entries", "cme_years"]);
+
+    const missing = fakeClient({ cme_entries: [{ data: null, error: null }] });
+    await expect(
+      setOwnerCmeMissedSessionReplacement(missing as never, OWNER, SESSION_ID, ENTRY_ID),
+    ).rejects.toMatchObject({
+      status: 400,
+    });
   });
 
   it("maps a foreign-key violation on the replacement link to a public 400, not a 500", async () => {
     const { setOwnerCmeMissedSessionReplacement } = await import("@/lib/cme/missed-sessions-repository");
     const client = fakeClient({
+      ...LINKABLE_ENTRY,
       cme_missed_sessions: [{ data: null, error: { message: "insert or update violates foreign key", code: "23503" } }],
     });
     const rejection = await setOwnerCmeMissedSessionReplacement(client as never, OWNER, SESSION_ID, ENTRY_ID).catch(
@@ -390,14 +429,17 @@ describe("missed session API contract", () => {
   });
 
   it("PATCH with { replacementEntryId } sets the link", async () => {
-    routeMocks.from.mockReturnValueOnce(makeChain({ data: { ...ROW, replacement_entry_id: ENTRY_ID }, error: null }));
+    routeMocks.from
+      .mockReturnValueOnce(makeChain({ data: { archived_at: null, year_id: YEAR_ID }, error: null }))
+      .mockReturnValueOnce(makeChain({ data: { closed_at: null }, error: null }))
+      .mockReturnValueOnce(makeChain({ data: { ...ROW, replacement_entry_id: ENTRY_ID }, error: null }));
     const response = await patchMissed(
       jsonRequest(`http://localhost/api/cme/missed/${SESSION_ID}`, "PATCH", { replacementEntryId: ENTRY_ID }),
       { params: Promise.resolve({ id: SESSION_ID }) },
     );
     expect(response.status).toBe(200);
     expect((await response.json()).missedSession.replacementEntryId).toBe(ENTRY_ID);
-    expect(routeMocks.from.mock.results[0].value.update).toHaveBeenCalledWith({ replacement_entry_id: ENTRY_ID });
+    expect(routeMocks.from.mock.results[2].value.update).toHaveBeenCalledWith({ replacement_entry_id: ENTRY_ID });
   });
 
   it("PATCH with { replacementEntryId: null } clears the link", async () => {
@@ -411,9 +453,19 @@ describe("missed session API contract", () => {
   });
 
   it("PATCH maps a replacement to an entry the owner doesn't own to a 4xx, not a 500", async () => {
-    routeMocks.from.mockReturnValueOnce(
-      makeChain({ data: null, error: { message: "insert or update violates foreign key", code: "23503" } }),
+    routeMocks.from.mockReturnValueOnce(makeChain({ data: null, error: null }));
+    const notFound = await patchMissed(
+      jsonRequest(`http://localhost/api/cme/missed/${SESSION_ID}`, "PATCH", { replacementEntryId: ENTRY_ID }),
+      { params: Promise.resolve({ id: SESSION_ID }) },
     );
+    expect(notFound.status).toBe(400);
+
+    routeMocks.from
+      .mockReturnValueOnce(makeChain({ data: { archived_at: null, year_id: YEAR_ID }, error: null }))
+      .mockReturnValueOnce(makeChain({ data: { closed_at: null }, error: null }))
+      .mockReturnValueOnce(
+        makeChain({ data: null, error: { message: "insert or update violates foreign key", code: "23503" } }),
+      );
     const response = await patchMissed(
       jsonRequest(`http://localhost/api/cme/missed/${SESSION_ID}`, "PATCH", { replacementEntryId: ENTRY_ID }),
       { params: Promise.resolve({ id: SESSION_ID }) },

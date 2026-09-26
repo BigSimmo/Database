@@ -96,6 +96,40 @@ export async function updateOwnerCmeMissedSession(
   return rowToCmeMissedSession(data);
 }
 
+/**
+ * A missed session may only be linked to a live activity in an open year, the
+ * same rule plan goals follow: an archived activity or a closed year is frozen.
+ */
+async function assertReplacementEntryLinkable(supabase: AdminClient, ownerId: string, entryId: string) {
+  const entry = await supabase
+    .from("cme_entries")
+    .select("archived_at,year_id")
+    .eq("owner_id", ownerId)
+    .eq("id", entryId)
+    .maybeSingle();
+  if (entry.error) throw missedSessionRepositoryError(entry.error);
+  if (!entry.data) {
+    throw new PublicApiError("That activity could not be found.", 400, { code: "cme_replacement_not_found" });
+  }
+  if (entry.data.archived_at) {
+    throw new PublicApiError("An archived activity cannot replace a missed session.", 400, {
+      code: "cme_replacement_archived",
+    });
+  }
+  const year = await supabase
+    .from("cme_years")
+    .select("closed_at")
+    .eq("owner_id", ownerId)
+    .eq("id", entry.data.year_id)
+    .maybeSingle();
+  if (year.error) throw missedSessionRepositoryError(year.error);
+  if (year.data?.closed_at) {
+    throw new PublicApiError("That activity is in a closed year, so it cannot be linked.", 400, {
+      code: "cme_year_closed",
+    });
+  }
+}
+
 /** Set or clear the replacement link. `replacementEntryId: null` unlinks it. */
 export async function setOwnerCmeMissedSessionReplacement(
   supabase: AdminClient,
@@ -104,6 +138,7 @@ export async function setOwnerCmeMissedSessionReplacement(
   replacementEntryId: string | null,
 ): Promise<CmeMissedSession> {
   if (!ownerId) throw new Error("Missing CME owner.");
+  if (replacementEntryId) await assertReplacementEntryLinkable(supabase, ownerId, replacementEntryId);
   const { data, error } = await supabase
     .from("cme_missed_sessions")
     .update({ replacement_entry_id: replacementEntryId })

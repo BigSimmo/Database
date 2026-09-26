@@ -91,6 +91,11 @@ describe("CmeDraftsSection", () => {
     expect(sentBody.waitingOn).toBe("supervisor");
   });
 
+  it("tells the reader not to put patient details in the waiting note", () => {
+    render(<CmeDraftsSection drafts={[draft({ waitingOn: "supervisor", waitingNote: "Asked Dr A" })]} />);
+    expect(screen.getByText("Don't include patient details.")).toBeInTheDocument();
+  });
+
   it("puts the waiting choice back if the save fails", async () => {
     const item = draft();
     const user = userEvent.setup();
