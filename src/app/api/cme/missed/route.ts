@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
     return NextResponse.json(
       { missedSessions: await fetchOwnerCmeMissedSessions(supabase, user.id) },
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
     const body = await parseJsonBody(request, cmeMissedSessionCreateSchema, "Invalid missed session.");
     const missedSession = await createOwnerCmeMissedSession(supabase, user.id, body);

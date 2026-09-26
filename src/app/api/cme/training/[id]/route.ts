@@ -49,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     if (isDemoMode()) return demoRefusal();
     const { supabase, user, limit } = await ownerFor(request);
-    if (limit.limited) return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", limit);
+    if (limit.limited) return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", limit);
     const { id } = parseRouteParams(await params, idParamsSchema, "Invalid training record ID.");
     const body = await parseJsonBody(request, trainingRecordBodySchema, "Check the training details and try again.");
     const record = parseTrainingRecordInput(body);
@@ -68,7 +68,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     if (isDemoMode()) return demoRefusal();
     const { supabase, user, limit } = await ownerFor(request);
-    if (limit.limited) return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", limit);
+    if (limit.limited) return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", limit);
     const { id } = parseRouteParams(await params, idParamsSchema, "Invalid training record ID.");
     const queryType = new URL(request.url).searchParams.get("type");
     const bodyType = queryType

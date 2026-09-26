@@ -28,7 +28,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     }
     const { id } = await context.params;
     const entryId = entryIdSchema.safeParse(id);
-    if (!entryId.success) return publicErrorResponse("CME entry not found.", 404, { code: "cme_entry_not_found" });
+    if (!entryId.success) return publicErrorResponse("CPD entry not found.", 404, { code: "cme_entry_not_found" });
     const supabase = createAdminClient();
     // The owner comes from the validated session only — never from the request body.
     const user = await requireAuthenticatedUser(request, supabase);
@@ -39,7 +39,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
     const body = await parseJsonBody(request, cmeEntryGoalSchema, "Choose a goal from your plan.");
     await setOwnerCmeEntryGoal(supabase, user.id, entryId.data, body.goalId);
