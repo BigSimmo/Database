@@ -147,7 +147,8 @@ Prefer these over improvising — they encode traps this repo has already hit:
   source — see `docs/source-acquisition-protocol.md`), `prompt`.
 - **Review subagents** (`.claude/agents/`): `rag-retrieval-reviewer`,
   `supabase-schema-guardian`, `ingestion-worker-reviewer`, `clinical-governance-reviewer`,
-  `frontend-ui-reviewer`, `verification-router`, `repo-auditor`, `pr-ci-fixer`.
+  `frontend-ui-reviewer`, `personal-practice-reviewer`, `verification-router`, `repo-auditor`,
+  `pr-ci-fixer`.
 - **Skill catalogue** (`.agents/skills/`): `npm run skills` lists the canonical single-word
   skills; `npm run check:skills` validates every repository skill surface. Planners in
   `docs/productivity-workflows.md` run without side effects unless given `-- --run`, and
