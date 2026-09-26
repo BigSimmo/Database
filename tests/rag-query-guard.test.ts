@@ -81,6 +81,42 @@ describe("rag-query-guard — in-corpus clinical and psychiatric queries", () =>
   });
 
   /**
+   * #3944SV, second pass: psychiatric questions that carry a consumer word only by accident.
+   * None may be refused by the consumer heuristic. Each either searches outright or meets the
+   * soft tail, where `classifyCorpusGrounding` lets the corpus decide in production.
+   */
+  it.each([
+    "flight of ideas in mania",
+    "gaming disorder",
+    "internet gaming disorder treatment",
+    "car accident trauma assessment",
+    "PTSD after a car accident",
+    "phone contact after discharge",
+    "tv watching and negative symptoms",
+    "holiday leave from the ward",
+    "psychosis after a long haul flight",
+    "self-harm after a car accident",
+  ])("lets the corpus decide on %j instead of refusing it on a consumer word", (query) => {
+    const analysis = analyzeClinicalQuery(query);
+    const refusedByConsumerWord =
+      shouldShortCircuitUnsupportedSearch(query, analysis) && !isUnsupportedSoftTailAnalysis(query, analysis);
+    expect(refusedByConsumerWord).toBe(false);
+  });
+
+  it.each([
+    "What is the best coffee machine for my kitchen?",
+    "Which air fryer should I buy for a small kitchen?",
+    "Give me a recipe for high protein overnight oats.",
+    "best gaming laptop",
+    "car insurance quote",
+    "hotel near perth airport",
+    "best tv to buy",
+  ])("still refuses the purely consumer question %j", (query) => {
+    const analysis = analyzeClinicalQuery(query);
+    expect(shouldShortCircuitUnsupportedSearch(query, analysis)).toBe(true);
+  });
+
+  /**
    * The consumer escape hatch must not become a way past the out-of-corpus phrases. A query
    * carrying both a consumer token and an out-of-corpus phrase still refuses, because the
    * phrase branch runs first and does not consult the clinical-context pattern.
