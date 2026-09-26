@@ -16,3 +16,19 @@ export function parseCmeLearningPrefill(query: { title?: unknown; sourceUrl?: un
   const sourceUrl = typeof query.sourceUrl === "string" ? normalizeCmeSourceUrl(query.sourceUrl) : null;
   return { ...(title ? { title } : {}), ...(sourceUrl ? { sourceUrl } : {}) };
 }
+
+/**
+ * The "Log as CPD" link from a clinical answer: a new CME entry with the cited
+ * source's title and link filled in.
+ *
+ * It deliberately carries the SOURCE, never the question that was asked. A
+ * question can hold patient detail, and a query string is kept in browser
+ * history and server logs; the doctor writes their own learning question on
+ * the form. Opening the form logs nothing, so no CPD credit follows a click.
+ */
+export function cmeLearningFromSourceHref(source: { title: string; href: string }): string | null {
+  const title = source.title.trim().slice(0, 200).trim();
+  const sourceUrl = normalizeCmeSourceUrl(source.href);
+  if (!title || !sourceUrl) return null;
+  return `/cme/new?${new URLSearchParams({ title, sourceUrl }).toString()}`;
+}
