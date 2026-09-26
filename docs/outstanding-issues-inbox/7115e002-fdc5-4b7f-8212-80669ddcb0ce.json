@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7115e002-fdc5-4b7f-8212-80669ddcb0ce",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#2TRAJA",
+    "outcome": "Owner approved 2026-09-26 (Josh, 'all as recommended'). Registered Lifeline Australia, Suicide Call Back Service, 13YARN, Legal Aid Western Australia (Legal Yarn) and TIS National in src/lib/source-authority-registry.ts, all catalogueIdentityOnly, so none reaches runtime retrieval classification (no ranking change, no canary needed); pinned by tests/crisis-line-source-registration.test.ts. Acquisition rows in src/data/source-acquisitions.json were not added: the acquisition gate still requires a publisher review date, and these pages carry none, so rows wait until a publisher date exists.",
+    "baseRowFingerprint": "979a34326f3691cb1c6f3a3e9371d3d241ed4afab6d713d04c8efd5e88c635f9"
+  }
+}
