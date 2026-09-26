@@ -132,8 +132,20 @@ type Inflight = {
   background: boolean;
 };
 
-const entries = new Map<string, CacheEntry>();
-const inflight = new Map<string, Inflight>();
+/**
+ * Held on `globalThis` because the bundler gives each server layer its own copy of this module: a
+ * production build has one copy for `instrumentation.ts` and another for the route handlers
+ * (checked 2026-09-26, `next build --webpack`). Module-level maps would let the startup warm fill a
+ * cache no request ever reads.
+ */
+const processCacheKey = Symbol.for("psychsift.siteContentRecordCache");
+type ProcessCache = { entries: Map<string, CacheEntry>; inflight: Map<string, Inflight> };
+const processCache = ((globalThis as { [processCacheKey]?: ProcessCache })[processCacheKey] ??= {
+  entries: new Map(),
+  inflight: new Map(),
+});
+const entries = processCache.entries;
+const inflight = processCache.inflight;
 
 /** `kind` is a fixed control-plane enum, so a literal separator cannot collide with a slug. */
 function cacheKey(kind: string, slug: string | null) {
