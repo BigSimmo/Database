@@ -25,6 +25,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { indexSectionDrift } from "./organisation/codebase-index-section.mjs";
+import { pinStatus } from "./organisation/pins.mjs";
 import { coverageLossFindings, deadEntryFindings } from "./organisation/path-lists.mjs";
 import { routingHint } from "./organisation/routing-hint.mjs";
 
@@ -548,13 +549,11 @@ export function evaluate(snapshot) {
         );
     }
   }
-  const pinChanges = [];
-  for (const [doc, blob] of Object.entries(map.pins)) {
+  for (const doc of Object.keys(map.pins)) {
     if (!fileSet.has(doc))
       findings.push(
         warning(`dead-pin:${doc}`, `${MAP_DIR}/pins.json`, `pinned doc \`${doc}\` no longer exists; ${FIX_HINT}`, doc),
       );
-    else if (snapshot.blobs.get(doc) !== blob) pinChanges.push({ doc, pinned: blob, current: snapshot.blobs.get(doc) });
   }
   for (const file of unplaced) findings.push(warning(`unplaced:${file}`, file, "is not placed in any area yet"));
 
@@ -571,7 +570,6 @@ export function evaluate(snapshot) {
     },
     files,
     placement,
-    pinChanges,
     kinds: map.kinds,
     findings,
   };
@@ -635,15 +633,25 @@ function renderMarkdown(report) {
     );
     if (other.length > 200) lines.push(`…and ${other.length - 200} more in the JSON report.`);
   }
-  if (report.pinChanges?.length) {
+  if (report.staleDocs?.length) {
     lines.push(
       "",
-      "## Canonical docs changed since their last-read pin",
+      "## Key documents that may be out of date",
       "",
-      "Re-read each against the code, then set its pin in docs/organisation/pins.json to the current id.",
+      "Re-read the document against the files that changed in its area, then set its pin in",
+      "docs/organisation/pins.json to the commit on main you read it against (the weekly report prints one).",
+      "Never a commit only on a PR branch: PRs are squash-merged.",
       "",
     );
-    lines.push(...fence(report.pinChanges.map((p) => `${p.doc}  current ${p.current}`)));
+    lines.push(
+      ...fence(
+        report.staleDocs.map((r) =>
+          r.status === "checked"
+            ? `${r.doc} [${r.area}] ${r.commitsSinceLastRead} commit(s) since last read`
+            : `${r.doc} [${r.area}] ${r.status}`,
+        ),
+      ),
+    );
   }
   if (report.freshness?.hotspots?.length) {
     lines.push(
@@ -969,7 +977,6 @@ export function main(argv = process.argv.slice(2), env = process.env) {
       systems: result.systems,
       totals: result.totals,
       placement: result.placement,
-      pinChanges: result.pinChanges,
     });
     for (const finding of result.findings) {
       // In CI only findings the change introduced block; inherited ones are reported, not blamed.
@@ -977,6 +984,13 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     }
     report.findings = result.findings;
     if (!ci) {
+      if (args.report) {
+        try {
+          report.staleDocs = pinStatus({ root }).filter((r) => r.stale || r.status !== "checked");
+        } catch (error) {
+          report.staleDocs = [{ doc: "(pins)", area: "-", status: `could not check: ${error.message}` }];
+        }
+      }
       report.freshness = freshness(root, result);
       report.untracked = splitZ(git(root, ["ls-files", "-z", "--others", "--exclude-standard"]));
     }

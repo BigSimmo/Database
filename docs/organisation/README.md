@@ -54,7 +54,7 @@ npm run check:organisation -- --fix     # tidy the map after moving or renaming 
 
 In CI (`static-pr`), only problems the change itself introduced fail the step, so a PR is never blamed for something already on main and the result never depends on the date. Files that are not placed yet, and entries left behind by a move, are warnings shown on the PR, never failures (owner decisions, 2026-09-26).
 
-Each local run writes a JSON and a Markdown report to the git-ignored `output/organisation/`, selected by `latest.json`. The report also lists canonical docs changed since their last-read pin in `pins.json` (re-read the doc against the code, then update its pin to the id the report prints), the most-edited files of the last 30 days, and what moved since the last report. `npm run ensure` runs the check once, advisory only, when it starts a new dev server.
+Each local run writes a JSON and a Markdown report to the git-ignored `output/organisation/`, selected by `latest.json`. The report also lists key documents whose area changed since they were last read, from the commit pins in `pins.json` (re-read the document against the files that changed in its area, then set its pin to the commit on main you read it against, which the weekly report prints; never a commit only on a PR branch, because PRs are squash-merged), the most-edited files of the last 30 days, and what moved since the last report. `npm run ensure` runs the check once, advisory only, when it starts a new dev server.
 
 ## The checks built on the map
 
@@ -76,6 +76,6 @@ Each of these reports; none of them decides policy. `pr-policy`, the registers a
 - It does not prove any code works. It can pass while tests fail, the build is broken or the live site is down.
 - Placing a file in an area is never a clinical, ranking, privacy, security, legal or database approval. Those keep their own checks (`pr-policy`, CI, the migration and drift guards) and Josh's sign-off.
 - "Prototype" or "ignored" never exempts a file from any other rule.
-- It does not check that a document is true, only that it exists and whether it changed since its last-read pin.
+- It does not check that a document is true, only that it exists and whether its area changed since it was last read.
 - A report means "last checked at commit X", never "currently true".
 - "Not yet placed" is an honest "don't know yet", not an acceptance.

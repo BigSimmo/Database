@@ -229,6 +229,7 @@
     "check:organisation": "node scripts/check-organisation.mjs",
     "check:decisions": "node scripts/organisation/decisions.mjs",
     "check:instructions": "node scripts/organisation/check-instructions.mjs",
+    "organisation:classifier-baseline": "node scripts/organisation/weekly/classifier-disagreements.mjs --update-baseline",
     "organisation:weekly": "node scripts/organisation/weekly-report.mjs",
     "pr:areas": "node scripts/organisation/pr-areas.mjs",
     "check:owner-scope": "node scripts/check-owner-scope-api.mjs",
