@@ -231,8 +231,10 @@ export function parseRosterIcs(text: string): RosterParseResult {
   if (allDay) notes.push(`${plural(allDay, "all-day event")} skipped, because shifts have start and end times.`);
   if (cancelled) notes.push(`${plural(cancelled, "cancelled event")} skipped.`);
   if (repeating) notes.push(`${plural(repeating, "repeating event")} skipped. Export the roster as single shifts.`);
-  if (unreadable) notes.push(`${plural(unreadable, "event")} could not be read and ${unreadable === 1 ? "was" : "were"} skipped.`);
-  if (overLimit) notes.push(`Only the first ${ON_CALL_SHIFT_IMPORT_MAX} shifts were read; ${overLimit} more were left out.`);
+  if (unreadable)
+    notes.push(`${plural(unreadable, "event")} could not be read and ${unreadable === 1 ? "was" : "were"} skipped.`);
+  if (overLimit)
+    notes.push(`Only the first ${ON_CALL_SHIFT_IMPORT_MAX} shifts were read; ${overLimit} more were left out.`);
   shifts.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   return { shifts, notes };
 }

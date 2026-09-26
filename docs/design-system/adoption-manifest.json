@@ -309,6 +309,7 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-load-failed.tsx",
         "src/components/on-call/on-call-section-page.tsx",
+        "src/components/on-call/on-call-shifts-page.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
@@ -356,6 +357,7 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-load-failed.tsx",
         "src/components/on-call/on-call-section-page.tsx",
+        "src/components/on-call/on-call-shifts-page.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-governance-panel.tsx",
@@ -629,14 +631,16 @@
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
-        "src/components/on-call/on-call-entry-editor.tsx"
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-shifts-page.tsx"
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
-        "src/components/on-call/on-call-entry-editor.tsx"
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-shifts-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -2701,6 +2705,7 @@
         "src/app/(search-app)/on-call/playbook/page.tsx",
         "src/app/(search-app)/on-call/referrals/page.tsx",
         "src/app/(search-app)/on-call/service/page.tsx",
+        "src/app/(search-app)/on-call/shifts/page.tsx",
         "src/app/(search-app)/on-call/who-is-who/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
@@ -3222,6 +3227,16 @@
         },
         {
           "file": "src/app/(search-app)/on-call/service/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/shifts/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4624,6 +4639,7 @@
       "src/app/(search-app)/on-call/playbook/page.tsx",
       "src/app/(search-app)/on-call/referrals/page.tsx",
       "src/app/(search-app)/on-call/service/page.tsx",
+      "src/app/(search-app)/on-call/shifts/page.tsx",
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
@@ -4738,6 +4754,7 @@
       "src/app/(search-app)/on-call/playbook/page.tsx",
       "src/app/(search-app)/on-call/referrals/page.tsx",
       "src/app/(search-app)/on-call/service/page.tsx",
+      "src/app/(search-app)/on-call/shifts/page.tsx",
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
@@ -4787,7 +4804,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 119,
+    "inheritedCkbV2RootCount": 120,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4796,8 +4813,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 120,
-    "productionRouteCount": 112,
-    "nextUiEntryCount": 177
+    "rootCount": 121,
+    "productionRouteCount": 113,
+    "nextUiEntryCount": 178
   }
 }

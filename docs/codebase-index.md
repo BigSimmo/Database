@@ -441,6 +441,15 @@ publishing, independent clinical/legal review, revision conflicts, correction re
 and owner-private orientation completion. They never pool legacy entries or personal
 CME/compliance. `handbook-resources` holds linked official WA starting points.
 
+**My shifts.** `/on-call/shifts` is the doctor's own roster, and the On Call home shows the shift on
+now or the next one. `src/lib/on-call/shifts/` reads an `.ics` or `.csv` export on the device
+(`parse-ics`, `parse-csv`), keeping only start, end, title, site and calendar ID, so descriptions and
+attendees never leave the browser. `diff` works out what a new roster changed; `repository` saves it
+through the `on_call_shifts_replace` RPC, which replaces the owner's shifts inside the roster's Perth
+dates and records the import in one transaction. `on_call_shifts` and `on_call_shift_imports` are
+private to their owner: service-role only, every query filtered by `owner_id`, never shared the way
+non-personal On Call entries are. The API is `/api/on-call/shifts` and `imports/[id]`.
+
 ---
 
 ### Continuing education (CME/CPD)

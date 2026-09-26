@@ -129,7 +129,8 @@ export function parseRosterCsv(text: string): RosterParseResult {
       `${plural(badRows.length, "row")} could not be read and ${badRows.length === 1 ? "was" : "were"} skipped (row ${shown}${badRows.length > 5 ? ", …" : ""}).`,
     );
   }
-  if (overLimit) notes.push(`Only the first ${ON_CALL_SHIFT_IMPORT_MAX} shifts were read; ${overLimit} more were left out.`);
+  if (overLimit)
+    notes.push(`Only the first ${ON_CALL_SHIFT_IMPORT_MAX} shifts were read; ${overLimit} more were left out.`);
   shifts.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   return { shifts, notes };
 }
