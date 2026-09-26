@@ -105,10 +105,23 @@ describe("on-call entry cache", () => {
     expect(readCachedOnCallEntries()).toBeNull();
   });
 
-  it("does not revive private entries persisted by an older release", () => {
+  // Until 2026-09-26 the shared rows of an older copy were kept and only the private ones
+  // dropped. Nothing fetched may stay on the device now, so the whole copy goes.
+  it("does not revive entries persisted by an older release, and removes the copy", () => {
     storage.set(onCallEntryCacheStorageKey, JSON.stringify({ entries: [contact], savedAt: new Date().toISOString() }));
-    expect(readCachedOnCallEntries()?.entries).toEqual([]);
-    expect(JSON.parse(storage.get(onCallEntryCacheStorageKey)!).entries).toEqual([]);
+    storage.set(
+      "clinical-kb-on-call-entries-cache",
+      JSON.stringify({ entries: [{ ...contact, isPersonal: false }], savedAt: new Date().toISOString() }),
+    );
+    expect(readCachedOnCallEntries()).toBeNull();
+    expect(storage.has(onCallEntryCacheStorageKey)).toBe(false);
+    expect(storage.has("clinical-kb-on-call-entries-cache")).toBe(false);
+  });
+
+  it("keeps a write in session memory only, never on the device", () => {
+    cacheOnCallEntries([{ ...contact, isPersonal: false }]);
+    expect(readCachedOnCallEntries()?.entries).toHaveLength(1);
+    expect(storage.has(onCallEntryCacheStorageKey)).toBe(false);
   });
 
   it("dispatches the change event so a reactive reader picks up the write", () => {

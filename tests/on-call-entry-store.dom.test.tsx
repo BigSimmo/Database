@@ -82,10 +82,12 @@ describe("useOnCallEntries", () => {
     expect(result.current.entries).toEqual([contact]);
     expect(result.current.cachedAt).not.toBeNull();
 
-    // The write actually reached the durable cache, not just component state.
+    // The write reached the session cache, not just component state — and not
+    // the device, which has held no fetched entries since 2026-09-26.
     const cached = readCachedOnCallEntries();
     expect(cached?.entries).toEqual([contact]);
     expect(cached?.savedAt).toBe(result.current.cachedAt);
+    expect(window.localStorage.getItem(onCallEntryCacheStorageKey)).toBeNull();
   });
 
   it("renders the cached copy, with its saved date, when the fetch fails", async () => {
@@ -127,10 +129,10 @@ describe("useOnCallEntries", () => {
     onLine.mockRestore();
   });
 
-  // On Call entries became readable by any visitor on 2026-09-04, so a signed-out response
-  // now carries the shared set and IS worth caching. What still must not happen is an empty
-  // response erasing a good cache mid-shift — the reason the old signed-out guard existed.
-  it("caches a signed-out response, because it now carries the shared entries", async () => {
+  // Since 2026-09-26 the server sends a signed-out caller no entries at all. The hook does not
+  // second-guess a response that does carry shared rows: it shows them for the session, like any
+  // other, and writes nothing to the device.
+  it("keeps a signed-out response's shared rows for the session, not on the device", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [contact], signedOut: true }));
 
     const { result } = renderHook(() => useOnCallEntries());
@@ -140,6 +142,7 @@ describe("useOnCallEntries", () => {
     expect(result.current.signedOut).toBe(true);
     expect(result.current.entries).toEqual([contact]);
     expect(readCachedOnCallEntries()?.entries).toEqual([contact]);
+    expect(window.localStorage.getItem(onCallEntryCacheStorageKey)).toBeNull();
   });
 
   it("removes withdrawn rows on a successful empty response", async () => {
@@ -165,13 +168,37 @@ describe("useOnCallEntries", () => {
     expect(readCachedOnCallEntries()?.entries).toEqual([]);
   });
 
-  it("never persists personal or malformed compliance entries", () => {
+  // Changed 2026-09-26: shared entries are sign-in only, so no longer public, and the device may
+  // hold only public information offline (docs/pwa.md). Until then this asserted that the shared
+  // row WAS written and only the personal and compliance rows were not.
+  it("writes no fetched entries to the device, shared, personal or compliance", () => {
     cacheOnCallEntries([
       contact,
       { ...contact, isPersonal: true },
       { ...contact, section: "logistics", details: { category: "Registration" } },
     ]);
-    expect(JSON.parse(window.localStorage.getItem(onCallEntryCacheStorageKey)!).entries).toEqual([contact]);
+    expect(window.localStorage.getItem(onCallEntryCacheStorageKey)).toBeNull();
+    expect(readCachedOnCallEntries()?.entries).toHaveLength(3);
+  });
+
+  it("removes a device copy an earlier release left, on first read", () => {
+    const savedAt = new Date().toISOString();
+    window.localStorage.setItem(onCallEntryCacheStorageKey, JSON.stringify({ entries: [contact], savedAt }));
+    window.localStorage.setItem("clinical-kb-on-call-entries-cache", JSON.stringify({ entries: [contact], savedAt }));
+    expect(readCachedOnCallEntries()).toBeNull();
+    expect(window.localStorage.getItem(onCallEntryCacheStorageKey)).toBeNull();
+    expect(window.localStorage.getItem("clinical-kb-on-call-entries-cache")).toBeNull();
+  });
+
+  it("still writes the signed-out example preview, and nothing but its example rows", () => {
+    const preview = { ...contact, id: "44444444-4444-4444-8444-444444444444", slug: "demo-preview-row" };
+    setOnCallDemoPreviewActive(true);
+    cacheOnCallEntries([
+      preview,
+      contact,
+      { ...preview, id: "55555555-5555-4555-8555-555555555555", isPersonal: true },
+    ]);
+    expect(JSON.parse(window.localStorage.getItem(onCallEntryCacheStorageKey)!).entries).toEqual([preview]);
   });
 
   it("invalidates private session memory when another tab signs out", async () => {
