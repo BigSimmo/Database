@@ -10,7 +10,7 @@ import {
   ModeUpdatedLine,
 } from "@/components/first-nations/kit";
 import { FnModule, ModuleHeader } from "@/components/first-nations/module-header";
-import { dialNumber } from "@/components/first-nations/number-button";
+import { dialNumber } from "@/lib/first-nations/contact-format";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";

@@ -1,14 +1,9 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/components/ui-primitives";
-import { ModeDialSheet, ModeFactTile, type ModeDialNumber } from "@/components/first-nations/kit";
-import { telHref } from "@/lib/first-nations/contact-format";
+import { ModeDialSheet, ModeFactTile } from "@/components/first-nations/kit";
+import { dialNumber, telHref } from "@/lib/first-nations/contact-format";
 import type { ContactView } from "@/lib/first-nations/view-model";
-
-/** What the kit's dial sheet needs: the number as shown, what to dial (or null) and what to copy. */
-export function dialNumber(contact: ContactView): ModeDialNumber {
-  return { display: contact.number, tel: telHref(contact.number) ?? null, copy: contact.number };
-}
 
 /**
  * The kit's dial sheet for one First Nations contact: the number in large

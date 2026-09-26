@@ -25,3 +25,12 @@ export function formatDayMonthYear(isoDay: string): string {
   const [year, month, day] = isoDay.split("-").map(Number);
   return `${day} ${MONTHS[month - 1]} ${year}`;
 }
+
+/**
+ * What the mode kit's dial row and sheet need: the number as shown, what to dial
+ * (null when it cannot be dialled) and what to copy. Plain data, so server and
+ * client components can both call it.
+ */
+export function dialNumber(contact: { number: string }): { display: string; tel: string | null; copy: string } {
+  return { display: contact.number, tel: telHref(contact.number) ?? null, copy: contact.number };
+}
