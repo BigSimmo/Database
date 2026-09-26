@@ -1,0 +1,36 @@
+"use client";
+
+import { setOnCallHospitalPhone } from "@/components/on-call/call/call-device-stores";
+import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
+import { onCallInsetHairline, onCallRowHeight } from "@/components/on-call/kit/recipes";
+import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { ToggleSwitch } from "@/components/primitive-recipes/feedback";
+import { cn } from "@/components/ui-primitives";
+
+/**
+ * "I'm on a hospital phone" (owner card 19:06Z): off by default, kept on this
+ * phone only. While it is on, a short extension gets its own call disc,
+ * because a hospital-issued handset can dial it; while it is off, a short
+ * extension stays desk-only (review F1). The condition line is the switch's
+ * own label, not an explanation.
+ */
+export function OnCallHospitalPhoneSwitch({ on }: { readonly on: boolean }) {
+  return (
+    <OnCallGroupedList testId="on-call-hospital-phone">
+      <li className={cn(onCallInsetHairline, onCallRowHeight.double, "flex min-w-0 items-center gap-3 pl-3 pr-1")}>
+        <span className="grid min-w-0 flex-1 gap-0.5">
+          <span
+            id="on-call-hospital-phone-label"
+            className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}
+          >
+            I&apos;m on a hospital phone
+          </span>
+          <span className={cn(onCallSecondaryText, "break-words")}>
+            Only on a hospital-issued phone that dials extensions
+          </span>
+        </span>
+        <ToggleSwitch enabled={on} onToggle={() => setOnCallHospitalPhone(!on)} aria-label="I'm on a hospital phone" />
+      </li>
+    </OnCallGroupedList>
+  );
+}
