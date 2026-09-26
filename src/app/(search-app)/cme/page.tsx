@@ -5,6 +5,7 @@ import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import type { CmeReportingReminder } from "@/components/cme/cme-dashboard";
 import { cmeReportingCloseDate } from "@/lib/cme/calendar-events";
 import { cpdYearOf, perthCalendarDate } from "@/lib/cme/cpd-year";
+import { groupDrafts } from "@/lib/cme/drafts";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
@@ -48,6 +49,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
   const requestedYear = query.year ? Number(query.year) : undefined;
   const data = await loadCmePageData(
     Number.isInteger(requestedYear) && requestedYear! >= 2000 && requestedYear! <= 2100 ? requestedYear : undefined,
+    { drafts: true },
   );
   if (data.state !== "ready") {
     return (
@@ -64,6 +66,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
       nowIso={data.now.toISOString()}
       routines={data.routines}
       demoMode={data.demoMode}
+      draftsToFinish={groupDrafts(data.drafts).nextAction.length}
     />
   );
 }

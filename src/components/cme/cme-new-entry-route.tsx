@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { WaitingOnControls, type WaitingOnValue } from "@/components/cme/cme-drafts-section";
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import type { CmeDraft, CmeDraftPayload } from "@/lib/cme/drafts";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
@@ -51,6 +53,8 @@ export function CmeNewEntryRoute({
   repeatOf,
   set,
   demoMode = false,
+  resumeDraft = null,
+  missedSessionId = null,
 }: {
   readonly learningPrefill?: import("@/lib/cme/learning-source").CmeLearningPrefill;
   readonly routine?: CmeRoutine | null;
@@ -63,50 +67,95 @@ export function CmeNewEntryRoute({
   readonly repeatOf?: CmeEntry | null;
   readonly set?: CmeRequirementSet | null;
   readonly demoMode?: boolean;
+  /** A saved draft being continued. Saving the activity deletes it; saving as draft updates it. */
+  readonly resumeDraft?: CmeDraft | null;
+  /** A missed session this activity replaces; the save links the two. */
+  readonly missedSessionId?: string | null;
 }) {
   const router = useRouter();
   const [requestId] = useState(() => crypto.randomUUID());
+  const [waiting, setWaiting] = useState<WaitingOnValue>({
+    waitingOn: resumeDraft?.waitingOn ?? null,
+    waitingNote: resumeDraft?.waitingNote ?? "",
+    followUpOn: resumeDraft?.followUpOn ?? "",
+  });
   const domains =
     set?.requirements.flatMap((requirement) =>
       requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
     ) ?? [];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" });
   const initialDate = set && !today.startsWith(`${set.year}-`) ? `${set.year}-01-01` : today;
-  const initialEntry = repeatOf
+  const initialEntry = resumeDraft
     ? {
+        // The draft's own fields fill the form after mount (see `initialDraft`).
         date: initialDate,
-        title: repeatOf.title,
-        sourceUrl: repeatOf.sourceUrl ?? null,
-        allocations: repeatOf.allocations,
+        title: "",
+        sourceUrl: null,
+        allocations: [],
         reflection: "",
         costCents: null,
-        routineId: repeatOf.routineId,
-        documentId: repeatOf.documentId,
-        buckets: repeatOf.buckets,
-        formalPeerReviewHours: repeatOf.formalPeerReviewHours ?? 0,
-      }
-    : {
-        date: initialDate,
-        title: routine?.title ?? learningPrefill?.title ?? "",
-        sourceUrl: learningPrefill?.sourceUrl ?? null,
-        allocations: routine?.usualAllocations ?? [],
-        reflection: "",
-        costCents: null,
-        routineId: routine?.id ?? null,
-        documentId: null,
+        routineId: resumeDraft.payload.routineId,
+        documentId: resumeDraft.payload.documentId,
         buckets: [],
         formalPeerReviewHours: 0,
-      };
+      }
+    : repeatOf
+      ? {
+          date: initialDate,
+          title: repeatOf.title,
+          sourceUrl: repeatOf.sourceUrl ?? null,
+          allocations: repeatOf.allocations,
+          reflection: "",
+          costCents: null,
+          routineId: repeatOf.routineId,
+          documentId: repeatOf.documentId,
+          buckets: repeatOf.buckets,
+          formalPeerReviewHours: repeatOf.formalPeerReviewHours ?? 0,
+        }
+      : {
+          date: initialDate,
+          title: routine?.title ?? learningPrefill?.title ?? "",
+          sourceUrl: learningPrefill?.sourceUrl ?? null,
+          allocations: routine?.usualAllocations ?? [],
+          reflection: "",
+          costCents: null,
+          routineId: routine?.id ?? null,
+          documentId: null,
+          buckets: [],
+          formalPeerReviewHours: 0,
+        };
 
   async function saveEntry(entry: CmeEntryDraft) {
     if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
     const response = await fetch("/api/cme/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...entry, requestId }),
+      body: JSON.stringify({
+        ...entry,
+        requestId,
+        ...(resumeDraft ? { draftId: resumeDraft.id } : {}),
+        ...(missedSessionId ? { missedSessionId } : {}),
+      }),
     });
     if (!response.ok) throw new Error(await entrySaveError(response));
     router.push(`/cme/log?year=${entry.date.slice(0, 4)}&saved=1`);
+    router.refresh();
+  }
+
+  async function saveDraft(payload: CmeDraftPayload) {
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save drafts to your private CME record.");
+    const response = await fetch(resumeDraft ? `/api/cme/drafts/${resumeDraft.id}` : "/api/cme/drafts", {
+      method: resumeDraft ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        payload,
+        waitingOn: waiting.waitingOn,
+        waitingNote: waiting.waitingOn && waiting.waitingNote.trim() ? waiting.waitingNote.trim() : null,
+        followUpOn: waiting.waitingOn && waiting.followUpOn ? waiting.followUpOn : null,
+      }),
+    });
+    if (!response.ok) throw new Error(await entrySaveError(response));
+    router.push("/cme/log#cme-drafts");
     router.refresh();
   }
 
@@ -122,6 +171,11 @@ export function CmeNewEntryRoute({
         <p data-testid="cme-entry-repeat-notice" className={cn(textMuted, "mt-3 text-sm")}>
           Copied from an earlier entry and dated today. Check the date and hours, and write this occasion&apos;s own
           reflection, before saving.
+        </p>
+      ) : null}
+      {resumeDraft ? (
+        <p data-testid="cme-entry-resume-notice" className={cn(textMuted, "mt-3 text-sm")}>
+          Continuing a saved draft. Saving the activity removes the draft; saving as draft again keeps your changes.
         </p>
       ) : null}
       {learningPrefill?.title || learningPrefill?.sourceUrl ? (
@@ -144,7 +198,19 @@ export function CmeNewEntryRoute({
           initialEntry={initialEntry}
           initialStatedHours={repeatOf ? undefined : routine?.usualHours}
           availableDomains={domains}
-          draftStorageKey={CME_NEW_ENTRY_DRAFT_KEY}
+          // A continued account draft is not also mirrored to this tab's storage.
+          draftStorageKey={resumeDraft ? undefined : CME_NEW_ENTRY_DRAFT_KEY}
+          initialDraft={resumeDraft?.payload}
+          onSaveDraft={demoMode ? undefined : saveDraft}
+          draftControls={
+            <WaitingOnControls
+              idPrefix="cme-entry-draft"
+              value={waiting}
+              onWaitingOnChange={(waitingOn) => setWaiting((current) => ({ ...current, waitingOn }))}
+              onWaitingNoteChange={(waitingNote) => setWaiting((current) => ({ ...current, waitingNote }))}
+              onFollowUpOnChange={(followUpOn) => setWaiting((current) => ({ ...current, followUpOn }))}
+            />
+          }
         />
       </div>
     </main>

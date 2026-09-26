@@ -25,7 +25,7 @@ export default async function CmeLogRoute({
   const requestedYear = query.year ? Number(query.year) : undefined;
   const data = await loadCmePageData(
     Number.isInteger(requestedYear) && requestedYear! >= 2000 && requestedYear! <= 2100 ? requestedYear : undefined,
-    { includeArchived: true },
+    { includeArchived: true, drafts: true, missedSessions: true },
   );
   if (data.state === "signed-out" || data.state === "unavailable") {
     return (
@@ -45,6 +45,9 @@ export default async function CmeLogRoute({
       justSaved={query.saved === "1"}
       initialAttention={initialAttention}
       demoMode={data.demoMode}
+      drafts={data.drafts}
+      missedSessions={data.missedSessions}
+      recordsFailed={data.recordsFailed}
     />
   );
 }
