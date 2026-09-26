@@ -3,17 +3,6 @@ import { COVERAGE_INCLUDE_GLOBS } from "./scripts/coverage-contract.mjs";
 
 const liveProviderTests = process.env.ALLOW_PROVIDER_TESTS === "true";
 
-// The caring-contact database suites need a real Postgres, named by CARING_CONTACTS_DATABASE_URL.
-// They live in their own project so the default offline `npm run test` never collects them, and
-// they are reached through `npm run caring-contacts:db:test`, which fails loudly (naming the
-// variable) rather than skipping when no database is configured.
-const caringContactsDatabaseUrl = (process.env.CARING_CONTACTS_DATABASE_URL ?? "").trim();
-const caringContactsDbTests = caringContactsDatabaseUrl !== "";
-const caringContactsDbTestFiles = [
-  "tests/caring-contacts-migrations.test.ts",
-  "tests/caring-contacts-postgres-repository.test.ts",
-];
-
 const config = {
   // Codex worktrees commonly share node_modules through a junction. Keep Vite's
   // transform cache outside that shared dependency tree and unique per worktree.
@@ -116,11 +105,7 @@ const config = {
           name: "node",
           environment: "node",
           include: liveProviderTests ? ["tests/**/*.live.test.ts"] : ["tests/**/*.test.ts"],
-          // The database suites are excluded unconditionally: they are collected only by the
-          // `caring-contacts-db` project below, so the offline node suite stays offline.
-          exclude: liveProviderTests
-            ? [...caringContactsDbTestFiles]
-            : ["tests/**/*.live.test.ts", ...caringContactsDbTestFiles],
+          exclude: liveProviderTests ? [] : ["tests/**/*.live.test.ts"],
         },
       },
       ...(!liveProviderTests
@@ -135,25 +120,6 @@ const config = {
                 environment: "jsdom",
                 include: ["tests/**/*.dom.test.tsx"],
                 setupFiles: ["tests/setup/jsdom.setup.ts"],
-              },
-            },
-          ]
-        : []),
-      ...(caringContactsDbTests
-        ? [
-            {
-              extends: true,
-              test: {
-                // Caring-contact schema, row-level security, and the Postgres store driven through
-                // the same contract suite as the in-memory one. Present only when a database is
-                // configured; `npm run caring-contacts:db:test` refuses to run without one.
-                name: "caring-contacts-db",
-                environment: "node",
-                include: [...caringContactsDbTestFiles],
-                // One database, one schema: parallel files would truncate each other's rows.
-                fileParallelism: false,
-                testTimeout: 60_000,
-                hookTimeout: 60_000,
               },
             },
           ]

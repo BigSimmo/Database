@@ -35,8 +35,7 @@ describe("pull-request classification of tenancy and privacy paths", () => {
   });
 
   it.each([
-    ["src/lib/caring-contacts/db/postgres-repository.ts", "patient records and retention"],
-    ["src/lib/caring-contacts-server/session.ts", "who the workspace believes you are"],
+    ["src/lib/caring-contacts/clock.ts", "the clock the Mental Health Act timeline reads"],
     ["src/lib/supabase/admin.ts", "holds the service-role key"],
     ["src/lib/on-call/repository.ts", "hides personal entries from other users"],
   ])("keeps %s clinical risk (%s)", (path) => {

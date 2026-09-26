@@ -285,7 +285,7 @@ describe("issues report", () => {
     }
   });
 
-  it("separates Ward Flow and core repository tasks with ward, core, and query filters", () => {
+  it("narrows the report with a query filter", () => {
     const markdown = [
       "# Outstanding",
       "<!-- issues:next-id=10 -->",
@@ -293,28 +293,18 @@ describe("issues report", () => {
       "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
       "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
       "| 1 | `#001` | A2 | Standard | Next | 1 hour | Core repo task outcome |",
-      "| 2 | `#002` | A3 | Standard | Next | 2 hours | Ward Flow: screen feature outcome |",
+      "| 2 | `#002` | A3 | Standard | Next | 2 hours | Prototype: screen feature outcome |",
       "## Open items",
       "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
       "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
       "| #001 | P2 | task | Infrastructure fix | Core details | src | 2026-01-01 |",
-      "| #002 | P3 | task | Ward Flow: role screens | Ward screen details | src | 2026-01-01 |",
-      "| #003 | P3 | rec | Ward Flow: roadmap enhancement | Enhancement details | src | 2026-01-01 |",
+      "| #002 | P3 | task | Prototype: role screens | Screen details | src | 2026-01-01 |",
+      "| #003 | P3 | rec | Prototype: roadmap enhancement | Enhancement details | src | 2026-01-01 |",
       "## Resolved / archive",
       "| ID | Type | Summary | Outcome | Resolved |",
       "| ---- | ---- | ---- | ---- | ---- |",
       "| #004 | task | old | done | 2026-01-01 |",
     ].join("\n");
-
-    const wardReport = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true }, { ward: true });
-    expect(wardReport.counts).toEqual({ open: 2, recommended: 1 });
-    expect(wardReport.open.map((r: { id: string }) => r.id)).toEqual(["#002", "#003"]);
-    expect(wardReport.recommended.map((r: { ids: string[] }) => r.ids[0])).toEqual(["#002"]);
-
-    const coreReport = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true }, { core: true });
-    expect(coreReport.counts).toEqual({ open: 1, recommended: 1 });
-    expect(coreReport.open.map((r: { id: string }) => r.id)).toEqual(["#001"]);
-    expect(coreReport.recommended.map((r: { ids: string[] }) => r.ids[0])).toEqual(["#001"]);
 
     const queryReport = buildIssuesReport(
       markdown,
@@ -418,42 +408,27 @@ describe("issues report", () => {
   });
 
   it("validates CLI argument parsing and rejects malformed or missing --filter values", () => {
-    expect(parseCliArgs(["--json", "--ward"])).toEqual({
+    expect(parseCliArgs(["--json", "--agent-safe-wins"])).toEqual({
       json: true,
-      winsOnly: false,
-      ward: true,
-      core: false,
-      filter: undefined,
-    });
-
-    expect(parseCliArgs(["--core", "--agent-safe-wins"])).toEqual({
-      json: false,
       winsOnly: true,
-      ward: false,
-      core: true,
       filter: undefined,
     });
 
     expect(parseCliArgs(["--filter", "myterm", "--json"])).toEqual({
       json: true,
       winsOnly: false,
-      ward: false,
-      core: false,
       filter: "myterm",
     });
 
     expect(parseCliArgs(["--filter=myterm"])).toEqual({
       json: false,
       winsOnly: false,
-      ward: false,
-      core: false,
       filter: "myterm",
     });
 
     expect(() => parseCliArgs(["--filter", "--json"])).toThrow("Option '--filter' requires a non-empty value");
     expect(() => parseCliArgs(["--filter"])).toThrow("Option '--filter' requires a non-empty value");
     expect(() => parseCliArgs(["--filter="])).toThrow("Option '--filter' requires a non-empty value");
-    expect(() => parseCliArgs(["--ward", "--core"])).toThrow("Cannot specify both --ward and --core");
     expect(() => parseCliArgs(["--unknown"])).toThrow("Unknown option: --unknown");
   });
 });

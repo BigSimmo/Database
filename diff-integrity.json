@@ -8,35 +8,35 @@
       "path": "tests/gate-arbiter.test.ts",
       "before": 42,
       "after": 0,
-      "reason": "Whole-file deletion: scripts/gate-arbiter.mjs itself was deleted \u2014 owner-approved governance cut 2026-09-17.",
+      "reason": "Whole-file deletion: scripts/gate-arbiter.mjs itself was deleted — owner-approved governance cut 2026-09-17.",
       "approvedOn": "2026-09-17"
     },
     {
       "path": "tests/bare-pr-publication-policy.test.ts",
       "before": 4,
       "after": 2,
-      "reason": "Removed two assertions pinning exact AGENTS.md prose sentences rather than executable behaviour \u2014 owner-approved governance cut 2026-09-17.",
+      "reason": "Removed two assertions pinning exact AGENTS.md prose sentences rather than executable behaviour — owner-approved governance cut 2026-09-17.",
       "approvedOn": "2026-09-17"
     },
     {
       "path": "tests/pr-handoff-stop.test.ts",
       "before": 23,
       "after": 15,
-      "reason": "Rewrote the suite for the simplified CronCreate-only hook: removed budget/epoch tests, added an old-marker-still-denies regression \u2014 owner-approved governance cut 2026-09-17.",
+      "reason": "Rewrote the suite for the simplified CronCreate-only hook: removed budget/epoch tests, added an old-marker-still-denies regression — owner-approved governance cut 2026-09-17.",
       "approvedOn": "2026-09-17"
     },
     {
       "path": "tests/browser-test-plan.test.ts",
       "before": 37,
       "after": 36,
-      "reason": "Removed one test asserting gate-arbiter.mjs internals (NARROWED_GATES) that no longer exist \u2014 owner-approved governance cut 2026-09-17.",
+      "reason": "Removed one test asserting gate-arbiter.mjs internals (NARROWED_GATES) that no longer exist — owner-approved governance cut 2026-09-17.",
       "approvedOn": "2026-09-17"
     },
     {
       "path": "tests/repository-skill-inventory.test.ts",
       "before": 2,
       "after": 1,
-      "reason": "Removed one assertion pinning exact command text in a SKILL.md rather than executable behaviour \u2014 owner-approved governance cut 2026-09-17.",
+      "reason": "Removed one assertion pinning exact command text in a SKILL.md rather than executable behaviour — owner-approved governance cut 2026-09-17.",
       "approvedOn": "2026-09-17"
     },
     {
@@ -57,7 +57,7 @@
       "path": "tests/sources-mode.dom.test.tsx",
       "before": 28,
       "after": 24,
-      "reason": "The four `Sources home` cases rendered SourcesHomeClient, the component this change deletes: /sources joined consolidatedModeHomePaths, so its bare path now forwards to the shared home at /?mode=sources instead of rendering a four-card home of its own. Coverage was RE-POINTED, not dropped, and each of the four was checked to a live pin before it was removed. (1) The hero-copy case asserted the title and subtitle, which came from sharedHomePresentation.sources and are asserted against that same source by tests/shared-home-empty-state.dom.test.tsx and tests/ui-copy.test.ts; the shared home renders them for Sources through the identical lookup. (2) The composer-slot case is obsolete rather than moved: it existed because /sources was registered in standaloneModeHomePaths with a hero placement while rendering the catalogue, which mounts no slot, so the shell portalled its search field at a host that did not exist. This change removes /sources from that list, so no hero slot is claimed at that path and there is nothing left to assert. (3) The four-destination case is pinned better than it was: the same four hrefs are the Sources entry of modeSecondaryNavigationRegistry, walked by tests/route-reachability.test.ts's builderTargets and by the mode-nav contract, so they are now proved reachable from the registry that actually renders them rather than from a card list that duplicated it. (4) The suggested-search case moved into the retargeted /sources describe in tests/consolidated-mode-home-redirect.test.ts, which asserts appModeHomeHref('sources', {query, run}) resolves to /sources/search and that the bare path never renders. The user-visible route into the catalogue that the cards used to provide is now the shared home's ShowAllChip, pinned by a new case in tests/ui-sources.spec.ts. NOTE: 4 of 28 is 14%, well under this file's 50% per-file ceiling and the 25% aggregate, so check:diff-integrity would never have demanded this entry \u2014 measured, not assumed: the gate prints `OK  tests/sources-mode.dom.test.tsx  28 -> 24` and PASS with or without it. It is a record, on the convention the two entries above set for themselves: a retirement that leaves no trace is indistinguishable from a deletion nobody noticed, which is the failure this array exists to prevent. The numbers are exact so it would carry the file if the ceiling were ever crossed, and so no reader is told this was gate-approved when it was merely under threshold.",
+      "reason": "The four `Sources home` cases rendered SourcesHomeClient, the component this change deletes: /sources joined consolidatedModeHomePaths, so its bare path now forwards to the shared home at /?mode=sources instead of rendering a four-card home of its own. Coverage was RE-POINTED, not dropped, and each of the four was checked to a live pin before it was removed. (1) The hero-copy case asserted the title and subtitle, which came from sharedHomePresentation.sources and are asserted against that same source by tests/shared-home-empty-state.dom.test.tsx and tests/ui-copy.test.ts; the shared home renders them for Sources through the identical lookup. (2) The composer-slot case is obsolete rather than moved: it existed because /sources was registered in standaloneModeHomePaths with a hero placement while rendering the catalogue, which mounts no slot, so the shell portalled its search field at a host that did not exist. This change removes /sources from that list, so no hero slot is claimed at that path and there is nothing left to assert. (3) The four-destination case is pinned better than it was: the same four hrefs are the Sources entry of modeSecondaryNavigationRegistry, walked by tests/route-reachability.test.ts's builderTargets and by the mode-nav contract, so they are now proved reachable from the registry that actually renders them rather than from a card list that duplicated it. (4) The suggested-search case moved into the retargeted /sources describe in tests/consolidated-mode-home-redirect.test.ts, which asserts appModeHomeHref('sources', {query, run}) resolves to /sources/search and that the bare path never renders. The user-visible route into the catalogue that the cards used to provide is now the shared home's ShowAllChip, pinned by a new case in tests/ui-sources.spec.ts. NOTE: 4 of 28 is 14%, well under this file's 50% per-file ceiling and the 25% aggregate, so check:diff-integrity would never have demanded this entry — measured, not assumed: the gate prints `OK  tests/sources-mode.dom.test.tsx  28 -> 24` and PASS with or without it. It is a record, on the convention the two entries above set for themselves: a retirement that leaves no trace is indistinguishable from a deletion nobody noticed, which is the failure this array exists to prevent. The numbers are exact so it would carry the file if the ceiling were ever crossed, and so no reader is told this was gate-approved when it was merely under threshold.",
       "approvedOn": "2026-09-06"
     },
     {
@@ -120,7 +120,2814 @@
       "path": "tests/ingestion-edge-function-auth.test.ts",
       "before": 4,
       "after": 0,
-      "reason": "Whole-file deletion: supabase/functions/ingestion-worker (retired, refused every call) was itself deleted after its RPC was dropped in 20260926041000 \u2014 owner-approved follow-up 2026-09-26.",
+      "reason": "Whole-file deletion: supabase/functions/ingestion-worker (retired, refused every call) was itself deleted after its RPC was dropped in 20260926041000 — owner-approved follow-up 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "docs/ward-flow/control/evidence/artifacts/ward-board/03787166a99a5540-c548949b8e6e3b7fb4b1d180aa49cd7ad4328f781fa131340d05af0556b5fc85-.tmp-clock-probe.test.ts",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "docs/ward-flow/control/evidence/artifacts/working-line/c351177f2ead1e58-7653616acac3b2ee375f3369552ed14c48a3bfc366ae4e8bc55755c247357f40-ward-change-reasons.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contact-linked-routes.dom.test.tsx",
+      "before": 17,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contact-mockups.dom.test.tsx",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contact-product-redesign.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contact-prototype-state.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contact-route-files.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-access-audit.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-api-handler.test.ts",
+      "before": 40,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-assignment.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-audit.test.ts",
+      "before": 24,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-caseload-query.test.ts",
+      "before": 13,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-contact-rescheduling.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-contact-route.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-contact-time-adjustment.dom.test.tsx",
+      "before": 17,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-demo-clock.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-demo-seed.test.ts",
+      "before": 17,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-domain-isolation.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-draft-store.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-duration-display.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-empty-state.dom.test.tsx",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-explained-automation.dom.test.tsx",
+      "before": 28,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-fingerprint.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-guidance-reports-pages.dom.test.tsx",
+      "before": 20,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-hospital-events.test.ts",
+      "before": 27,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-intake-payload.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-interface-vocabulary.test.ts",
+      "before": 23,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-manual-intake.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-message-body-chokepoint.test.ts",
+      "before": 9,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-message-copy.test.ts",
+      "before": 28,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-message-policy.test.ts",
+      "before": 64,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-migrations.test.ts",
+      "before": 75,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-mockup-prototype-resume.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-model.test.ts",
+      "before": 21,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-new-plan-page.dom.test.tsx",
+      "before": 14,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-notification-preferences.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-overlay-definitions.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-overlay-host.dom.test.tsx",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-overlay-trigger-inventory.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-overlay-trigger.dom.test.tsx",
+      "before": 28,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-page-access-audit.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-pathway-versions.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-patient-overview.dom.test.tsx",
+      "before": 83,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-patients-directory.dom.test.tsx",
+      "before": 41,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-patients-page.dom.test.tsx",
+      "before": 22,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-permissions.test.ts",
+      "before": 52,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-pilot-governance.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-plan-activation.test.ts",
+      "before": 30,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-plan-draft.dom.test.tsx",
+      "before": 27,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-plan-patient-detail.test.ts",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-plan-store.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-plan-wizard.dom.test.tsx",
+      "before": 89,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-plans.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-postgres-repository.test.ts",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-referral-ingestion.test.ts",
+      "before": 13,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-referrals.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-reporting.test.ts",
+      "before": 24,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-retention.test.ts",
+      "before": 36,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-retry-queue.test.ts",
+      "before": 13,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-schedule-page.dom.test.tsx",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-schedule-route.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-schedule-screen.dom.test.tsx",
+      "before": 21,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-schedule-view.test.ts",
+      "before": 26,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-schedule.test.ts",
+      "before": 30,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-search-privacy.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-server-config.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-server-pool.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-server-store.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-service-state.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-session.test.ts",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-simulation.test.ts",
+      "before": 32,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-team-page.dom.test.tsx",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-team-roster.dom.test.tsx",
+      "before": 33,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-team-route.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-team-workload.test.ts",
+      "before": 26,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-template-detail-page.dom.test.tsx",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-template-detail.dom.test.tsx",
+      "before": 29,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-templates-library.dom.test.tsx",
+      "before": 26,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-templates-page.dom.test.tsx",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-today-dashboard.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-training.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-width-state.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-wizard.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-workspace-screens.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-workspace-shell.dom.test.tsx",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/caring-contacts-write-serialisation.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ci-cache-safety.test.ts",
+      "before": 72,
+      "after": 69,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/design-system-adoption.test.ts",
+      "before": 34,
+      "after": 33,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/developer-hazards-page.dom.test.tsx",
+      "before": 7,
+      "after": 6,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/developer-hub-panels.test.ts",
+      "before": 22,
+      "after": 20,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/hazard-register.test.ts",
+      "before": 23,
+      "after": 22,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/instrumentation.test.ts",
+      "before": 23,
+      "after": 12,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/mockup-utility-emission.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/patient-profile-storage-account-transitions.dom.test.tsx",
+      "before": 11,
+      "after": 10,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/playwright-project-isolation.test.ts",
+      "before": 18,
+      "after": 13,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/pressure-strip.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/proxy.test.ts",
+      "before": 34,
+      "after": 31,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/route-reachability.test.ts",
+      "before": 8,
+      "after": 7,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/run-vitest-caring-contacts.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/scratch_debug_elig.test.ts",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/supabase-project.test.ts",
+      "before": 11,
+      "after": 9,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/tools-catalog.test.ts",
+      "before": 16,
+      "after": 12,
+      "reason": "Removed only the cases that tested the retired Ward Flow / Caring Contacts features; every other case kept. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/tracker-derivations.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-caring-contact-mockup.spec.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-caring-contacts-activation.spec.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-caring-contacts-populated.spec.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-caring-contacts-workspace.spec.ts",
+      "before": 74,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-coordinator.spec.ts",
+      "before": 22,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-discharges.spec.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-forced-colors.spec.ts",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-management.spec.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-morning.spec.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-referrals.spec.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-roles.spec.ts",
+      "before": 21,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-search.spec.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-statistics-compare.spec.ts",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ui-ward-table-thresholds.spec.ts",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/use-dirty-state-guard.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-add-patient.dom.test.tsx",
+      "before": 23,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-admission-model.test.ts",
+      "before": 37,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-admissions-seed.test.ts",
+      "before": 25,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-away-at-emergency-department.test.ts",
+      "before": 9,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bar-fill-only-edges.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bar-zero-is-reachable.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bar.dom.test.tsx",
+      "before": 9,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bed-availability-model.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bed-availability.test.ts",
+      "before": 17,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bed-designation-fixture.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bed-designation.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bed-release-lifecycle.test.ts",
+      "before": 28,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-bed-release.dom.test.tsx",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-consistency.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-derivations.test.ts",
+      "before": 24,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-discharge.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-live-state.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-page.dom.test.tsx",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-people-panel.dom.test.tsx",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-selection.dom.test.tsx",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-tile-labels-distinct.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-board-triage.dom.test.tsx",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-book-transport.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-capacity-derivations.test.ts",
+      "before": 20,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-capacity-figure-one-word.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-capacity-freshness-source.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-capacity-reconciliation.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-capacity-screen.dom.test.tsx",
+      "before": 18,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-capacity-sexmix-release.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-capacity-view.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-catchment.test.ts",
+      "before": 30,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-change-audit-enumeration.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-change-reasons.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-chip.dom.test.tsx",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-chrome-owner.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-clinical-rail-token-bridge.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-clock.test.ts",
+      "before": 19,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-collision-coverage.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-corrected-claims.test.ts",
+      "before": 29,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-demonstration-data.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-durations-not-dates.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-figures.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-gateway.dom.test.tsx",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-governance-claims.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-hub.dom.test.tsx",
+      "before": 37,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-hub.test.ts",
+      "before": 17,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-index.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-index.test.ts",
+      "before": 13,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-membership-resolution.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-near-duplicate-warning.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-ratified-alias-on-screen.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-ratified-aliases.test.ts",
+      "before": 9,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-ratified-provenance.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-referral-survives.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-scope.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-team-count.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-team-hub.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-team-single-source.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-teams-table.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-viewer-assumption.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-community-vocabulary.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-composes-targets.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-console-controls.dom.test.tsx",
+      "before": 35,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-contention.test.ts",
+      "before": 25,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-controls.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-coordinator-suburb.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-daily-sheet-placement.dom.test.tsx",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-daily-sheet.dom.test.tsx",
+      "before": 30,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-data-checker.test.ts",
+      "before": 41,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-delay-cause-vocabulary.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-delays-derivations.test.ts",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-delays-nobody-waiting.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-delays-screen.dom.test.tsx",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-derivations.test.ts",
+      "before": 26,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-design-language-canonical.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-design-language-contract.test.ts",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-device-claim-reason.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-discharge-blocked-emphasis.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-discharge-board.dom.test.tsx",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-discharge-column-contract.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-discharge-dates.test.ts",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-answered-cap.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-home-derivations.test.ts",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-home.dom.test.tsx",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-legal-clock.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-psychiatry-hub.dom.test.tsx",
+      "before": 39,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-referral-is-not-a-bed-request.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-screen.dom.test.tsx",
+      "before": 21,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-service-bands.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-transport-booking.dom.test.tsx",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-ed-withdraw-referral.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-eligibility.test.ts",
+      "before": 22,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-error-boundaries.dom.test.tsx",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-escalation.dom.test.tsx",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-escalation.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-event-permissions.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-event-reachability.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-expected-reds-comparison.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-expected-reds-manifest.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-figure.dom.test.tsx",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-chat-control.test.ts",
+      "before": 44,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-clock-consistency.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-contracts.test.ts",
+      "before": 21,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-data-boundary.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-diagram-status-truthfulness.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-potential-chip-migration.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-provider-server-determinism.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-provider.dom.test.tsx",
+      "before": 9,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-queue-selection.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-reducer.test.ts",
+      "before": 55,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-sandbox.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-seam.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-service-coverage.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-flow-single-source.test.ts",
+      "before": 16,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-forced-colors-tokens.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-freshness.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-governance-claims.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-governance-enumerations.dom.test.tsx",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-governance-thin-sample.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-governance.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-governance.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-guard-comment-blindness.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-handover-destination-truthfulness.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-handover-print.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-handover.dom.test.tsx",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-handover.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-informational-gates.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-instant-display.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-landmarks.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-leaving-destinations.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-legal-figure-guard.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-links-never-point-at-redirect-stubs.test.ts",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-locked-not-authorised.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-management-print-coverage.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-management-print.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-management-role.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-management-role.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-management.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-mode-workspace-reachability.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-model-phase3.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-model.test.ts",
+      "before": 25,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-morning-page.dom.test.tsx",
+      "before": 20,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-morning-print.test.ts",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-morning-rollup.test.ts",
+      "before": 23,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-morning-tour-paused.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-morning-tour.dom.test.tsx",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-absence-reachability.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-blocker.test.ts",
+      "before": 27,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-fixture-reducer-reachable.test.ts",
+      "before": 20,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-page-truthfulness.dom.test.tsx",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-referral-link.test.ts",
+      "before": 21,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-stage-changes.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-step-back-reducer.test.ts",
+      "before": 29,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movement-transport-need.test.ts",
+      "before": 9,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movements-derivations.test.ts",
+      "before": 27,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-movements-screen.dom.test.tsx",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-mutation-tooling.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-nav.test.ts",
+      "before": 34,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-near-patient-suggestions.test.ts",
+      "before": 20,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-network-cluster-header.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-network-queue-count.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-network-referral-clocks.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-network-referral-placement.dom.test.tsx",
+      "before": 17,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-network-stage-filter.dom.test.tsx",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-network-stage-strip.dom.test.tsx",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-no-control-characters.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-officer-blocked-reason-parity.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-origin-department-absence.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-out-of-area-figure-direction.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-out-of-area-live-state.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-override-control.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-override-register-render.dom.test.tsx",
+      "before": 13,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-override-register.test.ts",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-override-surfaces.test.ts",
+      "before": 19,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-panel.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-patient-model.test.ts",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-patient-page.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-patient-placement-fields.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-patient-search.dom.test.tsx",
+      "before": 21,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-patient-search.test.ts",
+      "before": 22,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-patient-sensitive-adjacency-css.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-patient-typeahead.dom.test.tsx",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-person-screen.dom.test.tsx",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-physical-facts-are-not-overridable.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-place-name-detector.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-place.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-pressure.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-primitives-shared.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-print-ink-specificity.test.ts",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-priority.test.ts",
+      "before": 23,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-prototype-disclosure.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-provider-initial-now.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-pull-admission-lifecycle.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-pull-readiness.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-pull-release-reasons.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-pull-vocabulary.dom.test.tsx",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-raw-colour.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-reanchor-single-application.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-reanchor.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-record-leaving.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-record-row.dom.test.tsx",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-refer-prior-decline-control.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-clocks.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-control-labels.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-decision-scope.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-destination-list-clears-legend.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-destinations.dom.test.tsx",
+      "before": 25,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-ed-destination-validation.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-ed-destination.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-kind-pair-gap.test.ts",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-match-hooks-order.dom.test.tsx",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-match-suburb.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-matching.test.ts",
+      "before": 35,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-model.test.ts",
+      "before": 49,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-producers.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-reducer.test.ts",
+      "before": 60,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-screen-boundary.test.ts",
+      "before": 14,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-screens.dom.test.tsx",
+      "before": 93,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-sex-absence-split.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-sex-cell.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-suburb-pin.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-suburb.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-visibility.test.ts",
+      "before": 72,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referral-wait-line.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-referrals-print.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-release-band-day-boundary.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-restriction-notice.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-role-switch-architecture.test.ts",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-role-switcher-signpost.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-route-component-binding.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-scenarios.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen-cancel-unavailable.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen-capacity-wording.dom.test.tsx",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen-eligibility-warning.dom.test.tsx",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen-eligibility-warning.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen-fd23-leaks.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen-overview-and-entry.dom.test.tsx",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen-refusal-surface.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-screen.dom.test.tsx",
+      "before": 14,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-seed-reaches-every-branch.test.ts",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-shell-mounted.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-shell-print-ancestor.test.ts",
+      "before": 12,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-shell.dom.test.tsx",
+      "before": 9,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-shortlist-candidates.test.ts",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-shortlist.dom.test.tsx",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-sidebar-phone-contract.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-sidebar.dom.test.tsx",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-specialling-capacity.test.ts",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-stage-reached-at.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-claims.test.ts",
+      "before": 19,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-compare-two-tables.dom.test.tsx",
+      "before": 17,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-derivations.test.ts",
+      "before": 44,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-discharge-date-populations.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-incoherent-gap.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-null-referral-id.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-number-agreement.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-overview-parked.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-primitives.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-published-precision.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-sections-are-regions.dom.test.tsx",
+      "before": 1,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-sections.dom.test.tsx",
+      "before": 26,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-sections.test.ts",
+      "before": 27,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics-ward-nulls.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics.dom.test.tsx",
+      "before": 50,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-statistics.test.ts",
+      "before": 20,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-status-colour-reach.test.ts",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-table-min-width.test.ts",
+      "before": 4,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-table-phone-swap.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-table-single-source.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-teams.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-test-discovery.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-token-layer.test.ts",
+      "before": 11,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-tracker-leg-badge.dom.test.tsx",
+      "before": 2,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-transport-cancel-permission.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-transport-page-name.test.ts",
+      "before": 7,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-traps-numbering.test.ts",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-travel-bands.test.ts",
+      "before": 13,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-travel-grouping.test.ts",
+      "before": 35,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-urgent-figure-flags.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-urgent-flag.dom.test.tsx",
+      "before": 3,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-urgent-flag.test.ts",
+      "before": 10,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-withdraw-referral.test.ts",
+      "before": 8,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
+      "approvedOn": "2026-09-26"
+    },
+    {
+      "path": "tests/ward-withdrawal-reason-privacy.test.ts",
+      "before": 15,
+      "after": 0,
+      "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
       "approvedOn": "2026-09-26"
     }
   ]

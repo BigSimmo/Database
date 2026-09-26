@@ -53,28 +53,12 @@ describe("developer hazard register page", () => {
     }
   });
 
-  it("states Ward Flow's missing register as a finding rather than an empty section", () => {
-    render(<DeveloperHazardsPage />);
-
-    const section = screen.getByTestId("developer-hazards-missing-ward-flow");
-    expect(section).toHaveTextContent(/no register exists/i);
-    expect(section).toHaveTextContent(/No hazard register has been written/i);
-    // The ledger rows beside it are explicitly disclaimed, so nobody reads them
-    // as the register.
-    expect(section).toHaveTextContent(/not a register/i);
-  });
-
   it("keeps each register's own authority sentence instead of one shared reassurance", () => {
     render(<DeveloperHazardsPage />);
 
     const psychsift = screen.getByTestId("developer-hazards-register-psychsift-answer-pipeline");
     expect(psychsift).toHaveTextContent(/Static evidence register only/i);
-
-    const caringContacts = screen.getByTestId("developer-hazards-register-caring-contacts");
-    expect(caringContacts).toHaveTextContent(/DRAFT — requires clinical sign-off/i);
-    expect(caringContacts).toHaveTextContent(/requires clinical sign-off by the owner before any real-patient use/i);
-    expect(caringContacts).toHaveTextContent(/nothing in it constitutes approval of a pilot/i);
-    expect(caringContacts).toHaveTextContent(/Not signed off by a clinician/i);
+    expect(psychsift).toHaveTextContent(/Not signed off by a clinician/i);
   });
 
   it("marks expired reviews from the render-time Australia/Perth date", () => {
@@ -86,12 +70,18 @@ describe("developer hazard register page", () => {
     expect(psychsift).toHaveTextContent("Review EXPIRED 2026-11-23.");
   });
 
-  it("describes two registers and the uncovered Ward Flow area without overstating coverage", () => {
+  it("describes the live register and the retired ones without overstating coverage", () => {
     render(<DeveloperHazardsPage />);
     const page = screen.getByTestId("developer-hazards");
 
-    expect(page).toHaveTextContent(/Three clinical areas: two registers and one area with no register/i);
+    expect(page).toHaveTextContent(/One clinical area has a live register/i);
     expect(page).not.toHaveTextContent(/Three separate registers/i);
+
+    // Retired registers are named with their status, never rendered as live registers.
+    const retired = screen.getByTestId("developer-hazards-retired");
+    expect(retired).toHaveTextContent(/Caring Contacts — retired 2026-09-26: draft never signed; retired/);
+    expect(retired).toHaveTextContent(/Ward Flow — retired 2026-09-26: no register ever written; retired/);
+    expect(screen.queryByTestId("developer-hazards-register-caring-contacts")).toBeNull();
   });
 
   it("renders every recorded hazard, so no row can be silently dropped from a register", () => {

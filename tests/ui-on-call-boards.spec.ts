@@ -108,9 +108,9 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   // staged orphan — and a strict locator fails on the pair rather than on
   // anything being wrong with the board. CI caught exactly that on the hub:
   // `on-call-home-sections` once inside `mobile-composer-reserve-pad`, once in
-  // the staging copy. Wait for the document to settle to ONE copy, as the ward
-  // journeys do, rather than relaxing the locators to `.first()` — that would
-  // leave them free to assert against the inert staged copy.
+  // the staging copy. Wait for the document to settle to ONE copy, as the
+  // retired Ward Flow journeys did, rather than relaxing the locators to
+  // `.first()` — that would leave them free to assert against the inert staged copy.
   await expect(
     page.locator('div[hidden][id^="S:"]'),
     "React's streamed content is still staged, so the whole page is duplicated in the document",
@@ -1023,9 +1023,9 @@ test.describe("The mode's own chrome, across the site's widths", () => {
     // arrives late has already been missed, and the page stays light forever.
     //
     // Firefox itself resolves dark correctly on this app: the twelve dark
-    // assertions in `ui-caring-contacts-workspace.spec.ts` pass on Firefox in
-    // the same runs where this one fails, and every one of them navigates
-    // first and switches afterwards. That is the pattern copied here, in
+    // assertions in the since-retired Caring Contacts workspace suite passed on
+    // Firefox in the same runs where this one failed, and every one of them
+    // navigated first and switched afterwards. That is the pattern copied here, in
     // preference to `test.use({ colorScheme })`, which nothing in this
     // repository has yet proved against Firefox.
     const hubBackground = async () => {

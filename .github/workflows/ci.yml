@@ -792,7 +792,7 @@ jobs:
   # would spend runners without shortening the critical path.
 
   # One isolated Next production build shared by PR UI Playwright lanes.
-  # Historically each of ui-critical-fast / ui-critical shards / ward journeys
+  # Historically each of ui-critical-fast / ui-critical shards
   # cold-built (~83% of UI wall clock). Build once here; consumers set
   # PLAYWRIGHT_REUSE_BUILD=true with the same PLAYWRIGHT_BUILD_ROOT_ID.
   ui-playwright-build:
@@ -903,8 +903,8 @@ jobs:
     # The browser lanes also wait for `static-pr`, and are skipped when it fails. Measured on
     # PR runs of 2026-09-25, static-pr and the Playwright build finish within seconds of each
     # other (5.2m/5.2m, 5.4m/5.3m, 4.4m/5.0m), so on a green run this waits for nothing. On a
-    # red one it stops about 30 runner-minutes of browser tests (three shards, the critical
-    # subset and the Ward Flow lane) from running against a head that already has to be pushed
+    # red one it stops about 30 runner-minutes of browser tests (three shards and the critical
+    # subset) from running against a head that already has to be pushed
     # again — a lint, typecheck, format, snapshot or contract failure. The browser verdict is
     # not lost, only deferred to the fixing push, which reruns every lane. `pr-required` stays
     # red on the static failure itself and reports these lanes as skipped-because-static.
@@ -985,69 +985,6 @@ jobs:
 
   # Quarantined production tests and mockup-only journeys share one advisory
   # install/server without weakening the required production-ui job above.
-  # The seven Ward Flow browser journeys, and this lane BLOCKS.
-  #
-  # They live in the `chromium-mockups` project, which `test:e2e:pr` excludes with
-  # `--grep-invert @mockup`, so the only other lane running them is `ui-advisory`
-  # below — and that carries `continue-on-error: true`. A broken ward journey was
-  # therefore executed, reported, and passed anyway; nothing in the repository could
-  # go red because of them. Not hypothetical: MERGE 01-03 (2026-09-05) turned five
-  # ward routes into redirect stubs, these journeys went red, and the drift sat
-  # unnoticed for a day because no required check could see it.
-  #
-  # They are kept separate from `ui-advisory` rather than by removing its
-  # `continue-on-error`, because that lane also runs `@quarantine` — tests that are
-  # quarantined precisely because they are flaky, and which must stay non-blocking.
-  # None of the seven is quarantined and all seven are tagged `@mockup`; checked
-  # against `tests/flake-ledger.json`, which holds one entry and it is not a ward spec.
-  #
-  # ENABLED 2026-09-06 by owner decision. Until then this job was gated behind
-  # `vars.WARD_JOURNEYS_BLOCKING`, a repository variable that was never set, so it
-  # always skipped. That gate existed for a real reason — an already-red lane made
-  # blocking stops every UI pull request in the REPOSITORY, a blast radius entirely
-  # outside Ward Flow — and it was to be lifted only with a green run in hand. That
-  # run: `npm run test:e2e:ward-journeys` at 42c4dec, `3 skipped, 71 passed`. The
-  # three skips are the parked morning-page pair (see `tests/ui-ward-morning.spec.ts`)
-  # and one inconclusive forced-colours probe; none is a failure.
-  #
-  # ⚠️ The `pr-required` aggregate carries the matching `require_success` entry and
-  # its condition mirrors this `if:` exactly. The two have to move together; a future
-  # edit to one is an edit to both.
-  ui-ward-journeys:
-    name: Ward Flow browser journeys
-    # Also waits for static-pr: see the note on ui-critical above.
-    needs: [changes, static-pr, ui-playwright-build]
-    if: >
-      needs.changes.outputs.ui_changed == 'true' &&
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
-      github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
-
-      - name: Download shared Playwright Next build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: playwright-next-build-${{ github.run_id }}
-          path: .next-playwright/ci-${{ github.run_id }}
-
-      - name: Ward Flow journeys (blocking)
-        env:
-          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
-          PLAYWRIGHT_REUSE_BUILD: "true"
-        run: npm run test:e2e:ward-journeys
-
-      - name: Classify exact failed test identities
-        if: failure()
-        run: node scripts/classify-playwright-failures.mjs
-
   ui-advisory:
     name: Advisory UI
     needs: changes
@@ -1479,43 +1416,6 @@ jobs:
             | sort -u \
             | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
 
-  caring-contacts-db:
-    name: Caring Contacts database
-    needs: changes
-    if: >
-      (needs.changes.outputs.db_changed == 'true' ||
-       needs.changes.outputs.static_heavy_changed == 'true') &&
-      github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449
-        env:
-          # This database exists only for this isolated runner job. Trust auth
-          # avoids committing a credential-shaped test literal.
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 54329:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Run Caring Contacts Database & RLS Tests
-        env:
-          CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres
-        run: npm run caring-contacts:db:test
-
   pr-required:
     name: PR required
     needs:
@@ -1530,10 +1430,8 @@ jobs:
         ui-playwright-build,
         ui-critical-fast,
         ui-critical,
-        ui-ward-journeys,
         lighthouse-budget,
         db-reset-verify,
-        caring-contacts-db,
       ]
     # #095: keep `if: always()` — a skipped required check counts as PASSING
     # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
@@ -1571,10 +1469,8 @@ jobs:
           UI_BUILD_RESULT: ${{ needs.ui-playwright-build.result }}
           UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
-          WARD_JOURNEYS_RESULT: ${{ needs.ui-ward-journeys.result }}
           LIGHTHOUSE_RESULT: ${{ needs.lighthouse-budget.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
-          CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}
         run: |
           set -euo pipefail
 
@@ -1636,15 +1532,15 @@ jobs:
           require_success "changes" "$CHANGES_RESULT"
           require_success "static-pr" "$STATIC_RESULT"
 
-          # The browser lanes (production-ui-critical, production-ui, ward-flow-journeys) need
+          # The browser lanes (production-ui-critical, production-ui) need
           # static-pr, so GitHub skips them whenever static-pr did not succeed. That failure is
           # already recorded just above and keeps this aggregate red, so their skip is accepted
-          # here rather than reported as three more "result was skipped" failures that describe
+          # here rather than reported as two more "result was skipped" failures that describe
           # nothing about the diff. Any lane that did run and failed is still recorded as a failure.
           static_blocked=false
           if [ "$STATIC_RESULT" != "success" ]; then static_blocked=true; fi
 
-          # safety/coverage/build/ui-critical*/db-reset-verify/caring-contacts-db additionally skip on draft PRs
+          # safety/coverage/build/ui-critical*/db-reset-verify additionally skip on draft PRs
           # (see their own job `if:` conditions) to stop draft pushes from booking a full heavy
           # CI matrix. PR_DRAFT is folded into the same "was this job in scope" check as the
           # *_CHANGED flags so a draft PR reports skipped-and-fine here instead of a false
@@ -1703,23 +1599,6 @@ jobs:
             require_skipped_or_success "production-ui" "$UI_RESULT"
           fi
 
-          # The seven Ward Flow browser journeys. Required here as well as blocking in their own
-          # job: without an entry in this aggregate a failing lane is reported and merged past,
-          # which is the same hole `continue-on-error: true` left. Gated to match that job's own
-          # `if:` exactly — pull_request|merge_group, ui_changed, not draft — so an out-of-scope run reports
-          # skipped-and-fine rather than a false "result was skipped" failure.
-          # ⚠️ This mirrors the job's own `if:` exactly. The two conditions have to move together;
-          # a future edit to one is an edit to both. Both carried a leading
-          # `WARD_JOURNEYS_BLOCKING` term until 2026-09-06, when the lane was enabled and the term
-          # was dropped from both in one commit — see that job's own comment for the green run it
-          # was lifted against.
-          # The static_blocked term mirrors the job's `needs: static-pr`, as above.
-          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && [ "$static_blocked" != "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
-            require_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
-          else
-            require_skipped_or_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
-          fi
-
           # Mirror lighthouse-budget's own `if:` for PR/merge_group: when perf is in
           # scope (or opt-in label) and skip label is absent, require success. The skip
           # label remains an explicit escape hatch. Drafts without the opt-in label stay
@@ -1738,12 +1617,6 @@ jobs:
             require_success "db-reset-verify" "$DB_RESULT"
           else
             require_skipped_or_success "db-reset-verify" "$DB_RESULT"
-          fi
-
-          if { [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; } && [ "$PR_DRAFT" != "true" ]; then
-            require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
-          else
-            require_skipped_or_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
           fi
 
           # A real break is always the headline. Every failure is listed, not just the first, and a
@@ -1790,7 +1663,7 @@ jobs:
             if [ "$COVERAGE_CHANGED" = "true" ]; then draft_suppressed+=("coverage"); fi
             if [ "$BUILD_CHANGED" = "true" ]; then draft_suppressed+=("build"); fi
             if [ "$UI_CHANGED" = "true" ]; then
-              draft_suppressed+=("production-ui-critical" "production-ui" "ward-flow-journeys")
+              draft_suppressed+=("production-ui-critical" "production-ui")
             fi
             # Mirrors lighthouse-budget's own `if:`. Its schedule/workflow_dispatch arms cannot
             # fire on a pull_request, and its push+lockfile arm needs `event_name == push`, so on
@@ -1809,9 +1682,6 @@ jobs:
               draft_suppressed+=("lighthouse-budget")
             fi
             if [ "$DB_CHANGED" = "true" ]; then draft_suppressed+=("db-reset-verify"); fi
-            if [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
-              draft_suppressed+=("caring-contacts-db")
-            fi
             if [ ${#draft_suppressed[@]} -gt 0 ]; then
               echo "::warning title=Draft PR - heavy scope did not run::In scope for this diff but" \
                 "NOT run, because the PR is a draft: ${draft_suppressed[*]}. A green 'PR required'" \
@@ -1994,7 +1864,7 @@ jobs:
             # Fail-safe path for perf/lockfile-only or otherwise skipped UI proof:
             # this is where the complete project set has to be accounted for.
             case "$ENGINE" in
-              chromium) PROJECTS="--project=chromium --project=chromium-mockups --project=chromium-caring-contacts-seeded" ;;
+              chromium) PROJECTS="--project=chromium --project=chromium-mockups" ;;
               firefox)  PROJECTS="--project=firefox" ;;
               webkit)   PROJECTS="--project=$BROWSER_PROJECT" ;;
               *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;

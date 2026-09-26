@@ -37,29 +37,7 @@ const routeSmokePaths = [
   "/documents/search?mode=documents",
   "/forms/transport-crisis-form",
 ];
-/**
- * The Playwright project whose journeys need a POPULATED Caring Contacts store.
- *
- * `demoSeedRequested()` in `src/lib/caring-contacts-server/demo-seed.ts` excludes this runner's
- * server unless `CARING_CONTACTS_DEMO_SEED=on`, and that exclusion is deliberate: the empty
- * caseload, the "No referral named" wizard notice and the empty schedule day that
- * `tests/ui-caring-contacts-workspace.spec.ts` asserts are real production states, not fixtures,
- * and switching the seed on for THAT server would delete those observations rather than add one.
- * So the activation journey gets a SECOND server on a second port, from the same isolated build,
- * with the seed on — and the primary server's environment is left exactly as it was.
- */
-const SEEDED_PROJECT_NAME = "chromium-caring-contacts-seeded";
-
-/**
- * What `playwright test` receives, exactly as the caller wrote it, and what the browser preflight
- * reads. `playwright-browser-preflight.mjs` holds `chromium-caring-contacts-seeded` in its own
- * project -> browser-family table, so the seeded project needs no translation here.
- */
 const playwrightArgs = process.argv.slice(2);
-/** Whether `args[index]` is the token that NAMES the seeded project, in either CLI spelling. */
-const namesSeededProject = (args, index) =>
-  args[index] === `--project=${SEEDED_PROJECT_NAME}` ||
-  (args[index] === SEEDED_PROJECT_NAME && args[index - 1] === "--project");
 const explicitProjectRequested = playwrightArgs.some(
   (argument) => argument === "--project" || argument.startsWith("--project="),
 );
@@ -70,8 +48,6 @@ const mockupProjectRequested =
       argument === "--project=chromium-mockups" ||
       (argument === "--project" && playwrightArgs[index + 1] === "chromium-mockups"),
   );
-const seededServerRequested =
-  !explicitProjectRequested || playwrightArgs.some((_argument, index) => namesSeededProject(playwrightArgs, index));
 
 // Fail loud on missing browser binaries before the heavy lock or production build.
 // Otherwise launch failures surface as "N failed" product tests and are easy to misread
@@ -217,9 +193,7 @@ function isVerifiedProjectPayload(payload) {
 async function waitForServer(baseUrl, server) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < startupTimeoutMs) {
-    // Per-child rather than one module-level slot: this runner owns two servers whenever the
-    // seeded project runs, and a shared slot would report the primary's launch failure against
-    // the seeded server (or the reverse) and send a reader to the wrong process.
+    // Read from the child itself, so the launch failure reported is always that server's own.
     if (server.launchError) {
       throw new Error(`Playwright-owned Next server failed to launch: ${server.launchError.message}`);
     }
@@ -253,8 +227,8 @@ async function waitForServer(baseUrl, server) {
 /**
  * One `next start` from this run's isolated build, on one port, with one environment.
  *
- * Both servers go through here so the launch shape — detached process group, inherited stdio, and
- * the per-child `launchError` `waitForServer` reads — cannot drift between them.
+ * The launch shape — detached process group, inherited stdio, and the per-child `launchError`
+ * `waitForServer` reads — lives in one place.
  */
 function startIsolatedServer(serverPort, env) {
   const child = spawn(process.execPath, [nextBin, "start", "--hostname", "0.0.0.0", "--port", String(serverPort)], {
@@ -286,16 +260,11 @@ function stopOwnedProcessTree(child) {
 }
 
 let server;
-/** The second `next start`, from the same build, holding the Caring Contacts demo population. */
-let seededServer;
 let cleaned = false;
 function cleanup() {
   if (cleaned) return;
   cleaned = true;
   try {
-    // BOTH servers, on every exit path. A seeded server left listening holds the heavy-run port
-    // and a populated store past the run that owned it.
-    stopOwnedProcessTree(seededServer);
     stopOwnedProcessTree(server);
     if (!keepBuildRoot) {
       removePathSync(absoluteRunRoot, { recursive: true });
@@ -489,31 +458,9 @@ try {
   server = startIsolatedServer(port, offlineEnv);
   await waitForServer(baseUrl, server);
 
-  // The seeded server, and NOTHING about the primary one above changes to make it exist: it is a
-  // second `next start` from the same `dist/`, on its own port, with `CARING_CONTACTS_DEMO_SEED=on`
-  // in its own environment. Started only when the seeded project is actually selected, so an
-  // ordinary `--project=chromium` run pays neither the port nor the startup for it.
-  const testEnv = { ...offlineEnv };
-  if (seededServerRequested) {
-    const seededPort = await findFreePort(stableProjectPort(projectRoot));
-    const seededBaseUrl = `http://localhost:${seededPort}`;
-    console.log(`Starting seeded Caring Contacts Playwright server at ${seededBaseUrl} (${relativeRunRoot})`);
-    seededServer = startIsolatedServer(seededPort, {
-      ...offlineEnv,
-      PORT: String(seededPort),
-      PLAYWRIGHT_BASE_URL: seededBaseUrl,
-      CARING_CONTACTS_DEMO_SEED: "on",
-    });
-    // The same readiness probe as the primary server: identity, then the route smoke set. A
-    // seeded server that answered before its store was built would hand the wizard journey an
-    // empty caseload and fail as though the wizard were broken.
-    await waitForServer(seededBaseUrl, seededServer);
-    testEnv.PLAYWRIGHT_SEEDED_BASE_URL = seededBaseUrl;
-  }
-
   const result = spawnSync(process.execPath, [playwrightBin, "test", ...playwrightArgs], {
     cwd: projectRoot,
-    env: testEnv,
+    env: offlineEnv,
     stdio: "inherit",
   });
   const exitCode = childProcessExitCode(result);

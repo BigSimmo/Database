@@ -55,10 +55,11 @@ const clinicalRiskPatterns = [
   // full token set.
   /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|therap|mode|review|policy|content|unreviewed|medication)/i,
   // Owner ruling 2026-09-17, after a clinical-governance review of the list above: patient
-  // addresses, referral intake and retention live in caring-contacts; the database clients
+  // addresses, referral intake and retention lived in caring-contacts (whose surviving
+  // clock.ts still times the Mental Health Act timeline); the database clients
   // hold the service-role key; on-call/repository.ts hides personal entries from other users.
   // None of those names matched the token set, so these changes could merge without review.
-  /^src\/lib\/caring-contacts(?:-server)?\//,
+  /^src\/lib\/caring-contacts\//,
   /^src\/lib\/supabase\//,
   /^src\/lib\/on-call\/repository\.ts$/,
   // Same gap, same shape, found on 2026-09-17 while verifying an external audit:
@@ -113,9 +114,9 @@ const clinicalRiskPatterns = [
   // That is a wider question about the token list itself, deliberately left for the owner.
   /^src\/lib\/(?:dictionary-data|factsheets-data|specifiers)\.ts$/,
   // Tests that act as clinical safety guards / prohibited wording chokepoints
-  // (e.g. Caring Contacts interface vocabulary, overlay definitions, clinical safety checks).
+  // (e.g. clinical safety checks).
   // Weakening or altering them is the clinical evasion route (#97W4FD).
-  /^tests\/(?:caring-contacts-(?:interface-vocabulary|overlay-definitions)\.test|calculator-mockup-clinical-safety\.test|helpers\/caring-contacts-prohibited-language)\.ts$/,
+  /^tests\/calculator-mockup-clinical-safety\.test\.ts$/,
   // Owner ruling 2026-09-17, after the clinical review of #2838: that PR withheld a
   // contaminated generated differential body (differential-curated.ts,
   // differential-detail.ts) and applied it at four separate call sites
@@ -1404,8 +1405,7 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);
   // Owner ruling 2026-09-17: patient-address, referral and database-key code is clinical-risk
   // even though no file name carries a clinical token.
-  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts/assignment.ts"]).clinicalRisk, true);
-  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts-server/config.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts/clock.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/supabase/admin.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/on-call/repository.ts"]).clinicalRisk, true);
   // Still narrow: the rest of on-call is not swept in by the repository entry.
@@ -1655,11 +1655,6 @@ function selfTest() {
   ]) {
     assert.equal(classifyPullRequestFiles([file]).clinicalRisk, expected, `${why}: ${file}`);
   }
-  assert.equal(
-    classifyPullRequestFiles(["tests/caring-contacts-interface-vocabulary.test.ts"]).clinicalRisk,
-    true,
-    "clinical test guards must require clinical governance preflight (#97W4FD)",
-  );
   assert.equal(
     classifyPullRequestFiles(["tests/calculator-mockup-clinical-safety.test.ts"]).clinicalRisk,
     true,

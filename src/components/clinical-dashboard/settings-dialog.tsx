@@ -1362,8 +1362,8 @@ export function SettingsDialog({
                 <SettingsCard rowId="settings-row-development-page" padded>
                   <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Developer hub</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
-                    patient record, message or schedule on them is real.
+                    Index of the surfaces being built. Synthetic data only — no patient record, message or schedule on
+                    them is real.
                   </p>
                   <Link
                     href="/mockups/development"

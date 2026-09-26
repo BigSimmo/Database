@@ -82,7 +82,6 @@ const documentedRedirectTargets: Record<string, string> = {
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
   "/dictionary/sources": "/sources/search?usedBy=dictionary",
-  "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
   // Medication is consolidated like the modes in `consolidatedRedirectTargets`
   // above, but deliberately kept out of that shared map — there is no
   // `/medications/search` route, so its own bespoke redirect (medications/page.tsx,
@@ -95,26 +94,6 @@ const documentedRedirectTargets: Record<string, string> = {
 const routeDescriptions: Record<string, string> = {
   "/": "Main PsychSift shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
-  "/caring-contacts":
-    "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
-  "/caring-contacts/patients":
-    "The team's caring-contact caseload: one row per plan. Only the plan state travels in the URL; the search box matches patient names and synthetic identifiers inside the browser and is never put into an address, because a patient's name must not reach browser history or a request log. A row carries the patient's name and a synthetic identifier and no other identifying detail.",
-  "/caring-contacts/patients/[patientId]":
-    "One patient's caring-contact episode: who they are, the plan that is running, and every message in its twelve-month schedule. Reached from a caseload row; scoped to one plan, which `?plan=` names when the patient holds more than one.",
-  "/caring-contacts/plans/new":
-    "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
-  "/caring-contacts/schedule":
-    "What this team's caring-contact plans put on one AWST day: the three approved sending windows, the contacts at no approved send time, and the named exceptions. The day travels in `?day=`; without it, today.",
-  "/caring-contacts/templates":
-    "The governed pathway versions a team holds: lifecycle state, the recorded facts of publication and retirement, and who approved each one — qualified by the record's own provenance, so a synthetic approval never reads as a real one. A governance record viewer; the list itself shows no message wording, and each row states which of the three messages its record holds text for and links to the record that shows it.",
-  "/caring-contacts/templates/[pathwayId]":
-    "One governed pathway version in full: its lifecycle, both approval seats and the qualification its own record carries, the wording that record holds, and whether a new plan may be started on it. Reached from a row of the templates library; a well-formed identifier this team does not hold is stated as a governance fact rather than an error.",
-  "/caring-contacts/team":
-    "Where this team's caring-contact work is sitting: what each coordinator is carrying, which of their plans their own state is holding, who is covering for whom, and what nobody has claimed against the 60-minute escalation. Operational only, and it never ranks a clinician — rows are in identifier order and no figure is a measure of a person. It holds no staff name and no role, because nothing in this system records either, so each coordinator appears as the identifier their work is filed under; and it carries no patient, plan or contact identifier at all.",
-  "/caring-contacts/guidance":
-    "How the caring-contact programme is run: the one-way boundary and what a patient is actually told about replies, what the service does when a system it depends on is unavailable, and the language rules — including that a delivery receipt is a transport fact and never a statement about a person. Fixed text; it holds no record about anybody.",
-  "/caring-contacts/reports":
-    "Aggregate operational measures for one team — contacts still to send and already sent, plans held, and the dispatch attempts where the carrier reported something other than what was expected. Also carries the programme-reach section, which states that Aboriginal and Torres Strait Islander status is not recorded rather than rendering an empty breakdown of it. No measure names or identifies a patient, and no clinician is ranked.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/calculators/search":
     "Browsable calculator catalogue and scored results. An empty query lists every calculator; a submitted query narrows the same list.",
@@ -223,11 +202,10 @@ const routeDescriptions: Record<string, string> = {
   "/on-call/compliance":
     "The requirements a doctor keeps current for themselves, grouped by what lapsing costs. Recorded dates only — never a check with the issuing body.",
   "/tools": "Clinical tools and applications launcher directory.",
-  // Ward Flow's routes moved under /mockups/ward-flow/** in the sandbox move (see
-  // src/lib/developer-area/headers.ts). Mockup routes deliberately carry no curated
-  // description here — Care Plan and Caring Contacts, the two other developer-gated
-  // prototypes, have none either — so they render with the generic "Route discovered
-  // from app directory" fallback in the Mockup/prototype routes section below.
+  // Mockup routes deliberately carry no curated description here — the developer-gated
+  // prototypes (see src/lib/developer-area/headers.ts) have none either — so they render with
+  // the generic "Route discovered from app directory" fallback in the Mockup/prototype routes
+  // section below.
 };
 
 const publicRouteHandlerDescriptions: Record<string, string> = {
@@ -310,10 +288,6 @@ const routeOwnershipRows = [
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
   ["CME", "src/app/(search-app)/cme, src/components/cme"],
-  [
-    "Caring Contacts workspace",
-    "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
-  ],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -805,7 +779,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         : ["- No page-level redirects discovered."],
     ),
     ...section("Known caveats and stale-path flags", [
-      "- `/mockups/*` prototype routes are development-only: production returns 404 for every path except the four developer-gated subtrees (`/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, `/mockups/ward-flow`), which carry their own signed-in administrator gate. `robots.txt` deliberately allows crawling; responses under `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow` instead, so per-response indexing policy can be observed.",
+      "- `/mockups/*` prototype routes are development-only: production returns 404 for every path except the developer-gated subtrees (`/mockups/development`, `/mockups/care-plan`), which carry their own signed-in administrator gate. `robots.txt` deliberately allows crawling; responses under `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow` instead, so per-response indexing policy can be observed.",
       "- `/mockups/favourites-hub` (to `/favourites`) and `/mockups/medication-prescribing` (to `/medications/acamprosate`) are legacy compatibility routes whose page-level redirects work in development only; in production the proxy's mockup block returns 404 before either page renders. `/mockups/document-search-command` is the one mockup path that still redirects in production, via `staticRouteRedirects` in `src/proxy.ts`.",
       "- Registry-backed service and form pages may show sign-in, load-error, or in-app not-found states for missing per-user records.",
       "- Live user registries may contain additional service or form slugs beyond the seeded/demo slugs listed here.",

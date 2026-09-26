@@ -44,10 +44,6 @@ Tools that ask a clinical question or compare possibilities and return source-ba
 
 - **Saved workflows** — `/favourites`. Resume saved answers, pinned sources and repeated clinical workflows; requires a signed-in account. Does not store patient data — saved items describe how you use the app, not who your patients are.
 
-### Demonstration only
-
-- **Caring Contacts** — `/caring-contacts`. A synthetic demonstration of caring-contact follow-up after a hospital stay, built on invented patients and invented numbers. Does not send anything to a real number or hold patient data — nothing in it is real.
-
 ## Data persistence
 
 PsychSift is a clinical reference knowledge base, not a patient-record system. Where a tool keeps its data depends on the tool:
