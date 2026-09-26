@@ -18,7 +18,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
+import { clickWhenSettled, expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -544,7 +544,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 2, name: "PsychSift Search" })).toHaveCount(0);
     await categories.getByRole("radio", { name: /All tools/ }).click();
 
-    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+    // Below the fold at 1280x900: see clickWhenSettled for why this click must not scroll.
+    await clickWhenSettled(results.getByRole("button", { name: "View details for Medication Prescribing" }));
     await expect(results.getByRole("complementary", { name: "Medication Prescribing" })).toBeVisible();
     await expect(
       results.getByRole("complementary", { name: "Medication Prescribing" }).getByRole("link", {
@@ -691,7 +692,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       ["PsychSift Search", "/?mode=answer"],
     ] as const) {
       await expect(results.getByRole("link", { name: `Open ${title}` })).toHaveAttribute("href", href);
-      await results.getByRole("button", { name: `View details for ${title}` }).click();
+      // Most rows sit below the fold, and the header's scroll-hide moves them mid-click.
+      await clickWhenSettled(results.getByRole("button", { name: `View details for ${title}` }));
       const detail = results.getByRole("complementary", { name: title });
       await expect(detail.locator(`a[href="${href}"]`).first()).toBeVisible();
     }
