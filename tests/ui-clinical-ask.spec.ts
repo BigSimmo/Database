@@ -97,6 +97,18 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
   for (const [mode, pathname, query, expectedResult] of localOnlySmartModes) {
     await page.goto(`/?mode=${mode}`);
     const input = searchOwner(page, mode);
+    // The composer is server-rendered, so it exists before React owns it. A WebKit release run
+    // filled it 18 ms after `load`; the input event went unheard and React then restored its
+    // empty controlled value, so the intent cue never appeared. Type once onChange is live.
+    await expect
+      .poll(() =>
+        input.evaluate((element) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          const props = propsKey ? (element as unknown as Record<string, Record<string, unknown>>)[propsKey] : null;
+          return typeof props?.onChange === "function";
+        }),
+      )
+      .toBe(true);
     await input.fill(query);
     if (mode === "tools") {
       for (const [toolId, actionLabel] of [
