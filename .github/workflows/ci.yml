@@ -2221,7 +2221,32 @@ jobs:
               await assignAlert(existing.number);
               core.warning(`CI on main is failing; updated #${existing.number}.`);
             } else {
-              const created = await github.rest.issues.create({ owner, repo, title, labels: [label], body });
-              await assignAlert(created.data.number);
-              core.warning(`CI on main is failing; opened #${created.data.number}.`);
+              // Reopen the most recent issue this job closed rather than opening a new one per red
+              // spell (owner decision, 2026-09-26: main flips red and green often, and 25 issues in a
+              // day was noise). Marker-only match, so it never reopens an issue a person wrote.
+              const { data: closed } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: "closed",
+                labels: label,
+                sort: "updated",
+                direction: "desc",
+                per_page: 20,
+              });
+              const previous = closed.find((issue) => !issue.pull_request && String(issue.body ?? "").includes(MARKER)) ?? null;
+              if (previous) {
+                await github.rest.issues.update({ owner, repo, issue_number: previous.number, state: "open", title, body });
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: previous.number,
+                  body: `Failing again as of ${now} — ${runUrl}`,
+                });
+                await assignAlert(previous.number);
+                core.warning(`CI on main is failing; reopened #${previous.number}.`);
+              } else {
+                const created = await github.rest.issues.create({ owner, repo, title, labels: [label], body });
+                await assignAlert(created.data.number);
+                core.warning(`CI on main is failing; opened #${created.data.number}.`);
+              }
             }
