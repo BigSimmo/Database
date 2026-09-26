@@ -2,11 +2,14 @@
 
 import { useRouter } from "next/navigation";
 
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+
 import { CmeDashboard, type CmeReportingReminder } from "@/components/cme/cme-dashboard";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+import { perthDateKey, snoozeReminder } from "@/lib/reminders/settings";
 
 export type CmeDashboardRouteProps = {
   readonly set: CmeRequirementSet;
@@ -39,17 +42,23 @@ export function CmeDashboardRoute({
   reportingReminder = null,
 }: CmeDashboardRouteProps) {
   const router = useRouter();
+  const { preferences, setPreference } = useAppPreferences();
+  const now = new Date(nowIso);
 
   return (
     <>
       <CmeDashboard
         set={set}
         entries={entries}
-        now={new Date(nowIso)}
+        now={now}
         routines={routines}
         onLogRoutine={(prefill) => router.push(cmeRoutineLogHref(prefill))}
         onOpenCustomise={() => router.push("/cme/customise")}
         reportingReminder={reportingReminder}
+        reminders={preferences.reminders}
+        onSnoozeReminder={(type) =>
+          setPreference("reminders", snoozeReminder(preferences.reminders, type, perthDateKey(now)))
+        }
       />
       <CmeQuickLog set={set} demoMode={demoMode} />
     </>

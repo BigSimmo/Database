@@ -66,6 +66,7 @@ import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-
 import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
 import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface } from "@/components/ui-primitives";
 import { ProviderBrandMark, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
+import { ReminderSettingsBlock } from "@/components/clinical-dashboard/settings-reminders";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
@@ -128,6 +129,7 @@ const FULL_RESET_KEYS: ReadonlyArray<keyof AppPreferences> = [
   "notifyGuidelineUpdates",
   "notifyProductNews",
   "notifySavedChanges",
+  "reminders",
 ];
 
 /**
@@ -1256,6 +1258,16 @@ export function SettingsDialog({
                     describedBy="settings-notifications-note"
                   />
                 </SettingsGroup>
+                {/* Reminders work today, unlike the three switches above, so they
+                  sit in their own card and say so in their own words. */}
+                <div className="mt-3">
+                  <SettingsCard rowId="settings-row-reminders">
+                    <ReminderSettingsBlock
+                      reminders={preferences.reminders}
+                      onChange={(next) => setPreference("reminders", next)}
+                    />
+                  </SettingsCard>
+                </div>
               </SettingsSection>
 
               {/* Privacy */}

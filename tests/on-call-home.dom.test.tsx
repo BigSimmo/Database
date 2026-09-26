@@ -522,6 +522,25 @@ describe("what the home raises on its own", () => {
 
     expect(menuProps.last?.notifications?.map((item) => item.title)).toEqual(["Basic life support"]);
   });
+
+  it("leaves out a reminder type the owner snoozed, until the snooze date", () => {
+    // Settings, Notifications, Reminders: compliance dates snoozed until 5 June.
+    const pinned = new Date("2026-06-01T09:00:00+08:00");
+    storeState.entries = [complianceRow("2026-01-01", "2026-05-30T00:00:00.000Z")];
+    window.localStorage.setItem(
+      "clinical-kb-preferences",
+      JSON.stringify({ reminders: { types: { "compliance-dates": { snoozedUntil: "2026-06-05" } } } }),
+    );
+    try {
+      render(<OnCallHome now={pinned} />);
+      expect(menuProps.last?.notifications).toEqual([]);
+      cleanup();
+      render(<OnCallHome now={new Date("2026-06-05T09:00:00+08:00")} />);
+      expect(menuProps.last?.notifications?.map((item) => item.title)).toEqual(["Basic life support"]);
+    } finally {
+      window.localStorage.removeItem("clinical-kb-preferences");
+    }
+  });
 });
 
 describe("the example-content module when the entries request fails", () => {

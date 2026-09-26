@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -45,7 +45,9 @@ import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
-import { deriveOnCallNotifications } from "@/lib/on-call/notifications";
+import { deriveOnCallNotifications, visibleOnCallNotifications } from "@/lib/on-call/notifications";
+import { perthDateKey, snoozeReminder, type ReminderType } from "@/lib/reminders/settings";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { buildOnCallReviewQueue } from "@/lib/on-call/review-queue";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -374,7 +376,21 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // re-ran on a page nobody is touching: the ward strip would move to the
   // after-hours number on the next tick while the badge went on counting from
   // whenever the page was opened. One clock, one answer.
-  const notifications = useMemo(() => deriveOnCallNotifications(entries, now), [entries, now]);
+  //
+  // Then the owner's reminder settings (Settings, Notifications, Reminders):
+  // a type turned off in the app, or snoozed, drops out of both the list and
+  // the badge count, so the two cannot disagree.
+  const { preferences, setPreference } = useAppPreferences();
+  const reminders = preferences.reminders;
+  const reminderToday = perthDateKey(now);
+  const notifications = useMemo(
+    () => visibleOnCallNotifications(deriveOnCallNotifications(entries, now), reminders, reminderToday),
+    [entries, now, reminders, reminderToday],
+  );
+  const snoozeNotifications = useCallback(
+    (type: ReminderType) => setPreference("reminders", snoozeReminder(reminders, type, reminderToday)),
+    [reminders, reminderToday, setPreference],
+  );
   const reviewCount = useMemo(() => buildOnCallReviewQueue(entries, now).total, [entries, now]);
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
@@ -444,7 +460,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           grid names every page of the mode with its count — and the mode pill
           above opens the same list. A bar between them would be the third
           copy. */}
-      <OnCallPageMenu view="home" notifications={notifications} />
+      <OnCallPageMenu view="home" notifications={notifications} onSnoozeNotifications={snoozeNotifications} />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}

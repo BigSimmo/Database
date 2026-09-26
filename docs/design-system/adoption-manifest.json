@@ -292,6 +292,7 @@
         "src/components/AccessibleTable.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
+        "src/components/clinical-dashboard/settings-reminders.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/cme/cme-annual-summary.tsx",
         "src/components/cme/cme-dashboard.tsx",
@@ -308,6 +309,7 @@
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-load-failed.tsx",
+        "src/components/on-call/on-call-notifications.tsx",
         "src/components/on-call/on-call-section-page.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
@@ -339,6 +341,7 @@
         "src/components/AccessibleTable.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
+        "src/components/clinical-dashboard/settings-reminders.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/cme/cme-annual-summary.tsx",
         "src/components/cme/cme-dashboard.tsx",
@@ -355,6 +358,7 @@
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-load-failed.tsx",
+        "src/components/on-call/on-call-notifications.tsx",
         "src/components/on-call/on-call-section-page.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
@@ -1870,11 +1874,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/clinical-dashboard/settings-reminders.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/clinical-dashboard/settings-reminders.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
