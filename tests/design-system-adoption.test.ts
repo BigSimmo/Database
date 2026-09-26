@@ -1476,7 +1476,10 @@ describe("design-system adoption manifest", () => {
     // one template, Guidance, Reports, Team and the manual Referral Intake) out of the census.
     //
     // 105 -> 106 on 2026-09-26: `/my-work`, the My Work mode's dashboard.
-    expect(manifest.routeCoverage.discovered).toHaveLength(106);
+    //
+    // 106 -> 116 on 2026-09-26: the First Nations mode home, its eight section pages
+    //   and its pocket card (`/first-nations/card`).
+    expect(manifest.routeCoverage.discovered).toHaveLength(116);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

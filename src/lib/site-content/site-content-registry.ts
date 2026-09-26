@@ -16,15 +16,7 @@ export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
   modeId: Exclude<
     AppModeId,
-    | "answer"
-    | "documents"
-    | "favourites"
-    | "sources"
-    | "on-call"
-    | "cme"
-    | "psychiatry"
-    | "my-work"
-    | "first-nations"
+    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work" | "first-nations"
   >;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
