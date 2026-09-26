@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "pins": {
+    "docs/DOCS-SYSTEM.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/README.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/agents-guide.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/agents/verification-gates.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/care-plan/CLAUDE-START-HERE.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/clinical-governance.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/codebase-index.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/database-drift-detection.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/deployment-architecture.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/design-system/README.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/frontend-architecture.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/ingestion-state-machine.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/rag-behaviour/README.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/rag-behaviour/safeguards.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/reindex-runbook.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/search-chrome-behaviour.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/source-acquisition-protocol.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/supabase-migration-reconciliation.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/superpowers/specs/2026-09-04-on-call-mode-design.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/testing.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae",
+    "docs/worker-deploy-runbook.md": "41ac8741e5515d9108b69c5d27dbb51e2eecb1ae"
+  }
+}

@@ -33,6 +33,7 @@ its rules are in force whether or not you have opened it.
 | Test execution, focused/live, flake policy  | `docs/testing.md`                                                                                            |
 | Every maintained doc, categorised           | `docs/README.md`                                                                                             |
 | Outstanding work across sessions            | `docs/outstanding-issues.md` (`/issues`)                                                                     |
+| Which area owns a file, and its key docs    | `docs/organisation/README.md` — the organisation map; `npm run check:organisation -- --files <path>`         |
 
 When adding to this file, add **orientation**. Policy belongs in `AGENTS.md`; deep structure
 belongs in `docs/codebase-index.md`. Keeping those three non-overlapping is what stops five
@@ -99,7 +100,7 @@ the PR body as left to CI (`docs/agents/verification-gates.md`).
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                                                                          |
 | `npm run verify:cheap`                    | **The broad offline gate, not the routine one:** installed-lock parity, then `lint` + `typecheck` + full offline unit suite. Run it once when cross-module risk warrants it — CI repeats it on every push, so a narrow diff wants the tier above. |
-| `npm run verify:full`                     | `verify:cheap` plus the 39 static/consistency gates (docs index, ledgers, knip, design tokens, owner-scope…). For cross-module risk or before a release — not routinely.                                                                          |
+| `npm run verify:full`                     | `verify:cheap` plus the 41 static/consistency gates (docs index, ledgers, knip, design tokens, owner-scope…). For cross-module risk or before a release — not routinely.                                                                          |
 | `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection.                                                      |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                                                                         |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                                                                           |
@@ -146,7 +147,8 @@ Prefer these over improvising — they encode traps this repo has already hit:
   source — see `docs/source-acquisition-protocol.md`), `prompt`.
 - **Review subagents** (`.claude/agents/`): `rag-retrieval-reviewer`,
   `supabase-schema-guardian`, `ingestion-worker-reviewer`, `clinical-governance-reviewer`,
-  `frontend-ui-reviewer`, `verification-router`, `repo-auditor`, `pr-ci-fixer`.
+  `frontend-ui-reviewer`, `personal-practice-reviewer`, `verification-router`, `repo-auditor`,
+  `pr-ci-fixer`.
 - **Skill catalogue** (`.agents/skills/`): `npm run skills` lists the canonical single-word
   skills; `npm run check:skills` validates every repository skill surface. Planners in
   `docs/productivity-workflows.md` run without side effects unless given `-- --run`, and

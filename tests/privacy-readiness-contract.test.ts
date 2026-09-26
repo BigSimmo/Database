@@ -1,13 +1,56 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { shallowSkipDecision, validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
+import {
+  evaluatePrivacyReadiness,
+  privacyRegisterCoveredPaths,
+  privacyRequirementCoveredPaths,
+  shallowSkipDecision,
+  validatePrivacyReadiness,
+} from "../scripts/check-privacy-readiness.mjs";
 import { decideReviewedCommitHistoryFromFacts } from "../scripts/lib/reviewed-commit-history-decision.mjs";
+import { fixedClockImport, latestIsoDate, perthMidday, shiftIsoDate } from "./helpers/fixed-clock";
 import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
-const manifest = JSON.parse(
-  readFileSync(new URL("../docs/governance/privacy-readiness.v1.json", import.meta.url), "utf8"),
+const REGISTER = "docs/governance/privacy-readiness.v1.json";
+const manifest = JSON.parse(readFileSync(new URL(`../${REGISTER}`, import.meta.url), "utf8"));
+
+type Requirement = { id: string; reviewedAt?: string; reviewExpiresAt?: string };
+const requirements = manifest.requirements as Requirement[];
+
+/**
+ * THE COMMITTED REGISTER IS CHECKED AS OF ITS OWN LATEST RECORDED REVIEW, NEVER THE REAL CLOCK.
+ *
+ * Against the real clock this suite (and the CLI run below) turned red on the day the first review
+ * lapsed, whatever the change (organisation framework suggestion 6, "defuse the date traps"). A
+ * hard-coded date would trap the other way: the next re-review records a later reviewedAt, which
+ * reads as "in the future". The latest review date the register records moves with every edit and
+ * keeps a real invariant: whoever records a review may not leave another entry already lapsed.
+ * The calendar is still enforced by the CLI in strict runs and by the weekly review-date report,
+ * and the tests at the end prove that expiry is still detected.
+ */
+const REGISTER_AS_OF = latestIsoDate([manifest.reviewedAt, ...requirements.map((item) => item.reviewedAt)]);
+const REGISTER_NOW = perthMidday(REGISTER_AS_OF);
+/** A day after every expiry date the register records: every review has lapsed. */
+const AFTER_EVERY_EXPIRY = perthMidday(
+  shiftIsoDate(latestIsoDate([manifest.reviewExpiresAt, ...requirements.map((item) => item.reviewExpiresAt)]), 1),
 );
+
+/** Spawn the CLI with its clock pinned and no review-date variables inherited from this process. */
+function runCli(args: string[], now: Date, env: Record<string, string> = {}) {
+  const childEnv: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_ACTIONS"]) {
+    delete childEnv[key];
+  }
+  return spawnSync(
+    process.execPath,
+    ["--import", fixedClockImport(now), "scripts/check-privacy-readiness.mjs", ...args],
+    {
+      encoding: "utf8",
+      env: { ...childEnv, ...env },
+    },
+  );
+}
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const retentionParityMigration = readFileSync(
   new URL("../supabase/migrations/20260901033250_enable_staging_privacy_retention_schedules.sql", import.meta.url),
@@ -22,7 +65,7 @@ describe("privacy readiness contract", () => {
     // tests/helpers/reviewed-commit-history.ts for the 2026-09-07 incident.
     const { checkGit, skipReason } = resolveReviewedCommitHistory(manifest.reviewedCommit);
     if (skipReason) warnReviewedCommitSkipped("privacy readiness", skipReason);
-    expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
+    expect(validatePrivacyReadiness(manifest, { checkGit, now: REGISTER_NOW })).toEqual([]);
   });
 
   it("skips structural Git checks when a shallow checkout has the commit but cannot answer its ancestry", () => {
@@ -116,10 +159,9 @@ describe("privacy readiness contract", () => {
 
   it("encodes history=skipped or history=checked on the structural PASS line", () => {
     // Greppable PASS without a history marker is a silent-success footgun when structural
-    // mode skips Git binding. Release already fail-closes; this pins the success line.
-    const result = spawnSync(process.execPath, ["scripts/check-privacy-readiness.mjs"], {
-      encoding: "utf8",
-    });
+    // mode skips Git binding. Release already fail-closes; this pins the success line. The clock is
+    // pinned to the register's own date so the line is proved without waiting for a lapse.
+    const result = runCli([], REGISTER_NOW);
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/PRIVACY_READINESS_PASS mode=structural requirements=\d+ history=(checked|skipped)/);
   });
@@ -130,7 +172,7 @@ describe("privacy readiness contract", () => {
   });
 
   it("fails release closed on the remaining human and environment blockers", () => {
-    const releaseErrors = validatePrivacyReadiness(manifest, { release: true });
+    const releaseErrors = validatePrivacyReadiness(manifest, { release: true, now: REGISTER_NOW });
     expect(releaseErrors).toContain("PRIV-LEGAL-RAILWAY-DPA: release-blocking status pending");
     expect(releaseErrors.filter((error: string) => error.includes("release-blocking status"))).toHaveLength(6);
     expect(releaseErrors).not.toContain("PRIV-PROVIDER-PRODUCTION-HMAC-SECRET: release-blocking status partial");
@@ -191,7 +233,7 @@ describe("privacy readiness contract", () => {
     ];
     delete requirement.externalEvidenceReference;
     delete requirement.verifiedByRole;
-    const errors = validatePrivacyReadiness(changed, { checkFiles: false });
+    const errors = validatePrivacyReadiness(changed, { checkFiles: false, now: REGISTER_NOW });
     expect(errors).toContain("PRIV-LEGAL-OPENAI-DPA: transition accepted_decision -> verified is not allowed");
     expect(errors).toContain("PRIV-LEGAL-OPENAI-DPA: verified external evidence requires externalEvidenceReference");
     expect(errors).toContain("PRIV-LEGAL-OPENAI-DPA: verified external evidence requires verifiedByRole");
@@ -218,8 +260,164 @@ describe("privacy readiness contract", () => {
   it("rejects impossible calendar dates", () => {
     const changed = structuredClone(manifest);
     changed.reviewedAt = "2026-02-30";
-    expect(validatePrivacyReadiness(changed, { checkFiles: false })).toContain(
+    expect(validatePrivacyReadiness(changed, { checkFiles: false, now: REGISTER_NOW })).toContain(
       "manifest review dates must be ISO dates",
     );
+  });
+});
+
+/**
+ * Organisation framework suggestion 6, "defuse the date traps" (owner decision 2026-09-26, which
+ * includes this register). On a pull request or in the merge queue an EXPIRED review is a warning,
+ * unless the change touches this register or a path the expired requirement covers; then it still
+ * blocks. Local runs, main and release mode stay strict. These pin both halves.
+ */
+describe("privacy readiness review dates: expiry and pull-request scope", () => {
+  const { checkGit } = resolveReviewedCommitHistory(manifest.reviewedCommit);
+  const UNRELATED = "docs/organisation/README.md";
+  const prScope = (touched: string[]) => ({ mode: "pr" as const, touched, base: "base", head: "head", notes: [] });
+  const expired = (lines: string[]) => lines.filter((line) => line.includes("review has expired"));
+  const lapsedCount = 1 + requirements.length;
+
+  it("still detects every lapsed review once now is later (strict by default)", () => {
+    const errors = validatePrivacyReadiness(manifest, { checkGit, now: AFTER_EVERY_EXPIRY });
+    expect(errors).toContain("manifest review has expired");
+    for (const item of requirements) expect(errors).toContain(`${item.id}: review has expired`);
+    expect(expired(errors)).toHaveLength(lapsedCount);
+  });
+
+  it("expires the day after the stated date, not on it", () => {
+    const [first] = [...requirements].sort((a, b) =>
+      String(a.reviewExpiresAt).localeCompare(String(b.reviewExpiresAt)),
+    );
+    const onTheDay = validatePrivacyReadiness(manifest, { checkGit, now: perthMidday(String(first.reviewExpiresAt)) });
+    expect(onTheDay).not.toContain(`${first.id}: review has expired`);
+    const dayAfter = validatePrivacyReadiness(manifest, {
+      checkGit,
+      now: perthMidday(shiftIsoDate(String(first.reviewExpiresAt), 1)),
+    });
+    expect(dayAfter).toContain(`${first.id}: review has expired`);
+  });
+
+  it("warns instead of blocking on a pull request that touches neither the register nor a covered path", () => {
+    expect(privacyRegisterCoveredPaths(manifest)).not.toContain(UNRELATED);
+    const { errors, warnings } = evaluatePrivacyReadiness(manifest, {
+      checkGit,
+      now: AFTER_EVERY_EXPIRY,
+      reviewDateScope: prScope([UNRELATED]),
+    });
+    expect(errors).toEqual([]);
+    expect(expired(warnings)).toHaveLength(lapsedCount);
+    expect(warnings.some((warning) => warning.startsWith("manifest review has expired. Not blocking"))).toBe(true);
+  });
+
+  it("still blocks every lapsed review when the pull request touches the register itself", () => {
+    const { errors, warnings } = evaluatePrivacyReadiness(manifest, {
+      checkGit,
+      now: AFTER_EVERY_EXPIRY,
+      reviewDateScope: prScope([REGISTER]),
+    });
+    expect(warnings).toEqual([]);
+    expect(errors).toContain(`manifest review has expired (blocking: this change touches ${REGISTER})`);
+    for (const item of requirements) {
+      expect(errors).toContain(`${item.id}: review has expired (blocking: this change touches ${REGISTER})`);
+    }
+  });
+
+  it("blocks only the requirements that cover a path the pull request touches, plus the register-wide review", () => {
+    const covered = new Map(requirements.map((item) => [item.id, privacyRequirementCoveredPaths(item)]));
+    // A path exactly one requirement covers, so the others show that they stay warnings.
+    const pick = [...covered].flatMap(([id, paths]) =>
+      paths
+        .filter((path) => [...covered].every(([other, list]) => other === id || !list.includes(path)))
+        .map((path) => ({ id, path })),
+    )[0];
+    expect(pick).toBeDefined();
+    const { errors, warnings } = evaluatePrivacyReadiness(manifest, {
+      checkGit,
+      now: AFTER_EVERY_EXPIRY,
+      reviewDateScope: prScope([pick.path]),
+    });
+    expect(errors).toContain(`${pick.id}: review has expired (blocking: this change touches ${pick.path})`);
+    expect(errors).toContain(`manifest review has expired (blocking: this change touches ${pick.path})`);
+    expect(expired(errors)).toHaveLength(2);
+    for (const item of requirements.filter((entry) => entry.id !== pick.id)) {
+      expect(warnings.some((warning) => warning.startsWith(`${item.id}: review has expired. Not blocking`))).toBe(true);
+    }
+  });
+
+  it("covers evidence by path, without its anchor, and the decision record", () => {
+    expect(
+      privacyRequirementCoveredPaths({
+        evidenceReferences: ["docs/a.md#section-2", "src/b.ts", "docs/a.md"],
+        decisionReference: "docs/governance/decision.md#record",
+      }),
+    ).toEqual(["docs/a.md", "docs/governance/decision.md", "src/b.ts"]);
+  });
+
+  it("keeps release mode strict whatever scope is passed", () => {
+    const { errors, warnings } = evaluatePrivacyReadiness(manifest, {
+      release: true,
+      checkGit,
+      now: AFTER_EVERY_EXPIRY,
+      reviewDateScope: prScope([UNRELATED]),
+    });
+    expect(warnings).toEqual([]);
+    expect(errors).toContain("manifest review has expired");
+    for (const item of requirements) expect(errors).toContain(`${item.id}: review has expired`);
+  });
+
+  it("keeps future dates, bad dates and non-date checks blocking in pull-request mode", () => {
+    const changed = structuredClone(manifest);
+    changed.requirements[0].reviewedAt = shiftIsoDate(REGISTER_AS_OF, 1);
+    changed.requirements[1].reviewedAt = "2026-02-30";
+    changed.requirements[2].reviewExpiresAt = shiftIsoDate(changed.requirements[2].reviewedAt, -1);
+    changed.requirements[3].accountableRole = " ";
+    const { errors } = evaluatePrivacyReadiness(changed, {
+      checkFiles: false,
+      now: REGISTER_NOW,
+      reviewDateScope: prScope([UNRELATED]),
+    });
+    const [first, second, third, fourth] = changed.requirements.map((item: { id: string }) => item.id);
+    expect(errors).toContain(`${first}: reviewedAt is in the future`);
+    expect(errors).toContain(`${second}: review dates must be ISO dates`);
+    expect(errors).toContain(`${third}: reviewExpiresAt precedes reviewedAt`);
+    expect(errors).toContain(`${fourth}: accountableRole is required`);
+  });
+
+  describe("the command-line check", () => {
+    const PR_ENV = { REVIEW_DATE_MODE: "pr", BASE_SHA: "HEAD", HEAD_SHA: "HEAD", GITHUB_EVENT_NAME: "pull_request" };
+
+    it("fails a lapsed register when strict and only warns in pull-request mode", () => {
+      const strictRun = runCli([], AFTER_EVERY_EXPIRY);
+      expect(strictRun.status).toBe(1);
+      expect(strictRun.stderr).toContain("PRIVACY_READINESS_FAIL mode=structural review-dates=strict");
+      expect(strictRun.stderr).toContain("- manifest review has expired\n");
+
+      const prRun = runCli([], AFTER_EVERY_EXPIRY, PR_ENV);
+      expect(prRun.status).toBe(0);
+      expect(prRun.stdout).toMatch(
+        new RegExp(
+          `PRIVACY_READINESS_PASS mode=structural requirements=\\d+ history=(checked|skipped) review-dates=pr touched=0 expired-not-blocking=${lapsedCount}`,
+        ),
+      );
+      expect(prRun.stderr).toContain("PRIVACY_READINESS_REVIEW_DATE_WARNING: manifest review has expired.");
+    });
+
+    // Release mode refuses to run at all on a checkout without the reviewed history, before any date
+    // is read, so this proof needs that history.
+    it.skipIf(!checkGit)("ignores pull-request mode in release mode", () => {
+      const releaseRun = runCli(["--release"], AFTER_EVERY_EXPIRY, PR_ENV);
+      expect(releaseRun.status).toBe(1);
+      expect(releaseRun.stderr).toContain("PRIVACY_READINESS_FAIL mode=release review-dates=strict");
+      expect(releaseRun.stderr).toContain("- manifest review has expired\n");
+    });
+
+    it("refuses pull-request mode outside a pull request and stays strict", () => {
+      const pushRun = runCli([], AFTER_EVERY_EXPIRY, { ...PR_ENV, GITHUB_EVENT_NAME: "push" });
+      expect(pushRun.status).toBe(1);
+      expect(pushRun.stderr).toContain("PRIVACY_READINESS_REVIEW_DATE_MODE: REVIEW_DATE_MODE=pr was not applied");
+      expect(pushRun.stderr).toContain("- manifest review has expired\n");
+    });
   });
 });

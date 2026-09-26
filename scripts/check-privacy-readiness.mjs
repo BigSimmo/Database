@@ -5,9 +5,17 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { decideReviewedCommitHistoryFromFacts } from "./lib/reviewed-commit-history-decision.mjs";
+import {
+  describeReviewDateScope,
+  printReviewDateWarnings,
+  referencePath,
+  reportExpiredReviewDate,
+  resolveReviewDateScope,
+} from "./organisation/review-date-scope.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const manifestPath = resolve(root, "docs/governance/privacy-readiness.v1.json");
+export const PRIVACY_REGISTER_PATH = "docs/governance/privacy-readiness.v1.json";
+const manifestPath = resolve(root, PRIVACY_REGISTER_PATH);
 const requiredIds = [
   "PRIV-CODE-QUERY-HASH",
   "PRIV-CODE-DURABLE-ANSWER-MINIMISATION",
@@ -141,11 +149,71 @@ function pathExistsAtCommit(commit, file) {
   }
 }
 
-export function validatePrivacyReadiness(
+/**
+ * The repository paths one requirement's review vouches for: its evidence and decision record.
+ * An expired review of this requirement blocks a pull request that touches any of them.
+ *
+ * @param {any} item
+ * @returns {string[]}
+ */
+export function privacyRequirementCoveredPaths(item) {
+  const references = [
+    ...(Array.isArray(item?.evidenceReferences) ? item.evidenceReferences : []),
+    item?.decisionReference,
+  ];
+  return [...new Set(references.map(referencePath).filter((file) => typeof file === "string"))].sort();
+}
+
+/**
+ * Everything the register as a whole covers: the scope of its manifest-level review.
+ *
+ * @param {any} manifest
+ * @returns {string[]}
+ */
+export function privacyRegisterCoveredPaths(manifest) {
+  const requirements = Array.isArray(manifest?.requirements) ? manifest.requirements : [];
+  return [...new Set(requirements.flatMap(privacyRequirementCoveredPaths))].sort();
+}
+
+/**
+ * Validate the register and return the blocking errors. Findings that pull-request mode demotes
+ * (an expired review on a change that touches neither this register nor a covered path) are
+ * printed as warnings, never dropped; use evaluatePrivacyReadiness to receive them instead.
+ *
+ * @param {any} manifest
+ * @param {{ release?: boolean, checkFiles?: boolean, checkGit?: boolean, now?: Date | string | number,
+ *   reviewDateScope?: import("./organisation/review-date-scope.mjs").ReviewDateScope | null }} [options]
+ * @returns {string[]}
+ */
+export function validatePrivacyReadiness(manifest, options = {}) {
+  const { errors, warnings } = evaluatePrivacyReadiness(manifest, options);
+  for (const warning of warnings) console.warn(`PRIVACY_READINESS_REVIEW_DATE_WARNING: ${warning}`);
+  return errors;
+}
+
+/**
+ * The same validation, returning blocking `errors` and non-blocking `warnings` separately.
+ * `reviewDateScope` defaults to strict, and release mode is always strict whatever scope is
+ * passed: a release must never ship on a lapsed privacy review (organisation framework
+ * suggestion 6, owner decision 2026-09-26).
+ *
+ * @param {any} manifest
+ * @param {{ release?: boolean, checkFiles?: boolean, checkGit?: boolean, now?: Date | string | number,
+ *   reviewDateScope?: import("./organisation/review-date-scope.mjs").ReviewDateScope | null }} [options]
+ * @returns {{ errors: string[], warnings: string[] }}
+ */
+export function evaluatePrivacyReadiness(
   manifest,
-  { release = false, checkFiles = true, checkGit = checkFiles, now = new Date() } = {},
+  { release = false, checkFiles = true, checkGit = checkFiles, now = new Date(), reviewDateScope = null } = {},
 ) {
   const errors = [];
+  const warnings = [];
+  const findings = {
+    errors,
+    warnings,
+    scope: release ? null : reviewDateScope,
+    registerPath: PRIVACY_REGISTER_PATH,
+  };
   const today = todayIso(now);
   if (manifest?.schemaVersion !== 1) errors.push("schemaVersion must be 1");
   const reviewedCommit = manifest?.reviewedCommit ?? "";
@@ -169,7 +237,7 @@ export function validatePrivacyReadiness(
   if (validDate(manifest?.reviewedAt) && manifest.reviewedAt > today)
     errors.push("manifest reviewedAt is in the future");
   if (validDate(manifest?.reviewExpiresAt) && manifest.reviewExpiresAt < today)
-    errors.push("manifest review has expired");
+    reportExpiredReviewDate(findings, "manifest review has expired", privacyRegisterCoveredPaths(manifest));
   if (!Array.isArray(manifest?.requirements)) errors.push("requirements must be an array");
   const requirements = Array.isArray(manifest?.requirements) ? manifest.requirements : [];
   const ids = new Set();
@@ -188,7 +256,9 @@ export function validatePrivacyReadiness(
       errors.push(`${label}: reviewExpiresAt precedes reviewedAt`);
     }
     if (validDate(item.reviewedAt) && item.reviewedAt > today) errors.push(`${label}: reviewedAt is in the future`);
-    if (validDate(item.reviewExpiresAt) && item.reviewExpiresAt < today) errors.push(`${label}: review has expired`);
+    if (validDate(item.reviewExpiresAt) && item.reviewExpiresAt < today) {
+      reportExpiredReviewDate(findings, `${label}: review has expired`, privacyRequirementCoveredPaths(item));
+    }
     if (!Array.isArray(item.evidenceReferences) || item.evidenceReferences.length === 0) {
       errors.push(`${label}: evidenceReferences must be non-empty`);
     } else if (checkFiles) {
@@ -247,7 +317,7 @@ export function validatePrivacyReadiness(
       errors.push(`${label}: release-blocking status ${item.status}`);
   }
   for (const id of requiredIds) if (!ids.has(id)) errors.push(`missing required id ${id}`);
-  return errors;
+  return { errors, warnings };
 }
 
 /**
@@ -303,14 +373,21 @@ function main() {
         "ran. Release mode does not skip them.",
     );
   }
-  const errors = validatePrivacyReadiness(manifest, { release, checkGit: !skip });
+  // Strict unless pull-request CI asks for pr mode explicitly (REVIEW_DATE_MODE=pr with BASE_SHA and
+  // HEAD_SHA); see scripts/organisation/review-date-scope.mjs. Release mode never reads it.
+  const reviewDateScope = release
+    ? resolveReviewDateScope({ env: {}, root })
+    : resolveReviewDateScope({ env: process.env, root });
+  const { errors, warnings } = evaluatePrivacyReadiness(manifest, { release, checkGit: !skip, reviewDateScope });
+  printReviewDateWarnings("PRIVACY_READINESS", reviewDateScope, warnings);
+  const scopeLabel = describeReviewDateScope(reviewDateScope);
   if (errors.length) {
-    console.error(`PRIVACY_READINESS_FAIL mode=${release ? "release" : "structural"}`);
+    console.error(`PRIVACY_READINESS_FAIL mode=${release ? "release" : "structural"} ${scopeLabel}`);
     for (const error of errors) console.error(`- ${error}`);
     process.exit(1);
   }
   console.log(
-    `PRIVACY_READINESS_PASS mode=${release ? "release" : "structural"} requirements=${manifest.requirements.length} history=${skip ? "skipped" : "checked"}`,
+    `PRIVACY_READINESS_PASS mode=${release ? "release" : "structural"} requirements=${manifest.requirements.length} history=${skip ? "skipped" : "checked"} ${scopeLabel} expired-not-blocking=${warnings.length}`,
   );
 }
 

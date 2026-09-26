@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "disagreements": [
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "scripts/audit-tables.ts",
+      "area": "source-intake"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "scripts/cleanup-abandoned-reindex-generations.ts",
+      "area": "source-intake"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "scripts/reindex-health.ts",
+      "area": "source-intake"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "scripts/reindex.ts",
+      "area": "source-intake"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "supabase/functions/indexing-v3-agent/behavior.ts",
+      "area": "source-intake"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "supabase/functions/indexing-v3-agent/index.ts",
+      "area": "source-intake"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "supabase/functions/indexing-v3-agent/utils.ts",
+      "area": "source-intake"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "supabase/functions/site-content-sync/auth.ts",
+      "area": "clinical-content"
+    },
+    {
+      "classifier": "CI change scope: database lane",
+      "file": "supabase/functions/site-content-sync/index.ts",
+      "area": "clinical-content"
+    },
+    {
+      "classifier": "CI change scope: ingestion scan lane",
+      "file": ".github/workflows/ci.yml",
+      "area": "delivery"
+    },
+    {
+      "classifier": "CI change scope: ingestion scan lane",
+      "file": "scripts/ci-change-scope.mjs",
+      "area": "delivery"
+    },
+    {
+      "classifier": "Flight-plan risk classes: deployment",
+      "file": ".github/workflows/eval-canary.yml",
+      "area": "answer-engine"
+    },
+    {
+      "classifier": "PR policy: operational-risk",
+      "file": ".github/workflows/eval-canary.yml",
+      "area": "answer-engine"
+    }
+  ]
+}

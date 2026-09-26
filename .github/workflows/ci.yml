@@ -503,11 +503,18 @@ jobs:
       # governance:release chain, so a control rename, a gutted proof test or the
       # register's own reviewExpiresAt lapsing produced no PR signal. Needs the
       # fetch-depth 0 checkout above for the reviewedCommit ancestry checks; the
-      # script says so and skips only those on a shallow clone. Note: this step
-      # goes red on reviewExpiresAt until the register is re-reviewed — by design.
+      # script says so and skips only those on a shallow clone. An expired
+      # reviewExpiresAt is strict on manual, release-branch and local runs; on a PR,
+      # in the merge queue or on a push to main it warns unless the change touches
+      # the register or a path the expired entry covers, and the weekly
+      # organisation report raises it (REVIEW_DATE_MODE, owner decisions 2026-09-26).
       - name: Clinical hazard-controls register
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:clinical-hazard-controls
+        env:
+          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 'pr' || 'strict' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
 
       # Four ESLint workers: measured 134 s serial vs 69 s at four on a cold cache, identical
       # output. Nothing here is type-aware, so the workers do not each build a TypeScript program,
@@ -521,6 +528,27 @@ jobs:
       - name: Typecheck
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run typecheck
+
+      # Organisation map (docs/organisation/README.md). Deliberately unconditional and last:
+      # a map-only PR is docs-light and a workflow-only PR sets no scope predicate, yet either
+      # can break the map. It blocks only map breakage this change introduced (never inherited
+      # findings, never a date); files not yet placed are warnings in the job summary.
+      - name: Organisation map
+        env:
+          ORGANISATION_CHECK_MODE: ci
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: npm run check:organisation
+
+      # Instruction guards (docs/organisation/README.md): a retired rule restated in a live
+      # instruction file, or AGENTS.md/CLAUDE.md growing past their size budget. Judges only
+      # what this change adds, so it never blames a PR for main's own state or for the date.
+      - name: Instruction guards
+        env:
+          INSTRUCTIONS_CHECK_MODE: ci
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: npm run check:instructions
 
   safety:
     name: Safety and config checks
@@ -567,6 +595,10 @@ jobs:
 
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci
+        env:
+          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 'pr' || 'strict' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
 
       # Fixtures for executable changes; full offline contracts (includes
       # fixtures) when retrieval/answer surfaces change. Recognised docs and
