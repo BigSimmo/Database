@@ -77,6 +77,7 @@ export function visibleByText(page: Page, text: string | RegExp, options?: { exa
  * already in view, so `click()` scrolls nothing and triggers no second collapse.
  */
 export async function clickWhenSettled(locator: Locator, { timeout = 10_000 }: { timeout?: number } = {}) {
+  await expectHydrated(locator);
   await locator.scrollIntoViewIfNeeded({ timeout });
   let previous = "";
   await expect
@@ -100,4 +101,29 @@ export async function clickWhenSettled(locator: Locator, { timeout = 10_000 }: {
     )
     .toBe(true);
   await locator.click({ timeout });
+}
+
+/**
+ * Wait until React has hydrated this element. Server-rendered markup is visible and
+ * actionable before hydration, but a click or fill landing in that gap is dropped (or,
+ * for a controlled input, overwritten when React adopts the node). React attaches its
+ * `__reactProps$<id>` key to every host node as it hydrates, whether or not the node has
+ * a handler, so the key is a per-element readiness signal that also covers native
+ * controls (summary, links) that `waitForReactEventHandler` cannot. Slower release-matrix
+ * runners (WebKit / PWA standalone) widen this window enough to fail a different
+ * spec on most runs.
+ */
+export async function expectHydrated(locator: Locator, { timeout = 15_000 }: { timeout?: number } = {}) {
+  await expect
+    .poll(() => locator.evaluate((element) => Object.keys(element).some((key) => key.startsWith("__reactProps$"))), {
+      message: "the control must be hydrated before it is used",
+      timeout,
+    })
+    .toBe(true);
+}
+
+/** `expectHydrated`, then click: for controls that are interacted with straight after navigation. */
+export async function clickWhenHydrated(locator: Locator, options?: Parameters<Locator["click"]>[0]) {
+  await expectHydrated(locator);
+  await locator.click(options);
 }

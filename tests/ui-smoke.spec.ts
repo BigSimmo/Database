@@ -26,7 +26,12 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { clickWhenSettled, expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
+import {
+  clickWhenHydrated,
+  clickWhenSettled,
+  expectSingleSettledOwner,
+  visibleByTestId,
+} from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { BRAND_NAME } from "../src/lib/brand";
@@ -6199,7 +6204,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     );
 
     const composer = page.locator("form.document-viewer-composer");
-    await page.getByRole("button", { name: "Open document actions" }).click();
+    await clickWhenHydrated(page.getByRole("button", { name: "Open document actions" }));
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
     await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
