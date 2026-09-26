@@ -211,6 +211,28 @@ source correspondence question cannot be answered yes without a source; they sta
 review until one is adopted. Type `skip` at any question to move on to the next record
 without saving the one on screen.
 
+## Indigenous content is never signed off here
+
+Owner rule, 2026-09-26. Any record that mentions Aboriginal or Torres Strait Islander people,
+First Nations, Indigenous, social and emotional wellbeing (SEWB), or an Indigenous-specific
+service is held back: it is left out of every walk-through, pack and batch, the tool refuses to
+sign it even by its code, and a record found signed anyway turns the project's checks red. It
+needs review under Aboriginal governance instead. The queue report shows how many are held in
+each set. The match is deliberately broad, so a record can be held for a passing mention; that
+only leaves it awaiting review, which is the safe state.
+
+## Specifiers and dictionary rewrites
+
+Two more sets work with the same walk-through, pack and batch commands:
+
+- `--kind specifier`: the 71 specifiers with a written definition plus the 18 general
+  specifiers. These definitions are hidden on the site today because an automated check found
+  scattered clinical errors among them; signing one says it is correct against DSM-5-TR, and the
+  page then shows it. The other 494 specifiers have no definition yet, so there is nothing to sign.
+- `--kind dictionary-rewrite`: the 28 proposed rewrites of existing dictionary definitions.
+  Approving one records your approval; the site keeps the current wording until the approved
+  rewrites are applied in a separate step.
+
 ## Signing off a whole set at once (batch)
 
 Owner decision, 2026-09-26. Instead of answering the questions record by record, you can
@@ -241,7 +263,7 @@ If any record changed after the pack was written, the code will not match and no
 signed. Write a fresh pack and read that one. Excluded records stay awaiting review.
 
 The same works for `--kind differential`, `formulation-guide`, `formulation-mechanism`,
-`form`, `section` and `timeframe`. For Therapy:
+`form`, `section`, `timeframe`, `specifier` and `dictionary-rewrite`. For Therapy:
 
 ```bash
 npm run therapy:review -- --pack --reviewed-by "PsychSift"

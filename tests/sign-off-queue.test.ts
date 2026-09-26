@@ -5,9 +5,12 @@ import { formSlug as catalogueFormSlug } from "@/lib/form-catalog";
 import { formPageHref } from "@/lib/form-register";
 import { formStaticParams } from "@/lib/forms";
 import { assertNoDraftIsPublished, dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
-import { dictionaryDefinitionReviews } from "@/lib/dictionary-editorial/definition-reviews";
+import {
+  dictionaryDefinitionReviews,
+  isDefinitionReviewClinicallyApproved,
+} from "@/lib/dictionary-editorial/definition-reviews";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
-import { loadSpecifiersContent } from "@/lib/specifiers-content";
+import { isSpecifierClinicianReviewed, loadSpecifiersContent } from "@/lib/specifiers-content";
 import { formulationConcepts, formulationGuides } from "@/lib/formulation-concepts";
 import { conceptReviewState } from "@/lib/formulation-review-status";
 
@@ -118,11 +121,15 @@ describe("clinical sign-off queue", () => {
         `${draft.id} is missing`,
       ).toBe(true);
     }
+    // A definition review leaves the queue only once `npm run clinical:review` has
+    // written a complete clinicalApproval onto it; every other review stays listed.
     for (const review of dictionaryDefinitionReviews) {
       expect(
         dictionary.rows.some((row) => row.id === review.id),
-        `${review.id} is missing`,
-      ).toBe(true);
+        isDefinitionReviewClinicallyApproved(review)
+          ? `${review.id} is signed but still listed`
+          : `${review.id} is missing`,
+      ).toBe(!isDefinitionReviewClinicallyApproved(review));
     }
   });
 
@@ -161,8 +168,12 @@ describe("clinical sign-off queue", () => {
     const specifiers = queue.families.find((family) => family.id === "specifiers")!;
     const universals = specifiers.rows.filter((row) => row.key.startsWith("specifier-universal:"));
 
-    expect(universals.length).toBe(content.universalSpecifiers.length);
-    expect(universals.length).toBe(content.stats.universalSpecifiers);
+    // A universal leaves the queue only once it carries a complete clinician sign-off.
+    const unsignedUniversals = content.universalSpecifiers.filter(
+      (specifier) => !isSpecifierClinicianReviewed(specifier.review),
+    );
+    expect(content.universalSpecifiers.length).toBe(content.stats.universalSpecifiers);
+    expect(universals.map((row) => row.id)).toEqual(unsignedUniversals.map((specifier) => specifier.review.rowKey));
     expect(specifiers.rows.length).toBe(content.stats.itemsPendingClinicianReview + universals.length);
     // Unlinked on purpose: publicSpecifierRecords() is curated records plus
     // specifierCatalogItems(), and a universal is in neither, so /specifiers/<slug>

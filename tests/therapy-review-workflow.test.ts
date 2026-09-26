@@ -20,6 +20,7 @@ import {
   persistTherapyReviewTransaction,
   renderTherapyPack,
   therapyHasReferences,
+  therapyIndigenousContent,
   therapyNeedsSource,
   therapyPackCode,
   therapyWalkQueue,
@@ -390,6 +391,20 @@ describe("Therapy clinician-input workflow", () => {
     ];
     expect(therapyWalkQueue(records)).toEqual(["a", "d"]);
     expect(therapyNeedsSource(records)).toEqual(["c"]);
+  });
+
+  it("never offers a record with Indigenous content (owner rule 2026-09-26)", () => {
+    const records = [
+      { slug: "a", reviewStatus: "needs_review", references: "APA 2019", clinicalSummary: "Plain CBT." },
+      {
+        slug: "b",
+        reviewStatus: "needs_review",
+        references: "APA 2019",
+        clinicalSummary: "Adapted for Aboriginal and Torres Strait Islander clients.",
+      },
+    ];
+    expect(therapyIndigenousContent(records[1])).toBe("Aboriginal");
+    expect(therapyWalkQueue(records)).toEqual(["a"]);
   });
 
   it("treats a record with no references as unable to pass Source correspondence", () => {

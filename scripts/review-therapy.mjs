@@ -53,6 +53,7 @@ import {
   therapyReviewedContentSha256,
 } from "./lib/therapy-review-contract.mjs";
 import { createPrompt } from "./lib/confirm.mjs";
+import { INDIGENOUS_CONTENT_RULE, indigenousContentTerm } from "./lib/indigenous-content.mjs";
 import { parseExcludeList, renderSignOffPack, signOffPackCode } from "./lib/sign-off-pack.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -162,8 +163,22 @@ export function therapyHasReferences(record) {
 /** Records the walk offers, in catalogue order: awaiting review, with references to check against. */
 export function therapyWalkQueue(records) {
   return records
-    .filter((record) => record.reviewStatus !== "reviewed" && therapyHasReferences(record))
+    .filter(
+      (record) =>
+        record.reviewStatus !== "reviewed" && therapyHasReferences(record) && !therapyIndigenousContent(record),
+    )
     .map((record) => record.slug);
+}
+
+/** The Indigenous term in a record's content, or null. Such a record is never offered or signed. */
+export function therapyIndigenousContent(record) {
+  const content = Object.fromEntries(
+    Object.entries(record).filter(
+      ([key]) =>
+        !["reviewStatus", "reviewChecklist", "reviewedBy", "reviewedAt", "reviewedContentSha256"].includes(key),
+    ),
+  );
+  return indigenousContentTerm(content);
 }
 
 /** Records awaiting review that list no references, so cannot be signed off yet. */
@@ -683,6 +698,10 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       throw new Error(
         `${args.slug} lists no references, so the Source correspondence check cannot be attested. Add a source first.`,
       );
+    }
+    const indigenous = therapyIndigenousContent(record);
+    if (indigenous) {
+      throw new Error(`${args.slug} contains Indigenous content ("${indigenous}"); ${INDIGENOUS_CONTENT_RULE}.`);
     }
   }
   const needsSource = args.walk ? therapyNeedsSource(records) : [];

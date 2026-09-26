@@ -356,9 +356,17 @@ describe("source acquisition attestation", () => {
     return { ...signed, attestedAgainstSha256: acquisitionAttestedContentSha256(signed) };
   }
 
-  it("leaves a record with no attestation alone, which is every record today", () => {
+  it("leaves a record with no attestation alone, and every attestation on disk is complete and current", () => {
     expect(issuesFor()).toEqual([]);
-    expect(sourceAcquisitionRecords.every((entry) => entry.attestedAgainstSha256 === undefined)).toBe(true);
+    // Owner sign-offs arrive through npm run clinical:review -- --kind source; each must carry
+    // all three fields, and acquisitionLedgerIssues (run over the real ledger elsewhere) keeps
+    // every one current.
+    for (const entry of sourceAcquisitionRecords.filter((record) => record.attestedAgainstSha256 !== undefined)) {
+      expect(entry.attestedBy?.trim()).toBeTruthy();
+      expect(entry.attestedAt).toBeTruthy();
+      expect(entry.attestedAgainstSha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(acquisitionAttestedContentSha256(entry)).toBe(entry.attestedAgainstSha256);
+    }
   });
 
   it("accepts an attestation written against the record as it stands", () => {

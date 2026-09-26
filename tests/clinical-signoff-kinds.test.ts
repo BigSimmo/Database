@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { indigenousContentTerm } from "../scripts/lib/indigenous-content.mjs";
 import {
   applyClinicalReview,
   collectionOf,
+  indigenousContentIn,
+  signOffEligibilityProblem,
   finalizeClinicalReview,
   recordPinState,
   reviewProblems,
@@ -17,6 +20,8 @@ import {
 import differentialCuratedReview from "../data/differential-curated-review.json";
 import formulationConcepts from "../src/data/formulation-concepts.json";
 import formulationContent from "../src/data/formulation-content.json";
+import dictionaryDefinitionReviews from "../src/data/dictionary-definition-reviews.json";
+import specifiersContent from "../data/specifiers-content.json";
 
 import { curatedDifferentials } from "@/lib/differential-curated";
 import { curatedProvenanceFor, curatedProvenanceLabel } from "@/lib/differential-detail";
@@ -78,6 +83,8 @@ describe("sign-offs on disk", () => {
     ["formulation-guide", formulationConcepts],
     ["formulation-concept", formulationConcepts],
     ["formulation-mechanism", formulationContent],
+    ["specifier", specifiersContent],
+    ["dictionary-rewrite", dictionaryDefinitionReviews],
   ])("every %s record is unsigned or carries a current pin", (kind, document) => {
     expect(reviewProblems(collectionOf(kind, document), kind, context)).toEqual([]);
   });
@@ -279,5 +286,126 @@ describe("batch sign-off from a review pack", () => {
         output: sink(),
       }),
     ).rejects.toThrow(/not-a-slug/);
+  });
+});
+
+describe("specifier sign-off", () => {
+  const records = () => collectionOf("specifier", specifiersContent);
+
+  it("offers only records with real text: written definitions and the universal specifiers", () => {
+    const all = records();
+    const signable = all.filter((record: Json) => record.status !== "pending");
+    expect(signable.every((record: Json) => record.kind === "universal" || record.definitionStatus === "defined")).toBe(
+      true,
+    );
+    const placeholders = all.filter((record: Json) => record.kind === "item" && record.definitionStatus !== "defined");
+    expect(placeholders.length).toBeGreaterThan(0);
+    for (const record of placeholders) expect(record.status).not.toBe("drafted");
+  });
+
+  it("writes the sign-off into the item's review, recounts pending items, and touches nothing else", () => {
+    const document = clone(specifiersContent);
+    const view = records().find((record: Json) => record.kind === "item" && record.status === "drafted");
+    expect(view).toBeTruthy();
+    const signed = finalizeClinicalReview(view, "specifier", {
+      reviewedBy: REVIEWER,
+      reviewedAt: REVIEWED_AT,
+      now: NOW,
+    });
+    const next = applyClinicalReview(document, "specifier", signed) as typeof specifiersContent;
+    const after = collectionOf("specifier", next);
+    const signedView = after.find((record: Json) => record.id === view.id);
+    expect(signedView).toMatchObject({ status: "reviewed", reviewedBy: REVIEWER, reviewedAt: REVIEWED_AT });
+    expect(recordPinState(signedView, "specifier")).toBe("current");
+    const changed = after.filter(
+      (record: Json, index: number) => JSON.stringify(record) !== JSON.stringify(records()[index]),
+    );
+    expect(changed.map((record: Json) => record.id)).toEqual([view.id]);
+    expect(next.stats.itemsPendingClinicianReview).toBe(specifiersContent.stats.itemsPendingClinicianReview - 1);
+  });
+
+  it("sends a signed definition back for review when its text is edited", () => {
+    const view = records().find((record: Json) => record.kind === "item" && record.status === "drafted");
+    const signed = finalizeClinicalReview(view, "specifier", {
+      reviewedBy: REVIEWER,
+      reviewedAt: REVIEWED_AT,
+      now: NOW,
+    });
+    const edited = { ...signed, definition: { ...(signed.definition as Json), meaning: "Edited." } };
+    expect(recordPinState(edited, "specifier")).toBe("stale");
+  });
+});
+
+describe("dictionary rewrite approval", () => {
+  const records = () => collectionOf("dictionary-rewrite", dictionaryDefinitionReviews);
+
+  it("offers only reviews that propose new wording", () => {
+    for (const record of records()) {
+      expect(record.status).toBe(record.proposedWording ? "drafted" : "pending");
+    }
+  });
+
+  it("records the approval beside the review and leaves the wording and publication flags alone", () => {
+    const view = records().find((record: Json) => record.status === "drafted");
+    const signed = finalizeClinicalReview(view, "dictionary-rewrite", {
+      reviewedBy: REVIEWER,
+      reviewedAt: REVIEWED_AT,
+      now: NOW,
+    });
+    const next = applyClinicalReview(clone(dictionaryDefinitionReviews), "dictionary-rewrite", signed) as {
+      reviews: Json[];
+    };
+    const before = dictionaryDefinitionReviews.reviews.find((review) => review.id === view.id)!;
+    const after = next.reviews.find((review) => review.id === view.id)!;
+    expect(after.clinicalApproval).toMatchObject({ status: "approved", reviewer: REVIEWER, reviewedAt: REVIEWED_AT });
+    const withoutApproval = Object.fromEntries(Object.entries(after).filter(([key]) => key !== "clinicalApproval"));
+    expect(withoutApproval).toEqual(before);
+    const view2 = collectionOf("dictionary-rewrite", next).find((record: Json) => record.id === view.id);
+    expect(recordPinState(view2, "dictionary-rewrite")).toBe("current");
+    expect(recordPinState({ ...view2, proposedWording: "Changed." }, "dictionary-rewrite")).toBe("stale");
+  });
+});
+
+describe("owner rule 2026-09-26: Indigenous content is never signed off", () => {
+  it("recognises Indigenous content and leaves other text alone", () => {
+    for (const text of [
+      "Aboriginal and Torres Strait Islander people",
+      "First Nations social and emotional wellbeing",
+      "SEWB framework",
+      "Call 13YARN",
+      "Thirrili postvention",
+      "non-Indigenous reviewers",
+    ]) {
+      expect(indigenousContentTerm({ text })).not.toBeNull();
+    }
+    expect(indigenousContentTerm({ text: "Serotonin toxicity with clonus" })).toBeNull();
+  });
+
+  it("holds Indigenous Formulation records out of every queue and refuses to sign them", () => {
+    const concepts = collectionOf("formulation-concept", formulationConcepts);
+    const queue = signOffQueue("formulation-concept", concepts);
+    const held = concepts.filter((record: Json) => indigenousContentIn(record, "formulation-concept"));
+    expect(held.map((record: Json) => record.id)).toContain("first-nations-sewb");
+    for (const record of held) {
+      expect(queue).not.toContain(record.id);
+      expect(signOffEligibilityProblem(record, "formulation-concept")).toMatch(/Indigenous content/);
+      expect(() =>
+        finalizeClinicalReview(record, "formulation-concept", {
+          reviewedBy: REVIEWER,
+          reviewedAt: REVIEWED_AT,
+          now: NOW,
+        }),
+      ).toThrow(/Indigenous content/);
+    }
+    const guides = collectionOf("formulation-guide", formulationConcepts);
+    expect(signOffQueue("formulation-guide", guides)).not.toContain("guide-07");
+  });
+
+  it("reports an Indigenous record found signed, so CI goes red until it is returned to drafted", () => {
+    const record = collectionOf("formulation-concept", formulationConcepts).find(
+      (entry: Json) => entry.id === "first-nations-sewb",
+    );
+    const forged = { ...record, status: "reviewed", reviewedBy: REVIEWER, reviewedAt: REVIEWED_AT };
+    expect(reviewProblems([forged], "formulation-concept", { now: NOW }).join("\n")).toMatch(/Indigenous content/);
   });
 });

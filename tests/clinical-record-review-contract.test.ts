@@ -221,12 +221,18 @@ describe("reviewedContentSha256", () => {
 describe("recordKinds", () => {
   it("registers every sign-off kind against its data file", () => {
     expect(Object.keys(recordKinds).sort()).toEqual([
+      "cultural-note",
+      "dictionary-rewrite",
       "differential",
       "form",
       "formulation-concept",
       "formulation-guide",
       "formulation-mechanism",
       "section",
+      "service",
+      "source",
+      "specifier",
+      "standard",
       "timeframe",
     ]);
     expect(recordKinds.differential.path).toBe("data/differential-curated-review.json");
@@ -248,7 +254,14 @@ describe("recordKinds", () => {
       "The clinical meaning is correct.",
       "It is safe to show this as reviewed.",
     ]);
-    for (const kind of Object.values(recordKinds)) expect(kind.checklist).toBe(SIGN_OFF_QUESTIONS);
+    // A source record carries no clinical wording, so its kind asks source-appropriate questions.
+    for (const kind of Object.values(recordKinds) as unknown as Array<{
+      kind: string;
+      checklist: readonly unknown[];
+    }>) {
+      if (kind.kind === "source") expect(kind.checklist).toHaveLength(3);
+      else expect(kind.checklist).toBe(SIGN_OFF_QUESTIONS);
+    }
   });
 
   it("walks forms in the recommended order, then catalogue order, skipping signed ones", () => {

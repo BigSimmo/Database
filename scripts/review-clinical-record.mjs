@@ -51,6 +51,7 @@ import {
   reviewerAttributionProblem,
   recordId,
   recordKinds,
+  indigenousContentIn,
   recordContentSha256,
   recordPinState,
   renderedFormGuidance,
@@ -61,6 +62,7 @@ import {
 } from "./lib/clinical-record-review-contract.mjs";
 import { createPrompt } from "./lib/confirm.mjs";
 import { parseExcludeList, renderSignOffPack, signOffPackCode } from "./lib/sign-off-pack.mjs";
+import { signOffKindModules } from "./lib/signoff-kinds/index.mjs";
 
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const KIND_NAMES = Object.keys(recordKinds);
@@ -266,6 +268,44 @@ const DISPLAY = {
       ],
     ];
   },
+  specifier(record) {
+    if (record.kind === "universal") {
+      return [
+        ["Universal specifier", record.title],
+        ["Description", record.description],
+        ["Source status", record.sourceVerificationStatus],
+        ["Source family", record.sourceFamily],
+      ];
+    }
+    return [
+      ["Specifier", record.label],
+      [
+        "On the site today",
+        "Hidden. This definition was generated, and automated review found scattered clinical errors among these. " +
+          "Signing it off means it is correct against DSM-5-TR and will be shown on the specifier's page.",
+      ],
+      ["Where it sits", `${record.categoryName} > ${record.disorderName} > ${record.groupLabel}`],
+      ["ICD-11 context", record.icd11Context],
+      ["Meaning", record.definition?.meaning],
+      ["Clinical note", record.definition?.clinicalNote],
+      ["Source family", record.definition?.sourceFamily ?? record.sourceFamily],
+      ["Source status", record.sourceVerificationStatus],
+    ];
+  },
+  "dictionary-rewrite"(record) {
+    return [
+      ["Entry", `${record.title} (${record.entrySlug}), ${record.category}`],
+      ["Current wording on the site", record.baselineWording],
+      ["Proposed wording", record.proposedWording],
+      ["Verdict", record.verdict],
+      ["Why", record.rationale],
+      ["Citation", record.legacyCitation],
+      [
+        "What approving does",
+        "Records your approval of the proposed wording. The site keeps the current wording until the approved rewrite is applied in a separate step.",
+      ],
+    ];
+  },
   "formulation-guide": formulationDisplay,
   "formulation-mechanism": formulationDisplay,
   "formulation-concept": formulationDisplay,
@@ -277,8 +317,12 @@ function titleForSlug(context, slug) {
 
 const FORMULATION_HIDDEN_FIELDS = new Set(["id", "status", "reviewedBy", "reviewedAt", "reviewedContentSha256"]);
 
-/** A guide module's blocks as readable text: headings, paragraphs and list items. */
-function guideBlocksText(blocks) {
+/**
+ * A guide module's blocks as readable text: headings, paragraphs and list items, with each
+ * citation as its marker. tests/clinical-signoff-display-parity.test.ts checks it against
+ * the data the guide page renders.
+ */
+export function guideBlocksText(blocks) {
   // A citation span renders as a marker linked to the evidence entry with that label.
   const spanText = (span) => (span?.citation ? ` [${span.citation}]` : (span?.text ?? ""));
   const spansText = (spans) => (Array.isArray(spans) ? spans.map(spanText).join("") : "");
@@ -292,17 +336,21 @@ function guideBlocksText(blocks) {
     .join("\n");
 }
 
-/** Each evidence entry as the page's EvidenceList shows it: label, title, detail line, limitations, link state. */
-function evidenceText(evidence) {
+/**
+ * Each evidence entry as the page's EvidenceList shows it: label, title, detail line,
+ * limitations, link state. tests/clinical-signoff-display-parity.test.ts renders
+ * EvidenceList for every Formulation record and requires every line of it here.
+ */
+export function evidenceText(evidence) {
   return evidence.map((entry) => {
     const lines = [`[${entry?.label ?? "?"}] ${entry?.title ?? ""}`];
-    const detail = [entry?.issuer, entry?.identifier, entry?.locator].filter(Boolean).join(" | ");
+    const detail = [entry?.issuer, entry?.identifier, entry?.locator].filter(Boolean).join(" · ");
     if (detail) lines.push(`    ${detail}`);
     for (const limitation of entry?.limitations ?? []) lines.push(`    Limitation: ${limitation}`);
     if (entry?.admission === "held")
       lines.push("    Link withheld: this source remains held and is cited as metadata only.");
     else if (entry?.urlStatus === "host_not_governed") {
-      lines.push("    Link withheld: this publisher's host is not on the governed source list.");
+      lines.push("    Link withheld: this publisher’s host is not on the governed source list.");
     } else if (entry?.url) lines.push(`    Link: ${entry.url}`);
     return lines.join("\n");
   });
@@ -332,6 +380,8 @@ function formulationDisplay(record, context) {
   }
   return rows;
 }
+
+for (const kindModule of signOffKindModules) Object.assign(DISPLAY, kindModule.display);
 
 function showRecord(kind, record, context, output) {
   for (const [label, value] of DISPLAY[kind](record, context)) {
@@ -424,6 +474,9 @@ export function loadKindDocument(kind, { root = DEFAULT_ROOT } = {}) {
 }
 
 async function loadContext(kind, root) {
+  for (const kindModule of signOffKindModules) {
+    if (Object.hasOwn(kindModule.kinds, kind)) return (await kindModule.loadContext?.(kind, root)) ?? {};
+  }
   if (kind === "form") return { catalog: readJson(join(root, "data", "forms-catalog.json")) };
   if (kind === "differential") {
     // Node 24 strips the module's type-only syntax, as scripts/build-cross-mode-differentials-index.mjs relies on.
@@ -469,15 +522,24 @@ async function showKindQueue(kind, root, output) {
   const stale = reviewed.filter((record) => recordPinState(record, kind, context) !== "current");
   const waiting = signOffQueue(kind, records, context);
   const pending = records.filter((record) => record.status === "pending").length;
+  const heldIndigenous = records.filter(
+    (record) => record.status === "drafted" && indigenousContentIn(record, kind, context),
+  ).length;
   writeLine(
     output,
     `${definition.heading} (${definition.path}): ${reviewed.length - stale.length} of ${records.length} signed off` +
-      (pending ? `; ${pending} not yet written.` : "."),
+      (pending ? `; ${pending} not ready to sign (no written text, or not in the review queue).` : "."),
   );
   if (stale.length) {
     writeLine(
       output,
       `  Edited since sign-off, needs signing again: ${stale.map((record) => recordId(record, kind)).join(", ")}`,
+    );
+  }
+  if (heldIndigenous) {
+    writeLine(
+      output,
+      `  Held, not offered: ${heldIndigenous} contain Aboriginal, Torres Strait Islander or other Indigenous content and need Aboriginal governance review.`,
     );
   }
   if (waiting.length) {
@@ -859,7 +921,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       writeLine(output);
       writeLine(
         output,
-        'To sign one off: npm run clinical:review -- --write --kind form --code 3C --reviewed-by "<your public name>"',
+        'To sign a set: npm run clinical:review -- --pack --kind <kind>, read it, then --write --batch --kind <kind> --reviewed-by "<your public name>"',
       );
     }
     writeLine(output, "Report only; no file was changed.");

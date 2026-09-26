@@ -56,9 +56,16 @@ describe("mechanismReviewState", () => {
   });
 
   it("recognises the repository's own signed-off value", () => {
-    const state = mechanismReviewState({ reviewStatus: "reviewed" });
+    const state = mechanismReviewState({ reviewStatus: "reviewed", reviewedBy: "Dr A. Example" });
     expect(state.reviewed).toBe(true);
     expect(state.label).toBe(REVIEWED);
+    expect(state.detail).toBe("Reviewed by Dr A. Example.");
+  });
+
+  it("does not honour a mechanism sign-off that names no reviewer", () => {
+    for (const reviewedBy of [undefined, null, "", "   "]) {
+      expect(mechanismReviewState({ reviewStatus: "reviewed", reviewedBy }).reviewed).toBe(false);
+    }
   });
 
   it("fails closed on anything it does not recognise", () => {
