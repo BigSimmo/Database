@@ -400,3 +400,13 @@ describe("developer hub page — clinical answer failure band", () => {
     expect(screen.queryByTestId("developer-hub-clinical-answer-failures-band")).toBeNull();
   });
 });
+
+describe("owner panel page — today section", () => {
+  it("leads with what is waiting on the owner and links to the tools", async () => {
+    render(await DeveloperHubPage());
+    expect(screen.getByRole("heading", { level: 1, name: "Owner panel" })).toBeInTheDocument();
+    expect(screen.getByTestId("owner-panel-today-summary")).toHaveTextContent(/waiting on you/);
+    expect(screen.getByTestId("owner-panel-settings-link")).toHaveAttribute("href", "/mockups/development/settings");
+    expect(screen.getByTestId("owner-panel-uploads-link")).toHaveAttribute("href", "/mockups/development/ingestion");
+  });
+});

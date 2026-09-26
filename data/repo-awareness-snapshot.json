@@ -323,6 +323,11 @@
         "area": "product"
       },
       {
+        "path": "/mockups/development/settings",
+        "file": "src/app/mockups/development/settings/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/on-call/now",
         "file": "src/app/(search-app)/on-call/now/page.tsx",
         "area": "product"

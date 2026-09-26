@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
  * would pull all of them into the client bundle with no gate before
  * `npm run build` able to see the mistake.
  */
-export const SECTION_HEADING_CLASS = "text-lg font-extrabold text-[color:var(--text-heading)]";
+export const SECTION_HEADING_CLASS = "text-lg font-semibold text-[color:var(--text-heading)]";
 export const META_CLASS = "text-xs text-[color:var(--text-muted)]";
 
 /**
@@ -40,7 +40,7 @@ export const ROW_CLASS = "flex flex-wrap items-baseline gap-2 rounded-lg border 
  * byte-identical here so adopting it changes zero rendered pixels.
  */
 export const CARD_CLASS = "grid gap-1 rounded-xl border border-[color:var(--border)] p-4";
-const TILE_NUMBER_CLASS = "text-2xl font-extrabold text-[color:var(--text-heading)]";
+const TILE_NUMBER_CLASS = "nums text-2xl font-normal text-[color:var(--text-heading)]";
 const TILE_LABEL_CLASS = "text-xs text-[color:var(--text-muted)]";
 
 /**
@@ -93,7 +93,7 @@ export function PanelSection({
 }) {
   const resolvedHeadingClass =
     headingClassName ??
-    (Heading === "h2" ? SECTION_HEADING_CLASS : "text-sm font-extrabold text-[color:var(--text-heading)]");
+    (Heading === "h2" ? SECTION_HEADING_CLASS : "text-sm font-semibold text-[color:var(--text-heading)]");
 
   return (
     <section id={id} data-testid={testId} aria-labelledby={headingId} className={className}>

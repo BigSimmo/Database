@@ -144,6 +144,17 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/corpus-health",
   },
+  // Live and administrator-only: it reads the running server's settings on each
+  // request and shows only Set/Missing/On/Off or an allow-listed mode name. The
+  // summary promises "never the values"; keep it that way.
+  {
+    id: "settings-check",
+    name: "Settings check",
+    summary: "Whether each production switch is on and each secret is in place — never the values",
+    group: "system",
+    phase: 1,
+    href: "/mockups/development/settings",
+  },
   {
     id: "test-health",
     name: "Test health",
