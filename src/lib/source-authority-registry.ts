@@ -825,6 +825,52 @@ export const sourceAuthorityRegistry = [
     tier: "australian_national",
     catalogueIdentityOnly: true,
   }),
+  /*
+   * WA service issuers read on 2026-09-26 and registered on the owner's decision of
+   * the same day (ledgers #6X06YS, #YDENFM, #JHT39N). Same safety setting as the two
+   * blocks above: catalogue identity only, never runtime retrieval classification.
+   * Each is the issuer of its own service information and nothing wider.
+   * `tests/wa-service-issuer-registration.test.ts` holds that boundary.
+   */
+  authority({
+    key: "ruah-community-services",
+    codes: ["RUAH"],
+    publisher: "Ruah Community Services",
+    publisherAliases: ["Ruah"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "st-vincent-de-paul-society-wa",
+    codes: ["SVDPWA"],
+    publisher: "St Vincent de Paul Society (WA) Inc",
+    publisherAliases: ["St Vincent de Paul Society (WA)", "Vinnies WA"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "youth-focus",
+    codes: ["YOUTHFOCUS"],
+    publisher: "Youth Focus",
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "mental-health-advocacy-service-wa",
+    codes: ["MHASWA"],
+    publisher: "Mental Health Advocacy Service",
+    publisherAliases: ["Mental Health Advocacy Service WA", "Mental Health Advocacy Service (WA)"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
 ] satisfies SourceAuthorityDefinition[];
 
 export function normalizeSourceAuthorityText(value: string | null | undefined) {

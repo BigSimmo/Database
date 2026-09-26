@@ -4,7 +4,19 @@ import { canonicalServiceRecords, canonicalServiceValidationErrors } from "@/lib
 import { sourceAuthorityIdentityForPublisher } from "@/lib/source-authority-registry";
 import part09 from "@/lib/services-canonical-data/part-09";
 
-const PART_09_IDS = ["SVC-LEG-002", "SVC-CHP-001", "SVC-FDV-004"] as const;
+const PART_09_IDS = [
+  "SVC-LEG-002",
+  "SVC-CHP-001",
+  "SVC-FDV-004",
+  "SVC-HOU-003",
+  "SVC-LEG-003",
+  "SVC-YTH-017",
+  "SVC-YTH-018",
+  "SVC-YTH-019",
+  "SVC-YTH-020",
+  "SVC-YTH-021",
+  "SVC-URG-006",
+] as const;
 
 describe("part-09 WA service records written 2026-09-26", () => {
   it("contains exactly the records written in this batch", () => {
@@ -18,8 +30,8 @@ describe("part-09 WA service records written 2026-09-26", () => {
   });
 
   it("cites a dated page from a publisher the authority register already knows", () => {
-    // Every issuer here resolves without a new register entry. Ruah, Vinnies and Youth Focus
-    // do not, which is why their records are not in this batch (#6X06YS, #YDENFM).
+    // Every issuer resolves in the authority register. Ruah, St Vincent de Paul Society (WA)
+    // and Youth Focus were registered for this batch on the owner's 2026-09-26 decision.
     for (const record of part09) {
       expect(record.sources.length).toBeGreaterThan(0);
       for (const source of record.sources) {

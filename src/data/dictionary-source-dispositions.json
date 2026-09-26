@@ -4,8 +4,8 @@
   "previewedOn": "2026-09-16",
   "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry and not clinical approval. It does carry deployed catalogue visibility — every non-rejected row renders at /sources at D band, marked unverified and carrying a verification_unknown warning. Sources re-read from their publisher pages on 2026-09-16 carry a `publisherCheck` with the exact finding and the date checked.",
   "counts": {
-    "held": 37,
-    "admitted_as_candidate": 21
+    "held": 32,
+    "admitted_as_candidate": 26
   },
   "sources": [
     {
@@ -157,22 +157,22 @@
     {
       "handoverSourceId": "AIHW-NASS-2026",
       "title": "Ambulance attendances for suicidality and self-harm",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-aihw-ambulance-attendances-suicidality-self-harm",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -294,22 +294,22 @@
     {
       "handoverSourceId": "AIHW-SUICIDE-2026",
       "title": "Suicide and self-harm monitoring glossary",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-aihw-suicide-self-harm-monitoring-glossary",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -1092,9 +1092,14 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "jurisdiction_not_written_in_register_form",
+          "blocker": "The jurisdiction field holds \"Victoria; children and adolescents\", a description rather than the register's form, so the catalogue cannot place the source in a jurisdiction and the gate raises unknown_jurisdiction.",
+          "nextAction": "Record the jurisdiction as \"Australia/VIC\", the register's jurisdiction for the Royal Children's Hospital Melbourne, and keep the paediatric scope in the record's notes."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1206,11 +1211,6 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
-        },
-        {
           "code": "host_not_in_inspected_governed_url_policy",
           "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
           "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
@@ -1317,32 +1317,22 @@
     {
       "handoverSourceId": "WA-MHAS",
       "title": "Mental Health Advocacy Service",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-wa-mental-health-advocacy-service",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
-        },
-        {
-          "code": "established_publisher_not_in_authority_register",
-          "blocker": "The page names its publishing organisation as the Mental Health Advocacy Service. That agency is not in the source authority register, so the catalogue cannot place it in a jurisdiction.",
-          "nextAction": "Owner decision: whether to register the Mental Health Advocacy Service as a catalogue-identity-only publisher. Adding a publisher to the register is a retrieval-ranking surface under AGENTS.md."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "The version field holds \"Live official reference\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -1371,7 +1361,7 @@
         {
           "code": "canonical_url_no_longer_serves_the_document",
           "blocker": "The PDF address now returns the Mental Health Commission's 'Our Resources' page ('Page last updated 5 December 2025'), not the list of forms.",
-          "nextAction": "Find the document's current location on the publisher's own site and re-read it there, or reject the source."
+          "nextAction": "Found 2026-09-26 on the publisher's own site at https://www.mhc.wa.gov.au/awcontent/Web/Documents/Mental%20Health%20Act/mental-health-act-2014-list-of-forms_22-68661_dec2022_final-print.pdf. The document states no date; the resources page linking to it says 'Page last updated 5 August 2026'. Re-point the source to that address and establish a version before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1430,27 +1420,22 @@
     {
       "handoverSourceId": "WA-MHERL",
       "title": "Mental Health Emergency Response Line",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-wa-mental-health-emergency-response-line",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -1572,22 +1557,22 @@
     {
       "handoverSourceId": "WA-OCP-MHA",
       "title": "Mental Health Act 2014",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-wa-ocp-mental-health-act-2014",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -1647,11 +1632,6 @@
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
-        {
-          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
-          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
-          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
-        },
         {
           "code": "host_not_in_inspected_governed_url_policy",
           "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
@@ -1831,7 +1811,7 @@
         {
           "code": "canonical_url_no_longer_serves_the_document",
           "blocker": "The address now returns the department's 'Sorry, we cannot find that page' response.",
-          "nextAction": "Find the document's current location on the publisher's own site and re-read it there, or reject the source."
+          "nextAction": "Found 2026-09-26 on the publisher's own site at https://www.health.gov.au/sites/default/files/documents/2021/04/mental-health-statement-of-rights-and-responsibilities-2012.pdf, titled 'Mental health statement of rights and responsibilities' and dated November 2012. Re-point the source to that address and use that edition before admitting."
         },
         {
           "code": "version_unknown",
@@ -2111,7 +2091,7 @@
         {
           "code": "canonical_url_no_longer_serves_the_document",
           "blocker": "The address now redirects to the NSW Government's WSLHD agency page, not the handbook.",
-          "nextAction": "Find the document's current location on the publisher's own site and re-read it there, or reject the source."
+          "nextAction": "Searched 2026-09-26: the publisher no longer hosts the handbook anywhere found. Recommend retiring this source rather than admitting it."
         },
         {
           "code": "version_unknown",
