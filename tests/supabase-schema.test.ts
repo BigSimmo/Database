@@ -2843,8 +2843,20 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     }
   });
 
-  it("moves invoke_ingestion_worker to the GUC base-URL pattern with service-role-only execute", () => {
-    for (const sql of [schema, invokeIngestionWorkerGucMigration]) {
+  it("retires invoke_ingestion_worker: unscheduled, dropped, and absent from the schema snapshot", () => {
+    const retirement = readFileSync(
+      new URL("../supabase/migrations/20260926041000_retire_invoke_ingestion_worker.sql", import.meta.url),
+      "utf8",
+    );
+    expect(retirement).toContain("where command ilike '%invoke_ingestion_worker%'");
+    expect(retirement).toContain("perform cron.unschedule(job.jobid);");
+    expect(retirement).toContain("drop function if exists public.invoke_ingestion_worker(integer);");
+    expect(schema).not.toContain("function public.invoke_ingestion_worker");
+    expect(schema).not.toContain("/functions/v1/ingestion-worker");
+  });
+
+  it("moved invoke_ingestion_worker to the GUC base-URL pattern with service-role-only execute before retirement", () => {
+    for (const sql of [invokeIngestionWorkerGucMigration]) {
       expect(sql).toContain("alter database %I set app.ingestion_worker_base_url = %L");
       expect(sql).toContain("when insufficient_privilege then");
       expect(sql).toContain("nullif(current_setting('app.ingestion_worker_base_url', true), '')");
