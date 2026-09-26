@@ -4,6 +4,9 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { cacheOnCallEntries, clearOnCallEntryCache } from "@/lib/on-call/entry-store";
+
 /**
  * The offline page's On Call essentials, run for real: the page's own markup and
  * its one inline script, against the cached copy the app writes
@@ -15,7 +18,7 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)![1];
 const body = html.match(/<body>([\s\S]*?)<script>/)![1];
 
 const NOW = new Date("2026-09-25T12:00:00Z");
-const CACHE_KEY = "clinical-kb-on-call-entries-cache";
+const CACHE_KEY = "clinical-kb-on-call-entries-cache-v2";
 
 function entry(overrides: Record<string, unknown>) {
   return {
@@ -58,6 +61,18 @@ afterEach(() => {
 describe("offline On Call essentials", () => {
   it("stays hidden when nothing is saved", () => {
     expect(run().hidden).toBe(true);
+  });
+
+  // Since 2026-09-26 the app keeps fetched entries for the session only: shared
+  // entries are sign-in only, so not public, and the device may hold only public
+  // information offline. The offline page therefore shows no saved entries, for a
+  // signed-out reader or anyone else, while its static crisis lines stay.
+  it("shows no saved entries after the app has cached some, because none reach the device", () => {
+    clearOnCallEntryCache();
+    cacheOnCallEntries([entry({ title: "Main switchboard" }) as OnCallEntry]);
+    const section = run();
+    expect(section.hidden).toBe(true);
+    expect(document.body.textContent).toContain("13 92 76");
   });
 
   it("puts switchboard first, then pocket-card numbers, with tap-to-call and the saved time", () => {

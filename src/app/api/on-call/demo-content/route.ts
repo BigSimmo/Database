@@ -51,12 +51,13 @@ export const runtime = "nodejs";
  * ## The visibility consequence, stated here because the code is where it binds
  *
  * `fetchSharedOnCallEntries` selects `is_personal = false` across EVERY owner,
- * with no owner filter — that is the 2026-09-04 owner decision that lets a
- * covering doctor read ward numbers without an account. It means the
- * non-personal rows loaded here are readable by an anonymous visitor to the
- * site for as long as they are loaded. Of the corpus, the Access folder and
- * every Compliance requirement are personal and stay private; the rest do not
- * and do not.
+ * with no owner filter — the 2026-09-04 owner decision that lets a covering
+ * doctor read another account's ward numbers, narrowed on 2026-09-26 to
+ * signed-in readers. It means the non-personal rows loaded here are readable by
+ * any signed-in user of the site for as long as they are loaded. Of the corpus, the Access folder and
+ * every Compliance requirement are personal and stay private, the Teaching
+ * sessions and the contacts' names are never on the shared read, and the rest
+ * are shared.
  *
  * That is a property of the data, not of this route, and it is deliberately NOT
  * papered over by forcing `is_personal` on the way in. Forcing it would hide
@@ -153,8 +154,8 @@ export async function POST(request: Request) {
     // `fetchSharedOnCallEntries` returns every non-personal row across EVERY
     // account, and `fetchVisibleOnCallEntries` merges by row id, which differs
     // per copy. So a second load puts a second, undeduplicated copy of the
-    // example corpus on the page of every reader of this site, signed in or
-    // not — and repeated loads walk toward the ON_CALL_MAX_ENTRIES cap on the
+    // example corpus on the page of every signed-in reader of this site
+    // — and repeated loads walk toward the ON_CALL_MAX_ENTRIES cap on the
     // shared read, where they would start crowding out real entries.
     //
     // A refusal rather than a silent merge, because the person who can undo it

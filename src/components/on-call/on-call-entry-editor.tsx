@@ -327,7 +327,12 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
       required: true,
       hint: 'e.g. "ED registrar", "Ward 4B nurse in charge".',
     },
-    { key: "contactName", label: "Contact name", kind: "text" },
+    {
+      key: "contactName",
+      label: "Contact name",
+      kind: "text",
+      hint: "Shown only to you. Anyone else who can see this entry sees it without the name.",
+    },
     { key: "phone", label: "Direct phone", kind: "text", type: "tel" },
     { key: "afterHoursPhone", label: "After-hours phone", kind: "text", type: "tel" },
     { key: "pager", label: "Pager", kind: "text", type: "tel" },
@@ -598,7 +603,7 @@ function buildInitialDraft(
     // A compliance requirement is about one named person — their registration,
     // their indemnity, their police clearance — so it is private, full stop.
     // Forced rather than defaulted, because an entry that is not personal is
-    // readable by anyone who opens On Call without signing in, and a row
+    // readable by anyone signed in to this site, and a row
     // stored before this rule existed must not stay shared just because it was
     // saved first.
     isPersonal: isCompliance || (entry?.isPersonal ?? false),
@@ -1001,7 +1006,7 @@ export function OnCallEntryEditor({
     // renders it and no form re-offers it". **That is no longer true**, and the
     // conclusion survives the correction rather than resting on it. Since the
     // compliance privacy fix, a stranded compliance key on a `logistics` row
-    // decides whether the row is published to anonymous readers at all —
+    // decides whether the row is published to other readers at all —
     // `rowMayBeComplianceRequirement` in src/lib/on-call/repository.ts reads
     // exactly these keys. So an orphan is now load-bearing, and withholding
     // such a row is the intended outcome: it looks like a compliance record
@@ -1057,10 +1062,10 @@ export function OnCallEntryEditor({
       linkedDocumentIds: entry?.linkedDocumentIds ?? [],
       tags: tagsArray,
       // Enforced, not defaulted. An entry that is not personal is returned to
-      // anonymous callers of the shared read, so a compliance requirement left
-      // unticked would put a named doctor's registration, indemnity,
-      // credentialing or police-clearance record on a page anyone can open
-      // without signing in. There is no version of a compliance requirement
+      // every signed-in caller of the shared read, so a compliance requirement
+      // left unticked would put a named doctor's registration, indemnity,
+      // credentialing or police-clearance record on a page any account on this
+      // site can open. There is no version of a compliance requirement
       // that belongs to anybody but its owner, so the editor does not offer
       // the choice — see the statement that replaces the tick box below.
       isPersonal: complianceForcesPrivate || draft.isPersonal,
@@ -1288,12 +1293,12 @@ export function OnCallEntryEditor({
                 className={cn("px-1 py-1.5 text-xs leading-5", textMuted)}
               >
                 Private to you. A compliance requirement is your own record, so this entry is never shared: it stays off
-                the page anyone can open without signing in, and off the printable card.
+                the pages other signed-in users read, and off the printable card.
               </p>
             ) : (
               <Checkbox
                 label="Private — only you"
-                description="An entry that is not private can be read by anyone who opens On Call, without signing in. A private one stays off that page and off the printable card."
+                description="An entry that is not private can be read by anyone signed in to this site. A private one stays off their pages and off the printable card."
                 checked={draft.isPersonal}
                 onChange={(event) => setDraft((current) => ({ ...current, isPersonal: event.target.checked }))}
               />

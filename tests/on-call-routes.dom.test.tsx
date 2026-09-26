@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,6 +38,11 @@ vi.mock("@/lib/on-call/entry-store", () => ({
 vi.mock("@/lib/on-call/linked-documents", () => ({
   useOnCallLinkedDocuments: () => ({}),
   useOnCallLinkedDocumentsState: () => ({ documents: {}, loading: false }),
+}));
+
+vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
+  AccountSetupDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="on-call-account-setup-dialog-open" /> : null,
 }));
 
 import OnCallComplianceRoute from "@/app/(search-app)/on-call/compliance/page";
@@ -112,6 +117,7 @@ afterEach(() => {
   cleanup();
   accountState.isAuthenticated = true;
   storeState.entries = [];
+  storeState.signedOut = false;
 });
 
 describe("on-call section routes", () => {
@@ -192,31 +198,37 @@ describe("on-call section routes", () => {
     expect(screen.queryByTestId("on-call-contacts-signed-out")).toBeNull();
   });
 
-  // Signed out no longer means walled off. The API has served every shared
-  // (non-personal) entry to anonymous callers since the 2026-09-04 owner
-  // decision — `fetchSharedOnCallEntries` — and this client gate was the last
-  // thing still hiding them behind a "Sign in" empty state. Reading is open to
-  // any visitor. Writing is not: the write routes require an account.
+  // Signed out means signed out again. The 2026-09-04 owner decision served
+  // every shared entry to anonymous callers and this page dropped its sign-in
+  // state to match; the 2026-09-26 decision reverses the anonymous read, so the
+  // server sends a signed-out reader nothing. Drawn as the section's own empty
+  // state, that read as a wiped hub, so the page says why and offers sign-in.
   it.each(routes.map((route) => [route.title, route] as const))(
-    "%s renders its own list to a signed-out reader, with no sign-in wall and nothing to edit",
+    "%s tells a signed-out reader to sign in, rather than showing an empty section",
     (_title, route) => {
       accountState.isAuthenticated = false;
+      storeState.signedOut = true;
       render(<route.Route />);
 
       // The generic section name is still shown, as it always was.
       expect(screen.getByRole("heading", { level: 1, name: route.title })).toBeInTheDocument();
-      expect(screen.queryByTestId(`on-call-${route.view}-signed-out`)).toBeNull();
-      expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
-
-      // The section's own component renders, so an empty hub reads as empty
-      // rather than as locked.
-      expect(screen.getByTestId(`on-call-${route.view}-empty`)).toBeTruthy();
+      const signedOut = screen.getByTestId(`on-call-${route.view}-signed-out`);
+      expect(signedOut).toHaveTextContent("Sign in to see your hospital's On Call numbers");
+      expect(screen.queryByTestId(`on-call-${route.view}-empty`)).toBeNull();
       expect(screen.queryByTestId(`on-call-${route.view}-add`)).toBeNull();
+
+      // The button is the existing account dialog, not a dead end.
+      expect(screen.queryByTestId("on-call-account-setup-dialog-open")).toBeNull();
+      fireEvent.click(within(signedOut).getByRole("button", { name: "Sign in" }));
+      expect(screen.getByTestId("on-call-account-setup-dialog-open")).toBeInTheDocument();
     },
   );
 
+  // The on-device example preview is the one thing a signed-out reader can
+  // have entries from, and it must still render as a list.
   it("Contacts shows an entry to a signed-out reader with no edit control on it", () => {
     accountState.isAuthenticated = false;
+    storeState.signedOut = true;
     storeState.entries = [freshContact];
     render(<OnCallContactsRoute />);
 

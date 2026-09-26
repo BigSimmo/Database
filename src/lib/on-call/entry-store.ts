@@ -15,16 +15,19 @@ import {
   onCallEntryCacheChangedEvent,
   onCallEntryCacheStorageKey,
   peekOnCallEntrySessionEpoch,
+  removeLegacyOnCallEntryCaches,
 } from "@/lib/on-call/entry-cache-keys";
 import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 export { clearOnCallEntryCache, onCallEntryCacheChangedEvent, onCallEntryCacheStorageKey, peekOnCallEntrySessionEpoch };
 
 /**
- * On-device offline cache for On Call entries (`src/lib/on-call/entry-model.ts`).
- * A junior doctor reading this in a hospital basement with no signal needs the
- * last-known phone numbers, not a spinner — public entries are kept for at most seven days. Private entries stay in
- * session memory and are dropped on sign-out or an account change.
+ * Cache for On Call entries (`src/lib/on-call/entry-model.ts`). A junior doctor
+ * reading this in a hospital basement with no signal needs the last-known phone
+ * numbers, not a spinner, so the last fetch is kept for this tab's session and
+ * served when a later fetch fails. It is dropped on sign-out or an account
+ * change, and it is not written to the device — see
+ * `PERSIST_FETCHED_ON_CALL_ENTRIES` below.
  *
  * Follows `src/lib/saved-registry-storage.ts` for the storage shape and
  * `src/components/clinical-dashboard/use-sidebar-pins.ts` for wiring a
@@ -40,6 +43,38 @@ export type CachedOnCallEntries = {
 };
 
 export const ON_CALL_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Whether fetched entries may be kept in `localStorage` — the one switch for
+ * the device copy, which `public/offline.html` also reads.
+ *
+ * Off since 2026-09-26. Shared entries became readable by signed-in users only,
+ * so they are no longer public, and docs/pwa.md (owner decision, 2026-09-25)
+ * lets the device hold only public, non-patient information offline. Until the
+ * owner decides otherwise, entries stay in this tab's memory and nowhere else,
+ * and a copy an earlier release left on the device is removed on first read.
+ *
+ * The one thing still written is the signed-out example preview: the synthetic
+ * corpus this bundle already ships, written only while
+ * `isOnCallDemoPreviewActive()` and filtered to its `demo-` slugs, so nothing
+ * fetched can ride along with it.
+ */
+const PERSIST_FETCHED_ON_CALL_ENTRIES: boolean = false;
+const DEMO_PREVIEW_SLUG_PREFIX = "demo-";
+
+/** What may be written to the device for this payload, or null for nothing. */
+function devicePayload(payload: CachedOnCallEntries): string | null {
+  if (!PERSIST_FETCHED_ON_CALL_ENTRIES && !isOnCallDemoPreviewActive()) return null;
+  return JSON.stringify({
+    ...payload,
+    entries: payload.entries.filter(
+      (entry) =>
+        !entry.isPersonal &&
+        !mayContainOnCallCompliance(entry.section, entry.details) &&
+        (PERSIST_FETCHED_ON_CALL_ENTRIES || entry.slug.startsWith(DEMO_PREVIEW_SLUG_PREFIX)),
+    ),
+  });
+}
 // Private entries belong to the current session, never durable device storage.
 let sessionCache: string | null = null;
 let sessionCacheEpoch = peekOnCallEntrySessionEpoch();
@@ -81,8 +116,9 @@ export function readCachedOnCallEntries(): CachedOnCallEntries | null {
 
 /**
  * Write a fresh cache and record when it was saved. Returns whether the write
- * durably succeeded; callers still have the freshly fetched entries for this
- * render even when it did not.
+ * succeeded, including the device half (a write, or the removal of any old
+ * device copy); callers still have the freshly fetched entries for this render
+ * even when it did not.
  */
 export function cacheOnCallEntries(entries: OnCallEntry[]): boolean {
   if (typeof window === "undefined") return false;
@@ -90,15 +126,10 @@ export function cacheOnCallEntries(entries: OnCallEntry[]): boolean {
     const payload: CachedOnCallEntries = { entries, savedAt: new Date().toISOString() };
     sessionCache = JSON.stringify(payload);
     sessionCacheEpoch = peekOnCallEntrySessionEpoch();
-    window.localStorage.setItem(
-      onCallEntryCacheStorageKey,
-      JSON.stringify({
-        ...payload,
-        entries: entries.filter(
-          (entry) => !entry.isPersonal && !mayContainOnCallCompliance(entry.section, entry.details),
-        ),
-      }),
-    );
+    // The only `localStorage` write of On Call entries.
+    const device = devicePayload(payload);
+    if (device === null) window.localStorage.removeItem(onCallEntryCacheStorageKey);
+    else window.localStorage.setItem(onCallEntryCacheStorageKey, device);
     window.dispatchEvent(new Event(onCallEntryCacheChangedEvent));
     return true;
   } catch {
@@ -109,20 +140,18 @@ export function cacheOnCallEntries(entries: OnCallEntry[]): boolean {
 }
 
 function scrubPersistedOnCallCache(): void {
+  removeLegacyOnCallEntryCaches();
   try {
     const raw = window.localStorage.getItem(onCallEntryCacheStorageKey);
+    if (raw === null) return;
     const persisted = parseCachedPayload(raw);
-    if (!persisted) {
-      if (raw !== null) window.localStorage.removeItem(onCallEntryCacheStorageKey);
+    // Retire anything the device may no longer hold on first read, even while
+    // offline: every fetched row while persistence is off, and private rows.
+    const safe = persisted ? devicePayload(persisted) : null;
+    if (safe === null) {
+      window.localStorage.removeItem(onCallEntryCacheStorageKey);
       return;
     }
-    // Retire legacy durable private rows on first read, even while offline.
-    const safe = JSON.stringify({
-      ...persisted,
-      entries: persisted.entries.filter(
-        (entry) => !entry.isPersonal && !mayContainOnCallCompliance(entry.section, entry.details),
-      ),
-    });
     if (safe !== raw) {
       try {
         window.localStorage.setItem(onCallEntryCacheStorageKey, safe);
@@ -147,14 +176,7 @@ function getCacheSnapshot(): string {
   if (sessionCache !== null) return parseCachedPayload(sessionCache) ? sessionCache : "";
   try {
     const persisted = parseCachedPayload(window.localStorage.getItem(onCallEntryCacheStorageKey));
-    return persisted
-      ? JSON.stringify({
-          ...persisted,
-          entries: persisted.entries.filter(
-            (entry) => !entry.isPersonal && !mayContainOnCallCompliance(entry.section, entry.details),
-          ),
-        })
-      : "";
+    return (persisted && devicePayload(persisted)) ?? "";
   } catch {
     return "";
   }
@@ -202,8 +224,8 @@ export type OnCallEntriesState = {
    *  cached copy. Empty, never undefined, so a render never has to guard a
    *  hole in the data. */
   entries: OnCallEntry[];
-  /** When the entries currently shown were saved to this device. Null only
-   *  when nothing has ever been cached here. */
+  /** When the entries currently shown were cached in this session. Null only
+   *  when nothing has been cached. */
   cachedAt: string | null;
   /** True until the first fetch attempt has settled, success or failure. */
   loading: boolean;
@@ -218,7 +240,8 @@ export type OnCallEntriesState = {
   /** Fetch again after a failure. */
   retry: () => void;
   /** Mirrors the API's `signedOut` flag from the most recent successful
-   *  fetch. Signed-out responses replace the cache with public entries only. */
+   *  fetch. A signed-out response carries no entries (sign-in only since
+   *  2026-09-26), so it empties the cache. */
   signedOut: boolean;
   /** True when the entries came from the in-memory demo corpus rather than the
    *  database. Nothing in this mode can be written, so a control that offers to
@@ -227,8 +250,8 @@ export type OnCallEntriesState = {
 };
 
 /**
- * Fetches On Call entries and keeps a per-device offline cache so a phone
- * with no signal still shows the last-known numbers. Every storage access
+ * Fetches On Call entries and keeps the last fetch for this session so a phone
+ * that loses signal still shows the last-known numbers. Every storage access
  * goes through `readCachedOnCallEntries` / `cacheOnCallEntries`, both wrapped
  * in try/catch, so a browser blocking site data degrades to "no cached
  * entries" rather than throwing into render.

@@ -156,6 +156,18 @@ describe("selectUpcomingTeachingSessions", () => {
     });
   });
 
+  it("never hands a javascript: recording link to the page", () => {
+    const unsafe = teaching(
+      "unsafe-recording",
+      { nextOccurrenceDate: "2026-09-17", recordingUrl: "javascript:alert(1)" },
+      "Unsafe recording",
+    );
+    // The schema refuses these details outright, so the session carries no link
+    // at all; the http(s) check in the selector is the second line behind it.
+    const sessions = selectUpcomingTeachingSessions([unsafe], "2026-09-16");
+    expect(sessions.map((session) => session.recordingUrl)).not.toContain("javascript:alert(1)");
+  });
+
   it("sorts soonest first and breaks a tie on title", () => {
     const alsoToday = teaching("all-staff-forum", { nextOccurrenceDate: "2026-09-16" }, "All-staff forum");
     const sessions = selectUpcomingTeachingSessions([JOURNAL_CLUB, GRAND_ROUNDS, alsoToday], "2026-09-16", 10);
