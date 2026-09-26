@@ -19,7 +19,7 @@
       },
       {
         "id": "cme",
-        "label": "CME",
+        "label": "CPD",
         "home": "/cme",
         "dev_only": false
       },
@@ -69,6 +69,12 @@
         "id": "formulation",
         "label": "Formulation",
         "home": "/?mode=formulation",
+        "dev_only": false
+      },
+      {
+        "id": "my-work",
+        "label": "My Work",
+        "home": "/my-work",
         "dev_only": false
       },
       {
@@ -165,6 +171,11 @@
         "path": "/mockups/ward-flow/statistics/ward/[unitId]",
         "file": "src/app/mockups/ward-flow/statistics/ward/[unitId]/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/my-work",
+        "file": "src/app/(search-app)/my-work/page.tsx",
+        "area": "product"
       },
       {
         "path": "/caring-contacts/team",
