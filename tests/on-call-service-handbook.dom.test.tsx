@@ -148,7 +148,11 @@ describe("Invited service handbook through the actual UI", () => {
       expect.objectContaining({ cache: "no-store" }),
     );
     const contact = within(screen.getByTestId(`service-entry-${contactId}`));
-    expect(contact.getByRole("link", { name: "Call 08 5555 0100" })).toHaveAttribute("href", "tel:0855550100");
+    // One formatter (kit 1.2): the hospital's own list writes the number short,
+    // the link still dials 08, and its name speaks the digits one by one.
+    const call = contact.getByRole("link", { name: /^Call .*, 5 5 5 5, 0 1 0 0$/ });
+    expect(call).toHaveAttribute("href", "tel:0855550100");
+    expect(call).toHaveTextContent("Call 5555 0100");
     expect(contact.getByRole("link", { name: "Official local source" })).toHaveAttribute(
       "href",
       "https://example.org/local-source",

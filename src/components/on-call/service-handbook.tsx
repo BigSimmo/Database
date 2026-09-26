@@ -12,7 +12,7 @@ import { Button, buttonFaceClass } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
-import { onCallTelHref } from "@/lib/on-call/home-modules";
+import { resolveHandbookPhone, spokenOnCallNumber } from "@/lib/on-call/number-resolver";
 import type { ServiceAction, ServiceDetail, ServiceEntry } from "@/lib/on-call/service-model";
 
 type ReportAction = Extract<ServiceAction, { action: "report.create" }>;
@@ -63,7 +63,7 @@ function ServiceEntryCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const learning = learningHref(entry);
-  const callHref = onCallTelHref(entry.content.phone);
+  const dial = resolveHandbookPhone(entry.content.phone);
 
   async function submitReport() {
     if (!reason.trim() || busy) return;
@@ -119,26 +119,32 @@ function ServiceEntryCard({
             {entry.content.body}
           </p>
         ) : null}
-        {entry.content.phone ? (
-          <div className="flex min-h-tap min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)]">
-            {callHref ? (
+        {dial.kind !== "none" ? (
+          <div className="flex min-h-tap min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-[color:var(--text)]">
+            {dial.tel ? (
               <a
-                href={callHref}
+                href={dial.tel}
+                aria-label={`Call ${entry.content.title}, ${spokenOnCallNumber(dial.display)}`}
                 className={cn(buttonFaceClass({ variant: "primary", size: "sm" }), focusRing, "min-w-0 no-underline")}
               >
                 <Phone aria-hidden="true" className="size-icon-sm shrink-0" />
-                <span className="nums break-all">Call {entry.content.phone}</span>
+                <span className="nums break-all font-normal">Call {dial.display}</span>
               </a>
             ) : (
-              <>
-                <span className="nums min-w-0 flex-1 break-all">Extension {entry.content.phone}</span>
-                <OnCallCopyNumber
-                  value={entry.content.phone}
-                  label={`Copy extension for ${entry.content.title}`}
-                  testId={`service-entry-${entry.id}-copy-phone`}
-                />
-              </>
+              <span className="nums min-w-0 flex-1 break-all font-normal">
+                {dial.display}
+                {dial.route === "hospital-phone" ? (
+                  <span className={cn(textMuted, "ml-2 text-xs")}>From a hospital phone</span>
+                ) : null}
+              </span>
             )}
+            {dial.copy ? (
+              <OnCallCopyNumber
+                value={dial.copy}
+                label={`Copy number for ${entry.content.title}`}
+                testId={`service-entry-${entry.id}-copy-phone`}
+              />
+            ) : null}
           </div>
         ) : null}
 
