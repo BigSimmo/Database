@@ -12,6 +12,9 @@
 
 ## Global Constraints
 
+- Patient-describing state stays on the screen only. The "Where is home?" region choice and every tick in "Before you go in", the situation sheets and the going-home check are held in component state alone: never saved (no local or session storage, no database), never put in the URL, never sent to the server or to analytics, and never entered into the main search bar, which sends text to OpenAI (design standard §13). They clear when the page is left.
+- Every entry in the new regional services list (community-controlled health services, regional mental health teams, travel support) carries a source link and a checked date, like all other content.
+
 - Mode id `first-nations`; label "First Nations"; home `/first-nations`.
 - No disease or condition content, no doses, no calculators.
 - No database change, no migration, no provider calls, no files under `src/lib/rag/**` or any retrieval/ranking surface.
