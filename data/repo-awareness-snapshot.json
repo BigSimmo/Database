@@ -1660,6 +1660,10 @@
         "file": "src/app/api/caring-contacts/dispatches/route.ts"
       },
       {
+        "path": "/api/calendar/feed/[token]",
+        "file": "src/app/api/calendar/feed/[token]/route.ts"
+      },
+      {
         "path": "/api/medications",
         "file": "src/app/api/medications/route.ts"
       },
@@ -1730,6 +1734,10 @@
       {
         "path": "/api/cme/routines/[id]",
         "file": "src/app/api/cme/routines/[id]/route.ts"
+      },
+      {
+        "path": "/api/calendar/feed",
+        "file": "src/app/api/calendar/feed/route.ts"
       },
       {
         "path": "/api/documents/bulk",

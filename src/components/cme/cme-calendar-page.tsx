@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarSubscribe } from "@/components/calendar/calendar-subscribe";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
@@ -37,6 +38,7 @@ export function CmeCalendarPage({
         exportName={`CME ${set.year}`}
         testId="cme-calendar-view"
       />
+      <CalendarSubscribe testId="cme-calendar-subscribe" />
     </main>
   );
 }

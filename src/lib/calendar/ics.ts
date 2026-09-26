@@ -90,10 +90,21 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
   return lines;
 }
 
-export function toIcs(events: readonly CalendarEvent[], options: { name?: string; now?: Date } = {}): string {
+export function toIcs(
+  events: readonly CalendarEvent[],
+  options: { name?: string; now?: Date; refreshHours?: number } = {},
+): string {
   const stamp = options.now ?? new Date();
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:${PRODUCT_ID}`, "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
   if (options.name) lines.push(`X-WR-CALNAME:${escapeIcsText(options.name)}`);
+  // A subscribed feed asks the calendar app to re-read it this often. Apple and
+  // Outlook honour it; Google keeps its own schedule (roughly daily).
+  if (options.refreshHours && Number.isInteger(options.refreshHours) && options.refreshHours > 0) {
+    lines.push(
+      `REFRESH-INTERVAL;VALUE=DURATION:PT${options.refreshHours}H`,
+      `X-PUBLISHED-TTL:PT${options.refreshHours}H`,
+    );
+  }
   for (const event of events) lines.push(...eventLines(event, stamp));
   lines.push("END:VCALENDAR");
   return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;

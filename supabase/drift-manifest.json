@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-26T04:03:26.496Z",
+  "generated_at": "2026-09-26T04:35:43.150Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "9d5220f2dfd2608a3382d833aa1207a8beb9b43a438a50c90c7aaae41431781d",
-  "replay_seconds": 17,
+  "schema_sha256": "1c7066823adfea215531b4f3610238b1fcc0e0045c04e1e4ec453d903fa2cb0b",
+  "replay_seconds": 18,
   "snapshot": {
     "views": [
       {
@@ -177,6 +177,50 @@
             "default": null,
             "identity": "",
             "not_null": false,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "calendar_feed_tokens",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "last_used_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "token_hash",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
             "generated": ""
           }
         ],
@@ -8507,6 +8551,18 @@
         "def_hash": "c46e5a1e2717dce747858c846533afb2"
       },
       {
+        "def": "CREATE UNIQUE INDEX calendar_feed_tokens_pkey ON public.calendar_feed_tokens USING btree (owner_id)",
+        "name": "calendar_feed_tokens_pkey",
+        "table": "calendar_feed_tokens",
+        "def_hash": "d87d7a5a8feccca3acd11f580ac263c1"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX calendar_feed_tokens_token_hash_key ON public.calendar_feed_tokens USING btree (token_hash)",
+        "name": "calendar_feed_tokens_token_hash_key",
+        "table": "calendar_feed_tokens",
+        "def_hash": "579c534a29d00f7dc8861e2b50df25a3"
+      },
+      {
         "def": "CREATE UNIQUE INDEX clinical_quality_feedback_triage_events_pkey ON public.clinical_quality_feedback_triage_events USING btree (id)",
         "name": "clinical_quality_feedback_triage_events_pkey",
         "table": "clinical_quality_feedback_triage_events",
@@ -10388,6 +10444,18 @@
       },
       {
         "cmd": "ALL",
+        "name": "calendar_feed_tokens service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "calendar_feed_tokens",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
         "name": "registry record sources service role all",
         "qual": "true",
         "roles": [
@@ -11552,6 +11620,30 @@
         ],
         "def_hash": "f02e0c8d223bb2621468b958df75f1f1",
         "signature": "public.bind_public_source_upload_authority(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "fbc9cbd6804c5ceda22fe832b8a28fdd",
+        "signature": "public.calendar_feed_owner(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "c87a53763a2c1942b973410084680583",
+        "signature": "public.calendar_feed_revoke(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "1b3446751b709c5d61850441069ee35b",
+        "signature": "public.calendar_feed_rotate(uuid,text)"
       },
       {
         "acl": [
@@ -13079,6 +13171,26 @@
         "def": "PRIMARY KEY (id)",
         "name": "audit_logs_pkey",
         "table": "audit_logs"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "calendar_feed_tokens_owner_id_fkey",
+        "table": "calendar_feed_tokens"
+      },
+      {
+        "def": "PRIMARY KEY (owner_id)",
+        "name": "calendar_feed_tokens_pkey",
+        "table": "calendar_feed_tokens"
+      },
+      {
+        "def": "CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))",
+        "name": "calendar_feed_tokens_token_hash_check",
+        "table": "calendar_feed_tokens"
+      },
+      {
+        "def": "UNIQUE (token_hash)",
+        "name": "calendar_feed_tokens_token_hash_key",
+        "table": "calendar_feed_tokens"
       },
       {
         "def": "CHECK (((status <> 'awaiting_retest'::text) OR (char_length(btrim(retest_reference)) > 0)))",
