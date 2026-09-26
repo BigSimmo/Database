@@ -1232,7 +1232,7 @@ export function SettingsDialog({
               <SettingsSection
                 id="notifications"
                 title="Notifications"
-                note="Saved on this device; notifications are not available yet."
+                note="Saved on this device; these three are not sent yet. The Reminders controls below work now."
                 noteId="settings-notifications-note"
               >
                 <SettingsGroup>
