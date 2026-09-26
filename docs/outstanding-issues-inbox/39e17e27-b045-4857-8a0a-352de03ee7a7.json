@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "39e17e27-b045-4857-8a0a-352de03ee7a7",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Check whether Doppler holds a stale RAILWAY_WEBHOOK_SECRET that could overwrite the 2026-09-26 rotation",
+    "detail": "The Database service in Railway production carries DOPPLER_CONFIG, DOPPLER_ENVIRONMENT and DOPPLER_PROJECT, which suggests Doppler may sync secrets into Railway. RAILWAY_WEBHOOK_SECRET was rotated directly in Railway on 2026-09-26 (#B6JP6F) because the old value could not be read. If Doppler holds the old value and syncs, the next sync would silently break the deploy-failure alarm again, which is the same shape as the original fault. Next action (owner, about 2 minutes): copy RAILWAY_WEBHOOK_SECRET from Railway, Database service, Variables, into Doppler if Doppler has that key; otherwise confirm Doppler does not manage it and close this. No Doppler connector is available to agents in cloud sessions. Verify afterwards with Railway test-webhook (expect 200).",
+    "source": "Railway connector read of Database service variable names, 2026-09-26, session claude/review-assessment-4s1w86",
+    "issueUlid": "01M3E4Q3MKHPCX22KMDSZ4VV3R"
+  }
+}

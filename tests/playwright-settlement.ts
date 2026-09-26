@@ -60,3 +60,44 @@ export function visibleByTestId(page: Page, testId: string): Locator {
 export function visibleByText(page: Page, text: string | RegExp, options?: { exact?: boolean }): Locator {
   return page.getByText(text, options).filter({ visible: true });
 }
+
+/**
+ * Click a control only once scroll-driven chrome has stopped moving it.
+ *
+ * Above the phone breakpoint the universal header scroll-hides by collapsing its own in-flow
+ * row (`grid-template-rows` 1fr -> 0fr in `master-search-header.tsx`), so a scroll moves
+ * everything below it by the header's height one render later. Playwright's `click()` scrolls
+ * its target into view and dispatches about 10 ms afterwards; on a loaded CI runner the
+ * collapse lands between the two, the press goes to whatever slid under the pointer, and the
+ * click reports success while nothing happened. Release traces showed exactly that for the
+ * tools details panel and the document source-text accordion: alternating click points one
+ * header-height apart, "intercepts pointer events" retries, then a final click that missed.
+ *
+ * Scroll first, wait until the target holds still across frames, then click. The target is
+ * already in view, so `click()` scrolls nothing and triggers no second collapse.
+ */
+export async function clickWhenSettled(locator: Locator, { timeout = 10_000 }: { timeout?: number } = {}) {
+  await locator.scrollIntoViewIfNeeded({ timeout });
+  let previous = "";
+  await expect
+    .poll(
+      async () => {
+        await locator
+          .page()
+          .evaluate(
+            () =>
+              new Promise<void>((resolve) =>
+                requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50))),
+              ),
+          );
+        const box = await locator.boundingBox();
+        const current = box ? `${Math.round(box.x)},${Math.round(box.y)}` : "";
+        const settled = current !== "" && current === previous;
+        previous = current;
+        return settled;
+      },
+      { message: "the control must stop moving before it is clicked", timeout },
+    )
+    .toBe(true);
+  await locator.click({ timeout });
+}
