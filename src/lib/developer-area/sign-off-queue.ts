@@ -2,6 +2,7 @@ import { loadFormCatalogDetails } from "@/lib/form-catalog";
 import { formPageHref } from "@/lib/form-register";
 import formulationContent from "@/data/formulation-content.json";
 import { curatedDifferentials } from "@/lib/differential-curated";
+import { curatedReviewFor } from "@/lib/differential-curated-review";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
 import { dictionaryDefinitionReviews } from "@/lib/dictionary-editorial/definition-reviews";
@@ -183,7 +184,11 @@ function differentialsFamily(): SignOffFamily {
     id: record.slug,
     title: record.title,
     nativeStatus: `validation_status: ${governance.validation_status} (source_status: ${governance.source_status})`,
-    statusLabel: authored.has(record.slug) ? "Unverified, with locally authored content" : "Unverified",
+    statusLabel: !authored.has(record.slug)
+      ? "Unverified"
+      : curatedReviewFor(record.slug)
+        ? "Unverified export; locally authored overlay signed off"
+        : "Unverified, with locally authored content",
     requires: authored.has(record.slug)
       ? "A clinician verifies the exported record and, separately, the locally authored overlay in src/lib/differential-curated.ts that is shown on top of it."
       : "A clinician verifies the exported record against a named source before its validation_status can move off unverified.",

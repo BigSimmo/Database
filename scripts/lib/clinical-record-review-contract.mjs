@@ -40,6 +40,21 @@ import { publicReviewerAttributionProblem } from "./therapy-review-contract.mjs"
  *   timeframe  every non-review field of the entry: id, formCodes, trigger, section,
  *              quote, duration and anchor.
  *
+ * Four more kinds keep their review state in the record's own native fields, so the app
+ * reads a sign-off with no second file to consult. The tool works on a flat *view* of each
+ * record (`view`), and writes a sign-off back into the native shape (`unview`):
+ *
+ *   formulation-guide      src/data/formulation-concepts.json  `guides`, review in `review`
+ *   formulation-mechanism  src/data/formulation-content.json   `mechanisms`, `reviewStatus`
+ *   formulation-concept    src/data/formulation-concepts.json  `concepts`, review in `review`
+ *   differential           data/differential-curated-review.json, one row per locally
+ *                          authored overlay in src/lib/differential-curated.ts
+ *
+ *   formulation-*  every field of the record except its review state and `searchTerms`
+ *                  (search-only metadata, like the forms' aliases).
+ *   differential   the review row's slug PLUS the whole authored overlay entry for that
+ *                  slug, read from src/lib/differential-curated.ts.
+ *
  * The runtime rule is unchanged: `formContentReviewStatus` in src/lib/form-catalog.ts
  * still needs status + reviewedBy + reviewedAt. The pin is enforced by the offline
  * `--check` scripts and the unit suite, never at render time.
@@ -332,6 +347,100 @@ function catalogForms(catalog) {
 const withoutMetadata = (record) =>
   Object.fromEntries(Object.entries(record).filter(([key]) => !REVIEW_METADATA_KEYS.includes(key)));
 
+/** Search-only metadata on a Formulation record: shown to nobody, so not attested. */
+const FORMULATION_UNATTESTED_KEYS = Object.freeze(["searchTerms"]);
+const withoutFormulationMetadata = (record) =>
+  Object.fromEntries(
+    Object.entries(withoutMetadata(record)).filter(([key]) => !FORMULATION_UNATTESTED_KEYS.includes(key)),
+  );
+
+/** The native pending value becomes `drafted`; anything unrecognised stays as-is and fails validation. */
+const nativeStatusToView = (status) => (status === "clinical_review_required" ? "drafted" : status);
+
+function assertNoViewCollision(native, reserved, label) {
+  for (const key of REVIEW_METADATA_KEYS) {
+    if (!reserved.includes(key) && Object.hasOwn(native, key)) {
+      throw new Error(`${label} ${native?.id ?? ""} already has a "${key}" field; the sign-off view would hide it.`);
+    }
+  }
+}
+
+/** Concepts and guide modules: the review lives in a nested `review` object. */
+function formulationRecordView(native) {
+  if (!isPlainRecord(native)) return native;
+  assertNoViewCollision(native, [], "Formulation record");
+  const { review, ...content } = native;
+  const nested = isPlainRecord(review) ? review : {};
+  return {
+    ...content,
+    status: nativeStatusToView(nested.status),
+    reviewedBy: nested.reviewer ?? null,
+    reviewedAt: nested.reviewedAt ?? null,
+    reviewedContentSha256: nested.reviewedContentSha256 ?? null,
+  };
+}
+
+function formulationRecordUnview(view, native) {
+  return {
+    ...native,
+    review: {
+      ...(isPlainRecord(native.review) ? native.review : {}),
+      status: view.status,
+      reviewer: view.reviewedBy,
+      reviewedAt: view.reviewedAt,
+      reviewedContentSha256: view.reviewedContentSha256,
+    },
+  };
+}
+
+/** Mechanisms: `reviewStatus` is the native status; the attestation sits beside it. */
+function formulationMechanismView(native) {
+  if (!isPlainRecord(native)) return native;
+  assertNoViewCollision(native, ["reviewedBy", "reviewedAt", "reviewedContentSha256"], "Formulation mechanism");
+  const { reviewStatus, reviewedBy, reviewedAt, reviewedContentSha256, ...content } = native;
+  return {
+    ...content,
+    status: nativeStatusToView(reviewStatus),
+    reviewedBy: reviewedBy ?? null,
+    reviewedAt: reviewedAt ?? null,
+    reviewedContentSha256: reviewedContentSha256 ?? null,
+  };
+}
+
+function formulationMechanismUnview(view, native) {
+  return {
+    ...native,
+    reviewStatus: view.status,
+    reviewedBy: view.reviewedBy,
+    reviewedAt: view.reviewedAt,
+    reviewedContentSha256: view.reviewedContentSha256,
+  };
+}
+
+function curatedOverlay(context, slug) {
+  const curated = context?.curated;
+  if (!isPlainRecord(curated)) {
+    throw new TypeError("A differential sign-off needs the authored overlays (src/lib/differential-curated.ts).");
+  }
+  const entry = curated[slug];
+  if (!isPlainRecord(entry))
+    throw new Error(`Differential ${slug} has no authored overlay in src/lib/differential-curated.ts.`);
+  return entry;
+}
+
+// The four kinds below are marked optional only so the report can run against a partial
+// checkout or a test fixture; tests/clinical-signoff-kinds.test.ts requires every real file.
+const FORMULATION_RECORD_KIND = {
+  path: "src/data/formulation-concepts.json",
+  optional: true,
+  idField: "id",
+  statuses: Object.freeze(["drafted", "reviewed"]),
+  checklist: SIGN_OFF_QUESTIONS,
+  view: formulationRecordView,
+  unview: formulationRecordUnview,
+  attested: (record) => withoutFormulationMetadata(record),
+};
+
 export const recordKinds = Object.freeze({
   form: Object.freeze({
     kind: "form",
@@ -377,6 +486,46 @@ export const recordKinds = Object.freeze({
     checklist: SIGN_OFF_QUESTIONS,
     attested: (record) => withoutMetadata(record),
   }),
+  differential: Object.freeze({
+    kind: "differential",
+    noun: "Differential",
+    heading: "Differentials (locally authored overlays)",
+    path: "data/differential-curated-review.json",
+    collectionKey: "entries",
+    optional: true,
+    idField: "slug",
+    statuses: Object.freeze(["drafted", "reviewed"]),
+    checklist: SIGN_OFF_QUESTIONS,
+    attested: (record, context) => ({ ...withoutMetadata(record), curated: curatedOverlay(context, record.slug) }),
+  }),
+  "formulation-guide": Object.freeze({
+    ...FORMULATION_RECORD_KIND,
+    kind: "formulation-guide",
+    noun: "Guide",
+    heading: "Formulation guide modules",
+    collectionKey: "guides",
+  }),
+  "formulation-mechanism": Object.freeze({
+    kind: "formulation-mechanism",
+    noun: "Mechanism",
+    heading: "Formulation mechanisms",
+    path: "src/data/formulation-content.json",
+    collectionKey: "mechanisms",
+    optional: true,
+    idField: "id",
+    statuses: Object.freeze(["drafted", "reviewed"]),
+    checklist: SIGN_OFF_QUESTIONS,
+    view: formulationMechanismView,
+    unview: formulationMechanismUnview,
+    attested: (record) => withoutFormulationMetadata(record),
+  }),
+  "formulation-concept": Object.freeze({
+    ...FORMULATION_RECORD_KIND,
+    kind: "formulation-concept",
+    noun: "Concept",
+    heading: "Formulation concepts",
+    collectionKey: "concepts",
+  }),
 });
 
 function resolveKind(kind) {
@@ -390,14 +539,18 @@ function resolveKind(kind) {
 export const recordId = (record, kind) => String(record?.[resolveKind(kind).idField] ?? "").trim();
 export const sameRecordId = (left, right) => normalizeCode(left) === normalizeCode(right);
 
-/** The records inside a kind's data file. Timeframes may be a bare array or `{ entries }`. */
+/**
+ * The records inside a kind's data file, as the flat view every other function here
+ * works on. Timeframes may be a bare array or `{ entries }`. Kinds with native review
+ * fields (Formulation) are translated by their `view`.
+ */
 export function collectionOf(kind, document) {
   const resolved = resolveKind(kind);
   const records = Array.isArray(document) ? document : document?.[resolved.collectionKey];
   if (!Array.isArray(records)) {
     throw new Error(`${resolved.path} must hold a "${resolved.collectionKey}" array.`);
   }
-  return records;
+  return resolved.view ? records.map(resolved.view) : records;
 }
 
 /** Exactly what a sign-off of this record attests (and therefore what the pin covers). */
@@ -553,11 +706,13 @@ export function finalizeClinicalReview(record, kind, { reviewedBy, reviewedAt, c
 /** Replace one record in its data file's document, keeping derived counts consistent. */
 export function applyClinicalReview(document, kind, reviewed) {
   const resolved = resolveKind(kind);
-  const records = collectionOf(resolved, document);
+  const records = Array.isArray(document) ? document : document?.[resolved.collectionKey];
+  if (!Array.isArray(records)) throw new Error(`${resolved.path} must hold a "${resolved.collectionKey}" array.`);
   const id = recordId(reviewed, resolved);
   const index = records.findIndex((record) => sameRecordId(recordId(record, resolved), id));
   if (index === -1) throw new Error(`${resolved.noun} ${id} is not in ${resolved.path}.`);
-  const nextRecords = records.map((record, position) => (position === index ? reviewed : record));
+  const written = resolved.unview ? resolved.unview(reviewed, records[index]) : reviewed;
+  const nextRecords = records.map((record, position) => (position === index ? written : record));
   if (Array.isArray(document)) return nextRecords;
 
   const next = { ...document, [resolved.collectionKey]: nextRecords };

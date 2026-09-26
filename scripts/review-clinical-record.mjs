@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Local clinical sign-off for forms, Act-section summaries and statutory timeframes.
+ * Local clinical sign-off for forms, Act-section summaries, statutory timeframes, the
+ * locally authored differential overlays, and Formulation guides, mechanisms and concepts.
  *
  * This is how the clinical owner attests clinical content. No agent may ever record a
  * sign-off: `--write` refuses anything but a real interactive terminal, asks every
@@ -57,12 +58,14 @@ const KIND_NAMES = Object.keys(recordKinds);
 
 function usage() {
   return [
-    "Usage: npm run clinical:review -- [--kind form|section|timeframe] [--code <code>]",
+    `Usage: npm run clinical:review -- [--kind <kind>] [--code <code>]`,
     "       npm run clinical:review -- --write --kind <kind> --code <code> --reviewed-by <public name>",
-    "       npm run clinical:review -- --write --walk --kind form|section --reviewed-by <public name>",
+    "       npm run clinical:review -- --write --walk --kind <kind> --reviewed-by <public name>",
+    "",
+    `Kinds: ${KIND_NAMES.join(", ")}.`,
     "",
     "--walk steps through every unsigned record of one kind, one screen at a time (forms: 3C,",
-    "10B, 10E, 11B, 11E, 6C, then catalogue order; sections: section-number order). Each record",
+    "10B, 10E, 11B, 11E, 6C, then catalogue order; every other kind: file order). Each record",
     "is saved the moment you confirm it, so quitting keeps everything signed so far.",
     "",
     "Without --write this only reports what is waiting and changes nothing.",
@@ -70,7 +73,7 @@ function usage() {
     "Every checklist answer is typed by you; there is no batch or automatic-yes mode.",
     "",
     '--code is the form code (3C, or "1A attachment" in quotes), the section number (26),',
-    "or the timeframe id.",
+    "the timeframe id, the differential slug (delirium), or the Formulation record id.",
     "",
     "reviewedBy is shown publicly in the app. Use your display name (for example",
     '"Dr <your surname>" with your own surname); never an email address, AHPRA number,',
@@ -205,7 +208,79 @@ const DISPLAY = {
       [`Act text, s ${record.section} (verbatim)`, act?.text ?? "(Act text not found)"],
     ];
   },
+  differential(record, context) {
+    const entry = context.curated?.[record.slug] ?? {};
+    const facts = (entry.atAGlance ?? []).map((fact) => `${fact.label}: ${fact.value}`);
+    const discriminators = (entry.discriminators ?? []).map(
+      (row) =>
+        `Versus ${titleForSlug(context, row.relatedSlug)}\n    Points to ${titleForSlug(context, row.relatedSlug)}: ${row.favoursRelated}\n    Points back to this diagnosis: ${row.favoursFocus}`,
+    );
+    return [
+      ["Diagnosis", `${titleForSlug(context, record.slug)} (${record.slug})`],
+      ["Shown on the page as", "Locally authored - verify before use (until you sign it off)"],
+      ["At a glance", facts],
+      ["Do now (numbered steps)", entry.doNow ?? []],
+      ["How to tell it apart", discriminators],
+      ["Warning shown about the exported record", entry.contentNote],
+      [
+        "Exported body withheld",
+        entry.generatedBodyUnreliable
+          ? "Yes. The exported sections are not shown at all, because they were judged unreliable."
+          : "No",
+      ],
+    ];
+  },
+  "formulation-guide": formulationDisplay,
+  "formulation-mechanism": formulationDisplay,
+  "formulation-concept": formulationDisplay,
 };
+
+function titleForSlug(context, slug) {
+  return context.titles?.[slug] ?? slug;
+}
+
+const FORMULATION_HIDDEN_FIELDS = new Set([
+  "id",
+  "status",
+  "reviewedBy",
+  "reviewedAt",
+  "reviewedContentSha256",
+  "searchTerms",
+]);
+
+/** A guide module's blocks as readable text: headings, paragraphs and list items. */
+function guideBlocksText(blocks) {
+  const spansText = (spans) => (Array.isArray(spans) ? spans.map((span) => span?.text ?? "").join("") : "");
+  return blocks
+    .map((block) => {
+      if (block?.kind === "heading") return `\n## ${block.text ?? ""}`;
+      if (block?.kind === "paragraph") return spansText(block.spans);
+      if (Array.isArray(block?.items)) return block.items.map((item) => `- ${spansText(item)}`).join("\n");
+      return JSON.stringify(block);
+    })
+    .join("\n");
+}
+
+function evidenceText(evidence) {
+  return evidence.map((entry) =>
+    [entry?.title, entry?.issuer, entry?.locator, entry?.relationship].filter(Boolean).join(" | "),
+  );
+}
+
+/**
+ * A Formulation record, every attested field in file order, with the guide blocks and
+ * evidence references made readable. Everything shown is inside the content pin.
+ */
+function formulationDisplay(record) {
+  const rows = [["Record", `${record.title ?? record.name ?? record.id} (${record.id})`]];
+  for (const [key, value] of Object.entries(record)) {
+    if (FORMULATION_HIDDEN_FIELDS.has(key)) continue;
+    if (key === "blocks" && Array.isArray(value)) rows.push(["Guide text", guideBlocksText(value)]);
+    else if (key === "evidence" && Array.isArray(value)) rows.push(["Evidence", evidenceText(value)]);
+    else rows.push([key, value]);
+  }
+  return rows;
+}
 
 function showRecord(kind, record, context, output) {
   for (const [label, value] of DISPLAY[kind](record, context)) {
@@ -297,13 +372,34 @@ export function loadKindDocument(kind, { root = DEFAULT_ROOT } = {}) {
   return { status: "ok", path, raw, document: JSON.parse(raw) };
 }
 
-function loadContext(kind, root) {
+async function loadContext(kind, root) {
   if (kind === "form") return { catalog: readJson(join(root, "data", "forms-catalog.json")) };
+  if (kind === "differential") {
+    // Node 24 strips the module's type-only syntax, as scripts/build-cross-mode-differentials-index.mjs relies on.
+    // Its "module type not specified" notice is noise to a clinician reading the screen, so only that one is muted.
+    const emitWarning = process.emitWarning;
+    process.emitWarning = (warning, ...rest) => {
+      const code = typeof rest[0] === "object" ? rest[0]?.code : rest[1];
+      if (code !== "MODULE_TYPELESS_PACKAGE_JSON") emitWarning.call(process, warning, ...rest);
+    };
+    let curatedDifferentials;
+    try {
+      ({ curatedDifferentials } = await import(
+        pathToFileURL(join(root, "src", "lib", "differential-curated.ts")).href
+      ));
+    } finally {
+      process.emitWarning = emitWarning;
+    }
+    const snapshot = readJson(join(root, "data", "differentials-snapshot.json"));
+    const titles = Object.fromEntries((snapshot.diagnoses ?? []).map((entry) => [entry.slug, entry.title]));
+    return { curated: curatedDifferentials, titles };
+  }
+  if (kind.startsWith("formulation-")) return {};
   const actPath = join(root, "data", "mha-2014-sections.source.json");
   return { actSource: existsSync(actPath) ? readJson(actPath) : undefined };
 }
 
-function showKindQueue(kind, root, output) {
+async function showKindQueue(kind, root, output) {
   const definition = recordKinds[kind];
   const loaded = loadKindDocument(kind, { root });
   if (loaded.status === "absent") {
@@ -314,7 +410,7 @@ function showKindQueue(kind, root, output) {
     return;
   }
   const records = collectionOf(kind, loaded.document);
-  const context = loadContext(kind, root);
+  const context = await loadContext(kind, root);
   const reviewed = records.filter((record) => record.status === "reviewed");
   const stale = reviewed.filter((record) => recordPinState(record, kind, context) !== "current");
   const waiting = signOffQueue(kind, records, context);
@@ -338,7 +434,7 @@ function showKindQueue(kind, root, output) {
   }
 }
 
-function showOneRecord(kind, code, root, output) {
+async function showOneRecord(kind, code, root, output) {
   const loaded = loadKindDocument(kind, { root });
   if (loaded.status === "absent") {
     writeLine(output, `${recordKinds[kind].path} does not exist yet, so there is nothing to show. Skipped.`);
@@ -346,7 +442,7 @@ function showOneRecord(kind, code, root, output) {
   }
   const record = collectionOf(kind, loaded.document).find((entry) => sameRecordId(recordId(entry, kind), code));
   if (!record) throw new Error(`No ${kind} with code ${code} in ${recordKinds[kind].path}.`);
-  const context = loadContext(kind, root);
+  const context = await loadContext(kind, root);
   showRecord(kind, record, context, output);
   const pin = recordPinState(record, kind, context);
   writeLine(output);
@@ -498,11 +594,11 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       if (problem) throw new Error(problem);
     }
     if (args.code !== undefined) {
-      showOneRecord(args.kind, args.code, root, output);
+      await showOneRecord(args.kind, args.code, root, output);
     } else {
       writeLine(output, "Clinical sign-off queue.");
       writeLine(output);
-      for (const kind of args.kind ? [args.kind] : KIND_NAMES) showKindQueue(kind, root, output);
+      for (const kind of args.kind ? [args.kind] : KIND_NAMES) await showKindQueue(kind, root, output);
       writeLine(output);
       writeLine(
         output,
@@ -531,7 +627,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     throw new Error(`${recordKinds[kind].path} does not exist yet; there is nothing to sign off for ${kind}.`);
   }
   const codes = args.walk
-    ? signOffQueue(kind, collectionOf(kind, first.document), loadContext(kind, root))
+    ? signOffQueue(kind, collectionOf(kind, first.document), await loadContext(kind, root))
     : [args.code];
   if (args.walk && codes.length === 0) {
     writeLine(output, `Nothing waiting: every ${kind} is already signed off.`);
@@ -541,7 +637,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     // Fail before any prompt for an unknown or ineligible single record.
     const record = collectionOf(kind, first.document).find((entry) => sameRecordId(recordId(entry, kind), args.code));
     if (!record) throw new Error(`No ${kind} with code ${args.code} in ${recordKinds[kind].path}.`);
-    const eligibility = signOffEligibilityProblem(record, kind, loadContext(kind, root));
+    const eligibility = signOffEligibilityProblem(record, kind, await loadContext(kind, root));
     if (eligibility) throw new Error(eligibility);
   }
 
@@ -557,7 +653,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     for (const [position, code] of codes.entries()) {
       // Re-read before every record, so each save is checked against the file as it is now.
       const loaded = loadKindDocument(kind, { root });
-      const context = loadContext(kind, root);
+      const context = await loadContext(kind, root);
       const record = collectionOf(kind, loaded.document).find((entry) => sameRecordId(recordId(entry, kind), code));
       if (!record || signOffEligibilityProblem(record, kind, context)) {
         skipped.push(code);

@@ -219,8 +219,20 @@ describe("reviewedContentSha256", () => {
 });
 
 describe("recordKinds", () => {
-  it("registers form, section and timeframe against their data files", () => {
-    expect(Object.keys(recordKinds).sort()).toEqual(["form", "section", "timeframe"]);
+  it("registers every sign-off kind against its data file", () => {
+    expect(Object.keys(recordKinds).sort()).toEqual([
+      "differential",
+      "form",
+      "formulation-concept",
+      "formulation-guide",
+      "formulation-mechanism",
+      "section",
+      "timeframe",
+    ]);
+    expect(recordKinds.differential.path).toBe("data/differential-curated-review.json");
+    expect(recordKinds["formulation-guide"].path).toBe("src/data/formulation-concepts.json");
+    expect(recordKinds["formulation-concept"].path).toBe("src/data/formulation-concepts.json");
+    expect(recordKinds["formulation-mechanism"].path).toBe("src/data/formulation-content.json");
     expect(recordKinds.form.path).toBe("data/forms-content-review.json");
     expect(recordKinds.section.path).toBe("data/mha-2014-sections.json");
     expect(recordKinds.timeframe.path).toBe("data/mha-timeframes.json");

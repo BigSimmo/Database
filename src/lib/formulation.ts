@@ -63,6 +63,10 @@ export type FormulationMechanism = {
   conceptId: string;
   /** Native pending state. Never advanced without a named clinical reviewer. */
   reviewStatus: string;
+  /** The sign-off written by `npm run clinical:review`; absent until then. */
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  reviewedContentSha256?: string | null;
   sourceStatus: string;
   sourceConfidence: string;
   version: string;

@@ -271,6 +271,8 @@ export type DiagnosisMapInsightsProps = {
   relatedMapDetails: Record<string, DifferentialRelatedMapDetail>;
   onSelect?: (slug: string) => void;
   className?: string;
+  /** The focus record's provenance line; names the reviewer once the overlay is signed off. */
+  provenanceLabel?: string;
 };
 
 export function DiagnosisMapInsights({
@@ -281,6 +283,7 @@ export function DiagnosisMapInsights({
   relatedMapDetails,
   onSelect,
   className,
+  provenanceLabel = curatedProvenanceLabel,
 }: DiagnosisMapInsightsProps) {
   const mustNotMiss = rows.filter((row) => row.likelihood === "must-not-miss");
   const anyCurated = rows.some((row) => row.curated);
@@ -299,7 +302,7 @@ export function DiagnosisMapInsights({
         </p>
       )}
       {anyCurated ? (
-        <p className="px-1 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceLabel}</p>
+        <p className="px-1 text-2xs font-semibold text-[color:var(--text-muted)]">{provenanceLabel}</p>
       ) : null}
     </section>
   );
