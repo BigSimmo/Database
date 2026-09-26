@@ -47,15 +47,19 @@ jobs:
         uses: ./.github/actions/setup-node-cached
 
       - name: Build the report
+        # Exits 1 when any section failed, after writing the report, so the run shows red.
         run: node scripts/organisation/weekly-report.mjs --out output/organisation/weekly-report.md
 
       - name: Upload the report
+        # Uploads even after a failed build step: the report still names each failed section.
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: organisation-weekly-report
           path: output/organisation/weekly-report.md
           if-no-files-found: error
           retention-days: 30
+          overwrite: true
 
   publish:
     name: Update the organisation weekly issue
@@ -84,17 +88,21 @@ jobs:
           REPORT_RESULT: ${{ needs.report.result }}
           REPORT_FILE: weekly-report/weekly-report.md
         with:
+          retries: 3
           script: |
             const fs = require("node:fs");
             const title = "Organisation weekly report";
             const label = "organisation-weekly";
-            // Stable ownership marker written into every body this job authors. Only an open issue
-            // that carries it AND was opened by this workflow's bot is ever updated, so a human
-            // quoting the report elsewhere can never have their issue overwritten.
+            // Stable ownership marker written into every body this job authors. Only an issue that
+            // carries it AND was opened by this workflow's bot is ever updated, so a human quoting the
+            // report elsewhere can never have their issue overwritten. Closed issues are searched too
+            // and reopened, so closing the issue never makes the next run open a second one.
             const MARKER = "<!-- organisation-weekly-report:v1 -->";
             const BOT = "github-actions[bot]";
             // GitHub rejects an issue body over 65,536 characters; the report caps itself at 60,000.
             const BODY_MAX = 65000;
+            // The report's own first line; anything else in the artifact is not a report.
+            const HEADING = "# Organisation weekly report";
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
@@ -108,6 +116,14 @@ jobs:
               problem = `could not be built (report job: \`${result}\`)`;
               core.warning(`No report to publish: ${error.message}`);
             }
+            if (report !== null && report.split("\n", 1)[0] !== HEADING) {
+              problem = `was not a weekly report (report job: \`${result}\`)`;
+              core.warning("The downloaded file does not start with the report heading; publishing a notice instead.");
+              report = null;
+            }
+            // Defuse any @mention the report escaper missed. Idempotent: an escaped @ is followed by
+            // a zero-width space, which this pattern never matches.
+            if (report !== null) report = report.replace(/@(?=[A-Za-z0-9])/g, "@\u200b");
             if (report !== null && report.length > BODY_MAX) {
               problem = `was too long to publish (${report.length} characters)`;
               core.warning(`The report is ${report.length} characters; publishing a notice instead.`);
@@ -117,7 +133,7 @@ jobs:
               MARKER,
               report ??
                 [
-                  "# Organisation weekly report",
+                  HEADING,
                   "",
                   `This week's report ${problem}. That is **not** evidence the map is healthy. Read the run log: ${runUrl}`,
                 ].join("\n"),
@@ -125,29 +141,46 @@ jobs:
               `_Updated in place each week by \`.github/workflows/organisation-weekly.yml\`. Run: ${runUrl}_`,
             ].join("\n");
 
+            const healthy = result === "success" && report !== null;
+            let issueNumber;
             try {
-              const open = await github.paginate(github.rest.issues.listForRepo, {
+              const ours = await github.paginate(github.rest.issues.listForRepo, {
                 owner,
                 repo,
-                state: "open",
+                state: "all",
+                creator: BOT,
                 per_page: 100,
               });
               const existing =
-                open
+                ours
                   .filter((issue) => !issue.pull_request && issue.user?.login === BOT)
                   .filter((issue) => String(issue.body ?? "").includes(MARKER))
                   .sort((a, b) => a.number - b.number)[0] ?? null;
               if (existing) {
-                await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
-                core.info(`Updated #${existing.number}.`);
+                issueNumber = existing.number;
+                await github.rest.issues.update({ owner, repo, issue_number: issueNumber, body, state: "open" });
+                core.info(`Updated #${issueNumber}.`);
               } else {
                 const created = await github.rest.issues.create({ owner, repo, title, labels: [label], body });
-                core.info(`Opened #${created.data.number}.`);
+                issueNumber = created.data.number;
+                core.info(`Opened #${issueNumber}.`);
+              }
+              // Editing a body notifies nobody; a comment reaches everyone watching the issue.
+              if (!healthy) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  body: [
+                    MARKER,
+                    `This week's organisation report did not finish cleanly (report job: \`${result}\`${report === null ? ", no usable report" : ", one or more sections failed"}). Read the run log: ${runUrl}`,
+                  ].join("\n"),
+                });
               }
             } catch (error) {
               core.setFailed(`Could not update the organisation weekly issue: ${error.message}`);
               return;
             }
-            if (result !== "success" || report === null) {
-              core.setFailed(`The weekly report was not published (report job: ${result}); the issue says so.`);
+            if (!healthy) {
+              core.setFailed(`The weekly report did not finish cleanly (report job: ${result}); the issue says so.`);
             }

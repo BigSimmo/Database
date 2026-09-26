@@ -15,6 +15,8 @@ function git(root, args) {
   const result = spawnSync("git", ["--no-optional-locks", "-C", root, ...args], {
     encoding: "utf8",
     maxBuffer: 256 * 1024 * 1024,
+    // A hung git must fail the section, not hold the whole weekly job.
+    timeout: 60_000,
   });
   if (result.error) throw new Error(`git could not be run: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`git ${args[0]} failed: ${(result.stderr || "").trim().split("\n")[0]}`);

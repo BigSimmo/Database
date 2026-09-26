@@ -134,6 +134,7 @@ const placement: Record<string, string> = {
   "src/retired/old-feature.ts": "(ignored)",
   "src/orphan.ts": "(unplaced)",
   "docs/organisation/README.md": "tools",
+  "AGENTS.md": "tools",
 };
 const index = buildPathIndex(Object.keys(placement).sort(), placement);
 const known = new Set(["engine", "site", "tools"]);
@@ -170,6 +171,15 @@ describe("issues by area: deriving an item's areas", () => {
   it("spans areas when the text names files in two areas, or a shared file", () => {
     expect(areasFor("src/engine/rank.ts and src/site/page.tsx")).toEqual(["engine", "site"]);
     expect(areasFor("src/shared.ts")).toEqual(["engine", "site"]);
+  });
+
+  it("does not let a cited doc or root instruction file add an area beside the code an item names", () => {
+    expect(areasFor("src/engine/rank.ts, see docs/organisation/README.md")).toEqual(["engine"]);
+    expect(areasFor("AGENTS.md says src/site/page.tsx is wrong")).toEqual(["site"]);
+    // A doc still places an item that names nothing else, or names only code with no area.
+    expect(areasFor("docs/organisation/README.md is out of date")).toEqual(["tools"]);
+    expect(areasFor("src/orphan.ts per AGENTS.md")).toEqual(["tools"]);
+    expect(deriveAreas("src/engine/rank.ts and AGENTS.md", index, known).paths).toEqual(["src/engine/rank.ts"]);
   });
 
   it("lets an [area:<id>] tag override the files named", () => {
@@ -387,6 +397,21 @@ describe("escaping for a public issue", () => {
     expect(escapeGithubReferences(text)).toBe(text.replace("after @out", `after @${ZWSP}out`));
   });
 
+  it("treats a backslash-escaped backtick as literal text, so it opens no code span", () => {
+    // `\`@user`` renders as a literal backtick, a live mention and a lone backtick.
+    expect(escapeGithubReferences("\\`@user`")).toBe(`\\\`@${ZWSP}user\``);
+    // An even run of backslashes escapes itself, and the backtick still opens a span.
+    expect(escapeGithubReferences("\\\\`@kept`")).toBe("\\\\`@kept`");
+  });
+
+  it("does not treat a backtick line whose info string holds a backtick as a fence", () => {
+    const text = ["```x`y @user", "@after"].join("\n");
+    expect(escapeGithubReferences(text)).toBe(["```x`y @" + ZWSP + "user", "@" + ZWSP + "after"].join("\n"));
+    // A tilde fence may carry a backtick in its info string.
+    const tilde = ["~~~x`y", "@inside", "~~~"].join("\n");
+    expect(escapeGithubReferences(tilde)).toBe(tilde);
+  });
+
   it("escapes a whole report, including what sections return", async () => {
     const sectionsDir = tempDir("organisation-sections-");
     write(sectionsDir, {
@@ -456,25 +481,46 @@ describe("the report runner", () => {
     expect(markdown).toContain("## Fine\n\nstill here");
   });
 
-  it("treats a module that will not load, exports no section, returns the wrong shape or hangs as failed", async () => {
+  it("treats a module that will not load, exports no section, returns the wrong shape or never settles as failed", async () => {
     const sectionsDir = tempDir("organisation-sections-");
     write(sectionsDir, {
       "syntax.mjs": "export async function section( {",
       "noexport.mjs": "export const other = 1;",
       "shape.mjs": "export async function section() { return { title: 'x' }; }",
-      "hangs.mjs": "export function section() { return new Promise(() => {}); }",
+      "never.mjs": "export function section() { return new Promise(() => {}); }",
     });
     const { results } = await buildWeeklyReport({
       root: sectionsDir,
       now: NOW,
       sectionsDir,
-      order: ["syntax", "noexport", "shape", "hangs"],
-      timeoutMs: 200,
+      order: ["syntax", "noexport", "shape", "never"],
     });
     expect(results.map((result) => result.status)).toEqual(["failed", "failed", "failed", "failed"]);
     expect(results[1].reason).toContain("does not export a section() function");
     expect(results[2].reason).toContain("returned no { title, markdown }");
-    expect(results[3].reason).toBe("timed out after 1 s");
+    expect(results[3].reason).toContain("without a result");
+  });
+
+  it("kills a section stuck in synchronous work, and skips sections once the time budget is spent", async () => {
+    const sectionsDir = tempDir("organisation-sections-");
+    write(sectionsDir, {
+      "spins.mjs": "export function section() { for (;;) {} }",
+      "later.mjs": 'export async function section() { return { title: "Later", markdown: "never run" }; }',
+    });
+    const started = Date.now();
+    const { markdown, results } = await buildWeeklyReport({
+      root: sectionsDir,
+      now: NOW,
+      sectionsDir,
+      order: ["spins", "later", "absent"],
+      timeoutMs: 60_000,
+      budgetMs: 1_500,
+    });
+    // The budget caps the first section's kill timeout, so a spinning section cannot outlast it.
+    expect(Date.now() - started).toBeLessThan(15_000);
+    expect(results.map((result) => result.status)).toEqual(["failed", "failed", "missing"]);
+    expect(results[0].reason).toBe("timed out after 2 s");
+    expect(markdown).toContain("## later\n\nsection failed: skipped, time budget used");
   });
 
   it("passes the repository root and an injected Date to every section", async () => {
@@ -494,6 +540,24 @@ describe("the report runner", () => {
     expect(() => parseArgs(["--now", "not-a-date"])).toThrow(/not a date/);
     expect(() => parseArgs(["--out"])).toThrow(/needs a value/);
     expect(() => parseArgs(["--unknown"])).toThrow(/unknown argument/);
+  });
+
+  it("still writes the report, then exits 1, when a section fails", () => {
+    // Not a git repository, so every section that asks git fails.
+    const root = tempDir("organisation-not-a-repo-");
+    const out = path.join(tempDir("organisation-out-"), "weekly.md");
+    const result = spawnSync(
+      process.execPath,
+      [RUNNER, "--root", root, "--out", out, "--now", "2026-09-28T00:00:00Z"],
+      {
+        encoding: "utf8",
+        env: { ...process.env, GITHUB_ACTIONS: "" },
+      },
+    );
+    expect(result.status).toBe(1);
+    const markdown = fs.readFileSync(out, "utf8");
+    expect(markdown.startsWith("# Organisation weekly report\n")).toBe(true);
+    expect(markdown).toContain("section failed:");
   });
 
   it("writes the report to --out from the command line and exits 0", () => {

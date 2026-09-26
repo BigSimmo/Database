@@ -90,6 +90,9 @@ describe("organisation weekly workflow: steps", () => {
     expect(fs.existsSync(new URL(`../${run?.[1]}`, import.meta.url))).toBe(true);
     expect(reportJob).toContain(`path: ${run?.[2]}`);
     expect(reportJob).toContain("if-no-files-found: error");
+    // The build step exits 1 on a failed section; the report it wrote must still be uploaded.
+    expect(reportJob).toMatch(/- name: Upload the report\n(?:\s+#[^\n]*\n)*\s+if: \$\{\{ !cancelled\(\) \}\}\n/);
+    expect(reportJob).toContain("overwrite: true");
     const artifact = /name: (organisation-weekly-report)/.exec(reportJob)?.[1];
     expect(publishJob).toContain(`name: ${artifact}`);
     expect(publishJob).toContain(`REPORT_FILE: weekly-report/${path.posix.basename(run?.[2] ?? "")}`);
@@ -100,6 +103,12 @@ describe("organisation weekly workflow: steps", () => {
     expect(publishJob).toMatch(/if: \$\{\{ !cancelled\(\) && /);
     expect(publishJob).toMatch(/Download the report\n(?:\s+#[^\n]*\n)*\s+continue-on-error: true/);
     expect(publishJob).toContain("REPORT_RESULT: ${{ needs.report.result }}");
+  });
+
+  it("retries GitHub API calls in the publishing step", () => {
+    expect(publishJob).toMatch(
+      /uses: actions\/github-script@[0-9a-f]{40}[^\n]*\n(?:\s+#[^\n]*\n)*(?:\s+env:\n(?:\s+[A-Z_]+: [^\n]+\n)+)?\s+with:\n\s+retries: 3\n/,
+    );
   });
 });
 
@@ -117,9 +126,10 @@ function publishScript() {
   return body.join("\n");
 }
 
-type Issue = { number: number; body: string; user: { login: string }; pull_request?: object };
+type Issue = { number: number; body: string; user: { login: string }; pull_request?: object; state?: string };
 const MARKER = "<!-- organisation-weekly-report:v1 -->";
 const BOT = { login: "github-actions[bot]" };
+const ZWSP = "\u200b";
 
 async function publish({
   issues = [] as Issue[],
@@ -131,18 +141,23 @@ async function publish({
   dirs.push(dir);
   const reportFile = path.join(dir, "weekly-report.md");
   if (report !== null) fs.writeFileSync(reportFile, report);
-  const calls = { update: [] as Record<string, unknown>[], create: [] as Record<string, unknown>[] };
+  const calls = {
+    update: [] as Record<string, unknown>[],
+    create: [] as Record<string, unknown>[],
+    comment: [] as Record<string, unknown>[],
+  };
   const failures: string[] = [];
   const github = {
     paginate: async (_method: unknown, args: Record<string, unknown>) => {
       if (failList) throw new Error("rate limited");
-      expect(args).toMatchObject({ state: "open" });
+      expect(args).toMatchObject({ state: "all", creator: BOT.login });
       return issues;
     },
     rest: {
       issues: {
         listForRepo: () => undefined,
         update: async (args: Record<string, unknown>) => void calls.update.push(args),
+        createComment: async (args: Record<string, unknown>) => void calls.comment.push(args),
         create: async (args: Record<string, unknown>) => {
           calls.create.push(args);
           return { data: { number: 900 } };
@@ -164,7 +179,7 @@ async function publish({
 }
 
 describe("organisation weekly workflow: publishing the issue", () => {
-  it("updates the one open issue this workflow's bot opened, found by its hidden marker", async () => {
+  it("updates the one issue this workflow's bot opened, found by its hidden marker, and keeps it open", async () => {
     const { calls, failures } = await publish({
       issues: [
         { number: 3, body: `${MARKER}\nquoted by a person`, user: { login: "someone" } },
@@ -176,11 +191,47 @@ describe("organisation weekly workflow: publishing the issue", () => {
     });
     expect(calls.create).toEqual([]);
     expect(calls.update).toHaveLength(1);
-    expect(calls.update[0]).toMatchObject({ owner: "owner", repo: "repo", issue_number: 8 });
+    expect(calls.update[0]).toMatchObject({ owner: "owner", repo: "repo", issue_number: 8, state: "open" });
     expect(String(calls.update[0].body)).toMatch(new RegExp(`^${MARKER}\n# Organisation weekly report\n\nall well\n`));
     // A person's retitle survives: the update never sends a title.
     expect(calls.update[0]).not.toHaveProperty("title");
+    // A healthy run comments on nothing, so a watcher is notified only when something is wrong.
+    expect(calls.comment).toEqual([]);
     expect(failures).toEqual([]);
+  });
+
+  it("reopens a closed issue of ours rather than opening a second one", async () => {
+    const closed = { number: 6, body: `${MARKER}\nclosed last month`, user: BOT, state: "closed" };
+    const { calls } = await publish({ issues: [closed] });
+    expect(calls.create).toEqual([]);
+    expect(calls.update[0]).toMatchObject({ issue_number: 6, state: "open" });
+  });
+
+  it("defuses any @mention left in the report, and does so only once", async () => {
+    const { calls } = await publish({ report: `# Organisation weekly report\n\nping @owner and @${ZWSP}done` });
+    expect(String(calls.create[0].body)).toContain(`ping @${ZWSP}owner and @${ZWSP}done`);
+  });
+
+  it("publishes a notice when the file does not start with the report's heading", async () => {
+    const { calls, failures } = await publish({ report: "## Organisation weekly report\n\nsomething else" });
+    expect(String(calls.create[0].body)).toContain("was not a weekly report");
+    expect(String(calls.create[0].body)).not.toContain("something else");
+    expect(calls.comment).toHaveLength(1);
+    expect(failures).toEqual([expect.stringContaining("did not finish cleanly")]);
+  });
+
+  it("publishes the report but comments and fails when a section failed", async () => {
+    const { calls, failures } = await publish({
+      issues: [{ number: 8, body: MARKER, user: BOT }],
+      report: "# Organisation weekly report\n\n## x\n\nsection failed: boom",
+      result: "failure",
+    });
+    expect(String(calls.update[0].body)).toContain("section failed: boom");
+    expect(calls.comment).toHaveLength(1);
+    expect(calls.comment[0]).toMatchObject({ issue_number: 8 });
+    expect(String(calls.comment[0].body)).toContain("one or more sections failed");
+    expect(String(calls.comment[0].body)).toContain("https://github.example/owner/repo/actions/runs/7");
+    expect(failures).toEqual([expect.stringContaining("did not finish cleanly")]);
   });
 
   it("creates the issue, with its label, when none of ours is open", async () => {
@@ -196,14 +247,18 @@ describe("organisation weekly workflow: publishing the issue", () => {
     const { calls, failures } = await publish({ report: null, result: "failure" });
     expect(String(calls.create[0].body)).toContain("could not be built (report job: `failure`)");
     expect(String(calls.create[0].body)).toContain("https://github.example/owner/repo/actions/runs/7");
-    expect(failures).toEqual([expect.stringContaining("was not published")]);
+    // Editing a body notifies nobody, so a failure also comments on the issue.
+    expect(calls.comment).toHaveLength(1);
+    expect(calls.comment[0]).toMatchObject({ issue_number: 900 });
+    expect(String(calls.comment[0].body)).toContain("no usable report");
+    expect(failures).toEqual([expect.stringContaining("did not finish cleanly")]);
   });
 
   it("publishes a notice rather than a body GitHub would reject", async () => {
-    const { calls, failures } = await publish({ report: "x".repeat(70_000) });
+    const { calls, failures } = await publish({ report: `# Organisation weekly report\n${"x".repeat(70_000)}` });
     expect(String(calls.create[0].body).length).toBeLessThan(2_000);
-    expect(String(calls.create[0].body)).toContain("was too long to publish (70000 characters)");
-    expect(failures).toEqual([expect.stringContaining("was not published")]);
+    expect(String(calls.create[0].body)).toContain("was too long to publish");
+    expect(failures).toEqual([expect.stringContaining("did not finish cleanly")]);
   });
 
   it("fails the run when the issue cannot be updated", async () => {

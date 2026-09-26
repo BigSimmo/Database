@@ -3,19 +3,22 @@
 // scripts/organisation/weekly/<name>.mjs. Each module exports
 //   async function section({ root, now }) -> { title, markdown }
 // where `root` is the repository root and `now` is a Date (injected, so nothing depends on the
-// clock). Sections load in the fixed order below. A missing module is skipped and named in the
-// footer; a module that throws, times out or returns the wrong shape shows "section failed:
-// <reason>" in its place, so one broken section never costs the rest of the report.
+// clock). Sections run in the fixed order below, each in its own Node process with a hard kill
+// timeout, inside a total time budget. A missing module is skipped and named in the footer; a
+// module that throws, times out, returns the wrong shape or is due after the budget is spent shows
+// "section failed: <reason>" in its place, so one broken section never costs the rest of the
+// report. The command exits 1 when any section failed, after the report is written.
 //
 // The body is written for a GitHub issue on a public repository: `@` mentions and `#123`
 // references outside code are defused with a zero-width space, and the body is capped at 60,000
 // characters with a truncation note. Report only: it never moves, edits or places a file.
 //
 // Usage: node scripts/organisation/weekly-report.mjs [--out <file>] [--now <iso>] [--root <dir>]
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { oneLine } from "./weekly-lib.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -33,7 +36,10 @@ export const SECTION_ORDER = [
   "classifier-disagreements",
 ];
 export const BODY_LIMIT = 60_000;
-export const SECTION_TIMEOUT_MS = 5 * 60 * 1000;
+// A hard kill per section, and a total budget that leaves the 20-minute job time to write, upload
+// and publish. A section due to start after the budget is spent is reported as skipped.
+export const SECTION_TIMEOUT_MS = 120 * 1000;
+export const TOTAL_BUDGET_MS = 15 * 60 * 1000;
 const ZWSP = "​";
 
 // ---------- escaping ----------
@@ -51,7 +57,8 @@ function escapeText(text) {
 }
 
 // Leaves code spans alone (a mention inside backticks is already inert, and a zero-width space
-// there would corrupt text someone may copy). A backtick run with no closing run is literal text.
+// there would corrupt text someone may copy). A backtick run with no closing run is literal text,
+// and so is a backtick after an odd number of backslashes (`\``), which opens no code span.
 function escapeInline(line) {
   let out = "";
   let index = 0;
@@ -62,6 +69,13 @@ function escapeInline(line) {
       break;
     }
     out += escapeText(line.slice(index, open));
+    let slashes = 0;
+    while (open - slashes - 1 >= index && line[open - slashes - 1] === "\\") slashes += 1;
+    if (slashes % 2 === 1) {
+      out += "`";
+      index = open + 1;
+      continue;
+    }
     let openEnd = open;
     while (line[openEnd] === "`") openEnd += 1;
     const width = openEnd - open;
@@ -89,7 +103,13 @@ function escapeInline(line) {
   return out;
 }
 
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+// The fence a line opens, or null. A backtick fence whose info string holds a backtick is not a
+// fence (CommonMark), so such a line is inline text, often a code span.
+function opensFence(line) {
+  const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+  if (!match || (match[1][0] === "`" && match[2].includes("`"))) return null;
+  return match[1];
+}
 
 function closesFence(line, fence) {
   const match = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line);
@@ -106,9 +126,9 @@ export function escapeGithubReferences(markdown) {
         if (closesFence(line, fence)) fence = null;
         return line;
       }
-      const open = FENCE.exec(line);
+      const open = opensFence(line);
       if (open) {
-        fence = open[1];
+        fence = open;
         return line;
       }
       return escapeInline(line);
@@ -121,10 +141,7 @@ function openFence(markdown) {
   for (const line of markdown.split("\n")) {
     if (fence) {
       if (closesFence(line, fence)) fence = null;
-    } else {
-      const open = FENCE.exec(line);
-      if (open) fence = open[1];
-    }
+    } else fence = opensFence(line);
   }
   return fence;
 }
@@ -146,47 +163,105 @@ export function capBody(markdown, limit = BODY_LIMIT) {
 
 // ---------- sections ----------
 
-const TIMED_OUT = Symbol("timed out");
+// Each section runs in its own Node process, so a section stuck in synchronous work (a loop, a
+// blocking child process) is killed rather than holding the whole job until GitHub cancels it. The
+// child imports the module, calls section({ root, now }) and writes { title, markdown } or
+// { error } as JSON to a result file; `now` crosses as an ISO string. The result file, not stdout,
+// carries the answer, so a section that logs cannot corrupt it.
+const CHILD_SOURCE = `
+import fs from "node:fs";
+import { pathToFileURL } from "node:url";
+let payload;
+try {
+  const loaded = await import(pathToFileURL(process.env.WEEKLY_SECTION_FILE).href);
+  if (typeof loaded.section !== "function") throw new Error("the module does not export a section() function");
+  const now = new Date(process.env.WEEKLY_SECTION_NOW);
+  const result = await loaded.section({ root: process.env.WEEKLY_SECTION_ROOT, now });
+  payload = { title: result?.title, markdown: result?.markdown };
+} catch (error) {
+  payload = { error: error instanceof Error ? error.message : String(error) };
+}
+fs.writeFileSync(process.env.WEEKLY_SECTION_OUT, JSON.stringify(payload));
+process.exit(0);
+`;
 
-function failureReason(error, root, timeoutMs) {
-  if (error === TIMED_OUT) return `timed out after ${Math.ceil(timeoutMs / 1000)} s`;
+class SectionError extends Error {}
+
+function failureReason(error, root) {
   const raw = error instanceof Error ? error.message : String(error);
   // Never publish the machine's own paths; a repo-relative path says the same thing.
   return oneLine(raw.split(root).join("."), 300) || "unknown error";
 }
 
+function runChild({ file, root, now, timeoutMs, out }) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ["--input-type=module", "-e", CHILD_SOURCE], {
+      env: {
+        ...process.env,
+        WEEKLY_SECTION_FILE: file,
+        WEEKLY_SECTION_ROOT: root,
+        WEEKLY_SECTION_NOW: now.toISOString(),
+        WEEKLY_SECTION_OUT: out,
+      },
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    let timedOut = false;
+    let settled = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, timeoutMs);
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
+      stderr = `${stderr}${chunk}`.slice(-4000);
+    });
+    child.on("error", (error) => settle({ timedOut: false, code: null, signal: null, stderr: error.message }));
+    child.on("close", (code, signal) => settle({ timedOut, code, signal, stderr }));
+  });
+}
+
 /**
- * Loads and runs one section module.
+ * Runs one section module in a child process, killed with SIGKILL after `timeoutMs`.
  * @returns {Promise<{ name: string, status: "ok" | "failed" | "missing", title?: string, markdown?: string, reason?: string }>}
  */
 export async function runSection(name, { root, now, sectionsDir = SECTIONS_DIR, timeoutMs = SECTION_TIMEOUT_MS }) {
   const file = path.join(sectionsDir, `${name}.mjs`);
   if (!fs.existsSync(file)) return { name, status: "missing" };
-  let timer;
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "organisation-weekly-section-"));
   try {
-    const loaded = await import(pathToFileURL(file).href);
-    if (typeof loaded.section !== "function") throw new Error("the module does not export a section() function");
-    const timeout = new Promise((_, reject) => {
-      timer = setTimeout(() => reject(TIMED_OUT), timeoutMs);
-      timer.unref?.();
-    });
-    const result = await Promise.race([
-      Promise.resolve().then(() => loaded.section({ root, now: new Date(now.getTime()) })),
-      timeout,
-    ]);
-    if (!result || typeof result.title !== "string" || !result.title.trim() || typeof result.markdown !== "string") {
-      throw new Error("the section returned no { title, markdown }");
+    const out = path.join(scratch, "result.json");
+    const run = await runChild({ file, root, now, timeoutMs, out });
+    if (run.timedOut) throw new SectionError(`timed out after ${Math.ceil(timeoutMs / 1000)} s`);
+    if (!fs.existsSync(out)) {
+      const last = run.stderr.trim().split("\n").filter(Boolean).pop() ?? "";
+      const how = run.signal ? `was killed by ${run.signal}` : `exited with code ${run.code}`;
+      throw new SectionError(`the section process ${how} without a result${last ? `: ${last}` : ""}`);
+    }
+    const result = JSON.parse(fs.readFileSync(out, "utf8"));
+    if (typeof result.error === "string") throw new SectionError(result.error);
+    if (typeof result.title !== "string" || !result.title.trim() || typeof result.markdown !== "string") {
+      throw new SectionError("the section returned no { title, markdown }");
     }
     return { name, status: "ok", title: oneLine(result.title, 120), markdown: result.markdown.trim() };
   } catch (error) {
-    return { name, status: "failed", reason: failureReason(error, root, timeoutMs) };
+    return { name, status: "failed", reason: failureReason(error, root) };
   } finally {
-    clearTimeout(timer);
+    fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }
 
 function headCommit(root) {
-  const result = spawnSync("git", ["--no-optional-locks", "-C", root, "rev-parse", "HEAD"], { encoding: "utf8" });
+  const result = spawnSync("git", ["--no-optional-locks", "-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+    timeout: 60_000,
+  });
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
@@ -200,10 +275,19 @@ export async function buildWeeklyReport({
   sectionsDir = SECTIONS_DIR,
   order = SECTION_ORDER,
   timeoutMs = SECTION_TIMEOUT_MS,
+  budgetMs = TOTAL_BUDGET_MS,
   limit = BODY_LIMIT,
 } = {}) {
   const results = [];
-  for (const name of order) results.push(await runSection(name, { root, now, sectionsDir, timeoutMs }));
+  const started = Date.now();
+  for (const name of order) {
+    const left = budgetMs - (Date.now() - started);
+    if (left > 0) {
+      results.push(await runSection(name, { root, now, sectionsDir, timeoutMs: Math.min(timeoutMs, left) }));
+    } else if (fs.existsSync(path.join(sectionsDir, `${name}.mjs`))) {
+      results.push({ name, status: "failed", reason: "skipped, time budget used" });
+    } else results.push({ name, status: "missing" });
+  }
   const commit = headCommit(root);
   const lines = [
     "# Organisation weekly report",
@@ -261,7 +345,7 @@ export async function main(argv = process.argv.slice(2)) {
   if (args.out) {
     fs.mkdirSync(path.dirname(args.out), { recursive: true });
     fs.writeFileSync(args.out, markdown);
-  } else process.stdout.write(markdown);
+  } else await new Promise((resolve) => process.stdout.write(markdown, resolve));
   const failed = results.filter((result) => result.status === "failed");
   const missing = results.filter((result) => result.status === "missing");
   for (const result of failed) {
@@ -272,17 +356,17 @@ export async function main(argv = process.argv.slice(2)) {
   console.error(
     `weekly-report: ${results.length - missing.length} section(s) run, ${failed.length} failed, ${missing.length} not present; ${markdown.length} characters${args.out ? ` written to ${path.relative(process.cwd(), args.out)}` : ""}`,
   );
-  return 0;
+  // A failed section still leaves a report to publish, but the run must not look green.
+  return failed.length ? 1 : 0;
 }
 
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
+  // Exit explicitly once the report is written, so a handle a section left open cannot hold the job.
   main().then(
-    (code) => {
-      process.exitCode = code;
-    },
+    (code) => process.exit(code),
     (error) => {
       console.error(`weekly-report: crashed: ${error?.stack ?? error}`);
-      process.exitCode = 2;
+      process.exit(2);
     },
   );
 }

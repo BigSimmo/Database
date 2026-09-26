@@ -3,7 +3,8 @@
 // committed snapshot's open[] list, and only each item's summary and detail text.
 //
 // An item's areas come from the tracked files its text names, looked up in the organisation map.
-// Files the map ignores do not count. An `[area:<id>]` tag anywhere in the text overrides the
+// Files the map ignores do not count, and docs/** or a root instruction file counts only when no
+// other named path gives an area. An `[area:<id>]` tag anywhere in the text overrides the
 // lookup. Items naming no placed file land in "No area"; items reaching two or more areas land in
 // "Spans areas" (and are not also counted inside each area).
 import fs from "node:fs";
@@ -94,6 +95,13 @@ export function resolvePathToken(token, index) {
   return null;
 }
 
+const ROOT_INSTRUCTION_FILES = new Set(["AGENTS.md", "CLAUDE.md"]);
+
+/** A document or root instruction file: `docs/**`, `AGENTS.md` or `CLAUDE.md`. */
+export function isDocPath(file) {
+  return ROOT_INSTRUCTION_FILES.has(file) || file === "docs/" || file.startsWith("docs/");
+}
+
 /**
  * The areas one item belongs to.
  * @returns {{ areas: string[], by: "tag" | "paths", paths: string[], unknownTags: string[] }}
@@ -103,15 +111,19 @@ export function deriveAreas(text, index, knownAreas) {
   const valid = [...new Set(tags.filter((id) => knownAreas.has(id)))].sort();
   const unknownTags = [...new Set(tags.filter((id) => !knownAreas.has(id)))].sort();
   if (valid.length) return { areas: valid, by: "tag", paths: [], unknownTags };
-  const areas = new Set();
-  const paths = new Set();
+  const hits = [];
   for (const token of text.split(/[\s`<>|,;]+/)) {
     if (!/[/.]/.test(token)) continue;
     const hit = resolvePathToken(token, index);
-    if (!hit) continue;
-    paths.add(hit.path);
-    for (const area of hit.areas) areas.add(area);
+    if (hit) hits.push(hit);
   }
+  // Items often cite a document or the root instructions beside the code they are about. When a
+  // non-document path gives an area, those citations do not add areas of their own, so an item
+  // does not "span areas" merely because it points at a doc.
+  const code = hits.filter((hit) => !isDocPath(hit.path));
+  const counted = code.some((hit) => hit.areas.length) ? code : hits;
+  const areas = new Set(counted.flatMap((hit) => hit.areas));
+  const paths = new Set(counted.map((hit) => hit.path));
   return { areas: [...areas].sort(), by: "paths", paths: [...paths].sort(), unknownTags };
 }
 
