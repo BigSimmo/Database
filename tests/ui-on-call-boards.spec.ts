@@ -772,18 +772,40 @@ test.describe("07 Playbook", () => {
   });
 });
 
+/**
+ * Open one referral row. The row's button is in the page before React has attached its click
+ * handler, and a click in that gap is swallowed: a Firefox CI run clicked the right button (its
+ * id unchanged, so nothing remounted) and the row stayed collapsed. Wait for the handler first.
+ */
+async function expandReferral(page: Page, name: string) {
+  const trigger = page.getByRole("button", { name, exact: true });
+  await expect
+    .poll(
+      () =>
+        trigger.evaluate((element) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          const props = propsKey ? (element as unknown as Record<string, Record<string, unknown>>)[propsKey] : null;
+          return typeof props?.onClick === "function";
+        }),
+      { message: "referral row click handler attached", timeout: 15_000 },
+    )
+    .toBe(true);
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+}
+
 test.describe("08 Referrals", () => {
   test("expands a service in place rather than routing away", async ({ page }) => {
     await openBoard(page, ROUTES.referrals);
     const before = page.url();
-    await page.getByRole("button", { name: /Demo community mental health team/ }).click();
+    await expandReferral(page, "Demo community mental health team");
     await expect(page.getByTestId("on-call-referral-panel-demo-community-team")).toBeVisible();
     expect(page.url()).toBe(before);
   });
 
   test("labels what a service accepts and does not accept, never colour alone", async ({ page }) => {
     await openBoard(page, ROUTES.referrals);
-    await page.getByRole("button", { name: /Demo community mental health team/ }).click();
+    await expandReferral(page, "Demo community mental health team");
     const panel = page.getByTestId("on-call-referral-panel-demo-community-team");
     await expect(panel).toContainText("Accepts");
     await expect(panel).toContainText("Does not accept");

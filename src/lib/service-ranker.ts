@@ -210,8 +210,11 @@ export function rankServiceRecords(
     ...distinctive.flatMap((term) => SERVICE_CONDITION_FAMILIES[term] ?? []),
   ];
   const coverageOf = (service: ServiceRecord) => serviceTermCoverage(serviceRecordSearchText(service), distinctive);
+  const specificExpansions = interpretedExpansions
+    .map((term) => normalizeSearchText(term))
+    .filter((term) => term.length > 1 && !GENERIC_SERVICE_QUERY_TERMS.has(term));
 
-  const ranked = rankCatalogRecords(records, query, {
+  const matches = rankCatalogRecords(records, query, {
     fields: [
       { id: "title", weight: 6, text: (service) => normalizeSearchText(`${service.title} ${service.slug}`) },
       { id: "contact", weight: 5, text: (service) => normalizeSearchText(service.primaryContact?.value ?? "") },
@@ -230,7 +233,29 @@ export function rankServiceRecords(
     expandTokens: interpretedExpansions.length ? (terms) => [...terms, ...interpretedExpansions] : undefined,
     limit: Math.max(limit, records.length),
     tieBreak: (left, right) => left.title.localeCompare(right.title),
-  }).map(({ record, score, signals }) => ({
+  });
+
+  // Evidence that a record matched something more specific than a generic word:
+  // a distinctive term (or its condition family), a specific synonym expansion,
+  // a typo match, the whole query as a phrase, or the service's own contact
+  // number. Once any record has such evidence, records without it matched only
+  // on words like "disorder" or "mental health" and are left out (#CNCAFV).
+  // A query made only of generic words keeps every match, as before.
+  const hasSpecificEvidence = ({ record, signals }: (typeof matches)[number]) => {
+    const text = serviceRecordSearchText(record);
+    return (
+      coverageOf(record) > 0 ||
+      specificExpansions.some((term) => text.includes(term)) ||
+      signals.fuzzy > 0 ||
+      signals.compact ||
+      signals.phrase ||
+      signals.exact
+    );
+  };
+  const kept =
+    distinctive.length > 0 && matches.some(hasSpecificEvidence) ? matches.filter(hasSpecificEvidence) : matches;
+
+  const ranked = kept.map(({ record, score, signals }) => ({
     service: record,
     score,
     reasons: [
@@ -242,8 +267,8 @@ export function rankServiceRecords(
     ].filter(Boolean),
   }));
   // Records that mention more of the specific condition come first; within each
-  // coverage level the ranker's own order holds (Array sort is stable). This
-  // reorders, never drops, so typo and synonym matches keep their place in line.
+  // coverage level the ranker's own order holds (Array sort is stable), so typo
+  // and synonym matches kept above keep their place in line.
   if (distinctive.length > 0) {
     const coverage = new Map(ranked.map(({ service }) => [service.slug, coverageOf(service)]));
     ranked.sort((left, right) => coverage.get(right.service.slug)! - coverage.get(left.service.slug)!);
