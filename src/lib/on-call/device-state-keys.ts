@@ -95,19 +95,33 @@ export function clearOnCallDeviceState(): void {
   }
 }
 
-/** True only when the handbook last said this reader edits a hospital handbook. */
-export function readOnCallEditorFlag(): boolean {
-  if (typeof window === "undefined") return false;
+/** What the handbook last said about this reader's role; "unknown" until it has said anything. */
+export type OnCallEditorStatus = "editor" | "not-editor" | "unknown";
+
+export function readOnCallEditorStatus(): OnCallEditorStatus {
+  if (typeof window === "undefined") return "unknown";
   try {
-    return window.localStorage.getItem(onCallEditorFlagStorageKey) === "1";
+    const stored = window.localStorage.getItem(onCallEditorFlagStorageKey);
+    return stored === "1" ? "editor" : stored === "0" ? "not-editor" : "unknown";
   } catch {
-    return false;
+    return "unknown";
   }
 }
 
 /**
+ * Whether the pages sheet offers the editor rows ("Manage service"). True for
+ * an editor AND while the role is unknown (a fresh device, after the sign-out
+ * wipe, blocked storage); false only once the handbook has said this reader
+ * does not edit (review S3, amendment 1.7: "keep it visible"). The page
+ * itself does the real gating.
+ */
+export function readOnCallEditorFlag(): boolean {
+  return readOnCallEditorStatus() !== "not-editor";
+}
+
+/**
  * `useSyncExternalStore` subscription for the editor flag, so the mode pill's
- * pages sheet can show "Manage service" to editors only without a fetch of its
+ * pages sheet can offer "Manage service" (editors, or role unknown) without a fetch of its
  * own (F24). Listens to this tab's store writes, the sign-out wipe, and writes
  * from other tabs.
  */
@@ -124,18 +138,19 @@ export function subscribeOnCallEditorFlag(onChange: () => void): () => void {
 }
 
 /**
- * Recorded by `useHospitalHandbook` whenever it reads the reader's services.
- * A non-editor removes the key rather than storing "0", so a device nobody has
- * edited from carries no trace of the flag.
+ * Recorded by `useHospitalHandbook` whenever it reads the reader's services:
+ * "1" for an editor, "0" for a reader who does not edit. A yes/no about the
+ * reader's own role, nothing about the hospital. The sign-out wipe removes it,
+ * which returns the device to "unknown".
  */
 export function rememberOnCallEditorFlag(isEditor: boolean): void {
   if (typeof window === "undefined") return;
+  const next: OnCallEditorStatus = isEditor ? "editor" : "not-editor";
   try {
-    if (isEditor === readOnCallEditorFlag()) return;
-    if (isEditor) window.localStorage.setItem(onCallEditorFlagStorageKey, "1");
-    else window.localStorage.removeItem(onCallEditorFlagStorageKey);
+    if (readOnCallEditorStatus() === next) return;
+    window.localStorage.setItem(onCallEditorFlagStorageKey, isEditor ? "1" : "0");
     window.dispatchEvent(new Event(onCallDeviceStoreChangedEvent));
   } catch {
-    // Blocked storage: the sheet keeps its default, which hides Manage service.
+    // Blocked storage: the role stays unknown, which keeps Manage service offered.
   }
 }

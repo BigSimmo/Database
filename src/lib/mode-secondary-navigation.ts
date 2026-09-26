@@ -286,8 +286,10 @@ export function groupModeSecondaryNavigationEntries<T extends ModeSecondaryNavig
 
 /**
  * The entries a pages sheet shows this reader: drops `hidden` entries, and
- * `audience: "editors"` entries unless the reader can edit. The routes stay
- * registered either way, so the pill still names the page when it is open.
+ * `audience: "editors"` entries when `isEditor` is false. On Call passes
+ * `readOnCallEditorFlag()`, which is true while the role is still unknown and
+ * false only for a known non-editor (review S3); the page does the real gating.
+ * The routes stay registered either way, so the pill still names the page.
  */
 export function visibleModeSecondaryNavigationEntries<T extends ModeSecondaryNavigationEntry>(
   entries: readonly T[],

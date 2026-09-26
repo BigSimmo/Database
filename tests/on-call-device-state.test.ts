@@ -11,6 +11,7 @@ import {
   onCallEmergencyPinnedStorageKey,
   onCallHandbookOfflineStorageKey,
   readOnCallEditorFlag,
+  readOnCallEditorStatus,
   rememberOnCallEditorFlag,
 } from "@/lib/on-call/device-state-keys";
 import {
@@ -70,20 +71,34 @@ describe("On Call device state", () => {
   });
 });
 
-describe("the editor flag the pages sheet reads", () => {
-  it("is false until the handbook has said so, and false again after sign-out", () => {
+describe("the editor flag the pages sheet reads (review S3)", () => {
+  it("offers Manage service while the role is unknown, and hides it only for a known non-editor", () => {
+    expect(readOnCallEditorStatus()).toBe("unknown");
+    expect(readOnCallEditorFlag()).toBe(true);
+    rememberOnCallEditorFlag(false);
+    expect(readOnCallEditorStatus()).toBe("not-editor");
+    expect(window.localStorage.getItem(onCallEditorFlagStorageKey)).toBe("0");
     expect(readOnCallEditorFlag()).toBe(false);
     rememberOnCallEditorFlag(true);
+    expect(readOnCallEditorStatus()).toBe("editor");
     expect(readOnCallEditorFlag()).toBe(true);
-    clearOnCallDeviceState();
-    expect(readOnCallEditorFlag()).toBe(false);
   });
 
-  it("reads false when storage throws", () => {
+  it("is unknown again after the sign-out wipe, so the next reader still sees the row", () => {
+    rememberOnCallEditorFlag(false);
+    clearOnCallDeviceState();
+    expect(readOnCallEditorStatus()).toBe("unknown");
+    expect(readOnCallEditorFlag()).toBe(true);
+  });
+
+  it("treats a value it does not recognise, or blocked storage, as unknown", () => {
+    window.localStorage.setItem(onCallEditorFlagStorageKey, "maybe");
+    expect(readOnCallEditorStatus()).toBe("unknown");
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    expect(readOnCallEditorFlag()).toBe(false);
+    expect(readOnCallEditorStatus()).toBe("unknown");
+    expect(readOnCallEditorFlag()).toBe(true);
   });
 });
 
