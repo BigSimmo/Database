@@ -206,6 +206,9 @@ describe("On Call home layout", () => {
     render(<OnCallHome />);
 
     const empty = screen.getByTestId("on-call-home-call-first-empty");
+    // The call-first step is a tick box now, so the hint names it, not the tag.
+    expect(empty).toHaveTextContent('tick "Call first on the home"');
+    expect(empty).not.toHaveTextContent('"call-first"');
     expect(empty).toHaveTextContent(/switchboard/i);
     expect(empty).toHaveTextContent(/ward/i);
     expect(empty).toHaveTextContent(/pinned/i);

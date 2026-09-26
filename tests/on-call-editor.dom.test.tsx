@@ -1107,3 +1107,47 @@ describe("On call optional field clearing", () => {
     expect(body.lastVerifiedAt).toBe(entry.lastVerifiedAt);
   });
 });
+
+describe("OnCallEntryEditor — Call first on the home", () => {
+  it("puts a contact on the home without the owner typing a tag, and keeps its grouping tag first", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: ED_REGISTRAR }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="contacts" entry={ED_REGISTRAR} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const box = screen.getByTestId("on-call-entry-editor-call-first");
+    expect(box).not.toBeChecked();
+    await user.click(box);
+    expect(screen.getByLabelText("Tags")).toHaveValue("Emergency Department, call-first");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.tags).toEqual(["Emergency Department", "call-first"]);
+  });
+
+  it("shows an existing call-first tag as ticked, and unticking removes only that tag", async () => {
+    const user = userEvent.setup();
+    const pinned: OnCallEntry = { ...ED_REGISTRAR, tags: ["Emergency Department", "Call-First", "ward"] };
+    render(<OnCallEntryEditor open section="contacts" entry={pinned} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const box = screen.getByTestId("on-call-entry-editor-call-first");
+    expect(box).toBeChecked();
+    await user.click(box);
+    expect(screen.getByLabelText("Tags")).toHaveValue("Emergency Department, ward");
+  });
+
+  it("is not offered for a Who's who role, which is not a number to ring", () => {
+    render(
+      <OnCallEntryEditor
+        open
+        section="contacts"
+        entry={{ ...ED_REGISTRAR, details: { ...ED_REGISTRAR.details, kind: ROLE_EXPLAINER_KIND } }}
+        onSaved={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("on-call-entry-editor-call-first")).not.toBeInTheDocument();
+  });
+});

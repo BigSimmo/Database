@@ -564,8 +564,8 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               // else.
               body={
                 homeIsUntagged
-                  ? `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift. The rest of this page works the same way: "${ON_CALL_HOME_TAGS.switchboard}" for the switchboard row, "${ON_CALL_HOME_TAGS.ward}" for tonight's wards, "${ON_CALL_HOME_TAGS.pinned}" for the reminder.`
-                  : `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift.`
+                  ? `Open a contact, choose Edit and tick "Call first on the home", and it appears here as the first number of the shift. The rest of this page works by tags: "${ON_CALL_HOME_TAGS.switchboard}" for the switchboard row, "${ON_CALL_HOME_TAGS.ward}" for tonight's wards, "${ON_CALL_HOME_TAGS.pinned}" for the reminder.`
+                  : `Open a contact, choose Edit and tick "Call first on the home", and it appears here as the first number of the shift.`
               }
               testId="on-call-home-call-first-empty"
             />
