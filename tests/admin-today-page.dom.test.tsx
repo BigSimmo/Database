@@ -1,20 +1,21 @@
 /** @vitest-environment jsdom */
 
-// Admin's Today (mode id `my-work`, formerly My Work) is, until its rewrite, the
-// My Work dashboard relabelled: cards for Admin's own pages, plus the On Call
-// pages it still gathers, each at its current route. The What's next list reports recorded dates and checks due,
-// and never reads an empty or unloaded account as "nothing due".
+// Admin's Today (mode id `my-work`): the owner-approved order — a quiet
+// greeting, the "Renew next" answer card, "Needs you", "Requirements" and,
+// only once a start date is set, "New job progress". Nothing else renders
+// here: no timeline, no Pay, no Help block, no ask box.
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
 const state = {
   entries: [] as OnCallEntry[],
   loading: false,
   isOffline: false,
-  loadError: null,
+  loadError: null as "offline" | "failed" | null,
   retry: vi.fn(),
   cachedAt: null,
   signedOut: false,
@@ -23,134 +24,155 @@ const state = {
 
 vi.mock("@/lib/on-call/entry-store", () => ({
   useOnCallEntries: () => state,
+  cacheOnCallEntries: vi.fn(),
 }));
 
-import { AdminTodayPage, selectComplianceDueSoon } from "@/components/admin/admin-today-page";
+let isAuthenticated = true;
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({ isAuthenticated }),
+}));
 
-function entry(overrides: Partial<OnCallEntry> & Pick<OnCallEntry, "id" | "section">): OnCallEntry {
-  return {
-    slug: overrides.id,
-    title: `Entry ${overrides.id}`,
-    subtitle: null,
-    body: null,
-    details: {},
-    linkedDocumentIds: [],
-    tags: [],
-    isPersonal: false,
-    includeOnCard: false,
-    sortOrder: 0,
-    lastVerifiedAt: null,
-    ...overrides,
-  };
-}
+vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
+  AccountSetupDialog: () => null,
+}));
 
-// Midday Perth time, so the local day is unambiguous.
-const NOW = new Date("2026-09-26T04:00:00Z");
-const RECENTLY_CHECKED = "2026-06-01T00:00:00Z";
+import { AdminTodayPage } from "@/components/admin/admin-today-page";
 
-const registration = entry({
-  id: "registration",
-  section: "logistics",
-  title: "AHPRA registration",
-  details: { kind: "compliance", expiresOn: "2026-10-10" },
-  lastVerifiedAt: RECENTLY_CHECKED,
+// 09:00 on Sat 26 Sep 2026 in Perth, the same fixed instant the selector tests use.
+const NOW = new Date("2026-09-26T01:00:00Z");
+
+const registration = complianceFixture("Medical registration", {
+  category: "Registration",
+  requirementId: "medical-registration-renewal",
+  expiresOn: "2026-10-15", // opens 15 Sep (30-day default): inside its lead time, 19 days out
 });
-const passed = entry({
-  id: "indemnity",
-  section: "logistics",
-  title: "Indemnity insurance",
-  details: { kind: "compliance", expiresOn: "2026-09-01" },
-  lastVerifiedAt: RECENTLY_CHECKED,
+const wwc = complianceFixture("Working with Children card", {
+  category: "Clearances",
+  consequence: "stops-work",
+  expiresOn: "2026-09-03", // passed, 23 days ago — further from today than registration's 19
 });
-const later = entry({
-  id: "bls",
-  section: "logistics",
-  title: "Basic life support",
-  details: { kind: "compliance", expiresOn: "2027-03-12" },
-  lastVerifiedAt: RECENTLY_CHECKED,
-});
-const neverChecked = entry({ id: "switchboard", section: "contacts", title: "Switchboard" });
+const police = complianceFixture("Police check", { category: "Clearances" }); // no date
+const indemnity = complianceFixture("Indemnity", { category: "Indemnity", expiresOn: "2027-06-30" });
 
 beforeEach(() => {
   state.entries = [];
   state.loading = false;
   state.isOffline = false;
+  state.loadError = null;
   state.signedOut = false;
+  state.demoMode = false;
+  isAuthenticated = true;
 });
 afterEach(cleanup);
 
 describe("AdminTodayPage", () => {
-  it("links Admin's own pages and every page it still gathers", () => {
+  it("opens with a greeting and the date, no summary number, and no tabs", () => {
+    state.entries = [registration, indemnity];
     render(<AdminTodayPage now={NOW} />);
-
-    expect(screen.getByRole("heading", { level: 1, name: "Admin" })).toBeTruthy();
-    const pages = screen.getByTestId("admin-today-pages");
-    const hrefs = within(pages)
-      .getAllByRole("link")
-      .map((link) => link.getAttribute("href"));
-    expect(hrefs).toEqual([
-      "/admin/renewals",
-      "/admin/new-job",
-      "/admin/help",
-      "/on-call/check",
-      "/on-call/shifts",
-      "/on-call/calendar",
-      "/on-call/orientation",
-      "/?settings=open",
-    ]);
+    const greeting = screen.getByTestId("admin-today-greeting");
+    expect(greeting.textContent).toContain("Good morning");
+    expect(greeting.textContent).toContain("Sat 26 Sep 2026");
+    expect(greeting.textContent).not.toMatch(/\d+ (items|renewals|due)/);
+    expect(screen.queryByRole("navigation", { name: "Sections of this page" })).toBeNull();
   });
 
-  it("lists recorded dates due soon or passed, soonest first, then the checks due", () => {
-    state.entries = [later, registration, passed, neverChecked];
-    render(<AdminTodayPage now={NOW} />);
-
-    const list = screen.getByRole("list", { name: "What's next" });
-    const rows = within(list).getAllByRole("link");
-    expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual([
-      "admin-today-next-compliance-indemnity",
-      "admin-today-next-compliance-registration",
-      "admin-today-next-check",
-    ]);
-    expect(rows[0]).toHaveTextContent("Recorded as expiring 1 Sep 2026 — that date has passed");
-    expect(rows[0]).toHaveAttribute("href", "/admin/renewals");
-    expect(rows[1]).toHaveTextContent("Recorded as expiring 10 Oct 2026");
-    expect(rows[1]).not.toHaveTextContent("that date has passed");
-    expect(rows[2]).toHaveTextContent("1 entry due a check");
-    expect(rows[2]).toHaveAttribute("href", "/on-call/check");
-  });
-
-  it("does not read an unloaded or signed-out account as nothing due", () => {
+  it("shows static skeletons while loading, nothing ready-shaped", () => {
     state.loading = true;
-    const { unmount } = render(<AdminTodayPage now={NOW} />);
-    expect(screen.getByTestId("admin-today-next-empty")).toHaveTextContent("Loading your entries.");
-    unmount();
+    render(<AdminTodayPage now={NOW} />);
+    expect(screen.getByTestId("admin-today-loading")).toBeTruthy();
+    expect(screen.queryByTestId("admin-today-renew-next")).toBeNull();
+  });
 
-    state.loading = false;
+  it("never shows an empty page when the load failed, even with a cached copy", () => {
+    state.entries = [registration];
+    state.isOffline = true;
+    state.loadError = "offline";
+    render(<AdminTodayPage now={NOW} />);
+    expect(screen.getByTestId("admin-today-load-failed")).toBeTruthy();
+    expect(screen.queryByTestId("admin-today-renew-next")).toBeNull();
+    expect(screen.queryByTestId("admin-today-needs-you")).toBeNull();
+  });
+
+  it("offers sign-in and a way to Help when the reader is signed out, nothing else", () => {
     state.signedOut = true;
     render(<AdminTodayPage now={NOW} />);
-    expect(screen.getByTestId("admin-today-next-empty")).toHaveTextContent("Sign in to see what is due.");
+    expect(screen.getByTestId("admin-today-signed-out")).toBeTruthy();
+    const help = screen.getByRole("link", { name: /Help/ });
+    expect(help.getAttribute("href")).toBe("/admin/help");
+    expect(screen.queryByTestId("admin-today-renew-next")).toBeNull();
   });
 
-  it("says nothing is recorded as due only when entries were loaded", () => {
-    state.entries = [later];
+  it("shows the soonest date of any kind on the Renew next card, with the lead-time drawing and both actions", () => {
+    state.entries = [registration, wwc];
     render(<AdminTodayPage now={NOW} />);
-    expect(screen.getByTestId("admin-today-next-empty")).toHaveTextContent(
-      "Nothing recorded as due in the next 30 days.",
-    );
+    const card = screen.getByTestId("admin-today-renew-next");
+    expect(within(card).getByText("Medical registration")).toBeTruthy();
+    expect(within(card).getByText("Expires 15 Oct 2026 · in 2 weeks")).toBeTruthy();
+    expect(screen.getByTestId("admin-today-renew-next-window")).toBeTruthy();
+    const renewed = within(card).getByTestId("admin-today-renew-next-renewed");
+    expect(renewed.getAttribute("href")).toBe(`/admin/renewals#on-call-entry-${registration.id}`);
+    const how = within(card).getByTestId("admin-today-renew-next-how");
+    expect(how.getAttribute("href")).toBe("https://www.medicalboard.gov.au/registration/registration-renewal.aspx");
   });
-});
 
-describe("selectComplianceDueSoon", () => {
-  it("leaves out admin rows, rows with no recorded date, and dates beyond thirty days", () => {
-    const admin = entry({
-      id: "leave",
+  it("features the passed date on Needs you, excluding the entry already shown on Renew next, grouping undated rows", () => {
+    state.entries = [registration, wwc, police];
+    render(<AdminTodayPage now={NOW} />);
+    // Renew next wins on registration (nearer today than wwc's passed date), so
+    // Needs you's featured row is the next most urgent thing: the passed wwc row.
+    const needsYou = screen.getByTestId("admin-today-needs-you");
+    const featured = within(needsYou).getByTestId("admin-today-needs-you-featured");
+    expect(featured.textContent).toContain("Working with Children card");
+    expect(featured.textContent).toContain("Date passed");
+    const rows = screen.queryByTestId("admin-today-needs-you-rows");
+    expect(rows?.textContent).toContain("1 dates not recorded");
+    expect(rows?.textContent).toContain("Police check");
+  });
+
+  it("always shows Requirements in words, with no score bars", () => {
+    state.entries = [registration];
+    render(<AdminTodayPage now={NOW} />);
+    const requirements = screen.getByTestId("admin-today-requirements");
+    expect(requirements.textContent).toMatch(/\d+ of \d+ recorded/);
+    expect(requirements.textContent).toContain("Dates you entered, not a check");
+    expect(requirements.querySelector('[role="progressbar"]')).toBeNull();
+  });
+
+  it("shows New job progress only once a start date is set", () => {
+    state.entries = [registration];
+    const { unmount } = render(<AdminTodayPage now={NOW} />);
+    expect(screen.queryByTestId("admin-today-new-job")).toBeNull();
+    unmount();
+
+    const step = onCallEntryFixture({
       section: "logistics",
-      title: "Leave form",
-      details: { expiresOn: "2026-10-01" },
+      title: "Sign and return your contract",
+      details: { category: "Logins", jobStartsOn: "2026-11-02" },
     });
-    const undated = entry({ id: "cpr", section: "logistics", title: "CPR", details: { kind: "compliance" } });
-    expect(selectComplianceDueSoon([admin, undated, later, registration], NOW).map((row) => row.id)).toEqual([
-      "registration",
-    ]);
+    state.entries = [registration, step];
+    render(<AdminTodayPage now={NOW} />);
+    const newJob = screen.getByTestId("admin-today-new-job");
+    expect(newJob.textContent).toContain("Starts 2 Nov 2026");
+    expect(newJob.textContent).toContain("Sign and return your contract");
+  });
+
+  it("opens the setup sheet only while neither registration nor indemnity is recorded, and has no Add button", () => {
+    state.entries = [];
+    const { unmount } = render(<AdminTodayPage now={NOW} />);
+    expect(screen.getByRole("dialog", { name: "Set up Admin" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Add/ })).toBeNull();
+    unmount();
+
+    state.entries = [indemnity];
+    render(<AdminTodayPage now={NOW} />);
+    expect(screen.queryByRole("dialog", { name: "Set up Admin" })).toBeNull();
+  });
+
+  it("renders nothing from the rest of Admin: no Pay, no Help block, no ask box", () => {
+    state.entries = [registration, indemnity];
+    render(<AdminTodayPage now={NOW} />);
+    expect(screen.queryByText("Pay")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByTestId("admin-today-help")).toBeNull();
   });
 });

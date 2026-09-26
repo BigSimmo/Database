@@ -290,6 +290,8 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/admin-today-page.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/settings-reminders.tsx",
@@ -344,6 +346,8 @@
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/admin-today-page.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/settings-reminders.tsx",
@@ -1493,7 +1497,6 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/components/admin/admin-today-page.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/differentials/differential-compare-queue-page.tsx",
         "src/components/differentials/differential-detail-page.tsx",
@@ -1513,7 +1516,6 @@
         "src/components/therapy-compass/workspace.tsx"
       ],
       "productImportFiles": [
-        "src/components/admin/admin-today-page.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/differentials/differential-compare-queue-page.tsx",
         "src/components/differentials/differential-detail-page.tsx",
@@ -1961,6 +1963,7 @@
         "src/components/AccessibleTable.tsx",
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
@@ -2000,6 +2003,7 @@
         "src/components/AccessibleTable.tsx",
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
@@ -2353,6 +2357,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-setup-sheet.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
@@ -2371,6 +2376,7 @@
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-setup-sheet.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
