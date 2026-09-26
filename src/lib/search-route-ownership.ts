@@ -50,6 +50,8 @@ export const standaloneModeHomePaths = [
   // a body, and the mode declares no search surface, so without it the mode pill
   // would retarget a composer CME has nowhere to send.
   "/cme",
+  // Psychiatry's dashboard of section links, for the same reason again.
+  "/psychiatry",
 ] as const;
 
 /**
@@ -101,6 +103,10 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // the reader on a page that ignores it.
     case "cme":
       return "/cme";
+    // The Psychiatry dashboard at `/psychiatry`, on the same reasoning: it is a
+    // page of links to the sections it gathers, with no results surface.
+    case "psychiatry":
+      return "/psychiatry";
     default:
       return null;
   }

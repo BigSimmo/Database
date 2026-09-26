@@ -120,6 +120,11 @@ const EXPECTED_MODE_TITLES: Record<
     standaloneTitle: "CME",
     subtitle: "What you have done this year, and what is still short.",
   },
+  psychiatry: {
+    sharedTitle: "Psychiatry",
+    standaloneTitle: "Psychiatry",
+    subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+  },
 };
 
 describe("ui-copy", () => {

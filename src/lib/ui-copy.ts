@@ -129,6 +129,11 @@ export const sharedHomePresentation = {
     subtitle: "What you have done this year, and what is still short.",
     suggestions: ["peer review group", "journal club", "audit"],
   },
+  psychiatry: {
+    title: "Psychiatry",
+    subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+    suggestions: ["major depressive disorder", "behavioural activation", "Form 1A"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */

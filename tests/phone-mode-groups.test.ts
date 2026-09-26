@@ -37,6 +37,6 @@ describe("phone mode groups", () => {
       phoneModeGroups.find((group) => (group.modeIds as readonly AppModeId[]).includes(modeId));
     expect(groupOf("on-call")).toMatchObject({ id: "on-call", label: "On Call", modeIds: ["on-call"] });
     expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD", modeIds: ["cme"] });
-    expect(phoneModeGroups.map((group) => group.id)).toEqual(["find", "diagnose", "care", "on-call", "cpd"]);
+    expect(phoneModeGroups.map((group) => group.id)).toEqual(["find", "psychiatry", "care", "on-call", "cpd"]);
   });
 });

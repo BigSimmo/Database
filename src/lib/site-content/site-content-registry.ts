@@ -14,7 +14,7 @@ export const SITE_CONTENT_REGISTRY_VERSION = "site-content-registry-v1" as const
 
 export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
-  modeId: Exclude<AppModeId, "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme">;
+  modeId: Exclude<AppModeId, "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry">;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
   producerClass: SiteContentRecord["producerClass"];
@@ -283,6 +283,15 @@ export const siteContentModeExclusions = [
     // nothing and must never become a retrieval corpus.
     modeId: "cme",
     reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // Psychiatry is a landing page of links to other modes. It holds no
+    // content of its own, so there is nothing for it to publish.
+    modeId: "psychiatry",
+    reason: "operational_chrome",
     permanent: true,
     reviewed: true,
     reviewOwner: "clinical_content_governance",

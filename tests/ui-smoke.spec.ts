@@ -1981,7 +1981,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const modeCount = await modeOptions.count();
     expect(modeCount).toBeGreaterThanOrEqual(10);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
@@ -4534,9 +4534,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
     await expect(modeSearch).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(18);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(19);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
@@ -4552,7 +4552,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(18);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(19);
 
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();
