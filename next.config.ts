@@ -16,6 +16,14 @@ const requestedTsConfigPath = process.env.NEXT_TSCONFIG_PATH?.trim();
 if (requestedTsConfigPath && !/^\.next-playwright\/[a-z0-9-]+\/tsconfig\.json$/i.test(requestedTsConfigPath)) {
   throw new Error("NEXT_TSCONFIG_PATH must be an owned .next-playwright/<run-id>/tsconfig.json file.");
 }
+// CI's isolated offline builds (the shared Playwright build and the Lighthouse build) skip
+// Next's post-build TypeScript pass. Their tsconfig covers the whole repo, so the pass repeated
+// the full-repo check the Static PR checks job already runs (~60-90 s on a runner), and every
+// browser and Lighthouse lane is gated on that job's result by `PR required`. All three
+// conditions must hold, so a production or local build (no owned tsconfig, no offline mode, or
+// no CI) always type-checks, and `npm run build` in the Build job keeps its own check.
+const skipIsolatedCiTypecheck =
+  Boolean(requestedTsConfigPath) && process.env.PLAYWRIGHT_OFFLINE_MODE === "true" && process.env.CI === "true";
 
 // Static (non-CSP) headers for every route. The nonce'd CSP is emitted per
 // request from src/proxy.ts; both derive their runtime flags from the same helper.
@@ -32,7 +40,14 @@ async function withOptionalBundleAnalyzer(config: NextConfig): Promise<NextConfi
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: shouldEnableSentrySourceMapUpload(),
   distDir: requestedDistDir || ".next",
-  ...(requestedTsConfigPath ? { typescript: { tsconfigPath: requestedTsConfigPath } } : {}),
+  ...(requestedTsConfigPath
+    ? {
+        typescript: {
+          tsconfigPath: requestedTsConfigPath,
+          ...(skipIsolatedCiTypecheck ? { ignoreBuildErrors: true } : {}),
+        },
+      }
+    : {}),
   // Playwright and some local tooling hit the dev server via 127.0.0.1; without
   // this, Next blocks HMR/client hydration from that host and phone scroll-hide
   // never wires up its listeners.
