@@ -6230,7 +6230,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     const composer = page.locator("form.document-viewer-composer");
     await clickWhenHydrated(page.getByRole("button", { name: "Open document actions" }));
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
-    await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
+    const documentSearchInput = composer.getByRole("textbox", { name: "Search within this document" });
+    // Opening focuses the input two animation frames later. Wait for that
+    // focus, or it can land after the submit button is focused below and take
+    // focus back from it (seen on the iPhone app-mode project).
+    await expect(documentSearchInput).toBeFocused();
+    await documentSearchInput.fill("safety plan include");
     await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
     await expect(page.getByTestId("source-chunk-indexed-text-panel").getByText("Hit 1 of 2").first()).toBeVisible();
     expect(answerRequests).toEqual([]);
