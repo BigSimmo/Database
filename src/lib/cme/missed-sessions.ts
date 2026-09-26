@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { cmeDateSchema } from "@/lib/cme/schemas";
+
 /**
  * A teaching or supervision session lost to clinical work, with the ordinary
  * CME activity that replaced it (if any) linked back.
@@ -32,7 +34,8 @@ export const CME_MISSED_SESSION_REASON_MAX = 200;
 /** Shown beside the reason field. The reason is never sent anywhere but the owner's own record. */
 export const CME_MISSED_SESSION_REASON_HINT = "Don't include patient details.";
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
+// A real calendar date, so an impossible one is a 400 rather than a Postgres `date` error (500).
+const isoDate = cmeDateSchema;
 
 /** Full-replace shape, used for both create and update — same idiom as `cmeEntryUpdateSchema`. */
 export const cmeMissedSessionCreateSchema = z

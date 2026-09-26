@@ -13,7 +13,7 @@ import { Chip } from "@/components/ui/chip";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField } from "@/components/ui/text-field";
-import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateShort, formatCalendarMonthLabel } from "@/lib/cme/cpd-year";
 import type { CmeDraft } from "@/lib/cme/drafts";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
@@ -35,6 +35,8 @@ export type CmeLogPageProps = {
   readonly navigationYears?: readonly number[];
   /** Set by the new-entry page after a save, so the owner sees it landed. */
   readonly justSaved?: boolean;
+  /** Set when the saved activity could not be linked to the missed session it was meant to replace. */
+  readonly missedLinkFailed?: boolean;
   readonly demoMode?: boolean;
   /** Opens the log already narrowed to activities needing one kind of attention (from the year check). */
   readonly initialAttention?: CmeLogAttention | null;
@@ -192,6 +194,7 @@ export function CmeLogPage({
   set,
   navigationYears,
   justSaved = false,
+  missedLinkFailed = false,
   demoMode = false,
   initialAttention = null,
   drafts = [],
@@ -257,6 +260,14 @@ export function CmeLogPage({
             <Check aria-hidden="true" className="size-icon-sm" />
             Saved to your log.
           </p>
+        ) : null}
+        {missedLinkFailed ? (
+          <div className="mt-3" data-testid="cme-log-missed-unlinked">
+            <InlineNotice tone="warning">
+              The activity was saved, but it could not be linked to the missed session. Link it from Missed teaching and
+              supervision below.
+            </InlineNotice>
+          </div>
         ) : null}
       </div>
 

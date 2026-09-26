@@ -19,7 +19,7 @@ function placeholderSet(year: number): CmeRequirementSet {
 export default async function CmeLogRoute({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; saved?: string; fix?: string; copy?: string }>;
+  searchParams: Promise<{ year?: string; saved?: string; fix?: string; copy?: string; missed?: string }>;
 }) {
   const query = await searchParams;
   const requestedYear = query.year ? Number(query.year) : undefined;
@@ -43,6 +43,7 @@ export default async function CmeLogRoute({
       set={data.set ?? placeholderSet(data.year)}
       navigationYears={[currentYear, currentYear - 1, data.year]}
       justSaved={query.saved === "1"}
+      missedLinkFailed={query.missed === "unlinked"}
       initialAttention={initialAttention}
       demoMode={data.demoMode}
       drafts={data.drafts}

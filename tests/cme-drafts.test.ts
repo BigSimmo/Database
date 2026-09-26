@@ -158,6 +158,7 @@ describe("draft update schema", () => {
     expect(cmeDraftUpdateSchema.safeParse({ followUpOn: "2026-09-30" }).success).toBe(true);
     expect(cmeDraftUpdateSchema.safeParse({ followUpOn: null }).success).toBe(true);
     expect(cmeDraftUpdateSchema.safeParse({ followUpOn: "30 Sep 2026" }).success).toBe(false);
+    expect(cmeDraftUpdateSchema.safeParse({ followUpOn: "2026-02-30" }).success).toBe(false);
   });
 
   it("rejects an unknown field (strict)", () => {

@@ -138,7 +138,11 @@ export function CmeNewEntryRoute({
       }),
     });
     if (!response.ok) throw new Error(await entrySaveError(response));
-    router.push(`/cme/log?year=${entry.date.slice(0, 4)}&saved=1`);
+    // The activity is saved either way; if the missed session could not be linked to it, say so on
+    // the log, so the missed record is not mistaken for replaced and replaced a second time.
+    const saved = (await response.json().catch(() => null)) as { linkedMissedSession?: boolean } | null;
+    const missedUnlinked = missedSessionId && saved?.linkedMissedSession === false ? "&missed=unlinked" : "";
+    router.push(`/cme/log?year=${entry.date.slice(0, 4)}&saved=1${missedUnlinked}`);
     router.refresh();
   }
 

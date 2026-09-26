@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { cmeDateSchema } from "@/lib/cme/schemas";
 import { cmeCategories, type CmeCategory } from "@/lib/cme/types";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -90,10 +91,9 @@ export const cmeDraftPayloadSchema = cmeDraftPayloadShape.refine(
   { message: `A draft can be at most ${CME_DRAFT_PAYLOAD_MAX_BYTES} bytes.` },
 );
 
-const cmeDraftFollowUpOnSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date.")
-  .nullable();
+// A real calendar date, so an impossible one (2026-02-30) is a 400 here rather than a
+// Postgres `date` error surfacing as a 500.
+const cmeDraftFollowUpOnSchema = cmeDateSchema.nullable();
 
 const cmeDraftWaitingFields = {
   waitingOn: z.enum(cmeDraftWaitingOnValues).nullable().optional(),

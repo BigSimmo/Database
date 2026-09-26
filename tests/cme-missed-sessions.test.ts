@@ -56,6 +56,10 @@ describe("missed session schema limits", () => {
     expect(cmeMissedSessionCreateSchema.safeParse(validBody({ occurredOn: "20 Sep 2026" })).success).toBe(false);
   });
 
+  it("rejects an impossible calendar date instead of letting the database refuse it", () => {
+    expect(cmeMissedSessionCreateSchema.safeParse(validBody({ occurredOn: "2026-02-30" })).success).toBe(false);
+  });
+
   it("only accepts teaching or supervision as kind", () => {
     expect(cmeMissedSessionCreateSchema.safeParse(validBody({ kind: "clinic" })).success).toBe(false);
   });
