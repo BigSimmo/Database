@@ -130,19 +130,25 @@ async function load(
       loadRecords(admin, auth.user.id, options),
     ]);
     if (!set) return { ...empty, ...records, year: targetYear, routines, state: "unconfigured" };
-    const loadedEntries = await fetchOwnerCmeEntries(admin, auth.user.id, set.id, options);
-    const evidenceCounts = await fetchCmeEvidenceCounts(admin, auth.user.id, targetYear);
-    const [goals, entryGoals] = await Promise.all([
+    // Only the entry-goal links depend on the entry list; everything else needs just the year, so it
+    // is read side by side rather than one after another (each read crosses Singapore -> Sydney).
+    const [loadedEntries, evidenceCounts, goals, close] = await Promise.all([
+      fetchOwnerCmeEntries(admin, auth.user.id, set.id, options),
+      fetchCmeEvidenceCounts(admin, auth.user.id, targetYear),
       fetchOwnerCmePlanGoals(admin, auth.user.id, set.id),
-      fetchOwnerCmeEntryGoals(admin, auth.user.id, entry ? [entry.id] : loadedEntries.map((item) => item.id)),
+      set.closedAt ? fetchOwnerCmeYearClose(admin, auth.user.id, set.id) : Promise.resolve(null),
     ]);
+    const entryGoals = await fetchOwnerCmeEntryGoals(
+      admin,
+      auth.user.id,
+      entry ? [entry.id] : loadedEntries.map((item) => item.id),
+    );
     const entries = loadedEntries.map((item) => ({
       ...item,
       evidenceCount: evidenceCounts[item.id] ?? 0,
       // Only an activity linked to a goal carries the field, so an unlinked one reads as before.
       ...(entryGoals[item.id] ? { goalId: entryGoals[item.id] } : {}),
     }));
-    const close = set.closedAt ? await fetchOwnerCmeYearClose(admin, auth.user.id, set.id) : null;
     const state = cmeYearConfigurationState(set);
     if (state === "unavailable") return { ...empty, year: targetYear, state };
     // Preserve the original settings and history for explicit owner repair.

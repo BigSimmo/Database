@@ -22,6 +22,14 @@ import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content
 export const catalogueSearchWarmKinds = ["form", "service", "medication"] as const;
 
 /**
+ * The Differentials page's list reads share the same process cache (`differentials` route, list
+ * scope), but nothing warmed them, so the first visitor after every restart paid both reads. The
+ * server restarts on every merge, so that was many visitors a day. Warmed after the search kinds,
+ * so the search path is never kept waiting behind them.
+ */
+export const catalogueListWarmKinds = ["differential", "presentation"] as const;
+
+/**
  * Bound each boot warm read. Without a deadline a never-settling RPC is retained as a blocking
  * cache flight forever; later searches join it and cannot cancel it, so that kind stays on seeds
  * until process restart. Sized to the cache refresh ceiling — generous for boot, still finite.
@@ -31,7 +39,7 @@ export const catalogueSearchWarmBudgetMs = 10_000;
 export async function warmCanonicalCatalogueSearchCaches(
   supabase: ReturnType<typeof createAdminClient> = createAdminClient(),
 ): Promise<void> {
-  for (const kind of catalogueSearchWarmKinds) {
+  for (const kind of [...catalogueSearchWarmKinds, ...catalogueListWarmKinds]) {
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort(

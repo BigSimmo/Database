@@ -7,6 +7,7 @@ import { cmeReportingCloseDate } from "@/lib/cme/calendar-events";
 import { cpdYearOf, perthCalendarDate } from "@/lib/cme/cpd-year";
 import { groupDrafts } from "@/lib/cme/drafts";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
+import { isDemoMode } from "@/lib/env";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
 export const metadata: Metadata = {
@@ -47,10 +48,16 @@ async function loadReportingReminder(now: Date, shownYear: number): Promise<CmeR
 export default async function CmeHomeRoute({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
   const query = await searchParams;
   const requestedYear = query.year ? Number(query.year) : undefined;
-  const data = await loadCmePageData(
-    Number.isInteger(requestedYear) && requestedYear! >= 2000 && requestedYear! <= 2100 ? requestedYear : undefined,
-    { drafts: true },
-  );
+  const year =
+    Number.isInteger(requestedYear) && requestedYear! >= 2000 && requestedYear! <= 2100 ? requestedYear : undefined;
+  // Last year's reminder does not depend on this year's data, so both loads run side by side
+  // instead of one after the other. The reminder is discarded when this year is not ready.
+  // Demo mode pins its own clock and year, where no earlier year is configured, so it never has one.
+  const now = new Date();
+  const [data, reportingReminder] = await Promise.all([
+    loadCmePageData(year, { drafts: true }),
+    isDemoMode() ? Promise.resolve(null) : loadReportingReminder(now, year ?? cpdYearOf(now)),
+  ]);
   if (data.state !== "ready") {
     return (
       <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
@@ -60,7 +67,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
   }
   return (
     <CmeDashboardRoute
-      reportingReminder={await loadReportingReminder(data.now, data.year)}
+      reportingReminder={reportingReminder}
       set={data.set ?? placeholderSet(data.year)}
       entries={data.entries}
       nowIso={data.now.toISOString()}
