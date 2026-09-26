@@ -210,7 +210,7 @@ function isAbort(cause: unknown): boolean {
 }
 
 function hospitalOptions(services: readonly ServiceSummary[]): HospitalHandbookOption[] {
-  return services.flatMap((service) =>
+  return services.flatMap((service): HospitalHandbookOption[] =>
     service.sites.length === 0
       ? [{ serviceId: service.id, serviceName: service.name, siteId: null, siteName: null }]
       : service.sites.map((site) => ({
