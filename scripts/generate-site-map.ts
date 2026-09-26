@@ -210,6 +210,8 @@ const routeDescriptions: Record<string, string> = {
     "The activities done on a regular schedule, such as monthly or by term, and when each is next due. A Log control opens the new-entry form prefilled from the routine.",
   "/cme/plan":
     "The yearly development plan screen. Not yet built in this phase — the page says so plainly, and offers logging the time spent writing the plan as an activity so the hours still count toward the year.",
+  "/cme/learning":
+    "A curated list of upcoming Western Australian courses and events for psychiatrists, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
   "/cme/programme":
     "The requirement targets confirmed for this year — hours required in each category — and the source document they were confirmed against.",
   "/cme/setup":
@@ -635,7 +637,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("cme"),
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
       detail:
-        'No results page — `resultsSurface: "none"`, like On Call. `/cme/log` full activity list, `/cme/log/[id]` one entry, `/cme/new` new-entry form, `/cme/routines` recurring activities and their due dates, plus `/cme/plan`, `/cme/programme`, `/cme/setup`, and `/cme/customise`.',
+        'No results page — `resultsSurface: "none"`, like On Call. `/cme/log` full activity list, `/cme/log/[id]` one entry, `/cme/new` new-entry form, `/cme/routines` recurring activities and their due dates, `/cme/learning` curated WA courses and events, plus `/cme/plan`, `/cme/programme`, `/cme/setup`, and `/cme/customise`.',
     },
   ]);
 }

@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-25"
+    "committed_at": "2026-09-26"
   },
   "routes": {
     "modes": [
@@ -1268,6 +1268,11 @@
       {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/cme/learning",
+        "file": "src/app/(search-app)/cme/learning/page.tsx",
         "area": "product"
       },
       {
