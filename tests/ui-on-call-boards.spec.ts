@@ -353,7 +353,7 @@ test.describe("02 More, 03 All modes — the pill owns page switching", () => {
     const sections = page.locator("#app-mode-menu");
     await expect(sections).toBeVisible();
     await expect(sections).toHaveAttribute("aria-label", /On Call pages/);
-    await expect(sections.getByRole("link", { name: "Tonight" })).toBeVisible();
+    await expect(sections.getByRole("link", { name: "Now" })).toBeVisible();
 
     // And never a dead end: the level above is one control away.
     await page.getByTestId("app-mode-popover-back").click();
@@ -410,9 +410,10 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // The pill's accessible name still opens `Mode …` — twelve test files and
     // the shared helper find this control by that prefix — and now says the
     // page as well.
-    const pill = page.getByRole("button", { name: "Mode On Call, page Contacts" });
+    // Contacts is the editor behind Call (kit 1.7), so the pill names Call.
+    const pill = page.getByRole("button", { name: "Mode On Call, page Call" });
     await expect(pill).toBeVisible();
-    await expect(pill).toContainText("Contacts");
+    await expect(pill).toContainText("Call");
     await expect(pill).toContainText("On Call");
 
     // And nothing else on the page paints the name. Measured, not counted by

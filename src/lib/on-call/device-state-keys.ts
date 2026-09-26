@@ -106,6 +106,24 @@ export function readOnCallEditorFlag(): boolean {
 }
 
 /**
+ * `useSyncExternalStore` subscription for the editor flag, so the mode pill's
+ * pages sheet can show "Manage service" to editors only without a fetch of its
+ * own (F24). Listens to this tab's store writes, the sign-out wipe, and writes
+ * from other tabs.
+ */
+export function subscribeOnCallEditorFlag(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(onCallDeviceStoreChangedEvent, onChange);
+  window.addEventListener(onCallDeviceStateChangedEvent, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(onCallDeviceStoreChangedEvent, onChange);
+    window.removeEventListener(onCallDeviceStateChangedEvent, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+/**
  * Recorded by `useHospitalHandbook` whenever it reads the reader's services.
  * A non-editor removes the key rather than storing "0", so a device nobody has
  * edited from carries no trace of the flag.

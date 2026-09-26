@@ -266,12 +266,10 @@ export function OnCallPageMenu({
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          // The count is in the label, not only in the badge: a screen reader
-          // gets the number without having to reach a decorative dot.
+          // Something is waiting, said in words as well as by the dot, and never
+          // as a number (F15): the list, with its count, is inside the sheet.
           aria-label={
-            notificationCount > 0
-              ? `Open ${title} actions. ${notificationCount} ${notificationCount === 1 ? "item needs" : "items need"} attention.`
-              : `Open ${title} actions`
+            notificationCount > 0 ? `Open ${title} actions. Something needs attention.` : `Open ${title} actions`
           }
           data-testid="on-call-page-menu-trigger"
           className={cn(
@@ -285,14 +283,9 @@ export function OnCallPageMenu({
           {notificationCount > 0 ? (
             <span
               aria-hidden="true"
-              data-testid="on-call-page-menu-notification-count"
-              className={cn(
-                "absolute -right-0.5 -top-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1",
-                "bg-[color:var(--command)] text-3xs font-bold leading-4 text-[color:var(--command-contrast)]",
-              )}
-            >
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
+              data-testid="on-call-page-menu-notification-dot"
+              className="absolute right-1.5 top-1.5 size-2 rounded-full bg-[color:var(--clinical-accent)] ring-2 ring-[color:var(--surface)]"
+            />
           ) : null}
         </button>
       </UniversalHeaderTrailingPortal>
