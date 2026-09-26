@@ -1478,7 +1478,9 @@ describe("design-system adoption manifest", () => {
     //
     // 112 -> 114 on 2026-09-26: `/cme/learning`, the CME WA learning directory, and
     // `/cme/training`, the CME trainee timeline.
-    expect(manifest.routeCoverage.discovered).toHaveLength(114);
+    //
+    // 114 -> 115 on 2026-09-26: `/on-call/shifts`, On Call "My shifts", the owner's own roster.
+    expect(manifest.routeCoverage.discovered).toHaveLength(115);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
