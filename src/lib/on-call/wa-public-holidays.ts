@@ -112,26 +112,46 @@ function withMondaySubstitute(year: number, month: number, day: number): string[
  * weekdays not already holidays: Saturday Christmas gives Monday 27 and Tuesday
  * 28; Sunday Christmas gives Tuesday 27 (Boxing Day is the Monday); Saturday
  * Boxing Day gives Monday 28.
+ *
+ * Anzac Day can fall on Easter Sunday (next in 2038) or Easter Monday (last in
+ * 2011). The Act then names no extra day, but WA has proclaimed one, as in
+ * 2011, so the next weekday that is not already a holiday is taken as the
+ * expected extra day. Each year's published list, once added, overrides this.
  */
 export function waPublicHolidaysByRule(year: number): string[] {
   const easter = easterSunday(year);
+  const easterSundayDate = isoDate(year, easter.month, easter.day);
+  const easterMondayDate = addDays(year, easter.month, easter.day, 1);
   const christmasDow = weekday(year, 12, 25);
   const christmas: string[] = [isoDate(year, 12, 25), isoDate(year, 12, 26)];
   if (christmasDow === 6) christmas.push(isoDate(year, 12, 27), isoDate(year, 12, 28));
   else if (christmasDow === 0) christmas.push(isoDate(year, 12, 27));
   else if (christmasDow === 5) christmas.push(isoDate(year, 12, 28));
-  return [
+  const days = new Set([
     ...withMondaySubstitute(year, 1, 1),
     ...withMondaySubstitute(year, 1, 26),
     firstMonday(year, 3), // Labour Day
     addDays(year, easter.month, easter.day, -2), // Good Friday
-    isoDate(year, easter.month, easter.day), // Easter Sunday
-    addDays(year, easter.month, easter.day, 1), // Easter Monday
+    easterSundayDate,
+    easterMondayDate,
     ...withMondaySubstitute(year, 4, 25), // Anzac Day
     firstMonday(year, 6), // Western Australia Day
     lastMonday(year, 9), // King's Birthday (by proclamation; see above)
     ...christmas,
-  ].sort();
+  ]);
+  const anzac = isoDate(year, 4, 25);
+  if (anzac === easterSundayDate || anzac === easterMondayDate) {
+    for (let offset = 1; offset <= 7; offset += 1) {
+      const candidate = addDays(year, 4, 25, offset);
+      const [, m, d] = candidate.split("-").map(Number);
+      const dow = weekday(year, m!, d!);
+      if (dow !== 0 && dow !== 6 && !days.has(candidate)) {
+        days.add(candidate);
+        break;
+      }
+    }
+  }
+  return [...days].sort();
 }
 
 const ruleCache = new Map<number, ReadonlySet<string>>();

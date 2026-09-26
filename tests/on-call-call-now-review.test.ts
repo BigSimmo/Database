@@ -118,6 +118,24 @@ describe("WA public holidays", () => {
     expect(isWaPublicHoliday(new Date(2028, 3, 18, 10))).toBe(false);
   });
 
+  it("gives the expected extra day when Anzac Day falls on Easter, and never lists a date twice", () => {
+    // 2038: Easter Sunday is 25 April, so Easter Monday already covers Anzac
+    // Day's Monday substitute; the extra day is Tuesday 27 April.
+    const april2038 = waPublicHolidaysByRule(2038).filter((d) => d.startsWith("2038-04"));
+    expect(april2038).toEqual(["2038-04-23", "2038-04-25", "2038-04-26", "2038-04-27"]);
+    // 2011: Anzac Day was Easter Monday; WA proclaimed Tuesday 26 April.
+    expect(waPublicHolidaysByRule(2011).filter((d) => d.startsWith("2011-04"))).toEqual([
+      "2011-04-22",
+      "2011-04-24",
+      "2011-04-25",
+      "2011-04-26",
+    ]);
+    for (let year = 2026; year <= 2100; year += 1) {
+      const days = waPublicHolidaysByRule(year);
+      expect(new Set(days).size).toBe(days.length);
+    }
+  });
+
   it("handles every Christmas weekday arrangement", () => {
     // Saturday Christmas (2027), Sunday Christmas (2022), Friday Christmas (2026).
     expect(waPublicHolidaysByRule(2027).filter((d) => d.startsWith("2027-12"))).toEqual([
