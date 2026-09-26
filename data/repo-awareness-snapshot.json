@@ -726,6 +726,11 @@
         "area": "product"
       },
       {
+        "path": "/cme/training",
+        "file": "src/app/(search-app)/cme/training/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/privacy",
         "file": "src/app/privacy/page.tsx",
         "area": "product"
@@ -1276,6 +1281,11 @@
         "area": "product"
       },
       {
+        "path": "/cme/learning",
+        "file": "src/app/(search-app)/cme/learning/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/caring-contacts",
         "file": "src/app/caring-contacts/page.tsx",
         "area": "product"
@@ -1601,6 +1611,10 @@
         "file": "src/app/api/documents/[id]/table-facts/route.ts"
       },
       {
+        "path": "/api/cme/training/[id]",
+        "file": "src/app/api/cme/training/[id]/route.ts"
+      },
+      {
         "path": "/api/ingestion/batches",
         "file": "src/app/api/ingestion/batches/route.ts"
       },
@@ -1627,6 +1641,10 @@
       {
         "path": "/api/cme/year/close",
         "file": "src/app/api/cme/year/close/route.ts"
+      },
+      {
+        "path": "/api/cme/training",
+        "file": "src/app/api/cme/training/route.ts"
       },
       {
         "path": "/api/search/universal",
@@ -1709,6 +1727,10 @@
         "file": "src/app/api/documents/[id]/reindex/route.ts"
       },
       {
+        "path": "/api/cme/missed/[id]",
+        "file": "src/app/api/cme/missed/[id]/route.ts"
+      },
+      {
         "path": "/api/differentials/[slug]",
         "file": "src/app/api/differentials/[slug]/route.ts"
       },
@@ -1739,6 +1761,10 @@
       {
         "path": "/api/setup-status",
         "file": "src/app/api/setup-status/route.ts"
+      },
+      {
+        "path": "/api/cme/drafts",
+        "file": "src/app/api/cme/drafts/route.ts"
       },
       {
         "path": "/api/cme/routines/[id]",
@@ -1829,6 +1855,10 @@
         "file": "src/app/api/on-call/services/[serviceId]/route.ts"
       },
       {
+        "path": "/api/cme/missed",
+        "file": "src/app/api/cme/missed/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/plans",
         "file": "src/app/api/caring-contacts/plans/route.ts"
       },
@@ -1859,6 +1889,10 @@
       {
         "path": "/api/jobs",
         "file": "src/app/api/jobs/route.ts"
+      },
+      {
+        "path": "/api/cme/drafts/[id]",
+        "file": "src/app/api/cme/drafts/[id]/route.ts"
       },
       {
         "path": "/api/ingestion/quality",
@@ -3102,6 +3136,16 @@
         "path": "docs/ward-flow/ward-builder-two-session-record-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
+      },
+      {
+        "path": "docs/design-system/COMPONENTS.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/COMPONENTS.md",
+        "section": "design-system",
+        "catalogued": true
       },
       {
         "path": "docs/design-system/COMPONENTS.md",
@@ -5496,6 +5540,16 @@
       {
         "path": "docs/prompts/rag-coverage-gate-extraction.md",
         "section": "prompts",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/ADOPTION.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/ADOPTION.md",
+        "section": "design-system",
         "catalogued": true
       },
       {
