@@ -60,7 +60,7 @@ export function CmeNavHeader({ title }: { title: string }) {
       activeId={activeId}
       onSelectSection={selectSection}
       rail={{
-        label: "CME",
+        label: "CPD",
         // Four short labels at most on any one page ("Baseline", "College",
         // "Confirmed", "Year" — Setup's three are shorter still). Matched to
         // Therapy record's own four-slot calibration

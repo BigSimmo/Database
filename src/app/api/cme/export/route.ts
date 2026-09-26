@@ -35,7 +35,7 @@ export async function GET(request: Request) {
         allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
       });
       if (rateLimit.limited)
-        return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+        return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
       const set = await fetchOwnerCmeYear(supabase, user.id, year);
       if (!set) return publicErrorResponse("This CPD year is unavailable.", 404);
       csv = formatCmeYearCsv(await fetchOwnerCmeEntries(supabase, user.id, set.id), set);

@@ -3,7 +3,6 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 
@@ -350,92 +349,43 @@ describe("On Call home layout", () => {
   });
 });
 
-describe("the Check these tile", () => {
-  const tile = () => screen.getByTestId("on-call-home-check");
+describe("the home's tool row and tile grid after the My Work move", () => {
+  // On 2026-09-26 the admin pages moved off this home to My Work (`/my-work`).
+  // "Check these" and "Calendar" left the tool row, and Orientation, Teaching,
+  // Admin and Compliance left the tile grid. Their routes are unchanged; only
+  // the home stopped linking them. The review-count label that "Check these"
+  // carried ("Nothing to check", "None due", "N due", and the loading,
+  // unavailable, sign-in and empty states) went with it, and is now My Work's
+  // to cover, as is counting Admin and Compliance from
+  // `partitionLogisticsEntries` rather than by stored section, if it shows
+  // those counts.
 
-  it("never reads as checked when there is nothing to check", () => {
+  it("offers First night and My Work, and nothing else, under Who do I call now", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
     render(<OnCallHome />);
-    expect(tile()).toHaveTextContent("No entries");
-    expect(tile()).not.toHaveTextContent(/checked/i);
+
+    const tools = screen.getByTestId("on-call-home-tools");
+    expect(within(tools).getByTestId("on-call-home-first-night")).toHaveAttribute("href", "/on-call/first-night");
+    const myWork = within(tools).getByTestId("on-call-home-my-work");
+    expect(myWork).toHaveAttribute("href", "/my-work");
+    expect(myWork).toHaveTextContent("My Work");
+
+    expect(screen.queryByTestId("on-call-home-check")).toBeNull();
+    expect(screen.queryByTestId("on-call-home-calendar")).toBeNull();
+    expect(within(tools).queryByText("Check these")).toBeNull();
   });
 
-  it("says it is loading, unavailable or needs a sign-in rather than all clear", () => {
-    storeState.loading = true;
-    const { unmount } = render(<OnCallHome />);
-    expect(tile()).toHaveTextContent("Loading");
-    unmount();
-
-    storeState.loading = false;
-    storeState.isOffline = true;
-    storeState.loadError = "failed";
-    const failed = render(<OnCallHome />);
-    expect(tile()).toHaveTextContent("Unavailable");
-    failed.unmount();
-
-    storeState.isOffline = false;
-    storeState.loadError = null;
-    storeState.signedOut = true;
-    render(<OnCallHome />);
-    expect(tile()).toHaveTextContent("Sign in");
-  });
-
-  it("does not say none are due when no entry is the reader's to check", () => {
-    storeState.entries = [{ ...contact("shared", "Shared switchboard", [], "9224 0000"), isOwn: false } as OnCallEntry];
-    render(<OnCallHome />);
-    expect(tile()).toHaveTextContent("Nothing to check");
-    expect(tile()).not.toHaveTextContent("None due");
-  });
-
-  it("says none are due only once real entries were assessed", () => {
-    storeState.entries = [contact("switch", "Switchboard", [], "9224 0000")];
-    render(<OnCallHome />);
-    expect(tile()).toHaveTextContent("None due");
-  });
-});
-
-describe("On Call home tiles for Admin and Compliance", () => {
-  // Admin and Compliance are ONE stored section (`logistics`) split on
-  // `details.kind`, because `section` is a database CHECK constraint and a
-  // seventh value costs a migration that reaches the live clinical database
-  // within seconds. `countOnCallEntriesBySection` counts by the stored section
-  // and so knows nothing about that split: the Admin tile used to promise
-  // every logistics row, including the requirements that are not on the Admin
-  // page, and there was no Compliance tile at all.
-  //
-  // Both cases below ask `partitionLogisticsEntries` how many rows each page
-  // holds rather than writing the numbers down — a test that restated them
-  // would keep passing if the split itself were wrong, and would go red every
-  // time the demo corpus gained a row.
-
-  it("counts the Admin tile from the rows the Admin page actually renders", () => {
-    const entries = [...DEMO_ON_CALL_ENTRIES];
-    const { admin, compliance } = partitionLogisticsEntries(entries);
-    const stored = entries.filter((entry) => entry.section === "logistics").length;
-    // Without a compliance row in the corpus the two numbers are the same and
-    // this test could not tell the fix from the bug.
-    expect(compliance.length, "the demo corpus has no compliance rows to leave out").toBeGreaterThan(0);
-
-    storeState.entries = entries;
+  it("draws only the shift-time section tiles, in order", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
     render(<OnCallHome />);
 
-    const tile = screen.getByTestId("on-call-home-tile-logistics");
-    expect(within(tile).getByText(String(admin.length))).toBeInTheDocument();
-    // The stored-section total is the wrong number, and it is the number the
-    // tile used to show.
-    expect(within(tile).queryByText(String(stored)), "the Admin tile is counting compliance rows again").toBeNull();
-  });
-
-  it("gives Compliance its own tile, counted the same way", () => {
-    const entries = [...DEMO_ON_CALL_ENTRIES];
-    const { compliance } = partitionLogisticsEntries(entries);
-
-    storeState.entries = entries;
-    render(<OnCallHome />);
-
-    const tile = screen.getByTestId("on-call-home-tile-compliance");
-    expect(tile).toHaveAttribute("href", "/on-call/compliance");
-    expect(tile).toHaveTextContent("Compliance");
-    expect(within(tile).getByText(String(compliance.length))).toBeInTheDocument();
+    const tiles = screen.getByTestId("on-call-home-sections").querySelectorAll('[data-testid^="on-call-home-tile-"]');
+    expect(Array.from(tiles, (tile) => tile.getAttribute("data-testid"))).toEqual([
+      "on-call-home-tile-contacts",
+      "on-call-home-tile-playbook",
+      "on-call-home-tile-referrals",
+      "on-call-home-tile-who-is-who",
+    ]);
   });
 });
 

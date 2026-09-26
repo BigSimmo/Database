@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       bucket: "cme",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
-    if (limit.limited) return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", limit);
+    if (limit.limited) return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", limit);
     const [periods, milestones] = await Promise.all([
       fetchOwnerTrainingPeriods(supabase, user.id),
       fetchOwnerTrainingMilestones(supabase, user.id),
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       bucket: "cme",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
-    if (limit.limited) return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", limit);
+    if (limit.limited) return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", limit);
     const body = await parseJsonBody(request, trainingRecordBodySchema, "Check the training details and try again.");
     const record = parseTrainingRecordInput(body);
     if (record.type === "period") {

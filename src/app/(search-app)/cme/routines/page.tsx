@@ -5,7 +5,7 @@ import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 
 export const metadata: Metadata = {
-  title: "Routines | CME | PsychSift",
+  title: "Routines | CPD | PsychSift",
   description: "The activities you do every month or term, and when each is next due.",
 };
 

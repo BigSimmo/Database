@@ -19,7 +19,7 @@
       },
       {
         "id": "cme",
-        "label": "CME",
+        "label": "CPD",
         "home": "/cme",
         "dev_only": false
       },
@@ -69,6 +69,12 @@
         "id": "formulation",
         "label": "Formulation",
         "home": "/?mode=formulation",
+        "dev_only": false
+      },
+      {
+        "id": "my-work",
+        "label": "My Work",
+        "home": "/my-work",
         "dev_only": false
       },
       {
@@ -155,6 +161,11 @@
         "path": "/mockups/care-plan/system-states",
         "file": "src/app/mockups/care-plan/system-states/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/my-work",
+        "file": "src/app/(search-app)/my-work/page.tsx",
+        "area": "product"
       },
       {
         "path": "/auth/reset-password",

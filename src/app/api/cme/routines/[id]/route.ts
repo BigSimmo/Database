@@ -26,9 +26,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       bucket: "cme",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
-    if (limit.limited) return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", limit);
+    if (limit.limited) return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", limit);
     const { id } = parseRouteParams(await params, z.object({ id: z.string().uuid() }), "Invalid routine ID.");
-    const body = await parseJsonBody(request, cmeRoutineUpdateSchema, "Invalid CME routine.");
+    const body = await parseJsonBody(request, cmeRoutineUpdateSchema, "Invalid CPD routine.");
     return NextResponse.json({ routine: await saveCmeRoutine(supabase, user.id, body, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

@@ -34,7 +34,7 @@ function demoEntriesForYear(year: number): readonly CmeEntry[] {
 
 export async function GET(request: Request) {
   try {
-    const { year } = parseRequestQuery(request, cmeListQuerySchema, "Invalid CME query.");
+    const { year } = parseRequestQuery(request, cmeListQuerySchema, "Invalid CPD query.");
 
     if (isDemoMode()) {
       const targetYear = year ?? cpdYearOf(DEMO_CME_INSTANT);
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     const targetYear = year ?? cpdYearOf(new Date());
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     if (isDemoMode()) {
-      return publicErrorResponse("CME entries cannot be created in demo mode.", 400, {
+      return publicErrorResponse("CPD entries cannot be created in demo mode.", 400, {
         code: "demo_mode_unavailable",
       });
     }
@@ -91,12 +91,12 @@ export async function POST(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     // One schema covers the whole entry — no polymorphic per-section shape the way On Call
     // has, so a single parse (reject rather than coerce) is the whole validation step.
-    const body = await parseJsonBody(request, cmeEntryCreateSchema, "Invalid CME entry.");
+    const body = await parseJsonBody(request, cmeEntryCreateSchema, "Invalid CPD entry.");
 
     // `activity_date` is a Perth calendar date the application already computed (see
     // `cme_entries.activity_date` in the migration) — the year it belongs to is read directly
