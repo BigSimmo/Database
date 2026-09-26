@@ -1143,7 +1143,7 @@ describe("OnCallEntryEditor — Call first on the home", () => {
       <OnCallEntryEditor
         open
         section="contacts"
-        entry={{ ...ED_REGISTRAR, details: { ...ED_REGISTRAR.details, kind: ROLE_EXPLAINER_KIND } }}
+        entry={{ ...ED_REGISTRAR, details: { role: "ED registrar", phone: "0412 345 678", kind: ROLE_EXPLAINER_KIND } }}
         onSaved={vi.fn()}
         onClose={vi.fn()}
       />,
