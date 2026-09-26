@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
+import { CmeDateField } from "@/components/cme/cme-date-field";
 import { CmeNavHeader } from "@/components/cme/cme-nav-header";
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import {
   CME_PRESET_SOURCES,
   CME_PRESET_VERSION,
@@ -106,6 +108,7 @@ export function CmeSetupPage({
   readonly onConfirm?: (set: CmeRequirementSet) => Promise<void>;
 }) {
   const targetYear = year ?? set?.year ?? new Date().getFullYear();
+  const today = perthCalendarDate(new Date());
   const [draft, setDraft] = useState<CmeRequirementSet>(
     () =>
       set ??
@@ -232,12 +235,14 @@ export function CmeSetupPage({
                 }))
               }
             />
-            <TextField
+            <CmeDateField
               label="Confirmation date"
               id="cme-setup-confirmed-on"
-              type="date"
+              required
+              allowFuture={false}
+              today={today}
               value={draft.confirmedOn}
-              onChange={(event) => setDraft((current) => ({ ...current, confirmedOn: event.target.value }))}
+              onChange={(confirmedOn) => setDraft((current) => ({ ...current, confirmedOn }))}
             />
           </div>
           <TextField
@@ -477,16 +482,18 @@ export function CmeSetupPage({
                     </div>
                   ) : null}
                   {requirement.spec.shape === "task" ? (
-                    <TextField
+                    <CmeDateField
                       label="Completion date"
                       id={`cme-requirement-${requirement.id}-completed`}
-                      type="date"
+                      chips={false}
+                      allowFuture={false}
+                      today={today}
                       value={requirement.completedOn ?? ""}
-                      onChange={(event) =>
+                      onChange={(completedOn) =>
                         setDraft((current) =>
                           replaceRequirement(current, requirement.id, (item) => ({
                             ...item,
-                            completedOn: event.target.value || null,
+                            completedOn: completedOn || null,
                           })),
                         )
                       }

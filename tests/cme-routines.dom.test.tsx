@@ -81,6 +81,26 @@ describe("Routines", () => {
     expect(navigation.push).toHaveBeenCalledWith("/cme/new?routine=r1");
   });
 
+  it("takes the next due day as dd/mm/yyyy, with no browser date box", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ routine: dueRoutine }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    render(<CmeRoutinesRoute nowIso={NOW.toISOString()} initialRoutines={[]} demoMode={false} />);
+    await user.click(screen.getByRole("button", { name: /new routine/i }));
+    await user.type(screen.getByLabelText(/routine name/i), "Supervision");
+    await user.type(screen.getByLabelText("Next due"), "1/12/2026");
+    await user.click(screen.getByRole("button", { name: /save routine/i }));
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      title: "Supervision",
+      nextDue: "2026-12-01",
+    });
+  });
+
   // Regression, 2026-09-24: the form opened above the list, out of sight on a
   // phone, with a second h1. It now takes focus when it opens.
   it("moves focus to the routine form when it opens, under the page's one h1", async () => {

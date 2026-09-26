@@ -79,9 +79,9 @@ describe("CME capture routes", () => {
       .mockResolvedValueOnce(jsonResponse({ entry: { id: ENTRY_ID } }));
 
     render(<CmeNewEntryRoute routine={routine} set={requirementSet} demoMode={false} />);
-    const date = screen.getByLabelText("Date");
+    const date = screen.getByLabelText(/^Date/);
     await user.clear(date);
-    await user.type(date, "2025-09-15");
+    await user.type(date, "15/09/2025");
     const credit = screen.getByLabelText(/formal peer-review credit/i);
     await user.clear(credit);
     await user.type(credit, "1");
@@ -92,7 +92,7 @@ describe("CME capture routes", () => {
 
     expect(await screen.findByText("The record could not be saved yet.")).toBeInTheDocument();
     expect(screen.getByLabelText(/what was it/i)).toHaveValue("Monthly peer-review group");
-    expect(screen.getByLabelText("Date")).toHaveValue("2025-09-15");
+    expect(screen.getByLabelText(/^Date/)).toHaveValue("15/09/2025");
     expect(screen.getByLabelText(/formal peer-review credit/i)).toHaveValue("1");
     expect(screen.getByRole("checkbox", { name: "Professionalism" })).toBeChecked();
     expect(navigation.push).not.toHaveBeenCalled();
@@ -141,9 +141,9 @@ describe("CME capture routes", () => {
     const title = screen.getByLabelText(/what was it/i);
     await user.clear(title);
     await user.type(title, "Peer-review group — corrected");
-    const date = screen.getByLabelText("Date");
+    const date = screen.getByLabelText(/^Date/);
     await user.clear(date);
-    await user.type(date, "2025-09-16");
+    await user.type(date, "16/09/2025");
     const credit = screen.getByLabelText(/formal peer-review credit/i);
     await user.clear(credit);
     await user.type(credit, "1");

@@ -1071,9 +1071,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
-| `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              12 |
+| `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              32 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |

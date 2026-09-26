@@ -44,7 +44,7 @@ describe("CME requirement confirmation", () => {
     render(<CmeSetupPage year={2026} set={DEMO_CME_YEAR} onConfirm={onConfirm} />);
     const taskDate = screen.getAllByLabelText(/completion date/i)[0];
     await user.clear(taskDate);
-    await user.type(taskDate, "2026-03-01");
+    await user.type(taskDate, "01/03/2026");
     await user.click(screen.getByRole("button", { name: /re-confirm requirements/i }));
     expect(
       onConfirm.mock.calls[0][0].requirements.some(

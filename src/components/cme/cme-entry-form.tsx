@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { z } from "zod";
 
 import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/components/cme/cme-allocation-field";
+import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
@@ -194,6 +195,7 @@ export function CmeEntryForm({
   // Bumped after every successful save to remount CmeAllocationField, which
   // otherwise has no way to clear its own typed-text state from outside.
   const [formKey, setFormKey] = useState(0);
+  const today = perthCalendarDate(new Date());
   // A brand-new entry (no hours carried in) starts at 1 hour, the commonest
   // single activity, rather than 0, which could never be saved as it stands.
   const carriedHours = initialEntry?.allocations.reduce((sum, allocation) => sum + allocation.hours, 0) ?? 0;
@@ -530,12 +532,14 @@ export function CmeEntryForm({
         onChange={(event) => setTitle(event.target.value)}
       />
 
-      <TextField
+      <CmeDateField
         label="Date"
         id="cme-entry-date"
-        type="date"
+        required
+        allowFuture={false}
+        today={today}
         value={date}
-        onChange={(event) => setDate(event.target.value)}
+        onChange={setDate}
       />
 
       <div>

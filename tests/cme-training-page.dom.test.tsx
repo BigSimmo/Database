@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -115,7 +115,7 @@ describe("CME training page", () => {
 
     await user.click(screen.getByRole("button", { name: "Add stage, rotation or break" }));
     await user.type(screen.getByLabelText(/^Label/), "Child and adolescent");
-    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2027-02-01" } });
+    await user.type(screen.getByLabelText(/^Start date/), "01/02/2027");
     const fte = screen.getByLabelText(/^FTE/);
     await user.clear(fte);
     await user.type(fte, "0.8");
@@ -144,7 +144,7 @@ describe("CME training page", () => {
 
     await user.click(screen.getByRole("button", { name: "Add stage, rotation or break" }));
     await user.type(screen.getByLabelText(/^Label/), "Old age");
-    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2026-09-01" } });
+    await user.type(screen.getByLabelText(/^Start date/), "01/09/2026");
     await user.click(screen.getByRole("button", { name: "Save period" }));
 
     expect(await screen.findByTestId("cme-training-period-problems")).toHaveTextContent(/overlap/);

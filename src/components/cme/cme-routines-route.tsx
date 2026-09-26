@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { CmeDateField } from "@/components/cme/cme-date-field";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import { CmeRoutinesPage } from "@/components/cme/cme-routines-page";
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import {
   cmeRoutineCadenceLabels,
   cmeRoutineCadences,
@@ -188,12 +190,13 @@ export function CmeRoutinesRoute({
               }
               hint="Changing the duration clears the saved category split; review the split when you log the activity."
             />
-            <TextField
+            <CmeDateField
               label="Next due"
               id="cme-routine-next-due"
-              type="date"
+              chips={false}
+              today={perthCalendarDate(new Date(nowIso))}
               value={draft.nextDue ?? ""}
-              onChange={(event) => setDraft((current) => ({ ...current, nextDue: event.target.value || null }))}
+              onChange={(nextDue) => setDraft((current) => ({ ...current, nextDue: nextDue || null }))}
             />
             <p className={cn(textMuted, "text-xs")}>
               Logging this routine opens a pre-filled activity. Nothing is recorded until you review and save it.

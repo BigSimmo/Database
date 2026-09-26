@@ -1061,8 +1061,8 @@
       "source": "src/components/ui/form-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/choice.tsx"],
-      "productImportFiles": ["src/components/ui/choice.tsx"],
+      "directImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
+      "productImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1089,8 +1089,8 @@
       "source": "src/components/ui/form-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/choice.tsx"],
-      "productImportFiles": ["src/components/ui/choice.tsx"],
+      "directImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
+      "productImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1118,6 +1118,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/cme/cme-date-field.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
@@ -1132,6 +1133,7 @@
         "src/components/ui/text-field.tsx"
       ],
       "productImportFiles": [
+        "src/components/cme/cme-date-field.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
