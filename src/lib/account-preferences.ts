@@ -4,7 +4,7 @@ import {
   normalizeReminderSettings,
   type ReminderSettings,
   type ReminderSettingsPatch,
-} from "@/lib/reminders/settings";
+} from "@/lib/reminders/settings-model";
 
 export type DensityPreference = "comfortable" | "compact" | "spacious";
 /**
@@ -40,7 +40,7 @@ export type AppPreferences = {
   notifySavedChanges: boolean;
   /**
    * Reminder controls: in-app visibility, snooze, calendar alerts, quiet hours
-   * and the daily alert cap. See `@/lib/reminders/settings`. The defaults
+   * and the daily alert cap. See `@/lib/reminders/settings-model`. The defaults
    * reproduce the app as it was before these existed.
    */
   reminders: ReminderSettings;
