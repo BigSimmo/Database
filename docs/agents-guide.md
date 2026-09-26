@@ -21,7 +21,7 @@ and acceptance evidence belong to their current task; historical reports are lea
 Whenever agents are used, apply [smart agent allocation](agents/smart-agent-allocation.md)
 for model/effort selection, ownership, independent review and Cloud capability limits.
 
-Also see [DOCS-SYSTEM.md](DOCS-SYSTEM.md) for the documentation operating system (pipeline, stamps, recheck triggers, PsychSift + Ward Flow registry).
+Also see [DOCS-SYSTEM.md](DOCS-SYSTEM.md) for the documentation operating system (pipeline, stamps, recheck triggers, PsychSift registry).
 
 | Task or concern                                              | Authoritative reference                                                                                                                                                                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

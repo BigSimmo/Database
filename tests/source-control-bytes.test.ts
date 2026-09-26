@@ -5,7 +5,7 @@
 // WHY THIS EXISTS, and it is a count rather than a worry: the same hazard landed three times in one
 // week. A backspace escape ate a character in a worktree path in `task-8-report.md`; the same
 // report's sentence EXPLAINING that escape still carried two literal `0x08` bytes months later; and
-// `tests/caring-contacts-plan-wizard.dom.test.tsx` shipped a regex family whose every `\b` reached
+// a (since-retired) Caring Contacts wizard test shipped a regex family whose every `\b` reached
 // the file as a backspace, so the patterns read `/<BS>the one write<BS>/i` and matched nothing —
 // an assertion that could not fail, in a check written to catch stale claims.
 //
@@ -200,7 +200,7 @@ describe("the repository's own source", () => {
     // Named files, so a filter that silently stops matching a whole extension is visible: one source
     // file, one Markdown file (two of the three real occurrences were in Markdown), and this file.
     expect(scanned).toContain("tests/upload-structure.test.ts");
-    expect(scanned).toContain("docs/caring-contacts/phase-2b-sdd-archive/task-8-report.md");
+    expect(scanned).toContain("docs/testing.md");
     expect(scanned).toContain("tests/source-control-bytes.test.ts");
   });
 

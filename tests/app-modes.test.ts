@@ -220,7 +220,7 @@ describe("app mode search contract", () => {
     const config = appModeSearchConfig("sources");
     const mode = appModeDefinitions.find((definition) => definition.id === "sources");
 
-    expect(appModeIds).toHaveLength(19);
+    expect(appModeIds).toHaveLength(20);
     expect(mode).toMatchObject({
       label: "Sources",
       description: "Ranked clinical source catalogue and traceability",
@@ -478,6 +478,8 @@ describe("app mode search contract", () => {
       // Psychiatry, for the same reason: a dashboard of section links with no
       // search route, reached through `standaloneModeHomeHref`.
       psychiatry: "/psychiatry?q=clozapine&run=1",
+      // My Work, likewise: a dashboard with no search route.
+      "my-work": "/my-work?q=clozapine&run=1",
     });
   });
 

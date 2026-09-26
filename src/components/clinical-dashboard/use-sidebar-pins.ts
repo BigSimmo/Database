@@ -29,6 +29,7 @@ export const pinnableSidebarModeIds = [
   "on-call",
   "cme",
   "psychiatry",
+  "my-work",
 ] as const satisfies readonly AppModeId[];
 
 const changeEvent = "clinical-kb-sidebar-pins-change";

@@ -47,7 +47,7 @@ function fakeRepo(files: Record<string, string>, directories: Record<string, str
 
 const GATE_SOURCE = `export const DEVELOPER_GATED_PATH_PREFIXES = [
   "/mockups/development",
-  "/mockups/ward-flow",
+  "/mockups/example-gated",
 ] as const;`;
 
 describe("mockup index parsing", () => {
@@ -300,7 +300,7 @@ describe("Route-column shape", () => {
    * ⚠️ THE FIRST VERSION OF THIS PREDICATE REFUSED LEGITIMATE ROUTES, and my own six cases
    * missed it because every one of them was either an obvious file or an obvious route. The
    * separator was written unescaped, so `.` matched ANY character and the alternation then
-   * matched the tail: `/mockups/caring-contacts/reports` was read as a file (the dot taking
+   * matched the tail: a `.../reports` route was read as a file (the dot taking
    * `r`, then `ts`), and so was `charts`. A FALSE REFUSAL — the opposite of the hole this
    * predicate exists to close, and it would have blocked an owner-approved retirement.
    *
@@ -309,8 +309,8 @@ describe("Route-column shape", () => {
    * an extension with no dot must stay retirable too.
    */
   const cases: Array<[string, boolean]> = [
-    ["/mockups/caring-contacts/reports", true],
-    ["/mockups/ward-flow/charts", true],
+    ["/mockups/example-gated/reports", true],
+    ["/mockups/example-gated/charts", true],
     ["/mockups/x/mjs", true],
     ["/mockups/example-gated/panel/[id]", true],
     ["/mockups/x/widget.tsx", false],
@@ -351,8 +351,8 @@ describe("deletion audit", () => {
   });
 
   it("refuses a deletion under a developer-gated prefix", () => {
-    const result = runAudit([`${MOCKUP_ROUTE_ROOT}/ward-flow/handover/page.tsx`], [], {});
-    expect(result.violations.join()).toContain("developer-gated prefix /mockups/ward-flow");
+    const result = runAudit([`${MOCKUP_ROUTE_ROOT}/example-gated/handover/page.tsx`], [], {});
+    expect(result.violations.join()).toContain("developer-gated prefix /mockups/example-gated");
   });
 
   /*
@@ -555,7 +555,7 @@ describe("deletion audit", () => {
 describe("developer gate source", () => {
   it("reads the prefixes from their own source of truth", () => {
     const fs = fakeRepo({ "src/lib/developer-area/headers.ts": GATE_SOURCE }, {});
-    expect(readDeveloperGatedPrefixes("/repo", fs)).toEqual(["/mockups/development", "/mockups/ward-flow"]);
+    expect(readDeveloperGatedPrefixes("/repo", fs)).toEqual(["/mockups/development", "/mockups/example-gated"]);
   });
 
   it("throws rather than guessing when the declaration is gone", () => {
@@ -597,11 +597,9 @@ describe("the committed repository", () => {
     const prefixes = readDeveloperGatedPrefixes(process.cwd());
     expect(prefixes).toContain("/mockups/development");
     expect(prefixes).toContain("/mockups/care-plan");
-    expect(prefixes).toContain("/mockups/caring-contacts");
-    expect(prefixes).toContain("/mockups/ward-flow");
   });
 
-  it("keeps the four developer-gated prototypes out of retirement scope", () => {
+  it("keeps the developer-gated prototypes out of retirement scope", () => {
     const gated = readDeveloperGatedPrefixes(process.cwd()).map((p) => p.replace("/mockups/", ""));
     const slugs = listRouteSlugs(process.cwd());
     for (const prefix of gated) expect(slugs).toContain(prefix);

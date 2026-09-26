@@ -18,10 +18,9 @@ import { describe, expect, it } from "vitest";
  * `test` call) despite carrying no test-shaped extension at all.
  *
  * What this cannot see: an environment-variable branch changes which project a file belongs to
- * (`ALLOW_PROVIDER_TESTS=true` swaps the node project onto `*.live.test.ts`; a configured
- * `CARING_CONTACTS_DATABASE_URL` instantiates the `caring-contacts-db` project) rather than which
+ * (`ALLOW_PROVIDER_TESTS=true` swaps the node project onto `*.live.test.ts`) rather than which
  * files exist at all, so both branches are unioned in below as "visible" — a file reachable by
- * either gate is not orphaned, even though a bare `npm run test` collects neither by default. A
+ * either branch is not orphaned, even though a bare `npm run test` does not collect live files. A
  * CI matrix step that filters the file list after config resolution, or a config this repo does
  * not have yet, would also be outside what a static read of these four files can prove.
  */
@@ -87,7 +86,7 @@ function walk(dir: string, root: string, out: string[]): void {
 }
 
 describe("no file under tests/ is invisible to every runner", () => {
-  // ---- 1. Vitest: read the node/jsdom/caring-contacts-db shapes from vitest.config.mts itself ----
+  // ---- 1. Vitest: read the node/jsdom shapes from vitest.config.mts itself ----
 
   const vitestSource = readConfigSource("vitest.config.mts");
 
@@ -104,16 +103,6 @@ describe("no file under tests/ is invisible to every runner", () => {
     throw new Error("vitest.config.mts: could not read the jsdom project's include glob — update this extraction.");
   }
   const JSDOM_INCLUDE_GLOB = jsdomIncludeMatch[1]!; // "tests/**/*.dom.test.tsx"
-
-  const caringContactsFilesMatch = vitestSource.match(/const caringContactsDbTestFiles = \[([\s\S]*?)\];/);
-  if (!caringContactsFilesMatch) {
-    throw new Error("vitest.config.mts: could not read caringContactsDbTestFiles — update this extraction.");
-  }
-  // Excluded from the node project unconditionally and collected only by the caring-contacts-db
-  // project, which exists only when CARING_CONTACTS_DATABASE_URL is set (npm run
-  // caring-contacts:db:test). Real and documented, not a default `npm run test` gate — see the
-  // head comment above on what this file cannot see.
-  const CARING_CONTACTS_DB_FILES = [...caringContactsFilesMatch[1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
 
   const nodeDefaultIncludeRe = globToRegExp(NODE_DEFAULT_INCLUDE_GLOB);
   const nodeLiveIncludeRe = globToRegExp(NODE_LIVE_INCLUDE_GLOB);
@@ -158,15 +147,11 @@ describe("no file under tests/ is invisible to every runner", () => {
   const playwrightVisualPattern = new RegExp(visualTopLevelMatch[1]!.slice(1, -1));
 
   function isVisible(relPath: string): boolean {
-    const nodeDefaultVisible =
-      nodeDefaultIncludeRe.test(relPath) &&
-      !nodeLiveIncludeRe.test(relPath) &&
-      !CARING_CONTACTS_DB_FILES.includes(relPath);
+    const nodeDefaultVisible = nodeDefaultIncludeRe.test(relPath) && !nodeLiveIncludeRe.test(relPath);
     return (
       nodeDefaultVisible ||
       jsdomIncludeRe.test(relPath) ||
       nodeLiveIncludeRe.test(relPath) || // visible under ALLOW_PROVIDER_TESTS=true
-      CARING_CONTACTS_DB_FILES.includes(relPath) || // visible under a configured caring-contacts DB
       playwrightMainPatterns.some((re) => re.test(relPath)) ||
       playwrightVisualPattern.test(relPath)
     );
@@ -176,14 +161,10 @@ describe("no file under tests/ is invisible to every runner", () => {
     expect(NODE_DEFAULT_INCLUDE_GLOB).toBe("tests/**/*.test.ts");
     expect(NODE_LIVE_INCLUDE_GLOB).toBe("tests/**/*.live.test.ts");
     expect(JSDOM_INCLUDE_GLOB).toBe("tests/**/*.dom.test.tsx");
-    expect(CARING_CONTACTS_DB_FILES).toEqual([
-      "tests/caring-contacts-migrations.test.ts",
-      "tests/caring-contacts-postgres-repository.test.ts",
-    ]);
-    // Playwright: three distinct named patterns across seven projects (five production browsers,
-    // one advisory mockup project, one seeded-server project), plus the visual config's own
-    // top-level pattern which no project there overrides.
-    expect(mainPatternNames.sort()).toEqual(["mockupSpecPattern", "productionSpecPattern", "seededSpecPattern"]);
+    // Playwright: two distinct named patterns across six projects (five production browsers and
+    // one advisory mockup project), plus the visual config's own top-level pattern which no
+    // project there overrides.
+    expect(mainPatternNames.sort()).toEqual(["mockupSpecPattern", "productionSpecPattern"]);
     expect(mainProjectNameMatches.length).toBeGreaterThan(3);
     expect(playwrightVisualPattern.source).toContain("ui-visual-");
   });
@@ -210,14 +191,12 @@ describe("no file under tests/ is invisible to every runner", () => {
     });
 
     it("classifies a real, currently-collected file of each visible kind as visible", () => {
-      // Not vacuous: the matcher must actually say yes to something, on all five paths.
-      expect(isVisible("tests/ward-model.test.ts")).toBe(true); // node project
-      expect(isVisible("tests/ward-model.dom.test.tsx")).toBe(true); // jsdom project (hypothetical name; glob-only check)
+      // Not vacuous: the matcher must actually say yes to something, on every path below.
+      expect(isVisible("tests/gate-receipts.test.ts")).toBe(true); // node project
+      expect(isVisible("tests/accessible-table.dom.test.tsx")).toBe(true); // jsdom project
       expect(isVisible("tests/ui-smoke.spec.ts")).toBe(true); // Playwright production project
       expect(isVisible("tests/ui-care-plan-mockup.spec.ts")).toBe(true); // Playwright mockup project
-      expect(isVisible("tests/ui-caring-contacts-activation.spec.ts")).toBe(true); // Playwright seeded project
       expect(isVisible("tests/ui-visual-baseline.spec.ts")).toBe(true); // visual config
-      expect(isVisible("tests/caring-contacts-migrations.test.ts")).toBe(true); // caring-contacts-db project
       expect(isVisible("tests/universal-search-owner.live.test.ts")).toBe(true); // live project gate
     });
   });
@@ -263,8 +242,8 @@ describe("no file under tests/ is invisible to every runner", () => {
     expect(
       violations,
       "These files under tests/ match no include/testMatch pattern in any runner (vitest node, " +
-        "vitest jsdom, the caring-contacts-db and live-provider gates, or Playwright's " +
-        "production/mockup/seeded/visual projects) — or, for a file with no test-shaped extension " +
+        "vitest jsdom, the live-provider gate, or Playwright's " +
+        "production/mockup/visual projects) — or, for a file with no test-shaped extension " +
         "at all, register a suite at module load anyway. Each one runs nothing and reports nothing: " +
         "a whole-suite run is simply silent about it. Rename it to match a collected pattern (most " +
         "often *.dom.test.tsx for a React component test) or add it to a runner's include.",

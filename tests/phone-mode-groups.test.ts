@@ -32,12 +32,20 @@ describe("phone mode groups", () => {
     expect(new Set(groupIds).size).toBe(groupIds.length);
   });
 
-  it("gives On Call and CME areas of their own, after the clinical groups", () => {
+  it("gives On Call, My Work and CPD areas of their own, after the clinical groups", () => {
     const groupOf = (modeId: AppModeId) =>
       phoneModeGroups.find((group) => (group.modeIds as readonly AppModeId[]).includes(modeId));
     expect(groupOf("on-call")).toMatchObject({ id: "on-call", label: "On Call", modeIds: ["on-call"] });
+    expect(groupOf("my-work")).toMatchObject({ id: "my-work", label: "My Work", modeIds: ["my-work"] });
     expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD", modeIds: ["cme"] });
-    expect(phoneModeGroups.map((group) => group.id)).toEqual(["find", "psychiatry", "care", "on-call", "cpd"]);
+    expect(phoneModeGroups.map((group) => group.id)).toEqual([
+      "find",
+      "psychiatry",
+      "care",
+      "on-call",
+      "my-work",
+      "cpd",
+    ]);
   });
 
   it("orders modes the way the grouped menus draw them, for arrow-key focus", () => {

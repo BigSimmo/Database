@@ -64,6 +64,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Set up",
   ],
   psychiatry: [],
+  "my-work": [],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -86,11 +87,12 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "on-call": "/on-call",
   cme: "/cme",
   psychiatry: "/psychiatry",
+  "my-work": "/my-work",
 };
 
 /**
- * The nine modes that register nothing. Psychiatry is the ninth: its home is
- * itself the list of sections it gathers.
+ * The ten modes that register nothing. Psychiatry and My Work are the last two: each home is
+ * itself the list of pages it gathers.
  *
  * Each used to carry one `action: "search"` entry rendering a lone <button>
  * inside its own <nav> landmark, whose only effect was focusing a composer
@@ -115,12 +117,13 @@ const emptyRegistryModes = [
   "tools",
   "calculators",
   "psychiatry",
+  "my-work",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 19 modes with the approved destinations and no Home item", () => {
+  it("covers all 20 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(19);
+    expect(appModeIds).toHaveLength(20);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);

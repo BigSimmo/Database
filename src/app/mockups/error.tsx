@@ -6,28 +6,24 @@ import { RefreshCw, TriangleAlert } from "lucide-react";
 import { cn, primaryControl } from "@/components/ui-primitives";
 
 /**
- * THE MOCKUPS BOUNDARY — one segment above every design-scratch route, INCLUDING the two Ward Flow
- * boundaries nested below it.
+ * THE MOCKUPS BOUNDARY — one segment above every design-scratch route.
  *
- * ⚠️ **THE GAP THIS CLOSES.** `ward-flow/error.tsx`'s own doc comment named this exact file as the
- * fix and recorded rather than attempted it. Per Next 16's `file-conventions/error.md`: "It does
- * **not** wrap the `layout.js`... above it in the same segment." `ward-flow/error.tsx` and
- * `ward-flow/layout.tsx` are siblings in the same segment, so nothing placed anywhere inside that
- * folder could ever catch a throw out of `ward-flow/layout.tsx` itself —
- * `DeveloperAreaGate`, `WardFlowProvider`, or the reducer's `useReducer` initialiser
- * (`seedWardFlowStateAt`). Because this file lives one segment further up, at `mockups/`,
- * `ward-flow/layout.tsx` is a NESTED layout relative to it and IS wrapped ("error.js wraps... nested
- * layout.js files"). A throw from any of those three now lands here instead of replacing the whole
- * document via `src/app/error.tsx`. The same reasoning closes the identical gap for
- * `mockups/care-plan/layout.tsx` and `mockups/caring-contacts/layout.tsx`, which follow the same
- * gate-then-provider shape and previously had no nearer boundary either.
+ * ⚠️ **THE GAP THIS CLOSES.** Per Next 16's `file-conventions/error.md`: "It does **not** wrap the
+ * `layout.js`... above it in the same segment." A route folder's own `error.tsx` and `layout.tsx`
+ * are siblings in the same segment, so nothing placed inside that folder could ever catch a throw
+ * out of its `layout.tsx` itself — `DeveloperAreaGate`, a provider, or a reducer initialiser.
+ * Because this file lives one segment further up, at `mockups/`, every route's `layout.tsx` is a
+ * NESTED layout relative to it and IS wrapped ("error.js wraps... nested layout.js files"). A throw
+ * from any of those now lands here instead of replacing the whole document via `src/app/error.tsx`.
+ * That is what closes the gap for `mockups/care-plan/layout.tsx`, which follows the
+ * gate-then-provider shape and has no nearer boundary. (It was first written for the retired Ward
+ * Flow prototype, whose two nested boundaries could not cover their own layout.)
  *
  * ⚠️ **WHAT IT STILL CANNOT COVER — read this before assuming the gap is fully closed.**
- *   - `ward-movements.ts` builds its seeded movements at MODULE scope
- *     (`export const wardMovements = [...]`), so the "unhandled movement stage" guard can throw
- *     during module evaluation, before React has rendered anything for any boundary to wrap. No
- *     error boundary anywhere in the tree — not this one, not one nearer, not one further out — can
- *     catch a throw that happens before rendering starts.
+ *   - A module that builds seeded data at MODULE scope can throw during module evaluation, before
+ *     React has rendered anything for any boundary to wrap. No error boundary anywhere in the tree —
+ *     not this one, not one nearer, not one further out — can catch a throw that happens before
+ *     rendering starts.
  *   - This file sits INSIDE `mockups/layout.tsx`'s own segment, so — by the identical same-segment
  *     rule that created the original gap — it does NOT wrap `mockups/layout.tsx` or the
  *     `MockupsLayoutClient` component that layout renders. A throw from either of those (for example
@@ -36,15 +32,12 @@ import { cn, primaryControl } from "@/components/ui-primitives";
  *   - It does not wrap `src/app/layout.tsx` or anything above it. Only a root `global-error.tsx`
  *     could catch that, and this task does not add one.
  *
- * ⚠️ **THIS BOUNDARY IS INHERITED BY EVERY ROUTE UNDER `mockups/`, NOT ONLY WARD FLOW.** Nothing
- * else in this folder declares a nearer `error.tsx`, so a render throw in any other design-scratch
- * route (`document-search`, `calculators-*`, `favourites-*`, and the rest) is now caught here too,
- * where it previously fell through to `src/app/error.tsx`. That is a deliberate, reported
- * consequence of placing the boundary at this level, not a scoping decision made unilaterally. The
- * copy below is therefore written for a design-scratch route in general, not for Ward Flow
- * specifically, and it does not reuse `WardFlowErrorPanel`: `tests/ward-flow-seam.test.ts` forbids
- * anything outside Ward Flow's own folders from importing its code ("has nothing outside it
- * importing ward code"), so this panel is independent by construction, not by stylistic choice.
+ * ⚠️ **THIS BOUNDARY IS INHERITED BY EVERY ROUTE UNDER `mockups/`.** Nothing else in this folder
+ * declares a nearer `error.tsx`, so a render throw in any design-scratch route (`document-search`,
+ * `calculators-*`, `favourites-*`, and the rest) is caught here, where it previously fell through to
+ * `src/app/error.tsx`. That is a deliberate, reported consequence of placing the boundary at this
+ * level, not a scoping decision made unilaterally. The copy below is therefore written for a
+ * design-scratch route in general, and the panel is independent of any one prototype's code.
  */
 export default function MockupsErrorBoundary({
   error,
@@ -53,8 +46,7 @@ export default function MockupsErrorBoundary({
   error: Error & { digest?: string };
   /** Next 16's current recovery prop, not the older function it superseded. `retry()` re-fetches
    *  and re-renders the segment; the older one only cleared the error state without re-fetching, so
-   *  a button reading "Try again" must be wired to `retry`. Same reading as the two nearer Ward
-   *  Flow boundaries and `src/app/caring-contacts/error.tsx`. */
+   *  a button reading "Try again" must be wired to `retry`. */
   retry: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);

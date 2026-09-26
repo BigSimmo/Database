@@ -20,7 +20,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    const { year } = parseRequestQuery(request, cmeListQuerySchema, "Invalid CME query.");
+    const { year } = parseRequestQuery(request, cmeListQuerySchema, "Invalid CPD query.");
 
     if (isDemoMode()) {
       const targetYear = year ?? cpdYearOf(DEMO_CME_INSTANT);
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     const targetYear = year ?? cpdYearOf(new Date());
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   try {
     if (isDemoMode()) {
-      return publicErrorResponse("CME targets cannot be confirmed in demo mode.", 400, {
+      return publicErrorResponse("CPD targets cannot be confirmed in demo mode.", 400, {
         code: "demo_mode_unavailable",
       });
     }
@@ -75,10 +75,10 @@ export async function PUT(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    const body = await parseJsonBody(request, cmeYearConfirmSchema, "Invalid CME year confirmation.");
+    const body = await parseJsonBody(request, cmeYearConfirmSchema, "Invalid CPD year confirmation.");
 
     const requirementSet = await confirmCmeYear(supabase, user.id, body);
     return NextResponse.json({ year: body.year, requirementSet });

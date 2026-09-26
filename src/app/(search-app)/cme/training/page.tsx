@@ -6,7 +6,7 @@ import { cpdYearOf } from "@/lib/cme/cpd-year";
 import { loadCmeTrainingPageData } from "@/lib/cme/training-page-data";
 
 export const metadata: Metadata = {
-  title: "Training | CME | PsychSift",
+  title: "Training | CPD | PsychSift",
   description:
     "Your own record of your training: stages, rotations and breaks, where you are now, and the next milestone due.",
 };

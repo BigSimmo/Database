@@ -13,8 +13,8 @@ import {
 
 // The passwordless route into the developer-gated /mockups subtrees. It is a
 // real production credential on psychiatry.tools -- the thing standing between
-// an unauthenticated visitor and the task ledger, the hazard notes, and the Ward
-// Flow / Care Plan / Caring Contact prototypes -- so every way it could fail
+// an unauthenticated visitor and the task ledger, the hazard notes, and the Care
+// Plan prototype -- so every way it could fail
 // OPEN is asserted here, not just the happy path.
 
 // Built from readable words rather than written as a 32-character random-looking
@@ -123,8 +123,8 @@ describe("developerAccessKeyMatches", () => {
 // module `link-access.ts` re-exports rather than re-declares.
 describe("parseDeveloperGateTarget", () => {
   it("returns the requested path unchanged when no rejection marker is present", () => {
-    expect(parseDeveloperGateTarget("/mockups/ward-flow/network")).toEqual({
-      target: "/mockups/ward-flow/network",
+    expect(parseDeveloperGateTarget("/mockups/care-plan/review")).toEqual({
+      target: "/mockups/care-plan/review",
       keyRejected: false,
     });
   });
@@ -185,9 +185,8 @@ describe("parseDeveloperGateTarget", () => {
     for (const allowed of [
       "/mockups/development",
       "/mockups/development/ledger",
-      "/mockups/caring-contacts",
+      "/mockups/care-plan",
       "/mockups/care-plan/review",
-      "/mockups/ward-flow/network",
     ]) {
       expect(parseDeveloperGateTarget(allowed).target).toBe(allowed);
     }
@@ -196,8 +195,8 @@ describe("parseDeveloperGateTarget", () => {
 
 describe("developerKeyUnlockUrl", () => {
   it("attaches the typed key to the page the visitor asked for", () => {
-    const url = developerKeyUnlockUrl("/mockups/ward-flow", KEY);
-    expect(url).toBe(`/mockups/ward-flow?devkey=${encodeURIComponent(KEY)}`);
+    const url = developerKeyUnlockUrl("/mockups/care-plan", KEY);
+    expect(url).toBe(`/mockups/care-plan?devkey=${encodeURIComponent(KEY)}`);
   });
 
   it("preserves the page's own query parameters alongside the key", () => {

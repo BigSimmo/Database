@@ -435,7 +435,6 @@ export const userFacingProductSurfaces = [
   "docs/production-readiness-checklist.md",
   "docs/productivity-workflows.md",
   "docs/pwa.md",
-  "docs/ward-management-mode-map.md",
   "docs/worker-deploy-runbook.md",
   "mockups/README.md",
 ];

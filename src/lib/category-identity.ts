@@ -75,7 +75,6 @@ export const CATEGORY_ICON_KEYS = [
   "route",
   "fileSignature",
   "heart",
-  "heartHandshake",
   "brainCircuit",
   "bookOpenCheck",
   "tags",
@@ -129,6 +128,7 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   "on-call": "phoneCall",
   cme: "graduationCap",
   psychiatry: "brain",
+  "my-work": "clipboardList",
 };
 
 /**
@@ -166,6 +166,7 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   "on-call": "purple",
   cme: "indigo",
   psychiatry: "purple",
+  "my-work": "slate",
 };
 
 /**
@@ -193,7 +194,6 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   "safety-plan": "clipboardList",
   calculators: "calculator",
   monitoring: "waves",
-  "caring-contacts": "heartHandshake",
   favourites: "star",
 };
 

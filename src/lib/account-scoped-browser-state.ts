@@ -5,18 +5,21 @@
  *
  * WHY THIS LIVES IN `src/lib` AND NAMES THE KEYS ITSELF. The auth provider is a
  * lib module and must never import a component module
- * (`tests/lib-layering.test.ts`), yet two of the stores it has to clear are
- * component-owned: the favourites pins / last-opened keys in
- * `src/components/favourites/favourites-storage.ts` (2026-09-02 audit, L2) and
- * the Caring Contacts plan draft in
- * `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts` (L6).
- * So the keys are defined HERE, the component stores import them from here
+ * (`tests/lib-layering.test.ts`), yet the favourites pins / last-opened keys it
+ * has to clear are component-owned, in
+ * `src/components/favourites/favourites-storage.ts` (2026-09-02 audit, L2).
+ * So the keys are defined HERE, the component store imports them from here
  * (components -> lib is the permitted direction), and the provider removes the
  * raw entries directly. That is also what closes the full-reload hole: after a
- * navigation the wizard module is not loaded, but its sessionStorage key still
+ * navigation the owning module may not be loaded, but its storage key still
  * is, and a listener that was never registered cannot clear anything.
  *
- * THE EVENT IS FOR THE CACHES, NOT THE KEYS. Both component stores memoise what
+ * One more key is cleared for legacy reasons only: the plan draft of the retired
+ * Caring Contacts prototype (audit L6). Its workspace has been removed, but a
+ * browser that used it may still hold a draft carrying a patient's name and
+ * mobile, so the removal stays until no such browser can remain.
+ *
+ * THE EVENT IS FOR THE CACHES, NOT THE KEYS. The component stores memoise what
  * they last read and tell their React subscribers through their own listener
  * sets; a `storage` event only fires in *other* tabs. Each store subscribes to
  * `ACCOUNT_TRANSITION_EVENT` at module load, drops its cache and notifies. The
@@ -34,10 +37,10 @@ export const DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY = "database:favourites:
 /** localStorage — the pinned favourites item ids (no owner id). */
 export const DATABASE_FAVOURITES_PINNED_STORAGE_KEY = "database:favourites:pinned-v1";
 /**
- * sessionStorage — the half-finished Caring Contacts sign-up, which from stage 3
- * carries the patient's name and mobile. Deliberately one key (see the module note
- * in `plan-draft.ts`); sessionStorage survives a sign-out and the next sign-in in
- * the same tab, which is the path the wizard's own controls never see.
+ * sessionStorage — the half-finished sign-up left by the retired Caring Contacts
+ * prototype, which from stage 3 carried the patient's name and mobile. Nothing
+ * writes it any more; it is kept only so a draft a browser still holds is cleared.
+ * sessionStorage survives a sign-out and the next sign-in in the same tab.
  */
 export const PLAN_DRAFT_STORAGE_KEY = "caring-contacts:plan-draft";
 
