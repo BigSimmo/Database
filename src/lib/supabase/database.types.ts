@@ -4697,6 +4697,7 @@ export type Database = {
           p_removed: number;
         };
         Returns: string;
+      };
       roster_own_shifts_replace: {
         Args: {
           p_owner_id: string;
@@ -4731,7 +4732,6 @@ export type Database = {
       };
       service_member_active: { Args: { p_service_id: string; p_user_id: string }; Returns: boolean };
       roster_can_invite: { Args: { p_service_id: string; p_user_id: string }; Returns: boolean };
-      };
       cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
       cme_save_plan_goals: { Args: { p_owner_id: string; p_year_id: string; p_goals: Json }; Returns: Json };
       cme_set_entry_goal: { Args: { p_owner_id: string; p_entry_id: string; p_goal_id: string | null }; Returns: Json };
