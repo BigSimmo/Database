@@ -144,6 +144,9 @@ afterEach(() => {
   vi.doUnmock("@/lib/supabase/admin");
   vi.doUnmock("@/lib/openai");
   vi.restoreAllMocks();
+  // The rag_aliases cache lives on globalThis (shared with the startup warm), so resetting
+  // modules no longer empties it; clear it so each scenario counts its own alias read.
+  (globalThis as { [key: symbol]: Map<string, unknown> | undefined })[Symbol.for("psychsift.ragAliasCache")]?.clear();
   vi.resetModules();
   vi.unstubAllEnvs();
 });

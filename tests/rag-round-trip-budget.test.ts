@@ -129,6 +129,9 @@ async function answerWithCountedClient(query: string, textSources: SearchResult[
 }
 
 afterEach(() => {
+  // The rag_aliases cache lives on globalThis (shared with the startup warm), so resetting
+  // modules no longer empties it; clear it so each scenario counts its own alias read.
+  (globalThis as { [key: symbol]: Map<string, unknown> | undefined })[Symbol.for("psychsift.ragAliasCache")]?.clear();
   vi.restoreAllMocks();
   vi.resetModules();
   vi.unstubAllEnvs();
