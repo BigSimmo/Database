@@ -5325,10 +5325,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     // The fixed document composer is the single search owner; the indexed-text
     // disclosure must not duplicate a large search field inside its content.
     // The native <details> toggle above opens without React, so it does not prove
-    // hydration; wait for the handler or a pre-hydration click is dropped.
-    const searchDocumentButton = page.getByRole("button", { name: "Search document" });
-    await waitForReactEventHandler(searchDocumentButton, "onClick");
-    await searchDocumentButton.click();
+    // hydration, and opening it scroll-hides the header under the pointer (release
+    // traces: "<h2> intercepts pointer events", then a click that missed).
+    // clickWhenSettled waits for hydration and for the button to stop moving.
+    await clickWhenSettled(page.getByRole("button", { name: "Search document" }));
     const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
     await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
     await waitForReactEventHandler(sourceSearch, "onChange");
