@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
+import { AdminFloatingAdd } from "@/components/admin/admin-floating-add";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallComplianceSection } from "@/components/on-call/on-call-compliance-section";
@@ -39,6 +40,7 @@ import { onCallEntryFreshness, type OnCallEntry, onCallEntryIsEditable } from "@
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
+import { isAdminWorkforceExplainer } from "@/lib/admin/placement";
 
 /**
  * Generic, non-owner-specific framing for each view. Shown to every reader,
@@ -174,7 +176,16 @@ const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
  * names on their contacts. The add, edit and verify controls below are gated on
  * `isAuthenticated`, because their routes require one.
  */
-export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
+/** When another mode hosts one of these views (Admin > Renewals hosts `compliance`). */
+export type OnCallSectionPageChrome = {
+  title: string;
+  modeIdentity: string;
+  testId: string;
+  /** Josh, 16:31Z: Admin adds through a floating dark "+ Add", not the in-page secondary button. */
+  floatingAdd?: { label: string; testId: string };
+};
+
+export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chrome?: OnCallSectionPageChrome }) {
   const { isAuthenticated } = useAccountData();
   const [editorState, setEditorState] = useState<{ open: boolean; entry: OnCallEntry | null }>({
     open: false,
@@ -188,13 +199,18 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
     running: false,
     error: null,
   });
-  const title = ON_CALL_VIEW_TITLES[view];
+  const title = chrome?.title ?? ON_CALL_VIEW_TITLES[view];
   const Icon = ON_CALL_VIEW_ICONS[view];
   const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
   // Each list component filters `entries` itself — by section, and for the two
   // contacts-backed views by `details.kind` as well — so the page hands over the
-  // whole set rather than seven near-identical slices.
-  const sectionEntries = entries;
+  // whole set rather than seven near-identical slices. The one exception:
+  // medical-workforce role explainers moved to Admin > Help > Contacts (Admin
+  // update 1), so Who's who no longer lists them.
+  const sectionEntries = useMemo(
+    () => (view === "who-is-who" ? entries.filter((entry) => !isAdminWorkforceExplainer(entry)) : entries),
+    [view, entries],
+  );
   useEffect(() => {
     focusOnCallEntryFromHash();
     window.addEventListener("hashchange", focusOnCallEntryFromHash);
@@ -209,12 +225,13 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // entries the list below renders, then narrowed to whichever anchors actually
   // appear — so a flat page resolves to none and the header is just a title.
   const pageSections = useMemo(
-    () => onCallPageSections({ view, entries, linkedDocumentIds: new Set(Object.keys(linkedDocuments)) }),
-    [view, entries, linkedDocuments],
+    () =>
+      onCallPageSections({ view, entries: sectionEntries, linkedDocumentIds: new Set(Object.keys(linkedDocuments)) }),
+    [view, sectionEntries, linkedDocuments],
   );
   // What this page is actually showing — the menu's one-line summary counts
   // it, and "mark all as still correct" writes to it.
-  const visibleEntries = onCallVisibleEntries(view, entries);
+  const visibleEntries = onCallVisibleEntries(view, sectionEntries);
   const visibleCount = visibleEntries.length;
 
   // Overdue entries in THIS view, which is what "mark all as still correct"
@@ -404,8 +421,8 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         // wired to different conditions.
         staleCount={offersBulkVerify ? staleEntries.length : 0}
       />
-      <OnCallSectionNavHeader title={title} sections={pageSections} />
-      <InformationPageShell testId={`on-call-${view}-main`}>
+      <OnCallSectionNavHeader title={title} sections={pageSections} modeIdentity={chrome?.modeIdentity} />
+      <InformationPageShell testId={chrome?.testId ?? `on-call-${view}-main`}>
         {/* No hero above the list.
             ---------------------------------------------------------------
             This page used to open with an eyebrow reading "On Call", a
@@ -439,7 +456,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
                 (it also appears in that section's empty state). The others get
                 it here, because without one an owner can reach an empty
                 Playbook or Logistics page with no way to put anything on it. */}
-            {isAuthenticated && view !== "contacts" ? (
+            {isAuthenticated && view !== "contacts" && !chrome?.floatingAdd ? (
               <Button
                 variant="secondary"
                 size="sm"
@@ -478,6 +495,13 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
           )}
         </section>
       </InformationPageShell>
+      {isAuthenticated && chrome?.floatingAdd ? (
+        <AdminFloatingAdd
+          label={chrome.floatingAdd.label}
+          testId={chrome.floatingAdd.testId}
+          onClick={() => setEditorState({ open: true, entry: null })}
+        />
+      ) : null}
       {/* One editor for every view: its field map is already keyed by section.
           Who's who writes `contacts` rows, so it hands over the storage section
           rather than the view. */}

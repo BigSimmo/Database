@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { ADMIN_HELP_ON_SITE_HREF } from "@/components/admin/admin-page-sections";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallNextShift } from "@/components/on-call/on-call-next-shift";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
@@ -410,9 +411,10 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     [recent, entriesById],
   );
 
-  // The shift-time pages only. Orientation, Teaching, Admin and Compliance
-  // moved to My Work (`/my-work`) on 2026-09-26 to keep this page light; their
-  // routes are unchanged and the mode pill still lists them.
+  // The shift-time pages only. Orientation and Teaching moved off this page on
+  // 2026-09-26 to keep it light (the mode pill still lists them), and On Call's
+  // Admin and Compliance pages moved to the Admin mode the same day (Admin
+  // update 1), which the Admin tile below opens.
   const tiles = [
     ...(["contacts", "playbook", "referrals"] as const).map((section) => ({
       key: section,
@@ -463,19 +465,28 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             Who do I call now?
           </Link>
           {/* "Check these" and "Calendar" used to sit here. They are admin, not
-              shift work, so they moved to My Work, which this tile opens. */}
+              shift work, so they moved to Admin (formerly My Work), which this tile opens. */}
           <div className="grid grid-cols-2 gap-2">
             <Link href="/on-call/first-night" data-testid="on-call-home-first-night" className={homeToolTile}>
               <Moon aria-hidden="true" className="size-icon-sm" />
               <span>First night</span>
               <span className={cn(textMuted, "text-xs font-medium")}>Guide</span>
             </Link>
-            <Link href="/my-work" data-testid="on-call-home-my-work" className={homeToolTile}>
+            <Link href="/admin" data-testid="on-call-home-admin" className={homeToolTile}>
               <BriefcaseBusiness aria-hidden="true" className="size-icon-sm" />
-              <span>My Work</span>
-              <span className={cn(textMuted, "text-xs font-medium")}>Admin and checks now live here</span>
+              <span>Admin</span>
+              <span className={cn(textMuted, "text-xs font-medium")}>Renewals, new job and help</span>
             </Link>
           </div>
+          {/* Spec: "On Call's Tonight page gets a one-line link to Help > On site",
+              where the building-access, food and call-room rows moved. */}
+          <Link
+            href={ADMIN_HELP_ON_SITE_HREF}
+            data-testid="on-call-home-on-site"
+            className={cn(textMuted, focusRing, "text-sm underline-offset-2 hover:underline")}
+          >
+            Building access, food and the on-call room are in Admin › Help › On site
+          </Link>
         </div>
 
         <HomeModule id="on-call-home-service" label="Your service">

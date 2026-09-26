@@ -1493,13 +1493,13 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-today-page.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/differentials/differential-compare-queue-page.tsx",
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
-        "src/components/my-work/my-work-home.tsx",
         "src/components/psychiatry/psychiatry-home.tsx",
         "src/components/specifiers/specifier-compare-page.tsx",
         "src/components/specifiers/specifier-map-page.tsx",
@@ -1513,13 +1513,13 @@
         "src/components/therapy-compass/workspace.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-today-page.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/differentials/differential-compare-queue-page.tsx",
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
-        "src/components/my-work/my-work-home.tsx",
         "src/components/psychiatry/psychiatry-home.tsx",
         "src/components/specifiers/specifier-compare-page.tsx",
         "src/components/specifiers/specifier-map-page.tsx",
@@ -2691,6 +2691,10 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": [
+        "src/app/(search-app)/admin/help/page.tsx",
+        "src/app/(search-app)/admin/new-job/page.tsx",
+        "src/app/(search-app)/admin/page.tsx",
+        "src/app/(search-app)/admin/renewals/page.tsx",
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
@@ -2793,6 +2797,46 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["CmeDashboard", "CmePage", "DetailPage", "ModeHome", "SearchPage"],
       "roots": [
+        {
+          "file": "src/app/(search-app)/admin/help/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/new-job/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/renewals/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
         {
           "file": "src/app/(search-app)/cme/calendar/page.tsx",
           "exists": true,
@@ -4480,6 +4524,10 @@
   ],
   "routeCoverage": {
     "discovered": [
+      "src/app/(search-app)/admin/help/page.tsx",
+      "src/app/(search-app)/admin/new-job/page.tsx",
+      "src/app/(search-app)/admin/page.tsx",
+      "src/app/(search-app)/admin/renewals/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/cme/calendar/page.tsx",
@@ -4588,6 +4636,10 @@
       "src/app/safety-plan/page.tsx"
     ],
     "declared": [
+      "src/app/(search-app)/admin/help/page.tsx",
+      "src/app/(search-app)/admin/new-job/page.tsx",
+      "src/app/(search-app)/admin/page.tsx",
+      "src/app/(search-app)/admin/renewals/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/cme/calendar/page.tsx",
@@ -4701,7 +4753,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 113,
+    "inheritedCkbV2RootCount": 117,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -4710,8 +4762,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 114,
-    "productionRouteCount": 106,
-    "nextUiEntryCount": 170
+    "rootCount": 118,
+    "productionRouteCount": 110,
+    "nextUiEntryCount": 174
   }
 }

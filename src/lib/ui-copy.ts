@@ -136,9 +136,9 @@ export const sharedHomePresentation = {
     suggestions: ["major depressive disorder", "behavioural activation", "Form 1A"],
   },
   "my-work": {
-    title: "My Work",
-    subtitle: "Paperwork, deadlines and checks, with what is due first.",
-    suggestions: ["leave", "registration", "roster"],
+    title: "Admin",
+    subtitle: "The paperwork around hospital work, with what to start first.",
+    suggestions: ["registration", "leaving", "payroll"],
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 

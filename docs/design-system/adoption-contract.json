@@ -118,6 +118,10 @@
       "id": "catalogues-forms-and-info",
       "disposition": "owned",
       "routes": [
+        "src/app/(search-app)/admin/help/page.tsx",
+        "src/app/(search-app)/admin/new-job/page.tsx",
+        "src/app/(search-app)/admin/page.tsx",
+        "src/app/(search-app)/admin/renewals/page.tsx",
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",

@@ -1,34 +1,45 @@
 "use client";
 
-import { BellRing, CalendarCheck, CalendarDays, ChevronRight, Clock, type LucideIcon } from "lucide-react";
+import {
+  BellRing,
+  BriefcaseBusiness,
+  CalendarCheck,
+  CalendarDays,
+  ChevronRight,
+  Clock,
+  LifeBuoy,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { ADMIN_PAGE_HREFS } from "@/components/admin/admin-page-sections";
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import {
   ON_CALL_SECTION_ICONS,
   ON_CALL_SECTION_TITLES,
-  ON_CALL_VIEW_HREFS,
   ON_CALL_VIEW_ICONS,
-  ON_CALL_VIEW_TITLES,
 } from "@/components/on-call/on-call-section-identity";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { formatRecordedDate } from "@/lib/admin/renewal-dates";
 import { complianceExpiresOn, partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { buildOnCallReviewQueue, ON_CALL_DUE_SOON_DAYS } from "@/lib/on-call/review-queue";
-import { onCallTeachingDateParts } from "@/lib/on-call/teaching-schedule";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
 /**
- * MY WORK — the paperwork, deadlines and checks that used to crowd On Call.
- *
- * A dashboard over pages that keep their own addresses, so every saved link
- * and bookmark still works: What's next first, then one card per page. It adds
+ * ADMIN TODAY (mode id `my-work`) — the scaffold port of the My Work home
+ * (Admin update 1, Task 1). A later task rewrites it as Today; until then it is
+ * My Work's dashboard, relabelled, with cards for Admin's own pages. It adds
  * no data of its own; everything here is read from the owner's On Call entries.
+ *
+ * The Check these, My shifts, Calendar and Orientation cards stay: they are the
+ * only inbound links to `/on-call/check` and `/on-call/calendar` until Roster
+ * moves those pages.
  *
  * The compliance rows follow `src/lib/on-call/compliance.ts`, "What this page
  * may never say": they report the date the owner recorded, never a verdict on
@@ -44,13 +55,6 @@ type NextItem = {
   title: string;
   detail: string;
 };
-
-/** `YYYY-MM-DD` as "12 Mar 2027", the way the Compliance page prints it. */
-function formatRecordedDate(date: string): string {
-  const { day, month, year } = onCallTeachingDateParts(date);
-  if (!day || !month) return date;
-  return `${day} ${month} ${year}`;
-}
 
 /**
  * Compliance rows whose recorded date falls in the next thirty days or has
@@ -101,7 +105,7 @@ function PageCardBody({
   );
 }
 
-export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
+export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
   const presentation = sharedHomePresentation["my-work"];
   const { entries, loading, isOffline, signedOut } = useOnCallEntries();
   const mountedAt = useMemo(() => new Date(), []);
@@ -113,7 +117,7 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
       const passed = expiresOn < onCallLocalDateKey(now);
       return {
         key: `compliance-${entry.id}`,
-        href: ON_CALL_VIEW_HREFS.compliance,
+        href: ADMIN_PAGE_HREFS.renewals,
         icon: ON_CALL_VIEW_ICONS.compliance,
         title: entry.title,
         detail: `Recorded as expiring ${formatRecordedDate(expiresOn)}${passed ? " — that date has passed" : ""}`,
@@ -144,18 +148,18 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
         ? "Your entries could not be loaded. Try again when you are back online."
         : signedOut
           ? "Sign in to see what is due."
-          : "Nothing added yet. Admin and compliance items you add will show here when they fall due.";
+          : "Nothing added yet. Renewals you add will show here when they fall due.";
 
   return (
-    <InformationPageShell testId="my-work-home">
+    <InformationPageShell testId="admin-today-home">
       <PageHeader title={presentation.title} description={presentation.subtitle} />
 
-      <section aria-labelledby="my-work-next-heading" className="grid gap-2" data-testid="my-work-next">
-        <h2 id="my-work-next-heading" className={eyebrowText}>
+      <section aria-labelledby="admin-today-next-heading" className="grid gap-2" data-testid="admin-today-next">
+        <h2 id="admin-today-next-heading" className={eyebrowText}>
           What&apos;s next
         </h2>
         {nextItems.length === 0 ? (
-          <p className={cn(cardSurface, cardPadding.compact, textMuted, "text-sm")} data-testid="my-work-next-empty">
+          <p className={cn(cardSurface, cardPadding.compact, textMuted, "text-sm")} data-testid="admin-today-next-empty">
             {emptyMessage}
           </p>
         ) : (
@@ -166,7 +170,7 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
                 <li key={item.key}>
                   <Link
                     href={item.href}
-                    data-testid={`my-work-next-${item.key}`}
+                    data-testid={`admin-today-next-${item.key}`}
                     className={cn(
                       cardSurface,
                       focusRing,
@@ -188,32 +192,37 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
         )}
       </section>
 
-      <section aria-labelledby="my-work-pages-heading" className="grid gap-2" data-testid="my-work-pages">
-        <h2 id="my-work-pages-heading" className={eyebrowText}>
+      <section aria-labelledby="admin-today-pages-heading" className="grid gap-2" data-testid="admin-today-pages">
+        <h2 id="admin-today-pages-heading" className={eyebrowText}>
           Pages
         </h2>
         {/* In the order a reader reaches for them. */}
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <li>
-            <Link href="/on-call/logistics" data-testid="my-work-page-admin" className={pageCard}>
-              <PageCardBody
-                icon={ON_CALL_SECTION_ICONS.logistics}
-                title={ON_CALL_SECTION_TITLES.logistics}
-                description="Leave, rosters, pay, forms and access"
-              />
-            </Link>
-          </li>
-          <li>
-            <Link href="/on-call/compliance" data-testid="my-work-page-compliance" className={pageCard}>
+            <Link href="/admin/renewals" data-testid="admin-today-page-renewals" className={pageCard}>
               <PageCardBody
                 icon={ON_CALL_VIEW_ICONS.compliance}
-                title={ON_CALL_VIEW_TITLES.compliance}
+                title="Renewals"
                 description="What has to stay current, with the dates you recorded"
               />
             </Link>
           </li>
           <li>
-            <Link href="/on-call/check" data-testid="my-work-page-check" className={pageCard}>
+            <Link href="/admin/new-job" data-testid="admin-today-page-new-job" className={pageCard}>
+              <PageCardBody
+                icon={BriefcaseBusiness}
+                title="New job"
+                description="Starting and leaving a job: orientation, logins and contacts"
+              />
+            </Link>
+          </li>
+          <li>
+            <Link href="/admin/help" data-testid="admin-today-page-help" className={pageCard}>
+              <PageCardBody icon={LifeBuoy} title="Help" description="Crisis lines, support, guides and on-site detail" />
+            </Link>
+          </li>
+          <li>
+            <Link href="/on-call/check" data-testid="admin-today-page-check" className={pageCard}>
               <PageCardBody
                 icon={CalendarCheck}
                 title="Check these"
@@ -222,12 +231,12 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
             </Link>
           </li>
           <li>
-            <Link href="/on-call/shifts" data-testid="my-work-page-shifts" className={pageCard}>
+            <Link href="/on-call/shifts" data-testid="admin-today-page-shifts" className={pageCard}>
               <PageCardBody icon={Clock} title="My shifts" description="Your own roster, private to your account" />
             </Link>
           </li>
           <li>
-            <Link href="/on-call/calendar" data-testid="my-work-page-calendar" className={pageCard}>
+            <Link href="/on-call/calendar" data-testid="admin-today-page-calendar" className={pageCard}>
               <PageCardBody
                 icon={CalendarDays}
                 title="Calendar"
@@ -236,7 +245,7 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
             </Link>
           </li>
           <li>
-            <Link href="/on-call/orientation" data-testid="my-work-page-orientation" className={pageCard}>
+            <Link href="/on-call/orientation" data-testid="admin-today-page-orientation" className={pageCard}>
               <PageCardBody
                 icon={ON_CALL_SECTION_ICONS.orientation}
                 title={ON_CALL_SECTION_TITLES.orientation}
@@ -247,7 +256,7 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
           <li>
             {/* The shared settings dialog opens from this one query parameter
                 (`SettingsStateProvider`); reminder settings live in it. */}
-            <Link href="/?settings=open" data-testid="my-work-page-reminders" className={pageCard}>
+            <Link href="/?settings=open" data-testid="admin-today-page-reminders" className={pageCard}>
               <PageCardBody icon={BellRing} title="Reminder settings" description="Which reminders you get, and when" />
             </Link>
           </li>

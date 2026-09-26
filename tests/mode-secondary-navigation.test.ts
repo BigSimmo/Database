@@ -38,12 +38,9 @@ const expectedLabels: Record<AppModeId, string[]> = {
     // "Teaching" is the label; the id, route segment and check constraint all
     // stay "education".
     "Teaching",
-    // "Admin" is likewise label-only: the id, route segment and check
-    // constraint all stay "logistics". Compliance is not a section at all —
-    // it is a view over those same stored rows, discriminated by
-    // `details.kind`, so it costs no migration and appears here without one.
-    "Admin",
-    "Compliance",
+    // "Admin" (the `logistics` rows) and "Compliance" left with Admin update 1
+    // (2026-09-26): they are Admin > Help and Admin > Renewals now, registered
+    // under the `my-work` mode below.
     "Who's who",
     // The invited multi-clinician service handbook, not the private On Call
     // entries above it — a separate store (`on_call_services` and friends),
@@ -64,7 +61,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Set up",
   ],
   psychiatry: [],
-  "my-work": [],
+  "my-work": ["Today", "Renewals", "New job", "Help"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -87,12 +84,13 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "on-call": "/on-call",
   cme: "/cme",
   psychiatry: "/psychiatry",
-  "my-work": "/my-work",
+  "my-work": "/admin",
 };
 
 /**
- * The ten modes that register nothing. Psychiatry and My Work are the last two: each home is
- * itself the list of pages it gathers.
+ * The nine modes that register nothing. Psychiatry is the last: its home is itself the list of
+ * pages it gathers. Admin (mode id `my-work`) left this list with Admin update 1 (2026-09-26),
+ * when it registered its four pages.
  *
  * Each used to carry one `action: "search"` entry rendering a lone <button>
  * inside its own <nav> landmark, whose only effect was focusing a composer
@@ -117,7 +115,6 @@ const emptyRegistryModes = [
   "tools",
   "calculators",
   "psychiatry",
-  "my-work",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
@@ -465,6 +462,17 @@ describe("mode secondary navigation registry", () => {
         expect(MODE_NAV_ADOPTED_MODES).not.toContain(modeId);
       }
     }
+  });
+
+  it("marks each Admin page current on its own route only, and On Call no longer owns the moved pages", () => {
+    expect(activeModeSecondaryNavigationId("my-work", "/admin")).toBe("today");
+    expect(activeModeSecondaryNavigationId("my-work", "/admin/renewals")).toBe("renewals");
+    expect(activeModeSecondaryNavigationId("my-work", "/admin/new-job")).toBe("new-job");
+    expect(activeModeSecondaryNavigationId("my-work", "/admin/help")).toBe("help");
+    expect(activeModeSecondaryNavigationId("my-work", "/admin/pay")).toBeNull();
+    expect(activeModeSecondaryNavigationId("on-call", "/on-call/compliance")).toBeNull();
+    expect(activeModeSecondaryNavigationId("on-call", "/on-call/logistics")).toBeNull();
+    expect(MODE_NAV_ADOPTED_MODES).not.toContain("my-work");
   });
 
   it("keeps On Call registered but unadopted, because its second row is about the page", () => {

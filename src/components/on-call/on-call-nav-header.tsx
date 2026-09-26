@@ -116,7 +116,16 @@ export const ON_CALL_SECTION_HEADER_TEST_IDS = {
  * an action ("Print the pocket card") as well as by the pill, and backing out
  * of an action is what an arrow is for.
  */
-export function OnCallSectionNavHeader({ title, sections }: { title: string; sections: readonly PageSection[] }) {
+export function OnCallSectionNavHeader({
+  title,
+  sections,
+  modeIdentity = "on-call",
+}: {
+  title: string;
+  sections: readonly PageSection[];
+  /** The mode whose identity colour the rail wears. Admin > Renewals hosts an On Call view in `my-work`. */
+  modeIdentity?: string;
+}) {
   const { sections: resolved, activeId, selectSection } = useInPageSectionNav(sections);
 
   if (resolved.length === 0) return null;
@@ -143,8 +152,9 @@ export function OnCallSectionNavHeader({ title, sections }: { title: string; sec
         density: "wordmark-five",
         // On Call's teal, on the bar's active underline. The same attribute is
         // on the mode pill directly above it, and both read one token, so the
-        // two cannot end up different greens.
-        modeIdentity: "on-call",
+        // two cannot end up different greens. A page another mode hosts passes
+        // that mode's identity instead (Admin > Renewals).
+        modeIdentity,
       }}
       // Phone only: this bar is portaled INTO the universal header's own
       // collapse slot, so a solid surface painted a second panel inside a glass

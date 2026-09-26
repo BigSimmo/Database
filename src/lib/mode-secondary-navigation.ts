@@ -138,13 +138,9 @@ export const modeSecondaryNavigationRegistry = {
     // check constraint all stay `education`; renaming them is a migration for no
     // functional gain (`ON_CALL_SECTION_TITLES` carries the same decision).
     { id: "teaching", label: "Teaching", href: "/on-call/education" },
-    // Label only, as Teaching above: the stored section id, the route segment
-    // and the database check constraint all stay `logistics`.
-    { id: "logistics", label: "Admin", href: "/on-call/logistics" },
-    // Compliance is a VIEW over the `logistics` section, discriminated by
-    // `details.kind` — not a seventh section, which would cost a migration
-    // against the live clinical database. See src/lib/on-call/compliance.ts.
-    { id: "compliance", label: "Compliance", href: "/on-call/compliance" },
+    // On Call's Admin (`logistics`) and Compliance pages moved to the Admin mode
+    // on 2026-09-26 (Admin update 1): they are Admin > Help and Admin > Renewals,
+    // registered under `"my-work"` below. The stored section ids do not change.
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
     { id: "service", label: "Service", href: "/on-call/service" },
     { id: "card", label: "Pocket card", href: "/on-call/card" },
@@ -176,9 +172,15 @@ export const modeSecondaryNavigationRegistry = {
   // Psychiatry's home is itself the list of sections it gathers, and each
   // section keeps its own navigation, so the hub registers no destinations.
   psychiatry: [],
-  // My Work's home is itself the list of pages it gathers, each of which keeps
-  // its own address and navigation, so the hub registers no destinations.
-  "my-work": [],
+  // Admin (mode id `my-work`; relabelled 2026-09-26, spec "Admin mode"). Registered so
+  // the pill's page level lists them, and like On Call and CME it is NOT in
+  // MODE_NAV_ADOPTED_MODES: each page mounts its own in-page bar. Pay joins in update 2.
+  "my-work": [
+    { id: "today", label: "Today", href: "/admin" },
+    { id: "renewals", label: "Renewals", href: "/admin/renewals" },
+    { id: "new-job", label: "New job", href: "/admin/new-job" },
+    { id: "help", label: "Help", href: "/admin/help" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -315,8 +317,6 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/on-call/referrals") return "referrals";
     if (pathname === "/on-call/orientation") return "orientation";
     if (pathname === "/on-call/education") return "teaching";
-    if (pathname === "/on-call/logistics") return "logistics";
-    if (pathname === "/on-call/compliance") return "compliance";
     if (pathname === "/on-call/who-is-who") return "whoswho";
     if (pathname === "/on-call/service") return "service";
     if (pathname === "/on-call/card") return "card";
@@ -324,6 +324,14 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     // stub, and a prefix test here would mark Tonight current on every section
     // route as well as its own.
     if (pathname === "/on-call") return "tonight";
+    return null;
+  }
+  if (modeId === "my-work") {
+    if (pathname === "/admin/renewals") return "renewals";
+    if (pathname === "/admin/new-job") return "new-job";
+    if (pathname === "/admin/help") return "help";
+    // Exact match, as On Call's and CME's homes are.
+    if (pathname === "/admin") return "today";
     return null;
   }
   if (modeId === "cme") {

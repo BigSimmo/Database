@@ -79,5 +79,7 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // other direction. Both named routes are `isInformationPage`, which is the
   // agreement `tests/mode-nav-addon-slot.dom.test.tsx` checks route for route.
   if (pathname === "/cme/programme" || pathname === "/cme/setup") return true;
+  // Admin's three sub-pages mount `AdminNavHeader` (an `InPageNavHeader`). Today mounts none.
+  if (pathname === "/admin/renewals" || pathname === "/admin/new-job" || pathname === "/admin/help") return true;
   return false;
 }

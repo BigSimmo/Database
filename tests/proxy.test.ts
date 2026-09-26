@@ -499,3 +499,24 @@ describe("passwordless developer-area access (?devkey)", () => {
     });
   });
 });
+
+describe("Admin mode redirects", () => {
+  it.each([
+    ["/my-work", "/admin"],
+    ["/on-call/compliance", "/admin/renewals"],
+    ["/on-call/logistics", "/admin/help"],
+  ])("sends %s to %s as one 307 and keeps the query string", async (from, to) => {
+    const response = await proxy(requestFor(`${from}?from=bookmark`));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe(to);
+    expect(location.searchParams.get("from")).toBe("bookmark");
+    expect(response.headers.get("content-security-policy")).toBeTruthy();
+  });
+
+  it("leaves the pages On Call keeps where they are", async () => {
+    for (const path of ["/on-call/orientation", "/on-call/who-is-who", "/on-call/check", "/on-call/shifts"]) {
+      expect((await proxy(requestFor(path))).headers.get("location")).toBeNull();
+    }
+  });
+});

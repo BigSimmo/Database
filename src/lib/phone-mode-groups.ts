@@ -36,7 +36,7 @@ export const phoneModeGroups = [
     hint: "Medication, calculators, reference",
     modeIds: ["prescribing", "calculators", "tools", "factsheets", "dictionary"],
   },
-  // The groups above are the Clinical area. On Call, My Work and CPD are areas
+  // The groups above are the Clinical area. On Call, Admin and CPD are areas
   // of their own rather than the tail of "Care", so the urgent screen is not
   // buried at the bottom of the clinical list, and the paperwork that used to
   // crowd it has a home of its own.
@@ -48,8 +48,8 @@ export const phoneModeGroups = [
   },
   {
     id: "my-work",
-    label: "My Work",
-    hint: "Paperwork, deadlines and checks",
+    label: "Admin",
+    hint: "Renewals, new job and help",
     modeIds: ["my-work"],
   },
   {

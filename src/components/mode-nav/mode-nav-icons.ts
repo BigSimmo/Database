@@ -1,6 +1,7 @@
 import {
   BookOpenText,
   BookMarked,
+  BriefcaseBusiness,
   Building2,
   CalendarDays,
   CalendarRange,
@@ -10,6 +11,7 @@ import {
   GraduationCap,
   Landmark,
   LibraryBig,
+  LifeBuoy,
   ListChecks,
   Network,
   NotebookPen,
@@ -20,6 +22,7 @@ import {
   Sparkles,
   Stethoscope,
   Scale,
+  Sunrise,
   Target,
   Waypoints,
   type LucideIcon,
@@ -82,14 +85,11 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   // (what the reader is shown) and the section is `education` (route segment,
   // database check constraint). Same pair as `whoswho` / `who-is-who` below.
   teaching: ON_CALL_SECTION_ICONS.education,
-  logistics: ON_CALL_SECTION_ICONS.logistics,
-  // Compliance and Who's who are VIEWS over a stored section, not sections, so
-  // neither has an entry in `ON_CALL_SECTION_ICONS` — their glyphs live in
-  // `ON_CALL_VIEW_ICONS`, which is where these read them from. A rail slot and
-  // the page it opens must wear the same mark. Compliance is not a shield with
-  // a tick, and not by accident: `ON_CALL_VIEW_ICONS` carries the reasoning,
-  // which is that the page may never render a verdict on anything it lists.
-  compliance: ON_CALL_VIEW_ICONS.compliance,
+  // Who's who is a VIEW over a stored section, not a section, so it has no
+  // entry in `ON_CALL_SECTION_ICONS` — its glyph lives in `ON_CALL_VIEW_ICONS`,
+  // which is where this reads it from. A rail slot and the page it opens must
+  // wear the same mark. (On Call's Admin and Compliance pages moved to the
+  // Admin mode on 2026-09-26; Renewals below keeps Compliance's glyph.)
   whoswho: ON_CALL_VIEW_ICONS["who-is-who"],
   service: Building2,
   card: Printer,
@@ -107,6 +107,13 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
+  // Admin. Renewals reads the Compliance glyph so the moved page keeps its mark (CalendarClock, never a tick).
+  // Nothing here is imported from `@/lib/admin`: this module reaches the `/` bundle
+  // (`tests/on-call-root-bundle-isolation.test.ts`).
+  today: Sunrise,
+  renewals: ON_CALL_VIEW_ICONS.compliance,
+  "new-job": BriefcaseBusiness,
+  help: LifeBuoy,
 };
 
 /**

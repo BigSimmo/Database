@@ -94,8 +94,10 @@ export function isInformationPage(pathname: string): boolean {
   // surface, so its home must not wear a composer. The sections it links to
   // keep their own routes and their own composers.
   if (pathname === "/psychiatry") return true;
-  // The My Work dashboard, for the same reason.
-  if (pathname === "/my-work") return true;
+  // Every Admin route, the home included: the mode declares no search surface,
+  // so no page wears a composer, and each sub-page mounts its own in-page bar.
+  if (pathname === "/admin") return true;
+  if (isSlugDetail(pathname, "/admin")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
