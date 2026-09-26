@@ -160,14 +160,19 @@ function matchesFilters(entry: ClinicalSourceClientEntry, filters: SourceCatalog
   return true;
 }
 
-function dateValue(value: string | null) {
+function dateValue(value: string | null | undefined) {
   if (!value) return Number.NEGATIVE_INFINITY;
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
 }
 
 function mostRecentDate(entry: ClinicalSourceClientEntry) {
-  return Math.max(dateValue(entry.publicationDate), dateValue(entry.reviewDate), dateValue(entry.expiryDate));
+  return Math.max(
+    dateValue(entry.publicationDate),
+    dateValue(entry.reviewDate),
+    dateValue(entry.lastUpdatedDate),
+    dateValue(entry.expiryDate),
+  );
 }
 
 export function filterAndSortSourceCatalogue(
