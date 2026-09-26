@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ecb882f7-269f-4058-91e8-57b8da85f480",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "WA public holidays: add the official 2028 list when WA publishes it, to confirm King's Birthday",
+    "detail": "src/lib/on-call/wa-public-holidays.ts now computes holidays by rule after the last published year (2027), and a test pins that the rules reproduce every published 2026-2027 date. King's Birthday is set by proclamation (assumed last Monday of September). When wa.gov.au publishes 2028 dates, add them to WA_PUBLIC_HOLIDAYS, raise WA_PUBLIC_HOLIDAYS_LAST_YEAR, and the reproduction test will flag any moved date.",
+    "source": "session 2026-09-26 calendar/on-call follow-ups",
+    "issueUlid": "01M3E3B77NY5X0HHNNG8GXC8W0"
+  }
+}

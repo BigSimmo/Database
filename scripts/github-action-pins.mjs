@@ -63,6 +63,12 @@ const reviewedActionPins = new Map([
       // version bumps in action.yml/run.ts/package.json/bun.lock — no change
       // to permissions, secrets handling, or the action's trust boundary.
       ["9cdae7f0d995e3ba7c33f226087fdf82a59cd520", "v1.0.223"],
+      // Reviewed 2026-09-21 for PR #2950 (Dependabot github-actions group):
+      // annotated tag v1.0.230 peels to this commit. Diff v1.0.223...v1.0.230
+      // is only Claude Code (2.1.270->2.1.277) and Agent SDK (0.3.270->0.3.277)
+      // version bumps in action.yml/run.ts/package.json/bun.lock — no change
+      // to permissions, secrets handling, or the action's trust boundary.
+      ["4036a180cf690f49529f5d8c79c998855287f590", "v1.0.230"],
     ]),
   ],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
@@ -98,9 +104,26 @@ const reviewedActionPins = new Map([
       // js-yaml, postcss, undici) — no change to the action's own
       // permissions or secrets handling.
       ["37fe631027851001ddb9b187196cc803df7f5f0e", "v4"],
+      // Reviewed 2026-09-21 for PR #2950 (Dependabot github-actions group):
+      // lightweight tag v4.4.1 peels to this commit (workflow comment stays # v4).
+      // Diff v4.3.0...v4.4.1 covers Build Cloud/buildx version gating, BuildKit
+      // image pre-pull for docker-container driver, and error-message helpers —
+      // no change to the action's own permissions or secrets handling.
+      ["f87e5991a6d7451dcb8d9637bfbc97413f497069", "v4"],
     ]),
   ],
-  ["docker/build-push-action", new Map([["53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7"]])],
+  [
+    "docker/build-push-action",
+    new Map([
+      ["53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7"],
+      // Reviewed 2026-09-21 for PR #2950 (Dependabot github-actions group):
+      // lightweight tag v7.4.0 peels to this commit (workflow comment stays # v7).
+      // Diff v7.3.0...v7.4.0 is toolkit dependency bumps, error-message helpers,
+      // and GitHub.printUntrusted for metadata output — no change to secrets/
+      // github-token inputs or the action's trust boundary.
+      ["c3c9e263c25d99ce0380d002d59b67737d91b0dc", "v7"],
+    ]),
+  ],
   // Reviewed 2026-07-31: official autofix.ci action; tag v1.3.4 / moving v1 both
   // resolve to this immutable commit (node24 runtime). Used only after local
   // Prettier write; the action itself never receives write tokens in-workflow.

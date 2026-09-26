@@ -108,9 +108,9 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   // staged orphan — and a strict locator fails on the pair rather than on
   // anything being wrong with the board. CI caught exactly that on the hub:
   // `on-call-home-sections` once inside `mobile-composer-reserve-pad`, once in
-  // the staging copy. Wait for the document to settle to ONE copy, as the ward
-  // journeys do, rather than relaxing the locators to `.first()` — that would
-  // leave them free to assert against the inert staged copy.
+  // the staging copy. Wait for the document to settle to ONE copy, as the
+  // retired Ward Flow journeys did, rather than relaxing the locators to
+  // `.first()` — that would leave them free to assert against the inert staged copy.
   await expect(
     page.locator('div[hidden][id^="S:"]'),
     "React's streamed content is still staged, so the whole page is duplicated in the document",
@@ -776,6 +776,11 @@ test.describe("07 Playbook", () => {
  * Open one referral row. The row's button is in the page before React has attached its click
  * handler, and a click in that gap is swallowed: a Firefox CI run clicked the right button (its
  * id unchanged, so nothing remounted) and the row stayed collapsed. Wait for the handler first.
+ *
+ * Waiting for the handler was not enough on its own: a Chromium CI run (2026-09-26, #3086) saw
+ * the handler attached, clicked, and the row still read collapsed for the full timeout. So the
+ * click is retried, but only while the row still reads collapsed, so a retry can never close a
+ * row the first click opened.
  */
 async function expandReferral(page: Page, name: string) {
   const trigger = page.getByRole("button", { name, exact: true });
@@ -790,8 +795,10 @@ async function expandReferral(page: Page, name: string) {
       { message: "referral row click handler attached", timeout: 15_000 },
     )
     .toBe(true);
-  await trigger.click();
-  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(async () => {
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 test.describe("08 Referrals", () => {
@@ -1023,9 +1030,9 @@ test.describe("The mode's own chrome, across the site's widths", () => {
     // arrives late has already been missed, and the page stays light forever.
     //
     // Firefox itself resolves dark correctly on this app: the twelve dark
-    // assertions in `ui-caring-contacts-workspace.spec.ts` pass on Firefox in
-    // the same runs where this one fails, and every one of them navigates
-    // first and switches afterwards. That is the pattern copied here, in
+    // assertions in the since-retired Caring Contacts workspace suite passed on
+    // Firefox in the same runs where this one failed, and every one of them
+    // navigated first and switched afterwards. That is the pattern copied here, in
     // preference to `test.use({ colorScheme })`, which nothing in this
     // repository has yet proved against Firefox.
     const hubBackground = async () => {

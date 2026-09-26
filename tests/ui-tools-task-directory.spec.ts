@@ -9,7 +9,7 @@ const PATH = "/mockups/tools-task-directory";
 
 /*
  * Counts come from the fixture the mockup itself renders, not from literals.
- * "Add Ward Flow" (#2140) took the set from 9 to 10 and Admin from 3 to 4, which
+ * "Add Ward Flow" (#2140, since retired) took the set from 9 to 10 and Admin from 3 to 4, which
  * broke three assertions here — silently, because the Advisory UI lane that runs
  * @mockup is `continue-on-error`. Deriving them means the next tool cannot.
  */

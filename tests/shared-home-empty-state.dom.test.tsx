@@ -120,6 +120,12 @@ const expectedPresentations = [
     subtitle: "What you have done this year, and what is still short.",
     iconClass: "lucide-graduation-cap",
   },
+  {
+    modeId: "psychiatry",
+    title: "Psychiatry",
+    subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+    iconClass: "lucide-brain",
+  },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;

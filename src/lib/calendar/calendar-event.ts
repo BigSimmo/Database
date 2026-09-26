@@ -1,3 +1,8 @@
+import { dateKeyToUtcMillis, isValidTime, utcMillisToDateKey } from "@/lib/calendar/date-keys";
+import type { ReminderType } from "@/lib/reminders/settings-model";
+
+export { dateKeyToUtcMillis, isValidTime, utcMillisToDateKey };
+
 /**
  * One shape for every dated thing the app can put on a calendar: a CME routine
  * coming due, the end of the CPD year, an On Call teaching session, a
@@ -41,6 +46,13 @@ export type CalendarEvent = {
   readonly notes?: string;
   /** An in-app page about this event, if there is one. */
   readonly href?: string;
+  /**
+   * Which reminder setting governs this event's calendar alert, set by the
+   * builder that made it. Absent means the event never alerts.
+   */
+  readonly reminderType?: ReminderType;
+  /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
+  readonly alarmAt?: string;
 };
 
 /**
@@ -69,22 +81,7 @@ export const calendarRecurrenceLabels: Record<CalendarRecurrence, string> = {
   quarterly: "Every three months",
 };
 
-const DATE_KEY = /^(\d{4})-(\d{2})-(\d{2})$/;
-const TIME_KEY = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const DAY_MS = 86_400_000;
-
-/** UTC midnight for a real `YYYY-MM-DD`, or null (30 February is not a date). */
-export function dateKeyToUtcMillis(date: string): number | null {
-  const match = DATE_KEY.exec(date);
-  if (!match) return null;
-  const millis = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return utcMillisToDateKey(millis) === date ? millis : null;
-}
-
-export function utcMillisToDateKey(millis: number): string {
-  const date = new Date(millis);
-  return `${String(date.getUTCFullYear()).padStart(4, "0")}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
-}
 
 export function addDays(date: string, days: number): string {
   const millis = dateKeyToUtcMillis(date);
@@ -101,10 +98,6 @@ export function addMonthsClamped(date: string, months: number): string {
   const month = anchor.getUTCMonth() + months;
   const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   return utcMillisToDateKey(Date.UTC(year, month, Math.min(anchor.getUTCDate(), lastDay)));
-}
-
-export function isValidTime(time: string): boolean {
-  return TIME_KEY.test(time);
 }
 
 /** The event's start and end as UTC instants (all-day events: null). */

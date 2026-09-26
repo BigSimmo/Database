@@ -118,10 +118,11 @@ const REM_PX = 16;
  * Tailwind `h-N` is N/4 rem; a CSS-module class is resolved to its own rule.
  *
  * The module lookup must go through the *specific* import identifier, not every
- * `.module.css` the file imports. `ward-management-navigation.tsx` imports two
- * modules and BOTH define `.brandGlyph`, at 2.5rem and 2rem — an identifier-blind
- * resolver merges them and reports every site there as spanning 32-40px, which
- * is a defect in this helper that reads exactly like a defect in the source.
+ * `.module.css` the file imports. The retired Ward Flow prototype's navigation
+ * imported two modules that BOTH defined `.brandGlyph`, at 2.5rem and 2rem — an
+ * identifier-blind resolver merged them and reported every site there as spanning
+ * 32-40px, which is a defect in this helper that reads exactly like a defect in the
+ * source.
  */
 function renderedHeightsPx(className: string, sourcePath: string): number[] {
   const cssModule = /\{\s*(\w+)\.(\w+)\s*\}/.exec(className);
@@ -157,8 +158,9 @@ describe("every production call site draws the cut its size needs", () => {
 
   it("finds the production call sites at all", () => {
     // Guards the scan itself: a regex that silently matches nothing would make
-    // every assertion below pass vacuously.
-    expect(callSites.length).toBeGreaterThanOrEqual(10);
+    // every assertion below pass vacuously. The floor was 10 until the retired
+    // Ward Flow prototype took its call sites with it.
+    expect(callSites.length).toBeGreaterThanOrEqual(9);
     expect(callSites.every((site) => site.heights.length > 0)).toBe(true);
   });
 

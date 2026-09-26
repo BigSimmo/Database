@@ -43,9 +43,8 @@ action must perform one; a page that ships must be reachable.
   `*/mockups/**` subtrees are not.
   (`check:knip` does run `--include dependencies,unlisted,unresolved,duplicates`, omitting
   unused-file and unused-export analysis — but that is repo-wide, not a mockup carve-out.)
-  Note too that the three exemption globs disagree with each other, so `care-plan/mockups/**`,
-  `caring-contacts/mockups/**` and `ward-management/**` are exempt from fewer rules than the
-  depth-1 `*-mockups.tsx` files. Mockups are still compiled like any other source: they are
+  Note too that the three exemption globs disagree with each other, so `care-plan/mockups/**` is
+  exempt from fewer rules than the depth-1 `*-mockups.tsx` files. Mockups are still compiled like any other source: they are
   typechecked, and their client chunks are still weighed by `check:bundle-budget` — against the
   separate `mockups` scratch budget, not the `production` one (reconciled 2026-08-09; see
   "Bundle budget" below). Do not read "exempt" as "free", and do not read this correction as
@@ -54,9 +53,9 @@ action must perform one; a page that ships must be reachable.
   `npm run check:mockups`. Deleting one needs a written successor plus a clean import search, not a
   reachability scan and not a `-v2`/`-final`/`-perfected` suffix — in this repo a mockup and the
   production change it justifies usually land in the SAME commit, and in at least five families the
-  newer generation imports the older one. `/mockups/development`, `/mockups/caring-contacts`,
-  `/mockups/care-plan` and `/mockups/ward-flow` are live in production behind `DeveloperAreaGate`
-  and are never cleanup candidates.
+  newer generation imports the older one. `/mockups/development` and
+  `/mockups/care-plan` are live in production behind `DeveloperAreaGate` and are never cleanup
+  candidates.
 - **Never** add a production page route without either an inbound link or a documented
   reachability allowlist entry plus an `/issues` note, and never silence the button-wiring rule
   with a blanket disable — wire the control or make it an explicit placeholder.

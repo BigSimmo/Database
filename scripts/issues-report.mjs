@@ -72,13 +72,6 @@ export function classifyAgentSafeWins(rows) {
   });
 }
 
-export function isWardFlowRow(row) {
-  if (!row) return false;
-  const summary = String(row.summary ?? "");
-  const outcome = String(row.outcome ?? "");
-  return /^ward flow\b/i.test(summary) || /^ward flow\b/i.test(outcome);
-}
-
 export function buildIssuesReport(markdown, source, options = {}) {
   const parsed = parseIssues(markdown);
   const queue = queueRows(markdown);
@@ -117,17 +110,7 @@ export function buildIssuesReport(markdown, source, options = {}) {
     return { ...row, outcome: detail, gate: row.outcome === detail ? null : row.outcome };
   });
 
-  if (options.ward) {
-    const isWard = (row) => isWardFlowRow(row);
-    const wardOpenIds = new Set(openRows.filter(isWard).map((r) => r.id));
-    openRows = openRows.filter(isWard);
-    derived = derived.filter((row) => isWard(row) || (row.ids && row.ids.some((id) => wardOpenIds.has(id))));
-  } else if (options.core) {
-    const isWard = (row) => isWardFlowRow(row);
-    const wardOpenIds = new Set(openRows.filter(isWard).map((r) => r.id));
-    openRows = openRows.filter((r) => !isWard(r));
-    derived = derived.filter((row) => !isWard(row) && !(row.ids && row.ids.some((id) => wardOpenIds.has(id))));
-  } else if (options.filter) {
+  if (options.filter) {
     const term = String(options.filter).toLowerCase();
     const matches = (r) =>
       Boolean(
@@ -349,7 +332,7 @@ export function parseCliArgs(argv) {
   let filter = undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (["--json", "--agent-safe-wins", "--ward", "--core"].includes(arg)) {
+    if (["--json", "--agent-safe-wins"].includes(arg)) {
       flags.add(arg);
     } else if (arg === "--filter") {
       const next = argv[i + 1];
@@ -368,14 +351,9 @@ export function parseCliArgs(argv) {
       throw new Error(`Unknown option: ${arg}`);
     }
   }
-  if (flags.has("--ward") && flags.has("--core")) {
-    throw new Error("Cannot specify both --ward and --core");
-  }
   return {
     json: flags.has("--json"),
     winsOnly: flags.has("--agent-safe-wins"),
-    ward: flags.has("--ward"),
-    core: flags.has("--core"),
     filter,
   };
 }

@@ -14,6 +14,7 @@ import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { ON_CALL_HOME_TAGS } from "@/lib/on-call/home-modules";
 import { type OnCallNotification } from "@/lib/on-call/notifications";
+import { type ReminderType } from "@/lib/reminders/settings";
 
 /**
  * The page menu's rows, without a trigger or a sheet of its own.
@@ -171,7 +172,7 @@ export function OnCallPageMenuActions({
         <span className="grid gap-0.5">
           <span className="font-bold">What the home shows</span>
           <span className={cn(textMuted, "text-xs")}>
-            {`Tag a contact "${ON_CALL_HOME_TAGS.callFirst}", "${ON_CALL_HOME_TAGS.switchboard}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home.`}
+            {`Tick "Call first on the home" when editing a contact. Tag a contact "${ON_CALL_HOME_TAGS.switchboard}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home too.`}
           </span>
         </span>
       </div>
@@ -205,6 +206,7 @@ export function OnCallPageMenu({
   staleCount = 0,
   summary,
   notifications,
+  onSnoozeNotifications,
 }: {
   /** The page this menu belongs to, or `"home"` for the dashboard. */
   view: OnCallPageView | "home";
@@ -242,6 +244,8 @@ export function OnCallPageMenu({
    * header. The caller already holds the list.
    */
   notifications?: readonly OnCallNotification[];
+  /** Snoozes one reminder type for a week; passed through to the notification list. */
+  onSnoozeNotifications?: (type: ReminderType) => void;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -307,7 +311,11 @@ export function OnCallPageMenu({
             page is raising on its own rather than offering on request. */}
         {notifications ? (
           <div className="mb-4">
-            <OnCallNotificationsPanel notifications={notifications} onNavigate={() => setOpen(false)} />
+            <OnCallNotificationsPanel
+              notifications={notifications}
+              onNavigate={() => setOpen(false)}
+              onSnooze={onSnoozeNotifications}
+            />
           </div>
         ) : null}
 

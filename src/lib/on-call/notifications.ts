@@ -6,6 +6,7 @@ import {
 } from "@/lib/on-call/compliance";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import { summariseOnCallFreshness } from "@/lib/on-call/freshness-summary";
+import { showsReminderInApp, type ReminderSettings, type ReminderType } from "@/lib/reminders/settings";
 
 /**
  * What this reader's own hub is asking them to deal with.
@@ -126,4 +127,28 @@ export function deriveOnCallNotifications(
     // places between renders.
     return a.title.localeCompare(b.title);
   });
+}
+
+/**
+ * Which reminder setting governs a notification. A date that has passed is a
+ * compliance date; a row nobody has confirmed, or confirmed too long ago, is an
+ * On Call check.
+ */
+export function onCallNotificationReminderType(kind: OnCallNotificationKind): ReminderType {
+  return kind === "compliance-date-passed" ? "compliance-dates" : "on-call-checks";
+}
+
+/**
+ * The notifications the owner has not hidden: "Show in the app" off, or
+ * snoozed until a date after `today` (a Perth `YYYY-MM-DD`), removes a type.
+ * Order is kept.
+ */
+export function visibleOnCallNotifications(
+  notifications: readonly OnCallNotification[],
+  reminders: ReminderSettings,
+  today: string,
+): OnCallNotification[] {
+  return notifications.filter((notification) =>
+    showsReminderInApp(reminders, onCallNotificationReminderType(notification.kind), today),
+  );
 }

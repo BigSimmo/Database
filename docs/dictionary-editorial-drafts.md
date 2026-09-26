@@ -73,16 +73,23 @@ identity may not.
 Numeric-leading tokens (`4AT`, `15L`) file under a single `#` bucket in an A–Z index rather than
 per-digit buckets.
 
-## Definition reviews are reconciled, never applied
+## Definition reviews are reconciled, and applied only after owner approval
 
 Each review records the wording it was written against and a SHA-256 of it.
-`reconcileDefinitionReviews` compares that hash to the live entry and returns one of four outcomes:
+`reconcileDefinitionReviews` compares that hash to the live entry and returns one of five outcomes:
 
 - `actionable` — baseline matches, the proposal is ready for sign-off (28 reviews)
 - `no_change_proposed` — a verdict with no rewrite (68 reviews)
 - `conflict` — the live wording has changed since the review; a person decides, and the reviewed text
   is **not** restored
 - `missing_entry` — the slug moved and the crosswalk needs re-checking
+- `applied` — the owner approved the rewrite (`npm run clinical:review -- --kind dictionary-rewrite`)
+  and the live wording now equals the approved proposal
+
+A rewrite reaches the live dictionary only through `npm run dictionary:apply-rewrites -- --write`,
+and only when its approval is well formed, its sign-off pin is current and its baseline still
+matches the live entry. Anything stale, conflicted or ambiguous stops the whole run and changes
+nothing. Without `--write` it only reports.
 
 As at 2026-09-16 all 96 baselines matched the live definitions exactly: no conflicts, no missing
 entries.

@@ -45,6 +45,7 @@ import type {
   ClientSearchResult,
 } from "@/lib/answer-client-payload";
 import { type AppModeId } from "@/lib/app-modes";
+import { cmeLearningFromRailHref } from "@/lib/cme/learning-source";
 import { extractSafetyFindings, groupSafetyFindingsByKind } from "@/lib/clinical-safety";
 import type { EvidenceSummary } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
@@ -202,6 +203,8 @@ function StagedAnswerResultSurfaceImpl({
       ),
     [bestSource, citedSourceIds, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
   );
+  // The first cited source, never the question: see `cmeLearningFromRailHref`.
+  const cpdHref = cmeLearningFromRailHref(railSources);
   // `trust` already distinguishes these; until now only a conditionally-rendered
   // side card ever showed the difference, so a "medium" answer - which includes
   // the case of a high-risk claim resting on unreviewed-authority evidence - read
@@ -655,6 +658,7 @@ function StagedAnswerResultSurfaceImpl({
             <AnswerUtilityActions
               copied={copiedAnswer}
               onCopy={onCopyAnswer}
+              cpdHref={cpdHref}
               pendingFeedback={pendingFeedback}
               onSubmitFeedback={onSubmitFeedback}
             />
