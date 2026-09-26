@@ -20,6 +20,7 @@
     "src/components/cme/**",
     "src/components/favourites/**",
     "src/components/on-call/**",
+    "src/data/cme/**",
     "src/lib/calendar/**",
     "src/lib/cme/**",
     "src/lib/favourites-client-contract.ts",
