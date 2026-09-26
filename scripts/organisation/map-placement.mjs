@@ -21,6 +21,39 @@ export function git(root, args, { allowFail = false } = {}) {
   return result.stdout;
 }
 
+/** Streams many blob ids through one `git cat-file --batch`; returns Map<blobId, text>. */
+export function readBlobs(root, blobIds) {
+  const texts = new Map();
+  const unique = [...new Set(blobIds)];
+  if (!unique.length) return texts;
+  const result = spawnSync("git", ["--no-optional-locks", "-C", root, "cat-file", "--batch"], {
+    input: `${unique.join("\n")}\n`,
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+  if (result.error || result.status !== 0) throw new Error("git cat-file --batch failed");
+  const out = result.stdout;
+  let offset = 0;
+  for (const id of unique) {
+    const headerEnd = out.indexOf(10, offset);
+    if (headerEnd === -1) break;
+    const [, type, sizeText] = out.subarray(offset, headerEnd).toString("utf8").split(" ");
+    if (type === undefined || sizeText === undefined) {
+      offset = headerEnd + 1; // "<id> missing"
+      continue;
+    }
+    const size = Number(sizeText);
+    if (type === "blob") texts.set(id, out.subarray(headerEnd + 1, headerEnd + 1 + size).toString("utf8"));
+    offset = headerEnd + 1 + size + 1;
+  }
+  return texts;
+}
+
+/** Committer time of HEAD, the default "now" so a report never depends on the wall clock. */
+export function headTime(root) {
+  const seconds = Number(git(root, ["show", "-s", "--format=%ct", "HEAD"]).trim());
+  return new Date(seconds * 1000);
+}
+
 export function isShallow(root) {
   return git(root, ["rev-parse", "--is-shallow-repository"], { allowFail: true })?.trim() === "true";
 }
