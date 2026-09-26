@@ -73,11 +73,12 @@ describe("Chief Psychiatrist's Standards", () => {
         summary: "Summary A.",
         sourceUrl: "https://www.chiefpsychiatrist.wa.gov.au/example/",
         reviewed: false,
+        reviewedBy: null,
       },
     ]);
   });
 
-  it("loads every committed standard from the bundled JSON, with no standard counted as reviewed without both a reviewer and a review date", () => {
+  it("loads every committed standard from the bundled JSON; an unsigned one stays unreviewed", () => {
     // A JSON import, not a disk read: the runtime image does not ship data/.
     const loaded = loadChiefPsychiatristStandards();
     const rawById = new Map(chiefPsychiatristStandards.standards.map((entry) => [entry.id, entry]));
@@ -85,8 +86,8 @@ describe("Chief Psychiatrist's Standards", () => {
     for (const entry of loaded ?? []) {
       expect(entry.sourceUrl, entry.id).toMatch(/^https:\/\/www\.chiefpsychiatrist\.wa\.gov\.au\//);
       const raw = rawById.get(entry.id);
-      const attested = raw?.status === "reviewed" && Boolean(raw.reviewedBy) && Boolean(raw.reviewedAt);
-      expect(entry.reviewed, entry.id).toBe(attested);
+      if (raw?.status !== "reviewed") expect([entry.reviewed, entry.reviewedBy], entry.id).toEqual([false, null]);
+      else if (entry.reviewed) expect(entry.reviewedBy, entry.id).toBe((raw.reviewedBy as string | null)?.trim());
     }
   });
 
@@ -102,16 +103,35 @@ describe("Chief Psychiatrist's Standards", () => {
     expect(parsed?.[0].sourceUrl).toBeNull();
   });
 
-  it("treats an entry as reviewed only with status, reviewer and date all present", () => {
+  it("treats an entry as reviewed only with a complete, well-formed sign-off, and never Indigenous content", () => {
+    const signed = {
+      ...valid.standards[0],
+      status: "reviewed",
+      reviewedBy: " Dr Clinical Owner ",
+      reviewedAt: "2026-09-01T00:00:00.000Z",
+      reviewedContentSha256: "a".repeat(64),
+    };
     const parsed = parseChiefPsychiatristStandards({
       standards: [
         { ...valid.standards[0], id: "claimed", status: "reviewed" },
-        { ...valid.standards[0], id: "signed", status: "reviewed", reviewedBy: "Owner", reviewedAt: "2026-10-01" },
+        { ...signed, id: "date-only", reviewedAt: "2026-09-01" },
+        { ...signed, id: "impossible-date", reviewedAt: "2026-02-31T00:00:00Z" },
+        { ...signed, id: "future", reviewedAt: "2999-01-01T00:00:00Z" },
+        { ...signed, id: "no-pin", reviewedContentSha256: null },
+        { ...signed, id: "blank-reviewer", reviewedBy: "  " },
+        { ...signed, id: "indigenous", summary: "Care for Aboriginal people and communities." },
+        { ...signed, id: "signed" },
       ],
     });
-    expect(parsed?.map((entry) => [entry.id, entry.reviewed])).toEqual([
-      ["claimed", false],
-      ["signed", true],
+    expect(parsed?.map((entry) => [entry.id, entry.reviewed, entry.reviewedBy])).toEqual([
+      ["claimed", false, null],
+      ["date-only", false, null],
+      ["impossible-date", false, null],
+      ["future", false, null],
+      ["no-pin", false, null],
+      ["blank-reviewer", false, null],
+      ["indigenous", false, null],
+      ["signed", true, "Dr Clinical Owner"],
     ]);
   });
 });
