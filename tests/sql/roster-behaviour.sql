@@ -30,6 +30,9 @@ end $$;
 create function pg_temp.cmd(p_actor text, p_action text, p_payload jsonb) returns jsonb language sql as $$
   select public.roster_command(pg_temp.id(p_actor), pg_temp.id('svc'), p_action, p_payload)
 $$;
+-- The Supabase image revokes execute from public by default, so grant the helpers explicitly.
+grant execute on function pg_temp.id(text), pg_temp.expect_error(text, text), pg_temp.cmd(text, text, jsonb)
+  to service_role;
 -- Everything below runs as the app does: as service_role, through the functions.
 set local role service_role;
 
