@@ -2,6 +2,8 @@
 
 -
 
+<!-- Areas touched: run `npm run pr:areas` and paste the lines it prints here, replacing this comment. It adds a RAG impact line to fill in when a ranking-protected file changed. -->
+
 ## Verification
 
 Paste the decisive line from whatever you ran — exit code 0 alone is not proof.

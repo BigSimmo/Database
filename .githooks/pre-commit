@@ -24,6 +24,7 @@ sync_sitemap=0
 sync_inventory=0
 check_module_map=0
 sync_design_system_adoption=0
+sync_organisation_areas=0
 
 if matches_staged '^(src/app/|mockups/|src/lib/(app-modes|document-flow-routes|differentials|dsm|formulation|forms|services|specifiers|therapies)\.ts$|scripts/generate-site-map\.ts$|docs/site-map\.md$)'; then
   sync_sitemap=1
@@ -40,7 +41,12 @@ fi
 if matches_staged '^(src/app/|src/components/|tests/|docs/design-system/(adoption-contract|adoption-manifest)\.json$|docs/design-system/(ADOPTION|COMPONENTS)\.md$|scripts/generate-design-system-adoption\.mjs$|\.design-sync/)'; then
   sync_design_system_adoption=1
 fi
-if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ]; then
+# The Areas section of docs/codebase-index.md is generated from the organisation
+# map's area files (each area's job and canonical docs, never file lists).
+if matches_staged '^(docs/organisation/systems/[^/]+\.json$|scripts/organisation/codebase-index-section\.mjs$|docs/codebase-index\.md$)'; then
+  sync_organisation_areas=1
+fi
+if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ] && [ "$sync_organisation_areas" = "0" ]; then
   exit 0
 fi
 
@@ -62,6 +68,10 @@ if [ "$sync_design_system_adoption" = "1" ]; then
   adoption_inputs=$(printf '%s\n' "$working_files" | grep -E '^(src/app/|src/components/|tests/|docs/design-system/(adoption-contract|adoption-manifest)\.json$|docs/design-system/(ADOPTION|COMPONENTS)\.md$|scripts/generate-design-system-adoption\.mjs$|\.design-sync/)' || true)
   mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$adoption_inputs" | sed '/^$/d' | sort -u)
 fi
+if [ "$sync_organisation_areas" = "1" ]; then
+  organisation_inputs=$(printf '%s\n' "$working_files" | grep -E '^(docs/organisation/systems/|scripts/organisation/codebase-index-section\.mjs$)' || true)
+  mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$organisation_inputs" | sed '/^$/d' | sort -u)
+fi
 if [ -n "$mixed_inputs" ]; then
   echo "[pre-commit] Documentation inputs have unstaged or untracked changes:" >&2
   printf '%s\n' "$mixed_inputs" >&2
@@ -81,6 +91,9 @@ if [ "$check_module_map" = "1" ]; then
 fi
 if [ "$sync_design_system_adoption" = "1" ]; then
   docs_to_check="$docs_to_check docs/design-system/adoption-manifest.json docs/design-system/COMPONENTS.md docs/design-system/ADOPTION.md"
+fi
+if [ "$sync_organisation_areas" = "1" ] && [ "$check_module_map" = "0" ]; then
+  docs_to_check="$docs_to_check docs/codebase-index.md"
 fi
 
 # Generators rewrite whole files. Refuse before running them when a selected
@@ -119,10 +132,23 @@ if [ "$sync_inventory" = "1" ] && [ ! -f scripts/update-docs-inventory.mjs ]; th
   # otherwise treat as a hook failure.
   docs_to_check=$(printf '%s\n' $docs_to_check | grep -v '^docs/scripts-index\.md$' || true)
 fi
+# Same fail-open rule for the organisation Areas generator, which older branches
+# do not carry.
+if [ "$sync_organisation_areas" = "1" ] && [ ! -f scripts/organisation/codebase-index-section.mjs ]; then
+  if git cat-file -e "HEAD:scripts/organisation/codebase-index-section.mjs" 2>/dev/null; then
+    echo "[pre-commit] scripts/organisation/codebase-index-section.mjs was removed or renamed by the pending commit; refusing to skip the Areas section synchronization." >&2
+    exit 1
+  fi
+  echo "[pre-commit] scripts/organisation/codebase-index-section.mjs is absent from this worktree - skipping the Areas section sync." >&2
+  sync_organisation_areas=0
+  if [ "$check_module_map" = "0" ]; then
+    docs_to_check=$(printf '%s\n' $docs_to_check | grep -v '^docs/codebase-index\.md$' || true)
+  fi
+fi
 
 # Re-check after dropping a task: an empty docs_to_check would make the trailing
 # unstaged-docs diff match every modified file in the tree.
-if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ]; then
+if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ] && [ "$sync_organisation_areas" = "0" ]; then
   exit 0
 fi
 
@@ -137,6 +163,10 @@ if [ "$sync_inventory" = "1" ]; then
   node scripts/update-docs-inventory.mjs
   npm run docs:check-inventory
 fi
+# Regenerate the Areas section before the index coverage check reads the file.
+if [ "$sync_organisation_areas" = "1" ]; then
+  node scripts/organisation/codebase-index-section.mjs --write
+fi
 if [ "$check_module_map" = "1" ]; then
   npm run docs:check-index
 fi
@@ -149,7 +179,7 @@ if [ "$sync_design_system_adoption" = "1" ]; then
     echo "[pre-commit] scripts/generate-design-system-adoption.mjs is absent from this worktree - skipping adoption sync." >&2
     sync_design_system_adoption=0
     docs_to_check=$(printf '%s\n' $docs_to_check | grep -Ev '^docs/design-system/(adoption-manifest\.json|COMPONENTS\.md|ADOPTION\.md)$' || true)
-    if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ]; then
+    if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ] && [ "$sync_organisation_areas" = "0" ]; then
       exit 0
     fi
   else

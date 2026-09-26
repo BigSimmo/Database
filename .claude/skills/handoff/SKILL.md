@@ -71,14 +71,20 @@ force-push, or discard work.
    exists remotely, so the push creates it fresh. Observed 2026-08-14 restarting this branch
    after PR #1944 merged.
 
-6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
+6. **Fill the PR form's area lines.** After the push, run `npm run pr:areas` (read-only; it
+   compares your commits with the local `origin/main` and never fetches) and paste every line
+   it prints under `## Summary`, in place of the template's `Areas touched` comment. When
+   pr-policy classifies the change as ranking-protected it also prints a `RAG impact: ???`
+   placeholder: replace that line with a real declaration, because pr-policy reports the
+   placeholder as unsatisfied until you do. The ranking decision is pr-policy's, never the map's.
+7. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Write the body from `.github/pull_request_template.md` exactly as
    [Open](../../../docs/agents/pull-request-workflow.md#open) requires — full prose, verbatim Preflight lines checked only
    where true, a satisfying `RAG impact:` line. On an ordinary PR you may arm squash
    auto-merge at open (`gh pr merge --squash --auto`)
    ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)).
-7. **Record** the review per [Records](../../../docs/agents/pull-request-workflow.md#records) with `npm run ledger:append`.
-8. **Follow CI while it is useful, then stop** per [Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci):
+8. **Record** the review per [Records](../../../docs/agents/pull-request-workflow.md#records) with `npm run ledger:append`.
+9. **Follow CI while it is useful, then stop** per [Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci):
    fix only what this change broke, slow cadence, no cron, then report the PR URL and plainly
    where CI stands. `.claude/hooks/pr-handoff-stop.sh` enforces the no-cron rule.
 
