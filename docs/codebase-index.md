@@ -435,6 +435,16 @@ never in the repository, so production cannot silently fall back to synthetic da
 
 ---
 
+### Teaching (in build)
+
+`src/lib/teaching/` is the Teaching mode's domain layer, being built in stages. `model.ts` holds the
+shared shapes and the Zod schemas for every request and every database result (results are parsed
+too, so a field a database function should never return is dropped before it reaches a browser);
+join links that carry a meeting passcode are refused there. `checkin-token.ts` reads a scanned
+check-in token's shape without checking its MAC, which only the database can do.
+
+---
+
 ### Calendar (shared)
 
 `src/lib/calendar/` is the provider-neutral calendar model used by CME and On Call. `CalendarEvent`
