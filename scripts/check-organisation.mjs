@@ -4,8 +4,8 @@
 //
 // Exit codes (honest, never optimistic):
 //   0  the scope was checked and nothing it is responsible for is broken; warnings may remain
-//   1  the map itself is broken (bad JSON or schema, a rule or entry pointing at nothing, an
-//      over-broad rule, two areas tying for one file, a superseded not-yet-placed entry)
+//   1  the map contradicts itself or cannot be read (bad JSON or schema, an over-broad rule, two
+//      areas tying for one file)
 //   2  the check could not run or could not be trusted (crash, git missing, wrong or sparse
 //      checkout, unknown map version, unreachable CI base)
 //
@@ -13,6 +13,9 @@
 // (ORGANISATION_CHECK_MODE=ci with BASE_SHA/HEAD_SHA): only findings the change itself introduced
 // block, so a PR is never blamed for leftovers already on main and the result never depends on
 // today's date. Files no rule places are warnings, never failures (owner decision 2026-09-26).
+// Moving or renaming never turns a PR red either: entries left pointing at a moved or deleted file,
+// superseded not-yet-placed entries and unsorted rules are warnings, and --fix tidies them (owner
+// decision 2026-09-26: keep the map loose around pages and modes, which move often).
 //
 // It never deletes, moves or rewrites project files. Reports go to the git-ignored
 // output/organisation/ as a paired JSON + Markdown file selected through latest.json.
@@ -48,6 +51,7 @@ const MIXED_PARENTS = new Set([
   "src/data/",
 ]);
 const ZERO_SHA = /^0+$/;
+const FIX_HINT = "`npm run check:organisation -- --fix` tidies it";
 
 class Incomplete extends Error {}
 
@@ -188,8 +192,9 @@ function broken(key, subject, message) {
   return { level: "broken", key, subject, message };
 }
 
-function warning(key, subject, message) {
-  return { level: "warning", key, subject, message };
+// `about` names the project file a map finding concerns, so CI can annotate the PR that moved it.
+function warning(key, subject, message, about = null) {
+  return about ? { level: "warning", key, subject, message, about } : { level: "warning", key, subject, message };
 }
 
 function checkKeys(object, allowed, file, findings) {
@@ -246,9 +251,10 @@ function loadMap(snapshot) {
     if (!Array.isArray(data.paths)) findings.push(broken(`map-field:${file}:paths`, file, "needs a `paths` list"));
     const sorted = [...paths].sort();
     if (paths.some((p, i) => p !== sorted[i])) {
-      findings.push(broken(`map-sort:${file}`, file, "`paths` must be sorted alphabetically (plain code-point order)"));
+      findings.push(warning(`map-sort:${file}`, file, `\`paths\` is not in alphabetical order; ${FIX_HINT}`));
     }
-    if (new Set(paths).size !== paths.length) findings.push(broken(`map-dup:${file}`, file, "`paths` has duplicates"));
+    if (new Set(paths).size !== paths.length)
+      findings.push(warning(`map-dup:${file}`, file, `\`paths\` has duplicates; ${FIX_HINT}`));
     systems.set(data.id, { id: data.id, name: data.name, kind: data.kind, owns: data.owns, canonicalDocs: docs, file });
     for (const pattern of paths) {
       const problem = patternProblem(pattern);
@@ -448,10 +454,11 @@ export function evaluate(snapshot) {
     const placed = Boolean(sharedEntry) || top.length === 1;
     if (nypSet.has(file) && placed) {
       findings.push(
-        broken(
+        warning(
           `nyp-superseded:${file}`,
           `${MAP_DIR}/not-yet-placed.json`,
-          `\`${file}\` is now placed; remove its not-yet-placed entry`,
+          `\`${file}\` is now placed by a rule; ${FIX_HINT}`,
+          file,
         ),
       );
     }
@@ -466,33 +473,47 @@ export function evaluate(snapshot) {
     if (!fileSet.has(pattern)) {
       for (const rule of list)
         findings.push(
-          broken(
+          warning(
             `dead-rule:${rule.system}:${pattern}`,
             rule.file,
-            `rule \`${pattern}\` names a file that does not exist`,
+            `rule \`${pattern}\` names a file that no longer exists (moved or deleted?); ${FIX_HINT}`,
+            pattern,
           ),
         );
     }
   }
   for (const entry of map.shared) {
     if (typeof entry.path === "string" && !fileSet.has(entry.path)) {
-      findings.push(broken(`dead-shared:${entry.path}`, `${MAP_DIR}/shared.json`, `\`${entry.path}\` does not exist`));
+      findings.push(
+        warning(
+          `dead-shared:${entry.path}`,
+          `${MAP_DIR}/shared.json`,
+          `\`${entry.path}\` no longer exists; ${FIX_HINT}`,
+          entry.path,
+        ),
+      );
     }
   }
   for (const file of nypSet) {
     if (!fileSet.has(file))
       findings.push(
-        broken(`dead-nyp:${file}`, `${MAP_DIR}/not-yet-placed.json`, `\`${file}\` does not exist; remove its entry`),
+        warning(
+          `dead-nyp:${file}`,
+          `${MAP_DIR}/not-yet-placed.json`,
+          `\`${file}\` no longer exists; ${FIX_HINT}`,
+          file,
+        ),
       );
   }
   for (const [rule, hits] of listHits) {
     if (hits > 0) continue;
     if (rule.exact)
       findings.push(
-        broken(
+        warning(
           `dead-list:${rule.list}:${rule.pattern}`,
           `${MAP_DIR}/${rule.list}`,
-          `\`${rule.pattern}\` does not exist`,
+          `\`${rule.pattern}\` no longer exists; ${FIX_HINT}`,
+          rule.pattern,
         ),
       );
     else
@@ -514,14 +535,21 @@ export function evaluate(snapshot) {
     for (const doc of system.canonicalDocs) {
       if (!fileSet.has(doc))
         findings.push(
-          broken(`dead-canonical:${system.id}:${doc}`, system.file, `canonical doc \`${doc}\` does not exist`),
+          warning(
+            `dead-canonical:${system.id}:${doc}`,
+            system.file,
+            `canonical doc \`${doc}\` no longer exists; ${FIX_HINT}`,
+            doc,
+          ),
         );
     }
   }
   const pinChanges = [];
   for (const [doc, blob] of Object.entries(map.pins)) {
     if (!fileSet.has(doc))
-      findings.push(broken(`dead-pin:${doc}`, `${MAP_DIR}/pins.json`, `pinned doc \`${doc}\` does not exist`));
+      findings.push(
+        warning(`dead-pin:${doc}`, `${MAP_DIR}/pins.json`, `pinned doc \`${doc}\` no longer exists; ${FIX_HINT}`, doc),
+      );
     else if (snapshot.blobs.get(doc) !== blob) pinChanges.push({ doc, pinned: blob, current: snapshot.blobs.get(doc) });
   }
   for (const file of unplaced) findings.push(warning(`unplaced:${file}`, file, "is not placed in any area yet"));
@@ -707,6 +735,106 @@ function writeReport(root, report) {
   }
 }
 
+// ---------- --fix: tidy stale entries ----------
+
+// Removes map entries left behind by moved or deleted files, drops not-yet-placed entries a rule
+// now covers, and restores alphabetical order. It edits only docs/organisation/, never places a
+// file, never touches ignore patterns, and never moves or deletes a project file.
+function fixMap(root) {
+  const snapshot = workingTreeSnapshot(root);
+  const result = evaluate(snapshot);
+  const exists = (file) => typeof file === "string" && snapshot.blobs.has(file);
+  const isExact = (pattern) => typeof pattern === "string" && literalPrefix(pattern) === null;
+  const placedByRule = (file) => {
+    const where = result.placement[file];
+    return typeof where === "string" && (!where.startsWith("(") || where.startsWith("(shared)"));
+  };
+  const changed = [];
+  const removed = [];
+  const edit = (file, mutate) => {
+    const full = path.join(root, file);
+    let data;
+    try {
+      data = JSON.parse(fs.readFileSync(full, "utf8").replace(/^﻿/, ""));
+    } catch {
+      return; // unreadable files are reported by the check itself
+    }
+    const before = JSON.stringify(data);
+    mutate(data);
+    if (JSON.stringify(data) === before) return;
+    fs.writeFileSync(full, `${JSON.stringify(data, null, 2)}\n`);
+    changed.push(file);
+  };
+  const keep = (file, list, test, label) =>
+    list.filter((item) => {
+      if (test(item)) return true;
+      removed.push(`${file}: ${label(item)}`);
+      return false;
+    });
+
+  for (const file of [...snapshot.blobs.keys()].filter((f) => f.startsWith(`${SYSTEMS_DIR}/`) && f.endsWith(".json"))) {
+    edit(file, (data) => {
+      if (Array.isArray(data.paths)) {
+        const kept = keep(file, data.paths, (p) => !isExact(p) || exists(p), String);
+        data.paths = [...new Set(kept)].sort();
+      }
+      if (Array.isArray(data.canonicalDocs)) data.canonicalDocs = keep(file, data.canonicalDocs, exists, String);
+    });
+  }
+  const entries = (name, test, label) => {
+    const file = `${MAP_DIR}/${name}`;
+    if (!snapshot.blobs.has(file)) return;
+    edit(file, (data) => {
+      if (Array.isArray(data.entries)) data.entries = keep(file, data.entries, test, label);
+    });
+  };
+  entries(
+    "shared.json",
+    (e) => exists(e?.path),
+    (e) => e?.path,
+  );
+  entries(
+    "not-yet-placed.json",
+    (e) => exists(e?.path) && !placedByRule(e.path),
+    (e) => e?.path,
+  );
+  entries(
+    "ignored.json",
+    (e) => !isExact(e?.match) || exists(e.match),
+    (e) => e?.match,
+  );
+  const kindsFile = `${MAP_DIR}/kinds.json`;
+  if (snapshot.blobs.has(kindsFile)) {
+    edit(kindsFile, (data) => {
+      for (const kind of ["generated", "records", "historical"]) {
+        if (Array.isArray(data[kind]))
+          data[kind] = keep(kindsFile, data[kind], (p) => !isExact(p) || exists(p), String);
+      }
+    });
+  }
+  const pinsFile = `${MAP_DIR}/pins.json`;
+  if (snapshot.blobs.has(pinsFile)) {
+    edit(pinsFile, (data) => {
+      if (!data.pins || typeof data.pins !== "object") return;
+      for (const doc of Object.keys(data.pins)) {
+        if (!exists(doc)) {
+          delete data.pins[doc];
+          removed.push(`${pinsFile}: ${doc}`);
+        }
+      }
+    });
+  }
+
+  // Leave the edited files in the repo's own Prettier layout when Prettier is installed.
+  let formatted = changed.length === 0;
+  const prettier = path.join(root, "node_modules", "prettier", "bin", "prettier.cjs");
+  if (changed.length && fs.existsSync(prettier)) {
+    formatted =
+      spawnSync(process.execPath, [prettier, "--write", ...changed], { cwd: root, stdio: "ignore" }).status === 0;
+  }
+  return { changed, removed, formatted };
+}
+
 // ---------- modes ----------
 
 function changedFiles(root, base, head) {
@@ -747,13 +875,14 @@ function touchesMap(touched) {
 }
 
 function parseArgs(argv) {
-  const args = { staged: false, report: true, quiet: false, json: false, root: null, files: null };
+  const args = { staged: false, report: true, quiet: false, json: false, fix: false, root: null, files: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--staged") args.staged = true;
     else if (arg === "--no-report") args.report = false;
     else if (arg === "--quiet") args.quiet = true;
     else if (arg === "--json") args.json = true;
+    else if (arg === "--fix") args.fix = true;
     else if (arg === "--root") args.root = argv[++i];
     else if (arg === "--files") args.files = argv.slice(i + 1);
     else throw new Incomplete(`unknown argument ${arg}`);
@@ -779,6 +908,10 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     args = parseArgs(argv);
     if (args.root) root = path.resolve(args.root);
     assertUsableCheckout(root);
+    if (args.fix) {
+      if (ci || args.staged) throw new Incomplete("--fix works on the working tree only");
+      report.fixed = fixMap(root);
+    }
     let run;
     if (ci) run = runCi(root, env);
     else {
@@ -857,6 +990,14 @@ function printConsole(report, args, ci) {
       `  ${t.files} files: ${t.placed} placed, ${t.shared} shared, ${t.ignored} ignored, ${t.notYetPlaced} not yet placed, ${t.unplaced} unplaced`,
     );
   }
+  if (report.fixed) {
+    const { changed, removed, formatted } = report.fixed;
+    out(
+      `  tidied: ${removed.length} stale entr${removed.length === 1 ? "y" : "ies"} removed, ${changed.length} map file(s) rewritten`,
+    );
+    for (const item of removed.slice(0, 30)) out(`    removed ${item}`);
+    if (!formatted) out("  run `npm run format` to restore the map files' layout");
+  }
   for (const finding of report.findings.filter((f) => f.blocking))
     out(`  BLOCKING ${finding.subject}: ${finding.message}`);
   const warnings = report.findings.filter((f) => !f.blocking);
@@ -864,7 +1005,7 @@ function printConsole(report, args, ci) {
   if (!args.quiet) {
     // In CI, annotate only what this change touched; inherited warnings stay in the summary.
     const touched = report.touched ? new Set(report.touched) : null;
-    const shown = touched ? warnings.filter((f) => touched.has(f.subject)) : warnings;
+    const shown = touched ? warnings.filter((f) => touched.has(f.subject) || touched.has(f.about)) : warnings;
     for (const finding of shown.slice(0, 30)) {
       out(`  warning ${finding.subject}: ${finding.message}`);
       if (ci) console.log(`::warning file=${finding.subject}::${finding.message.replaceAll("`", "'")}`);

@@ -100,19 +100,28 @@ describe("check-organisation", () => {
     expect(report.findings).toContainEqual(expect.objectContaining({ key: "unplaced:stray.txt", level: "warning" }));
   });
 
-  it("fails on an exact rule that names a missing file", () => {
+  it("warns (never fails) when an exact rule names a missing file, and --fix removes it", () => {
     const root = repo(mapFiles({ knowledge: [MAP_RULE, "gone.md"] }));
-    const { code, blocking } = check(root);
-    expect(code).toBe(1);
-    expect(blocking).toContainEqual(expect.objectContaining({ key: "dead-rule:knowledge:gone.md" }));
+    const { code, report } = check(root);
+    expect(code).toBe(0);
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({ key: "dead-rule:knowledge:gone.md", level: "warning", blocking: false }),
+    );
+
+    const fixed = check(root, ["--fix"]);
+    expect(fixed.code).toBe(0);
+    expect(fixed.report.fixed.removed).toEqual(["docs/organisation/systems/knowledge.json: gone.md"]);
+    const area = JSON.parse(fs.readFileSync(path.join(root, "docs/organisation/systems/knowledge.json"), "utf8"));
+    expect(area.paths).toEqual([MAP_RULE]);
+    expect(fixed.report.findings.map((f: { key: string }) => f.key)).not.toContain("dead-rule:knowledge:gone.md");
   });
 
-  it("reports both paths when an exactly mapped file is renamed without its rule", () => {
+  it("treats a rename as two warnings, so moving pages around never turns a PR red", () => {
     const root = repo({ ...mapFiles({ knowledge: [MAP_RULE, "old.md"] }), "old.md": "" });
     fs.renameSync(path.join(root, "old.md"), path.join(root, "new.md"));
     git(root, "add", "-A");
     const { code, report } = check(root);
-    expect(code).toBe(1);
+    expect(code).toBe(0);
     const keys = report.findings.map((f: { key: string }) => f.key);
     expect(keys).toContain("dead-rule:knowledge:old.md");
     expect(keys).toContain("unplaced:new.md");
@@ -168,14 +177,36 @@ describe("check-organisation", () => {
     expect(blocking[0].message).toMatch(/too broad/);
   });
 
-  it("fails on a superseded not-yet-placed entry and on unsorted rules", () => {
+  it("warns about a superseded not-yet-placed entry and unsorted rules, and --fix tidies both", () => {
     const nyp = [{ path: "a.md", reason: "Could be knowledge or delivery." }];
     const files = mapFiles({ knowledge: [] }, { nyp });
     files["docs/organisation/systems/knowledge.json"] = area("knowledge", [MAP_RULE, "b.md", "a.md"], { sort: false });
     const root = repo({ ...files, "a.md": "", "b.md": "" });
-    const keys = check(root).blocking.map((f: { key: string }) => f.key);
+    const first = check(root);
+    expect(first.code).toBe(0);
+    const keys = first.report.findings.map((f: { key: string }) => f.key);
     expect(keys).toContain("nyp-superseded:a.md");
     expect(keys).toContain("map-sort:docs/organisation/systems/knowledge.json");
+
+    const fixed = check(root, ["--fix"]);
+    expect(fixed.report.findings).toEqual([]);
+    const area2 = JSON.parse(fs.readFileSync(path.join(root, "docs/organisation/systems/knowledge.json"), "utf8"));
+    expect(area2.paths).toEqual(["a.md", "b.md", MAP_RULE]);
+    const nypAfter = JSON.parse(fs.readFileSync(path.join(root, "docs/organisation/not-yet-placed.json"), "utf8"));
+    expect(nypAfter.entries).toEqual([]);
+  });
+
+  it("--fix leaves ignore patterns alone and refuses to run on the staged copy", () => {
+    const ignored = [
+      { match: "old/**", reason: "Being removed from the project." },
+      { match: "gone.txt", reason: "Being removed from the project." },
+    ];
+    const root = repo(mapFiles({ knowledge: [MAP_RULE] }, { ignored }));
+    const fixed = check(root, ["--fix"]);
+    const after = JSON.parse(fs.readFileSync(path.join(root, "docs/organisation/ignored.json"), "utf8"));
+    expect(after.entries.map((e: { match: string }) => e.match)).toEqual(["old/**"]);
+    expect(fixed.report.fixed.removed).toEqual(["docs/organisation/ignored.json: gone.txt"]);
+    expect(check(root, ["--fix", "--staged"]).code).toBe(2);
   });
 
   it("rejects reasons that contain links", () => {
@@ -196,15 +227,16 @@ describe("check-organisation", () => {
 
   it("--staged reads the map from the index, not the working tree", () => {
     const root = repo({ ...mapFiles({ knowledge: [MAP_RULE, "a.md"] }), "a.md": "" });
-    write(root, { "docs/organisation/systems/knowledge.json": area("knowledge", [MAP_RULE, "a.md", "missing.md"]) });
+    write(root, { "docs/organisation/systems/knowledge.json": area("knowledge", [MAP_RULE, "a.md", "src/**"]) });
     git(root, "add", "docs/organisation/systems/knowledge.json");
     write(root, { "docs/organisation/systems/knowledge.json": area("knowledge", [MAP_RULE, "a.md"]) });
     expect(check(root).code).toBe(0);
     expect(check(root, ["--staged"]).code).toBe(1);
   });
 
-  it("in CI blocks only what the change introduced, never inherited debt", () => {
-    const root = repo({ ...mapFiles({ knowledge: [MAP_RULE, "a.md", "b.md", "gone.md"] }), "a.md": "", "b.md": "" });
+  it("in CI blocks only what the change introduced, never inherited debt or moved files", () => {
+    const areas = { a: ["lib/x-*"], b: ["lib/x-*.ts"], knowledge: [MAP_RULE, "keep.md"] };
+    const root = repo({ ...mapFiles(areas), "lib/x-0.ts": "", "keep.md": "" });
     const base = git(root, "rev-parse", "HEAD");
     const ci = (head: string) => check(root, [], { ORGANISATION_CHECK_MODE: "ci", BASE_SHA: base, HEAD_SHA: head });
 
@@ -212,13 +244,20 @@ describe("check-organisation", () => {
     const inherited = ci(unrelated);
     expect(inherited.code).toBe(0);
     expect(inherited.report.findings).toContainEqual(
-      expect.objectContaining({ key: "dead-rule:knowledge:gone.md", blocking: false }),
+      expect.objectContaining({ key: "tie:lib/x-0.ts", blocking: false }),
     );
 
-    const deleting = commit(root, {}, ["b.md"]);
-    const introduced = ci(deleting);
+    const moving = commit(root, { "moved/keep.md": "" }, ["keep.md"]);
+    const moved = ci(moving);
+    expect(moved.code).toBe(0);
+    expect(moved.report.findings).toContainEqual(
+      expect.objectContaining({ key: "dead-rule:knowledge:keep.md", blocking: false }),
+    );
+
+    const tying = commit(root, { "lib/x-1.ts": "" });
+    const introduced = ci(tying);
     expect(introduced.code).toBe(1);
-    expect(introduced.blocking.map((f: { key: string }) => f.key)).toEqual(["dead-rule:knowledge:b.md"]);
+    expect(introduced.blocking.map((f: { key: string }) => f.key)).toEqual(["tie:lib/x-1.ts"]);
   });
 
   it("writes a paired report selected by a pointer file", () => {

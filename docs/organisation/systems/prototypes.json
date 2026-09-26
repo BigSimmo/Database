@@ -6,6 +6,7 @@
   "owns": "Admin-only work that is not yet part of the product: Care Plan, the developer hub and design-scratch mock-ups.",
   "canonicalDocs": ["docs/care-plan/CLAUDE-START-HERE.md"],
   "paths": [
+    "data/hazard-register-snapshot.json",
     "docs/care-plan-context.md",
     "docs/care-plan/**",
     "docs/corpus-health-panel-handover.md",
@@ -86,6 +87,7 @@
     "tests/calculator-mockup-*",
     "tests/calculators-show-all-mockups.dom.test.tsx",
     "tests/care-*",
+    "tests/clinical-quality-api.test.ts",
     "tests/clinical-quality-dashboard.test.ts",
     "tests/clinical-trust-cockpit.dom.test.tsx",
     "tests/developer-*",
@@ -94,11 +96,13 @@
     "tests/favourites-phone-perfected-mockups.test.ts",
     "tests/filter-sheet-restyle-mockups.test.ts",
     "tests/hazard-register.test.ts",
+    "tests/helpers/care-plan-patient-copy-claims.ts",
     "tests/master-document-flow-date.test.ts",
     "tests/mockup-*",
     "tests/pinned-plus-menu-mockups.dom.test.tsx",
     "tests/production-mockup-boundary.test.ts",
     "tests/repo-*",
+    "tests/repo-awareness-generator.test.ts",
     "tests/search-lens-menu-mockups.dom.test.tsx",
     "tests/search-refine-adaptive-mockups.dom.test.tsx",
     "tests/sidebar-live-mockup.dom.test.tsx",
@@ -112,6 +116,7 @@
     "tests/ui-sidebar-live-mockup.spec.ts",
     "tests/ui-therapy-navigation-mockup.spec.ts",
     "tests/ui-tools-collapse.spec.ts",
+    "tests/ui-tools-search-mode-mockup.spec.ts",
     "tests/ui-tools-task-directory.spec.ts",
     "tests/viewport-fill-contract.test.ts"
   ]
