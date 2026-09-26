@@ -94,11 +94,12 @@
         "docs/outstanding-issues-inbox/applied/1836d32f-6db8-45f2-bc71-f429b22f5a1c.json"
       ],
       "externalEvidenceReference": "Authenticated OpenAI Platform owner review and interim configuration on 2026-09-01 confirmed API input/output sharing disabled, changed API call logging to Disabled, and disabled hosted MCP, web search, file search, image generation, code interpreter, and container networking; an API for Enterprise sales request for ZDR covering Responses, Embeddings, prompt caching, DPA, and Australia data-residency options was submitted and acknowledged by OpenAI on 2026-09-01, but approval, endpoint coverage evidence, and production-key project matching remain pending",
-      "reviewedAt": "2026-09-01",
-      "reviewExpiresAt": "2026-10-01",
+      "reviewedAt": "2026-09-26",
+      "reviewExpiresAt": "2026-12-01",
       "statusHistory": [
         { "status": "pending", "date": "2026-08-23" },
-        { "status": "pending", "date": "2026-09-01" }
+        { "status": "pending", "date": "2026-09-01" },
+        { "status": "pending", "date": "2026-09-26" }
       ]
     },
     {
@@ -111,11 +112,12 @@
         "docs/operator-backlog.md",
         "docs/outstanding-issues-inbox/applied/1836d32f-6db8-45f2-bc71-f429b22f5a1c.json"
       ],
-      "reviewedAt": "2026-09-01",
-      "reviewExpiresAt": "2026-10-01",
+      "reviewedAt": "2026-09-26",
+      "reviewExpiresAt": "2026-12-01",
       "statusHistory": [
         { "status": "pending", "date": "2026-08-23" },
-        { "status": "pending", "date": "2026-09-01" }
+        { "status": "pending", "date": "2026-09-01" },
+        { "status": "pending", "date": "2026-09-26" }
       ]
     },
     {
@@ -124,11 +126,12 @@
       "status": "pending",
       "accountableRole": "Authorised legal signatory",
       "evidenceReferences": ["docs/openai-cross-border-basis.md", "docs/privacy-impact-assessment.md"],
-      "reviewedAt": "2026-09-01",
-      "reviewExpiresAt": "2026-10-01",
+      "reviewedAt": "2026-09-26",
+      "reviewExpiresAt": "2026-12-01",
       "statusHistory": [
         { "status": "pending", "date": "2026-08-23" },
-        { "status": "pending", "date": "2026-09-01" }
+        { "status": "pending", "date": "2026-09-01" },
+        { "status": "pending", "date": "2026-09-26" }
       ]
     },
     {
@@ -137,11 +140,12 @@
       "status": "pending",
       "accountableRole": "Privacy adviser",
       "evidenceReferences": ["docs/openai-cross-border-basis.md", "docs/privacy-impact-assessment.md"],
-      "reviewedAt": "2026-09-01",
-      "reviewExpiresAt": "2026-10-01",
+      "reviewedAt": "2026-09-26",
+      "reviewExpiresAt": "2026-12-01",
       "statusHistory": [
         { "status": "pending", "date": "2026-08-23" },
-        { "status": "pending", "date": "2026-09-01" }
+        { "status": "pending", "date": "2026-09-01" },
+        { "status": "pending", "date": "2026-09-26" }
       ]
     },
     {
@@ -150,11 +154,12 @@
       "status": "pending",
       "accountableRole": "Privacy adviser",
       "evidenceReferences": ["docs/privacy-impact-assessment.md", "src/lib/privacy-page-content.tsx"],
-      "reviewedAt": "2026-09-01",
-      "reviewExpiresAt": "2026-10-01",
+      "reviewedAt": "2026-09-26",
+      "reviewExpiresAt": "2026-12-01",
       "statusHistory": [
         { "status": "pending", "date": "2026-08-23" },
-        { "status": "pending", "date": "2026-09-01" }
+        { "status": "pending", "date": "2026-09-01" },
+        { "status": "pending", "date": "2026-09-26" }
       ]
     },
     {
@@ -163,11 +168,12 @@
       "status": "partial",
       "accountableRole": "Clinical safety owner",
       "evidenceReferences": ["docs/privacy-impact-assessment.md", "tests/privacy-ui.test.ts"],
-      "reviewedAt": "2026-09-01",
-      "reviewExpiresAt": "2026-10-01",
+      "reviewedAt": "2026-09-26",
+      "reviewExpiresAt": "2026-12-01",
       "statusHistory": [
         { "status": "partial", "date": "2026-08-23" },
-        { "status": "partial", "date": "2026-09-01" }
+        { "status": "partial", "date": "2026-09-01" },
+        { "status": "partial", "date": "2026-09-26" }
       ]
     }
   ]
