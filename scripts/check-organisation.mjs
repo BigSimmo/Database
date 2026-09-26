@@ -24,6 +24,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { coverageLossFindings, deadEntryFindings } from "./organisation/path-lists.mjs";
+
 export const MAP_VERSION = 1;
 const CHECKER_VERSION = 1;
 const MAP_DIR = "docs/organisation";
@@ -565,6 +567,7 @@ export function evaluate(snapshot) {
       unplaced: unplaced.length,
       ambiguous: ambiguous.length,
     },
+    files,
     placement,
     pinChanges,
     kinds: map.kinds,
@@ -852,6 +855,8 @@ function runCi(root, env) {
       result: evaluate(headSnapshot),
       baseKeys: null,
       touched: null,
+      mergeBase: null,
+      head,
     };
   }
   const mergeBase = git(root, ["merge-base", baseEnv, head], { allowFail: true })?.trim();
@@ -867,11 +872,41 @@ function runCi(root, env) {
       baseKeys = new Set();
     }
   }
-  return { scope: `changes since ${mergeBase.slice(0, 9)} (${headSnapshot.label})`, result, baseKeys, touched };
+  return {
+    scope: `changes since ${mergeBase.slice(0, 9)} (${headSnapshot.label})`,
+    result,
+    baseKeys,
+    touched,
+    mergeBase,
+    head,
+  };
+}
+
+// Safety-list coverage (plan suggestion 7). Never blocking: a rename that drops a file out of a
+// safety list is loud, dead list entries are ordinary warnings. pr-policy stays the list's owner.
+function safetyListFindings(root, result, run, ci) {
+  try {
+    // The lists come from this checkout's pr-policy, so they only describe a tree that has it.
+    if (!result.files?.includes("scripts/pr-policy.mjs")) return [];
+    const findings = deadEntryFindings({ root, trackedFiles: result.files });
+    if (ci && run.mergeBase) findings.push(...coverageLossFindings({ root, base: run.mergeBase, head: run.head }));
+    return findings.map((f) => ({ ...f, level: "warning" }));
+  } catch (error) {
+    return [
+      warning(
+        "safety-lists-unchecked",
+        "scripts/pr-policy.mjs",
+        `safety-list coverage could not be checked: ${String(error?.message ?? error).split("\n")[0]}`,
+      ),
+    ];
+  }
 }
 
 function touchesMap(touched) {
-  return touched === null || touched.some((f) => f === CHECKER_PATH || f.startsWith(`${MAP_DIR}/`));
+  return (
+    touched === null ||
+    touched.some((f) => f === CHECKER_PATH || f.startsWith(`${MAP_DIR}/`) || f.startsWith("scripts/organisation/"))
+  );
 }
 
 function parseArgs(argv) {
@@ -919,6 +954,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
       run = { scope: snapshot.label, result: evaluate(snapshot), baseKeys: null, touched: null };
     }
     const { result } = run;
+    result.findings.push(...safetyListFindings(root, result, run, ci));
     report.scope = run.scope;
     report.commit = git(root, ["rev-parse", "HEAD"], { allowFail: true })?.trim() ?? null;
     Object.assign(report, {
@@ -1000,6 +1036,13 @@ function printConsole(report, args, ci) {
   }
   for (const finding of report.findings.filter((f) => f.blocking))
     out(`  BLOCKING ${finding.subject}: ${finding.message}`);
+  for (const finding of report.findings.filter((f) => f.loud)) {
+    out(`  SAFETY COVERAGE LOST ${finding.subject}: ${finding.message}`);
+    if (ci)
+      console.log(
+        `::warning file=${finding.subject},title=Safety coverage lost::${finding.message.replaceAll("`", "'")}`,
+      );
+  }
   const warnings = report.findings.filter((f) => !f.blocking);
   if (warnings.length) out(`  ${warnings.length} warning(s)${args.quiet ? "" : ":"}`);
   if (!args.quiet) {
