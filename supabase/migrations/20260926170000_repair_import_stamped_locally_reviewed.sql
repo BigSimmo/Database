@@ -43,7 +43,7 @@ begin
       and coalesce(d.metadata#>>'{clinical_validation_evidence,basis}', '')
           like 'local WA source with document-control % evidence'
       and coalesce(d.metadata->>'source_kind', '') <> 'registry_record'
-      and not (d.owner_id is null and d.metadata->>'corpus_scope' = 'australian_public')
+      and not (d.owner_id is null and coalesce(d.metadata->>'corpus_scope', '') = 'australian_public')
       and not exists (
         select 1
         from public.source_review_events e
