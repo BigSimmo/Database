@@ -1,5 +1,9 @@
 import "server-only";
 import { fetchCmeEvidenceCounts } from "@/lib/cme/evidence-repository";
+import type { CmeDraft } from "@/lib/cme/drafts";
+import { fetchOwnerCmeDraft, fetchOwnerCmeDrafts } from "@/lib/cme/drafts-repository";
+import type { CmeMissedSession } from "@/lib/cme/missed-sessions";
+import { fetchOwnerCmeMissedSessions } from "@/lib/cme/missed-sessions-repository";
 import { cpdYearOf } from "@/lib/cme/cpd-year";
 import type { CmePlanGoal } from "@/lib/cme/plan-goals";
 import { fetchOwnerCmeEntryGoals, fetchOwnerCmePlanGoals } from "@/lib/cme/plan-goals-repository";
@@ -36,12 +40,48 @@ export type CmePageData = {
   readonly close: CmeYearClose | null;
   /** The year's development-plan goals, in the owner's order. */
   readonly goals: readonly CmePlanGoal[];
+  /** Saved drafts, only when asked for. Never counted toward hours. */
+  readonly drafts: readonly CmeDraft[];
+  /** Missed teaching and supervision, only when asked for. Never counted toward hours. */
+  readonly missedSessions: readonly CmeMissedSession[];
+  /** The one draft asked for by id, when it belongs to this owner. */
+  readonly draft: CmeDraft | null;
+  /** Drafts or missed sessions were asked for and could not be read; the rest of the page still loads. */
+  readonly recordsFailed: boolean;
 };
+
+export type CmeRecordsOptions = {
+  readonly includeArchived?: boolean;
+  readonly drafts?: boolean;
+  readonly missedSessions?: boolean;
+  readonly draftId?: string;
+};
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * Drafts and missed sessions are not tied to a CPD year, so they load beside the year rather than
+ * after it. A failure here is reported on its own section instead of taking the page down.
+ */
+async function loadRecords(admin: AdminClient, ownerId: string, options: CmeRecordsOptions) {
+  try {
+    const [drafts, missedSessions, draft] = await Promise.all([
+      options.drafts ? fetchOwnerCmeDrafts(admin, ownerId) : [],
+      options.missedSessions ? fetchOwnerCmeMissedSessions(admin, ownerId) : [],
+      options.draftId ? fetchOwnerCmeDraft(admin, ownerId, options.draftId) : null,
+    ]);
+    return { drafts, missedSessions, draft, recordsFailed: false };
+  } catch {
+    return { drafts: [], missedSessions: [], draft: null, recordsFailed: true };
+  }
+}
+
+const NO_RECORDS = { drafts: [], missedSessions: [], draft: null, recordsFailed: false } as const;
 
 async function load(
   year?: number,
   entryId?: string,
-  options: { includeArchived?: boolean } = {},
+  options: CmeRecordsOptions = {},
 ): Promise<CmePageData & { entry: CmeEntry | null }> {
   if (isDemoMode()) {
     const entry = entryId ? (DEMO_CME_ENTRIES.find((e) => e.id === entryId) ?? null) : null;
@@ -57,6 +97,8 @@ async function load(
       // The demo year is never closed; closing is refused in demo mode.
       close: null,
       goals: targetYear === DEMO_CME_YEAR.year ? DEMO_CME_PLAN_GOALS : [],
+      // Demo mode is read-only and has no drafts or missed sessions.
+      ...NO_RECORDS,
       entry,
     };
   }
@@ -71,6 +113,7 @@ async function load(
     close: null,
     goals: [],
     entry: null,
+    ...NO_RECORDS,
   };
   try {
     const server = await createSupabaseServerClient();
@@ -81,24 +124,31 @@ async function load(
     const admin = createAdminClient();
     const entry = entryId ? await fetchOwnerCmeEntry(admin, auth.user.id, entryId) : null;
     const targetYear = entry ? Number(entry.date.slice(0, 4)) : empty.year;
-    const [set, routines] = await Promise.all([
+    const [set, routines, records] = await Promise.all([
       fetchOwnerCmeYear(admin, auth.user.id, targetYear),
       fetchOwnerCmeRoutines(admin, auth.user.id),
+      loadRecords(admin, auth.user.id, options),
     ]);
-    if (!set) return { ...empty, year: targetYear, routines, state: "unconfigured" };
-    const loadedEntries = await fetchOwnerCmeEntries(admin, auth.user.id, set.id, options);
-    const evidenceCounts = await fetchCmeEvidenceCounts(admin, auth.user.id, targetYear);
-    const [goals, entryGoals] = await Promise.all([
+    if (!set) return { ...empty, ...records, year: targetYear, routines, state: "unconfigured" };
+    // Only the entry-goal links depend on the entry list; everything else needs just the year, so it
+    // is read side by side rather than one after another (each read crosses Singapore -> Sydney).
+    const [loadedEntries, evidenceCounts, goals, close] = await Promise.all([
+      fetchOwnerCmeEntries(admin, auth.user.id, set.id, options),
+      fetchCmeEvidenceCounts(admin, auth.user.id, targetYear),
       fetchOwnerCmePlanGoals(admin, auth.user.id, set.id),
-      fetchOwnerCmeEntryGoals(admin, auth.user.id, entry ? [entry.id] : loadedEntries.map((item) => item.id)),
+      set.closedAt ? fetchOwnerCmeYearClose(admin, auth.user.id, set.id) : Promise.resolve(null),
     ]);
+    const entryGoals = await fetchOwnerCmeEntryGoals(
+      admin,
+      auth.user.id,
+      entry ? [entry.id] : loadedEntries.map((item) => item.id),
+    );
     const entries = loadedEntries.map((item) => ({
       ...item,
       evidenceCount: evidenceCounts[item.id] ?? 0,
       // Only an activity linked to a goal carries the field, so an unlinked one reads as before.
       ...(entryGoals[item.id] ? { goalId: entryGoals[item.id] } : {}),
     }));
-    const close = set.closedAt ? await fetchOwnerCmeYearClose(admin, auth.user.id, set.id) : null;
     const state = cmeYearConfigurationState(set);
     if (state === "unavailable") return { ...empty, year: targetYear, state };
     // Preserve the original settings and history for explicit owner repair.
@@ -112,6 +162,7 @@ async function load(
       now,
       close,
       goals,
+      ...records,
       entry: entry
         ? {
             ...entry,
@@ -125,10 +176,7 @@ async function load(
     return { ...empty, state: "unavailable" };
   }
 }
-export async function loadCmePageData(
-  year?: number,
-  options: { includeArchived?: boolean } = {},
-): Promise<CmePageData> {
+export async function loadCmePageData(year?: number, options: CmeRecordsOptions = {}): Promise<CmePageData> {
   return load(year, undefined, options);
 }
 export async function loadCmeEntryPageData(id: string): Promise<CmePageData & { entry: CmeEntry | null }> {

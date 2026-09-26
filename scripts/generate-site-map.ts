@@ -198,6 +198,8 @@ const routeDescriptions: Record<string, string> = {
   "/on-call":
     "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
+  "/psychiatry":
+    "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
   "/cme":
     "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
   "/cme/log":
@@ -208,8 +210,12 @@ const routeDescriptions: Record<string, string> = {
     "Log a new continuing-education activity — title, date, hours, the categories they split across, and an optional reflection — saved through `/api/cme/entries`.",
   "/cme/routines":
     "The activities done on a regular schedule, such as monthly or by term, and when each is next due. A Log control opens the new-entry form prefilled from the routine.",
+  "/cme/training":
+    "The trainee's own training timeline: stages, rotations and breaks they enter themselves, where they are now, the training clock in FTE months (half-time counts half, breaks pause it) and the next milestone due. Nothing is preloaded, and it never changes CPD targets.",
   "/cme/plan":
     "The yearly development plan screen. Not yet built in this phase — the page says so plainly, and offers logging the time spent writing the plan as an activity so the hours still count toward the year.",
+  "/cme/learning":
+    "A curated list of upcoming Western Australian courses and events for psychiatrists, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
   "/cme/programme":
     "The requirement targets confirmed for this year — hours required in each category — and the source document they were confirmed against.",
   "/cme/setup":
@@ -310,6 +316,7 @@ const routeOwnershipRows = [
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
   ["CME", "src/app/(search-app)/cme, src/components/cme"],
+  ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
   [
     "Caring Contacts workspace",
     "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
@@ -497,6 +504,7 @@ function renderModeRoutes() {
     sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
     "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
+    psychiatry: appModeHomeHref("psychiatry"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -635,7 +643,14 @@ function renderModePageIndex() {
       home: appModeHomeHref("cme"),
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
       detail:
-        'No results page — `resultsSurface: "none"`, like On Call. `/cme/log` full activity list, `/cme/log/[id]` one entry, `/cme/new` new-entry form, `/cme/routines` recurring activities and their due dates, plus `/cme/plan`, `/cme/programme`, `/cme/setup`, and `/cme/customise`.',
+        'No results page — `resultsSurface: "none"`, like On Call. `/cme/log` full activity list, `/cme/log/[id]` one entry, `/cme/new` new-entry form, `/cme/routines` recurring activities and their due dates, `/cme/training` the trainee timeline, `/cme/learning` curated WA courses and events, plus `/cme/plan`, `/cme/programme`, `/cme/setup`, and `/cme/customise`.',
+    },
+    {
+      mode: "Psychiatry",
+      home: appModeHomeHref("psychiatry"),
+      search: appModeHomeHref("psychiatry"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like On Call and CME. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
     },
   ]);
 }

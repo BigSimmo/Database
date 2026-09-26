@@ -206,6 +206,9 @@ describe("On Call home layout", () => {
     render(<OnCallHome />);
 
     const empty = screen.getByTestId("on-call-home-call-first-empty");
+    // The call-first step is a tick box now, so the hint names it, not the tag.
+    expect(empty).toHaveTextContent('tick "Call first on the home"');
+    expect(empty).not.toHaveTextContent('"call-first"');
     expect(empty).toHaveTextContent(/switchboard/i);
     expect(empty).toHaveTextContent(/ward/i);
     expect(empty).toHaveTextContent(/pinned/i);
@@ -344,6 +347,49 @@ describe("On Call home layout", () => {
     expect(cards.length).toBeGreaterThan(0);
     // A date a reader can check against a roster, never a countdown.
     expect(cards[0]).toHaveTextContent(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
+  });
+});
+
+describe("the Check these tile", () => {
+  const tile = () => screen.getByTestId("on-call-home-check");
+
+  it("never reads as checked when there is nothing to check", () => {
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("No entries");
+    expect(tile()).not.toHaveTextContent(/checked/i);
+  });
+
+  it("says it is loading, unavailable or needs a sign-in rather than all clear", () => {
+    storeState.loading = true;
+    const { unmount } = render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Loading");
+    unmount();
+
+    storeState.loading = false;
+    storeState.isOffline = true;
+    storeState.loadError = "failed";
+    const failed = render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Unavailable");
+    failed.unmount();
+
+    storeState.isOffline = false;
+    storeState.loadError = null;
+    storeState.signedOut = true;
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Sign in");
+  });
+
+  it("does not say none are due when no entry is the reader's to check", () => {
+    storeState.entries = [{ ...contact("shared", "Shared switchboard", [], "9224 0000"), isOwn: false } as OnCallEntry];
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Nothing to check");
+    expect(tile()).not.toHaveTextContent("None due");
+  });
+
+  it("says none are due only once real entries were assessed", () => {
+    storeState.entries = [contact("switch", "Switchboard", [], "9224 0000")];
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("None due");
   });
 });
 
@@ -521,6 +567,25 @@ describe("what the home raises on its own", () => {
     render(<OnCallHome now={pinned} />);
 
     expect(menuProps.last?.notifications?.map((item) => item.title)).toEqual(["Basic life support"]);
+  });
+
+  it("leaves out a reminder type the owner snoozed, until the snooze date", () => {
+    // Settings, Notifications, Reminders: compliance dates snoozed until 5 June.
+    const pinned = new Date("2026-06-01T09:00:00+08:00");
+    storeState.entries = [complianceRow("2026-01-01", "2026-05-30T00:00:00.000Z")];
+    window.localStorage.setItem(
+      "clinical-kb-preferences",
+      JSON.stringify({ reminders: { types: { "compliance-dates": { snoozedUntil: "2026-06-05" } } } }),
+    );
+    try {
+      render(<OnCallHome now={pinned} />);
+      expect(menuProps.last?.notifications).toEqual([]);
+      cleanup();
+      render(<OnCallHome now={new Date("2026-06-05T09:00:00+08:00")} />);
+      expect(menuProps.last?.notifications?.map((item) => item.title)).toEqual(["Basic life support"]);
+    } finally {
+      window.localStorage.removeItem("clinical-kb-preferences");
+    }
   });
 });
 

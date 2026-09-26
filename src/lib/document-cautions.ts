@@ -15,6 +15,8 @@ export type DocumentCaution = {
   message: string;
   ledger: string;
   recordedOn: string;
+  /** The owner's governance decision for this document, shown on the Developer Hub hazard page. */
+  decision: string;
 };
 
 export const DOCUMENT_CAUTIONS: readonly DocumentCaution[] = [
@@ -25,6 +27,8 @@ export const DOCUMENT_CAUTIONS: readonly DocumentCaution[] = [
       "Caution: page 16 of this RkPG clozapine policy appears to give neutrophil thresholds (1.5 and 0.5 × 10⁹/L) as white-cell counts (WBC). WA monitoring stops clozapine when WBC is below 3.0 and/or neutrophils are below 1.5 × 10⁹/L. Check the WA Clozapine Monitoring Form before relying on these figures.",
     ledger: "#7VQ5RC",
     recordedOn: "2026-09-25",
+    decision:
+      "Closed by the owner on 2026-09-26 with this caution as the control. The document stays searchable and the caution travels with every citation of it. Correcting the source PDF is for its RkPG document owner.",
   },
 ];
 

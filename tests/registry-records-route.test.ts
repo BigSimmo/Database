@@ -195,8 +195,11 @@ function authedRequest(path: string) {
   return request(path, { headers: { Authorization: `Bearer ${token}` } });
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks();
+  // The record cache lives on globalThis, so resetting modules no longer empties it.
+  const { clearSiteContentRecordCache } = await import("@/lib/site-content/site-content-record-cache");
+  clearSiteContentRecordCache();
   vi.resetModules();
 });
 

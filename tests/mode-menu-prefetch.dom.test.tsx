@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { LAST_APP_MODE_STORAGE_KEY } from "@/components/clinical-dashboard/use-last-app-mode";
 import { appModeSelectionHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
+import { orderByPhoneModeGroups } from "@/lib/phone-mode-groups";
 import { standaloneModeHomeHref } from "@/lib/search-route-ownership";
 
 /**
@@ -228,7 +229,8 @@ describe("mode menu destination prefetch", () => {
 
   it("prefetches the highlighted mode when openModeMenuWithFocus targets another mode", async () => {
     const user = userEvent.setup();
-    const modes = guestModeHomes();
+    // Arrow keys walk the modes in the order the grouped menu draws them.
+    const modes = orderByPhoneModeGroups(guestModeHomes());
     const answerIndex = modes.findIndex((mode) => mode.id === "answer");
     expect(answerIndex).toBeGreaterThanOrEqual(0);
     const previous = modes[(answerIndex - 1 + modes.length) % modes.length];

@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
 import { presentationStaticParams } from "@/lib/differentials";
 import {
+  readDifferentialCatalogueRecords,
   readPresentationPageRecord,
-  readPresentationCandidateRecords,
 } from "@/lib/site-content/differential-page-records";
 
 type DifferentialPresentationRouteProps = {
@@ -36,11 +36,15 @@ export default async function DifferentialPresentationRoute({
   searchParams,
 }: DifferentialPresentationRouteProps) {
   const { slug } = await params;
-  const workflow = await readPresentationPageRecord(slug);
+  // The candidate list read does not depend on the workflow, so both database reads start together
+  // rather than one after the other (each crosses Singapore -> Sydney).
+  const [workflow, catalogue] = await Promise.all([
+    readPresentationPageRecord(slug),
+    readDifferentialCatalogueRecords(),
+  ]);
   if (!workflow) notFound();
-  const candidateRecords = await readPresentationCandidateRecords(
-    workflow.candidates.map((candidate) => candidate.slug),
-  );
+  const candidateSlugs = new Set(workflow.candidates.map((candidate) => candidate.slug));
+  const candidateRecords = catalogue.filter((record) => candidateSlugs.has(record.slug));
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const query = firstSearchParam(resolvedSearchParams.query ?? resolvedSearchParams.q)?.trim() ?? "";

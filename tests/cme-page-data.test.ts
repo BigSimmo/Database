@@ -155,4 +155,24 @@ describe("CME page state is honest and owner-scoped", () => {
     mocks.evidenceCounts.mockRejectedValue(new Error("Unavailable"));
     expect((await loadCmePageData(2026)).state).toBe("unavailable");
   });
+  it("reads the year's entries, evidence counts and plan goals side by side, not one after another", async () => {
+    mocks.year.mockResolvedValue({ id: "year", ...createAustralianRanzcpPreset(2026, "2026-01-02") });
+    const entriesRead: { release?: () => void } = {};
+    mocks.entries.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          entriesRead.release = () => resolve([{ id: "entry" }]);
+        }),
+    );
+    const loading = loadCmePageData(2026);
+    await vi.waitFor(() => expect(mocks.entries).toHaveBeenCalled());
+    // Each read crosses Singapore -> Sydney; these must not wait for the entry list.
+    expect(mocks.evidenceCounts).toHaveBeenCalled();
+    expect(mocks.planGoals).toHaveBeenCalled();
+    expect(mocks.entryGoals).not.toHaveBeenCalled();
+    entriesRead.release?.();
+    const data = await loading;
+    expect(data.state).toBe("ready");
+    expect(mocks.entryGoals).toHaveBeenCalledWith({}, "owner", ["entry"]);
+  });
 });

@@ -47,7 +47,11 @@ describe("partitioned unit coverage verdict", () => {
 
   it("fails the required aggregate on unsuccessful or missing partitions", () => {
     expect(aggregate.needs).toContain("coverage-shards");
-    expect(aggregate.if).toContain("always()");
+    // Runs on a failed partition (to report it) but not on a cancelled run; the required
+    // aggregate keeps `always()` and fails an in-scope `skipped` coverage result.
+    expect(aggregate.if).toContain("!cancelled()");
+    expect(aggregate.if).not.toContain("always()");
+    expect(workflow.jobs["pr-required"].if).toBe("always()");
     expect(aggregate.steps[0].env.SHARD_RESULT).toBe("${{ needs.coverage-shards.result }}");
     expect(aggregate.steps[0].run).toBe('test "$SHARD_RESULT" = success');
     expect(aggregate.steps[0]["continue-on-error"]).toBeUndefined();
@@ -96,6 +100,63 @@ describe("CI cache safety", () => {
   });
   it("does not add a PR workflow that changes user-owned auto-merge state", () => {
     expect(existsSync(new URL("../.github/workflows/keep-pr-auto-merge.yml", import.meta.url))).toBe(false);
+  });
+
+  it("carries only ESLint and tsc incremental caches into static-pr, keyed so rule code cannot go stale", () => {
+    const staticJob = sourceSegment(workflow, "\n  static-pr:\n", "\n  safety:\n");
+    const restore = sourceSegment(
+      staticJob,
+      "name: Restore incremental lint and typecheck caches",
+      "- name: Runtime alignment",
+    );
+    expect(restore).toContain("node_modules/.cache/eslint");
+    expect(restore).toContain("${{ steps.static-cache.outputs.tsc }}");
+    // Never the gate-receipt store (node_modules/.cache/database-gate-receipts.json) or the
+    // whole .cache directory: a restored receipt could let a gate skip itself.
+    expect(restore).not.toMatch(/node_modules\/\.cache\s*$/m);
+    expect(restore).not.toContain("gate-receipts");
+    for (const input of ["eslint.config.mjs", "eslint-rules/**", "package-lock.json", "tsconfig.typecheck.json"]) {
+      expect(restore).toContain(`'${input}'`);
+    }
+    expect(staticJob).toMatch(/\n\s+run: npm run lint -- --concurrency=4\n/);
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect(packageJson.scripts["lint:internal"]).toContain("--cache-strategy content");
+  });
+
+  it("builds the shared Playwright app without installing a browser it never launches", () => {
+    const producer = /\n  ui-playwright-build:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(producer).toContain("uses: ./.github/actions/setup-node-cached");
+    expect(producer).not.toContain("uses: ./.github/actions/setup-ui-e2e");
+    expect(producer).toContain('PLAYWRIGHT_BUILD_ONLY: "true"');
+    // Every lane that launches a browser keeps the full UI setup.
+    for (const job of ["ui-critical-fast", "ui-critical", "ui-ward-journeys"]) {
+      const segment = new RegExp(`\\n  ${job}:\\n([\\s\\S]*?)(?=\\n  [a-z][\\w-]*:\\n)`).exec(workflow)?.[1] ?? "";
+      expect(segment, job).toContain("uses: ./.github/actions/setup-ui-e2e");
+    }
+    const runner = readFileSync(new URL("../scripts/run-playwright.mjs", import.meta.url), "utf8");
+    expect(runner).toMatch(
+      /process\.env\.PLAYWRIGHT_BUILD_ONLY\?\.trim\(\) === "true"\s*\?\s*\{ checked: \[\] \}\s*:\s*assertPlaywrightBrowsersReady\(playwrightArgs\);/,
+    );
+  });
+
+  it("never lets a later main push cancel the secret scan of an earlier merged commit", () => {
+    const secretScan = readFileSync(new URL("../.github/workflows/secret-scan.yml", import.meta.url), "utf8");
+    expect(secretScan).toContain(
+      "group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.run_id || github.ref }}",
+    );
+    expect(secretScan).toContain("cancel-in-progress: ${{ github.event_name != 'push' }}");
+  });
+
+  it("skips Next's post-build type pass only for CI's isolated offline builds", () => {
+    const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+    expect(nextConfig).toContain(
+      'Boolean(requestedTsConfigPath) && process.env.PLAYWRIGHT_OFFLINE_MODE === "true" && process.env.CI === "true"',
+    );
+    expect(nextConfig).toContain("...(skipIsolatedCiTypecheck ? { ignoreBuildErrors: true } : {})");
+    expect(nextConfig.match(/ignoreBuildErrors/g)).toHaveLength(1);
+    // The type pass it skips is repeated by the required static job, which still runs it.
+    const staticJob = sourceSegment(workflow, "\n  static-pr:\n", "\n  safety:\n");
+    expect(staticJob).toMatch(/\n\s+run: npm run typecheck\n/);
   });
 
   it("uses npm's download cache but recreates node_modules on every job", () => {

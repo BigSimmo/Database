@@ -88,7 +88,7 @@ import {
 } from "@/lib/mode-home-composer";
 import { modeSectionIcon } from "@/components/mode-nav/mode-nav-icons";
 import { activeModeSecondaryNavigationId, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
-import { phoneModeGroups } from "@/lib/phone-mode-groups";
+import { orderByPhoneModeGroups, phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
 import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
@@ -351,6 +351,10 @@ export function MasterSearchHeader({
     authenticated: canAccessFavourites,
     demoMode: false,
   });
+  // The mode menu draws modes under their group headings, so its keyboard
+  // order (the index each row is registered at, and what Arrow Up/Down, Home
+  // and End walk) must be that same drawn order, not registry order.
+  const modeMenuOptions = orderByPhoneModeGroups(visibleAppModeOptions);
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
   // The trigger names the route the user is viewing. Session filtering still
@@ -405,9 +409,9 @@ export function MasterSearchHeader({
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const normalizedModeMenuQuery = modeMenuQuery.trim().toLowerCase();
   const desktopModeMenuOptions = normalizedModeMenuQuery
-    ? visibleAppModeOptions.filter((mode) => mode.label.toLowerCase().includes(normalizedModeMenuQuery))
-    : visibleAppModeOptions;
-  const activeModeMenuOptions = usesPhoneSearchLayout ? visibleAppModeOptions : desktopModeMenuOptions;
+    ? modeMenuOptions.filter((mode) => mode.label.toLowerCase().includes(normalizedModeMenuQuery))
+    : modeMenuOptions;
+  const activeModeMenuOptions = usesPhoneSearchLayout ? modeMenuOptions : desktopModeMenuOptions;
   const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
   const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
   // SSR and first paint assume a declared home slot is media-eligible so the
@@ -1021,7 +1025,7 @@ export function MasterSearchHeader({
 
   const selectedModeIndex = Math.max(
     0,
-    visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
+    modeMenuOptions.findIndex((mode) => mode.id === selectedAppMode.id),
   );
 
   useEffect(() => {
@@ -1111,8 +1115,8 @@ export function MasterSearchHeader({
 
   function openModeMenuWithFocus(index: number) {
     closeModeSurfaces();
-    const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
-    const highlighted = visibleAppModeOptions[nextIndex];
+    const nextIndex = (index + modeMenuOptions.length) % modeMenuOptions.length;
+    const highlighted = modeMenuOptions[nextIndex];
     if (highlighted) prefetchModeSelection(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setModeMenuQuery("");
@@ -1133,7 +1137,7 @@ export function MasterSearchHeader({
     // zero (leaving focus stuck on the trigger) or wraps every index to 0
     // (focusing whatever renders first in the *next* render's full list,
     // not the mode this call actually targets). `nextIndex` above is already
-    // a valid position in the unfiltered `visibleAppModeOptions`, which is
+    // a valid position in the unfiltered `modeMenuOptions`, which is
     // exactly what the query reset guarantees `activeModeMenuOptions` will
     // equal once React commits it — so focus directly by that index instead
     // of re-deriving it against a list that hasn't caught up yet.
@@ -1168,7 +1172,7 @@ export function MasterSearchHeader({
       closeModeMenu();
       return;
     }
-    const highlighted = visibleAppModeOptions[selectedModeIndex];
+    const highlighted = modeMenuOptions[selectedModeIndex];
     if (highlighted) prefetchModeSelection(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setModeMenuQuery("");
@@ -2863,7 +2867,7 @@ export function MasterSearchHeader({
             <div ref={phoneModeMenuListRef} id="app-mode-menu" role="menu" aria-label="Choose app mode">
               {phoneModeGroups.map((group) => {
                 const groupModes = group.modeIds.flatMap((modeId) => {
-                  const mode = visibleAppModeOptions.find((candidate) => candidate.id === modeId);
+                  const mode = modeMenuOptions.find((candidate) => candidate.id === modeId);
                   return mode ? [mode] : [];
                 });
                 if (groupModes.length === 0) return null;
@@ -2893,7 +2897,7 @@ export function MasterSearchHeader({
                       {groupModes.map((mode) =>
                         renderModeMenuOption(
                           mode,
-                          visibleAppModeOptions.findIndex((candidate) => candidate.id === mode.id),
+                          modeMenuOptions.findIndex((candidate) => candidate.id === mode.id),
                         ),
                       )}
                     </div>

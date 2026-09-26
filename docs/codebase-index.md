@@ -53,7 +53,7 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
-The product surface is **18 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+The product surface is **19 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
 answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
 prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources, on-call, cme.
 
@@ -441,6 +441,15 @@ publishing, independent clinical/legal review, revision conflicts, correction re
 and owner-private orientation completion. They never pool legacy entries or personal
 CME/compliance. `handbook-resources` holds linked official WA starting points.
 
+**My shifts.** `/on-call/shifts` is the doctor's own roster, and the On Call home shows the shift on
+now or the next one. `src/lib/on-call/shifts/` reads an `.ics` or `.csv` export on the device
+(`parse-ics`, `parse-csv`), keeping only start, end, title, site and calendar ID, so descriptions and
+attendees never leave the browser. `diff` works out what a new roster changed; `repository` saves it
+through the `on_call_shifts_replace` RPC, which replaces the owner's shifts inside the roster's Perth
+dates and records the import in one transaction. `on_call_shifts` and `on_call_shift_imports` are
+private to their owner: service-role only, every query filtered by `owner_id`, never shared the way
+non-personal On Call entries are. The API is `/api/on-call/shifts` and `imports/[id]`.
+
 ---
 
 ### Continuing education (CME/CPD)
@@ -505,6 +514,12 @@ transaction gets through. See `docs/cme/design/cme-design-decisions.md` §9.
 activity served; both are written only through `cme_save_plan_goals` and `cme_set_entry_goal` and are
 frozen with a closed year (`src/lib/cme/plan-goals*.ts`).
 
+**CPD records.** `cme_training_periods` and `cme_training_milestones` hold a trainee's own timeline;
+`cme_missed_sessions` records teaching or supervision lost to clinical work, linked to the ordinary
+activity that replaced it; `cme_entry_drafts` holds half-finished activities, optionally waiting on a
+supervisor or workforce. None is tied to a CPD year or read by requirement evaluation, so none can
+change hours or a requirement status.
+
 Routes live at `/cme` and its sub-paths; components are in `src/components/cme/`. The API is
 `/api/cme/entries`, `[id]`, `[id]/goal`, `/api/cme/plan` and `/api/cme/year`. Demo-mode branching lives in those routes and
 never in the repository, so production cannot silently fall back to synthetic data.
@@ -532,6 +547,17 @@ entries or patient data), and `/api/calendar/feed` (signed in) reports, makes or
 Every bad or turned-off link gets the same 404. The panel is `calendar-subscribe.tsx`, on both
 calendar pages.
 
+**Reminder controls.** `src/lib/reminders/settings.ts` is a settings layer over the reminders that
+already exist; it never decides when anything is due. Five types (compliance dates, On Call checks,
+CPD year-end, CPD routines, teaching — in that priority order) each have "Show in the app", a snooze
+date and a calendar alert lead time. They live in the owner's preferences JSON (`reminders` in
+`src/lib/account-preferences.ts`), so there is no table. Each event builder tags its events with a
+`reminderType`; `applyReminderAlarms` sets `alarmAt` after the lead time, quiet hours and a per-day
+cap, and `ics.ts` writes a VALARM only when one is set. The calendar link reads the owner's row, and
+the downloads read the preferences hook. The CME dashboard and On Call notifications filter on
+`showsReminderInApp` and offer "Snooze for a week"; Settings → Notifications holds the Reminders card
+(`settings-reminders.tsx`). The defaults show everything in the app and add no alarms.
+
 ---
 
 ## Supabase
@@ -548,7 +574,7 @@ calendar pages.
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `cme_evidence`, `cme_year_snapshots`, `cme_year_amendments`, `cme_plan_goals`, `cme_entry_goals`, `calendar_feed_tokens`, `on_call_services`, `on_call_service_sites`, `on_call_service_members`, `on_call_service_invitations`, `on_call_service_entries`, `on_call_service_reports`, `on_call_service_orientation`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `cme_evidence`, `cme_year_snapshots`, `cme_year_amendments`, `cme_plan_goals`, `cme_entry_goals`, `cme_training_periods`, `cme_training_milestones`, `cme_missed_sessions`, `cme_entry_drafts`, `calendar_feed_tokens`, `on_call_shift_imports`, `on_call_shifts`, `on_call_services`, `on_call_service_sites`, `on_call_service_members`, `on_call_service_invitations`, `on_call_service_entries`, `on_call_service_reports`, `on_call_service_orientation`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
 
 Public-source control-plane tables: `public_source_policy_entries`, `public_source_activation_events`, `public_source_versions`, `public_source_upload_attempts`, `public_source_activation_guards`, `public_source_cleanup_mutation_guards`.
 
@@ -693,7 +719,7 @@ sequenceDiagram
 
 ### PsychSift surface
 
-- 18 app modes with unified search shell
+- 19 app modes with unified search shell
 - Documents mode: browse indexed guidelines, search, scope, and inspect cited answers; document uploads remain in the administrator backend
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
@@ -994,7 +1020,7 @@ terminology: `docs/care-plan-context.md`; build history and rulings: `docs/care-
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes**: all 18 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while four routes still own a functional home of their own — `/favourites` (a hub), `/tools` (a launcher), `/on-call` (a dashboard) and `/cme` (a dashboard). The last two qualify for a reason the first two do not: neither mode declares a search surface at all, so without a standalone home the mode pill would retarget a composer they have nowhere to send. Neither is a duplicate of the shared home; each is its mode's own functional surface. `/sources` was a third until its four-card `ModeHomeTemplate` home was retired: it duplicated the shared home's title and subtitle, and its cards duplicated the Sources tab bar, so it was deleted and the bare path consolidated. The catalogue keeps its own route at `/sources/search`, reached from the shared home by the `ShowAllChip` Calculators also uses. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. Fourteen modes are now consolidated onto the shared home, via two different mechanisms: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary`, `/therapy-compass`, `/documents`, `/sources` and `/on-call` (whose six section pages live under `/on-call/<section>`) are `redirect()` stubs registered in `consolidatedModeHomePaths` (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). `/medications` is consolidated too, but through its own bespoke redirect (`medications/page.tsx` plus a matching fast-path, `medicationsHomeTarget()`, in `src/proxy.ts`) — it stays out of `consolidatedModeHomePaths` because it has no separate `/medications/search` route for that map's generic `${pathname}/search` submitted-target logic to forward to; its submitted searches already went straight to `/?mode=prescribing&q=…&run=1` before this change, and still do. Do not assume Medications is in the shared map — a reader who does will go looking for a results route that does not exist. Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
+- **Mode homes**: all 19 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while five routes still own a functional home of their own — `/favourites` (a hub), `/tools` (a launcher), `/on-call` (a dashboard), `/cme` (a dashboard) and `/psychiatry` (a dashboard of links to the DSM-5, Differentials, Specifiers, Formulation, Therapy and Forms modes, which keep their own addresses). The last three qualify for a reason the first two do not: none of those modes declares a search surface at all, so without a standalone home the mode pill would retarget a composer they have nowhere to send. Neither is a duplicate of the shared home; each is its mode's own functional surface. `/sources` was a third until its four-card `ModeHomeTemplate` home was retired: it duplicated the shared home's title and subtitle, and its cards duplicated the Sources tab bar, so it was deleted and the bare path consolidated. The catalogue keeps its own route at `/sources/search`, reached from the shared home by the `ShowAllChip` Calculators also uses. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. Fourteen modes are now consolidated onto the shared home, via two different mechanisms: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary`, `/therapy-compass`, `/documents`, `/sources` and `/on-call` (whose six section pages live under `/on-call/<section>`) are `redirect()` stubs registered in `consolidatedModeHomePaths` (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). `/medications` is consolidated too, but through its own bespoke redirect (`medications/page.tsx` plus a matching fast-path, `medicationsHomeTarget()`, in `src/proxy.ts`) — it stays out of `consolidatedModeHomePaths` because it has no separate `/medications/search` route for that map's generic `${pathname}/search` submitted-target logic to forward to; its submitted searches already went straight to `/?mode=prescribing&q=…&run=1` before this change, and still do. Do not assume Medications is in the shared map — a reader who does will go looking for a results route that does not exist. Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
 - **Information (detail) pages**: catalogue/record routes under each mode (`/services/[slug]`, `/forms/[slug]`, `/medications/[slug]`, `/specifiers/[slug]`, `/formulation/[slug]`, `/factsheets/[slug]`, `/dictionary/[slug]`, `/dictionary/topics/[slug]`, `/therapy-compass/[slug]`, `/dsm/diagnoses/[slug]`, …). Route detection: `src/lib/information-pages.ts` (`isInformationPage`). Shared outer chrome: `src/components/information-page-shell.tsx` (`InformationPageShell`, breadcrumbs, optional footer). Specifier/formulation mode shells re-export that primitive. Intentional opt-outs: document viewer and the differentials presentation workflow.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
 - **Results routing**: each consolidated mode owns its submitted searches at `<mode>/search` (`/services/search` → `ServicesNavigatorPage`, `/forms/search` → `FormsSearchResultsPage`, `/differentials/search` → `DifferentialsHome` results view, `/formulation/search` → local mechanism results, and the same shape for dsm, dictionary, factsheets, specifiers, calculators, therapy-compass and documents). That split is not cosmetic: the bare path redirects to the shared home, so routing a submitted query back at it would loop — `consolidatedModeHomeModeIds` drives both halves from one list, and `tests/consolidated-mode-home-redirect.test.ts` pins the no-loop property. `/favourites` and `/tools` keep filtering in place on their own routes. `/sources` is the one consolidated mode whose bare path also forwards on a filter key alone (`?topic=`, `?band=`, and the rest of `consolidatedModeCatalogueFilterKeys`): a filter chip has no draft state, so requiring `run=1` for it would silently drop a shareable catalogue link on the home. Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. Bare `/?mode=<id>` always renders the shared home with that mode preselected; only a submitted deep link (`q` plus `run=1`) resolves onward to the mode's own search surface.
