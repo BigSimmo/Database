@@ -387,6 +387,18 @@ describe("differentials API routes", () => {
     expect(payload.records?.length).toBe(payload.matches?.length);
   });
 
+  it("searches a pasted vignette longer than 200 characters instead of rejecting it", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/route");
+    const vignette = "patient on lithium 900 mg nocte for bipolar affective disorder, recently started sertraline 50 mg for depression and taking regular ibuprofen for back pain, now tremulous and confused with vomiting since yesterday";
+
+    const response = await GET(request(`/api/differentials?kind=diagnosis&q=${encodeURIComponent(vignette)}&limit=10`));
+
+    expect(vignette.length).toBeGreaterThan(200);
+    expect(response.status).toBe(200);
+  });
+
   it("reports the catalogue size in `total`, not the size of the query's own result set", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
