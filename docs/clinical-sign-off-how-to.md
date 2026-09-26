@@ -211,6 +211,46 @@ source correspondence question cannot be answered yes without a source; they sta
 review until one is adopted. Type `skip` at any question to move on to the next record
 without saving the one on screen.
 
+## Signing off a whole set at once (batch)
+
+Owner decision, 2026-09-26. Instead of answering the questions record by record, you can
+read a whole set in your browser and sign it in one go.
+
+1. Write the review pack for one set. It is saved in the `sign-off-packs` folder inside the
+   project folder:
+
+   ```bash
+   npm run clinical:review -- --pack --kind formulation-concept --reviewed-by "PsychSift"
+   ```
+
+2. Open the pack in your browser and read every record. At the top it shows a **sign-off
+   code** (eight letters and numbers) and the exact command to run. Note the code of any
+   record you are not happy with; it is shown under each record's title.
+
+3. Run the command from the top of the pack. Put the codes of the records you are not happy
+   with after `--exclude`, separated by commas with no spaces, or leave `--exclude` out:
+
+   ```bash
+   npm run clinical:review -- --write --batch --kind formulation-concept --reviewed-by "PsychSift" --exclude hopelessness,guilt
+   ```
+
+4. Answer the three questions once. Answer yes only if the statement is true of every
+   record you are signing. Then type the sign-off code from the top of the pack.
+
+If any record changed after the pack was written, the code will not match and nothing is
+signed. Write a fresh pack and read that one. Excluded records stay awaiting review.
+
+The same works for `--kind differential`, `formulation-guide`, `formulation-mechanism`,
+`form`, `section` and `timeframe`. For Therapy:
+
+```bash
+npm run therapy:review -- --pack --reviewed-by "PsychSift"
+```
+
+```bash
+npm run therapy:review -- --write --batch --reviewed-by "PsychSift" --exclude <slugs>
+```
+
 ## Saving and sending your sign-offs
 
 Your sign-offs are saved only on your computer until you send them. When you have finished
