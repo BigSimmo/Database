@@ -42,7 +42,8 @@ function revealIfCovered(target: HTMLElement) {
  * The reveal runs synchronously inside `focusin`, so no frame ever paints the control covered and
  * nothing that reads layout straight after the key press sees the uncorrected position. A second
  * check one frame later catches an engine focus scroll that lands after `focusin`. Engines that
- * already cleared the dock never reach `scrollIntoView`.
+ * already cleared the dock never reach `scrollIntoView`. Pointer focus (not `:focus-visible`) is
+ * left alone so a tap or click is never scrolled away between press and release.
  */
 export function PhoneFocusClearance() {
   useEffect(() => {
@@ -51,6 +52,10 @@ export function PhoneFocusClearance() {
       if (!phone.matches) return;
       const target = event.target;
       if (!(target instanceof HTMLElement) || !target.closest(".phone-scroll-surface")) return;
+      // Keyboard focus only. A press focuses its control on pointerdown, before the release that
+      // makes the click; scrolling there moves the control out from under the pointer, so the
+      // release lands elsewhere and the click (a form submit, say) never happens.
+      if (!target.matches(":focus-visible")) return;
       revealIfCovered(target);
       window.requestAnimationFrame(() => {
         if (document.activeElement !== target) return;
