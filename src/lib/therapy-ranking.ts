@@ -12,6 +12,9 @@ export type TherapyRankable = {
 const lowercase = (value: string | null | undefined) => (value ?? "").toLowerCase();
 const normalize = (value: string | null | undefined) =>
   lowercase(value)
+    // Drop possessives and apostrophes so "Tourette's" searches as "tourette", not "tourette" + "s".
+    .replace(/['’]s\b/g, "")
+    .replace(/['’]/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -29,7 +32,8 @@ export function hasSearchableTherapyQuery(query: string | null | undefined): boo
 export function scoreTherapyCandidate(record: TherapyRankable, query: string): number {
   const q = normalize(query);
   if (!q) return 1;
-  const tokens = q.split(" ").filter(Boolean);
+  // A one-letter token is a substring of nearly every record, so it would match the whole catalogue.
+  const tokens = q.split(" ").filter((token) => token.length > 1);
   const name = normalize(record.name);
   const aliases = record.aliases.map(normalize);
   const tags = normalize(record.tags.join(" "));
