@@ -43,6 +43,13 @@ function formatDay(date: string): string {
 
 const LEAD_TIME_OPTIONS = REMINDER_LEAD_TIMES.map((value) => ({ value, label: REMINDER_LEAD_TIME_LABELS[value] }));
 
+/** "The evening before" is a fixed-clock-time alarm that only makes sense for a shift's own start; every other row keeps the duration-based choices. */
+function leadTimeOptionsFor(type: ReminderType) {
+  return type === "shifts"
+    ? LEAD_TIME_OPTIONS
+    : LEAD_TIME_OPTIONS.filter((option) => option.value !== "evening-before");
+}
+
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => {
   const value = `${String(hour).padStart(2, "0")}:00`;
   return { value, label: value };
@@ -135,7 +142,7 @@ export function ReminderSettingsBlock({
                         }),
                       )
                     }
-                    options={LEAD_TIME_OPTIONS}
+                    options={leadTimeOptionsFor(type)}
                     fieldClassName="w-full md:w-56"
                   />
                 </div>
@@ -204,8 +211,8 @@ export function ReminderSettingsBlock({
           Daily limit
         </p>
         <p className={cn("text-xs leading-5", textMuted)}>
-          On a busy day the most important alerts are kept: compliance dates first, then CPD year-end, CPD routines and
-          teaching.
+          On a busy day the most important alerts are kept: compliance dates first, then shifts, CPD year-end, CPD
+          routines and teaching.
         </p>
         <Select
           label="Daily limit for calendar alerts"
