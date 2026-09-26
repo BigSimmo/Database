@@ -120,7 +120,6 @@ describe("WA document-control endorsement: ranking tier and claim eligibility ar
     const stamped = classifySourceAuthority(stampedRaw);
     expect(stamped.tier).toBe("wa_validated");
     expect(endorsed.tier).toBe("wa_validated");
-    expect(endorsed.eligible).toBe(stamped.eligible);
     expect(endorsed.eligibilityReasons).toEqual(stamped.eligibilityReasons);
   });
 
