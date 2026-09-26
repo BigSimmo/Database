@@ -60,6 +60,12 @@
         "dev_only": false
       },
       {
+        "id": "first-nations",
+        "label": "First Nations",
+        "home": "/first-nations",
+        "dev_only": false
+      },
+      {
         "id": "forms",
         "label": "Forms",
         "home": "/?mode=forms",
@@ -418,6 +424,11 @@
         "area": "mockup"
       },
       {
+        "path": "/first-nations/mental-health",
+        "file": "src/app/(search-app)/first-nations/mental-health/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/therapy-scenario-popup-live",
         "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
         "area": "mockup"
@@ -516,6 +527,16 @@
         "path": "/mockups/care-plan/patients/[patientId]/presentations/new",
         "file": "src/app/mockups/care-plan/patients/[patientId]/presentations/new/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/first-nations/end-of-life",
+        "file": "src/app/(search-app)/first-nations/end-of-life/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/on-the-ward",
+        "file": "src/app/(search-app)/first-nations/on-the-ward/page.tsx",
+        "area": "product"
       },
       {
         "path": "/reference/colour-coding",
@@ -633,6 +654,11 @@
         "area": "product"
       },
       {
+        "path": "/first-nations",
+        "file": "src/app/(search-app)/first-nations/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/differentials/diagnoses",
         "file": "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "area": "product"
@@ -646,6 +672,16 @@
         "path": "/mockups/source-rail-desktop-scroll",
         "file": "src/app/mockups/source-rail-desktop-scroll/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/first-nations/card",
+        "file": "src/app/(search-app)/first-nations/card/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/talking",
+        "file": "src/app/(search-app)/first-nations/talking/page.tsx",
+        "area": "product"
       },
       {
         "path": "/therapy-compass/pathways",
@@ -706,6 +742,11 @@
         "path": "/mockups/care-plan/patients/[patientId]/safety-plan/print",
         "file": "src/app/mockups/care-plan/patients/[patientId]/safety-plan/print/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/first-nations/mistakes",
+        "file": "src/app/(search-app)/first-nations/mistakes/page.tsx",
+        "area": "product"
       },
       {
         "path": "/cme",
@@ -963,6 +1004,11 @@
         "area": "product"
       },
       {
+        "path": "/first-nations/family",
+        "file": "src/app/(search-app)/first-nations/family/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/dsm/search",
         "file": "src/app/(search-app)/dsm/search/page.tsx",
         "area": "product"
@@ -1063,6 +1109,11 @@
         "area": "mockup"
       },
       {
+        "path": "/first-nations/going-home",
+        "file": "src/app/(search-app)/first-nations/going-home/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
         "area": "product"
@@ -1125,6 +1176,11 @@
       {
         "path": "/on-call/logistics",
         "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/contacts",
+        "file": "src/app/(search-app)/first-nations/contacts/page.tsx",
         "area": "product"
       },
       {
@@ -2977,6 +3033,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-26-first-nations-mode.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
         "section": "evidence",
         "catalogued": true
@@ -3380,6 +3441,11 @@
         "path": "docs/agents/bug-hunter-shortcut.md",
         "section": "agents",
         "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-26-first-nations-mode-design.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/phone-chrome-physical-acceptance.md",
