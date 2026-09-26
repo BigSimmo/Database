@@ -296,7 +296,7 @@ describe("npm run clinical:review lists and packs both kinds", () => {
       writeFileSync(join(packRoot, path), readFileSync(join(ROOT, path)));
     }
   });
-  afterAll(() => rmSync(packRoot, { recursive: true, force: true }));
+  afterAll(() => rmSync(packRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }));
 
   it("--kind standard lists the standards", async () => {
     const { status, text } = await run(["--kind", "standard"]);

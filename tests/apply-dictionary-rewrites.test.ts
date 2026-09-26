@@ -196,7 +196,7 @@ describe("planDictionaryRewrites", () => {
 describe("runApplyDictionaryRewrites (temp directory)", () => {
   let root: string | null = null;
   afterEach(() => {
-    if (root) rmSync(root, { recursive: true, force: true });
+    if (root) rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
     root = null;
   });
 

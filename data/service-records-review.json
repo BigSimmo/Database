@@ -1,5 +1,5 @@
 {
-  "description": "Clinician sign-off for the curated WA service records that no published site-content release carries yet: the stand-alone records in src/lib/services-canonical-data added after the 2026-08-24 freeze (the 17 from PR #2814 plus Legal Yarn and TIS National). One row per record; written only by npm run clinical:review. The content pin covers the whole curated record for the id.",
+  "description": "Clinician sign-off for the curated WA service records that no published site-content release carries yet: the stand-alone records in src/lib/services-canonical-data added after the 2026-08-24 freeze (the 17 from PR #2814, Legal Yarn, TIS National and the records added since). One row per record; written only by npm run clinical:review. The content pin covers the whole curated record for the id.",
   "entries": [
     {
       "id": "SVC-SV-001",
@@ -129,6 +129,41 @@
     },
     {
       "id": "SVC-INT-001",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-HOU-003",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-LEG-002",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-017",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-018",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "id": "SVC-YTH-019",
       "status": "drafted",
       "reviewedBy": null,
       "reviewedAt": null,
