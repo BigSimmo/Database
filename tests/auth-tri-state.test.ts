@@ -311,4 +311,18 @@ describe("optional authentication", () => {
       rateLimitSubject: { kind: "anonymous" },
     });
   });
+
+  it("lets public catalogue GETs fall back to anonymous when credentials are invalid", async () => {
+    const { publicCatalogueAccessContext } = await import("@/lib/public-api-access");
+    const client = authClient({ data: { user: null }, error: { message: "Invalid token" } });
+    const invalidRequest = new Request("http://localhost/api/registry/records?kind=service", {
+      headers: { authorization: "Bearer expired-token", "x-real-ip": "198.51.100.10" },
+    });
+
+    await expect(publicCatalogueAccessContext(invalidRequest, client as never)).resolves.toMatchObject({
+      authenticated: false,
+      ownerId: undefined,
+      rateLimitSubject: { kind: "anonymous" },
+    });
+  });
 });

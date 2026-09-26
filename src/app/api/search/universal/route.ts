@@ -8,7 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { publicCatalogueAccessContext } from "@/lib/public-api-access";
 import { buildServerTimingHeader, type ServerTimingEntry } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -154,7 +154,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const access = await publicAccessContext(request, supabase);
+    const access = await publicCatalogueAccessContext(request, supabase);
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,

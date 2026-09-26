@@ -234,8 +234,6 @@ describe("registry records API", () => {
       expect(payload.governance[`released-${kind}`]).toEqual({
         sourceStatus: "review_due",
         validationStatus: "approved",
-        lastReviewedAt: null,
-        reviewDueAt: null,
       });
     }
   });
@@ -778,5 +776,68 @@ describe("registry records survive an unusable catalogue", () => {
     // Emitting the flag must not have widened `fixture`: pinning the seed list in front of a
     // database that may recover in thirty seconds would be worse than the silence it replaced.
     expectPrivateCache(response);
+  });
+
+  it("serves the public catalogue when a presented bearer credential is invalid", async () => {
+    // A stale PWA cookie used to hard-401 this route via publicAccessContext, which blanked
+    // Services/Forms with "Could not load …" even though the corpus is public.
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(
+      request("/api/registry/records?kind=service", {
+        headers: { Authorization: "Bearer expired-token", "x-real-ip": "198.51.100.10" },
+      }),
+    );
+    const payload = (await response.json()) as { records: unknown[] };
+
+    expect(response.status).toBe(200);
+    expect(payload.records.length).toBeGreaterThan(0);
+  });
+
+  it("strips nested publication-only source fields before responding", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const renderPayload = {
+      slug: "crisis-line",
+      title: "Crisis line",
+      source: {
+        label: "WA Health",
+        status: "current",
+        summary: "publication-only field",
+        lastUpdated: "2026-09-01",
+        version: "2",
+        title: "Source title",
+      },
+    };
+    const client = createSupabaseMock(undefined, {
+      canonicalRows: [
+        {
+          initialized: true,
+          record: { sourceStatus: "current", validationStatus: "approved" },
+          render_payload: renderPayload,
+          snapshot: { state: "current" },
+        },
+      ],
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+    const { parseRegistryListResponse } = await import("@/lib/registry-client-contract");
+
+    const response = await GET(request("/api/registry/records?kind=service"));
+    const payload = (await response.json()) as {
+      records: Array<{ slug: string; source?: Record<string, unknown> }>;
+      total: number;
+      verifiedCount: number;
+      governance: Record<string, unknown>;
+      publicAccess?: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.records[0]?.source).toEqual({ label: "WA Health", status: "current" });
+    expect(parseRegistryListResponse(payload, "full")).not.toBeNull();
   });
 });

@@ -138,6 +138,56 @@ describe("registry-client-contract", () => {
     expect(parseRegistryListResponse({ ...buildFullListPayload(), degraded: "yes" }, "full")).toBeNull();
   });
 
+  it("projects away nested source fields the publication layer still allows", () => {
+    // Live render_payload rows can carry source.summary / title / version / lastUpdated
+    // (nestedPathKeys in site-content-publication). Before projection those keys made the
+    // whole list parse as null and Services/Forms painted "Could not load …".
+    const base = buildFullListPayload();
+    const dirty = {
+      ...base,
+      records: base.records.map((record, index) =>
+        index === 0
+          ? {
+              ...record,
+              source: {
+                ...(record.source ?? {}),
+                summary: "extra publication field",
+                title: "Source title",
+                version: "1",
+                lastUpdated: "2026-09-01",
+              },
+            }
+          : record,
+      ),
+    };
+    const parsed = parseRegistryListResponse(dirty, "full");
+    expect(parsed).not.toBeNull();
+    expect(parsed?.records[0]?.source).toBeTruthy();
+    expect(
+      parsed?.records[0]?.source &&
+        !("summary" in (parsed.records[0].source as Record<string, unknown>)) &&
+        !("title" in (parsed.records[0].source as Record<string, unknown>)) &&
+        !("version" in (parsed.records[0].source as Record<string, unknown>)) &&
+        !("lastUpdated" in (parsed.records[0].source as Record<string, unknown>)),
+    ).toBe(true);
+  });
+
+  it("accepts canonical live governance that includes review-date fields", () => {
+    // canonicalSiteContentGovernance always emits lastReviewedAt/reviewDueAt. Seeds do not.
+    // Rejecting the live shape is why a recovered catalogue blanked Services/Forms while the
+    // degraded seed path still looked healthy.
+    const payload = {
+      ...buildFullListPayload(),
+      governance: Object.fromEntries(
+        Object.entries(buildFullListPayload().governance).map(([slug, entry]) => [
+          slug,
+          { ...entry, lastReviewedAt: null, reviewDueAt: null },
+        ]),
+      ),
+    };
+    expect(parseRegistryListResponse(payload, "full")).not.toBeNull();
+  });
+
   it("still rejects a list payload carrying a key the route never emits", () => {
     const payload = { ...buildFullListPayload(), unexpectedKey: true };
     expect(parseRegistryListResponse(payload, "full")).toBeNull();

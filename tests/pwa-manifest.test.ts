@@ -182,7 +182,7 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-09-25-v3",
+      cacheVersion: "2026-09-25-v4",
       offlineHtmlSha256: "099947a596d3360a9727fb897bb87f951661aa38feff7ea9852cc970a0c696a9",
     };
 

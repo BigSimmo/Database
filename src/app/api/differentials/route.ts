@@ -22,7 +22,7 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { publicCatalogueAccessContext } from "@/lib/public-api-access";
 import {
   catalogueListFallbackBudgetMs,
   catalogueListScope,
@@ -125,11 +125,11 @@ export async function GET(request: Request) {
       );
     }
 
-    // Anonymous callers still resolve access + rate limit: publicAccessContext skips the
+    // Anonymous callers still resolve access + rate limit: publicCatalogueAccessContext skips the
     // Supabase auth round-trip for requests with no session cookie/bearer, but every caller
     // (authenticated or not) must pass the registry limiter before we serve the full catalog.
     const supabase = createAdminClient();
-    const access = await publicAccessContext(request, supabase);
+    const access = await publicCatalogueAccessContext(request, supabase);
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
