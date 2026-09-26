@@ -488,18 +488,18 @@ describe("OnCallHospitalLine and OnCallHospitalChooser", () => {
     render(<OnCallHospitalLine handbook={state} />);
     expect(screen.getByText("Synthetic Hospital").className).toMatch(/font-medium/);
     await userEvent.click(screen.getByRole("button", { name: /Change hospital/ }));
-    expect(await screen.findByRole("radio", { name: /Synthetic Hospital/ })).toHaveAttribute("aria-checked", "true");
-    await userEvent.click(screen.getByRole("radio", { name: /Synthetic North Hospital/ }));
+    expect(await screen.findByRole("option", { name: /Synthetic Hospital/ })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("option", { name: /Synthetic North Hospital/ }));
     expect(state.changeHospital).toHaveBeenCalledWith("s1", "b");
   });
 
-  it("puts the radios directly in the radiogroup, one tab stop, arrows to move (review S6)", async () => {
+  it("is a listbox of options: one tab stop, arrows move focus without choosing (review S6)", async () => {
     const state = twoHospitals();
     render(<OnCallHospitalChooser handbook={state} />);
-    const group = screen.getByRole("radiogroup", { name: "Hospital" });
+    const group = screen.getByRole("listbox", { name: "Hospital" });
     expect(group.querySelectorAll("li")).toHaveLength(0);
-    expect([...group.children].map((child) => child.getAttribute("role"))).toEqual(["radio", "radio"]);
-    const [current, other] = within(group).getAllByRole("radio");
+    expect([...group.children].map((child) => child.getAttribute("role"))).toEqual(["option", "option"]);
+    const [current, other] = within(group).getAllByRole("option");
     expect(current).toHaveAttribute("tabindex", "0");
     expect(other).toHaveAttribute("tabindex", "-1");
     current?.focus();

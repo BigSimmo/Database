@@ -85,7 +85,11 @@ function isSimilarTeam(a: string, b: string): boolean {
 
 export function handbookEditorWarnings(
   content: HandbookEditorContent,
-  input: { readonly entries: readonly ServiceEntry[]; readonly editingId: string | null; readonly siteName: string | null },
+  input: {
+    readonly entries: readonly ServiceEntry[];
+    readonly editingId: string | null;
+    readonly siteName: string | null;
+  },
 ): HandbookEditorWarning[] {
   const warnings: HandbookEditorWarning[] = [];
   const parsed = parseHandbookTitle(content.title);
@@ -116,7 +120,10 @@ export function handbookEditorWarnings(
     if (!usedExactly) {
       const similarTo = otherTeams.find((other) => isSimilarTeam(team, other));
       if (similarTo) {
-        warnings.push({ id: "similar-team", text: `Is this the same team as "${similarTo}"? Teams group by exact name.` });
+        warnings.push({
+          id: "similar-team",
+          text: `Is this the same team as "${similarTo}"? Teams group by exact name.`,
+        });
       } else if (!(ON_CALL_TEAMS as readonly string[]).includes(team)) {
         warnings.push({ id: "new-team", text: `New team "${team}": it gets its own group on Call.` });
       }

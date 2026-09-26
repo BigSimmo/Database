@@ -130,15 +130,16 @@ function optionKey(option: HospitalHandbookOption): string {
 }
 
 /**
- * The hospitals a reader can change to, as a radio group of rows with a check
- * on the current one (a ruling: a segmented control cannot hold hospital names
+ * The hospitals a reader can change to, as a listbox of rows with a check on
+ * the current one (a ruling: a segmented control cannot hold hospital names
  * at phone width). Names are text only (owner Q6). Renders nothing when there
  * is no choice to make.
  *
- * The radios are the group's direct children (review S6), with one tab stop.
- * Arrow keys, Home and End move focus; Space, Enter or a tap chooses. Moving
- * does not choose, unlike a plain radio group, because a choice reloads the
- * page's numbers and closes the sheet the list sits in.
+ * The options are the listbox's direct children (review S6), with one tab
+ * stop. Arrow keys, Home and End move focus; Space, Enter or a tap chooses.
+ * It is a listbox rather than a radio group because moving must not choose:
+ * the repo's radio groups select on arrow (segmented-control.tsx), and a choice
+ * here reloads the page's numbers and closes the sheet the list sits in.
  */
 export function OnCallHospitalChooser({
   handbook,
@@ -151,7 +152,7 @@ export function OnCallHospitalChooser({
   readonly testId?: string;
 }) {
   const [focusKey, setFocusKey] = useState<string | null>(null);
-  const radios = useRef(new Map<string, HTMLButtonElement>());
+  const options = useRef(new Map<string, HTMLButtonElement>());
   if (handbook.hospitals.length < 2) return null;
   const keys = handbook.hospitals.map(optionKey);
   const tabStop = keys.includes(focusKey ?? "")
@@ -181,12 +182,12 @@ export function OnCallHospitalChooser({
     const next = keys[target];
     if (next === undefined) return false;
     setFocusKey(next);
-    radios.current.get(next)?.focus();
+    options.current.get(next)?.focus();
     return true;
   };
 
   return (
-    <div role="radiogroup" aria-label="Hospital" className={onCallModuleSurface} data-testid={testId}>
+    <div role="listbox" aria-label="Hospital" className={onCallModuleSurface} data-testid={testId}>
       {handbook.hospitals.map((option) => {
         const key = optionKey(option);
         const selected = key === handbook.hospitalKey;
@@ -196,12 +197,12 @@ export function OnCallHospitalChooser({
           <button
             key={key}
             ref={(node) => {
-              if (node) radios.current.set(key, node);
-              else radios.current.delete(key);
+              if (node) options.current.set(key, node);
+              else options.current.delete(key);
             }}
             type="button"
-            role="radio"
-            aria-checked={selected}
+            role="option"
+            aria-selected={selected}
             tabIndex={key === tabStop ? 0 : -1}
             onFocus={() => setFocusKey(key)}
             onKeyDown={(event) => {

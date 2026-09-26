@@ -39,13 +39,25 @@ function published(id: string, title: string, phone: string): ServiceEntry {
 describe("handbookPlacementLine", () => {
   it("says where an entry will appear", () => {
     expect(
-      handbookPlacementLine({ title: "Medicine: Registrar", section: "contacts", kind: "operational", siteId: SITE, phone: "9000 0001" }),
+      handbookPlacementLine({
+        title: "Medicine: Registrar",
+        section: "contacts",
+        kind: "operational",
+        siteId: SITE,
+        phone: "9000 0001",
+      }),
     ).toBe("Will appear in: Call › Hospital › Medicine");
     expect(
       handbookPlacementLine({ title: "Ward: 4B", section: "resources", kind: "operational", siteId: SITE, phone: "" }),
     ).toBe("Will appear in: Find › Wards");
     expect(
-      handbookPlacementLine({ title: "Emergency: Code", section: "contacts", kind: "clinical", siteId: SITE, phone: "55" }),
+      handbookPlacementLine({
+        title: "Emergency: Code",
+        section: "contacts",
+        kind: "clinical",
+        siteId: SITE,
+        phone: "55",
+      }),
     ).toBe("Will appear in: Now (emergency) and Call › Hospital");
   });
 });
