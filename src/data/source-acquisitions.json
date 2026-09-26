@@ -2675,5 +2675,30 @@
     "capturedFor": "Dictionary sense drafts cite this page to correct the implication that bipolar I requires a depressive episode. Captured for terminology provenance only; consumer information is not clinical guidance.",
     "dispositionReason": "The APA's own page carries a physician review dated 'April 2024' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-26. Candidate only pending clinical sign-off.",
     "notes": "International (rung 5): the diagnostic publisher's own statement of the DSM definition, which no WA or Australian source in the register states. It does not replace Australian management guidance. The review month is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+  },
+  {
+    "id": "nmhs-state-forensic-mental-health-services-page",
+    "title": "State Forensic Mental Health Services",
+    "publisher": "North Metropolitan Health Service",
+    "publisherCode": "NMHS",
+    "canonicalUrl": "https://www.nmhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health/Forensics",
+    "jurisdiction": "Western Australia",
+    "version": "Service page, last updated 4 August 2026",
+    "publicationDate": "2026-08-04",
+    "datePrecision": "day",
+    "reviewDate": null,
+    "expiryDate": null,
+    "evidenceType": "consumer_reference",
+    "documentStatus": "current",
+    "validationStatus": "unverified",
+    "contentMode": "link_only",
+    "topics": ["Forensic mental health", "Youth justice", "Court liaison"],
+    "rung": 1,
+    "capturedAt": "2026-09-26",
+    "capturedFor": "Services mode held no record for the Links Court Program at the Perth Children's Court (ledger #6X06YS)",
+    "disposition": "candidate",
+    "dispositionReason": "Captured from the publisher's own page (owner-approved page read, 2026-09-26) and used for a canonical service record. Awaiting owner review before adoption",
+    "supersededBy": [],
+    "notes": "States that Links Court is at the Perth Children's Court for young people aged 10 to 18 appearing before the court with a suspected mental illness, is a partnership of the Department of Justice, the State Forensic Mental Health Service and Outcare, and gives (08) 9218 4819 and a Department of Justice email. States no hours or referral process. 'Page Last Updated: 04/08/2026' is recorded as the publication date, as for the other service pages in this register."
   }
 ]

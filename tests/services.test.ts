@@ -12,7 +12,7 @@ import {
 
 describe("service records", () => {
   it("loads the full WA services catalogue", () => {
-    expect(serviceRecords.length).toBe(246);
+    expect(serviceRecords.length).toBe(247);
     expect(serviceRecords.some((service) => service.slug === "13yarn")).toBe(true);
   });
 
