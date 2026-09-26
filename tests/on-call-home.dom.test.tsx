@@ -376,6 +376,13 @@ describe("the Check these tile", () => {
     expect(tile()).toHaveTextContent("Sign in");
   });
 
+  it("does not say none are due when no entry is the reader's to check", () => {
+    storeState.entries = [{ ...contact("shared", "Shared switchboard", [], "9224 0000"), isOwn: false } as OnCallEntry];
+    render(<OnCallHome />);
+    expect(tile()).toHaveTextContent("Nothing to check");
+    expect(tile()).not.toHaveTextContent("None due");
+  });
+
   it("says none are due only once real entries were assessed", () => {
     storeState.entries = [contact("switch", "Switchboard", [], "9224 0000")];
     render(<OnCallHome />);

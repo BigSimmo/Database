@@ -378,14 +378,17 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // after-hours number on the next tick while the badge went on counting from
   // whenever the page was opened. One clock, one answer.
   const notifications = useMemo(() => deriveOnCallNotifications(entries, now), [entries, now]);
-  const reviewCount = useMemo(() => buildOnCallReviewQueue(entries, now).total, [entries, now]);
+  const reviewQueue = useMemo(() => buildOnCallReviewQueue(entries, now), [entries, now]);
+  const reviewCount = reviewQueue.total;
   // A zero count is only good news when entries were actually loaded and
   // assessed. Loading, a failed load, a signed-out reader and an empty hub
   // all produce zero too, and none of them may read as "checked".
   const reviewLabel = hasEntries
-    ? reviewCount === 0
-      ? "None due"
-      : `${reviewCount} due`
+    ? reviewQueue.assessed === 0
+      ? "Nothing to check"
+      : reviewCount === 0
+        ? "None due"
+        : `${reviewCount} due`
     : loading
       ? "Loading"
       : loadFailed
