@@ -128,6 +128,7 @@
     "src/lib/calculators/**",
     "src/lib/caring-contacts/clock.ts",
     "src/lib/clinical-review-queue.ts",
+    "src/lib/clinical-validation-basis.ts",
     "src/lib/crisis-contacts.ts",
     "src/lib/crisis-wording.ts",
     "src/lib/dictionary-data.ts",
@@ -263,6 +264,7 @@
     "tests/therapy-compass-pathways.test.ts",
     "tests/therapy-review-workflow.test.ts",
     "tests/therapy-source-governance.test.ts",
+    "tests/wa-document-control-endorsement.test.ts",
     "tests/warm-catalogue-caches.test.ts"
   ]
 }
