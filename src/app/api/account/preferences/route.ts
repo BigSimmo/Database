@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { mergeAccountPreferences, normalizePreferences } from "@/lib/account-preferences";
+import { dateKeyToUtcMillis, isValidTime } from "@/lib/calendar/calendar-event";
+import { MAX_ALERTS_PER_DAY, MIN_ALERTS_PER_DAY, REMINDER_LEAD_TIMES } from "@/lib/reminders/settings";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -9,6 +11,44 @@ import { parseJsonBody } from "@/lib/validation/body";
 export const runtime = "nodejs";
 
 const MAX_PREFERENCE_WRITE_ATTEMPTS = 3;
+
+const perthDateSchema = z
+  .string()
+  .max(10)
+  .refine((value) => dateKeyToUtcMillis(value) !== null, { message: "Expected a YYYY-MM-DD date." });
+const wallClockSchema = z
+  .string()
+  .max(5)
+  .refine((value) => isValidTime(value), { message: "Expected an HH:MM time." });
+
+const reminderTypePatchSchema = z
+  .object({
+    showInApp: z.boolean(),
+    calendarAlert: z.enum(REMINDER_LEAD_TIMES),
+    snoozedUntil: perthDateSchema.nullable(),
+  })
+  .partial()
+  .strict();
+
+// Every level is partial and strict: a client sends only what it changed (or
+// the whole object), and an omitted type or field keeps its stored value.
+const remindersPatchSchema = z
+  .object({
+    types: z
+      .object({
+        "compliance-dates": reminderTypePatchSchema,
+        "on-call-checks": reminderTypePatchSchema,
+        "cpd-year-end": reminderTypePatchSchema,
+        "cpd-routines": reminderTypePatchSchema,
+        teaching: reminderTypePatchSchema,
+      })
+      .partial()
+      .strict(),
+    quietHours: z.object({ enabled: z.boolean(), start: wallClockSchema, end: wallClockSchema }).partial().strict(),
+    maxAlertsPerDay: z.number().int().min(MIN_ALERTS_PER_DAY).max(MAX_ALERTS_PER_DAY),
+  })
+  .partial()
+  .strict();
 
 const preferencesPatchSchema = z
   .object({
@@ -27,6 +67,7 @@ const preferencesPatchSchema = z
     notifyGuidelineUpdates: z.boolean(),
     notifyProductNews: z.boolean(),
     notifySavedChanges: z.boolean(),
+    reminders: remindersPatchSchema,
   })
   .partial()
   .strict()

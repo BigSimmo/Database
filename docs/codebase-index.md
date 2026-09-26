@@ -532,6 +532,17 @@ entries or patient data), and `/api/calendar/feed` (signed in) reports, makes or
 Every bad or turned-off link gets the same 404. The panel is `calendar-subscribe.tsx`, on both
 calendar pages.
 
+**Reminder controls.** `src/lib/reminders/settings.ts` is a settings layer over the reminders that
+already exist; it never decides when anything is due. Five types (compliance dates, On Call checks,
+CPD year-end, CPD routines, teaching — in that priority order) each have "Show in the app", a snooze
+date and a calendar alert lead time. They live in the owner's preferences JSON (`reminders` in
+`src/lib/account-preferences.ts`), so there is no table. Each event builder tags its events with a
+`reminderType`; `applyReminderAlarms` sets `alarmAt` after the lead time, quiet hours and a per-day
+cap, and `ics.ts` writes a VALARM only when one is set. The calendar link reads the owner's row, and
+the downloads read the preferences hook. The CME dashboard and On Call notifications filter on
+`showsReminderInApp` and offer "Snooze for a week"; Settings → Notifications holds the Reminders card
+(`settings-reminders.tsx`). The defaults show everything in the app and add no alarms.
+
 ---
 
 ## Supabase

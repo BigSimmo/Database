@@ -1,3 +1,5 @@
+import type { ReminderType } from "@/lib/reminders/settings";
+
 /**
  * One shape for every dated thing the app can put on a calendar: a CME routine
  * coming due, the end of the CPD year, an On Call teaching session, a
@@ -41,6 +43,13 @@ export type CalendarEvent = {
   readonly notes?: string;
   /** An in-app page about this event, if there is one. */
   readonly href?: string;
+  /**
+   * Which reminder setting governs this event's calendar alert, set by the
+   * builder that made it. Absent means the event never alerts.
+   */
+  readonly reminderType?: ReminderType;
+  /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
+  readonly alarmAt?: string;
 };
 
 /**
