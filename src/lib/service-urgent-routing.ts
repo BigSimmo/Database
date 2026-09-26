@@ -236,6 +236,23 @@ const TAG_MATCHERS: Record<ServiceUrgentIntent, RegExp[]> = {
   suicide_postvention: [/postvention/i, /bereavement.*suicid/i, /support after suicide/i],
 };
 
+// Intents that pin an ordered list of named records rather than a single first match. Each
+// matcher resolves to its first usable record in catalogue order (skipping any record already
+// pinned), and the pins keep this order. When none of them resolves, the intent falls back to
+// the single title/tag match above.
+//
+// Owner decision (Josh, 2026-09-26): a family-violence search shows WA's own 24-hour Women's
+// Domestic Violence Helpline first, with the national 1800RESPECT line straight after it.
+// Both are named explicitly by title so catalogue order or tag overlap can never decide which
+// one leads, or push 1800RESPECT out of the results.
+const PINNED_TITLE_SEQUENCES: Partial<Record<ServiceUrgentIntent, readonly RegExp[]>> = {
+  family_violence: [/^Women[’']?s Domestic Violence Helpline$/i, /^1800RESPECT$/i],
+};
+
+// Score step between successive pins of one intent. Every pin of an intent must stay above the
+// next intent's first pin (a step of 1 below), so a sequence may hold at most ten titles.
+const PIN_SEQUENCE_SCORE_STEP = 0.1;
+
 function serviceIsCurrentlyUsable(service: ServiceRecord, intent: ServiceUrgentIntent): boolean {
   const status = service.verification?.availabilityStatus;
   if (status && status !== "active") {
@@ -263,6 +280,31 @@ function findFirstUsable(records: readonly ServiceRecord[], intent: ServiceUrgen
   });
 }
 
+/** The usable records named by an intent's pinned title sequence, in sequence order, skipping
+ * records already pinned. Empty when the intent has no sequence or none of it is usable. */
+function findPinnedSequence(
+  records: readonly ServiceRecord[],
+  intent: ServiceUrgentIntent,
+  seen: ReadonlySet<string>,
+): ServiceRecord[] {
+  const sequence = PINNED_TITLE_SEQUENCES[intent] ?? [];
+  const picked: ServiceRecord[] = [];
+  const pickedSlugs = new Set<string>();
+  for (const pattern of sequence) {
+    const service = records.find(
+      (candidate) =>
+        !seen.has(candidate.slug) &&
+        !pickedSlugs.has(candidate.slug) &&
+        serviceIsCurrentlyUsable(candidate, intent) &&
+        pattern.test(candidate.title),
+    );
+    if (!service) continue;
+    pickedSlugs.add(service.slug);
+    picked.push(service);
+  }
+  return picked;
+}
+
 /** The active WACHS regional record whose `catchments` cover the given region name
  * (e.g. "Kimberley"), or undefined if none is active/usable. */
 function findRegionalDaytimeUsable(records: readonly ServiceRecord[], region: string): ServiceRecord | undefined {
@@ -281,19 +323,28 @@ export function rankServiceUrgentRoutes(records: readonly ServiceRecord[], query
   const matches: ServiceSearchMatch[] = [];
 
   intents.forEach((intent, index) => {
-    const service =
-      intent === "regional_daytime"
-        ? (() => {
-            const region = detectWaRegionForDaytime(query.trim());
-            return region ? findRegionalDaytimeUsable(records, region) : undefined;
-          })()
-        : findFirstUsable(records, intent);
-    if (!service || seen.has(service.slug)) return;
-    seen.add(service.slug);
-    matches.push({
-      service,
-      score: 1_000_000 - index,
-      reasons: ["urgent route", intent.replace(/_/g, " ")],
+    const sequence = findPinnedSequence(records, intent, seen);
+    const services =
+      sequence.length > 0
+        ? sequence
+        : [
+            intent === "regional_daytime"
+              ? (() => {
+                  const region = detectWaRegionForDaytime(query.trim());
+                  return region ? findRegionalDaytimeUsable(records, region) : undefined;
+                })()
+              : findFirstUsable(records, intent),
+          ];
+    services.forEach((service, position) => {
+      if (!service || seen.has(service.slug)) return;
+      seen.add(service.slug);
+      matches.push({
+        service,
+        // The first pin keeps the intent's score of 1_000_000 - index; later pins of the same
+        // intent step down by a fraction so they stay above the next intent's pins.
+        score: 1_000_000 - index - position * PIN_SEQUENCE_SCORE_STEP,
+        reasons: ["urgent route", intent.replace(/_/g, " ")],
+      });
     });
   });
 
