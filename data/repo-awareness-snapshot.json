@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-25"
+    "committed_at": "2026-09-26"
   },
   "routes": {
     "modes": [
@@ -1251,6 +1251,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/shifts",
+        "file": "src/app/(search-app)/on-call/shifts/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/phone-mode-sheet-yes",
         "file": "src/app/mockups/phone-mode-sheet-yes/page.tsx",
         "area": "mockup"
@@ -1524,6 +1529,10 @@
         "file": "src/app/api/caring-contacts/service-state/route.ts"
       },
       {
+        "path": "/api/on-call/shifts",
+        "file": "src/app/api/on-call/shifts/route.ts"
+      },
+      {
         "path": "/api/on-call/entries",
         "file": "src/app/api/on-call/entries/route.ts"
       },
@@ -1750,6 +1759,10 @@
       {
         "path": "/api/cme/routines",
         "file": "src/app/api/cme/routines/route.ts"
+      },
+      {
+        "path": "/api/on-call/shifts/imports/[id]",
+        "file": "src/app/api/on-call/shifts/imports/[id]/route.ts"
       },
       {
         "path": "/api/on-call/services/join",
