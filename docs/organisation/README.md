@@ -1,6 +1,6 @@
 # Organisation map
 
-_Updated 2026-09-26 — first version (stage 1); Knowledge owns._
+_Updated 2026-09-26 — stages 1 to 3; Knowledge owns._
 
 This folder is the map of which **area** of PsychSift every tracked file belongs to. The map is
 logical: nothing is moved or renamed to fit it. `npm run check:organisation` keeps it honest. The
@@ -55,6 +55,21 @@ npm run check:organisation -- --fix     # tidy the map after moving or renaming 
 In CI (`static-pr`), only problems the change itself introduced fail the step, so a PR is never blamed for something already on main and the result never depends on the date. Files that are not placed yet, and entries left behind by a move, are warnings shown on the PR, never failures (owner decisions, 2026-09-26).
 
 Each local run writes a JSON and a Markdown report to the git-ignored `output/organisation/`, selected by `latest.json`. The report also lists canonical docs changed since their last-read pin in `pins.json` (re-read the doc against the code, then update its pin to the id the report prints), the most-edited files of the last 30 days, and what moved since the last report. `npm run ensure` runs the check once, advisory only, when it starts a new dev server.
+
+## The checks built on the map
+
+Each of these reports; none of them decides policy. `pr-policy`, the registers and CI still do.
+
+- **Safety-list coverage.** When a change renames, copies or moves a file off pr-policy's ranking, clinical-risk or migration lists (judged against the lists as they were before the change), the check prints `SAFETY COVERAGE LOST` loudly on the PR. It never blocks: only a self-contradicting map does. An exact list entry that names no tracked file is also reported.
+- **Instruction guards** (`npm run check:instructions`). A rule the owner has dropped goes on `retired-rules.json`, and the check fails when a live instruction file (AGENTS.md, CLAUDE.md, the agent guides, skills and agent definitions) states it again. `instruction-budget.json` caps the size of AGENTS.md and CLAUDE.md. In CI only what the change adds is judged.
+- **Agent hooks.** When an agent edits a file on a safety list, a short note is added to its context, and the first edit in an area names that area and its key docs. A session starts with one line of map health, and nothing when all is clean. They never block and never touch permissions.
+- **PR helper** (`npm run pr:areas`). Prints the `Areas touched:` line for a PR description, plus a `RAG impact:` placeholder when pr-policy says a ranking file changed. The placeholder fails pr-policy's check until a person replaces it.
+- **Routing hint.** `check:organisation -- --files <path>` also names the planner to run before editing.
+- **Per-area index.** The section of `docs/codebase-index.md` between its organisation markers is generated from `systems/*.json` by the pre-commit hook; a stale copy is a warning.
+- **Weekly report** (`npm run organisation:weekly`, and the `Organisation weekly report` workflow on Mondays). One GitHub issue, updated in place: open issues by area, lapsing governance review dates, stale key docs, map tidiness, proposed homes for unplaced files, code no test imports, and where older classifiers disagree with the map. Proposals only; it never moves or edits a file.
+- **Review dates.** In pull-request CI an expired review date on the hazard or privacy register is a warning, unless the change touches the register or what the expired entry covers; then it still blocks. Local runs, main, schedules and release gates stay strict, and the weekly report raises lapsed dates.
+- **Decisions.** The owner's recorded decisions are indexed in [`../decisions/`](../decisions/README.md) (`npm run check:decisions`); each entry points at where the repository records it.
+- **Personal practice reviewer.** `.claude/agents/personal-practice-reviewer.md` reviews the Personal practice area by its job, not by page.
 
 ## What it does not guarantee
 
