@@ -5,6 +5,21 @@
       "path": "next.config.ts",
       "systems": ["data-platform", "delivery"],
       "reason": "Build config that also carries the security headers and content security policy."
+    },
+    {
+      "path": "src/lib/clinical-vocabulary.ts",
+      "systems": ["answer-engine", "source-intake"],
+      "reason": "One synonym vocabulary used equally to expand search queries and to build index units and table facts."
+    },
+    {
+      "path": "src/lib/openai.ts",
+      "systems": ["answer-engine", "source-intake"],
+      "reason": "The one OpenAI client: answer generation and rerank, and embeddings and captions at indexing."
+    },
+    {
+      "path": "src/lib/types.ts",
+      "systems": ["answer-engine", "source-intake"],
+      "reason": "Core document, chunk and search types used equally by indexing and by answering."
     }
   ]
 }

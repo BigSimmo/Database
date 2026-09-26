@@ -2,8 +2,8 @@
   "version": 1,
   "pins": {
     "docs/DOCS-SYSTEM.md": "ccbd5f6dcc8d0898d0927a91d4f4c4f0c4d13d99",
-    "docs/README.md": "9ff54eb157a021e90b9fa26e46289489204f8495",
-    "docs/agents-guide.md": "f3dcc21d61d84f8fd87e49e01a7bdd17ccefdbe6",
+    "docs/README.md": "0ea624a53413e2d28433275b11c00e303c9bb1e7",
+    "docs/agents-guide.md": "cf6ef423c8af5cc7c42522ba1e880cf1c2c744e6",
     "docs/agents/verification-gates.md": "fa948fa7cc51362bbcb4138d6a4f155c48d4cb40",
     "docs/care-plan/CLAUDE-START-HERE.md": "55b814365036068b6b92f6b5476f626187c38ade",
     "docs/clinical-governance.md": "8a110c4cae121e04141ab4cf3d3a12e1a92e791e",

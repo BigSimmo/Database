@@ -1,4 +1,13 @@
 {
   "version": 1,
-  "entries": []
+  "entries": [
+    {
+      "path": "src/lib/safe-buffer.ts",
+      "reason": "No product code imports it, only its own test; likely data-platform API plumbing if it is kept"
+    },
+    {
+      "path": "tests/safe-buffer.test.ts",
+      "reason": "Tests safe-buffer, which no product code imports; place it wherever that file is placed."
+    }
+  ]
 }
