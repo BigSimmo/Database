@@ -571,3 +571,9 @@ export const auditResultSchema = z.object({
 export const displayCreatedSchema = z.object({ expiresAt: instant });
 export const invitationCreatedSchema = z.object({ invitationId: uuid, expiresAt: instant });
 export const cpdSavedSchema = z.object({ entryId: uuid, created: z.boolean() });
+/** Master plan R6: `series.save` answers the series and how many sessions it now has. */
+export const seriesSavedSchema = z.object({ seriesId: uuid, occurrences: z.number().int().nonnegative() });
+export type SeriesSaved = z.infer<typeof seriesSavedSchema>;
+/** Master plan R6: `group.save` answers the group's id. */
+export const groupSavedSchema = z.object({ groupId: uuid });
+export type GroupSaved = z.infer<typeof groupSavedSchema>;
