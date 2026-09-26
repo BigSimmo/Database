@@ -157,8 +157,8 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
             the anchor's stretched `::after` layer, so a tap here still
             activates the same one link the title does — the whole card is
             one tap target, not a title-shaped tap target beside a dead strip. */}
-        <span className="shrink-0 text-right text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
-          {entry.archivedAt ? "Archived" : `${totalAllocatedHours([entry])} h`}
+        <span className="shrink-0 text-right text-sm font-normal tabular-nums text-[color:var(--text-heading)]">
+          {entry.archivedAt ? "Archived" : `${totalAllocatedHours([entry])} h`}
         </span>
         <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
       </div>
@@ -383,7 +383,7 @@ export function CmeLogPage({
                 )}
               >
                 {filter.label}
-                <span className="nums text-xs font-medium opacity-80">{count}</span>
+                <span className="nums text-xs font-normal opacity-80">{count}</span>
               </button>
             );
           })}
@@ -447,7 +447,7 @@ export function CmeLogPage({
             >
               <h2 id={`${group.key}-heading`} className={cn(eyebrowText, "mb-2 flex items-baseline justify-between")}>
                 <span>{group.label}</span>
-                <span className="tabular-nums">{group.hours} h</span>
+                <span className="nums font-normal normal-case">{`${group.hours} h`}</span>
               </h2>
               <ul className="flex flex-col gap-2">
                 {group.entries.map((entry) => (

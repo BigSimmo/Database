@@ -503,7 +503,7 @@ export function CmeDashboard({
 
       <section className={cn(cardSurface, "mt-4 p-4")}>
         <p data-testid="cme-total-hours" className="flex flex-wrap items-baseline gap-1">
-          <span className="nums text-3xl font-semibold text-[color:var(--text)]">{formatCmeHours(totalHours)}</span>
+          <span className="nums text-3xl font-normal text-[color:var(--text)]">{formatCmeHours(totalHours)}</span>
           <span className={cn(textMuted, "text-sm")}>of {formatCmeHours(set.totalHours)} hours logged</span>
         </p>
         <div className="mt-3">

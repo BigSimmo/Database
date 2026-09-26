@@ -583,7 +583,7 @@ export function CmeTrainingPage({
               <p className={cn(textMuted, "mt-1 text-sm")}>No rotation covers today.</p>
             )}
             <p className="mt-3 text-sm text-[color:var(--text)]" data-testid="cme-training-clock">
-              Training time so far: <span className="font-semibold">{formatFteMonths(clock)}</span>
+              Training time so far: <span className="nums font-normal">{formatFteMonths(clock)}</span>
             </p>
             <p className={cn(textMuted, "mt-1 text-xs")}>
               Only rotations count. Half-time counts half, and breaks pause the clock.

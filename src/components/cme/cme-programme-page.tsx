@@ -117,7 +117,7 @@ function TargetRowView({ row }: { row: TargetRow }) {
         <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.label}</span>
         {row.meta ? <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">{row.meta}</span> : null}
       </dt>
-      <dd className="shrink-0 text-sm font-bold tabular-nums text-[color:var(--text-heading)]">{row.value}</dd>
+      <dd className="shrink-0 text-sm font-normal tabular-nums text-[color:var(--text-heading)]">{row.value}</dd>
     </div>
   );
 }
@@ -168,8 +168,8 @@ export function CmeProgrammePage({
           className={cn(inPageAnchor, cardSurface, "flex flex-col gap-3 p-4")}
         >
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">The national baseline</h2>
-            <span className="shrink-0 text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+            <h2 className="text-base font-semibold text-[color:var(--text-heading)]">The national baseline</h2>
+            <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
               As you confirmed it
             </span>
           </div>
@@ -197,7 +197,7 @@ export function CmeProgrammePage({
           className={cn(inPageAnchor, cardSurface, "flex flex-col gap-3 p-4")}
         >
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Your college&rsquo;s extras</h2>
+            <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Your college&rsquo;s extras</h2>
             {onAddCollegeRequirement ? (
               <button type="button" onClick={onAddCollegeRequirement} className={floatingControl}>
                 <Plus className="h-4 w-4 shrink-0" aria-hidden />
@@ -234,7 +234,7 @@ export function CmeProgrammePage({
             "flex flex-col gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-4",
           )}
         >
-          <p className="text-sm font-extrabold text-[color:var(--text-heading)]">These are your numbers, not ours</p>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">These are your numbers, not ours</p>
           <p className="break-words text-sm leading-relaxed text-[color:var(--text)]">
             Confirmed by you on {formatCalendarDateLong(set.confirmedOn)}, against{" "}
             {describeConfirmedSource(set.confirmedSource)}.

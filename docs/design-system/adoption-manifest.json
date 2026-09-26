@@ -405,6 +405,7 @@
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
         "tests/applied-filters.dom.test.tsx",
+        "tests/cme-type-weight.test.ts",
         "tests/cme-visual-contract.dom.test.tsx",
         "tests/copy-button.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",

@@ -151,7 +151,7 @@ export function CmeSetupPage({
     <>
       <CmeNavHeader title="Set up" />
       <InformationPageShell testId="cme-setup-page">
-        <h1 className="text-xl font-extrabold text-[color:var(--text-heading)]">
+        <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">
           Confirm your {targetYear} requirements
         </h1>
         <p className={cn(textMuted, "text-sm leading-relaxed")}>
@@ -258,7 +258,7 @@ export function CmeSetupPage({
               <div>
                 <h2
                   id="cme-setup-requirements-heading"
-                  className="text-base font-bold text-[color:var(--text-heading)]"
+                  className="text-base font-semibold text-[color:var(--text-heading)]"
                 >
                   Requirements
                 </h2>

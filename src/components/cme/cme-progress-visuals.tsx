@@ -93,7 +93,7 @@ export function CmeCategoryBar({ entries, targetHours }: { entries: readonly Cme
           <li key={category} className="flex items-center gap-1.5 text-xs text-[color:var(--text)]">
             <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", CATEGORY_FILL[category])} />
             <span title={cmeCategoryLabels[category]}>{CATEGORY_SHORT[category]}</span>
-            <span className="nums font-semibold">{formatHours(totals[category])} h</span>
+            <span className="nums font-normal">{`${formatHours(totals[category])} h`}</span>
           </li>
         ))}
       </ul>

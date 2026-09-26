@@ -80,11 +80,11 @@ export function CmeAnnualSummary({
       </div>
 
       <header className="grid gap-1">
-        <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">CPD annual summary — {set.year}</h1>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">CPD annual summary — {set.year}</h1>
         {demoMode ? (
           <p className={cn(textMuted, "text-sm")}>Synthetic demonstration — not a personal CPD record.</p>
         ) : null}
-        <p className="text-sm font-semibold tabular-nums">
+        <p className="text-sm font-normal tabular-nums">
           {active.length} active activities · {status.totalHours} / {set.totalHours} hours · Recorded costs AUD $
           {(costs / 100).toFixed(2)}
         </p>
