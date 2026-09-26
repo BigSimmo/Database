@@ -538,7 +538,7 @@ calendar pages.
 
 ### Config and schema
 
-- **CLI:** `supabase/config.toml` — three Edge Functions, all `verify_jwt = true`: `indexing-v3-agent` (plus its shared secret), `ingestion-worker` (retired, refuses every call) and `site-content-sync`
+- **CLI:** `supabase/config.toml` — two Edge Functions, both `verify_jwt = true`: `indexing-v3-agent` (plus its shared secret) and `site-content-sync`
 - **Roles:** `supabase/roles.sql` — default-privilege bootstrap for objects `postgres` creates
 - **Schema mirror:** `supabase/schema.sql` (reference; migrations are source of truth)
 - **Migrations:** `supabase/migrations/*.sql` (chronological source of truth; do not hardcode a count)
@@ -583,13 +583,12 @@ Public-source control-plane tables: `public_source_policy_entries`, `public_sour
 
 ### Edge Functions
 
-| Function                   | Path                                            |
-| -------------------------- | ----------------------------------------------- |
-| indexing-v3-agent          | `supabase/functions/indexing-v3-agent/index.ts` |
-| site-content-sync          | `supabase/functions/site-content-sync/index.ts` |
-| ingestion-worker (retired) | `supabase/functions/ingestion-worker/index.ts`  |
+| Function          | Path                                            |
+| ----------------- | ----------------------------------------------- |
+| indexing-v3-agent | `supabase/functions/indexing-v3-agent/index.ts` |
+| site-content-sync | `supabase/functions/site-content-sync/index.ts` |
 
-`indexing-v3-agent` is the cron-triggered agent for indexing v3 completion gates (its own `indexing_v3_agent_jobs` queue). Auth via `INDEXING_V3_AGENT_SECRET`. `site-content-sync` is the service-role outbox worker for `site_content_sync_events`. `ingestion-worker` is retired: `retirement.ts` returns 410 before touching the queue. All are type-checked by `npm run check:edge:functions`.
+`indexing-v3-agent` is the cron-triggered agent for indexing v3 completion gates (its own `indexing_v3_agent_jobs` queue). Auth via `INDEXING_V3_AGENT_SECRET`. `site-content-sync` is the service-role outbox worker for `site_content_sync_events`. The retired `ingestion-worker` function was deleted; the container worker owns ingestion. Both are type-checked by `npm run check:edge:functions`.
 
 ---
 
