@@ -218,6 +218,13 @@
       "recordedBy": "Engineering, Claude session 2026-09-25. Not a clinical review; the owner must re-review.",
       "recordedOn": "2026-09-25",
       "expiresOn": "2026-10-25"
+    },
+    {
+      "path": "src/data/dictionary-source-dispositions.json",
+      "reason": "Source-disposition changes in PR #3067 (owner-approved publisher page reads for ledger items #JHT39N, #WY625D, #6X06YS, #YDENFM, #KVYHWZ; held/admitted counts and per-source blockers updated) are pending owner review, then a re-seal.",
+      "recordedBy": "BigSimmo (owner), decision 2026-09-26. Engineering, not a clinical review; the owner must re-review.",
+      "recordedOn": "2026-09-26",
+      "expiresOn": "2026-10-26"
     }
   ]
 }
