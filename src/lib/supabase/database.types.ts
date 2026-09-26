@@ -3930,6 +3930,11 @@ export type Database = {
       cme_guard_evidence_insert: { Args: never; Returns: unknown };
       cme_guard_archived_entry: { Args: never; Returns: unknown };
       on_call_service_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_checkin_open: { Args: { p_token: string; p_claim_hash: string }; Returns: Json };
+      teaching_display_code: { Args: { p_link_hash: string }; Returns: Json };
+      teaching_feed_events: { Args: { p_owner_id: string; p_from: string; p_to: string }; Returns: Json };
+      cme_save_teaching_entry: { Args: { p_owner_id: string; p_occurrence_id: string; p_hours: number; p_request_id: string }; Returns: Json };
       cme_close_year: {
         Args: { p_owner_id: string; p_year_id: string; p_evaluation: Json; p_shortfall_note?: string | null };
         Returns: Json;
