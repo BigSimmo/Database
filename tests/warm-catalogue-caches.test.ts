@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearCatalogueSeedFallbackCooldown } from "@/lib/site-content/catalogue-seed-fallback";
 import { clearSiteContentRecordCache } from "@/lib/site-content/site-content-record-cache";
 import {
+  catalogueListWarmKinds,
   catalogueSearchWarmBudgetMs,
   catalogueSearchWarmKinds,
   warmCanonicalCatalogueSearchCaches,
@@ -39,7 +40,7 @@ afterEach(() => {
 });
 
 describe("warmCanonicalCatalogueSearchCaches", () => {
-  it("warms form, service and medication serially and marks the process warm on success", async () => {
+  it("warms form, service and medication, then the differentials lists, serially", async () => {
     const order: string[] = [];
     readCanonicalSiteContentRecords.mockImplementation(async ({ kind }: { kind: string }) => {
       order.push(`start:${kind}`);
@@ -51,6 +52,7 @@ describe("warmCanonicalCatalogueSearchCaches", () => {
     await warmCanonicalCatalogueSearchCaches({} as never);
 
     expect(catalogueSearchWarmKinds).toEqual(["form", "service", "medication"]);
+    expect(catalogueListWarmKinds).toEqual(["differential", "presentation"]);
     expect(order).toEqual([
       "start:form",
       "end:form",
@@ -58,8 +60,12 @@ describe("warmCanonicalCatalogueSearchCaches", () => {
       "end:service",
       "start:medication",
       "end:medication",
+      "start:differential",
+      "end:differential",
+      "start:presentation",
+      "end:presentation",
     ]);
-    expect(markCatalogueProcessConnectionWarmed).toHaveBeenCalledTimes(3);
+    expect(markCatalogueProcessConnectionWarmed).toHaveBeenCalledTimes(5);
   });
 
   it("continues through a failed kind rather than aborting the warm", async () => {
@@ -70,8 +76,8 @@ describe("warmCanonicalCatalogueSearchCaches", () => {
 
     await warmCanonicalCatalogueSearchCaches({} as never);
 
-    expect(readCanonicalSiteContentRecords).toHaveBeenCalledTimes(3);
-    expect(markCatalogueProcessConnectionWarmed).toHaveBeenCalledTimes(2);
+    expect(readCanonicalSiteContentRecords).toHaveBeenCalledTimes(5);
+    expect(markCatalogueProcessConnectionWarmed).toHaveBeenCalledTimes(4);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -93,10 +99,11 @@ describe("warmCanonicalCatalogueSearchCaches", () => {
     });
 
     const hung = warmCanonicalCatalogueSearchCaches({} as never);
-    await vi.advanceTimersByTimeAsync(catalogueSearchWarmBudgetMs * catalogueSearchWarmKinds.length);
+    const warmKindCount = catalogueSearchWarmKinds.length + catalogueListWarmKinds.length;
+    await vi.advanceTimersByTimeAsync(catalogueSearchWarmBudgetMs * warmKindCount);
     await hung;
 
-    expect(seenSignals).toHaveLength(catalogueSearchWarmKinds.length);
+    expect(seenSignals).toHaveLength(warmKindCount);
     expect(seenSignals.every((signal) => signal.aborted)).toBe(true);
     expect(markCatalogueProcessConnectionWarmed).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
