@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
 import { sourceAuthorityForPublisherCode } from "@/lib/source-authority-registry";
 
 export const BMJ_THIRD_PARTY_ATTESTATION_POLICY_VERSION = "bmj-third-party-reference-attestation-v1" as const;
@@ -236,9 +237,15 @@ export function countOperationalUnattestedReviewDebt(
   const completeBmjAttestations = unverified.filter((document) =>
     hasCompleteCurrentBmjThirdPartyAttestation(document, attestationEvents, now),
   ).length;
+  // Like a BMJ attestation, a WA document-control endorsement records a non-review fact and
+  // leaves the source unverified; it is counted apart from unattested debt (#JYH1FH).
+  const waDocumentControlEndorsements = unverified.filter((document) =>
+    hasWaDocumentControlEndorsement(document.metadata),
+  ).length;
   return {
     raw_unverified_validation: unverified.length,
     complete_bmj_third_party_attestations: completeBmjAttestations,
-    unattested_review_debt: unverified.length - completeBmjAttestations,
+    wa_document_control_endorsements: waDocumentControlEndorsements,
+    unattested_review_debt: unverified.length - completeBmjAttestations - waDocumentControlEndorsements,
   };
 }

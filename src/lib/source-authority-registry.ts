@@ -3,6 +3,7 @@ import {
   australianSourcePolicyVersion,
   type AustralianSourceDefinition,
 } from "@/lib/australian-source-catalogue";
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 export type AustralianSourceTier = "wa_validated" | "australian_national" | "australian_state" | "supplementary";
@@ -1027,9 +1028,20 @@ function isCurrentUsableDocument(
   );
 }
 
-function isLocallyValidated(metadata: Pick<ClinicalSourceMetadata, "clinical_validation_status">) {
+/**
+ * WA-tier eligibility. An `unverified` document whose evidence records the issuing WA service's
+ * own document-control endorsement keeps the tier it held as the backfill's `locally_reviewed`
+ * stamp (#JYH1FH): the tier was built on that endorsement, not on a review done here. Reads the
+ * raw metadata because the status alone cannot carry the basis.
+ */
+function isLocallyValidated(
+  metadata: Pick<ClinicalSourceMetadata, "clinical_validation_status">,
+  rawMetadata: unknown,
+) {
   return (
-    metadata.clinical_validation_status === "approved" || metadata.clinical_validation_status === "locally_reviewed"
+    metadata.clinical_validation_status === "approved" ||
+    metadata.clinical_validation_status === "locally_reviewed" ||
+    hasWaDocumentControlEndorsement(rawMetadata)
   );
 }
 
@@ -1089,7 +1101,7 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
   }
   if (!isCurrentUsableDocument(metadata)) eligibilityReasons.push("source_not_current_usable_document");
   if (authorityEntry && authorityEntry.lifecycle !== "active") eligibilityReasons.push("catalogue_inactive");
-  if (authorityEntry?.tier === "wa_validated" && !isLocallyValidated(metadata)) {
+  if (authorityEntry?.tier === "wa_validated" && !isLocallyValidated(metadata, rawMetadata)) {
     eligibilityReasons.push("wa_source_not_locally_validated");
   }
 
@@ -1133,7 +1145,7 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     conflicts.length === 0 &&
     (Boolean(cataloguePolicy) || Boolean(codeAuthority) || Boolean(metadata.jurisdiction)) &&
     isCurrentUsableDocument(metadata) &&
-    (authorityEntry?.tier !== "wa_validated" || isLocallyValidated(metadata)) &&
+    (authorityEntry?.tier !== "wa_validated" || isLocallyValidated(metadata, rawMetadata)) &&
     (!cataloguePolicy || cataloguePolicyEligible);
 
   const australianAugmentationEligible =

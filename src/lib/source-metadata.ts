@@ -1,3 +1,8 @@
+import {
+  WA_DOCUMENT_CONTROL_ENDORSEMENT_BASIS,
+  WA_DOCUMENT_CONTROL_ENDORSEMENT_LABEL,
+  hasWaDocumentControlEndorsement,
+} from "@/lib/clinical-validation-basis";
 import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
 import type { ClinicalSourceMetadata, ClinicalSourceMetadataInput } from "@/lib/types";
 
@@ -213,6 +218,12 @@ export function normalizeClinicalSourceMetadata(input: ClinicalSourceMetadataInp
       "clinical_validation_status",
     ),
     extraction_quality: enumOrDefault(value.extraction_quality, knownExtraction, "unknown", "extraction_quality"),
+    // Only the WA document-control endorsement basis survives normalization, and only as its
+    // basis: authority classification, claim eligibility and labels read it downstream. Every
+    // other input normalizes exactly as before (no key added), so existing outputs are unchanged.
+    ...(hasWaDocumentControlEndorsement(value)
+      ? { clinical_validation_evidence: { basis: WA_DOCUMENT_CONTROL_ENDORSEMENT_BASIS } }
+      : {}),
   };
 }
 
@@ -288,11 +299,14 @@ export function sourceStatusLabel(
 }
 
 export function validationStatusLabel(
-  metadata?: Partial<Pick<ClinicalSourceMetadata, "clinical_validation_status">> | null,
+  metadata?: Partial<
+    Pick<ClinicalSourceMetadata, "clinical_validation_status" | "clinical_validation_evidence">
+  > | null,
 ) {
   const status = metadata?.clinical_validation_status ?? "unverified";
   if (status === "approved") return "Approved";
   if (status === "locally_reviewed") return "Locally reviewed";
+  if (hasWaDocumentControlEndorsement(metadata)) return WA_DOCUMENT_CONTROL_ENDORSEMENT_LABEL;
   if (status === "unknown") return "Validation unknown";
   return "Not locally validated";
 }
