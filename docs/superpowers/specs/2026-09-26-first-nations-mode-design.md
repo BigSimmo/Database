@@ -1,9 +1,11 @@
 # First Nations mode — design
 
-Status: draft for owner review
+Status: design approved by the owner (final design, 2026-09-26 18:48Z)
 Date: 2026-09-26
-Owner decisions captured in the project thread "Plan First Nations mode" (cards 1–15 and G1–G24,
-answered 2026-09-26). Visual plan and phone mockups: the private plan page, version 6.
+Owner decisions captured in the project thread "Plan First Nations mode" (cards 1–15, G1–G24 and the
+seven final-design cards, answered 2026-09-26). Visual design: the private plan page, final design
+(version 12), 23 phone screens plus tablet and desktop. The generators that draw it are kept in the
+project files (`first-nations-mode/design-source/v4/`) as the visual reference for the build.
 
 ## 1. What this is
 
@@ -38,6 +40,13 @@ only from the service's Aboriginal health team.
 | Pocket card                  | First release, printable, public numbers only                                                                                                    | —                                                                                                    |
 | Patient and family materials | First release, as **links to Aboriginal-produced resources** chosen with the EMHS team                                                           | PsychSift-written patient material — needs co-design and approval first                              |
 | Style                        | Live app components; premium, mature, light weights; numbers never bold                                                                          | Ochre theme, Aboriginal art or language page names — tokenistic without permission                   |
+| Mode colour                  | Olive `#4d6b2f` (dark `#b5c98c`), shared design standard v13.1                                                                                   | Deep eucalyptus — too close to On Call's teal in lightness                                           |
+| After hours                  | The hospital switchboard is the large figure until the service supplies an after-hours contact                                                   | A service after-hours line — none supplied yet                                                       |
+| Situation module on open     | Opens on "New admission"                                                                                                                         | Nothing chosen — costs a tap before any words show                                                   |
+| Phrases                      | Three per situation (18 in all), each needing service approval                                                                                   | One per situation — no alternatives                                                                  |
+| Situations                   | The same six for all of WA Health                                                                                                                | Chosen per hospital — more screens and approvals                                                     |
+| Hospital not set up          | Statewide numbers only; the liaison card becomes the state module saying so                                                                      | Hiding the mode — the words and statewide numbers help anywhere                                      |
+| "Wants to leave" risk line   | The owner checks the wording himself; it ships only after his typed OK in the thread                                                             | Sending it to the service (it is clinical, not cultural); leaving it out                             |
 
 ## 3. Pages and navigation
 
@@ -45,21 +54,31 @@ Navigation copies live On Call and CPD exactly: the mode pill opens the full-hei
 ("First Nations pages"); each page has underlined section tabs; rarer actions sit in the ••• menu
 (change hospital, report a wrong number, pocket card, cultural safety training, sources, primer).
 
-| Page            | Route                          | Tabs                                     | Holds                                                                                                                                            |
-| --------------- | ------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Bedside         | `/first-nations`               | —                                        | Liaison status card with hours, one call button, "What's happening?" (six situations), three fixed good-care tips, crisis block                  |
-| Contacts        | `/first-nations/contacts`      | Hospital · Community · Mental · Language | Liaison teams (team numbers only), ACCHOs and Aboriginal mental health services via Services, Aboriginal Interpreting WA, Aboriginal staff roles |
-| Talking         | `/first-nations/talking`       | Yarning · Asking · Language · Be aware   | Clinical yarning (credited), asking about identity (text only), interpreters, one-line background facts                                          |
-| Family          | `/first-nations/family`        | Kinship · Consent · Visitors · Safety    | Who decides, consent as a shared process, visitors, children and family safety                                                                   |
-| Mental health   | `/first-nations/mental-health` | Act · Assessment · Wellbeing · Restraint | MHA 2014 s 81 verbatim (from the Forms note), what to record, cultural context, SEWB links, restraint                                            |
-| On the ward     | `/first-nations/on-the-ward`   | Respect · Healing · Country · Bias       | Everyday respect, traditional healers and bush medicine (after approval), away from Country, racism and bias                                     |
-| Common mistakes | `/first-nations/mistakes`      | Talking · Family · Mental · Ward         | "Avoid / Instead" items; top three also reachable from Bedside                                                                                   |
-| Going home      | `/first-nations/going-home`    | Leaving · Medicines · Travel · Follow-up | Leaving early steps, Close the Gap, PATS, follow-up with the patient's ACCHO, patient materials links                                            |
-| End of life     | `/first-nations/end-of-life`   | Family · Country · Afterwards · Coroner  | Family and liaison first, returning to Country, after death (ask, no generic rules), coroner links                                               |
+| Page            | Route                          | Tabs                                     | Holds                                                                                                                                                 |
+| --------------- | ------------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bedside         | `/first-nations`               | —                                        | Liaison card (hero), crisis strip, this mode's own search box, Situation module, "Before you go in" and "Where is home?" tiles, quiet Acknowledgement |
+| Contacts        | `/first-nations/contacts`      | Hospital · Community · Mental · Language | Liaison teams (team numbers only), ACCHOs and Aboriginal mental health services via Services, Aboriginal Interpreting WA, Aboriginal staff roles      |
+| Talking         | `/first-nations/talking`       | Yarning · Asking · Language · Be aware   | Clinical yarning (credited), asking about identity (text only), interpreters, one-line background facts                                               |
+| Family          | `/first-nations/family`        | Kinship · Consent · Visitors · Safety    | Who decides, consent as a shared process, visitors, children and family safety                                                                        |
+| Mental health   | `/first-nations/mental-health` | Act · Assessment · Wellbeing · Restraint | MHA 2014 s 81 verbatim (from the Forms note), what to record, cultural context, SEWB links, restraint                                                 |
+| On the ward     | `/first-nations/on-the-ward`   | Respect · Healing · Country · Bias       | Everyday respect, traditional healers and bush medicine (after approval), away from Country, racism and bias                                          |
+| Common mistakes | `/first-nations/mistakes`      | Talking · Family · Mental · Ward         | "Avoid / Instead" items; top three also reachable from Bedside                                                                                        |
+| Going home      | `/first-nations/going-home`    | Leaving · Medicines · Travel · Follow-up | Leaving early steps, Close the Gap, PATS, follow-up with the patient's ACCHO, patient materials links                                                 |
+| End of life     | `/first-nations/end-of-life`   | Family · Country · Afterwards · Coroner  | Family and liaison first, returning to Country, after death (ask, no generic rules), coroner links                                                    |
 
-Situations (New admission, Mental Health Act, Wants to leave, Family meeting, Very unwell or dying,
-Going home) open as an in-page sheet on Bedside, not as routes. Each is three to five steps that
-**reference** existing content blocks by id, so nothing is written twice.
+Situations (New admission, Wants to leave, Family meeting, Mental Health Act, Sorry Business, Going
+home) are chips in the Bedside Situation module. The chosen chip shows three phrases to try (one at a
+time, stepped with an arrow), the first step, and a "Plan · N steps" button that opens the full plan
+as a bottom sheet. Each plan is three to five steps that **reference** existing content blocks by id,
+so nothing is written twice. "Wants to leave" opens with the immediate-risk line, which renders only
+once the owner's typed OK is recorded.
+
+The pages sheet groups pages under "At the bedside" (Bedside, Contacts, Talking, Family), "During
+the stay" (Mental health, On the ward, Common mistakes) and "Leaving hospital" (Going home, End of
+life). Inner pages are built from titled modules: a 28 px olive icon tile and an eyebrow, then rows,
+steps or cards. Contacts opens with four number tiles; Talking and Family open with a phrase deck;
+Mental health pairs s 81 with its three steps; Common mistakes are numbered cards; Going home ends
+with copyable lines for the discharge letter.
 
 ## 4. Content model
 
@@ -89,13 +108,31 @@ layer at once.
 
 ## 5. Behaviours
 
-- **Hours-aware call card.** Server renders "Hours not confirmed"; the client computes the real
+- **Liaison card (hero).** Dark hero card: status word with a 6 px dot, "until 16:30" as the one
+  36 px light figure, a 24-hour day track (open hours in olive, "now" in product blue), today's hours
+  in words, and the one filled call button. After hours the switchboard number becomes the large
+  figure and the line reads "Ask who covers liaison tonight". The status dot is success green only
+  for a live, fresh state and pulses once for 600 ms when it turns fresh (never with reduced motion).
+  Server renders "Hours not confirmed"; the client computes the real
   state in Australia/Perth time with the WA public holiday list (reusing `toAwstParts`/`Clock` from
   `src/lib/caring-contacts/clock.ts`). Out of hours it switches to the switchboard. Past the 90-day
   recheck it never says "open", turns the card to the overdue state and moves the switchboard to the
   top. The number is never hidden.
 - **Crisis block.** 000, 13YARN, MHERL and Lifeline read from `WA_CRISIS_CONTACTS`, rendered with the
-  page, never lazy-loaded.
+  page, never lazy-loaded. On Bedside, 000 and 13YARN sit as a two-tile strip directly under the
+  liaison card, and the strip renders in every state (loading, empty, offline, error, not set up).
+- **Tap a number.** Every number opens a bottom sheet: the number in 44 px light digits, Call (the
+  one filled button), Copy and Share, the source and "Checked <date>", and "Report a wrong number".
+- **Before you go in.** A five-check sheet from its Bedside tile. It opens unticked every time, says
+  "Nothing is saved", and clears with Undo (about six seconds), never "Are you sure?".
+- **Where is home?** A line map of WA; tapping a region lists services and languages near home, with
+  "Add to letter" and "Copy all". The region is never saved, put in a URL, sent to the server or
+  analytics, or entered into the main search bar.
+- **Search box.** This mode's own in-page search over its content and contacts, with no microphone.
+  Nothing typed goes to the main search bar or to OpenAI.
+- **One state module.** Empty, offline, error and not-set-up share one module in the same place: an
+  icon, a title, one line and one outlined button. The header, tabs and crisis strip always stay.
+  Tabs never carry count badges.
 - **Tick-through steps** in situations: React state only, never stored, and the screen says so.
 - **Note wording.** Copies the approved template to the clipboard; PsychSift fills in nothing and
   keeps nothing. Hidden until approved.
@@ -120,10 +157,27 @@ checked date; "checked" means checked against the official page.
 
 ## 7. Design
 
-Built only from live components and tokens: universal header and mode pill, `InPageNavHeader`
-tabs, white cards, black call buttons, copy buttons, "Never checked" chips, Playbook-style numbered
-steps. Premium pass: weights 400–600, numbers at 500 with tabular figures, calm borders. Mode hue is
-a placeholder until the EMHS team is consulted. Tap targets 48 px. Target WCAG 2.2 AA.
+Follows the shared mode design standard (`/mnt/project-files/design/mode-design-standard.md`,
+v13.1) and the final design page. Built from live components and tokens: universal header and mode
+pill, `InPageNavHeader` tabs, raised cards with the e1 elevation, sheets with e4, hairline borders,
+concentric inner corners.
+
+- **Type.** Geist from the app's own font file; sizes 11 (labels, sources), 13 (body, sub-lines,
+  tabs, buttons), 15 (row titles and numbers), 17 (sheet titles, quotes, crisis numbers); display
+  36 px (liaison figure) and 44 px (number sheet) at weight 300. At most four sizes per screen,
+  weights 400–600, numbers 400 with tabular figures, nothing bold.
+- **Serif accent.** Newsreader italic 400 via `next/font/local`, only for words to say aloud, the
+  quoted Act and the Acknowledgement.
+- **Colour.** Olive tokens: light `#4d6b2f`, soft `#f2f5ee`, border `#dce4d2`; dark `#b5c98c`, soft
+  `#232b1d`, border `#3a4730`, disc contrast `#172009`. Used only on the pill, the current tab,
+  module-header icon tiles, the hero's day track and quotation marks with their 3 px side rule.
+  Selection and "now" stay product blue; 000 is the only red; rows, chips and buttons stay neutral.
+  Muted small print on a soft tint uses `--text-muted`.
+- **Layout.** 12 px gutters and module padding, 48 px taps (row actions 34 px visible inside 48 px),
+  one filled button per screen or sheet, sheets rise from the bottom. Tablet: two columns. Desktop:
+  a 360 px side panel showing the chosen situation's plan, with previous and next arrows. Dark mode
+  follows the phone; text reflows at 200%.
+- Target WCAG 2.2 AA.
 
 ## 8. Architecture and files
 
@@ -143,11 +197,12 @@ a placeholder until the EMHS team is consulted. Tap targets 48 px. Target WCAG 2
 
 ## 9. Testing
 
-Contract tests: schema validity; every block has a source and checked date; no names or mobile
+Contract tests: schema validity; exactly six situations with three phrases each; every block has a source and checked date; no names or mobile
 numbers; banned approval words absent; a changed hash drops a section to its unapproved state;
 unapproved own wording never renders; service layer off hides every EMHS item. Behaviour tests: the
 hours card with a faked clock (open, closed, public holiday, overdue); crisis block present in the
-server HTML. Updated pins: mode counts in `app-modes.test.ts`, `mode-secondary-navigation.test.ts`,
+server HTML and in every state; the situation, region and ticks never reach a URL, storage or a
+network request; the immediate-risk line stays hidden until its approval record exists. Updated pins: mode counts in `app-modes.test.ts`, `mode-secondary-navigation.test.ts`,
 `ui-copy.test.ts`, `ui-smoke.spec.ts`, `design-system-adoption.test.ts` and the nav-slot claimant
 list, re-derived after merging `main` because sibling new-mode threads touch the same pins.
 
