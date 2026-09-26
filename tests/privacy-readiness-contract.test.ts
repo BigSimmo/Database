@@ -311,7 +311,29 @@ describe("privacy readiness review dates: expiry and pull-request scope", () => 
     expect(warnings.some((warning) => warning.startsWith("manifest review has expired. Not blocking"))).toBe(true);
   });
 
-  it("still blocks every lapsed review when the pull request touches the register itself", () => {
+  it("blocks on a register touch only for the lapsed requirement the change edits (owner decision 2026-09-26)", () => {
+    const [edited, ...others] = manifest.requirements;
+    const head = {
+      ...manifest,
+      requirements: [{ ...edited, accountableRole: `${edited.accountableRole} (edited)` }, ...others],
+    };
+    const copies: Record<string, string> = { base: JSON.stringify(manifest), head: JSON.stringify(head) };
+    const { errors, warnings } = evaluatePrivacyReadiness(manifest, {
+      checkGit,
+      now: AFTER_EVERY_EXPIRY,
+      reviewDateScope: {
+        ...prScope([REGISTER]),
+        mergeBase: "base",
+        read: (revision: string) => copies[revision] ?? null,
+      },
+    });
+    expect(expired(errors)).toEqual([
+      `${edited.id}: review has expired (blocking: this change touches this entry in ${REGISTER})`,
+    ]);
+    expect(expired(warnings)).toHaveLength(lapsedCount - 1);
+  });
+
+  it("still blocks every lapsed review when the register is touched and the entries cannot be compared", () => {
     const { errors, warnings } = evaluatePrivacyReadiness(manifest, {
       checkGit,
       now: AFTER_EVERY_EXPIRY,
