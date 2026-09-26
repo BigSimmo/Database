@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
+import { adminFreeTextProblem } from "@/lib/on-call/free-text-guard";
 import { onCallDetailsSchemaFor, onCallEntrySchema } from "@/lib/on-call/entry-model";
 import { assertValidLinkedDocumentIds, onCallEntryToRow, rowToOnCallEntry } from "@/lib/on-call/repository";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -59,6 +60,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!parsedDetails.success) {
       return publicErrorResponse("Invalid On Call entry details.", 400);
     }
+    const problem = adminFreeTextProblem(parsedDetails.data);
+    if (problem) return publicErrorResponse(problem, 400, { code: "free_text_identifier" });
 
     const entry = onCallEntrySchema.parse({ ...parsedEntry.data, id, details: parsedDetails.data });
     const row = onCallEntryToRow(entry, user.id);

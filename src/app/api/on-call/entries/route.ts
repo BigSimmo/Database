@@ -13,6 +13,7 @@ import { isDemoMode } from "@/lib/env";
 import { createOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { jsonError, publicErrorResponse } from "@/lib/http";
+import { adminFreeTextProblem } from "@/lib/on-call/free-text-guard";
 import {
   ON_CALL_SECTIONS,
   onCallDetailsSchemaFor,
@@ -125,6 +126,8 @@ export async function POST(request: Request) {
     if (!parsedDetails.success) {
       return publicErrorResponse("Invalid On Call entry details.", 400);
     }
+    const problem = adminFreeTextProblem(parsedDetails.data);
+    if (problem) return publicErrorResponse(problem, 400, { code: "free_text_identifier" });
 
     const entry = onCallEntrySchema.parse({
       ...parsedEntry.data,

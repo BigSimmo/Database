@@ -330,6 +330,35 @@ const logisticsDetails = z
      * recorded and who recorded it, and leaves the judgement to the reader.
      */
     provenance: z.enum(ON_CALL_COMPLIANCE_PROVENANCE).optional(),
+    /**
+     * Earlier recorded expiry dates, newest first, written by Admin's Renewed
+     * sheet (spec: "The previous date is kept in history"). JSONB, so no
+     * migration. Each was typed by the holder; none was checked. At most ten.
+     */
+    expiryHistory: z
+      .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD."))
+      .max(10)
+      .optional(),
+    /** "Where's your proof": a note to self of up to 120 characters, never the proof itself. */
+    proofNote: trimmed.max(120).optional(),
+    /**
+     * Owner-only: this requirement does not apply to the doctor's current job
+     * (spec review 27/28, "Not for this job", approved by Josh 18:48Z). Storing
+     * it moves the row to a final section on Renewals and takes it out of the
+     * "X of Y recorded" count entirely — it is not counted as either recorded
+     * or unrecorded. Never a verdict about the requirement itself, only about
+     * whether it applies to this doctor. Absent (rather than `false`) is the
+     * ordinary case, so an entry written before this field existed is
+     * unaffected.
+     */
+    notForThisJob: z.boolean().optional(),
+    /**
+     * Links this compliance row to a statewide Requirements catalogue item
+     * (`src/lib/admin/requirements.ts`) by id, so a renamed or reworded entry
+     * still matches its catalogue slot. Optional: most rows match by title
+     * instead, and a row with no catalogue counterpart carries none.
+     */
+    requirementId: trimmed.optional(),
   })
   .strict();
 
