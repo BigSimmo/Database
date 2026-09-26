@@ -945,7 +945,7 @@ export function ServicesNavigatorPage() {
             // the First Nations mode's contacts page (liaison and community-controlled services).
             <Link
               href="/first-nations/contacts"
-              className="inline-flex min-h-12 items-center gap-1.5 self-start text-sm-minus font-medium text-[color:var(--clinical-accent)] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="inline-flex min-h-12 items-center gap-1.5 self-start text-sm font-medium text-[color:var(--clinical-accent)] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               Open First Nations contacts
               <ArrowRight className="size-icon-sm" aria-hidden="true" />

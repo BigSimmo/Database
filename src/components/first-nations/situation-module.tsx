@@ -214,7 +214,7 @@ export function SituationSidePanel() {
         </div>
         <div className="flex items-center">
           <ModeActionButton icon={ArrowLeft} label="Previous situation" onClick={() => select(index - 1)} />
-          <span className="nums min-w-11 text-center text-sm-minus text-[color:var(--text-muted)]">{`${index + 1} of ${situations.length}`}</span>
+          <span className="nums min-w-12 text-center text-sm-minus text-[color:var(--text-muted)]">{`${index + 1} of ${situations.length}`}</span>
           <ModeActionButton icon={ArrowRight} label="Next situation" onClick={() => select(index + 1)} />
         </div>
       </div>

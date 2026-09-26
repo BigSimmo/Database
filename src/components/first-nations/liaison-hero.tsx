@@ -69,12 +69,16 @@ export function LiaisonHero({ hospital, clock = SYSTEM_CLOCK }: { hospital: Hosp
         >
           Aboriginal liaison
         </h2>
-        <p aria-live="polite" className="text-sm-minus">
+        <p className="text-sm-minus">
           <FnLiveStatus tone={tone} settled={now !== null}>
             {label}
           </FnLiveStatus>
         </p>
       </div>
+      {/* Design SPEC §9.2: the visible status is plain content; this hidden announcer speaks its changes. */}
+      <span role="status" className="sr-only">
+        {now ? `Aboriginal liaison: ${label}` : ""}
+      </span>
       <p data-testid="fn-hero-figure" className="fn-display-36 break-words">
         <span className="text-sm-minus font-normal text-[color:var(--surface-summary-muted)]">
           {open ? "until " : "switchboard "}

@@ -1230,7 +1230,7 @@ body {
 /* The one display figure on the First Nations hero (standard §1: 36 px at 300). */
 .fn-display-36 {
   font-size: 2.25rem;
-  line-height: 1.1;
+  line-height: var(--leading-display);
   font-weight: 300;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;

@@ -418,7 +418,7 @@ function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
       {notes.some((note) => note.kind === "aboriginal-liaison") ? (
         <Link
           href="/first-nations/mental-health"
-          className="inline-flex min-h-12 items-center text-sm-minus font-medium text-[color:var(--clinical-accent)] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="inline-flex min-h-12 items-center text-sm font-medium text-[color:var(--clinical-accent)] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           Open First Nations mental health
         </Link>

@@ -9,7 +9,7 @@ export function SpokenWords({ children, size = "lg" }: { children: string; size?
       data-mode-identity="first-nations"
       className={cn(
         "fn-voice border-l-[3px] border-[color:var(--mode-identity)] pl-3 text-[color:var(--text-heading)]",
-        size === "lg" ? "text-lg-minus leading-[1.35]" : "text-base-minus leading-[1.4]",
+        size === "lg" ? "text-lg-minus leading-snug" : "text-base-minus leading-snug",
       )}
     >
       <span aria-hidden="true" className={QUOTE_MARK}>
@@ -27,7 +27,7 @@ export function QuotedLaw({ children }: { children: string }) {
   return (
     <blockquote
       data-mode-identity="first-nations"
-      className="fn-voice border-l-[3px] border-[color:var(--mode-identity)] pl-3 text-lg-minus leading-[1.5] text-[color:var(--text-heading)]"
+      className="fn-voice border-l-[3px] border-[color:var(--mode-identity)] pl-3 text-lg-minus leading-normal text-[color:var(--text-heading)]"
     >
       {children}
     </blockquote>

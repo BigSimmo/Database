@@ -6,6 +6,7 @@ import {
   ModeActionButton,
   ModeDialRow,
   ModeGroupedList,
+  ModeRow,
   ModeUpdatedLine,
 } from "@/components/first-nations/kit";
 import { FnModule, ModuleHeader } from "@/components/first-nations/module-header";
@@ -13,6 +14,7 @@ import { dialNumber } from "@/components/first-nations/number-button";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { telHref } from "@/lib/first-nations/contact-format";
 import type { WaMap } from "@/lib/first-nations/content-schema";
 import type { ContactView, RegionView, SourceView } from "@/lib/first-nations/view-model";
 
@@ -27,6 +29,24 @@ type Props = {
 const MODE = "first-nations";
 
 function DialRow({ contact }: { contact: ContactView }) {
+  // Words such as "See website" are not a number: no dial sheet and no tel: link, just the text and its source.
+  if (!telHref(contact.number)) {
+    return (
+      <ModeRow
+        testId={`fn-home-${contact.id}`}
+        title={contact.name}
+        subtitle={contact.detail || undefined}
+        meta={
+          <ModeUpdatedLine
+            updatedAt={contact.checkedAt}
+            verb="Checked"
+            sources={[{ label: contact.source.title, url: contact.source.url }]}
+          />
+        }
+        trailing={<span className="px-2 text-sm-minus text-[color:var(--text-muted)]">{contact.number}</span>}
+      />
+    );
+  }
   return (
     <ModeDialRow
       label={contact.name}
@@ -131,18 +151,20 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
             ))}
           </ModeGroupedList>
           <ModeGroupedList eyebrow="Languages" headerIcon={MessageCircle} mode={MODE}>
-            <li className="px-3 py-2">
-              <ul className="flex flex-wrap gap-1.5">
-                {region.languages.map((l) => (
-                  <li
-                    key={l}
-                    className="inline-flex h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-sm-minus text-[color:var(--text)]"
-                  >
-                    {l}
-                  </li>
-                ))}
-              </ul>
-            </li>
+            {region.languages.length ? (
+              <li className="px-3 py-2">
+                <ul className="flex flex-wrap gap-1.5">
+                  {region.languages.map((l) => (
+                    <li
+                      key={l}
+                      className="inline-flex h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-sm-minus text-[color:var(--text)]"
+                    >
+                      {l}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ) : null}
             {interpreter ? <DialRow contact={interpreter} /> : null}
           </ModeGroupedList>
           <ModeUpdatedLine
@@ -163,7 +185,7 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
           title="For the letter"
           action={<ModeActionButton icon={Clipboard} label="Copy" onClick={() => void copy(letter.join("\n"))} />}
         >
-          <p className="nums mx-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-sm-minus leading-[1.55] text-[color:var(--text)]">
+          <p className="nums mx-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-sm-minus leading-normal text-[color:var(--text)]">
             {letter.map((line) => (
               <span key={line} className="block">
                 {line}

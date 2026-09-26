@@ -76,17 +76,17 @@ export function FnLiveStatus({
   }, [pulsing]);
 
   return (
-    <span data-state={tone} className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
-      <span aria-hidden="true" className="relative inline-grid place-items-center">
-        {pulsing ? (
-          <span
-            ref={ring}
-            data-pulse=""
-            className={cn(modeDot, DOT_TONE.live, "absolute inset-0 motion-reduce:hidden")}
-          />
-        ) : null}
-        <span data-state-dot="" className={cn(modeDot, DOT_TONE[tone])} />
-      </span>
+    // The dots sit beside the words (never alone in a wrapper), so the state always has a text channel.
+    <span data-state={tone} className={cn("relative inline-flex min-w-0 items-center gap-1.5", className)}>
+      {pulsing ? (
+        <span
+          ref={ring}
+          aria-hidden="true"
+          data-pulse=""
+          className={cn(modeDot, DOT_TONE.live, "absolute inset-y-0 left-0 my-auto motion-reduce:hidden")}
+        />
+      ) : null}
+      <span aria-hidden="true" data-state-dot="" className={cn(modeDot, DOT_TONE[tone])} />
       <span className="break-words">{children}</span>
     </span>
   );

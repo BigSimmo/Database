@@ -6,7 +6,6 @@ import { LiaisonHero } from "@/components/first-nations/liaison-hero";
 import { FnModule } from "@/components/first-nations/module-header";
 import { OfflineState } from "@/components/first-nations/offline-state";
 import { FirstNationsHomeMenu } from "@/components/first-nations/page-menu";
-import { Primer } from "@/components/first-nations/primer";
 import { SituationModule, SituationProvider, SituationSidePanel } from "@/components/first-nations/situation-module";
 import { StateModule } from "@/components/first-nations/state-module";
 import { AcknowledgementText } from "@/components/first-nations/voice";
@@ -55,7 +54,6 @@ export function BedsideHomeView({
         reportHref={model.missingNumberHref}
         training={training}
       />
-      <Primer />
       <div className="mx-auto grid w-full max-w-[80rem] lg:grid-cols-[minmax(0,1fr)_22.5rem]">
         <div className="grid min-w-0 content-start gap-3 px-3 pb-6 pt-3 lg:px-5">
           {model.showExampleLine ? <ExampleLine /> : null}
