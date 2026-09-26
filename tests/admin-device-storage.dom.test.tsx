@@ -3,10 +3,9 @@
 // Spec review 5: Admin keeps nothing on the device, and the privacy assessment
 // says so ("Admin keeps nothing in browser storage"). The static scan in
 // tests/admin-design-contract.test.ts reads only Admin's own folders, but
-// Renewals renders On Call's section page, whose code paths reach
-// `localStorage` (the Recent list, the entry cache). This drives those paths
-// through the real Admin pages and fails if any record content is written to
-// either storage area.
+// Renewals shares On Call's underlying entry-cache code, whose paths can
+// reach `localStorage`. This drives those paths through the real Admin pages
+// and fails if any record content is written to either storage area.
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -107,8 +106,14 @@ function recordContentWritten(): string[] {
 describe("Admin writes no record content to browser storage (spec review 5)", () => {
   it("opens a renewal for editing without recording it anywhere on the device", () => {
     render(<AdminRenewalsRoute />);
+    // Neither fixture's title matches a catalogue item, so both live on the
+    // Personal tab; opening each one's item sheet and then its "Renewed" date
+    // sheet is Renewals' own edit path, replacing the old On Call Edit button.
+    fireEvent.click(screen.getByRole("tab", { name: "Personal" }));
     for (const entry of [REGISTRATION, CLEARANCE]) {
-      fireEvent.click(screen.getByTestId(`on-call-compliance-edit-${entry.slug}`));
+      fireEvent.click(screen.getByTestId(`admin-renewals-personal-row-${entry.slug}`));
+      fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-renew"));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
     }
     // Guard against a vacuous pass: the rows really were on the page.
     expect(screen.getByText(REGISTRATION.title)).toBeInTheDocument();
