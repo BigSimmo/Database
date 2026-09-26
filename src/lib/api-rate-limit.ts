@@ -475,14 +475,69 @@ async function consumeAnonymousRateLimitsAtomic(args: {
  * @param args.allowInMemoryFallbackOnUnavailable - Whether local fallback may be used when the durable limiter is unavailable.
  * @returns The computed rate-limit outcome.
  */
-export async function consumeSubjectApiRateLimit(args: {
+type SubjectRateLimitArgs = {
   supabase: SupabaseAdmin;
   subject: RateLimitSubject;
   bucket: ApiRateLimitBucket;
   limit?: number;
   windowSeconds?: number;
   allowInMemoryFallbackOnUnavailable?: boolean;
-}): Promise<ApiRateLimitResult> {
+};
+
+/**
+ * The "registry" bucket guards the read-only catalogue routes (medication, differential and
+ * service lists and details, and the universal typeahead, whose document lane is lexical only).
+ * They serve public reference data that is usually already in memory and carry no provider cost,
+ * so waiting a cross-region round trip for the durable limiter before each one is pure latency.
+ *
+ * For them the durable consume still runs for every request, so the shared count is exactly what
+ * it was, but the response does not wait for it. Enforcement comes from two places instead:
+ * a subject the durable limiter has already denied is refused from the deny cache before any work,
+ * and a per-instance limiter with the same limit and window refuses a burst on this instance before
+ * the durable denial arrives. Across instances a flooding caller can get at most about one round
+ * trip's worth of extra requests on each instance before its denial is cached.
+ *
+ * Tied to the deny cache: when that is off (the default under Vitest), every registry request
+ * waits for the durable result as before.
+ */
+function deferRegistryDurableConsume(bucket: ApiRateLimitBucket) {
+  return bucket === "registry" && durableDenyCacheEnabled();
+}
+
+function consumeRegistryRateLimitDeferred(args: SubjectRateLimitArgs): ApiRateLimitResult {
+  const identity = args.subject.kind === "owner" ? args.subject.ownerId : args.subject.subjectKey;
+  // While a durable denial is cached the awaited path makes no RPC either, so neither does this.
+  const denied = tryReadDurableRateLimitDenyCache(identity, args.bucket);
+  if (denied) return denied;
+  const defaults =
+    args.subject.kind === "owner"
+      ? apiRateLimitDefaults[args.bucket]
+      : (anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket]);
+  // Counted durably for every request that reaches here, served or refused, as the awaited path
+  // counts it; a denial it returns is cached for this subject's next request.
+  void consumeSubjectApiRateLimitDurable(args).catch((error: unknown) => {
+    sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_FALLBACK, {
+      bucket: args.bucket,
+      backend: "deferred",
+      fallback: false,
+      code: error instanceof PublicApiError ? error.details?.code : undefined,
+    });
+  });
+  // Its own key, so the durable path's in-memory fallback never double-counts on this instance.
+  return consumeInMemoryApiRateLimit({
+    ownerId: identity,
+    bucket: `${args.bucket}:served`,
+    limit: args.limit ?? defaults.limit,
+    windowSeconds: args.windowSeconds ?? defaults.windowSeconds,
+  });
+}
+
+export async function consumeSubjectApiRateLimit(args: SubjectRateLimitArgs): Promise<ApiRateLimitResult> {
+  if (deferRegistryDurableConsume(args.bucket)) return consumeRegistryRateLimitDeferred(args);
+  return consumeSubjectApiRateLimitDurable(args);
+}
+
+async function consumeSubjectApiRateLimitDurable(args: SubjectRateLimitArgs): Promise<ApiRateLimitResult> {
   const allowInMemoryFallbackOnUnavailable = mustFailClosedOnLimiterUnavailable(args.bucket)
     ? false
     : args.allowInMemoryFallbackOnUnavailable;
