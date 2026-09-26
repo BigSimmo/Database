@@ -122,6 +122,10 @@ describe("RAG impact placeholder", () => {
         body: `## Summary\n\n- Tune the fan-out.\n\nAreas touched: Answer engine\n${rag}\n${RAG_IMPACT_HINT}\n`,
         headRef: "feature",
         files: ["src/lib/rag/rag.ts"],
+        fileStatuses: undefined,
+        baseMigrationVersions: undefined,
+        addedMigrationContents: undefined,
+        changedWorkflowContents: undefined,
       }).warnings.filter((warning: string) => warning.includes("RAG impact"));
 
     expect(policy(RAG_IMPACT_PLACEHOLDER)).toHaveLength(1);
@@ -276,6 +280,10 @@ describe("PR template and handoff skill", () => {
       body: template,
       headRef: "feature",
       files: ["docs/guide.md"],
+      fileStatuses: undefined,
+      baseMigrationVersions: undefined,
+      addedMigrationContents: undefined,
+      changedWorkflowContents: undefined,
     }).warnings;
     expect(warnings.some((warning: string) => warning.includes("`## Summary`"))).toBe(true);
   });

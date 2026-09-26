@@ -95,7 +95,10 @@ function placementsFor(snapshot) {
   }
 }
 
-/** Every changed file, the area(s) that own it, and whether pr-policy calls the change ranking-protected. */
+/**
+ * Every changed file, the area(s) that own it, and whether pr-policy calls the change ranking-protected.
+ * @param {{ root: string, base?: string | null, head?: string }} options
+ */
 export function prAreas({ root, base = null, head = "HEAD" }) {
   const range = resolveRange({ root, base, head });
   const files = splitZ(

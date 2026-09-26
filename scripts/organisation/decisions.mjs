@@ -121,7 +121,10 @@ export function resolveSourcePath(repoRoot, sourcePath) {
   return null;
 }
 
-/** Check every file in the decisions folder. Never writes anything. */
+/**
+ * Check every file in the decisions folder. Never writes anything.
+ * @param {{ repoRoot?: string, dir?: string }} [options]
+ */
 export function checkDecisions({ repoRoot, dir = DECISIONS_DIR } = {}) {
   if (!repoRoot) throw new Error("checkDecisions needs repoRoot");
   const absoluteDir = path.join(repoRoot, dir);
