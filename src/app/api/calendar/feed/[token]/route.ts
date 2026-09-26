@@ -46,7 +46,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     if (rateLimit.limited) {
       return new Response("Too many requests", {
         status: 429,
-        headers: { "Retry-After": String(rateLimit.retryAfterSeconds), "Cache-Control": "no-store" },
+        headers: { ...FEED_HEADERS, "Retry-After": String(rateLimit.retryAfterSeconds), "Cache-Control": "no-store" },
       });
     }
     const ownerId = await calendarFeedOwner(supabase, token);
@@ -63,6 +63,9 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
     });
   } catch (error) {
     logger.error("calendar feed failed", { error: error instanceof Error ? error.message : String(error) });
-    return new Response("Calendar unavailable", { status: 503, headers: { "Cache-Control": "no-store" } });
+    return new Response("Calendar unavailable", {
+      status: 503,
+      headers: { ...FEED_HEADERS, "Cache-Control": "no-store" },
+    });
   }
 }
