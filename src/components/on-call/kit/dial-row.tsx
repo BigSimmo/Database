@@ -81,8 +81,14 @@ export function toHandbookDial(resolved: ResolvedOnCallNumber | null): HandbookD
  * - The **call disc** is the `tel:` link, inside a 48px tap area, named with the
  *   digits spaced out ("Call Switchboard, 9 0 0 0, 0 0 0 0") so a screen reader
  *   reads a number, not "nine million".
- * - The **number text** is a button that opens the "Dial from a desk phone"
- *   sheet. It is 400 weight, tabular, and wraps rather than truncating.
+ * - The **number text** sits in a fixed right-hand column beside the disc, so
+ *   digits line up down a list (standard §2), and is a button that opens the
+ *   "Dial from a desk phone" sheet. It is 400 weight, tabular, and wraps rather
+ *   than truncating.
+ * - The row is **48px** with a title alone and **52px** with one secondary
+ *   line (subtitle, number label, "From a hospital phone", state, "You
+ *   called"), matching `OnCallModuleSkeleton`. Nothing in it carries vertical
+ *   padding; a test fails if any does (review B1).
  * - A desk-only number (an extension or short code) gets **no call disc** and
  *   says "From a hospital phone". If a mobile route is recorded beside it, that
  *   route is the row's only call link.
@@ -123,75 +129,105 @@ export function OnCallDialRow({
   };
 
   const callName = callRoute
-    ? `Call ${title}${viaMobile ? " from a mobile" : ""}, ${spokenOnCallNumber(callRoute.display)}`
+    ? `Call ${title}${viaMobile ? " from a mobile" : ""}${emergency ? ", emergency" : ""}, ${spokenOnCallNumber(callRoute.display)}`
     : "";
+
+  // Everything under the title shares ONE secondary line, so a row is 48px
+  // with a title alone and 52px with a second line — the heights the skeleton
+  // reserves. It grows only when that line wraps.
+  const secondary: ReactNode[] = [];
+  if (subtitle) secondary.push(<span key="subtitle">{subtitle}</span>);
+  if (numberLabel && hasNumber) secondary.push(<span key="label">{numberLabel}</span>);
+  if (dial?.route === "hospital-phone") secondary.push(<span key="route">From a hospital phone</span>);
+  if (state) secondary.push(<OnCallStateLabel key="state" state={state} />);
+  if (calledAt) {
+    secondary.push(<span key="called" className={onCallNumberText}>{`You called ${formatOnCallTime(calledAt)}`}</span>);
+  }
 
   return (
     <li
       data-testid={testId}
       className={cn(
         onCallInsetHairline,
-        subtitle || hasNumber ? onCallRowHeight.double : onCallRowHeight.single,
-        "flex min-w-0 items-center gap-x-2 pl-3 pr-1",
+        secondary.length > 0 ? onCallRowHeight.double : onCallRowHeight.single,
+        // No vertical padding here or in either column: the 48px controls on
+        // the right set the floor, and the row's min height sets 48/52.
+        "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 pl-3 pr-1",
         className,
       )}
     >
-      <span className="grid min-w-0 flex-1 gap-0.5 py-1.5">
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          disabled={!dial || dial.kind === "none"}
-          onClick={() => setSheetOpen(true)}
-          className={cn(
-            focusRing,
-            onCallPressable,
-            "-mx-1 grid min-h-12 min-w-0 content-center gap-0.5 rounded-md px-1 text-left font-normal disabled:cursor-default",
-          )}
-        >
-          <span className="flex min-w-0 items-center gap-1.5">
-            {emergency ? (
-              <span
-                aria-hidden="true"
-                data-testid={`${testId}-emergency-dot`}
-                className={cn(onCallDot, "bg-[color:var(--danger)]")}
-              />
-            ) : null}
+      <span data-dial-row-title="" className="grid min-w-0 content-center gap-0.5">
+        <span className="flex min-w-0 items-center gap-1.5">
+          {emergency ? (
             <span
-              className={cn(onCallNameText, "min-w-0 break-words text-base-minus text-[color:var(--text-heading)]")}
-            >
-              {title}
-            </span>
-          </span>
-          {subtitle ? <span className={cn(onCallSecondaryText, "break-words")}>{subtitle}</span> : null}
-          {hasNumber && dial ? (
-            <span className={cn(onCallNumberText, "break-words text-base-minus text-[color:var(--text)]")}>
-              {numberLabel ? <span className="text-[color:var(--text-muted)]">{`${numberLabel} `}</span> : null}
-              {dial.display}
-            </span>
+              aria-hidden="true"
+              data-testid={`${testId}-emergency-dot`}
+              className={cn(onCallDot, "bg-[color:var(--danger)]")}
+            />
           ) : null}
-        </button>
-        {dial?.route === "hospital-phone" ? <span className={onCallSecondaryText}>From a hospital phone</span> : null}
-        {state ? <OnCallStateLabel state={state} /> : null}
-        {calledAt ? (
-          <span
-            className={cn(onCallSecondaryText, onCallNumberText)}
-          >{`You called ${formatOnCallTime(calledAt)}`}</span>
+          <span className={cn(onCallNameText, "min-w-0 break-words text-base-minus text-[color:var(--text-heading)]")}>
+            {title}
+          </span>
+        </span>
+        {secondary.length > 0 ? (
+          <span className={cn(onCallSecondaryText, "flex min-w-0 flex-wrap items-center gap-x-1.5 break-words")}>
+            {secondary.flatMap((part, index) =>
+              index === 0
+                ? [part]
+                : [
+                    <span key={`dot-${index}`} aria-hidden="true">
+                      ·
+                    </span>,
+                    part,
+                  ],
+            )}
+          </span>
         ) : null}
       </span>
 
-      {callRoute?.tel ? (
-        <a
-          href={callRoute.tel}
-          onClick={recordCall}
-          aria-label={callName}
-          className={cn(onCallTapArea, focusRing, "rounded-full")}
-        >
-          <span aria-hidden="true" className={emergency ? onCallCallDiscShape.emergency : onCallCallDiscShape.neutral}>
-            <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
-          </span>
-        </a>
+      {hasNumber && dial ? (
+        <span className="flex shrink-0 items-center">
+          {/* The number column: a fixed width, right-aligned, so digits line up
+              down a list (standard §2). The number text opens the desk-phone
+              sheet; it wraps rather than truncating. */}
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-label={`${dial.display}. Dialling details for ${title}`}
+            onClick={() => setSheetOpen(true)}
+            data-dial-row-number=""
+            className={cn(
+              focusRing,
+              onCallPressable,
+              onCallNumberText,
+              "grid min-h-12 w-30 content-center justify-items-end rounded-md px-1 text-right text-base-minus text-[color:var(--text)]",
+            )}
+          >
+            <span className="break-words">{dial.display}</span>
+          </button>
+          {callRoute?.tel ? (
+            <a
+              href={callRoute.tel}
+              onClick={recordCall}
+              aria-label={callName}
+              className={cn(onCallTapArea, focusRing, "rounded-full")}
+            >
+              <span
+                aria-hidden="true"
+                className={emergency ? onCallCallDiscShape.emergency : onCallCallDiscShape.neutral}
+              >
+                <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
+              </span>
+            </a>
+          ) : (
+            // Holds the disc's place, so a desk-only number stays in line.
+            <span aria-hidden="true" data-dial-row-disc-spacer="" className="w-12 shrink-0" />
+          )}
+          {trailingAction ? <span className="flex shrink-0 items-center">{trailingAction}</span> : null}
+        </span>
+      ) : trailingAction ? (
+        <span className="flex shrink-0 items-center">{trailingAction}</span>
       ) : null}
-      {trailingAction ? <span className="flex shrink-0 items-center">{trailingAction}</span> : null}
 
       {dial && dial.kind !== "none" ? (
         <OnCallDialSheet

@@ -134,6 +134,96 @@ describe("OnCallDialRow", () => {
   });
 });
 
+describe("OnCallDialRow geometry (review B1, S2)", () => {
+  const VERTICAL_PADDING = /(^|\s)(p|py|pt|pb)-\S+/;
+
+  it("is exactly 48px with one line and 52px with two, with no vertical padding anywhere in the row", () => {
+    render(
+      <ul>
+        <OnCallDialRow
+          id="g1"
+          source="handbook"
+          title="Switchboard"
+          dial={resolveHandbookPhone("9000 0000")}
+          testId="one"
+        />
+        <OnCallDialRow id="g2" source="handbook" title="Ward 4B" dial={resolveHandbookPhone("4456")} testId="two" />
+      </ul>,
+    );
+    const one = screen.getByTestId("one");
+    const two = screen.getByTestId("two");
+    expect(one.className).toMatch(/\bmin-h-12\b/);
+    expect(one.className).not.toMatch(/\bmin-h-13\b/);
+    expect(two.className).toMatch(/\bmin-h-13\b/);
+    // The 48px number button defines the height; padding around it would push
+    // the row past the skeleton's 48/52 and shift the list when it loads.
+    for (const row of [one, two]) {
+      for (const element of [row, ...Array.from(row.querySelectorAll("*"))]) {
+        expect(element.getAttribute("class") ?? "", element.outerHTML.slice(0, 80)).not.toMatch(VERTICAL_PADDING);
+      }
+      expect(within(row).getByRole("button").className).toMatch(/\bmin-h-12\b/);
+    }
+  });
+
+  it("puts the number in a fixed right-hand column so digits line up down a list", () => {
+    render(
+      <ul>
+        <OnCallDialRow
+          id="g3"
+          source="handbook"
+          title="Switchboard"
+          dial={resolveHandbookPhone("9000 0000")}
+          testId="row"
+        />
+      </ul>,
+    );
+    const row = screen.getByTestId("row");
+    const titleColumn = row.querySelector("[data-dial-row-title]");
+    const numberColumn = row.querySelector("[data-dial-row-number]");
+    expect(titleColumn).not.toBeNull();
+    expect(numberColumn).not.toBeNull();
+    expect(within(titleColumn as HTMLElement).queryByText(/9000 0000/)).toBeNull();
+    expect(within(numberColumn as HTMLElement).getByText("9000 0000")).toBeInTheDocument();
+    expect(numberColumn?.className).toMatch(/\bw-30\b/);
+    expect(numberColumn?.className).toMatch(/\btext-right\b/);
+  });
+
+  it("keeps a desk-only number's column aligned with a spacer where the disc would be", () => {
+    render(
+      <ul>
+        <OnCallDialRow id="g4" source="handbook" title="Ward 4B" dial={resolveHandbookPhone("4456")} testId="row" />
+      </ul>,
+    );
+    expect(screen.getByTestId("row").querySelector("[data-dial-row-disc-spacer]")).not.toBeNull();
+  });
+
+  it("draws a row with no number as plain text, never a dimmed button", () => {
+    render(
+      <ul>
+        <OnCallDialRow id="g5" source="handbook" title="Bed manager" dial={null} testId="row" />
+      </ul>,
+    );
+    expect(within(screen.getByTestId("row")).queryByRole("button")).toBeNull();
+    expect(screen.getByText("Bed manager")).toBeInTheDocument();
+  });
+
+  it("names the emergency tone in words on the call link, not only in red", () => {
+    render(
+      <ul>
+        <OnCallDialRow
+          id="g6"
+          source="handbook"
+          title="Synthetic line"
+          dial={resolveHandbookPhone("9000 0005")}
+          tone="emergency"
+          testId="row"
+        />
+      </ul>,
+    );
+    expect(screen.getByRole("link")).toHaveAccessibleName(/^Call Synthetic line, emergency,/);
+  });
+});
+
 describe("OnCallDialSheet", () => {
   it("shows the number large and light, both routes, copy, share and the updated line", () => {
     render(
