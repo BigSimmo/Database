@@ -3402,6 +3402,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/personal-practice/README.md",
+        "section": "personal-practice",
+        "catalogued": true
+      },
+      {
         "path": "docs/care-plan/claude-build-handover-2026-08-21.md",
         "section": "care-plan",
         "catalogued": true
@@ -4194,6 +4199,9 @@
       },
       {
         "name": "organisation"
+      },
+      {
+        "name": "personal-practice"
       },
       {
         "name": "plans"

@@ -97,7 +97,7 @@ Every tracked file belongs to one area of the organisation map, and an area desc
 - **Knowledge and records** (`knowledge`): How people and agents know how to work, and what has been decided, found or left open: entry docs, agent tooling, ledgers and records.
   Canonical docs: docs/agents-guide.md, docs/README.md, docs/DOCS-SYSTEM.md
 - **Personal practice** (`personal-practice`): The clinician's own records and tools: their logic, data and server routes. Pages sit in App experience.
-  Canonical docs: docs/superpowers/specs/2026-09-04-on-call-mode-design.md, docs/codebase-index.md
+  Canonical docs: docs/codebase-index.md
 - **Source intake and indexing** (`source-intake`): Any source becoming searchable: upload, extraction, OCR, captions, chunking, embeddings, index units and the ingestion worker.
   Canonical docs: docs/ingestion-state-machine.md, docs/reindex-runbook.md, docs/worker-deploy-runbook.md
 
