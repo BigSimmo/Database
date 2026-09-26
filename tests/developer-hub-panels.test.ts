@@ -68,31 +68,17 @@ describe("hub panels", () => {
 });
 
 describe("phase 2 panels", () => {
-  const expected = [
-    { id: "routes", href: "/mockups/development/routes" },
-    { id: "documentation", href: "/mockups/development/documentation" },
-    { id: "test-health", href: "/mockups/development/test-health" },
-    { id: "work-in-flight", href: "/mockups/development/review-state" },
-  ];
-
-  it("ships all four with a phase of 1 and a real href", () => {
-    for (const { id, href } of expected) {
-      const panel = HUB_PANELS.find((entry) => entry.id === id);
-      expect(panel, id).toBeDefined();
-      expect(panel!.phase).toBe(1);
-      expect(panel!.href).toBe(href);
-    }
-  });
-
   it("leaves no phase 2 entry behind", () => {
     expect(HUB_PANELS.filter((panel) => panel.phase === 2)).toEqual([]);
   });
 
-  it("renames work in flight to Review state while keeping its id", () => {
-    // The id is the extension mechanism Phase 1 built; only the label changes.
-    const panel = HUB_PANELS.find((entry) => entry.id === "work-in-flight");
-    expect(panel!.name).toBe("Review state");
-    expect(panel!.summary).not.toMatch(/open changes/i);
+  it("no longer lists the four engineering panels the owner retired", () => {
+    for (const id of ["routes", "documentation", "test-health", "work-in-flight"]) {
+      expect(
+        HUB_PANELS.find((entry) => entry.id === id),
+        id,
+      ).toBeUndefined();
+    }
   });
 
   it("keeps every phase-1 panel's href pointing at a route that exists", () => {

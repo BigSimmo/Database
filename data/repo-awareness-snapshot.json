@@ -323,6 +323,11 @@
         "area": "product"
       },
       {
+        "path": "/mockups/development/settings",
+        "file": "src/app/mockups/development/settings/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/on-call/now",
         "file": "src/app/(search-app)/on-call/now/page.tsx",
         "area": "product"
@@ -453,11 +458,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/development/review-state",
-        "file": "src/app/mockups/development/review-state/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
@@ -530,11 +530,6 @@
       {
         "path": "/mockups/dictionary-browse-header",
         "file": "src/app/mockups/dictionary-browse-header/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/development/documentation",
-        "file": "src/app/mockups/development/documentation/page.tsx",
         "area": "mockup"
       },
       {
@@ -998,11 +993,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/development/test-health",
-        "file": "src/app/mockups/development/test-health/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/development/clinical-trust",
         "file": "src/app/mockups/development/clinical-trust/page.tsx",
         "area": "mockup"
@@ -1110,11 +1100,6 @@
       {
         "path": "/mockups/care-plan/patients/[patientId]/patient-plan/edit",
         "file": "src/app/mockups/care-plan/patients/[patientId]/patient-plan/edit/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/development/routes",
-        "file": "src/app/mockups/development/routes/page.tsx",
         "area": "mockup"
       },
       {
@@ -1654,7 +1639,7 @@
       {
         "path": "docs/prompts/sources-mode-extraction.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mode-aware-clinical-ask-local-handover.md",
@@ -1674,7 +1659,7 @@
       {
         "path": "docs/on-call/design/2026-09-19-review-and-proposals.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/corpus-health-panel-handover.md",
@@ -1869,7 +1854,7 @@
       {
         "path": "docs/product/2026-09-19-second-recommendations.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/source-review-priority-2026-07-02.md",
@@ -1884,7 +1869,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-25-wa-psychiatry-build.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-26-answer-page-direction-b.md",
@@ -1934,7 +1919,7 @@
       {
         "path": "docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
@@ -2029,7 +2014,7 @@
       {
         "path": "docs/design-system/sweep-fix-visible-live-regions.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/FIX-GUIDE.md",
@@ -2059,7 +2044,7 @@
       {
         "path": "docs/DOCS-SYSTEM.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/reindex-runbook.md",
@@ -2094,7 +2079,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-04-on-call-mode.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/bundle-budget-production-rebaseline-2026-08-18.md",
@@ -2114,7 +2099,7 @@
       {
         "path": "docs/on-call/design/mockup-conformance.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mockup-retirement-policy.md",
@@ -2239,7 +2224,7 @@
       {
         "path": "docs/site-content-sync-runbook.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
@@ -2504,7 +2489,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-20-cme-mode-phase-1.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ci-operations.md",
@@ -2559,7 +2544,7 @@
       {
         "path": "docs/governance/privacy-completion-drafts-2026-09-13.md",
         "section": "governance",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-01-overdue-sources-inside-evidence-gaps.md",
@@ -2584,7 +2569,7 @@
       {
         "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/governance/privacy-closeout-2026-09-01.md",
@@ -2594,7 +2579,7 @@
       {
         "path": "docs/cme/design/cme-design-decisions.md",
         "section": "cme",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-25-safety-chip-urgent-words-and-drug-passages.md",
@@ -2654,7 +2639,7 @@
       {
         "path": "docs/governance/rag-adaptive-continuation-2026-09-13.md",
         "section": "governance",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/09-ui-primitives-recipes.md",
@@ -2674,7 +2659,7 @@
       {
         "path": "docs/on-call/design/on-call-hub-build-prompt.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/patient-facing-sheets/README.md",
@@ -2769,7 +2754,7 @@
       {
         "path": "docs/site-content-publication-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
@@ -3124,7 +3109,7 @@
       {
         "path": "docs/production-readiness.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-26-doppler-is-not-used.md",
@@ -3319,7 +3304,7 @@
       {
         "path": "docs/design-system/drift-measurement-2026-09-02.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/governance-incident-runbooks.md",
@@ -3334,7 +3319,7 @@
       {
         "path": "docs/pr-batch-runner.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/branch-cleanup-guide.md",
@@ -3669,7 +3654,7 @@
       {
         "path": "docs/supabase-remediation-closeout-notes.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/clinical-governance.md",
@@ -3909,7 +3894,7 @@
       {
         "path": "docs/audit/2026-09-20-visual-ux-audit.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-25-care-plan-shorter-confidential-footer.md",
@@ -4064,7 +4049,7 @@
       {
         "path": "docs/decisions/README.md",
         "section": "decisions",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/database-remediation-coordination.md",

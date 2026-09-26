@@ -28,7 +28,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { areasOf, headCommit, mapAtHead, mdEscape } from "../map-placement.mjs";
+import { areasOf, codeSpan, headCommit, mapAtHead, mdEscape } from "../map-placement.mjs";
 
 export const BASELINE_FILE = "docs/organisation/classifier-baseline.json";
 const BASELINE_VERSION = 1;
@@ -345,7 +345,7 @@ export async function section({ root, now, classifiers = CLASSIFIERS } = {}) {
     lines.push("");
     for (const d of fresh.slice(0, LIST_CAP)) {
       lines.push(
-        `- \`${mdEscape(d.file)}\`: ${d.classifier} (expected in ${d.expected.join(" or ")}), ` +
+        `- ${codeSpan(d.file)}: ${d.classifier} (expected in ${d.expected.join(" or ")}), ` +
           `but the map places it in ${mdEscape(d.area)}`,
       );
     }
