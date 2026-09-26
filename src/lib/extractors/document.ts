@@ -17,9 +17,12 @@ import {
 import {
   assertExtractedPdfBudget,
   isPdfExtractionResourceError,
+  isPdfUnreadableError,
   PDF_EXTRACTION_BUDGET,
+  PDF_UNREADABLE_PREFIX,
   PdfExtractionBudgetTracker,
   PdfExtractionResourceError,
+  PdfUnreadableError,
   type PdfExtractionBudget,
 } from "@/lib/extractors/pdf-extraction-budget";
 import { XlsxExtractionBudgetTracker } from "@/lib/extractors/xlsx-extraction-budget";
@@ -91,6 +94,14 @@ class PdfExtractorProcessError extends Error {
     super(message);
     this.name = "PdfExtractorProcessError";
   }
+}
+
+// The extractor prints one `PDF_UNREADABLE: <reason>` line; keep only that reason so
+// the stored job error is the plain sentence, not a traceback.
+function unreadableReason(stderr: string) {
+  const line = stderr.split(/\r?\n/).find((entry) => entry.startsWith(PDF_UNREADABLE_PREFIX));
+  const reason = line?.slice(PDF_UNREADABLE_PREFIX.length).trim();
+  return (reason || "PDF could not be opened.").slice(0, 500);
 }
 
 function isRecoverableFallbackPdfImageError(error: unknown) {
@@ -227,6 +238,10 @@ export async function runPythonPdfExtractor(
         return;
       }
       if (code !== 0) {
+        if (code === 4 || stderr.includes(PDF_UNREADABLE_PREFIX)) {
+          finish(() => reject(new PdfUnreadableError(unreadableReason(stderr))));
+          return;
+        }
         if (code === 3 || stderr.includes("PDF_EXTRACTION_BUDGET_EXCEEDED")) {
           finish(() =>
             reject(
@@ -323,7 +338,11 @@ export async function extractPdf(
     const extracted = await runPythonPdfExtractor(pdfPath, imageDir, limits, options.scriptPathOverride);
     return { ...extracted, temporaryPaths: [tempRoot] };
   } catch (error) {
-    if (isPdfExtractionResourceError(error) || error instanceof PdfExtractorProcessError) {
+    if (
+      isPdfExtractionResourceError(error) ||
+      isPdfUnreadableError(error) ||
+      error instanceof PdfExtractorProcessError
+    ) {
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
       throw error;
     }

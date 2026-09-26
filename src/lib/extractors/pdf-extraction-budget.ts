@@ -48,6 +48,25 @@ export function isPdfExtractionResourceError(error: unknown): error is PdfExtrac
   return PDF_EXTRACTION_RESOURCE_ERROR_CODES.some((code) => message.includes(code));
 }
 
+// The Python extractor refuses a locked, damaged, zero-page or non-PDF upload with
+// `PDF_UNREADABLE: <plain reason>` and exit code 4. That is a property of the file,
+// so it is permanent: never retried, and never handed to the JavaScript fallback,
+// which would otherwise index an empty or garbled document in its place.
+export const PDF_UNREADABLE_PREFIX = "PDF_UNREADABLE:";
+
+export class PdfUnreadableError extends Error {
+  constructor(reason: string) {
+    super(`${PDF_UNREADABLE_PREFIX} ${reason}`);
+    this.name = "PdfUnreadableError";
+  }
+}
+
+export function isPdfUnreadableError(error: unknown): error is Error {
+  if (error instanceof PdfUnreadableError) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return message.startsWith(PDF_UNREADABLE_PREFIX);
+}
+
 function budgetExceeded(message: string): never {
   throw new PdfExtractionResourceError("PDF_EXTRACTION_BUDGET_EXCEEDED", message);
 }
