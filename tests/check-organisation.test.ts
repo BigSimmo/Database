@@ -196,6 +196,25 @@ describe("check-organisation", () => {
     expect(nypAfter.entries).toEqual([]);
   });
 
+  it("--fix keeps every entry for a new file that is on disk but not yet added to git", () => {
+    const files = mapFiles({ knowledge: [MAP_RULE, "new.md"] });
+    files["docs/organisation/systems/knowledge.json"] = JSON.stringify({
+      ...JSON.parse(area("knowledge", [MAP_RULE, "new.md"])),
+      canonicalDocs: ["new.md"],
+    });
+    files["docs/organisation/pins.json"] = JSON.stringify({ version: 1, pins: { "new.md": "a".repeat(40) } });
+    const root = repo(files);
+    write(root, { "new.md": "# New key doc" });
+
+    const fixed = check(root, ["--fix"]);
+    expect(fixed.report.fixed.removed).toEqual([]);
+    const knowledge = JSON.parse(fs.readFileSync(path.join(root, "docs/organisation/systems/knowledge.json"), "utf8"));
+    expect(knowledge.paths).toContain("new.md");
+    expect(knowledge.canonicalDocs).toEqual(["new.md"]);
+    const pins = JSON.parse(fs.readFileSync(path.join(root, "docs/organisation/pins.json"), "utf8"));
+    expect(Object.keys(pins.pins)).toEqual(["new.md"]);
+  });
+
   it("--fix leaves ignore patterns alone and refuses to run on the staged copy", () => {
     const ignored = [
       { match: "old/**", reason: "Being removed from the project." },
@@ -258,6 +277,21 @@ describe("check-organisation", () => {
     const introduced = ci(tying);
     expect(introduced.code).toBe(1);
     expect(introduced.blocking.map((f: { key: string }) => f.key)).toEqual(["tie:lib/x-1.ts"]);
+  });
+
+  it("in CI passes a branch that predates the map, and judges the whole tree when the base is gone", () => {
+    const old = repo({ "a.md": "" });
+    const oldBase = git(old, "rev-parse", "HEAD");
+    const oldHead = commit(old, { "b.md": "" });
+    const predates = check(old, [], { ORGANISATION_CHECK_MODE: "ci", BASE_SHA: oldBase, HEAD_SHA: oldHead });
+    expect(predates.code).toBe(0);
+    expect(predates.report.scope).toMatch(/predates/);
+
+    const root = repo({ ...mapFiles({ knowledge: [MAP_RULE, "keep.md"] }), "keep.md": "" });
+    const head = git(root, "rev-parse", "HEAD");
+    const gone = check(root, [], { ORGANISATION_CHECK_MODE: "ci", BASE_SHA: "1".repeat(40), HEAD_SHA: head });
+    expect(gone.code).toBe(0);
+    expect(gone.report.scope).toMatch(/not reachable/);
   });
 
   it("writes a paired report selected by a pointer file", () => {

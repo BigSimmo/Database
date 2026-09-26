@@ -37,8 +37,8 @@ const MEANING = {
 };
 
 const ENFORCEMENT =
-  "A lapsed date still fails each register's own check in local runs, on main and in release checks. A pull " +
-  "request that touches neither the register nor the entry's files sees a warning instead of a failure.";
+  "A lapsed date still fails each register's own check in local runs, on other branches and in release checks. " +
+  "A pull request or push to main that touches neither the register nor the entry's files sees a warning instead.";
 
 function perthIsoDate(date) {
   const parts = new Intl.DateTimeFormat("en-CA", {

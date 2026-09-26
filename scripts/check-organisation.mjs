@@ -756,7 +756,12 @@ function writeReport(root, report) {
 function fixMap(root) {
   const snapshot = workingTreeSnapshot(root);
   const result = evaluate(snapshot);
-  const exists = (file) => typeof file === "string" && snapshot.blobs.has(file);
+  // A new file counts as existing before it is added to git: the tidy-up must never drop the map
+  // entry, pin or key-doc line written for a document that is simply not committed yet.
+  const exists = (file) =>
+    typeof file === "string" &&
+    (snapshot.blobs.has(file) ||
+      (!path.isAbsolute(file) && fs.statSync(path.join(root, file), { throwIfNoEntry: false })?.isFile() === true));
   const isExact = (pattern) => typeof pattern === "string" && literalPrefix(pattern) === null;
   const placedByRule = (file) => {
     const where = result.placement[file];
@@ -858,6 +863,18 @@ function runCi(root, env) {
   const baseEnv = (env.BASE_SHA ?? "").trim();
   const head = (env.HEAD_SHA ?? "").trim() || "HEAD";
   const headSnapshot = commitSnapshot(root, head);
+  if (![...headSnapshot.blobs.keys()].some((f) => f.startsWith(`${SYSTEMS_DIR}/`) && f.endsWith(".json"))) {
+    // A branch started before the map existed has nothing to check; it picks the map up when it
+    // next merges main. Passing here keeps such a branch from failing on a map it never had.
+    return {
+      scope: `no organisation map on ${headSnapshot.label} yet (branch predates it; nothing to check)`,
+      result: { findings: [], systems: [], totals: {}, placement: {}, files: [] },
+      baseKeys: null,
+      touched: [],
+      mergeBase: null,
+      head,
+    };
+  }
   if (!baseEnv || ZERO_SHA.test(baseEnv)) {
     // Scheduled or manual runs have no base: judge the whole tree honestly.
     return {
@@ -870,7 +887,17 @@ function runCi(root, env) {
     };
   }
   const mergeBase = git(root, ["merge-base", baseEnv, head], { allowFail: true })?.trim();
-  if (!mergeBase) throw new Incomplete(`the CI base ${baseEnv.slice(0, 9)} is not reachable from ${head.slice(0, 9)}`);
+  if (!mergeBase) {
+    // A force-push leaves the old tip unreachable. Judge the whole tree rather than failing to run.
+    return {
+      scope: `whole tree (${headSnapshot.label}; the CI base ${baseEnv.slice(0, 9)} is not reachable)`,
+      result: evaluate(headSnapshot),
+      baseKeys: null,
+      touched: null,
+      mergeBase: null,
+      head,
+    };
+  }
   const touched = changedFiles(root, mergeBase, head);
   const result = evaluate(headSnapshot);
   let baseKeys = new Set();
