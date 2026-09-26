@@ -14,15 +14,18 @@ import { cn } from "@/components/ui-primitives";
  * extension stays desk-only (review F1). The condition line is the switch's
  * own label, not an explanation.
  */
-export function OnCallHospitalPhoneSwitch({ on }: { readonly on: boolean }) {
+export function OnCallHospitalPhoneSwitch({
+  on,
+  testId = "on-call-hospital-phone",
+}: {
+  readonly on: boolean;
+  readonly testId?: string;
+}) {
   return (
-    <OnCallGroupedList testId="on-call-hospital-phone">
+    <OnCallGroupedList testId={testId}>
       <li className={cn(onCallInsetHairline, onCallRowHeight.double, "flex min-w-0 items-center gap-3 pl-3 pr-1")}>
         <span className="grid min-w-0 flex-1 gap-0.5">
-          <span
-            id="on-call-hospital-phone-label"
-            className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}
-          >
+          <span className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
             I&apos;m on a hospital phone
           </span>
           <span className={cn(onCallSecondaryText, "break-words")}>

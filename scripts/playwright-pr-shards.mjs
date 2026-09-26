@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|call|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Timings: mean of the successful post-critical production Chromium reports from
@@ -69,6 +69,12 @@ export const prUiSpecProfiles = Object.freeze([
     criticalSeconds: 0,
   },
   {
+    file: "tests/ui-on-call-call.spec.ts",
+    shard: 1,
+    fullSeconds: 20,
+    criticalSeconds: 0,
+  },
+  {
     file: "tests/ui-phone-scroll-page-owned.spec.ts",
     shard: 2,
     fullSeconds: 34.8,
@@ -106,7 +112,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-token-layer-resolution.spec.ts",
-    shard: 1,
+    shard: 3,
     fullSeconds: 2.4,
     criticalSeconds: 0,
   },
@@ -262,7 +268,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-document-canvas.spec.ts",
-    shard: 1,
+    shard: 3,
     fullSeconds: 4.6,
     criticalSeconds: 0,
   },

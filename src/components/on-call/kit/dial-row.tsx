@@ -4,7 +4,7 @@ import { Phone } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
-import { OnCallDialSheet, onCallMobileRoute } from "@/components/on-call/kit/dial-sheet";
+import { OnCallDialSheet, onCallCallRoute } from "@/components/on-call/kit/dial-sheet";
 import {
   onCallCallDiscShape,
   onCallDot,
@@ -50,6 +50,10 @@ export type OnCallDialRowProps = {
   /** Named in the dial sheet ("Synthetic Hospital"). */
   readonly hospitalName?: string | null;
   readonly trailingAction?: ReactNode;
+  /** This phone is a hospital phone (the reader's switch): a bare extension rings its own digits. */
+  readonly hospitalPhone?: boolean;
+  /** The "I'm on a hospital phone" switch, shown in the dial sheet under a bare extension. */
+  readonly hospitalPhoneSwitch?: ReactNode;
   readonly now?: Date;
   readonly testId: string;
   readonly className?: string;
@@ -124,6 +128,8 @@ export function OnCallDialRow({
   tone = "default",
   hospitalName,
   trailingAction,
+  hospitalPhone = false,
+  hospitalPhoneSwitch,
   now,
   testId,
   className,
@@ -132,8 +138,8 @@ export function OnCallDialRow({
   const calledAt = useOnCallYouCalledAt(id);
   const emergency = tone === "emergency";
   const hasNumber = Boolean(dial && dial.kind !== "none");
-  const callRoute = dial ? onCallMobileRoute(dial, mobileDial) : null;
-  const viaMobile = Boolean(callRoute && callRoute !== dial);
+  const callRoute = dial ? onCallCallRoute(dial, mobileDial, hospitalPhone) : null;
+  const viaMobile = Boolean(mobileDial && callRoute === mobileDial);
 
   const recordCall = () => {
     // A hospital row is remembered by id and kind only; its title stays in the
@@ -257,6 +263,8 @@ export function OnCallDialRow({
           reviewedAt={reviewedAt}
           now={now}
           onCall={recordCall}
+          hospitalPhone={hospitalPhone}
+          hospitalPhoneSwitch={hospitalPhoneSwitch}
           testId={`${testId}-sheet`}
         />
       ) : null}

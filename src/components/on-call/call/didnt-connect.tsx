@@ -42,6 +42,7 @@ export function OnCallDidntConnect({
   switchboard,
   switchboardDial,
   hospitalName,
+  hospitalPhone = false,
 }: {
   readonly id: string;
   readonly title: string;
@@ -51,6 +52,8 @@ export function OnCallDidntConnect({
   readonly switchboard: HandbookItem | null;
   readonly switchboardDial: HandbookDial | null;
   readonly hospitalName: string | null;
+  /** This phone is a hospital phone: a bare-extension switchboard rings its own digits. */
+  readonly hospitalPhone?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<HandbookReportResult | null>(null);
@@ -94,6 +97,7 @@ export function OnCallDidntConnect({
                 source="handbook"
                 title={switchboard.parsed.label}
                 dial={switchboardDial}
+                hospitalPhone={hospitalPhone}
                 updatedAt={switchboard.updatedAt}
                 sources={switchboard.sources}
                 hospitalName={hospitalName}

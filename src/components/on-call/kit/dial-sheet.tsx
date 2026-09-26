@@ -1,7 +1,7 @@
 "use client";
 
 import { Phone, Share2 } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
 import { OnCallActionButton } from "@/components/on-call/kit/action-button";
@@ -31,6 +31,29 @@ export function onCallMobileRoute(dial: HandbookDial, mobileDial?: HandbookDial 
   return mobileDial?.tel ? mobileDial : null;
 }
 
+/**
+ * A bare extension as a call link, for a hospital-issued handset only (the
+ * reader's "I'm on a hospital phone" switch). Never a mobile route: a personal
+ * mobile dialling those digits does not reach the extension.
+ */
+export function onCallExtensionRoute(dial: HandbookDial): HandbookDial | null {
+  if (dial.kind !== "extension") return null;
+  return { kind: "direct", display: dial.display, tel: `tel:${dial.extension}`, copy: dial.copy, route: "any-phone" };
+}
+
+/**
+ * What a row's call disc rings: the extension itself while this phone is a
+ * hospital phone, otherwise the mobile route.
+ */
+export function onCallCallRoute(
+  dial: HandbookDial,
+  mobileDial?: HandbookDial | null,
+  hospitalPhone = false,
+): HandbookDial | null {
+  const extension = hospitalPhone ? onCallExtensionRoute(dial) : null;
+  return extension ?? onCallMobileRoute(dial, mobileDial);
+}
+
 const noSubscription = () => () => {};
 const canShareNow = () => typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -56,6 +79,8 @@ export function OnCallDialSheet({
   reviewedAt,
   now,
   onCall,
+  hospitalPhone = false,
+  hospitalPhoneSwitch,
   testId,
 }: {
   readonly open: boolean;
@@ -72,11 +97,16 @@ export function OnCallDialSheet({
   readonly now?: Date;
   /** Called when the mobile call link is tapped, so the row can record it. */
   readonly onCall?: () => void;
+  /** This phone is a hospital phone: the extension gets its own call link (v6 fig 12). */
+  readonly hospitalPhone?: boolean;
+  /** The "I'm on a hospital phone" switch, shown under a bare extension. */
+  readonly hospitalPhoneSwitch?: ReactNode;
   readonly testId?: string;
 }) {
   const canShare = useSyncExternalStore(noSubscription, canShareNow, () => false);
   const hospitalText = onCallHospitalPhoneText(dial);
   const mobile = onCallMobileRoute(dial, mobileDial);
+  const extensionCall = hospitalPhone ? onCallExtensionRoute(dial) : null;
   const copyLabel = `${dial.route === "hospital-phone" ? "Copy extension" : "Copy number"} for ${title}`;
 
   const share = () => {
@@ -96,14 +126,31 @@ export function OnCallDialSheet({
         ) : null}
 
         {dial.kind === "none" ? null : (
-          <div className="grid min-w-0 gap-1">
-            {dial.route ? <span className="text-sm text-[color:var(--text-muted)]">From a hospital phone</span> : null}
-            <span
-              data-testid={testId ? `${testId}-number` : undefined}
-              className={cn(onCallDisplayNumberText, "break-words text-hero text-[color:var(--text-heading)]")}
-            >
-              {hospitalText}
-            </span>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid min-w-0 flex-1 gap-1">
+              {dial.route ? (
+                <span className="text-sm text-[color:var(--text-muted)]">From a hospital phone</span>
+              ) : null}
+              <span
+                data-testid={testId ? `${testId}-number` : undefined}
+                className={cn(onCallDisplayNumberText, "break-words text-hero text-[color:var(--text-heading)]")}
+              >
+                {hospitalText}
+              </span>
+            </div>
+            {extensionCall?.tel ? (
+              <a
+                href={extensionCall.tel}
+                onClick={onCall}
+                aria-label={`Call ${title} from this hospital phone, ${spokenOnCallNumber(extensionCall.display)}`}
+                data-testid={testId ? `${testId}-extension-call` : undefined}
+                className={cn(onCallTapArea, focusRing, "ml-auto rounded-full")}
+              >
+                <span aria-hidden="true" className={onCallCallDiscShape.neutral}>
+                  <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
+                </span>
+              </a>
+            ) : null}
           </div>
         )}
 
@@ -139,6 +186,8 @@ export function OnCallDialSheet({
             ) : null}
           </li>
         </ul>
+
+        {dial.kind === "extension" ? hospitalPhoneSwitch : null}
 
         <div className="flex min-w-0 flex-wrap items-start gap-2">
           {dial.copy ? (

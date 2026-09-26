@@ -26,10 +26,10 @@ vi.mock("@/lib/on-call/entry-store", () => ({
 import {
   onCallDidntConnectStorageKey,
   onCallHospitalPhoneStorageKey,
-  withHospitalPhone,
 } from "@/components/on-call/call/call-device-stores";
 import { onCallCallGroups } from "@/components/on-call/call/call-groups";
 import { OnCallCallPage } from "@/components/on-call/call/call-page";
+import { onCallCallRoute } from "@/components/on-call/kit/dial-sheet";
 import { clearOnCallDeviceState } from "@/lib/on-call/device-state-keys";
 import { ISOBAR_SOURCE } from "@/lib/on-call/isobar-source";
 import { resolveHandbookPhone } from "@/lib/on-call/number-resolver";
@@ -128,9 +128,23 @@ describe("Call page", () => {
   it("never gives a long number or a free-text number a different dial through the switch", () => {
     const direct = resolveHandbookPhone("9000 0012");
     const text = resolveHandbookPhone("ask switchboard");
-    expect(withHospitalPhone(direct, true)).toBe(direct);
-    expect(withHospitalPhone(text, true)).toBe(text);
-    expect(withHospitalPhone(resolveHandbookPhone("4456"), false).tel).toBeNull();
+    expect(onCallCallRoute(direct, null, true)).toBe(direct);
+    expect(onCallCallRoute(text, null, true)).toBeNull();
+    expect(onCallCallRoute(resolveHandbookPhone("4456"), null, false)).toBeNull();
+    expect(onCallCallRoute(resolveHandbookPhone("4456"), null, true)?.tel).toBe("tel:4456");
+  });
+
+  it("never offers a bare extension as a mobile route in the dial sheet, even with the switch on", async () => {
+    handbook.state = ready(items([{ id: "i", title: "ICU: Registrar", phone: "4456" }]));
+    render(<OnCallCallPage />);
+    await userEvent.click(screen.getByRole("switch", { name: "I'm on a hospital phone" }));
+    await userEvent.click(screen.getByRole("button", { name: /Dialling details for Registrar$/ }));
+
+    const sheet = screen.getByTestId("on-call-call-row-i-sheet-body");
+    expect(within(sheet).getByText("Not recorded")).toBeInTheDocument();
+    expect(within(sheet).queryByRole("link", { name: /from your mobile/i })).toBeNull();
+    expect(within(sheet).getByRole("link", { name: /from this hospital phone/i })).toHaveAttribute("href", "tel:4456");
+    expect(within(sheet).getByTestId("on-call-hospital-phone-sheet")).toBeInTheDocument();
   });
 
   it("shows every outside line in the outside form, with its area, source and date", () => {

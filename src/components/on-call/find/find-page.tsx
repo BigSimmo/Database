@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
 import { useOnCallHospitalPhone } from "@/components/on-call/call/call-device-stores";
+import { OnCallHospitalPhoneSwitch } from "@/components/on-call/call/hospital-phone-switch";
 import { OnCallCrisisLines } from "@/components/on-call/call/external-line-rows";
 import { handbookFirstLine, OnCallHandbookItemRow } from "@/components/on-call/find/handbook-item-row";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
@@ -85,6 +86,7 @@ export function OnCallFindPage() {
 
   const sections = onCallHubPageSections("find", new Map(groups.map((group) => [group.slug, group.items.length])));
   const resultCount = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const hasDeskOnly = listed.some((item) => item.dial.kind === "extension");
 
   return (
     <OnCallHubPageFrame page="find" sections={ready ? sections : []} lead={<OnCallHospitalLine handbook={handbook} />}>
@@ -161,6 +163,7 @@ export function OnCallFindPage() {
             );
           })
         : null}
+      {ready && !searching && (hasDeskOnly || hospitalPhone) ? <OnCallHospitalPhoneSwitch on={hospitalPhone} /> : null}
 
       <div className={onCallModuleSurface} data-testid="on-call-find-on-site">
         <Link

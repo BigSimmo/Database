@@ -3,7 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 
-import { withHospitalPhone } from "@/components/on-call/call/call-device-stores";
+import { OnCallHospitalPhoneSwitch } from "@/components/on-call/call/hospital-phone-switch";
 import { OnCallActionButton } from "@/components/on-call/kit/action-button";
 import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
@@ -68,7 +68,8 @@ export function OnCallHandbookItemRow({
   const [open, setOpen] = useState(false);
   const label = item.parsed.label;
   const body = handbookBodyText(item.body);
-  const dial = withHospitalPhone(item.dial, hospitalPhone);
+  const dial = item.dial;
+  const hospitalPhoneSwitch = <OnCallHospitalPhoneSwitch on={hospitalPhone} testId="on-call-hospital-phone-sheet" />;
   const hasNumber = dial.kind !== "none";
 
   const detail = (
@@ -88,6 +89,8 @@ export function OnCallHandbookItemRow({
               title={label}
               dial={dial}
               mobileDial={item.mobileDial}
+              hospitalPhone={hospitalPhone}
+              hospitalPhoneSwitch={hospitalPhoneSwitch}
               updatedAt={item.updatedAt}
               sources={item.sources}
               hospitalName={hospitalName}
@@ -110,6 +113,8 @@ export function OnCallHandbookItemRow({
           subtitle={secondary ?? undefined}
           dial={dial}
           mobileDial={item.mobileDial}
+          hospitalPhone={hospitalPhone}
+          hospitalPhoneSwitch={hospitalPhoneSwitch}
           updatedAt={item.updatedAt}
           sources={item.sources}
           hospitalName={hospitalName}

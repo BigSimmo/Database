@@ -5,11 +5,7 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
-import {
-  useOnCallDidntConnectAt,
-  useOnCallHospitalPhone,
-  withHospitalPhone,
-} from "@/components/on-call/call/call-device-stores";
+import { useOnCallDidntConnectAt, useOnCallHospitalPhone } from "@/components/on-call/call/call-device-stores";
 import { onCallCallGroups, onCallSwitchboardItem, type OnCallCallGroup } from "@/components/on-call/call/call-groups";
 import { OnCallDidntConnect } from "@/components/on-call/call/didnt-connect";
 import { OnCallCrisisLines, OnCallExternalLineRows } from "@/components/on-call/call/external-line-rows";
@@ -45,8 +41,12 @@ function hospitalName(handbook: HospitalHandbookState): string | null {
   return handbook.siteName ?? handbook.serviceName;
 }
 
-/** The fallback a "Didn't connect" sheet offers, with the hospital-phone switch applied. */
-type Fallback = { readonly item: HandbookItem | null; readonly dial: HandbookDial | null };
+/** The fallback a "Didn't connect" sheet offers, and whether this phone is a hospital phone. */
+type Fallback = {
+  readonly item: HandbookItem | null;
+  readonly dial: HandbookDial | null;
+  readonly hospitalPhone: boolean;
+};
 
 function HandbookCallRow({
   item,
@@ -68,7 +68,9 @@ function HandbookCallRow({
       id={item.id}
       source="handbook"
       title={item.parsed.label}
-      dial={withHospitalPhone(item.dial, hospitalPhone)}
+      dial={item.dial}
+      hospitalPhone={hospitalPhone}
+      hospitalPhoneSwitch={<OnCallHospitalPhoneSwitch on={hospitalPhone} testId="on-call-hospital-phone-sheet" />}
       mobileDial={item.mobileDial}
       state={didntConnectAt ? { kind: "didnt-connect", at: didntConnectAt } : null}
       updatedAt={item.updatedAt}
@@ -82,6 +84,7 @@ function HandbookCallRow({
           report={handbook}
           switchboard={fallback.item}
           switchboardDial={fallback.dial}
+          hospitalPhone={fallback.hospitalPhone}
           hospitalName={name}
         />
       }
@@ -171,7 +174,9 @@ function MineCallRow({
       source="entry"
       title={entry.title}
       subtitle={entry.subtitle ?? undefined}
-      dial={dial ? withHospitalPhone(dial, hospitalPhone) : null}
+      dial={dial}
+      hospitalPhone={hospitalPhone}
+      hospitalPhoneSwitch={<OnCallHospitalPhoneSwitch on={hospitalPhone} testId="on-call-hospital-phone-sheet" />}
       numberLabel={resolved?.label}
       state={didntConnectAt ? { kind: "didnt-connect", at: didntConnectAt } : dial ? null : { kind: "not-recorded" }}
       trailingAction={
@@ -181,6 +186,7 @@ function MineCallRow({
           report={null}
           switchboard={fallback.item}
           switchboardDial={fallback.dial}
+          hospitalPhone={fallback.hospitalPhone}
           hospitalName={name}
         />
       }
@@ -221,7 +227,8 @@ export function OnCallCallPage() {
   const switchboard = useMemo(() => onCallSwitchboardItem(handbook.items), [handbook.items]);
   const fallback: Fallback = {
     item: switchboard,
-    dial: switchboard ? withHospitalPhone(switchboard.dial, hospitalPhone) : null,
+    dial: switchboard?.dial ?? null,
+    hospitalPhone,
   };
 
   const groups = useMemo(() => {
@@ -343,6 +350,7 @@ export function OnCallCallPage() {
                 report={null}
                 switchboard={fallback.item}
                 switchboardDial={fallback.dial}
+                hospitalPhone={fallback.hospitalPhone}
                 hospitalName={name}
               />
             )}

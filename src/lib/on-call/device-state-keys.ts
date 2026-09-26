@@ -46,6 +46,10 @@ export const onCallEmergencyPinnedStorageKey = "clinical-kb-on-call-emergency-pi
 export const onCallEditorFlagStorageKey = "clinical-kb-on-call-editor";
 /** "Your usual": the order frozen at the start of this shift (review F8). */
 export const onCallUsualOrderStorageKey = "clinical-kb-on-call-usual-order";
+/** Call's "Didn't connect" marks: entry ids and times, 12 hours. */
+export const onCallDidntConnectStorageKey = "clinical-kb-on-call-didnt-connect";
+/** "I'm on a hospital phone": a yes about this phone only, off by default. */
+export const onCallHospitalPhoneStorageKey = "clinical-kb-on-call-hospital-phone";
 
 /**
  * Fired once after `clearOnCallDeviceState` (the sign-out wipe), so mounted
@@ -68,6 +72,8 @@ export const ON_CALL_DEVICE_STATE_KEYS: readonly string[] = [
   onCallEmergencyPinnedStorageKey,
   onCallEditorFlagStorageKey,
   onCallUsualOrderStorageKey,
+  onCallDidntConnectStorageKey,
+  onCallHospitalPhoneStorageKey,
 ];
 
 /**

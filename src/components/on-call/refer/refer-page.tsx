@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
 import { useOnCallHospitalPhone } from "@/components/on-call/call/call-device-stores";
+import { OnCallHospitalPhoneSwitch } from "@/components/on-call/call/hospital-phone-switch";
 import { OnCallCrisisLines } from "@/components/on-call/call/external-line-rows";
 import { handbookFirstLine, OnCallHandbookItemRow } from "@/components/on-call/find/handbook-item-row";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
@@ -59,6 +60,7 @@ export function OnCallReferPage() {
   );
   const chosen = teams.includes(team) ? team : ALL_TEAMS;
   const shown = chosen === ALL_TEAMS ? referrals : referrals.filter((item) => item.parsed.team === chosen);
+  const hasDeskOnly = referrals.some((item) => item.dial.kind === "extension");
 
   const signedOut = entries.signedOut || handbook.status === "signed-out";
   const mine = useMemo(
@@ -112,6 +114,7 @@ export function OnCallReferPage() {
           ))}
         </OnCallGroupedList>
       ) : null}
+      {ready && (hasDeskOnly || hospitalPhone) ? <OnCallHospitalPhoneSwitch on={hospitalPhone} /> : null}
 
       <OnCallGroupedList
         eyebrow="Mine"

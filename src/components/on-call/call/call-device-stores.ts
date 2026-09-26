@@ -2,8 +2,12 @@
 
 import { useSyncExternalStore } from "react";
 
-import { onCallDeviceStateChangedEvent, onCallDeviceStoreChangedEvent } from "@/lib/on-call/device-state-keys";
-import type { HandbookDial } from "@/lib/on-call/number-resolver";
+import {
+  onCallDeviceStateChangedEvent,
+  onCallDeviceStoreChangedEvent,
+  onCallDidntConnectStorageKey,
+  onCallHospitalPhoneStorageKey,
+} from "@/lib/on-call/device-state-keys";
 
 /**
  * Two small stores Call needs on the device, beside the kit's own:
@@ -14,15 +18,13 @@ import type { HandbookDial } from "@/lib/on-call/number-resolver";
  *  - **"I'm on a hospital phone"** (owner card 19:06Z): a yes or no about THIS
  *    phone, off by default. While it is on, a short extension gets a call disc.
  *
- * Neither holds a phone number. Both are wiped at sign-out: the kit's
- * `clearOnCallDeviceState()` fires `onCallDeviceStateChangedEvent`, and the
- * listener below removes both keys when it hears it. (The kit's key list
- * should also name them, so a wipe with no Call code loaded clears them too;
- * that is a one-line kit change, reported rather than made from this lane.)
+ * Neither holds a phone number. Both are wiped at sign-out: their keys are in
+ * `ON_CALL_DEVICE_STATE_KEYS`, so `clearOnCallDeviceState()` removes them even
+ * with no Call code loaded, and the listener below removes them again when it
+ * hears the wipe event.
  */
 
-export const onCallDidntConnectStorageKey = "clinical-kb-on-call-didnt-connect";
-export const onCallHospitalPhoneStorageKey = "clinical-kb-on-call-hospital-phone";
+export { onCallDidntConnectStorageKey, onCallHospitalPhoneStorageKey };
 export const ON_CALL_LANE_B_DEVICE_KEYS = [onCallDidntConnectStorageKey, onCallHospitalPhoneStorageKey] as const;
 
 const DIDNT_CONNECT_HOURS = 12;
@@ -128,17 +130,6 @@ export function setOnCallHospitalPhone(on: boolean): void {
     // Blocked storage: the switch stays off, which is the conservative default.
   }
   notify();
-}
-
-/**
- * The dial a row shows. While this phone is a hospital phone, a short
- * extension (under 8 digits; 000, 112 and 106 already dial) rings its own
- * digits. Otherwise the number is unchanged, and a short one stays desk-only
- * with no call disc (review F1).
- */
-export function withHospitalPhone(dial: HandbookDial, hospitalPhone: boolean): HandbookDial {
-  if (!hospitalPhone || dial.kind !== "extension") return dial;
-  return { kind: "direct", display: dial.display, tel: `tel:${dial.extension}`, copy: dial.copy, route: "any-phone" };
 }
 
 function subscribe(onChange: () => void): () => void {
