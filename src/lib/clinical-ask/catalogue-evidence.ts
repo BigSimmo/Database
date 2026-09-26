@@ -8,7 +8,7 @@ import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchFormRecords } from "@/lib/forms";
 import { searchServiceRecords } from "@/lib/services";
 import { searchSpecifiers } from "@/lib/specifiers";
-import { specifierCatalogItems } from "@/lib/specifiers-content";
+import { isSpecifierClinicianReviewed, specifierCatalogItems } from "@/lib/specifiers-content";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 import { therapySourceMetadata } from "@/lib/therapy-source-governance";
 import { searchTherapyRecords } from "@/lib/therapies";
@@ -197,7 +197,7 @@ function specifierEvidence(request: ClinicalAskRequest) {
       href: `/specifiers/${item.slug}`,
       extract: text([item.disorderName, item.definition?.meaning, item.definition?.clinicalNote, item.icd11Context]),
       reviewState:
-        item.review.sourceVerificationStatus.includes("needs") || item.review.clinicianReviewStatus.includes("pending")
+        item.review.sourceVerificationStatus.includes("needs") || !isSpecifierClinicianReviewed(item.review)
           ? "needs_review"
           : "reviewed",
     }),

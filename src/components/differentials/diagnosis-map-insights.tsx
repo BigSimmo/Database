@@ -271,6 +271,8 @@ export type DiagnosisMapInsightsProps = {
   relatedMapDetails: Record<string, DifferentialRelatedMapDetail>;
   onSelect?: (slug: string) => void;
   className?: string;
+  /** The focus record's provenance line; names the reviewer once the overlay is signed off. */
+  provenanceLabel?: string;
 };
 
 export function DiagnosisMapInsights({
@@ -281,9 +283,16 @@ export function DiagnosisMapInsights({
   relatedMapDetails,
   onSelect,
   className,
+  provenanceLabel = curatedProvenanceLabel,
 }: DiagnosisMapInsightsProps) {
   const mustNotMiss = rows.filter((row) => row.likelihood === "must-not-miss");
   const anyCurated = rows.some((row) => row.curated);
+  // A signed-off overlay vouches for its authored rows only. When the table mixes them
+  // with rows derived from the unverified export, say which rows the reviewer read.
+  const rowsLabel =
+    provenanceLabel !== curatedProvenanceLabel && rows.some((row) => !row.curated)
+      ? `${provenanceLabel}. This covers the locally authored rows only; the others come from the unverified export.`
+      : provenanceLabel;
   const detail = selectedSlug ? (relatedMapDetails[selectedSlug] ?? null) : null;
 
   return (
@@ -298,9 +307,7 @@ export function DiagnosisMapInsights({
           This record lists no related differentials, so there is nothing to compare it against yet.
         </p>
       )}
-      {anyCurated ? (
-        <p className="px-1 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceLabel}</p>
-      ) : null}
+      {anyCurated ? <p className="px-1 text-2xs font-semibold text-[color:var(--text-muted)]">{rowsLabel}</p> : null}
     </section>
   );
 }

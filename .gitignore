@@ -200,3 +200,6 @@ docs/archive/staging-tenancy-evidence-*
 # Scratch diagnostics written while investigating, never part of the suite. One is awaiting the
 # owner approval the protected-work hook requires before it can be removed.
 tests/zz-tmp-*.test.ts
+
+# Clinical sign-off review packs, written locally by clinical:review / therapy:review --pack
+sign-off-packs/
