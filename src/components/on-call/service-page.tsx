@@ -17,6 +17,7 @@ import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
 import { EmptyState, InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
+import { DEMO_SERVICE_ID, DEMO_SITE_ID, demoServiceDetail, demoServiceSummary } from "@/lib/on-call/service-demo";
 import {
   type ServiceAction,
   type ServiceDetail,
@@ -29,127 +30,6 @@ type WorkspaceTab = "handbook" | "orientation" | "review" | "admin" | "services"
 type LoadState = "loading" | "ready" | "signed-out" | "unavailable";
 type OwnedServices = { readonly authEpoch: number; readonly items: ServiceSummary[] };
 type OwnedDetail = { readonly contextKey: string; readonly value: ServiceDetail };
-
-const DEMO_SERVICE_ID = "60000000-0000-4000-8000-000000000001";
-const DEMO_SITE_ID = "60000000-0000-4000-8000-000000000002";
-const DEMO_AUTHOR_ID = "60000000-0000-4000-8000-000000000003";
-const DEMO_REVIEWER_ID = "60000000-0000-4000-8000-000000000004";
-
-function demoEntry(
-  id: string,
-  content: ServiceEntry["content"],
-  overrides: Partial<Omit<ServiceEntry, "id" | "content">> = {},
-): ServiceEntry {
-  return {
-    id,
-    revision: 1,
-    publishedRevision: 1,
-    content,
-    publishedContent: content,
-    status: "published",
-    authorId: DEMO_AUTHOR_ID,
-    reviewedBy: null,
-    reviewedAt: null,
-    reviewComment: "",
-    updatedAt: "2026-09-20T04:00:00.000Z",
-    ...overrides,
-  };
-}
-
-const demoServiceDetail: ServiceDetail = {
-  service: { id: DEMO_SERVICE_ID, name: "Synthetic Metro Psychiatry Service" },
-  membership: { role: "admin", clinicalReviewer: true },
-  sites: [{ id: DEMO_SITE_ID, name: "Demonstration Hospital" }],
-  entries: [
-    demoEntry("61000000-0000-4000-8000-000000000001", {
-      siteId: DEMO_SITE_ID,
-      section: "contacts",
-      kind: "operational",
-      title: "Example after-hours coordination extension",
-      body: "Synthetic example only. This is not a real service or contact.",
-      phone: "0001",
-      sources: [],
-      orientationPhase: "first_shift",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000002", {
-      siteId: DEMO_SITE_ID,
-      section: "referrals",
-      kind: "operational",
-      title: "Example internal referral route",
-      body: "Synthetic demonstration of where a locally maintained referral route would appear.",
-      phone: "",
-      sources: [],
-      orientationPhase: "first_shift",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000003", {
-      siteId: DEMO_SITE_ID,
-      section: "orientation",
-      kind: "operational",
-      title: "Collect the synthetic on-call handset",
-      body: "Demonstration item only.",
-      phone: "",
-      sources: [],
-      orientationPhase: "before_start",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000004", {
-      siteId: DEMO_SITE_ID,
-      section: "orientation",
-      kind: "operational",
-      title: "Locate the synthetic escalation list",
-      body: "Demonstration item only.",
-      phone: "",
-      sources: [],
-      orientationPhase: "first_shift",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000005", {
-      siteId: DEMO_SITE_ID,
-      section: "orientation",
-      kind: "operational",
-      title: "Return the synthetic handset",
-      body: "Demonstration item only.",
-      phone: "",
-      sources: [],
-      orientationPhase: "leaving",
-    }),
-    demoEntry(
-      "61000000-0000-4000-8000-000000000006",
-      {
-        siteId: null,
-        section: "documentation",
-        kind: "clinical",
-        title: "Example reviewed clinical summary",
-        body: "Synthetic example showing independent review metadata; it contains no clinical advice.",
-        phone: "",
-        sources: [
-          {
-            label: "WA Health policy frameworks",
-            url: "https://www.health.wa.gov.au/About-us/Policy-frameworks",
-          },
-        ],
-        orientationPhase: "first_shift",
-      },
-      {
-        reviewedBy: DEMO_REVIEWER_ID,
-        reviewedAt: "2026-09-21T04:00:00.000Z",
-      },
-    ),
-  ],
-  members: [
-    { id: DEMO_AUTHOR_ID, role: "admin", clinicalReviewer: false, joinedAt: "2026-08-01T00:00:00.000Z" },
-    { id: DEMO_REVIEWER_ID, role: "editor", clinicalReviewer: true, joinedAt: "2026-08-02T00:00:00.000Z" },
-  ],
-  invitations: [],
-  reports: [],
-  orientation: [],
-};
-
-const demoServiceSummary: ServiceSummary = {
-  id: DEMO_SERVICE_ID,
-  name: demoServiceDetail.service.name,
-  role: "admin",
-  clinicalReviewer: true,
-  sites: demoServiceDetail.sites,
-};
 
 const workspaceTabs = [
   { id: "handbook", label: "Handbook", icon: BookOpen },

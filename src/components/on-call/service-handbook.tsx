@@ -141,7 +141,7 @@ function ServiceEntryCard({
             {dial.copy ? (
               <OnCallCopyNumber
                 value={dial.copy}
-                label={`Copy number for ${entry.content.title}`}
+                label={`${dial.route === "hospital-phone" ? "Copy extension" : "Copy number"} for ${entry.content.title}`}
                 testId={`service-entry-${entry.id}-copy-phone`}
               />
             ) : null}

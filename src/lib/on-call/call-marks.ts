@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { onCallCallMarksStorageKey, onCallDeviceStateChangedEvent } from "@/lib/on-call/device-state-keys";
+import { onCallCallMarksStorageKey, onCallDeviceStoreChangedEvent } from "@/lib/on-call/device-state-keys";
 
 /**
  * "You called 02:14": which rows this reader rang during this shift.
@@ -64,7 +64,7 @@ export function rememberOnCallYouCalled(entryId: string, now: Date = new Date())
   ].slice(0, MARK_LIMIT);
   try {
     window.localStorage.setItem(onCallCallMarksStorageKey, JSON.stringify(next));
-    window.dispatchEvent(new Event(onCallDeviceStateChangedEvent));
+    window.dispatchEvent(new Event(onCallDeviceStoreChangedEvent));
   } catch {
     // Blocked storage: the reminder is a convenience, never worth an error.
   }

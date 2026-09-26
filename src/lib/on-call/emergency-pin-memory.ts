@@ -1,4 +1,4 @@
-import { onCallDeviceStateChangedEvent, onCallEmergencyPinnedStorageKey } from "@/lib/on-call/device-state-keys";
+import { onCallDeviceStoreChangedEvent, onCallEmergencyPinnedStorageKey } from "@/lib/on-call/device-state-keys";
 
 /**
  * Whether a hospital showed a pinned emergency row the last time it loaded on
@@ -33,7 +33,7 @@ export function rememberOnCallEmergencyPinned(hospitalKey: string, hasPinned: bo
   if (map[hospitalKey] === hasPinned) return;
   try {
     window.localStorage.setItem(onCallEmergencyPinnedStorageKey, JSON.stringify({ ...map, [hospitalKey]: hasPinned }));
-    window.dispatchEvent(new Event(onCallDeviceStateChangedEvent));
+    window.dispatchEvent(new Event(onCallDeviceStoreChangedEvent));
   } catch {
     // Blocked storage: Now reserves no space and simply waits for the network.
   }

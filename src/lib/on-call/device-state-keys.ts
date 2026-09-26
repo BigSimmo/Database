@@ -47,8 +47,15 @@ export const onCallEditorFlagStorageKey = "clinical-kb-on-call-editor";
 /** "Your usual": the order frozen at the start of this shift (review F8). */
 export const onCallUsualOrderStorageKey = "clinical-kb-on-call-usual-order";
 
-/** Fired once after `clearOnCallDeviceState`, so mounted stores drop in-memory copies. */
+/**
+ * Fired once after `clearOnCallDeviceState` (the sign-out wipe), so mounted
+ * stores drop in-memory copies — including `useHospitalHandbook`'s 60-second
+ * read memo. Ordinary writes to one store fire `onCallDeviceStoreChangedEvent`
+ * instead, so recording a call never throws away a hospital read.
+ */
 export const onCallDeviceStateChangedEvent = "clinical-kb-on-call-device-state-changed";
+/** Fired after a write to any one of the stores below, for this tab's subscribers. */
+export const onCallDeviceStoreChangedEvent = "clinical-kb-on-call-device-store-changed";
 
 export const ON_CALL_DEVICE_STATE_KEYS: readonly string[] = [
   onCallHospitalChoiceStorageKey,
@@ -109,7 +116,7 @@ export function rememberOnCallEditorFlag(isEditor: boolean): void {
     if (isEditor === readOnCallEditorFlag()) return;
     if (isEditor) window.localStorage.setItem(onCallEditorFlagStorageKey, "1");
     else window.localStorage.removeItem(onCallEditorFlagStorageKey);
-    window.dispatchEvent(new Event(onCallDeviceStateChangedEvent));
+    window.dispatchEvent(new Event(onCallDeviceStoreChangedEvent));
   } catch {
     // Blocked storage: the sheet keeps its default, which hides Manage service.
   }

@@ -4,7 +4,11 @@ import { useEffect, useMemo } from "react";
 import { z } from "zod";
 
 import { createBrowserStore } from "@/lib/client-store-factory";
-import { onCallDeviceStateChangedEvent, onCallUsualOrderStorageKey } from "@/lib/on-call/device-state-keys";
+import {
+  onCallDeviceStateChangedEvent,
+  onCallDeviceStoreChangedEvent,
+  onCallUsualOrderStorageKey,
+} from "@/lib/on-call/device-state-keys";
 import { onCallPeriod } from "@/lib/on-call/number-resolver";
 import { clearOnCallRecent, onCallRecentChangedEvent, onCallRecentStorageKey } from "@/lib/on-call/recent-storage-keys";
 
@@ -312,9 +316,11 @@ function getFrozenSnapshot(): string {
 function subscribeToFrozen(onChange: () => void) {
   window.addEventListener("storage", onChange);
   window.addEventListener(onCallDeviceStateChangedEvent, onChange);
+  window.addEventListener(onCallDeviceStoreChangedEvent, onChange);
   return () => {
     window.removeEventListener("storage", onChange);
     window.removeEventListener(onCallDeviceStateChangedEvent, onChange);
+    window.removeEventListener(onCallDeviceStoreChangedEvent, onChange);
   };
 }
 
