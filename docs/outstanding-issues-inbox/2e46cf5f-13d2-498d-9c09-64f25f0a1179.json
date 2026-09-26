@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2e46cf5f-13d2-498d-9c09-64f25f0a1179",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#TN5ZMG",
+    "outcome": "Closed 2026-09-26 as already fixed on main, from CI evidence read via the GitHub MCP: main CI run 36215822465 (head 103513f2d), job release-browser-matrix (webkit, mobile-webkit, 3, 3), ran all twelve tests in tests/ui-specifiers.spec.ts on mobile-webkit and all passed, including the five that call expectNoBlockingAxeViolations (lines 186, 367, 414, 433, 499; the mobile journey at 186 passed in 15.3s). The Axe check is unchanged: wcag2a/2aa/21a/21aa tags, blocking on serious and critical. The only failure in that shard was tests/ui-tools.spec.ts:680 (tool links), which is a separate WebKit item under #9Z197J. The Chromium, Firefox and WebKit desktop projects were not re-read for this row.",
+    "baseRowFingerprint": "a6aef80b8f68f30601c1ddd3644cd2c18fa8c26d61e7551bd6532b8474d8f9b9"
+  }
+}
