@@ -37,6 +37,14 @@ describe("CalendarSubscribe", () => {
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
+  it("calls the mode CPD, never CME", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(json({ subscribed: false, available: true }));
+    const { container } = render(<CalendarSubscribe />);
+    await screen.findByTestId("calendar-subscribe-create");
+    expect(container).toHaveTextContent(/your CPD deadlines, routines and teaching sessions/);
+    expect(container.textContent).not.toMatch(/\bCME\b/);
+  });
+
   it("makes a link on request and shows it once, with each calendar's button", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
