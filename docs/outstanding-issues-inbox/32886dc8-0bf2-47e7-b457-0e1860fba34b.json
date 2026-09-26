@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "32886dc8-0bf2-47e7-b457-0e1860fba34b",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#KPV4KV",
+    "outcome": "Closed 2026-09-26: the owner retired the Ward Flow and Caring Contacts features and they were deleted from the repository by PR #3098 (merged 2026-09-26), including tests/ui-ward-roles.spec.ts, the only file this row named. The clock-pattern lesson itself (use page.clock.setFixedTime, not install plus pauseAt) is recorded in PR #2902.",
+    "baseRowFingerprint": "dbda8cf0eaffb0cf926840a75cdf0cd46df1d7eaf851578bb52aea5c74359196"
+  }
+}

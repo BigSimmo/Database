@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1fa2246c-0b96-4920-a13e-33bfffb81bc3",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#P00HDB",
+    "outcome": "Closed 2026-09-26: the owner checked the live Railway production Database service at 14:31Z and confirmed no CARING_CONTACTS_* variables exist there, so the workspace could not have been switched on in production. The Caring Contacts code was also deleted from the repository by PR #3098 the same day.",
+    "baseRowFingerprint": "9052ce6025465ca4c6fe78f1202594155989244d52b57fa72801136a8e6031ae"
+  }
+}
