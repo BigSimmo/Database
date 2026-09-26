@@ -75,7 +75,7 @@ Production never silently falls back — missing config fails loudly.
 
 ## Repository layout and the two main flows
 
-The `src/` tree, the 18 app modes, and the two flows that matter — answer (read path) and
+The `src/` tree, the 19 app modes, and the two flows that matter — answer (read path) and
 ingestion (write path) — are mapped in
 [`docs/codebase-index.md`](docs/codebase-index.md), under "Orientation summary" and the detailed
 sections that follow it. Start there for any real task.

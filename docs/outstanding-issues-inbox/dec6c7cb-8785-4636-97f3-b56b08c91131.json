@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "dec6c7cb-8785-4636-97f3-b56b08c91131",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call demo preview: 'Something went wrong' on activation once, recovered after Try again (unreproduced)",
+    "detail": "Review section 2.5 browser report: guest activating the device-local 94-entry example preview saw 'Something went wrong', which cleared on retry. No console or network logs were captured. Reproduce with diagnostics before assigning a cause; not yet a confirmed defect.",
+    "source": "Master product review 2026-09-26 (thread: Review master review ideas); cross-checked against main 004ab6301",
+    "issueUlid": "01M3DZQ0HC25PJFRR929C8FWF3"
+  }
+}

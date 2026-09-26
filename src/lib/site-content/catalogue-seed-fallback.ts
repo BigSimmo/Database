@@ -440,22 +440,9 @@ export async function readCatalogueWithSeedFallback<T>(input: {
   }
 }
 
-/**
- * What a reader is told when a list came from the in-bundle catalogue rather than the published
- * one. Plain, short, and honest about the only thing that matters clinically: the entries are real
- * but the list may not include the most recent publication. Kept here beside the mechanism so
- * every surface says the same words.
- */
-export const catalogueDegradedNotice = "may be out of date";
-
-/**
- * Append the notice to a results heading when, and only when, the group was served from seeds.
- * A helper rather than an inline ternary so the wording is asserted in one place and cannot drift
- * between the surfaces that show it.
- */
-export function withCatalogueDegradedNotice(heading: string, degraded: boolean | undefined): string {
-  return degraded ? `${heading} · ${catalogueDegradedNotice}` : heading;
-}
+// The reader-facing notice lives in a dependency-free module so client components can show it
+// without bundling this server-side fallback machinery. Re-exported here for server callers.
+export { catalogueDegradedNotice, withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-degraded-notice";
 
 /** Test seam, and the hook an operator-triggered "try the database again now" would use. */
 export function clearCatalogueSeedFallbackCooldown() {

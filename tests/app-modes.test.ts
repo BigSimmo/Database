@@ -220,7 +220,7 @@ describe("app mode search contract", () => {
     const config = appModeSearchConfig("sources");
     const mode = appModeDefinitions.find((definition) => definition.id === "sources");
 
-    expect(appModeIds).toHaveLength(18);
+    expect(appModeIds).toHaveLength(19);
     expect(mode).toMatchObject({
       label: "Sources",
       description: "Ranked clinical source catalogue and traceability",
@@ -475,6 +475,9 @@ describe("app mode search contract", () => {
       // mode pill to `/cme` before a query against this mode can be typed. The
       // dashboard ignores `q`.
       cme: "/cme?q=clozapine&run=1",
+      // Psychiatry, for the same reason: a dashboard of section links with no
+      // search route, reached through `standaloneModeHomeHref`.
+      psychiatry: "/psychiatry?q=clozapine&run=1",
     });
   });
 

@@ -16,6 +16,7 @@ import { cn, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { isComplianceEntry, ON_CALL_ADMIN_CATEGORIES, ON_CALL_COMPLIANCE_CATEGORIES } from "@/lib/on-call/compliance";
 import { mergeOnCallEditorDetails } from "@/lib/on-call/editor-details";
+import { ON_CALL_HOME_TAGS } from "@/lib/on-call/home-modules";
 import {
   ON_CALL_COMPLIANCE_CONSEQUENCES,
   ON_CALL_COMPLIANCE_PROVENANCE,
@@ -516,6 +517,28 @@ function parseEscalationSteps(raw: string): EscalationStep[] | null {
     });
   }
   return steps;
+}
+
+function draftTagList(tags: string): string[] {
+  return tags
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+}
+
+/** Whether the comma-separated draft carries a home tag, matched as the home matches it. */
+function draftHasTag(tags: string, tag: string): boolean {
+  return draftTagList(tags).some((candidate) => candidate.toLowerCase() === tag);
+}
+
+/**
+ * Adds or removes one home tag in the comma-separated draft, leaving every other
+ * tag, and the first tag that groups a contact, where the owner put it. The tag
+ * stays the stored model; the tick box only spares a new doctor from learning it.
+ */
+function setDraftTag(tags: string, tag: string, on: boolean): string {
+  const others = draftTagList(tags).filter((candidate) => candidate.toLowerCase() !== tag);
+  return (on ? [...others, tag] : others).join(", ");
 }
 
 function slugifyTitle(title: string): string {
@@ -1233,6 +1256,20 @@ export function OnCallEntryEditor({
               export is ever built, excluding private rows is the work, and this
               wording can then say so truthfully. */}
           <div className="grid gap-1">
+            {section === "contacts" && !draft.isRoleExplainer ? (
+              <Checkbox
+                label="Call first on the home"
+                description="Puts this number on the On Call home as one of the first two to ring on a shift."
+                checked={draftHasTag(draft.tags, ON_CALL_HOME_TAGS.callFirst)}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    tags: setDraftTag(current.tags, ON_CALL_HOME_TAGS.callFirst, event.target.checked),
+                  }))
+                }
+                data-testid="on-call-entry-editor-call-first"
+              />
+            ) : null}
             {section === "contacts" ? (
               <Checkbox
                 label="Who's who entry"
