@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "signed_out", authEpoch: 1 }) }));
 
 import { OnCallActionButton } from "@/components/on-call/kit/action-button";
-import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
+import { OnCallDialRow, toHandbookDial } from "@/components/on-call/kit/dial-row";
 import { OnCallDialSheet } from "@/components/on-call/kit/dial-sheet";
 import { OnCallFactTile } from "@/components/on-call/kit/fact-tile";
 import { OnCallGroupedList, OnCallRow } from "@/components/on-call/kit/grouped-list";
@@ -221,6 +221,35 @@ describe("OnCallDialRow geometry (review B1, S2)", () => {
       </ul>,
     );
     expect(screen.getByRole("link")).toHaveAccessibleName(/^Call Synthetic line, emergency,/);
+  });
+});
+
+describe("toHandbookDial for a reader's own numbers (review S5)", () => {
+  it("never tells a reader to ring their own pager from a hospital phone", () => {
+    const dial = toHandbookDial({ label: "Pager", value: "123", tel: null });
+    expect(dial?.route).not.toBe("hospital-phone");
+    expect(dial?.display).toBe("123");
+    render(
+      <ul>
+        <OnCallDialRow id="p1" source="entry" title="Own pager" dial={dial} numberLabel="Pager" testId="row" />
+      </ul>,
+    );
+    expect(screen.queryByText("From a hospital phone")).toBeNull();
+    expect(screen.getByText("Pager")).toBeInTheDocument();
+  });
+
+  it("never prints a doubled Ext", () => {
+    const dial = toHandbookDial({ label: "Ext", value: "4455", tel: null });
+    render(
+      <ul>
+        <OnCallDialRow id="p2" source="entry" title="Own desk" dial={dial} numberLabel="Ext" testId="row" />
+      </ul>,
+    );
+    expect(screen.getByText("ext 4455")).toBeInTheDocument();
+    // The display already says "ext"; a second "Ext" label beside it would read
+    // "Ext ext 4455" (and break the lower-case rule, F20).
+    expect(screen.queryByText(/^Ext$/)).toBeNull();
+    expect(screen.getByTestId("row").textContent).not.toMatch(/Ext\s*ext/i);
   });
 });
 

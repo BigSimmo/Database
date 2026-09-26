@@ -61,6 +61,11 @@ export type OnCallDialRowProps = {
  */
 export function toHandbookDial(resolved: ResolvedOnCallNumber | null): HandbookDial | null {
   if (!resolved?.value) return null;
+  // A pager is paged, not rung from a desk: never "From a hospital phone", never
+  // "Copy extension". It shows as typed, beside its "Pager" label (review S5).
+  if (resolved.label === "Pager") {
+    return { kind: "text", display: resolved.value, tel: null, copy: null, route: null };
+  }
   const dial = resolveHandbookPhone(resolved.value);
   if (resolved.tel && !dial.tel) {
     return {
@@ -72,6 +77,13 @@ export function toHandbookDial(resolved: ResolvedOnCallNumber | null): HandbookD
     };
   }
   return dial;
+}
+
+/** The label is dropped when the number already says what it is ("ext 4455"), so it never reads "Ext ext". */
+function visibleNumberLabel(label: OnCallNumberLabel | undefined, dial: HandbookDial | null): string | null {
+  if (!label || !dial || dial.kind === "none") return null;
+  if (label === "Ext" && /^ext\b/i.test(dial.display)) return null;
+  return label === "Ext" ? "ext" : label;
 }
 
 /**
@@ -137,7 +149,8 @@ export function OnCallDialRow({
   // reserves. It grows only when that line wraps.
   const secondary: ReactNode[] = [];
   if (subtitle) secondary.push(<span key="subtitle">{subtitle}</span>);
-  if (numberLabel && hasNumber) secondary.push(<span key="label">{numberLabel}</span>);
+  const label = visibleNumberLabel(numberLabel, dial);
+  if (label) secondary.push(<span key="label">{label}</span>);
   if (dial?.route === "hospital-phone") secondary.push(<span key="route">From a hospital phone</span>);
   if (state) secondary.push(<OnCallStateLabel key="state" state={state} />);
   if (calledAt) {
