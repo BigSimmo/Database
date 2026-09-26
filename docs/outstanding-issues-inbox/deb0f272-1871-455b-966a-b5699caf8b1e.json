@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "deb0f272-1871-455b-966a-b5699caf8b1e",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#NNAWDT",
+    "outcome": "Resolved, verified 2026-09-26 from GitHub Actions: the Claude review workflow now reviews real diffs. The last 15 runs are all success or skipped (drafts), none failed. Run 36216555282 (PR #3046): review step conclusion success, result subtype success, 28 turns, model claude-sonnet-5; run 36215366723 posted a substantive review on PR #3040. The red-check defect is fixed by moving continue-on-error to the step (5349e03a6) and the failure reason is now reported (07734b7ea). The one remaining secondary defect, the settings override of enableAllProjectMcpServers, is tracked separately as a P3.",
+    "baseRowFingerprint": "52167c55943a7c898633f257879fc60cbd97818f1fc562e6c36ae49fef48ae6e"
+  }
+}

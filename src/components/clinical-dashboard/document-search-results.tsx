@@ -828,6 +828,7 @@ function DocumentSearchResultsPanelImpl({
   onDocumentFiltersApply,
   showHome = false,
   desktopComposerSlotId,
+  searchFailed = false,
 }: {
   matches: ClientDocumentMatch[];
   recordMatches?: SearchRecordMatch[];
@@ -845,6 +846,8 @@ function DocumentSearchResultsPanelImpl({
   authUnavailable: boolean;
   apiUnavailable: boolean;
   setupWarning: string | null;
+  /** The last documents search request failed, so an empty list is not a real "no matches". */
+  searchFailed?: boolean;
   facets?: SearchFacets | null;
   searchScope?: SearchScopeSummary | null;
   onScopeDocument: (documentId: string) => void;
@@ -1400,7 +1403,8 @@ function DocumentSearchResultsPanelImpl({
      cases: at zero it stops the headline contradicting the panel below it, and
      above zero it is the only thing that says the list is a floor rather than
      the answer. (Raised by Devin review on PR #1640.) */
-  const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
+  // A failed request is the strongest form of the same fault: nothing was searched at all.
+  const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded) || searchFailed;
   // Mounted whenever the control is, not only while open (#M3XZV0): `Sheet`
   // skips its focus restore when it unmounts, so a sheet rendered only while
   // open closed with focus on <body>. Closed, it renders nothing — no DOM, no
