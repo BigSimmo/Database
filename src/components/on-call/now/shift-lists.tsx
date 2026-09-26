@@ -34,7 +34,7 @@ type ShiftList = { readonly key: "start" | "end"; readonly label: string; readon
  * `first_shift` and `ongoing` phases only. Before-start, first-week and leaving
  * entries belong to First night and orientation, never to a shift.
  */
-export function onCallShiftLists(items: readonly HandbookItem[]): { start: HandbookItem[]; end: HandbookItem[] } {
+function onCallShiftLists(items: readonly HandbookItem[]): { start: HandbookItem[]; end: HandbookItem[] } {
   const orientation = items.filter((item) => item.section === "orientation");
   return {
     start: orientation.filter((item) => item.orientationPhase === "first_shift"),

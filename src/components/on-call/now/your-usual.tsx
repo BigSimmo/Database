@@ -38,7 +38,7 @@ import {
 } from "@/lib/on-call/recent-storage";
 
 /** Four identical tiles, then "Show all" (v6 Now). */
-export const ON_CALL_USUAL_TILE_LIMIT = 4;
+const ON_CALL_USUAL_TILE_LIMIT = 4;
 
 export type UsualTile =
   | {
