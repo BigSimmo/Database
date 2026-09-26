@@ -92,7 +92,7 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(nextConfig).not.toMatch(/source: "\/offline\.html"[\s\S]{0,600}connect-src/);
     // It reads the On Call copy the app already keeps, and only reads it: no
     // network, no writes, no markup parsing.
-    expect(body).toContain('"clinical-kb-on-call-entries-cache"');
+    expect(body).toContain('"clinical-kb-on-call-entries-cache-v2"');
     for (const forbidden of [
       /\bfetch\s*\(/,
       /XMLHttpRequest/,
@@ -182,8 +182,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-09-25-v4",
-      offlineHtmlSha256: "099947a596d3360a9727fb897bb87f951661aa38feff7ea9852cc970a0c696a9",
+      cacheVersion: "2026-09-26-v1",
+      offlineHtmlSha256: "d576876d87445e7e687684abad5e4d6dd72b6f3be4c2d9271ab623547faeeb76",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");

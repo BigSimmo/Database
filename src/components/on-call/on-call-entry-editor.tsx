@@ -327,7 +327,12 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
       required: true,
       hint: 'e.g. "ED registrar", "Ward 4B nurse in charge".',
     },
-    { key: "contactName", label: "Contact name", kind: "text" },
+    {
+      key: "contactName",
+      label: "Contact name",
+      kind: "text",
+      hint: "Shown only to you. Anyone else who can see this entry sees it without the name.",
+    },
     { key: "phone", label: "Direct phone", kind: "text", type: "tel" },
     { key: "afterHoursPhone", label: "After-hours phone", kind: "text", type: "tel" },
     { key: "pager", label: "Pager", kind: "text", type: "tel" },

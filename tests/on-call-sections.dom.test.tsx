@@ -367,6 +367,19 @@ describe("OnCallEducationSection", () => {
     expect(recordingLink).toHaveTextContent(/opens in a new tab/i);
   });
 
+  it("never draws a stored javascript: recording link", () => {
+    const unsafe = entry("education", {
+      id: "ffffffff-0000-0000-0000-000000000006",
+      slug: "unsafe-recording",
+      title: "Unsafe recording",
+      details: { recordingUrl: "javascript:alert(1)", topics: [] },
+    });
+    render(<OnCallEducationSection entries={[unsafe]} now={NOW} />);
+    const card = screen.getByTestId("on-call-education-card-unsafe-recording");
+    expect(within(card).queryByRole("link", { name: /watch recording/i })).toBeNull();
+    expect(card.innerHTML).not.toContain("javascript:");
+  });
+
   it("rolls a recurring session forward instead of printing a date that has gone by", () => {
     render(<OnCallEducationSection entries={[REGISTRAR_TEACHING]} now={NOW} />);
     const card = screen.getByTestId("on-call-education-card-registrar-teaching");

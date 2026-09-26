@@ -15,6 +15,7 @@ import {
   onCallEntryCacheChangedEvent,
   onCallEntryCacheStorageKey,
   peekOnCallEntrySessionEpoch,
+  removeLegacyOnCallEntryCaches,
 } from "@/lib/on-call/entry-cache-keys";
 import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
 
@@ -109,6 +110,7 @@ export function cacheOnCallEntries(entries: OnCallEntry[]): boolean {
 }
 
 function scrubPersistedOnCallCache(): void {
+  removeLegacyOnCallEntryCaches();
   try {
     const raw = window.localStorage.getItem(onCallEntryCacheStorageKey);
     const persisted = parseCachedPayload(raw);

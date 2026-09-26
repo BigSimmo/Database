@@ -18,6 +18,7 @@ import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import {
+  isOnCallHttpUrl,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
   type OnCallEntry,
@@ -127,7 +128,7 @@ function LogisticsRow({
           </div>
         ) : null}
       </div>
-      {details?.url ? (
+      {isOnCallHttpUrl(details?.url) ? (
         // Rendered as a sibling, never nested inside the row above: when the
         // row itself is a `tel:` anchor, an interactive link inside it would
         // be invalid markup (an anchor inside an anchor) and unreachable by

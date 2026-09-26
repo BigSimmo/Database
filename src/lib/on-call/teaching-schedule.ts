@@ -1,4 +1,9 @@
-import { onCallDetailsSchemaFor, type OnCallEntry, type OnCallRecurrenceFrequency } from "@/lib/on-call/entry-model";
+import {
+  isOnCallHttpUrl,
+  onCallDetailsSchemaFor,
+  type OnCallEntry,
+  type OnCallRecurrenceFrequency,
+} from "@/lib/on-call/entry-model";
 
 /**
  * When the next teaching session actually is.
@@ -231,7 +236,8 @@ export function selectUpcomingTeachingSessions(
       when: details.nextOccurrence ?? null,
       presenter: details.presenter ?? null,
       location: details.location ?? null,
-      recordingUrl: details.recordingUrl ?? null,
+      // http(s) only, so no surface downstream can be handed a `javascript:` link.
+      recordingUrl: isOnCallHttpUrl(details.recordingUrl) ? details.recordingUrl : null,
       isRecurring: Boolean(details.recurrenceRule),
     });
   }

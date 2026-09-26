@@ -55,8 +55,9 @@ export const runtime = "nodejs";
  * covering doctor read ward numbers without an account. It means the
  * non-personal rows loaded here are readable by an anonymous visitor to the
  * site for as long as they are loaded. Of the corpus, the Access folder and
- * every Compliance requirement are personal and stay private; the rest do not
- * and do not.
+ * every Compliance requirement are personal and stay private, the Teaching
+ * sessions and the contacts' names are never on the shared read, and the rest
+ * are shared.
  *
  * That is a property of the data, not of this route, and it is deliberately NOT
  * papered over by forcing `is_personal` on the way in. Forcing it would hide

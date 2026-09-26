@@ -15,7 +15,7 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)![1];
 const body = html.match(/<body>([\s\S]*?)<script>/)![1];
 
 const NOW = new Date("2026-09-25T12:00:00Z");
-const CACHE_KEY = "clinical-kb-on-call-entries-cache";
+const CACHE_KEY = "clinical-kb-on-call-entries-cache-v2";
 
 function entry(overrides: Record<string, unknown>) {
   return {

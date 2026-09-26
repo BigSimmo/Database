@@ -59,6 +59,27 @@ export function onCallEntryFreshness(
 
 const trimmed = z.string().trim().min(1);
 
+/**
+ * Whether a stored link may be drawn as a link: `http:` or `https:` only.
+ *
+ * `z.string().url()` accepts any scheme the URL parser does, `javascript:`
+ * included, and every URL field below is rendered as an anchor — so the
+ * schema refuses other schemes on write, and each renderer asks this again
+ * before drawing one, because a row stored before the schema tightened (or
+ * edited directly in the database) never went through it.
+ */
+export function isOnCallHttpUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const httpUrl = z.string().url().refine(isOnCallHttpUrl, "Use an http or https link.");
+
 /** When an escalation step applies. Working hours are Mon–Fri 08:00–17:00, not a public holiday. */
 export const ON_CALL_STEP_HOURS = ["any", "in-hours", "after-hours"] as const;
 export type OnCallStepHours = (typeof ON_CALL_STEP_HOURS)[number];
@@ -113,7 +134,7 @@ const referralsDetails = z
     howToRefer: trimmed.optional(),
     phone: trimmed.optional(),
     fax: trimmed.optional(),
-    referralFormUrl: z.string().url().optional(),
+    referralFormUrl: httpUrl.optional(),
   })
   .strict();
 
@@ -230,7 +251,7 @@ const educationDetails = z
       .optional(),
     presenter: trimmed.optional(),
     location: trimmed.optional(),
-    recordingUrl: z.string().url().optional(),
+    recordingUrl: httpUrl.optional(),
     topics: z.array(trimmed).default([]),
   })
   .strict();
@@ -261,7 +282,7 @@ const logisticsDetails = z
     location: trimmed.optional(),
     hours: trimmed.optional(),
     phone: trimmed.optional(),
-    url: z.string().url().optional(),
+    url: httpUrl.optional(),
     /**
      * Marks this row as a compliance requirement rather than an admin entry.
      *
@@ -299,7 +320,7 @@ const logisticsDetails = z
      * document and sends it to a provider, and a registration certificate is
      * identity data that has no business in the clinical corpus.
      */
-    evidenceUrl: z.string().url().optional(),
+    evidenceUrl: httpUrl.optional(),
     /**
      * How the app came to believe the date above — never a verdict on whether
      * the person is compliant.

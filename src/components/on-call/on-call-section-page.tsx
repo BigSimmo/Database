@@ -165,8 +165,9 @@ const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
  *
  * Reading needs no account. `fetchSharedOnCallEntries` has served every
  * non-personal entry to anonymous callers since the 2026-09-04 owner decision,
- * so the page renders the same list for a visitor as for the owner, minus the
- * owner's own personal entries, which the shared read never returns. What an
+ * so the page renders the same list for a visitor as for the owner, minus what
+ * the shared read never returns: the owner's personal entries, their Teaching
+ * entries, and the contact names on their contacts. What an
  * account still buys is writing: the add, edit and verify controls below are the
  * only things gated on `isAuthenticated`, because their routes require one.
  */
