@@ -34,6 +34,9 @@ const MODE_HOME_LOADING_ROUTES = [
   "psychiatry",
   // My Work's dashboard, likewise.
   "my-work",
+  // First Nations' home: static skeleton plus the real crisis strip (spec §5),
+  // so it names its own loading component.
+  "first-nations",
 ] as const;
 
 describe("mode-home loading contract", () => {
@@ -44,11 +47,14 @@ describe("mode-home loading contract", () => {
   });
 
   it("uses ModeHomeRouteLoading for every mode-home loading route", () => {
+    const LOADING_COMPONENT_EXCEPTIONS: Partial<Record<(typeof MODE_HOME_LOADING_ROUTES)[number], string>> = {
+      "first-nations": "FirstNationsLoading",
+    };
     for (const route of MODE_HOME_LOADING_ROUTES) {
       const loadingPath = join(SEARCH_APP_ROOT, route, "loading.tsx");
       expect(existsSync(loadingPath), `missing ${route}/loading.tsx`).toBe(true);
       const source = readFileSync(loadingPath, "utf8");
-      expect(source).toContain("ModeHomeRouteLoading");
+      expect(source).toContain(LOADING_COMPONENT_EXCEPTIONS[route] ?? "ModeHomeRouteLoading");
       expect(source).not.toMatch(/Loading services|Loading medication|Loading library/);
     }
   });

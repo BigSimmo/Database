@@ -1191,6 +1191,58 @@ body {
   }
 }
 
+/* First Nations: olive (mode design standard v13.1 §3). Light 6.1:1 on white,
+   dark 9.0:1 on a dark card, disc glyph 9.4:1. Used only on the pill, the
+   current tab, module icon tiles, the hero's day track and quotation accents.
+   Pinned by tests/first-nations-mode-colour.test.ts. */
+[data-mode-identity="first-nations"] {
+  --mode-identity: #4d6b2f;
+  --mode-identity-soft: #f2f5ee;
+  --mode-identity-border: #dce4d2;
+  --mode-identity-contrast: #ffffff;
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="first-nations"] {
+  --mode-identity: #b5c98c;
+  --mode-identity-soft: #232b1d;
+  --mode-identity-border: #3a4730;
+  --mode-identity-contrast: #172009;
+}
+
+/* On the hero summary panel the mode colour uses its dark value in both themes (v13.3). */
+[data-mode-identity="first-nations"].fn-on-summary {
+  --mode-identity: #b5c98c;
+}
+
+@media (forced-colors: active) {
+  [data-mode-identity="first-nations"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* The one display figure on the First Nations hero (standard §1: 36 px at 300). */
+.fn-display-36 {
+  font-size: 2.25rem;
+  line-height: 1.1;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Serif accent: words to say aloud, quoted law, the Acknowledgement. */
+.fn-voice {
+  font-family: var(--font-fn-serif), ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
 @layer base {
   /* Interactive element defaults */
   button,

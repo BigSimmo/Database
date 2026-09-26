@@ -1,18 +1,26 @@
 import {
+  BedDouble,
+  Ban,
   BookOpenText,
+  Brain,
   BookMarked,
   Building2,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
   ClipboardList,
+  Feather,
   GitCompareArrows,
   GraduationCap,
+  House,
   Landmark,
+  LayoutGrid,
   LibraryBig,
   ListChecks,
+  MessageCircle,
   Network,
   NotebookPen,
+  Phone,
   Presentation,
   Repeat,
   Printer,
@@ -21,6 +29,7 @@ import {
   Stethoscope,
   Scale,
   Target,
+  Users,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -107,6 +116,17 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
+  // First Nations. Prefixed ids, so On Call's "contacts" icon is not shared —
+  // each mode's rail slots wear their own mark even where the idea overlaps.
+  "first-nations-bedside": LayoutGrid,
+  "first-nations-contacts": Phone,
+  "first-nations-talking": MessageCircle,
+  "first-nations-family": Users,
+  "first-nations-mental-health": Brain,
+  "first-nations-on-the-ward": BedDouble,
+  "first-nations-mistakes": Ban,
+  "first-nations-going-home": House,
+  "first-nations-end-of-life": Feather,
 };
 
 /**

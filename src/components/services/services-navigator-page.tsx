@@ -940,6 +940,17 @@ export function ServicesNavigatorPage() {
           {saveNotice ? (
             <p className="min-h-5 text-xs font-semibold text-[color:var(--text-muted)]">{saveNotice}</p>
           ) : null}
+          {facetSelection.specialist_groups.has("aboriginal_torres_strait_islander") ? (
+            // With the Aboriginal and Torres Strait Islander pathway filter on, point to
+            // the First Nations mode's contacts page (liaison and community-controlled services).
+            <Link
+              href="/first-nations/contacts"
+              className="inline-flex min-h-12 items-center gap-1.5 self-start text-sm-minus font-medium text-[color:var(--clinical-accent)] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              Open First Nations contacts
+              <ArrowRight className="size-icon-sm" aria-hidden="true" />
+            </Link>
+          ) : null}
           <span role="status" aria-live="polite" className="sr-only">
             {saveNotice ?? ""}
           </span>
