@@ -8,6 +8,8 @@ import {
 } from "@/lib/api-rate-limit";
 import { cpdYearOf } from "@/lib/cme/cpd-year";
 import { DEMO_CME_ENTRIES, DEMO_CME_INSTANT, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
+import { deleteOwnerCmeDraft } from "@/lib/cme/drafts-repository";
+import { setOwnerCmeMissedSessionReplacement } from "@/lib/cme/missed-sessions-repository";
 import { assertValidCmeLinkedIds, fetchOwnerCmeEntries, fetchOwnerCmeYear, insertCmeEntry } from "@/lib/cme/repository";
 import { cmeEntryCreateSchema, cmeListQuerySchema } from "@/lib/cme/schemas";
 import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
@@ -135,7 +137,18 @@ export async function POST(request: Request) {
     });
 
     const created = await insertCmeEntry(supabase, user.id, yearRow.id, entry, body.requestId);
-    return NextResponse.json({ entry: created }, { status: 201 });
+    // Only once the activity is saved: finish the draft it came from and link the missed session it
+    // replaces. Either can fail without undoing the save; the draft or the link is simply left for
+    // the owner to tidy on the log. A repeat save returns the same entry, and deleting a draft that
+    // is already gone does nothing.
+    const followUps = await Promise.allSettled([
+      body.draftId ? deleteOwnerCmeDraft(supabase, user.id, body.draftId) : null,
+      body.missedSessionId
+        ? setOwnerCmeMissedSessionReplacement(supabase, user.id, body.missedSessionId, created.id)
+        : null,
+    ]);
+    const linkedMissedSession = Boolean(body.missedSessionId) && followUps[1].status === "fulfilled";
+    return NextResponse.json({ entry: created, linkedMissedSession }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

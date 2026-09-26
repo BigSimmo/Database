@@ -17,10 +17,12 @@ import { useEffect, useMemo, useState } from "react";
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { OnCallNextShift } from "@/components/on-call/on-call-next-shift";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
 import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
+import { useOnCallShifts } from "@/components/on-call/use-on-call-shifts";
 import {
   ON_CALL_HOME_ICON,
   ON_CALL_SECTION_HREFS,
@@ -313,6 +315,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // boundary that would change the answer, and never on a fixed interval.
   const [tick, setTick] = useState(() => new Date());
   const now = pinnedNow ?? tick;
+  const shifts = useOnCallShifts();
 
   useEffect(() => {
     // A pinned clock is the caller's to move. Scheduling against it would drag a
@@ -453,6 +456,9 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         {/* Renders nothing but the field until something is typed, so it costs a
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
+
+        {/* The reader's own next shift. Draws nothing while signed out or loading. */}
+        <OnCallNextShift state={shifts} now={now} />
 
         <div className="grid gap-2" data-testid="on-call-home-tools">
           <Link
