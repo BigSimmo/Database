@@ -376,6 +376,12 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run docs:check-links
 
+      # Owner decisions index (docs/decisions/README.md). A malformed entry is a docs-only change,
+      # so it runs in the docs lane too, not only inside the unit suite a docs change never reaches.
+      - name: Decisions index
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:decisions
+
       - name: Dependency and duplicate-export hygiene
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:knip
@@ -534,6 +540,7 @@ jobs:
       # can break the map. It blocks only map breakage this change introduced (never inherited
       # findings, never a date); files not yet placed are warnings in the job summary.
       - name: Organisation map
+        if: ${{ !cancelled() }}
         env:
           ORGANISATION_CHECK_MODE: ci
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
@@ -544,6 +551,7 @@ jobs:
       # instruction file, or AGENTS.md/CLAUDE.md growing past their size budget. Judges only
       # what this change adds, so it never blames a PR for main's own state or for the date.
       - name: Instruction guards
+        if: ${{ !cancelled() }}
         env:
           INSTRUCTIONS_CHECK_MODE: ci
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}

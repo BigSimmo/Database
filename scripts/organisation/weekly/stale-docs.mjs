@@ -1,6 +1,6 @@
 // Weekly report section (suggestion 11): key documents whose area changed after they were last
 // read. Report only; it never blocks a PR and never edits a pin.
-import { headCommit, isShallow, mdEscape } from "../map-placement.mjs";
+import { codeSpan, headCommit, isShallow } from "../map-placement.mjs";
 import { PINS_FILE, pinStatus } from "../pins.mjs";
 
 const SAMPLE_FILES = 5;
@@ -35,11 +35,11 @@ export async function section({ root, now } = {}) {
   if (stale.length) {
     lines.push("");
     for (const row of stale) {
-      const shown = row.changedFiles.slice(0, SAMPLE_FILES).map((f) => `\`${mdEscape(f)}\``);
+      const shown = row.changedFiles.slice(0, SAMPLE_FILES).map((f) => codeSpan(f));
       const more = row.changedFiles.length > SAMPLE_FILES ? ` and ${row.changedFiles.length - SAMPLE_FILES} more` : "";
       const commits = `${row.commitsSinceLastRead} commit${row.commitsSinceLastRead === 1 ? "" : "s"}`;
       lines.push(
-        `- \`${mdEscape(row.doc)}\` (${row.area}): ${commits} since last read, touching ${shown.join(", ")}${more}`,
+        `- ${codeSpan(row.doc)} (${row.area}): ${commits} since last read, touching ${shown.join(", ")}${more}`,
       );
     }
   }
@@ -47,7 +47,7 @@ export async function section({ root, now } = {}) {
     const shallow = isShallow(root);
     lines.push("", "Could not be checked:", "");
     for (const row of unchecked)
-      lines.push(`- \`${mdEscape(row.doc)}\` (${row.area ?? "no area"}): ${whyUnchecked(row, shallow)}`);
+      lines.push(`- ${codeSpan(row.doc)} (${row.area ?? "no area"}): ${whyUnchecked(row, shallow)}`);
   }
   if (stale.length || unchecked.length) {
     lines.push(

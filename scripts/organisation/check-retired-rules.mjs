@@ -8,6 +8,10 @@
 // (wording that records the retirement, such as "there is no ... gate" or "no longer"). Matching is
 // case-insensitive and line by line, so a statement wrapped across two lines is not seen.
 //
+// Limits, stated plainly: it catches each rule's key phrases only. A paraphrase that avoids them
+// passes, and so does any line that also contains one of the rule's excuse words, even when the
+// line restates the rule. It is a tripwire for copied wording, not a reader of meaning.
+//
 // Modes:
 //   (no arguments)              every in-scope file in the working tree, tracked or new (local use)
 //   --base <sha> --head <sha>   only the lines the change adds to in-scope files (CI); rules the
@@ -38,6 +42,10 @@ export const RULES_FILE = "docs/organisation/retired-rules.json";
 export const INSTRUCTION_SCOPE = Object.freeze([
   "AGENTS.md",
   "CLAUDE.md",
+  "docs/agents-guide.md",
+  "docs/codex-review-protocol.md",
+  ".github/pull_request_template.md",
+  ".agents/README.md",
   "docs/agents/",
   ".claude/skills/",
   ".claude/agents/",
