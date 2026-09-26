@@ -16,6 +16,7 @@ const docsScripts = [
   "docs:check-inventory",
   "docs:check-scripts",
   "docs:check-links",
+  "check:decisions",
   "check:branch-review-ledger",
   "check:outstanding-issues",
   "check:ledger-write-discipline",

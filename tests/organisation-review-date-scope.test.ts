@@ -44,7 +44,15 @@ describe("resolving the review-date scope", () => {
         return { ok: true, files: ["a.ts", "docs/b.md"] };
       },
     });
-    expect(scope).toEqual({ mode: "pr", touched: ["a.ts", "docs/b.md"], base: "abc1234", head: "def5678", notes: [] });
+    expect(scope).toEqual({
+      mode: "pr",
+      touched: ["a.ts", "docs/b.md"],
+      base: "abc1234",
+      head: "def5678",
+      mergeBase: null,
+      read: expect.any(Function),
+      notes: [],
+    });
     expect(calls).toEqual([["/repo", "abc1234", "def5678"]]);
   });
 
@@ -175,6 +183,60 @@ describe("whether an expired date blocks", () => {
     ).toEqual({ blocking: true, because: "docs/pia.md" });
   });
 
+  it("blocks on a register touch only when this entry changed (owner decision 2026-09-26)", () => {
+    const registers: Record<string, string> = {
+      base: JSON.stringify({
+        reviewExpiresAt: "2026-01-01",
+        items: [
+          { id: "H1", note: "a" },
+          { id: "H2", note: "b" },
+        ],
+      }),
+      head: JSON.stringify({
+        reviewExpiresAt: "2026-01-01",
+        items: [
+          { id: "H1", note: "a" },
+          { id: "H2", note: "c" },
+        ],
+      }),
+    };
+    const scope: ReviewDateScope = {
+      ...pr([REGISTER]),
+      mergeBase: "base",
+      head: "head",
+      read: (revision: string) => registers[revision] ?? null,
+    };
+    const item = (id: string) => (register: { items: { id: string }[] }) => register.items.find((i) => i.id === id);
+    expect(expiredReviewDateDisposition(scope, { registerPath: REGISTER, select: item("H1") })).toEqual({
+      blocking: false,
+      because: null,
+    });
+    expect(expiredReviewDateDisposition(scope, { registerPath: REGISTER, select: item("H2") })).toEqual({
+      blocking: true,
+      because: `this entry in ${REGISTER}`,
+    });
+    // A covered path still blocks even when the entry itself is unchanged.
+    expect(
+      expiredReviewDateDisposition(
+        { ...scope, touched: [REGISTER, "src/a.ts"] },
+        {
+          registerPath: REGISTER,
+          coveredPaths: ["src/a.ts"],
+          select: item("H1"),
+        },
+      ),
+    ).toEqual({ blocking: true, because: "src/a.ts" });
+    // Unreadable or unparseable copies, a missing merge base, or no selector: still blocks.
+    for (const broken of [
+      { ...scope, read: () => null },
+      { ...scope, read: () => "{not json" },
+      { ...scope, mergeBase: null },
+    ]) {
+      expect(expiredReviewDateDisposition(broken, { registerPath: REGISTER, select: item("H1") }).blocking).toBe(true);
+    }
+    expect(expiredReviewDateDisposition(scope, { registerPath: REGISTER }).blocking).toBe(true);
+  });
+
   it("canonicalises covered paths before matching, and lets a folder cover the files under it", () => {
     const covers = (touched: string[], coveredPaths: unknown[]) =>
       expiredReviewDateDisposition(pr(touched), { registerPath: REGISTER, coveredPaths });
@@ -276,7 +338,11 @@ describe("listing the files a change touched", () => {
   it("lists only the change's own files from the merge base, with a rename as both paths", () => {
     const { root, base, head } = repo();
     const listedFiles = gitTouchedFiles(root, base, head);
-    expect(listedFiles).toEqual({ ok: true, files: ["src/keep.ts", "src/new.ts", "src/old.ts"] });
+    expect(listedFiles).toEqual({
+      ok: true,
+      files: ["src/keep.ts", "src/new.ts", "src/old.ts"],
+      mergeBase: expect.stringMatching(/^[0-9a-f]{40}$/),
+    });
   });
 
   it("feeds pull-request mode end to end, and reports an unreachable base as a refusal", () => {

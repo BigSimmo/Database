@@ -1368,14 +1368,14 @@ export function SettingsDialog({
 
               <SettingsSection
                 id="development"
-                title="Developer"
-                note="In-progress surfaces. Signing in with a developer account is required to open them. Not clinical content."
+                title="Owner panel"
+                note="Your own tools for running the app. Opens with a bookmarked owner link or by signing in with the owner account; live pages such as the settings check need that sign-in. Not clinical content."
               >
                 <SettingsCard rowId="settings-row-development-page" padded>
-                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Developer hub</p>
+                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Owner panel</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Index of the surfaces being built. Synthetic data only — no patient record, message or schedule on
-                    them is real.
+                    What is waiting on you, settings, uploads, sign-offs and the task list. Synthetic data only on the
+                    prototypes it links to — no patient record, message or schedule on them is real.
                   </p>
                   <Link
                     href="/mockups/development"
@@ -1384,8 +1384,7 @@ export function SettingsDialog({
                     data-testid="settings-row-development-page"
                   >
                     <FlaskConical aria-hidden="true" className="h-4 w-4" />
-                    Developer
-                    <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
+                    Owner panel
                   </Link>
                 </SettingsCard>
               </SettingsSection>

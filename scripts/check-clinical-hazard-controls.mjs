@@ -9,6 +9,7 @@ import {
   describeReviewDateScope,
   printReviewDateWarnings,
   referencePath,
+  registerTopLevel,
   reportExpiredReviewDate,
   resolveReviewDateScope,
 } from "./organisation/review-date-scope.mjs";
@@ -277,9 +278,14 @@ function validateDriftExceptions(findings, manifest, drifted, today) {
   const { errors } = findings;
   const exceptions = Array.isArray(manifest?.driftExceptions) ? manifest.driftExceptions : [];
   const covered = new Set();
+  const seenPaths = new Set();
   exceptions.forEach((exception, index) => {
     const path = typeof exception?.path === "string" ? exception.path.trim() : "";
     const label = `driftExceptions[${index}]${path ? ` (${path})` : ""}`;
+    // One exception per path: the review-date scope finds an exception by its path, so a second
+    // entry for the same path could hide an edit to it.
+    if (path && seenPaths.has(path)) errors.push(`${label}: duplicate drift exception path`);
+    if (path) seenPaths.add(path);
     if (!path) {
       errors.push(`${label}: path is required`);
       return;
@@ -303,6 +309,7 @@ function validateDriftExceptions(findings, manifest, drifted, today) {
         `${label}: drift exception has expired on ${exception.expiresOn}. Re-review the change and run ` +
           "npm run governance:seal-hazard-controls.",
         [path],
+        (register) => register?.driftExceptions?.find?.((entry) => entry?.path?.trim?.() === path),
       );
       if (blocking) return;
     }
@@ -334,7 +341,7 @@ function validateDriftExceptions(findings, manifest, drifted, today) {
   }
 }
 
-function validateReviewDates(findings, reviewedAt, reviewExpiresAt, label, today, coveredPaths) {
+function validateReviewDates(findings, reviewedAt, reviewExpiresAt, label, today, coveredPaths, select) {
   const { errors } = findings;
   if (!validDate(reviewedAt) || !validDate(reviewExpiresAt)) {
     errors.push(`${label}: review dates must be ISO dates`);
@@ -342,7 +349,7 @@ function validateReviewDates(findings, reviewedAt, reviewExpiresAt, label, today
   }
   if (reviewExpiresAt < reviewedAt) errors.push(`${label}: reviewExpiresAt precedes reviewedAt`);
   if (reviewedAt > today) errors.push(`${label}: reviewedAt is in the future`);
-  if (reviewExpiresAt < today) reportExpiredReviewDate(findings, `${label}: review has expired`, coveredPaths);
+  if (reviewExpiresAt < today) reportExpiredReviewDate(findings, `${label}: review has expired`, coveredPaths, select);
 }
 
 function validatePath(errors, value, label, reviewedCommit, { checkFiles, checkGit }) {
@@ -426,6 +433,7 @@ export function evaluateClinicalHazardControls(
     "manifest",
     today,
     hazardRegisterCoveredPaths(manifest),
+    registerTopLevel,
   );
   const hazards = Array.isArray(manifest?.hazards) ? manifest.hazards : [];
   const ids = new Set();
@@ -444,6 +452,7 @@ export function evaluateClinicalHazardControls(
       label,
       today,
       hazardEntryCoveredPaths(hazard),
+      (register) => register?.hazards?.find?.((entry) => entry?.id === hazard?.id),
     );
     for (const field of ["controlSymbols", "controlPaths", "tests"]) {
       if (!Array.isArray(hazard[field]) || hazard[field].some((value) => typeof value !== "string" || !value.trim())) {
@@ -521,6 +530,7 @@ export function evaluateClinicalHazardControls(
       decision.id,
       today,
       hazardEntryCoveredPaths(decision),
+      (register) => register?.assuranceDecisions?.find?.((entry) => entry?.id === decision?.id),
     );
     if (!Array.isArray(decision.evidenceReferences) || decision.evidenceReferences.length === 0) {
       errors.push(`${decision.id}: evidenceReferences must be non-empty`);

@@ -1574,7 +1574,6 @@
       },
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
-        "tests/developer-review-state-page.dom.test.tsx",
         "tests/developer-sign-off-page.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -1988,6 +1987,7 @@
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/mode-kit/dial-sheet.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/kit/dial-sheet.tsx",
         "src/components/on-call/kit/hospital-line.tsx",

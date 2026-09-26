@@ -10,7 +10,7 @@ import { formatRelativeAge, resolveFreshnessFrom, resolveLiveFreshness } from "@
 // app-router tree that throws "invariant expected app router to be mounted",
 // so every render here needs the router mocked, same as the hub page test.
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/mockups/development/routes",
+  usePathname: () => "/mockups/development/corpus-health",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
 }));
 
