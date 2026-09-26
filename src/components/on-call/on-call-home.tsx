@@ -42,7 +42,7 @@ const homeToolTile = cn(
   "flex min-h-tap flex-col items-start gap-0.5 p-3 text-sm font-semibold text-[color:var(--text)] no-underline",
 );
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
-import { onCallLocalDateKey } from "@/lib/on-call/local-date";
+import { msUntilNextOnCallLocalDay, onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { deriveOnCallNotifications } from "@/lib/on-call/notifications";
@@ -318,7 +318,10 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     // A pinned clock is the caller's to move. Scheduling against it would drag a
     // print view or a test off the moment it deliberately stood on.
     if (pinnedNow) return;
-    const timer = setTimeout(() => setTick(new Date()), msUntilOnCallHoursBoundary(now));
+    // Midnight is a boundary too: "today" drives Coming up and the check count,
+    // and the hours rule alone would leave it on yesterday until 08:00.
+    const delay = Math.min(msUntilOnCallHoursBoundary(now), msUntilNextOnCallLocalDay(now));
+    const timer = setTimeout(() => setTick(new Date()), delay);
     return () => clearTimeout(timer);
   }, [pinnedNow, now]);
 
@@ -375,7 +378,24 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // after-hours number on the next tick while the badge went on counting from
   // whenever the page was opened. One clock, one answer.
   const notifications = useMemo(() => deriveOnCallNotifications(entries, now), [entries, now]);
-  const reviewCount = useMemo(() => buildOnCallReviewQueue(entries, now).total, [entries, now]);
+  const reviewQueue = useMemo(() => buildOnCallReviewQueue(entries, now), [entries, now]);
+  const reviewCount = reviewQueue.total;
+  // A zero count is only good news when entries were actually loaded and
+  // assessed. Loading, a failed load, a signed-out reader and an empty hub
+  // all produce zero too, and none of them may read as "checked".
+  const reviewLabel = hasEntries
+    ? reviewQueue.assessed === 0
+      ? "Nothing to check"
+      : reviewCount === 0
+        ? "None due"
+        : `${reviewCount} due`
+    : loading
+      ? "Loading"
+      : loadFailed
+        ? "Unavailable"
+        : signedOut
+          ? "Sign in"
+          : "No entries";
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -467,9 +487,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             <Link href="/on-call/check" data-testid="on-call-home-check" className={homeToolTile}>
               <CalendarCheck aria-hidden="true" className="size-icon-sm" />
               <span>Check these</span>
-              <span className={cn(textMuted, "nums text-xs font-medium")}>
-                {reviewCount === 0 ? "All checked" : `${reviewCount} due`}
-              </span>
+              <span className={cn(textMuted, "nums text-xs font-medium")}>{reviewLabel}</span>
             </Link>
             <Link href="/on-call/first-night" data-testid="on-call-home-first-night" className={homeToolTile}>
               <Moon aria-hidden="true" className="size-icon-sm" />
@@ -564,8 +582,8 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               // else.
               body={
                 homeIsUntagged
-                  ? `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift. The rest of this page works the same way: "${ON_CALL_HOME_TAGS.switchboard}" for the switchboard row, "${ON_CALL_HOME_TAGS.ward}" for tonight's wards, "${ON_CALL_HOME_TAGS.pinned}" for the reminder.`
-                  : `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift.`
+                  ? `Open a contact, choose Edit and tick "Call first on the home", and it appears here as the first number of the shift. The rest of this page works by tags: "${ON_CALL_HOME_TAGS.switchboard}" for the switchboard row, "${ON_CALL_HOME_TAGS.ward}" for tonight's wards, "${ON_CALL_HOME_TAGS.pinned}" for the reminder.`
+                  : `Open a contact, choose Edit and tick "Call first on the home", and it appears here as the first number of the shift.`
               }
               testId="on-call-home-call-first-empty"
             />

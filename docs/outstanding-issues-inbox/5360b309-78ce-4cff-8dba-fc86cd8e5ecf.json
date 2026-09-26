@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5360b309-78ce-4cff-8dba-fc86cd8e5ecf",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "CME and On Call: resumable drafts and 'waiting on someone else' task states",
+    "detail": "Review items D06 and D07. Drafts marked Saved on this device / Saved to your account / Not saved, resumable without duplicate submission, cleared or protected on sign-out and account change. Tasks split into My next action / Waiting for supervisor / Waiting for workforce / Completed, with who must act and when to follow up. A pending request never becomes approved by elapsed time.",
+    "source": "Master product review 2026-09-26 (thread: Review master review ideas); cross-checked against main 004ab6301",
+    "issueUlid": "01M3DZQ09FW7W94GZ71YJXPXCC"
+  }
+}

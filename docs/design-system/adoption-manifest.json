@@ -420,11 +420,13 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "productImportFiles": [
+        "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
