@@ -1,3 +1,7 @@
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { indigenousContentTerm } from "../scripts/lib/indigenous-content.mjs";
@@ -14,6 +18,7 @@ import {
 import {
   clinicalPackCode,
   conductClinicalBatchReview,
+  main as clinicalReviewMain,
   renderClinicalPack,
 } from "../scripts/review-clinical-record.mjs";
 
@@ -407,5 +412,47 @@ describe("owner rule 2026-09-26: Indigenous content is never signed off", () => 
     );
     const forged = { ...record, status: "reviewed", reviewedBy: REVIEWER, reviewedAt: REVIEWED_AT };
     expect(reviewProblems([forged], "formulation-concept", { now: NOW }).join("\n")).toMatch(/Indigenous content/);
+  });
+});
+
+describe("differential overlay context", () => {
+  it("re-reads the authored overlays when the file changes, so a walk never pins stale text", async () => {
+    // The walk reloads its context before every record. The overlays are a TS module, and a
+    // module import is cached by URL, so without a content-derived URL an edit made mid-walk
+    // would be shown and pinned as the text from the start of the session.
+    const root = mkdtempSync(join(tmpdir(), "differential-context-"));
+    try {
+      for (const file of [
+        "data/differential-curated-review.json",
+        "data/differentials-snapshot.json",
+        "src/lib/differential-curated.ts",
+      ]) {
+        mkdirSync(join(root, file, ".."), { recursive: true });
+        copyFileSync(join(process.cwd(), file), join(root, file));
+      }
+      const show = async () => {
+        let text = "";
+        const output = { write: (chunk: string) => ((text += chunk), true) };
+        await clinicalReviewMain(["--kind", "differential", "--code", "delirium"], {
+          root,
+          output,
+          errorOutput: { write: () => true },
+        });
+        return text;
+      };
+      expect(await show()).not.toContain("EDITED-MID-WALK");
+
+      const overlayPath = join(root, "src/lib/differential-curated.ts");
+      const firstDoNow = (curatedDifferentials.delirium?.doNow ?? [])[0];
+      expect(firstDoNow, "delirium has a Do now step to edit").toBeTruthy();
+      const source = readFileSync(overlayPath, "utf8");
+      const needle = JSON.stringify(firstDoNow).slice(1, -1);
+      expect(source).toContain(needle);
+      writeFileSync(overlayPath, source.replace(needle, `EDITED-MID-WALK ${needle}`));
+
+      expect(await show()).toContain("EDITED-MID-WALK");
+    } finally {
+      rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+    }
   });
 });

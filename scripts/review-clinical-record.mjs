@@ -27,7 +27,7 @@
  * what the content pin covers, is scripts/lib/clinical-record-review-contract.mjs.
  */
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -87,8 +87,8 @@ function usage() {
     "is saved the moment you confirm it, so quitting keeps everything signed so far.",
     "",
     "Without --write this only reports what is waiting and changes nothing.",
-    "--write needs a real interactive terminal, one --kind, --reviewed-by, and --code or --walk.",
-    "Every checklist answer is typed by you; there is no batch or automatic-yes mode.",
+    "--write needs a real interactive terminal, one --kind, --reviewed-by, and --code, --walk or --batch.",
+    "Every checklist answer is typed by you; there is no automatic-yes, answers or provider mode.",
     "",
     '--code is the form code (3C, or "1A attachment" in quotes), the section number (26),',
     "the timeframe id, the differential slug (delirium), or the Formulation record id.",
@@ -487,10 +487,13 @@ async function loadContext(kind, root) {
       if (code !== "MODULE_TYPELESS_PACKAGE_JSON") emitWarning.call(process, warning, ...rest);
     };
     let curatedDifferentials;
+    // The walk re-reads its context before every record so each sign-off pins the overlay as
+    // it is now. Node caches a module by URL, so the URL carries the file's content hash: an
+    // edit made mid-walk is imported fresh instead of pinning the text as it was at the start.
+    const curatedPath = join(root, "src", "lib", "differential-curated.ts");
+    const curatedVersion = createHash("sha256").update(readFileSync(curatedPath)).digest("hex").slice(0, 16);
     try {
-      ({ curatedDifferentials } = await import(
-        pathToFileURL(join(root, "src", "lib", "differential-curated.ts")).href
-      ));
+      ({ curatedDifferentials } = await import(`${pathToFileURL(curatedPath).href}?v=${curatedVersion}`));
     } finally {
       process.emitWarning = emitWarning;
     }
@@ -934,7 +937,9 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   if (!args.kind) throw new Error("--write needs one --kind.");
   if (args.batch) return runBatch(args, { input, output, errorOutput, root });
   if (!args.walk && !args.code) {
-    throw new Error("--write needs --code for one record, or --walk to step through the queue one record at a time.");
+    throw new Error(
+      "--write needs --code for one record, --walk to step through the queue one record at a time, or --batch to sign a review pack.",
+    );
   }
   if (!args.reviewedBy) throw new Error("--write needs --reviewed-by with your public display name.");
   const attributionProblem = reviewerAttributionProblem(args.reviewedBy);
