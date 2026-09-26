@@ -11,7 +11,7 @@ import { isDemoMode } from "@/lib/env";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
 export const metadata: Metadata = {
-  title: "CME | PsychSift",
+  title: "CPD | PsychSift",
   description: "What you have done this year, and what is still short.",
 };
 

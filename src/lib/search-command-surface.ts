@@ -246,6 +246,18 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["dsm", "therapy-compass", "forms"],
     remoteSearchEnabled: false,
   },
+  "my-work": {
+    // My Work is a dashboard over the owner's own On Call admin pages, already
+    // in the browser, so its command panel must not query the remote index.
+    examples: [...sharedHomePresentation["my-work"].suggestions],
+    suggestions: [
+      { text: "leave", meta: "Admin" },
+      { text: "registration", meta: "Compliance" },
+      { text: "roster", meta: "My shifts" },
+    ],
+    crossModes: ["on-call", "cme", "documents"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {

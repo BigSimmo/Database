@@ -126,7 +126,7 @@ export function CmeNewEntryRoute({
         };
 
   async function saveEntry(entry: CmeEntryDraft) {
-    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CPD record.");
     const response = await fetch("/api/cme/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -147,7 +147,7 @@ export function CmeNewEntryRoute({
   }
 
   async function saveDraft(payload: CmeDraftPayload) {
-    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save drafts to your private CME record.");
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save drafts to your private CPD record.");
     const response = await fetch(resumeDraft ? `/api/cme/drafts/${resumeDraft.id}` : "/api/cme/drafts", {
       method: resumeDraft ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },

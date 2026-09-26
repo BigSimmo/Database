@@ -52,6 +52,8 @@ export const standaloneModeHomePaths = [
   "/cme",
   // Psychiatry's dashboard of section links, for the same reason again.
   "/psychiatry",
+  // My Work's dashboard, for the same reason again.
+  "/my-work",
 ] as const;
 
 /**
@@ -107,6 +109,9 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // page of links to the sections it gathers, with no results surface.
     case "psychiatry":
       return "/psychiatry";
+    // The My Work dashboard at `/my-work`, likewise a page of links.
+    case "my-work":
+      return "/my-work";
     default:
       return null;
   }
@@ -172,6 +177,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/on-call",
   "/cme",
   "/psychiatry",
+  "/my-work",
 ] as const;
 
 /**

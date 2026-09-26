@@ -7,7 +7,7 @@ import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
 export const metadata: Metadata = {
-  title: "Log | CME | PsychSift",
+  title: "Log | CPD | PsychSift",
   description: "Every continuing-education activity you have recorded, by year.",
 };
 
