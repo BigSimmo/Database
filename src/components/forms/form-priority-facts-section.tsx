@@ -12,7 +12,12 @@ import {
   PRIORITY_FACT_CARD_LABELS,
   type FormRecord,
 } from "@/lib/form-catalog";
-import { culturalNotesForForm, type FormCulturalNoteKind } from "@/lib/forms-cultural-notes";
+import {
+  CULTURAL_NOTE_LABELS,
+  culturalNoteReviewer,
+  culturalNotesForForm,
+  type FormCulturalNoteKind,
+} from "@/lib/forms-cultural-notes";
 import type { FormActSection, FormPriorityFactCard } from "@/lib/form-ranker";
 import { mhaActMetadata } from "@/lib/mha-act-sections";
 import type { ServiceSummaryCard } from "@/lib/service-ranker";
@@ -348,12 +353,6 @@ function PendingSectionBody({ formCode, pdfHref }: { formCode?: string; pdfHref?
 
 type ActSheetState = { mode: "index" } | { mode: "section"; section: string } | null;
 
-const CULTURAL_NOTE_LABELS: Record<FormCulturalNoteKind, string> = {
-  interpreter: "Interpreter",
-  "aboriginal-liaison": "Aboriginal liaison",
-  statutory: "Mental Health Act",
-};
-
 const CULTURAL_NOTE_ICONS: Record<FormCulturalNoteKind, typeof Languages> = {
   interpreter: Languages,
   "aboriginal-liaison": UserRound,
@@ -364,12 +363,16 @@ const CULTURAL_NOTE_ICONS: Record<FormCulturalNoteKind, typeof Languages> = {
  * Interpreter and Aboriginal-liaison notes drafted for this form code, if any
  * exist in `data/forms-cultural-notes.json`. Deliberately plain rows rather
  * than another card grid or Sheet: there are at most a couple of notes per
- * form, and every one carries the same "awaiting clinical review" caveat as
- * the rest of this section, so a heavier affordance would be decoration.
+ * form, so a heavier affordance would be decoration. While no note on the form
+ * is signed off, one caption carries the "awaiting clinical review" caveat for
+ * all of them; once any is signed, each note says for itself whether it was
+ * reviewed (and by whom) or is still awaiting review.
  */
 function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
   const notes = culturalNotesForForm(formCode);
   if (!notes.length) return null;
+  const reviewers = notes.map(culturalNoteReviewer);
+  const anySigned = reviewers.some((reviewer) => reviewer !== null);
 
   return (
     <section
@@ -381,7 +384,9 @@ function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
         Interpreter, Aboriginal liaison and Act notes
       </h2>
       <p className={cn("text-xs leading-5", textMuted)}>
-        Drafted from the Mental Health Act 2014 and WA Health guidance — awaiting clinical review.
+        {anySigned
+          ? "Drafted from the Mental Health Act 2014 and WA Health guidance."
+          : "Drafted from the Mental Health Act 2014 and WA Health guidance — awaiting clinical review."}
       </p>
       <div className="grid gap-2">
         {notes.map((note, index) => {
@@ -399,6 +404,11 @@ function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
                   {CULTURAL_NOTE_LABELS[note.kind]}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{note.text}</p>
+                {anySigned ? (
+                  <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                    {reviewers[index] ? `Reviewed by ${reviewers[index]}.` : "Awaiting clinical review."}
+                  </p>
+                ) : null}
               </div>
             </div>
           );

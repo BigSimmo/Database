@@ -6,6 +6,7 @@ import {
   bundledServicesMissingFrom,
   preferBundledServiceRecord,
 } from "@/lib/site-content/bundled-service-catalogue";
+import { serviceRecordSignOff } from "@/lib/service-record-sign-off";
 
 /**
  * Guards the 2026-09-17 findability gap.
@@ -111,11 +112,15 @@ describe("content served from the bundle never carries a sign-off", () => {
     expect(result.governance?.validationStatus).toBe("unverified");
   });
 
-  it("gives a topped-up record unverified governance whatever it claims locally", () => {
+  it("gives a topped-up record unverified governance unless the owner signed it off", () => {
     for (const slug of POST_FREEZE_SLUGS) {
       const record = getServiceRecord(slug) as ServiceRecord;
       const governance = bundledServiceGovernance(record);
-      expect(governance.validationStatus, `${slug} must not claim a sign-off`).toBe("unverified");
+      // Only a sign-off written by npm run clinical:review -- --kind service lifts it; whatever
+      // the record claims locally never does.
+      expect(governance.validationStatus, `${slug} must not claim a sign-off it does not have`).toBe(
+        serviceRecordSignOff(record) ? "locally_reviewed" : "unverified",
+      );
       // sourceStatus stays derived: it describes the publisher's page, which publication does not change.
       expect(typeof governance.sourceStatus).toBe("string");
     }

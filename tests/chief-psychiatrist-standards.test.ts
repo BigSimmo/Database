@@ -39,11 +39,17 @@ describe("chief-psychiatrist-standards.json", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("every standard is drafted, unreviewed, and cites a registered source id", () => {
-    for (const standard of data.standards) {
-      expect(standard.status).toBe("drafted");
-      expect(standard.reviewedBy).toBeNull();
-      expect(standard.reviewedAt).toBeNull();
+  it("every standard is drafted and unsigned or carries a complete sign-off, and cites a registered source id", () => {
+    for (const standard of data.standards as (Standard & { reviewedContentSha256?: string | null })[]) {
+      expect(["drafted", "reviewed"]).toContain(standard.status);
+      if (standard.status === "reviewed") {
+        expect(standard.reviewedBy?.trim()).toBeTruthy();
+        expect(Number.isFinite(Date.parse(standard.reviewedAt ?? ""))).toBe(true);
+        expect(standard.reviewedContentSha256).toMatch(/^[a-f0-9]{64}$/);
+      } else {
+        expect(standard.reviewedBy).toBeNull();
+        expect(standard.reviewedAt).toBeNull();
+      }
       expect(standard.title.length).toBeGreaterThan(0);
       expect(standard.summary.length).toBeGreaterThan(0);
       expect(data.exportMetadata.sourceIds).toContain(standard.sourceId);
