@@ -3,17 +3,28 @@
 /**
  * Local, clinician-input Therapy sign-off workflow.
  *
- * Report-only by default. `--write` requires an interactive TTY, seven explicit
- * answers, and an exact final confirmation. It has no batch, yes, provider, or
- * production mode. `--walk` only chooses the order: it steps through every record
- * still awaiting review, one screen at a time, and each record still needs its own
- * seven answers and its own typed confirmation.
+ * Report-only by default. `--write` requires an interactive TTY and answers typed by
+ * the reviewer. There is no yes, answers, provider, or production mode. `--walk` only
+ * chooses the order: it steps through every record still awaiting review, one screen at
+ * a time, and each record still needs its own seven answers and its own typed
+ * confirmation.
+ *
+ * Batch sign-off exists by owner decision, 2026-09-26. `--pack` writes a review pack
+ * (sign-off-packs/therapy.html) showing every record awaiting review that lists
+ * references, exactly as the seven checks display it, plus a sign-off code derived from
+ * the content hash of every record in the pack. `--write --batch` asks the seven checks
+ * once for the whole set and then requires that code to be typed back. The code is
+ * recomputed from the files at signing time, so if any record changed (or one was added)
+ * after the pack was written, it no longer matches and nothing is signed. The pack code
+ * is what ties a batch sign-off to the exact text the reviewer read.
  *
  * Usage:
  *   npm run therapy:review
  *   npm run therapy:review -- --slug <slug>
+ *   npm run therapy:review -- --pack [--reviewed-by "<public attribution>"]
  *   npm run therapy:review -- --write --slug <slug> --reviewed-by "<public attribution>"
  *   npm run therapy:review -- --write --walk --reviewed-by "<public attribution>"
+ *   npm run therapy:review -- --write --batch --reviewed-by "<public attribution>" [--exclude <slug>,<slug>]
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -21,6 +32,7 @@ import {
   closeSync,
   existsSync,
   fsyncSync,
+  mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
@@ -38,8 +50,10 @@ import {
   assertValidTherapyReviewRecords,
   finalizeTherapyReview,
   publicReviewerAttributionProblem,
+  therapyReviewedContentSha256,
 } from "./lib/therapy-review-contract.mjs";
 import { createPrompt } from "./lib/confirm.mjs";
+import { parseExcludeList, renderSignOffPack, signOffPackCode } from "./lib/sign-off-pack.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE_PATH = join(ROOT, THERAPY_GENERATED_PATHS.source);
@@ -50,17 +64,29 @@ const FIXED_GENERATED_PATHS = Object.freeze([
   join(PUBLIC_DATA_PATH, THERAPY_GENERATED_PATHS.retiredHomeAlias),
 ]);
 const GENERATOR_PATH = join(ROOT, "scripts", "build-therapies-index.mjs");
+const PACK_PATH = join(ROOT, "sign-off-packs", "therapy.html");
+const REVIEWED_BY_PLACEHOLDER = "<your public name>";
 
 function usage() {
   return [
     "Usage: npm run therapy:review -- [--slug <slug>] [--write --reviewed-by <public attribution>]",
+    "       npm run therapy:review -- --pack [--reviewed-by <public attribution>]",
     "       npm run therapy:review -- --write --walk --reviewed-by <public attribution>",
+    "       npm run therapy:review -- --write --batch --reviewed-by <public attribution> [--exclude <slug>,<slug>]",
     "",
     "Without --write this is a report-only queue/record inspection and touches nothing.",
-    "--write requires a real interactive TTY and either one exact --slug or --walk.",
+    "--write requires a real interactive TTY and one exact --slug, --walk, or --batch.",
     "--walk steps through every record awaiting review in catalogue order, one at a time.",
     "Each record is saved the moment you confirm it, so quitting keeps everything signed so far.",
-    "Every checklist answer is entered interactively; no batch or automatic-yes mode exists.",
+    "",
+    "Batch sign-off (owner decision, 2026-09-26): --pack writes sign-off-packs/therapy.html, a",
+    "review pack of every record awaiting review that lists references, with a sign-off code.",
+    "--write --batch asks the seven checks once for the whole set, then asks for that code. The",
+    "code is recomputed from the files at signing time, so if anything in the set changed since",
+    "the pack was written, nothing is signed. The code is what ties the batch to the text you read.",
+    "--exclude leaves the named records unsigned; it is only valid with --batch.",
+    "",
+    "Every checklist answer is entered interactively; no automatic-yes, answers, or provider mode exists.",
     "",
     "reviewedBy is shipped in the public Therapy catalogue. Use only a display-approved",
     "professional name or governance-owner label; never enter an email address, account id,",
@@ -69,7 +95,16 @@ function usage() {
 }
 
 export function parseTherapyReviewArgs(argv) {
-  const args = { help: false, write: false, walk: false, slug: undefined, reviewedBy: undefined };
+  const args = {
+    help: false,
+    write: false,
+    walk: false,
+    pack: false,
+    batch: false,
+    slug: undefined,
+    reviewedBy: undefined,
+    exclude: undefined,
+  };
   const seen = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -79,30 +114,38 @@ export function parseTherapyReviewArgs(argv) {
       args.help = true;
       continue;
     }
-    if (token === "--write" || token === "--walk") {
+    if (token === "--write" || token === "--walk" || token === "--pack" || token === "--batch") {
       const name = token.slice(2);
       if (seen.has(name)) throw new Error(`${token} may only be supplied once.`);
       seen.add(name);
       args[name] = true;
       continue;
     }
-    if (token === "--slug" || token === "--reviewed-by") {
+    if (token === "--slug" || token === "--reviewed-by" || token === "--exclude") {
       const name = token.slice(2);
       if (seen.has(name)) throw new Error(`${token} may only be supplied once.`);
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) throw new Error(`${token} requires a value.`);
       seen.add(name);
       if (token === "--slug") args.slug = value;
+      else if (token === "--exclude") args.exclude = parseExcludeList(value);
       else args.reviewedBy = value;
       index += 1;
       continue;
     }
     throw new Error(
-      `Unknown option: ${token}. Therapy attestations cannot be supplied through yes, answer, batch, or provider flags.`,
+      `Unknown option: ${token}. Therapy attestations cannot be supplied through yes, answer, or provider flags.`,
     );
   }
+  if (args.pack && (args.write || args.walk || args.batch || args.slug !== undefined)) {
+    throw new Error("--pack only writes the review pack; leave out --write, --walk, --batch and --slug.");
+  }
+  if (args.exclude !== undefined && !args.batch) throw new Error("--exclude is only valid with --write --batch.");
   if (args.walk && !args.write) throw new Error("--walk is a sign-off mode; use it with --write.");
   if (args.walk && args.slug !== undefined) throw new Error("--walk goes through the whole queue; leave out --slug.");
+  if (args.batch && !args.write) throw new Error("--batch is a sign-off mode; use it with --write.");
+  if (args.batch && args.walk) throw new Error("--batch signs the whole pack at once; leave out --walk.");
+  if (args.batch && args.slug !== undefined) throw new Error("--batch signs the whole pack; leave out --slug.");
   return args;
 }
 
@@ -148,13 +191,17 @@ function renderedProseEntries(record) {
   );
 }
 
+/** The [field, value] pairs one check displays for a record, shared by the walk screen and the pack. */
+function checkEntries(record, check) {
+  return check.fields.flatMap((field) =>
+    field === "all rendered prose" ? renderedProseEntries(record) : [[field, record[field]]],
+  );
+}
+
 function showCheck(record, check, output) {
   writeLine(output);
   writeLine(output, `=== ${check.label} (${check.authority}) ===`);
-  const entries = check.fields.flatMap((field) =>
-    field === "all rendered prose" ? renderedProseEntries(record) : [[field, record[field]]],
-  );
-  for (const [field, value] of entries) {
+  for (const [field, value] of checkEntries(record, check)) {
     writeLine(output, `\n[${field}]`);
     writeLine(output, printable(value));
   }
@@ -211,6 +258,158 @@ export async function conductTherapyReview({ record, reviewedBy, ask, commit, no
   const reviewed = finalizeTherapyReview(record, { answers, reviewedBy, reviewedAt, now: new Date(reviewedAt) });
   await commit(reviewed);
   return { status: "reviewed", record: reviewed };
+}
+
+/** The records a pack shows and a batch signs, in catalogue order (the walk queue). */
+function therapyPackRecords(records) {
+  const queue = new Set(therapyWalkQueue(records));
+  return records.filter((record) => queue.has(record.slug));
+}
+
+/** The sign-off code for the current pack: derived from every pack record's content hash. */
+export function therapyPackCode(records) {
+  return signOffPackCode(
+    therapyPackRecords(records).map((record) => ({
+      code: record.slug,
+      sha256: therapyReviewedContentSha256(record),
+    })),
+  );
+}
+
+/**
+ * The review pack as a self-contained HTML page; each record is shown exactly as the seven checks display it.
+ *
+ * @param {Array<Record<string, any>>} records
+ * @param {{ reviewedBy?: string, generatedAt?: string }} [options]
+ */
+export function renderTherapyPack(records, { reviewedBy, generatedAt = new Date().toISOString() } = {}) {
+  if (reviewedBy !== undefined) {
+    const attributionProblem = publicReviewerAttributionProblem(reviewedBy);
+    if (attributionProblem) throw new Error(attributionProblem);
+  }
+  const packRecords = therapyPackRecords(records);
+  const needsSource = therapyNeedsSource(records);
+  return renderSignOffPack({
+    title: "Therapy sign-off pack",
+    code: therapyPackCode(records),
+    reviewedBy,
+    intro: [
+      `This pack holds every Therapy record awaiting sign-off that lists references to check it against (${packRecords.length}).`,
+      `${needsSource.length} records awaiting review list no references yet, so they are left out until a source is added.`,
+      "The name you sign with is shown publicly in the Therapy catalogue. Use only a display-approved professional name.",
+    ],
+    questions: THERAPY_REVIEW_CHECKS.map((check) => `I personally attest: ${check.label} (${check.authority})`),
+    batchCommand: `npm.cmd run therapy:review -- --write --batch --reviewed-by "${reviewedBy ?? REVIEWED_BY_PLACEHOLDER}" --exclude <slugs>`,
+    records: packRecords.map((record) => ({
+      code: record.slug,
+      heading: `${record.name} (${record.slug})`,
+      sections: THERAPY_REVIEW_CHECKS.flatMap((check) =>
+        checkEntries(record, check).map(([field, value]) => ({
+          label: `${check.label}: ${field}`,
+          text: printable(value),
+        })),
+      ),
+    })),
+    generatedAt,
+  });
+}
+
+function normalizeBatchAnswer(value) {
+  const answer = String(value).trim().toLowerCase();
+  if (answer === "yes") return true;
+  if (answer === "no") return false;
+  if (answer === "quit" || answer === "q") return "quit";
+  return null;
+}
+
+/**
+ * Testable batch core, no file IO. Asks each of the seven checks once for the whole set,
+ * then requires the pack's sign-off code, recomputed from `records` as they are now. Any no,
+ * a quit, or a code that does not match returns without signing anything.
+ *
+ * @param {{
+ *   records: Array<Record<string, any>>,
+ *   reviewedBy: string,
+ *   exclude?: string[],
+ *   ask: (question: string) => Promise<string>,
+ *   output: { write: (chunk: string) => unknown },
+ *   now?: () => Date,
+ * }} options
+ */
+export async function conductTherapyBatchReview({
+  records,
+  reviewedBy,
+  exclude = [],
+  ask,
+  output,
+  now = () => new Date(),
+}) {
+  const attributionProblem = publicReviewerAttributionProblem(reviewedBy);
+  if (attributionProblem) throw new Error(attributionProblem);
+
+  const packRecords = therapyPackRecords(records);
+  const packSlugs = new Set(packRecords.map((record) => record.slug));
+  const unknown = exclude.filter((slug) => !packSlugs.has(slug));
+  if (unknown.length) {
+    throw new Error(`--exclude names records that are not in the pack: ${unknown.join(", ")}.`);
+  }
+  const excluded = new Set(exclude);
+  const toSign = packRecords.filter((record) => !excluded.has(record.slug));
+  const code = therapyPackCode(records);
+
+  if (toSign.length === 0) {
+    writeLine(output, "Nothing to sign: every record in the pack is excluded or already signed off.");
+    return { status: "nothing-to-sign", signed: [] };
+  }
+
+  writeLine(output);
+  writeLine(output, `This will sign off ${toSign.length} Therapy records as: ${reviewedBy}`);
+  writeLine(output, `Excluded (left unsigned): ${exclude.length ? exclude.join(", ") : "none"}.`);
+
+  for (const check of THERAPY_REVIEW_CHECKS) {
+    let decision = null;
+    while (decision === null) {
+      decision = normalizeBatchAnswer(
+        await ask(
+          `\nEnter yes only if you personally attest "${check.label}" (${check.authority}) for every one of these ${toSign.length} records; otherwise enter no or quit: `,
+        ),
+      );
+      if (decision === null) writeLine(output, "Enter exactly yes, no, or quit.");
+    }
+    if (decision === "quit") {
+      writeLine(output, "Stopped. Nothing was signed.");
+      return { status: "quit", signed: [] };
+    }
+    if (decision !== true) {
+      writeLine(output, "That check was not attested for the whole set. Nothing was signed.");
+      return { status: "incomplete", signed: [] };
+    }
+  }
+
+  const typed = await ask("\nType the sign-off code printed at the top of the pack: ");
+  if (
+    String(typed ?? "")
+      .trim()
+      .toLowerCase() !== code
+  ) {
+    writeLine(
+      output,
+      "The code does not match. Either the set changed since the pack was written, or the code was mistyped. Nothing was signed.",
+    );
+    return { status: "code-mismatch", signed: [] };
+  }
+
+  const reviewedAt = now().toISOString();
+  const answers = Object.fromEntries(THERAPY_REVIEW_CHECKS.map((check) => [check.key, true]));
+  const reviewedByRecord = new Map(
+    toSign.map((record) => [
+      record,
+      finalizeTherapyReview(record, { answers, reviewedBy, reviewedAt, now: new Date(reviewedAt) }),
+    ]),
+  );
+  const nextRecords = records.map((record) => reviewedByRecord.get(record) ?? record);
+  assertValidTherapyReviewRecords(nextRecords, { now: new Date(reviewedAt) });
+  return { status: "reviewed", records: nextRecords, signed: toSign.map((record) => record.slug) };
 }
 
 function replaceFileAtomically(path, contents, { expectedRaw } = {}) {
@@ -401,6 +600,15 @@ function readCanonicalSource() {
   return { raw, records: JSON.parse(raw) };
 }
 
+function writeTherapyPackFile(records, reviewedBy, output) {
+  const html = renderTherapyPack(records, { reviewedBy, generatedAt: new Date().toISOString() });
+  mkdirSync(dirname(PACK_PATH), { recursive: true });
+  writeFileSync(PACK_PATH, html, "utf8");
+  writeLine(output, `Wrote the Therapy review pack: ${PACK_PATH}`);
+  writeLine(output, `Records in the pack: ${therapyWalkQueue(records).length}`);
+  writeLine(output, `Sign-off code: ${therapyPackCode(records)}`);
+}
+
 function showReport(records, slug, output) {
   const pending = records.filter((record) => record.reviewStatus !== "reviewed");
   writeLine(output, `Therapy review queue: ${pending.length} needs_review / ${records.length} total.`);
@@ -439,6 +647,14 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     const attributionProblem = publicReviewerAttributionProblem(args.reviewedBy);
     if (attributionProblem) throw new Error(attributionProblem);
   }
+  if (args.pack) {
+    const needsSource = therapyNeedsSource(records);
+    if (needsSource.length) {
+      writeLine(output, `${needsSource.length} records list no references yet, so they are left out of the pack.`);
+    }
+    writeTherapyPackFile(records, args.reviewedBy, output);
+    return 0;
+  }
   if (!args.write) {
     showReport(records, args.slug, output);
     return 0;
@@ -449,10 +665,13 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       "--write requires an interactive TTY; piped, scripted, and agent-supplied attestations are refused.",
     );
   }
-  if (!args.walk && !args.slug) {
-    throw new Error("--write requires one exact --slug, or --walk to step through the queue one record at a time.");
+  if (!args.walk && !args.batch && !args.slug) {
+    throw new Error(
+      "--write requires one exact --slug, --walk to step through the queue one record at a time, or --batch to sign a review pack.",
+    );
   }
   if (!args.reviewedBy) throw new Error("--write requires --reviewed-by with a display-approved public attribution.");
+  if (args.batch) return runBatch({ raw, records, args, input, output, errorOutput });
   const slugs = args.walk ? therapyWalkQueue(records) : [args.slug];
   if (!args.walk) {
     const record = records.find((entry) => entry.slug === args.slug);
@@ -539,6 +758,53 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       if (notReached > 0) writeLine(output, `Not reached yet: ${notReached}. The next walk starts with them.`);
     }
   }
+}
+
+async function runBatch({ raw, records, args, input, output, errorOutput }) {
+  const needsSource = therapyNeedsSource(records);
+  if (needsSource.length) {
+    writeLine(
+      output,
+      `${needsSource.length} records list no references yet, so they are not in the pack or this batch.`,
+    );
+  }
+  if (therapyWalkQueue(records).length === 0) {
+    writeLine(output, "Nothing waiting: every Therapy record with references is already signed off.");
+    return 0;
+  }
+  writeLine(errorOutput, "CLINICAL AUTHORITY: the first five checks may only be attested by a qualified clinician.");
+  writeLine(
+    errorOutput,
+    "PRIVACY: reviewedBy is public. Do not enter contact, registration, provider, staff, or account ids.",
+  );
+  const prompt = createPrompt({ input, output });
+  let result;
+  try {
+    result = await conductTherapyBatchReview({
+      records,
+      reviewedBy: args.reviewedBy,
+      exclude: args.exclude ?? [],
+      ask: prompt.ask,
+      output,
+    });
+  } finally {
+    prompt.close();
+  }
+  if (result.status === "code-mismatch") {
+    // Re-read so the fresh pack shows the files as they are now.
+    const current = readCanonicalSource();
+    assertValidTherapyReviewRecords(current.records);
+    writeTherapyPackFile(current.records, args.reviewedBy, output);
+    writeLine(output, "Read the fresh pack, then run the batch again with its code.");
+    return 0;
+  }
+  if (result.status !== "reviewed") return 0;
+  persistTherapyReviewTransaction({ sourcePath: SOURCE_PATH, records: result.records, expectedRaw: raw });
+  writeLine(
+    output,
+    `Signed off ${result.signed.length} Therapy records as ${args.reviewedBy}; generated Therapy assets are current.`,
+  );
+  return 0;
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null;

@@ -14,11 +14,14 @@ import {
   therapyReviewedContentSha256,
 } from "../scripts/lib/therapy-review-contract.mjs";
 import {
+  conductTherapyBatchReview,
   conductTherapyReview,
   parseTherapyReviewArgs,
   persistTherapyReviewTransaction,
+  renderTherapyPack,
   therapyHasReferences,
   therapyNeedsSource,
+  therapyPackCode,
   therapyWalkQueue,
   writeTherapySourceAtomically,
 } from "../scripts/review-therapy.mjs";
@@ -674,5 +677,163 @@ describe("Therapy clinician-input workflow", () => {
     expect(createHash("sha256").update(canonicalSourceBytes()).digest("hex")).toBe(
       createHash("sha256").update(before).digest("hex"),
     );
+  });
+});
+
+describe("Therapy batch sign-off from a review pack (owner decision 2026-09-26)", () => {
+  const OWNER = "Dr Clinical Owner";
+
+  function packFixture() {
+    return [
+      pendingRecord({ slug: "alpha", name: "Alpha Therapy", references: "RANZCP PS #54" }),
+      reviewedRecord({ slug: "beta", name: "Beta Therapy", references: "NICE CG90" }),
+      pendingRecord({ slug: "gamma", name: "Gamma Therapy", references: "  " }),
+      pendingRecord({ slug: "delta", name: "Delta Therapy", references: ["APA 2019"] }),
+    ];
+  }
+
+  it("parses --pack, --batch and --exclude only in their valid combinations", () => {
+    expect(parseTherapyReviewArgs(["--pack"])).toMatchObject({ pack: true, write: false, batch: false });
+    expect(parseTherapyReviewArgs(["--pack", "--reviewed-by", OWNER])).toMatchObject({ pack: true, reviewedBy: OWNER });
+    expect(
+      parseTherapyReviewArgs(["--write", "--batch", "--reviewed-by", OWNER, "--exclude", "a, b,,c"]),
+    ).toMatchObject({ write: true, batch: true, exclude: ["a", "b", "c"] });
+    expect(() => parseTherapyReviewArgs(["--batch"])).toThrow(/--write/);
+    expect(() => parseTherapyReviewArgs(["--write", "--batch", "--slug", "x"])).toThrow(/--slug/);
+    expect(() => parseTherapyReviewArgs(["--write", "--batch", "--walk"])).toThrow(/--walk/);
+    expect(() => parseTherapyReviewArgs(["--exclude", "a"])).toThrow(/--batch/);
+    expect(() => parseTherapyReviewArgs(["--write", "--walk", "--exclude", "a"])).toThrow(/--batch/);
+    for (const extra of [["--write"], ["--walk"], ["--batch"], ["--slug", "x"]]) {
+      expect(() => parseTherapyReviewArgs(["--pack", ...extra])).toThrow(/--pack/);
+    }
+    expect(() => parseTherapyReviewArgs(["--pack", "--exclude", "a"])).toThrow();
+  });
+
+  it("changes the pack code when any pack record's content changes or a record is added", () => {
+    const records = packFixture();
+    const code = therapyPackCode(records);
+    expect(code).toMatch(/^[0-9a-f]{8}$/);
+    expect(therapyPackCode(packFixture())).toBe(code);
+
+    const edited = packFixture();
+    edited[3] = { ...edited[3], clinicalSummary: "Changed after the pack was written." };
+    expect(therapyPackCode(edited)).not.toBe(code);
+
+    const added = [...packFixture(), pendingRecord({ slug: "epsilon", references: "WHO mhGAP" })];
+    expect(therapyPackCode(added)).not.toBe(code);
+
+    const sourceAdded = packFixture();
+    sourceAdded[2] = { ...sourceAdded[2], references: "Now sourced" };
+    expect(therapyPackCode(sourceAdded)).not.toBe(code);
+  });
+
+  it("renders every pack record, the code and the checks, with HTML escaped", () => {
+    const records = packFixture();
+    records[0] = { ...records[0], clinicalSummary: '<script>alert("x")</script> & more' };
+    const html = renderTherapyPack(records, { generatedAt: NOW.toISOString() });
+    expect(html).toContain(therapyPackCode(records));
+    expect(html).toContain('id="alpha"');
+    expect(html).toContain('id="delta"');
+    expect(html).not.toContain('id="beta"');
+    expect(html).not.toContain('id="gamma"');
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; more");
+    expect(html).toContain("I personally attest: Clinical accuracy (qualified clinician)");
+    expect(html).toContain("1 records awaiting review list no references yet");
+    expect(html).toContain("--reviewed-by &quot;&lt;your public name&gt;&quot;");
+
+    const named = renderTherapyPack(records, { reviewedBy: OWNER, generatedAt: NOW.toISOString() });
+    expect(named).toContain(`--reviewed-by &quot;${OWNER}&quot;`);
+    expect(() => renderTherapyPack(records, { reviewedBy: "clinician@example.org" })).toThrow();
+  });
+
+  it("signs every non-excluded pack record with seven true checks and one shared timestamp", async () => {
+    const records = [...packFixture(), pendingRecord({ slug: "epsilon", references: "WHO mhGAP" })];
+    const before = records.map((record) => JSON.stringify(record));
+    const code = therapyPackCode(records);
+    const ask = sequenceAsk([...Array(7).fill("yes"), ` ${code.toUpperCase()} `]);
+    const result = await conductTherapyBatchReview({
+      records,
+      reviewedBy: OWNER,
+      exclude: ["delta"],
+      ask,
+      output: outputSink(),
+      now: () => NOW,
+    });
+    expect(ask).toHaveBeenCalledTimes(8);
+    expect(result.status).toBe("reviewed");
+    expect(result.signed).toEqual(["alpha", "epsilon"]);
+    const next = result.records as Array<Record<string, unknown>>;
+    for (const slug of ["alpha", "epsilon"]) {
+      const record = next.find((entry) => entry.slug === slug)!;
+      expect(record).toMatchObject({ reviewStatus: "reviewed", reviewedBy: OWNER, reviewedAt: NOW.toISOString() });
+      expect(Object.values(record.reviewChecklist as Record<string, boolean>)).toEqual(Array(7).fill(true));
+    }
+    // Excluded, already-reviewed and unsourced records are untouched.
+    expect(JSON.stringify(next[1])).toBe(before[1]);
+    expect(JSON.stringify(next[2])).toBe(before[2]);
+    expect(JSON.stringify(next[3])).toBe(before[3]);
+    expect(records.map((record) => JSON.stringify(record))).toEqual(before);
+    expect(therapyReviewProblems(next, { now: NOW })).toEqual([]);
+  });
+
+  it.each([
+    ["a no", ["yes", "yes", "no"], "incomplete"],
+    ["a quit", ["yes", "quit"], "quit"],
+  ])("signs nothing after %s", async (_label, answers, status) => {
+    const records = packFixture();
+    const result = await conductTherapyBatchReview({
+      records,
+      reviewedBy: OWNER,
+      ask: sequenceAsk(answers),
+      output: outputSink(),
+      now: () => NOW,
+    });
+    expect(result.status).toBe(status);
+    expect(result.signed).toEqual([]);
+    expect(result.records).toBeUndefined();
+  });
+
+  it("signs nothing when the typed code does not match the recomputed code", async () => {
+    const records = packFixture();
+    const staleCode = therapyPackCode(records);
+    records[0] = { ...records[0], clinicalSummary: "Edited after the pack was written." };
+    const result = await conductTherapyBatchReview({
+      records,
+      reviewedBy: OWNER,
+      ask: sequenceAsk([...Array(7).fill("yes"), staleCode]),
+      output: outputSink(),
+      now: () => NOW,
+    });
+    expect(result.status).toBe("code-mismatch");
+    expect(result.signed).toEqual([]);
+    expect(result.records).toBeUndefined();
+  });
+
+  it("refuses an --exclude slug that is not in the pack before asking anything", async () => {
+    const ask = sequenceAsk([]);
+    await expect(
+      conductTherapyBatchReview({
+        records: packFixture(),
+        reviewedBy: OWNER,
+        exclude: ["delta", "beta", "no-such-slug"],
+        ask,
+        output: outputSink(),
+        now: () => NOW,
+      }),
+    ).rejects.toThrow(/not in the pack: beta, no-such-slug/);
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("refuses a non-TTY batch before changing the source", () => {
+    const before = canonicalSourceBytes();
+    const result = spawnSync(process.execPath, [SCRIPT, "--write", "--batch", "--reviewed-by", OWNER], {
+      cwd: ROOT,
+      encoding: "utf8",
+      input: "",
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/interactive TTY/);
+    expect(canonicalSourceBytes().equals(before)).toBe(true);
   });
 });
