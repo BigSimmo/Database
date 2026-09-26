@@ -23,6 +23,12 @@ describe("BeforeYouGoIn", () => {
         .every((c) => !(c as HTMLInputElement).checked),
     ).toBe(true);
   });
+  it("shows each step's source and checked date outside its tick", () => {
+    const sheet = openSheet();
+    const first = within(sheet).getAllByRole("listitem")[0];
+    const source = within(first).getByText(model.beforeYouGoIn[0].source.title, { exact: false });
+    expect(source.closest("label")).toBeNull();
+  });
   it("clears at once with Undo for about six seconds, never 'Are you sure?'", () => {
     vi.useFakeTimers();
     const sheet = openSheet();

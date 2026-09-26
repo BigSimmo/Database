@@ -32,6 +32,29 @@ describe("First Nations view-model contract", () => {
     });
     expect(wantsToLeave(inputs)?.riskLine).toBeNull();
   });
+  it("keeps Bedside's example line while the lifted mistakes still await approval", () => {
+    const input = contentInput();
+    const mistakes = input.pages.find((p) => p.id === "mistakes")!;
+    mistakes.sections[0].modules[0].blocks = [
+      {
+        kind: "avoid",
+        id: "mistakes-avoid",
+        avoid: "Avoid this",
+        instead: "Do this",
+        sourceId: "src-test",
+        checkedAt: "2026-09-26",
+      },
+    ];
+    const content = parseFirstNationsContent(input);
+    const approveAll = (skip: string | null) => [
+      ...content.pages.flatMap((p) => p.sections.filter((s) => s.id !== skip).map((s) => approvalFor(s.id, s))),
+      ...content.situations.map((s) => approvalFor(`situation:${s.id}`, s)),
+    ];
+    const line = (skip: string | null) =>
+      buildBedsideModel(testInputs({ content, approvals: approveAll(skip) })).showExampleLine;
+    expect(line("mistakes-main")).toBe(true);
+    expect(line(null)).toBe(false);
+  });
   it("resolves plan steps from the blocks they reference", () => {
     const s = buildBedsideModel(testInputs()).situations[0];
     expect(s.plan.map((p) => p.title)).toEqual(["Tip on bedside", "Tip on talking", "Call Aboriginal Interpreting WA"]);

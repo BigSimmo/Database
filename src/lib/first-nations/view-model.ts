@@ -47,6 +47,7 @@ export type StepView = {
   detail: string;
   contact: ContactView | null;
   awaiting: boolean;
+  checkedAt: string;
   source: SourceView;
 };
 export type PhraseView = { say: string; why: string; checkedAt: string; source: SourceView };
@@ -154,11 +155,12 @@ function stepView(ref: string, index: Map<string, Indexed>, inputs: ModelInputs)
   if (!hit) throw new Error(`Unknown First Nations step ${ref}`);
   const { block, awaiting } = hit;
   const source = sourceView(inputs, block.sourceId);
+  const { checkedAt } = block;
   switch (block.kind) {
     case "tip":
-      return { id: block.id, title: block.do, detail: block.why, contact: null, awaiting, source };
+      return { id: block.id, title: block.do, detail: block.why, contact: null, awaiting, checkedAt, source };
     case "note":
-      return { id: block.id, title: block.heading, detail: block.text, contact: null, awaiting, source };
+      return { id: block.id, title: block.heading, detail: block.text, contact: null, awaiting, checkedAt, source };
     case "contact":
       return {
         id: block.id,
@@ -166,6 +168,7 @@ function stepView(ref: string, index: Map<string, Indexed>, inputs: ModelInputs)
         detail: block.detail ?? "",
         contact: contactView(block, inputs),
         awaiting,
+        checkedAt,
         source,
       };
     default:
@@ -352,19 +355,21 @@ export function buildBedsideModel(inputs: ModelInputs): BedsideModel {
     .sections.flatMap((s) => s.modules)
     .find((m) => m.id === "before-you-go-in");
   const beforeYouGoIn = (checks?.blocks ?? []).map((b) => stepView(b.id, index, inputs));
-  const topMistakes = page(inputs, "mistakes")
+  const liftedMistakes = page(inputs, "mistakes")
     .sections.flatMap((s) => s.modules.flatMap((m) => m.blocks))
     .flatMap((b) => (b.kind === "avoid" ? [b] : []))
-    .slice(0, 3)
-    .map((b) => ({
-      id: b.id,
-      avoid: b.avoid,
-      instead: b.instead,
-      checkedAt: b.checkedAt,
-      source: sourceView(inputs, b.sourceId),
-    }));
+    .slice(0, 3);
+  // Lifted mistakes keep their own section's approval state, so Bedside stays marked while they await it.
+  const mistakesAwaiting = liftedMistakes.some((b) => index.get(b.id)?.awaiting !== false);
+  const topMistakes = liftedMistakes.map((b) => ({
+    id: b.id,
+    avoid: b.avoid,
+    instead: b.instead,
+    checkedAt: b.checkedAt,
+    source: sourceView(inputs, b.sourceId),
+  }));
   return {
-    showExampleLine: situations.some((s) => s.awaiting) || beforeYouGoIn.some((s) => s.awaiting),
+    showExampleLine: situations.some((s) => s.awaiting) || beforeYouGoIn.some((s) => s.awaiting) || mistakesAwaiting,
     hospitals: hospitalViews(inputs),
     situations,
     beforeYouGoIn,

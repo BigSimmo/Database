@@ -1,5 +1,6 @@
 // Tick list: controlled; the parent owns the ticks, which live in component state only.
 import { useId } from "react";
+import { ModeUpdatedLine } from "@/components/first-nations/kit";
 import type { StepView } from "@/lib/first-nations/view-model";
 
 export function TickList({
@@ -19,7 +20,7 @@ export function TickList({
         const detailId = `${listId}-${step.id}-detail`;
         return (
           <li key={step.id} className="border-t border-[color:var(--border)] first:border-t-0">
-            <label className="grid min-h-[3.25rem] cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-0.5 px-3 py-2.5">
+            <label className="grid min-h-[3.25rem] cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-0.5 px-3 pb-1 pt-2.5">
               <input
                 type="checkbox"
                 checked={ticked.has(step.id)}
@@ -37,6 +38,14 @@ export function TickList({
                 </span>
               ) : null}
             </label>
+            {/* Provenance sits outside the label so opening the source never ticks the step. */}
+            <div className="px-3 pb-2.5 pl-11">
+              <ModeUpdatedLine
+                updatedAt={step.checkedAt}
+                verb="Checked"
+                sources={[{ label: step.source.title, url: step.source.url }]}
+              />
+            </div>
           </li>
         );
       })}
