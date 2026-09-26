@@ -511,8 +511,8 @@ jobs:
       # fetch-depth 0 checkout above for the reviewedCommit ancestry checks; the
       # script says so and skips only those on a shallow clone. An expired
       # reviewExpiresAt is strict on manual, release-branch and local runs; on a PR,
-      # in the merge queue or on a push to main it warns unless the change touches
-      # the register or a path the expired entry covers, and the weekly
+      # in the merge queue or on a push to main it warns unless the change edits
+      # that expired entry or touches a path it covers, and the weekly
       # organisation report raises it (REVIEW_DATE_MODE, owner decisions 2026-09-26).
       - name: Clinical hazard-controls register
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'

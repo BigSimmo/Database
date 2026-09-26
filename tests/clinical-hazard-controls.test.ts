@@ -315,7 +315,27 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
     expect(errors.join("\n")).not.toContain("CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT");
   });
 
-  it("still blocks every lapsed entry when the pull request touches the register itself", () => {
+  it("blocks on a register touch only for the lapsed entry the change edits (owner decision 2026-09-26)", () => {
+    const [edited, ...others] = manifest.hazards;
+    const head = { ...manifest, hazards: [{ ...edited, residualRisk: `${edited.residualRisk} (edited)` }, ...others] };
+    const copies: Record<string, string> = { base: JSON.stringify(manifest), head: JSON.stringify(head) };
+    const { errors, warnings } = evaluateClinicalHazardControls(manifest, {
+      checkGit,
+      now: AFTER_EVERY_EXPIRY,
+      reviewDateScope: {
+        ...prScope([UNRELATED, REGISTER]),
+        mergeBase: "base",
+        read: (revision: string) => copies[revision] ?? null,
+      },
+    });
+    expect(expired(errors)).toEqual([
+      `${edited.id}: review has expired (blocking: this change touches this entry in ${REGISTER})`,
+    ]);
+    expect(expired(warnings)).toHaveLength(lapsedCount - 1);
+    expect(warnings.some((warning) => warning.startsWith("manifest: review has expired. Not blocking"))).toBe(true);
+  });
+
+  it("still blocks every lapsed entry when the register is touched and the entries cannot be compared", () => {
     const { errors, warnings } = evaluateClinicalHazardControls(manifest, {
       checkGit,
       now: AFTER_EVERY_EXPIRY,
