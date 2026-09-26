@@ -1464,10 +1464,15 @@ describe("design-system adoption manifest", () => {
     // (drafted Mental Health Act 2014 section summaries and the Chief Psychiatrist's
     // Standards), declared in `adoption-contract.json` on the catalogues surface.
     //
-    // 112 -> 101 on 2026-09-26: the Caring Contacts prototype was retired, taking its eleven
+    // 112 -> 114 on 2026-09-26: `/cme/learning`, the CME WA learning directory, and
+    // `/cme/training`, the CME trainee timeline.
+    //
+    // 114 -> 115 on 2026-09-26: `/on-call/shifts`, On Call "My shifts", the owner's own roster.
+    //
+    // 115 -> 104 on 2026-09-26: the Caring Contacts prototype was retired, taking its eleven
     // workspace routes (Today, Patients, one patient, the activation wizard, Schedule, Templates,
     // one template, Guidance, Reports, Team and the manual Referral Intake) out of the census.
-    expect(manifest.routeCoverage.discovered).toHaveLength(101);
+    expect(manifest.routeCoverage.discovered).toHaveLength(104);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

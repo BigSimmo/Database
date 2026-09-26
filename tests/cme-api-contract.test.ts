@@ -335,3 +335,29 @@ describe("CME complete year confirmation schema", () => {
       expect(cmeYearConfirmSchema.safeParse({ ...validBody, ...change }).success).toBe(false);
   });
 });
+
+describe("finishing a draft and replacing a missed session from the entry POST", () => {
+  const minimal = {
+    date: "2026-01-15",
+    title: "Journal club",
+    allocations: [{ category: "reviewing" as const, hours: 1 }],
+  };
+  const id = "7f3c1a52-3c0e-4b8a-9a55-2f6b0a1d9c11";
+
+  it("accepts an optional draft and missed-session id, and only as uuids", () => {
+    expect(cmeEntryCreateSchema.safeParse({ ...minimal, draftId: id, missedSessionId: id }).success).toBe(true);
+    expect(cmeEntryCreateSchema.safeParse({ ...minimal, draftId: "not-a-uuid" }).success).toBe(false);
+    expect(cmeEntryCreateSchema.safeParse({ ...minimal, missedSessionId: "not-a-uuid" }).success).toBe(false);
+  });
+
+  it("deletes the draft and links the missed session only after the entry is saved, owner-scoped", () => {
+    const insertAt = list.indexOf("await insertCmeEntry(");
+    expect(insertAt).toBeGreaterThan(-1);
+    expect(list.indexOf("deleteOwnerCmeDraft(supabase, user.id, body.draftId)")).toBeGreaterThan(insertAt);
+    expect(
+      list.indexOf("setOwnerCmeMissedSessionReplacement(supabase, user.id, body.missedSessionId, created.id)"),
+    ).toBeGreaterThan(insertAt);
+    // A failed follow-up never undoes or fails the save.
+    expect(list).toContain("Promise.allSettled(");
+  });
+});

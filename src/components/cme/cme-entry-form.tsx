@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { z } from "zod";
 
 import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/components/cme/cme-allocation-field";
@@ -9,6 +9,7 @@ import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldControlPlain, fieldControlWithIcon, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
+import type { CmeDraftPayload } from "@/lib/cme/drafts";
 import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
 import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory, type CmeEntry } from "@/lib/cme/types";
 
@@ -145,6 +146,15 @@ export type CmeEntryFormProps = {
    * for the full-page form; a sheet passes false because it has its own frame.
    */
   stickySave?: boolean;
+  /**
+   * Offers "Save as draft": the form's fields as they stand, saved to the account whether or not
+   * they would pass as an activity yet. A draft never counts toward hours.
+   */
+  onSaveDraft?: (payload: CmeDraftPayload) => Promise<void>;
+  /** A saved draft to continue. Its fields fill the form once, after mount. */
+  initialDraft?: CmeDraftPayload;
+  /** Extra draft controls shown beside "Save as draft" (who the draft is waiting on). */
+  draftControls?: ReactNode;
 };
 
 /**
@@ -177,6 +187,9 @@ export function CmeEntryForm({
   onDirtyChange,
   draftStorageKey,
   stickySave = true,
+  onSaveDraft,
+  initialDraft,
+  draftControls,
 }: CmeEntryFormProps) {
   // Bumped after every successful save to remount CmeAllocationField, which
   // otherwise has no way to clear its own typed-text state from outside.
@@ -208,6 +221,7 @@ export function CmeEntryForm({
       : (initialEntry.costCents / 100).toFixed(2),
   );
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(
@@ -320,11 +334,15 @@ export function CmeEntryForm({
   // with the server's. The read is scheduled as a callback, the way any other
   // external source hands state to React.
   useEffect(() => {
-    if (!draftStorageKey || draftRestoreChecked.current) return;
+    if ((!draftStorageKey && !initialDraft) || draftRestoreChecked.current) return;
     const timer = window.setTimeout(() => {
       draftRestoreChecked.current = true;
       if (initialEntry?.title) return;
-      const stored = readStoredDraft(draftStorageKey);
+      const stored: StoredDraft | null = initialDraft
+        ? { ...initialDraft, allocations: [...initialDraft.allocations], buckets: [...initialDraft.buckets] }
+        : draftStorageKey
+          ? readStoredDraft(draftStorageKey)
+          : null;
       if (!stored || (!stored.title.trim() && !stored.reflection.trim())) return;
       setTitle(stored.title);
       setDate(stored.date);
@@ -342,10 +360,11 @@ export function CmeEntryForm({
         setDetailsOpen(true);
       }
       setFormKey((key) => key + 1);
-      setRestoredDraft(true);
+      // A continued account draft is announced by the page; this notice is for the tab's own copy.
+      if (!initialDraft) setRestoredDraft(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [draftStorageKey, initialEntry?.title]);
+  }, [draftStorageKey, initialDraft, initialEntry?.title]);
 
   useEffect(() => {
     if (!draftStorageKey || !draftRestoreChecked.current || saving) return;
@@ -400,6 +419,33 @@ export function CmeEntryForm({
     if (draftStorageKey) writeStoredDraft(draftStorageKey, null);
     resetFields();
     setRestoredDraft(false);
+  }
+
+  async function handleSaveDraft() {
+    if (!onSaveDraft || savingDraft || saving) return;
+    setSubmitError(null);
+    setSavingDraft(true);
+    try {
+      await onSaveDraft({
+        title,
+        date,
+        statedHoursText,
+        mode,
+        allocations: splitAllocations,
+        reflection,
+        sourceUrl,
+        formalPeerReviewText,
+        buckets,
+        costText,
+        routineId: initialEntry?.routineId ?? null,
+        documentId: initialEntry?.documentId ?? null,
+      });
+      if (draftStorageKey) writeStoredDraft(draftStorageKey, null);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not save this draft.");
+    } finally {
+      setSavingDraft(false);
+    }
   }
 
   function handleAllocationChange(nextAllocations: readonly CmeAllocation[], total: number) {
@@ -678,6 +724,29 @@ export function CmeEntryForm({
           </FormField>
         </div>
       </details>
+
+      {onSaveDraft ? (
+        <div
+          data-testid="cme-entry-draft-controls"
+          className="flex flex-col gap-3 rounded-lg border border-[color:var(--border)] p-3"
+        >
+          <p className={cn(textMuted, "text-sm")}>
+            Not finished? Save it as a draft on your account and come back to it. A draft never counts toward your
+            hours.
+          </p>
+          {draftControls}
+          <Button
+            type="button"
+            busy={savingDraft}
+            busyLabel="Saving draft…"
+            disabled={saving || (!title.trim() && !reflection.trim())}
+            onClick={() => void handleSaveDraft()}
+            testId="cme-entry-save-draft"
+          >
+            Save as draft
+          </Button>
+        </div>
+      ) : null}
 
       {stickySave ? (
         // Pinned while the form scrolls, so Save is never a long scroll away on

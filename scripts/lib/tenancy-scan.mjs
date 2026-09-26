@@ -82,6 +82,9 @@ export const SCANNED_LIB_MODULES = [
   "src/lib/cme/repository.ts",
   // Dedicated owner-private evidence metadata; never clinical ingestion or service content.
   "src/lib/cme/evidence-repository.ts",
+  // The trainee's own training timeline (periods and milestones). Its reads and writes all
+  // live here rather than in the route, so phase 1 would never see them.
+  "src/lib/cme/training-repository.ts",
   // The On Call read path, added after a 2026-09-20 security review found the
   // gate could not see it. `tests/on-call-api-contract.test.ts` forbids the
   // route from querying `on_call_entries` directly — good design, and its

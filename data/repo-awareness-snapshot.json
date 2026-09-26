@@ -606,6 +606,11 @@
         "area": "product"
       },
       {
+        "path": "/cme/training",
+        "file": "src/app/(search-app)/cme/training/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/privacy",
         "file": "src/app/privacy/page.tsx",
         "area": "product"
@@ -1036,6 +1041,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/shifts",
+        "file": "src/app/(search-app)/on-call/shifts/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/phone-mode-sheet-yes",
         "file": "src/app/mockups/phone-mode-sheet-yes/page.tsx",
         "area": "mockup"
@@ -1043,6 +1053,11 @@
       {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/cme/learning",
+        "file": "src/app/(search-app)/cme/learning/page.tsx",
         "area": "product"
       },
       {
@@ -1235,6 +1250,10 @@
     ],
     "api": [
       {
+        "path": "/api/on-call/shifts",
+        "file": "src/app/api/on-call/shifts/route.ts"
+      },
+      {
         "path": "/api/on-call/entries",
         "file": "src/app/api/on-call/entries/route.ts"
       },
@@ -1295,6 +1314,10 @@
         "file": "src/app/api/documents/[id]/table-facts/route.ts"
       },
       {
+        "path": "/api/cme/training/[id]",
+        "file": "src/app/api/cme/training/[id]/route.ts"
+      },
+      {
         "path": "/api/ingestion/batches",
         "file": "src/app/api/ingestion/batches/route.ts"
       },
@@ -1313,6 +1336,10 @@
       {
         "path": "/api/cme/year/close",
         "file": "src/app/api/cme/year/close/route.ts"
+      },
+      {
+        "path": "/api/cme/training",
+        "file": "src/app/api/cme/training/route.ts"
       },
       {
         "path": "/api/search/universal",
@@ -1371,6 +1398,10 @@
         "file": "src/app/api/documents/[id]/reindex/route.ts"
       },
       {
+        "path": "/api/cme/missed/[id]",
+        "file": "src/app/api/cme/missed/[id]/route.ts"
+      },
+      {
         "path": "/api/differentials/[slug]",
         "file": "src/app/api/differentials/[slug]/route.ts"
       },
@@ -1399,6 +1430,10 @@
         "file": "src/app/api/setup-status/route.ts"
       },
       {
+        "path": "/api/cme/drafts",
+        "file": "src/app/api/cme/drafts/route.ts"
+      },
+      {
         "path": "/api/cme/routines/[id]",
         "file": "src/app/api/cme/routines/[id]/route.ts"
       },
@@ -1417,6 +1452,10 @@
       {
         "path": "/api/cme/routines",
         "file": "src/app/api/cme/routines/route.ts"
+      },
+      {
+        "path": "/api/on-call/shifts/imports/[id]",
+        "file": "src/app/api/on-call/shifts/imports/[id]/route.ts"
       },
       {
         "path": "/api/on-call/services/join",
@@ -1471,6 +1510,10 @@
         "file": "src/app/api/on-call/services/[serviceId]/route.ts"
       },
       {
+        "path": "/api/cme/missed",
+        "file": "src/app/api/cme/missed/route.ts"
+      },
+      {
         "path": "/api/local-project-id",
         "file": "src/app/api/local-project-id/route.ts"
       },
@@ -1493,6 +1536,10 @@
       {
         "path": "/api/jobs",
         "file": "src/app/api/jobs/route.ts"
+      },
+      {
+        "path": "/api/cme/drafts/[id]",
+        "file": "src/app/api/cme/drafts/[id]/route.ts"
       },
       {
         "path": "/api/ingestion/quality",

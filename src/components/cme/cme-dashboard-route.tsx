@@ -16,6 +16,7 @@ export type CmeDashboardRouteProps = {
   readonly routines: readonly CmeRoutine[];
   readonly demoMode?: boolean;
   readonly reportingReminder?: CmeReportingReminder | null;
+  readonly draftsToFinish?: number;
 };
 
 /**
@@ -37,6 +38,7 @@ export function CmeDashboardRoute({
   routines,
   demoMode = false,
   reportingReminder = null,
+  draftsToFinish = 0,
 }: CmeDashboardRouteProps) {
   const router = useRouter();
 
@@ -50,6 +52,7 @@ export function CmeDashboardRoute({
         onLogRoutine={(prefill) => router.push(cmeRoutineLogHref(prefill))}
         onOpenCustomise={() => router.push("/cme/customise")}
         reportingReminder={reportingReminder}
+        draftsToFinish={draftsToFinish}
       />
       <CmeQuickLog set={set} demoMode={demoMode} />
     </>
