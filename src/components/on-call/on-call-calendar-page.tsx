@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CalendarSubscribe } from "@/components/calendar/calendar-subscribe";
 import { CalendarView } from "@/components/calendar/calendar-view";
@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { onCallCalendarEvents } from "@/lib/on-call/calendar-events";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
-import { onCallLocalDateKey } from "@/lib/on-call/local-date";
+import { msUntilNextOnCallLocalDay, onCallLocalDateKey } from "@/lib/on-call/local-date";
 
 /**
  * CALENDAR — teaching sessions and recorded expiry dates on one month view,
@@ -21,8 +21,16 @@ import { onCallLocalDateKey } from "@/lib/on-call/local-date";
  */
 export function OnCallCalendarPage({ now: nowProp }: { now?: Date } = {}) {
   const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
-  const mountedAt = useMemo(() => new Date(), []);
-  const today = onCallLocalDateKey(nowProp ?? mountedAt);
+  // Moves at midnight, so a calendar left open overnight does not keep calling
+  // yesterday "today". A pinned `now` is the caller's to move.
+  const [tick, setTick] = useState(() => new Date());
+  const now = nowProp ?? tick;
+  useEffect(() => {
+    if (nowProp) return;
+    const timer = setTimeout(() => setTick(new Date()), msUntilNextOnCallLocalDay(now));
+    return () => clearTimeout(timer);
+  }, [nowProp, now]);
+  const today = onCallLocalDateKey(now);
   const events = useMemo(() => onCallCalendarEvents(entries, today), [entries, today]);
 
   return (

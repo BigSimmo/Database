@@ -47,7 +47,7 @@ import {
 import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
-import { withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
+import { withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-degraded-notice";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
 import { interpretSmartSearch, isSmartLocalOnlyMode } from "@/lib/smart-search-intent";
 

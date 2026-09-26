@@ -84,6 +84,12 @@
         "dev_only": false
       },
       {
+        "id": "psychiatry",
+        "label": "Psychiatry",
+        "home": "/psychiatry",
+        "dev_only": false
+      },
+      {
         "id": "services",
         "label": "Services",
         "home": "/?mode=services",
@@ -1119,6 +1125,11 @@
         "path": "/mockups/search-band-directions",
         "file": "src/app/mockups/search-band-directions/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/psychiatry",
+        "file": "src/app/(search-app)/psychiatry/page.tsx",
+        "area": "product"
       },
       {
         "path": "/on-call/first-night",

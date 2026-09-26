@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "11f61934-2c72-46a4-b78a-dded427a915f",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "CME: curated WA learning-opportunity directory with event freshness and bundle/employer-access checks",
+    "detail": "Review items F23, F38, D21. Separate provider, programme, event and recorded resource; expire past events, flag cancellations, keep historical pages apart; show 'included in your workshop' or 'available through your employer' before suggesting a purchase. Needs ongoing content upkeep and source-register ownership, so decide who maintains it before building.",
+    "source": "Master product review 2026-09-26 (thread: Review master review ideas); cross-checked against main 004ab6301",
+    "issueUlid": "01M3DZQ0BKR2FNTJKM4MV9WVCM"
+  }
+}

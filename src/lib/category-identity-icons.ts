@@ -2,6 +2,7 @@ import {
   BookMarked,
   BookOpenCheck,
   BookOpenText,
+  Brain,
   BrainCircuit,
   Calculator,
   ClipboardCheck,
@@ -71,6 +72,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   chat: MessagesSquare,
   phoneCall: PhoneCall,
   graduationCap: GraduationCap,
+  brain: Brain,
 };
 
 /** Component form, for the call sites that still take a `LucideIcon` prop. */

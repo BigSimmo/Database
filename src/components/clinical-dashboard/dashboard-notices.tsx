@@ -2,7 +2,7 @@ import { CircleAlert, DatabaseBackup, RefreshCw, Square, WifiOff } from "lucide-
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn, EmptyState, primaryControl } from "@/components/ui-primitives";
-import { catalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
+import { catalogueDegradedNotice } from "@/lib/site-content/catalogue-degraded-notice";
 
 export function SystemNotice({
   demoMode,

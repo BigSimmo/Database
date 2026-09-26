@@ -776,6 +776,11 @@ test.describe("07 Playbook", () => {
  * Open one referral row. The row's button is in the page before React has attached its click
  * handler, and a click in that gap is swallowed: a Firefox CI run clicked the right button (its
  * id unchanged, so nothing remounted) and the row stayed collapsed. Wait for the handler first.
+ *
+ * Waiting for the handler was not enough on its own: a Chromium CI run (2026-09-26, #3086) saw
+ * the handler attached, clicked, and the row still read collapsed for the full timeout. So the
+ * click is retried, but only while the row still reads collapsed, so a retry can never close a
+ * row the first click opened.
  */
 async function expandReferral(page: Page, name: string) {
   const trigger = page.getByRole("button", { name, exact: true });
@@ -790,8 +795,10 @@ async function expandReferral(page: Page, name: string) {
       { message: "referral row click handler attached", timeout: 15_000 },
     )
     .toBe(true);
-  await trigger.click();
-  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(async () => {
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 test.describe("08 Referrals", () => {

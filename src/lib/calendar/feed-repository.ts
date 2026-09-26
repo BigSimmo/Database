@@ -7,6 +7,13 @@ import { fetchOwnerCmeRoutines, fetchOwnerCmeYear } from "@/lib/cme/repository";
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
 import { onCallTeachingEvents } from "@/lib/on-call/calendar-events";
 import { fetchVisibleOnCallEntries } from "@/lib/on-call/repository";
+import { logger } from "@/lib/logger";
+import {
+  applyReminderAlarms,
+  DEFAULT_REMINDER_SETTINGS,
+  normalizeReminderSettings,
+  type ReminderSettings,
+} from "@/lib/reminders/settings";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
@@ -18,7 +25,35 @@ type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminC
  * sessions the owner can see. Never logged CME activities (the owner's own
  * learning, and already in the past), never personal On Call entries, never
  * compliance expiry dates (not stored centrally), never anything about patients.
+ *
+ * Events carry a calendar alarm only when the owner turned one on in Settings,
+ * Notifications, Reminders. Their settings are read from their own preferences
+ * row; if that read fails the feed is still served, just without alarms.
  */
+
+/**
+ * The feed owner's reminder settings, from their own preferences row only.
+ * A failed read returns the defaults (no alarms) rather than failing the feed:
+ * a missing alarm is the conservative way for this to go wrong.
+ */
+export async function fetchOwnerReminderSettings(supabase: AdminClient, ownerId: string): Promise<ReminderSettings> {
+  if (!ownerId) throw new Error("Missing calendar feed owner.");
+  try {
+    const { data, error } = await supabase
+      .from("user_preferences")
+      .select("preferences")
+      .eq("user_id", ownerId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const preferences = data?.preferences as { reminders?: unknown } | null | undefined;
+    return normalizeReminderSettings(preferences?.reminders);
+  } catch (error) {
+    logger.warn("calendar feed reminder settings unavailable", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return DEFAULT_REMINDER_SETTINGS;
+  }
+}
 
 export async function ownerHasCalendarFeed(supabase: AdminClient, ownerId: string): Promise<boolean> {
   if (!ownerId) throw new Error("Missing calendar feed owner.");
@@ -60,13 +95,14 @@ export async function calendarFeedOwner(supabase: AdminClient, token: string): P
 
 export async function calendarFeedEvents(supabase: AdminClient, ownerId: string, now: Date): Promise<CalendarEvent[]> {
   const year = cpdYearOf(now);
-  const [thisYear, nextYear, routines, teaching] = await Promise.all([
+  const [thisYear, nextYear, routines, teaching, reminders] = await Promise.all([
     fetchOwnerCmeYear(supabase, ownerId, year),
     fetchOwnerCmeYear(supabase, ownerId, year + 1),
     fetchOwnerCmeRoutines(supabase, ownerId),
     fetchVisibleOnCallEntries(supabase, ownerId, { section: "education" }),
+    fetchOwnerReminderSettings(supabase, ownerId),
   ]);
-  return [
+  const events = [
     ...(thisYear ? cmeDeadlineEvents(thisYear) : []),
     ...(nextYear ? cmeDeadlineEvents(nextYear) : []),
     ...cmeRoutineEvents(routines),
@@ -75,4 +111,5 @@ export async function calendarFeedEvents(supabase: AdminClient, ownerId: string,
       perthCalendarDate(now),
     ),
   ];
+  return applyReminderAlarms(events, reminders, now);
 }
