@@ -444,6 +444,25 @@ describe("OnCallHandbookState", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it.each(["signed-out", "expired"] as const)(
+    "shows %s as a title and a Sign in action only (review S1, N5)",
+    (status) => {
+      render(<OnCallHandbookState handbook={handbook(status)} page="call" />);
+      const state = screen.getByTestId(`on-call-handbook-state-${status}`);
+      expect(within(state).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+      expect(state).not.toHaveTextContent(/Nothing you saved|has been lost|Sign in to see/);
+      expect(state.querySelectorAll("p")).toHaveLength(1);
+    },
+  );
+
+  it("shows unavailable as a title and Try again only (review N12)", () => {
+    render(<OnCallHandbookState handbook={handbook("unavailable")} page="call" />);
+    const state = screen.getByTestId("on-call-handbook-state-unavailable");
+    expect(within(state).getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(state).not.toHaveTextContent(/server did not answer/);
+    expect(state.querySelectorAll("p")).toHaveLength(1);
+  });
+
   it("links a reader with no handbook to Manage service", () => {
     render(<OnCallHandbookState handbook={handbook("no-service")} page="call" />);
     expect(screen.getByRole("link", { name: /manage service/i })).toHaveAttribute("href", "/on-call/service");

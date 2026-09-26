@@ -29,12 +29,10 @@ const ON_CALL_SERVICE_HREF = "/on-call/service";
 function SignInState({
   page,
   title,
-  body,
   testId,
 }: {
   readonly page: OnCallHubPage;
   readonly title: string;
-  readonly body: string;
   readonly testId: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -43,7 +41,6 @@ function SignInState({
       <EmptyState
         icon={ON_CALL_HUB_PAGE_ICONS[page]}
         title={title}
-        body={body}
         actions={
           <Button variant="primary" onClick={() => setOpen(true)}>
             Sign in
@@ -57,19 +54,14 @@ function SignInState({
 }
 
 /**
- * The two states that need the reader to sign in. Keyed by status rather than
- * switched on, so a status name never reads as reader-facing prose to the
- * wording guard (`tests/on-call-hub-wording.test.ts`).
+ * The two states that need the reader to sign in: a title and the Sign in
+ * action, nothing more (review S1). Keyed by status rather than switched on, so
+ * a status name never reads as reader-facing prose to the wording guard
+ * (`tests/on-call-hub-wording.test.ts`).
  */
-const SIGN_IN_COPY: Partial<Record<HospitalHandbookStatus, { readonly title: string; readonly body: string }>> = {
-  "signed-out": {
-    title: "Hospital numbers are for signed-in members.",
-    body: "Sign in to see the switchboard, wards and teams for your hospital.",
-  },
-  expired: {
-    title: "Your session ended. Sign in again to see your hospital's numbers.",
-    body: "Nothing you saved on this device has been lost.",
-  },
+const SIGN_IN_TITLES: Partial<Record<HospitalHandbookStatus, string>> = {
+  "signed-out": "Hospital numbers are for signed-in members.",
+  expired: "Your session ended. Sign in again to see your hospital's numbers.",
 };
 
 /**
@@ -90,8 +82,8 @@ export function OnCallHandbookState({
   readonly page: OnCallHubPage;
 }) {
   const testId = `on-call-handbook-state-${handbook.status}`;
-  const signIn = SIGN_IN_COPY[handbook.status];
-  if (signIn) return <SignInState page={page} title={signIn.title} body={signIn.body} testId={testId} />;
+  const signIn = SIGN_IN_TITLES[handbook.status];
+  if (signIn) return <SignInState page={page} title={signIn} testId={testId} />;
   switch (handbook.status) {
     case "ready":
       return null;
@@ -120,8 +112,7 @@ export function OnCallHandbookState({
       return (
         <EmptyState
           icon={CloudOff}
-          title="Hospital numbers could not be loaded"
-          body="The server did not answer. Try again in a moment, or ring switchboard from a hospital phone."
+          title="Hospital numbers could not be loaded."
           actions={
             <Button type="button" variant="secondary" icon={RotateCw} onClick={handbook.retry}>
               Try again
