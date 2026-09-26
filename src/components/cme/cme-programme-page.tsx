@@ -9,6 +9,7 @@ import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, floatingControl } from "@/components/ui-primitives";
 import { cpdYearBounds, formatCalendarDateLong } from "@/lib/cme/cpd-year";
+import { describeConfirmedSource } from "@/lib/cme/presets";
 import {
   cmeCategoryLabels,
   type CmeCategory,
@@ -235,7 +236,8 @@ export function CmeProgrammePage({
         >
           <p className="text-sm font-extrabold text-[color:var(--text-heading)]">These are your numbers, not ours</p>
           <p className="break-words text-sm leading-relaxed text-[color:var(--text)]">
-            Confirmed by you on {formatCalendarDateLong(set.confirmedOn)}, against {set.confirmedSource}.
+            Confirmed by you on {formatCalendarDateLong(set.confirmedOn)}, against{" "}
+            {describeConfirmedSource(set.confirmedSource)}.
           </p>
           <p data-testid="cme-no-lookup" className="text-xs leading-relaxed text-[color:var(--text-muted)]">
             The app never looks up a requirement on its own, and it never changes one without you.

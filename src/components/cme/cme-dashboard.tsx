@@ -38,6 +38,7 @@ import { addDays, expandEvents } from "@/lib/calendar/calendar-event";
 import { cmeCalendarEvents } from "@/lib/cme/calendar-events";
 import { buildCmeYearCheck } from "@/lib/cme/year-check";
 import { cmeDashboardModuleLabels, useCmeModuleOrder, type CmeDashboardModuleId } from "@/lib/cme/module-order";
+import { describeConfirmedSource } from "@/lib/cme/presets";
 import {
   cmeRoutineCadenceLabels,
   formatRoutineDueDate,
@@ -463,8 +464,9 @@ export function CmeDashboard({
     ),
     provenance: (
       <p className={cn(textMuted, "break-words text-sm")}>
-        Source recorded by you on {formatRoutineDueDate(set.confirmedOn)}: {set.confirmedSource}. This records what you
-        checked; it is not independent certification.
+        Source recorded by you on {formatRoutineDueDate(set.confirmedOn)}:{" "}
+        {describeConfirmedSource(set.confirmedSource)}. This records what you checked; it is not independent
+        certification.
       </p>
     ),
   };

@@ -7,6 +7,7 @@ import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
 import { activeCmeYearEntries } from "@/lib/cme/export";
+import { describeConfirmedSource } from "@/lib/cme/presets";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet, type CmeYearClose } from "@/lib/cme/types";
 /**
  * The phone's own print screen is the PDF maker: iOS offers Share and Save to
@@ -91,7 +92,7 @@ export function CmeAnnualSummary({
 
       <section className={cn(cardSurface, "mt-4 grid gap-2 p-4 text-sm")}>
         <p>
-          Targets confirmed {formatCalendarDateLong(set.confirmedOn)}: {set.confirmedSource}
+          Targets confirmed {formatCalendarDateLong(set.confirmedOn)}: {describeConfirmedSource(set.confirmedSource)}
         </p>
         <p className={textMuted}>
           Archived entries are excluded. Formal peer review is a subset of reviewing hours. Source links identify

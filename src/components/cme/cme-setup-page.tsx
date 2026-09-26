@@ -11,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
-import { CME_PRESET_SOURCES, CME_PRESET_VERSION, createAustralianRanzcpPreset } from "@/lib/cme/presets";
+import {
+  CME_PRESET_SOURCES,
+  CME_PRESET_VERSION,
+  createAustralianRanzcpPreset,
+  describeConfirmedSource,
+} from "@/lib/cme/presets";
 import {
   cmeCategories,
   cmeCategoryLabels,
@@ -155,7 +160,9 @@ export function CmeSetupPage({
         </p>
 
         <section data-testid="cme-setup-preset" className={cn(cardSurface, "p-4")}>
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Preset {CME_PRESET_VERSION}</p>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Starting preset: {describeConfirmedSource(CME_PRESET_VERSION)}
+          </p>
           <ul className="mt-2 space-y-1 text-xs text-[color:var(--text-muted)]">
             {CME_PRESET_SOURCES.map((source) => (
               <li key={source.url}>
