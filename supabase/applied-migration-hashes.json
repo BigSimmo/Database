@@ -1,7 +1,7 @@
 {
   "note": "sha256 of every migration this repository has shipped, with newlines normalised. An entry whose hash changes means an applied migration was edited, which cannot reach the live database. See scripts/check-migration-immutability.mjs.",
   "generator": "scripts/check-migration-immutability.mjs",
-  "sealed_at": "2026-09-25T16:15:49.825Z",
+  "sealed_at": "2026-09-26T05:07:58.656Z",
   "versions": {
     "20260527000000_bulk_ingestion.sql": "813e8e314064a6dcbaaa55e2765a8ce901d5783b304b4a7af7bb7417a07daf7c",
     "20260527001000_documents_policy_cleanup.sql": "559c26f3172bf75e545a41adef75538b2bf648ea7d53c8eb3d3ea7c244c65a48",
@@ -271,6 +271,7 @@
     "20260924130000_cme_evidence_removal.sql": "9dbcd099989a028d6931549d740f0f72a3c86882af77fb805de895f7e6d10a2d",
     "20260925064000_cme_year_close.sql": "a0acf3cb8887917820cce94870fa44e01883a1f55cb17a3a124f7e64bc86d2d1",
     "20260925102600_cme_plan_goals.sql": "43f7ab0944d60ac183b85472b981d94cb6f2607345e791622913fb6e57ddb59c",
-    "20260925160000_calendar_feed_tokens.sql": "32e6fec4ac15b53910a5d6f277aa694e3986100a3512333484d633609d092436"
+    "20260925160000_calendar_feed_tokens.sql": "32e6fec4ac15b53910a5d6f277aa694e3986100a3512333484d633609d092436",
+    "20260926051500_on_call_shifts.sql": "7d503bd4bba6cfb2aed9250030a58e5fa86cd07a60345428103e9133d96f08c9"
   }
 }

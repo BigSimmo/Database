@@ -2536,6 +2536,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      on_call_shifts: {
+        Row: {
+          created_at: string;
+          ends_at: string;
+          id: string;
+          location: string | null;
+          owner_id: string;
+          source_uid: string | null;
+          starts_at: string;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          ends_at: string;
+          id?: string;
+          location?: string | null;
+          owner_id: string;
+          source_uid?: string | null;
+          starts_at: string;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          ends_at?: string;
+          id?: string;
+          location?: string | null;
+          owner_id?: string;
+          source_uid?: string | null;
+          starts_at?: string;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      on_call_shift_imports: {
+        Row: {
+          added: number;
+          changed: number;
+          changes: Json;
+          format: string;
+          id: string;
+          imported_at: string;
+          owner_id: string;
+          removed: number;
+          seen_at: string | null;
+          window_end: string;
+          window_start: string;
+        };
+        Insert: {
+          added?: number;
+          changed?: number;
+          changes?: Json;
+          format: string;
+          id?: string;
+          imported_at?: string;
+          owner_id: string;
+          removed?: number;
+          seen_at?: string | null;
+          window_end: string;
+          window_start: string;
+        };
+        Update: {
+          added?: number;
+          changed?: number;
+          changes?: Json;
+          format?: string;
+          id?: string;
+          imported_at?: string;
+          owner_id?: string;
+          removed?: number;
+          seen_at?: string | null;
+          window_end?: string;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
       cme_plan_goals: {
         Row: {
           created_at: string;
@@ -3676,6 +3754,20 @@ export type Database = {
       calendar_feed_rotate: { Args: { p_owner_id: string; p_token_hash: string }; Returns: undefined };
       calendar_feed_revoke: { Args: { p_owner_id: string }; Returns: undefined };
       calendar_feed_owner: { Args: { p_token_hash: string }; Returns: string | null };
+      on_call_shifts_replace: {
+        Args: {
+          p_owner_id: string;
+          p_window_start: string;
+          p_window_end: string;
+          p_format: string;
+          p_shifts: Json;
+          p_changes: Json;
+          p_added: number;
+          p_changed: number;
+          p_removed: number;
+        };
+        Returns: string;
+      };
       cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
       cme_save_plan_goals: { Args: { p_owner_id: string; p_year_id: string; p_goals: Json }; Returns: Json };
       cme_set_entry_goal: { Args: { p_owner_id: string; p_entry_id: string; p_goal_id: string | null }; Returns: Json };
