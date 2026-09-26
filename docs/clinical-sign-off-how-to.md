@@ -206,9 +206,10 @@ catalogue order. Confirm each one by typing `REVIEW` and its short name, which t
 npm run therapy:review -- --write --walk --reviewed-by "Dr <your surname>"
 ```
 
-47 Therapy records list no references yet. The tool says so before you start on one. Answer
-`no` to "source correspondence" for those, and they stay awaiting review until a source is
-adopted for them.
+47 Therapy records list no references yet. The walk-through leaves them out, because the
+source correspondence question cannot be answered yes without a source; they stay awaiting
+review until one is adopted. Type `skip` at any question to move on to the next record
+without saving the one on screen.
 
 ## Saving and sending your sign-offs
 

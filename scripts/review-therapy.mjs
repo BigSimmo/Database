@@ -106,20 +106,28 @@ export function parseTherapyReviewArgs(argv) {
   return args;
 }
 
-/** Records still awaiting a clinician sign-off, in catalogue order. */
-export function therapyWalkQueue(records) {
-  return records.filter((record) => record.reviewStatus !== "reviewed").map((record) => record.slug);
-}
-
 /**
  * The Source correspondence check asks the reviewer to compare the record with its
- * references. A record with none cannot honestly pass it, so say so before the reader
- * spends time on the first six screens.
+ * references. A record that lists none cannot honestly pass it, so it cannot be signed
+ * off until a source is added.
  */
-export function therapySourceWarning(record) {
+export function therapyHasReferences(record) {
   const references = Array.isArray(record.references) ? record.references.join(" ") : String(record.references ?? "");
-  if (references.trim()) return null;
-  return "Note: this record lists no references, so the Source correspondence check has nothing to compare against.";
+  return references.trim().length > 0;
+}
+
+/** Records the walk offers, in catalogue order: awaiting review, with references to check against. */
+export function therapyWalkQueue(records) {
+  return records
+    .filter((record) => record.reviewStatus !== "reviewed" && therapyHasReferences(record))
+    .map((record) => record.slug);
+}
+
+/** Records awaiting review that list no references, so cannot be signed off yet. */
+export function therapyNeedsSource(records) {
+  return records
+    .filter((record) => record.reviewStatus !== "reviewed" && !therapyHasReferences(record))
+    .map((record) => record.slug);
 }
 
 function writeLine(output, value = "") {
@@ -157,6 +165,7 @@ function normalizeAnswer(value) {
   if (answer === "yes") return true;
   if (answer === "no") return false;
   if (answer === "quit" || answer === "q") return "quit";
+  if (answer === "skip") return "skip";
   return null;
 }
 
@@ -174,11 +183,15 @@ export async function conductTherapyReview({ record, reviewedBy, ask, commit, no
     let decision = null;
     while (decision === null) {
       decision = normalizeAnswer(
-        await ask(`\nEnter yes only if you personally attest "${check.label}"; otherwise enter no or quit: `),
+        await ask(`\nEnter yes only if you personally attest "${check.label}"; otherwise enter no, skip or quit: `),
       );
-      if (decision === null) writeLine(output, "Enter exactly yes, no, or quit.");
+      if (decision === null) writeLine(output, "Enter exactly yes, no, skip, or quit.");
     }
     if (decision === "quit") return { status: "quit", record };
+    if (decision === "skip") {
+      writeLine(output, "Skipped. Nothing was changed for this record.");
+      return { status: "skipped", record };
+    }
     answers[check.key] = decision;
   }
 
@@ -447,6 +460,18 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     if (record.reviewStatus === "reviewed") {
       throw new Error(`${args.slug} is already reviewed; this tool will not overwrite an existing attestation.`);
     }
+    if (!therapyHasReferences(record)) {
+      throw new Error(
+        `${args.slug} lists no references, so the Source correspondence check cannot be attested. Add a source first.`,
+      );
+    }
+  }
+  const needsSource = args.walk ? therapyNeedsSource(records) : [];
+  if (needsSource.length) {
+    writeLine(
+      output,
+      `${needsSource.length} records list no references yet, so they are left out of this walk until a source is added.`,
+    );
   }
   if (slugs.length === 0) {
     writeLine(output, "Nothing waiting: every Therapy record is already signed off.");
@@ -460,9 +485,11 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   );
   const signed = [];
   const skipped = [];
+  let reached = 0;
   const prompt = createPrompt({ input, output });
   try {
     for (const [position, slug] of slugs.entries()) {
+      reached = position + 1;
       // Re-read before every record: each sign-off rewrites the source, so every save
       // is checked against the file as it is now, never against a stale copy.
       const current = position === 0 ? { raw, records } : readCanonicalSource();
@@ -479,8 +506,6 @@ export async function main(argv = process.argv.slice(2), io = {}) {
         writeLine(output, `${record.slug} - ${record.name}  (${position + 1} of ${slugs.length})`);
         writeLine(output, "=".repeat(60));
       }
-      const warning = therapySourceWarning(record);
-      if (warning) writeLine(output, warning);
       const result = await conductTherapyReview({
         record,
         reviewedBy: args.reviewedBy,
@@ -497,6 +522,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
         writeLine(output, `Recorded local clinician sign-off for ${slug}; generated Therapy assets are current.`);
       } else if (result.status === "quit") {
         writeLine(output, "Stopped. Nothing was saved for this record.");
+        reached = position;
         break;
       } else {
         skipped.push(slug);
@@ -506,9 +532,11 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   } finally {
     prompt.close();
     if (args.walk) {
+      const notReached = slugs.length - reached;
       writeLine(output);
       writeLine(output, `Signed off this session: ${signed.length ? signed.join(", ") : "none"}.`);
       if (skipped.length) writeLine(output, `Left unsigned: ${skipped.join(", ")}.`);
+      if (notReached > 0) writeLine(output, `Not reached yet: ${notReached}. The next walk starts with them.`);
     }
   }
 }

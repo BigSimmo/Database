@@ -30,7 +30,7 @@ import { conceptReviewState, mechanismReviewState } from "@/lib/formulation-revi
 const NOW = new Date("2026-09-26T06:00:00.000Z");
 const REVIEWED_AT = "2026-09-25T05:00:00.000Z";
 const REVIEWER = "Dr Clinical Owner";
-const context = { curated: curatedDifferentials };
+const context = { curated: curatedDifferentials, sourceLibrary: formulationContent.sourceLibrary };
 
 type Json = Record<string, unknown>;
 const clone = <T>(value: T): T => structuredClone(value);
@@ -117,13 +117,15 @@ describe("Formulation guide and concept sign-off", () => {
     expect(conceptReviewState(after as never)).toMatchObject({ reviewed: true, detail: `Reviewed by ${REVIEWER}.` });
   });
 
-  it("catches an edit to signed text, but not a search-term tweak", () => {
+  it("catches an edit to signed text, including search terms, which reach the public site content", () => {
     const next = sign("formulation-concept", formulationConcepts, "hopelessness").after as typeof formulationConcepts;
     const view = () => collectionOf("formulation-concept", next).find((record: Json) => record.id === "hopelessness");
     expect(recordPinState(view(), "formulation-concept")).toBe("current");
 
-    next.concepts.find((concept) => concept.id === "hopelessness")!.searchTerms.push("despair");
-    expect(recordPinState(view(), "formulation-concept")).toBe("current");
+    const edited = clone(next);
+    edited.concepts.find((concept) => concept.id === "hopelessness")!.searchTerms.push("despair");
+    const editedView = collectionOf("formulation-concept", edited).find((record: Json) => record.id === "hopelessness");
+    expect(recordPinState(editedView, "formulation-concept")).toBe("stale");
 
     next.concepts.find((concept) => concept.id === "hopelessness")!.summary += " Edited.";
     expect(recordPinState(view(), "formulation-concept")).toBe("stale");
@@ -151,9 +153,20 @@ describe("Formulation mechanism sign-off", () => {
     expect(state.reviewed).toBe(true);
     expect(state.detail).toBe(`Reviewed by ${REVIEWER}.`);
     expect(state.detail).not.toMatch(/pending/);
-    expect(reviewProblems(collectionOf("formulation-mechanism", next), "formulation-mechanism", { now: NOW })).toEqual(
-      [],
-    );
+    expect(
+      reviewProblems(collectionOf("formulation-mechanism", next), "formulation-mechanism", { ...context, now: NOW }),
+    ).toEqual([]);
+  });
+
+  it("pins the source library entries the page lists, so a library edit sends it back for review", () => {
+    const next = sign("formulation-mechanism", formulationContent, "avoidance").after as typeof formulationContent;
+    const view = collectionOf("formulation-mechanism", next).find((record: Json) => record.id === "avoidance");
+    expect(recordPinState(view, "formulation-mechanism", context)).toBe("current");
+
+    const library = clone(formulationContent.sourceLibrary) as Record<string, { url: string }>;
+    const firstSource = (view.sources as string[])[0];
+    library[firstSource].url = "https://example.org/moved";
+    expect(recordPinState(view, "formulation-mechanism", { sourceLibrary: library })).toBe("stale");
   });
 });
 

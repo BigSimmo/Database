@@ -50,8 +50,10 @@ import { publicReviewerAttributionProblem } from "./therapy-review-contract.mjs"
  *   differential           data/differential-curated-review.json, one row per locally
  *                          authored overlay in src/lib/differential-curated.ts
  *
- *   formulation-*  every field of the record except its review state and `searchTerms`
- *                  (search-only metadata, like the forms' aliases).
+ *   formulation-*  every field of the record except its review state. `searchTerms` is
+ *                  included: guide search terms reach the public site-content body. A
+ *                  mechanism also pins the `sourceLibrary` entries its `sources` ids
+ *                  resolve to, because the page renders their titles and links.
  *   differential   the review row's slug PLUS the whole authored overlay entry for that
  *                  slug, read from src/lib/differential-curated.ts.
  *
@@ -347,12 +349,21 @@ function catalogForms(catalog) {
 const withoutMetadata = (record) =>
   Object.fromEntries(Object.entries(record).filter(([key]) => !REVIEW_METADATA_KEYS.includes(key)));
 
-/** Search-only metadata on a Formulation record: shown to nobody, so not attested. */
-const FORMULATION_UNATTESTED_KEYS = Object.freeze(["searchTerms"]);
-const withoutFormulationMetadata = (record) =>
-  Object.fromEntries(
-    Object.entries(withoutMetadata(record)).filter(([key]) => !FORMULATION_UNATTESTED_KEYS.includes(key)),
-  );
+/**
+ * The `sourceLibrary` entries a mechanism's `sources` ids resolve to. The mechanism page
+ * renders their titles and links, so a library edit must break the mechanism's pin too.
+ * An id the library does not hold is pinned as null, which is what the page shows: nothing.
+ */
+function resolvedMechanismSources(record, context) {
+  const library = context?.sourceLibrary;
+  if (!isPlainRecord(library)) {
+    throw new TypeError(
+      "A mechanism sign-off needs the Formulation sourceLibrary (src/data/formulation-content.json).",
+    );
+  }
+  const ids = Array.isArray(record.sources) ? record.sources : [];
+  return ids.map((id) => (isPlainRecord(library[id]) ? library[id] : null));
+}
 
 /** The native pending value becomes `drafted`; anything unrecognised stays as-is and fails validation. */
 const nativeStatusToView = (status) => (status === "clinical_review_required" ? "drafted" : status);
@@ -438,7 +449,7 @@ const FORMULATION_RECORD_KIND = {
   checklist: SIGN_OFF_QUESTIONS,
   view: formulationRecordView,
   unview: formulationRecordUnview,
-  attested: (record) => withoutFormulationMetadata(record),
+  attested: (record) => withoutMetadata(record),
 };
 
 export const recordKinds = Object.freeze({
@@ -517,7 +528,10 @@ export const recordKinds = Object.freeze({
     checklist: SIGN_OFF_QUESTIONS,
     view: formulationMechanismView,
     unview: formulationMechanismUnview,
-    attested: (record) => withoutFormulationMetadata(record),
+    attested: (record, context) => ({
+      ...withoutMetadata(record),
+      resolvedSources: resolvedMechanismSources(record, context),
+    }),
   }),
   "formulation-concept": Object.freeze({
     ...FORMULATION_RECORD_KIND,

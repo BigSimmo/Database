@@ -239,18 +239,13 @@ function titleForSlug(context, slug) {
   return context.titles?.[slug] ?? slug;
 }
 
-const FORMULATION_HIDDEN_FIELDS = new Set([
-  "id",
-  "status",
-  "reviewedBy",
-  "reviewedAt",
-  "reviewedContentSha256",
-  "searchTerms",
-]);
+const FORMULATION_HIDDEN_FIELDS = new Set(["id", "status", "reviewedBy", "reviewedAt", "reviewedContentSha256"]);
 
 /** A guide module's blocks as readable text: headings, paragraphs and list items. */
 function guideBlocksText(blocks) {
-  const spansText = (spans) => (Array.isArray(spans) ? spans.map((span) => span?.text ?? "").join("") : "");
+  // A citation span renders as a marker linked to the evidence entry with that label.
+  const spanText = (span) => (span?.citation ? ` [${span.citation}]` : (span?.text ?? ""));
+  const spansText = (spans) => (Array.isArray(spans) ? spans.map(spanText).join("") : "");
   return blocks
     .map((block) => {
       if (block?.kind === "heading") return `\n## ${block.text ?? ""}`;
@@ -261,23 +256,43 @@ function guideBlocksText(blocks) {
     .join("\n");
 }
 
+/** Each evidence entry as the page's EvidenceList shows it: label, title, detail line, limitations, link state. */
 function evidenceText(evidence) {
-  return evidence.map((entry) =>
-    [entry?.title, entry?.issuer, entry?.locator, entry?.relationship].filter(Boolean).join(" | "),
-  );
+  return evidence.map((entry) => {
+    const lines = [`[${entry?.label ?? "?"}] ${entry?.title ?? ""}`];
+    const detail = [entry?.issuer, entry?.identifier, entry?.locator].filter(Boolean).join(" | ");
+    if (detail) lines.push(`    ${detail}`);
+    for (const limitation of entry?.limitations ?? []) lines.push(`    Limitation: ${limitation}`);
+    if (entry?.admission === "held")
+      lines.push("    Link withheld: this source remains held and is cited as metadata only.");
+    else if (entry?.urlStatus === "host_not_governed") {
+      lines.push("    Link withheld: this publisher's host is not on the governed source list.");
+    } else if (entry?.url) lines.push(`    Link: ${entry.url}`);
+    return lines.join("\n");
+  });
 }
 
 /**
  * A Formulation record, every attested field in file order, with the guide blocks and
  * evidence references made readable. Everything shown is inside the content pin.
  */
-function formulationDisplay(record) {
+function formulationDisplay(record, context) {
   const rows = [["Record", `${record.title ?? record.name ?? record.id} (${record.id})`]];
   for (const [key, value] of Object.entries(record)) {
     if (FORMULATION_HIDDEN_FIELDS.has(key)) continue;
     if (key === "blocks" && Array.isArray(value)) rows.push(["Guide text", guideBlocksText(value)]);
     else if (key === "evidence" && Array.isArray(value)) rows.push(["Evidence", evidenceText(value)]);
-    else rows.push([key, value]);
+    else if (key === "sources" && Array.isArray(value) && context?.sourceLibrary) {
+      rows.push([
+        "Sources (as the page lists them)",
+        value.map((id) => {
+          const entry = context.sourceLibrary[id];
+          return entry
+            ? `${entry.title}\n    ${entry.url ?? "(no link)"}`
+            : `${id} (not in the source library; not shown)`;
+        }),
+      ]);
+    } else rows.push([key, value]);
   }
   return rows;
 }
@@ -393,6 +408,9 @@ async function loadContext(kind, root) {
     const snapshot = readJson(join(root, "data", "differentials-snapshot.json"));
     const titles = Object.fromEntries((snapshot.diagnoses ?? []).map((entry) => [entry.slug, entry.title]));
     return { curated: curatedDifferentials, titles };
+  }
+  if (kind === "formulation-mechanism") {
+    return { sourceLibrary: readJson(join(root, "src", "data", "formulation-content.json")).sourceLibrary };
   }
   if (kind.startsWith("formulation-")) return {};
   const actPath = join(root, "data", "mha-2014-sections.source.json");

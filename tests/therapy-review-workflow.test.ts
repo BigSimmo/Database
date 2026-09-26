@@ -17,7 +17,8 @@ import {
   conductTherapyReview,
   parseTherapyReviewArgs,
   persistTherapyReviewTransaction,
-  therapySourceWarning,
+  therapyHasReferences,
+  therapyNeedsSource,
   therapyWalkQueue,
   writeTherapySourceAtomically,
 } from "../scripts/review-therapy.mjs";
@@ -377,20 +378,36 @@ describe("Therapy clinician-input workflow", () => {
     expect(() => parseTherapyReviewArgs(["--write", "--walk", "--walk"])).toThrow(/once/);
   });
 
-  it("walks only records still awaiting review, in catalogue order", () => {
+  it("walks only records awaiting review that have references, in catalogue order", () => {
     const records = [
-      { slug: "a", reviewStatus: "needs_review" },
-      { slug: "b", reviewStatus: "reviewed" },
-      { slug: "c", reviewStatus: "needs_review" },
+      { slug: "a", reviewStatus: "needs_review", references: "RANZCP PS #54" },
+      { slug: "b", reviewStatus: "reviewed", references: "NICE CG90" },
+      { slug: "c", reviewStatus: "needs_review", references: "  " },
+      { slug: "d", reviewStatus: "needs_review", references: "APA 2019" },
     ];
-    expect(therapyWalkQueue(records)).toEqual(["a", "c"]);
+    expect(therapyWalkQueue(records)).toEqual(["a", "d"]);
+    expect(therapyNeedsSource(records)).toEqual(["c"]);
   });
 
-  it("warns before review when a record has no references to compare against", () => {
-    expect(therapySourceWarning({ references: "" })).toMatch(/no references/);
-    expect(therapySourceWarning({ references: "   " })).toMatch(/no references/);
-    expect(therapySourceWarning({})).toMatch(/no references/);
-    expect(therapySourceWarning({ references: "RANZCP PS #54" })).toBeNull();
+  it("treats a record with no references as unable to pass Source correspondence", () => {
+    expect(therapyHasReferences({ references: "" })).toBe(false);
+    expect(therapyHasReferences({ references: "   " })).toBe(false);
+    expect(therapyHasReferences({})).toBe(false);
+    expect(therapyHasReferences({ references: "RANZCP PS #54" })).toBe(true);
+  });
+
+  it("skips one record on request without committing", async () => {
+    const commit = vi.fn();
+    const result = await conductTherapyReview({
+      record: pendingRecord(),
+      reviewedBy: "Clinical Governance Committee",
+      ask: sequenceAsk(["yes", "skip"]),
+      commit,
+      now: () => NOW,
+      output: outputSink(),
+    });
+    expect(result.status).toBe("skipped");
+    expect(commit).not.toHaveBeenCalled();
   });
 
   it("refuses a non-TTY walk before changing the source", () => {
