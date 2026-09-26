@@ -5,8 +5,17 @@ import { createHash } from "node:crypto";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import {
+  describeReviewDateScope,
+  printReviewDateWarnings,
+  referencePath,
+  reportExpiredReviewDate,
+  resolveReviewDateScope,
+} from "./organisation/review-date-scope.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const manifestPath = resolve(root, "docs/clinical-hazard-controls.json");
+export const HAZARD_REGISTER_PATH = "docs/clinical-hazard-controls.json";
+const manifestPath = resolve(root, HAZARD_REGISTER_PATH);
 const states = new Set(["controlled", "partial", "open", "accepted_decision"]);
 const requiredHazards = ["H1", "H2", "H3", "H4", "H5", "H6"];
 const requiredDecisions = ["CLINICAL-TRUTH-AUTHORITY", "EXTERNAL-RISK-ACCEPTANCE"];
@@ -132,6 +141,41 @@ export function reviewedContentDigest(contents) {
   return createHash("sha256").update(contents.replace(/\r\n/g, "\n")).digest("hex");
 }
 
+function stringsOf(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+/**
+ * The repository paths one hazard or assurance decision covers: what its review vouches for. An
+ * expired review of this entry blocks a pull request that touches any of them (or the register).
+ *
+ * @param {any} entry
+ * @returns {string[]}
+ */
+export function hazardEntryCoveredPaths(entry) {
+  const paths = [
+    ...stringsOf(entry?.controlPaths),
+    ...stringsOf(entry?.tests),
+    ...stringsOf(entry?.evidenceReferences),
+    ...stringsOf([entry?.acceptanceReference]),
+  ];
+  return [...new Set(paths.map(referencePath).filter(Boolean))].sort();
+}
+
+/**
+ * Everything the register as a whole covers: the scope of its manifest-level review.
+ *
+ * @param {any} manifest
+ * @returns {string[]}
+ */
+export function hazardRegisterCoveredPaths(manifest) {
+  const entries = [
+    ...(Array.isArray(manifest?.hazards) ? manifest.hazards : []),
+    ...(Array.isArray(manifest?.assuranceDecisions) ? manifest.assuranceDecisions : []),
+  ];
+  return [...new Set(entries.flatMap(hazardEntryCoveredPaths))].sort();
+}
+
 /** Every path any entry cites, which is exactly what the digest map must cover. */
 export function citedRegisterPaths(manifest) {
   const paths = new Set();
@@ -221,8 +265,16 @@ const DRIFT_EXCEPTION_MAX_DAYS = 45;
  * them. The original worry about a blocking gate still holds, that it would push people to re-seal
  * reflexively, so there is a second route: record an exception with a reason, an author and an
  * expiry at most 45 days out. An intended change can land. An unreviewed one cannot linger unseen.
+ *
+ * An EXPIRED exception is the one date finding that pull-request mode can demote (see
+ * scripts/organisation/review-date-scope.mjs): on a pull request that touches neither this register
+ * nor the exception's own path it is a warning, and the exception keeps covering its path for that
+ * run, because the drift it records is already on main and is not this change's doing. On a pull
+ * request that touches either, and in every strict run, it blocks and stops covering the path, so
+ * the drift fails too, exactly as before. The 45-day cap and a future recordedOn always block.
  */
-function validateDriftExceptions(errors, manifest, drifted, today) {
+function validateDriftExceptions(findings, manifest, drifted, today) {
+  const { errors } = findings;
   const exceptions = Array.isArray(manifest?.driftExceptions) ? manifest.driftExceptions : [];
   const covered = new Set();
   exceptions.forEach((exception, index) => {
@@ -246,11 +298,13 @@ function validateDriftExceptions(errors, manifest, drifted, today) {
     }
     if (exception.recordedOn > today) errors.push(`${label}: recordedOn is in the future`);
     if (exception.expiresOn < today) {
-      errors.push(
+      const blocking = reportExpiredReviewDate(
+        findings,
         `${label}: drift exception has expired on ${exception.expiresOn}. Re-review the change and run ` +
           "npm run governance:seal-hazard-controls.",
+        [path],
       );
-      return;
+      if (blocking) return;
     }
     covered.add(path);
   });
@@ -280,14 +334,15 @@ function validateDriftExceptions(errors, manifest, drifted, today) {
   }
 }
 
-function validateReviewDates(errors, reviewedAt, reviewExpiresAt, label, today) {
+function validateReviewDates(findings, reviewedAt, reviewExpiresAt, label, today, coveredPaths) {
+  const { errors } = findings;
   if (!validDate(reviewedAt) || !validDate(reviewExpiresAt)) {
     errors.push(`${label}: review dates must be ISO dates`);
     return;
   }
   if (reviewExpiresAt < reviewedAt) errors.push(`${label}: reviewExpiresAt precedes reviewedAt`);
   if (reviewedAt > today) errors.push(`${label}: reviewedAt is in the future`);
-  if (reviewExpiresAt < today) errors.push(`${label}: review has expired`);
+  if (reviewExpiresAt < today) reportExpiredReviewDate(findings, `${label}: review has expired`, coveredPaths);
 }
 
 function validatePath(errors, value, label, reviewedCommit, { checkFiles, checkGit }) {
@@ -302,11 +357,38 @@ function validatePath(errors, value, label, reviewedCommit, { checkFiles, checkG
   return resolved;
 }
 
-export function validateClinicalHazardControls(
+/**
+ * Validate the register and return the blocking errors. Findings that pull-request mode demotes
+ * (an expired review date on a change that touches neither this register nor a covered path) are
+ * printed as warnings, never dropped; use evaluateClinicalHazardControls to receive them instead.
+ *
+ * @param {any} manifest
+ * @param {{ checkFiles?: boolean, checkGit?: boolean, now?: Date | string | number,
+ *   reviewDateScope?: import("./organisation/review-date-scope.mjs").ReviewDateScope | null }} [options]
+ * @returns {string[]}
+ */
+export function validateClinicalHazardControls(manifest, options = {}) {
+  const { errors, warnings } = evaluateClinicalHazardControls(manifest, options);
+  for (const warning of warnings) console.warn(`CLINICAL_HAZARD_CONTROLS_REVIEW_DATE_WARNING: ${warning}`);
+  return errors;
+}
+
+/**
+ * The same validation, returning blocking `errors` and non-blocking `warnings` separately.
+ * `reviewDateScope` defaults to strict: every expired date blocks, as it always has.
+ *
+ * @param {any} manifest
+ * @param {{ checkFiles?: boolean, checkGit?: boolean, now?: Date | string | number,
+ *   reviewDateScope?: import("./organisation/review-date-scope.mjs").ReviewDateScope | null }} [options]
+ * @returns {{ errors: string[], warnings: string[] }}
+ */
+export function evaluateClinicalHazardControls(
   manifest,
-  { checkFiles = true, checkGit = checkFiles, now = new Date() } = {},
+  { checkFiles = true, checkGit = checkFiles, now = new Date(), reviewDateScope = null } = {},
 ) {
   const errors = [];
+  const warnings = [];
+  const findings = { errors, warnings, scope: reviewDateScope, registerPath: HAZARD_REGISTER_PATH };
   const today = todayIso(now);
   if (manifest?.schemaVersion !== 1) errors.push("schemaVersion must be 1");
   // Decide once, not per entry: every entry is required to pin the manifest's commit, so
@@ -335,9 +417,16 @@ export function validateClinicalHazardControls(
         "so the register's claims were checked against the recorded digests instead.",
     );
   }
-  if (checkFiles) validateDriftExceptions(errors, manifest, contentProof.drifted, today);
+  if (checkFiles) validateDriftExceptions(findings, manifest, contentProof.drifted, today);
   validateCommit(errors, manifest?.reviewedCommit, "manifest", checkGit, contentProven);
-  validateReviewDates(errors, manifest?.reviewedAt, manifest?.reviewExpiresAt, "manifest", today);
+  validateReviewDates(
+    findings,
+    manifest?.reviewedAt,
+    manifest?.reviewExpiresAt,
+    "manifest",
+    today,
+    hazardRegisterCoveredPaths(manifest),
+  );
   const hazards = Array.isArray(manifest?.hazards) ? manifest.hazards : [];
   const ids = new Set();
   for (const hazard of hazards) {
@@ -348,7 +437,14 @@ export function validateClinicalHazardControls(
     if (!hazard.owner || !hazard.residualRisk) errors.push(`${label}: owner and residualRisk are required`);
     validateCommit(errors, hazard.reviewedCommit, label, checkGit, contentProven);
     if (hazard.reviewedCommit !== manifest.reviewedCommit) errors.push(`${label}: reviewedCommit must match manifest`);
-    validateReviewDates(errors, hazard.reviewedAt, hazard.reviewExpiresAt, label, today);
+    validateReviewDates(
+      findings,
+      hazard.reviewedAt,
+      hazard.reviewExpiresAt,
+      label,
+      today,
+      hazardEntryCoveredPaths(hazard),
+    );
     for (const field of ["controlSymbols", "controlPaths", "tests"]) {
       if (!Array.isArray(hazard[field]) || hazard[field].some((value) => typeof value !== "string" || !value.trim())) {
         errors.push(`${label}: ${field} must be an array of non-empty strings`);
@@ -418,7 +514,14 @@ export function validateClinicalHazardControls(
     validateCommit(errors, decision.reviewedCommit, decision.id, checkGit, contentProven);
     if (decision.reviewedCommit !== manifest.reviewedCommit)
       errors.push(`${decision.id}: reviewedCommit must match manifest`);
-    validateReviewDates(errors, decision.reviewedAt, decision.reviewExpiresAt, decision.id, today);
+    validateReviewDates(
+      findings,
+      decision.reviewedAt,
+      decision.reviewExpiresAt,
+      decision.id,
+      today,
+      hazardEntryCoveredPaths(decision),
+    );
     if (!Array.isArray(decision.evidenceReferences) || decision.evidenceReferences.length === 0) {
       errors.push(`${decision.id}: evidenceReferences must be non-empty`);
     }
@@ -460,7 +563,7 @@ export function validateClinicalHazardControls(
   ) {
     errors.push("external risk acceptance closure requires acceptanceReference and acceptedByRole");
   }
-  return errors;
+  return { errors, warnings };
 }
 
 /**
@@ -520,14 +623,19 @@ function main() {
         "to prove them; every file, symbol, test-reference and date check below still ran.",
     );
   }
-  const errors = validateClinicalHazardControls(manifest, { checkGit: !shallow });
+  // Strict unless pull-request CI asks for pr mode explicitly (REVIEW_DATE_MODE=pr with BASE_SHA and
+  // HEAD_SHA); see scripts/organisation/review-date-scope.mjs. Local runs, main and release stay strict.
+  const reviewDateScope = resolveReviewDateScope({ env: process.env, root });
+  const { errors, warnings } = evaluateClinicalHazardControls(manifest, { checkGit: !shallow, reviewDateScope });
+  printReviewDateWarnings("CLINICAL_HAZARD_CONTROLS", reviewDateScope, warnings);
   if (errors.length) {
-    console.error("CLINICAL_HAZARD_CONTROLS_FAIL");
+    console.error(`CLINICAL_HAZARD_CONTROLS_FAIL ${describeReviewDateScope(reviewDateScope)}`);
     for (const error of errors) console.error(`- ${error}`);
     process.exit(1);
   }
   console.log(
-    `CLINICAL_HAZARD_CONTROLS_PASS hazards=${manifest.hazards.length} decisions=${manifest.assuranceDecisions.length}`,
+    `CLINICAL_HAZARD_CONTROLS_PASS hazards=${manifest.hazards.length} decisions=${manifest.assuranceDecisions.length} ` +
+      `${describeReviewDateScope(reviewDateScope)} expired-not-blocking=${warnings.length}`,
   );
 }
 
