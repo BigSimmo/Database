@@ -1477,6 +1477,7 @@
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/psychiatry/psychiatry-home.tsx",
         "src/components/specifiers/specifier-compare-page.tsx",
         "src/components/specifiers/specifier-map-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
@@ -1495,6 +1496,7 @@
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/psychiatry/psychiatry-home.tsx",
         "src/components/specifiers/specifier-compare-page.tsx",
         "src/components/specifiers/specifier-map-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
@@ -2715,6 +2717,7 @@
         "src/app/(search-app)/on-call/referrals/page.tsx",
         "src/app/(search-app)/on-call/service/page.tsx",
         "src/app/(search-app)/on-call/who-is-who/page.tsx",
+        "src/app/(search-app)/psychiatry/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
         "src/app/(search-app)/services/search/page.tsx",
@@ -3255,6 +3258,16 @@
         },
         {
           "file": "src/app/(search-app)/on-call/who-is-who/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/psychiatry/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4650,6 +4663,7 @@
       "src/app/(search-app)/on-call/service/page.tsx",
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
+      "src/app/(search-app)/psychiatry/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
       "src/app/(search-app)/services/search/page.tsx",
@@ -4765,6 +4779,7 @@
       "src/app/(search-app)/on-call/service/page.tsx",
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
+      "src/app/(search-app)/psychiatry/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
       "src/app/(search-app)/services/search/page.tsx",
@@ -4812,7 +4827,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 120,
+    "inheritedCkbV2RootCount": 121,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4821,8 +4836,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 121,
-    "productionRouteCount": 113,
-    "nextUiEntryCount": 178
+    "rootCount": 122,
+    "productionRouteCount": 114,
+    "nextUiEntryCount": 180
   }
 }
