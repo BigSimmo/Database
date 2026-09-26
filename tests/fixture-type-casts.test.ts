@@ -135,6 +135,9 @@ describe("fixture type cast discipline (#WRZJVR / #AQXXD8)", () => {
     const allViolations: DoubleCastFinding[] = [];
     for (const filePath of testFiles) {
       const code = readFileSync(filePath, "utf8");
+      // Parsing every test file took ~30 s under coverage, at the edge of the test timeout. A
+      // violation needs a forbidden type name in the text, so files without one skip the parse.
+      if (![...FORBIDDEN_DOMAIN_CAST_TARGETS].some((target) => code.includes(target))) continue;
       const relativePath = relative(process.cwd(), filePath).replace(/\\/g, "/");
       const violations = findDoubleCastViolations(code, relativePath);
       allViolations.push(...violations);
