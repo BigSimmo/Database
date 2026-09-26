@@ -5,14 +5,20 @@
       "kind": "interpreter",
       "text": "The Mental Health Act 2014 (WA) s 9(2) says: \"Any communication with a person under this Act must be in a language, form of communication and terms that the person is likely to understand using any means of communication that is practicable and using an interpreter if necessary and practicable.\" This is a general duty that applies to every step this referral and examination pathway sets in motion.",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "8e14f2df4f8932a95a74bdc34f5e666f9ea9c124ad7bcc9123aaabc3f18bc073"
     },
     {
       "formCode": "1A",
       "kind": "interpreter",
       "text": "The WA Health Language Services Guidelines (supporting policy MP 0051/17) say telephone interpreting \"is not suitable for ... interviews of a sensitive or complex nature, such as mental health, family and domestic violence or legal matters\".",
       "sourceId": "wa-health-language-services-guidelines-2025",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "df028d7994fde26860c96dc45bd19f042bf5e0cfee24d6147c01d7b9871d62e6"
     },
     {
       "formCode": "1A",
@@ -33,14 +39,20 @@
       "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "6ab40e057633fc2484ffa5fa0de25bdb512990a60cb4c65d9daceafd1e6b048d"
     },
     {
       "formCode": "3A",
       "kind": "interpreter",
       "text": "The Mental Health Act 2014 (WA) s 9(2) says: \"Any communication with a person under this Act must be in a language, form of communication and terms that the person is likely to understand using any means of communication that is practicable and using an interpreter if necessary and practicable.\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "f028f105f1e1ee24c025258e6f85aacee1196efccc307858bb4d6816e501ee1e"
     },
     {
       "formCode": "3A",
@@ -61,14 +73,20 @@
       "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "5b714383c0c67b24a5b61671e4984d47a582a9f3c8bf5e2699e6672aa75e1bf2"
     },
     {
       "formCode": "3B",
       "kind": "interpreter",
       "text": "The Mental Health Act 2014 (WA) s 9(2) says: \"Any communication with a person under this Act must be in a language, form of communication and terms that the person is likely to understand using any means of communication that is practicable and using an interpreter if necessary and practicable.\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "30a8f945f3d9e30d22b508d0cf6efd139637e3ff483eec5339a20e326a1f941f"
     },
     {
       "formCode": "3B",
@@ -82,14 +100,20 @@
       "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "3c86829d50a5d88e66efe63399404ff92a79be67e7c8d49b7cb412926f8a519e"
     },
     {
       "formCode": "3C",
       "kind": "interpreter",
       "text": "The Mental Health Act 2014 (WA) s 9(2) says: \"Any communication with a person under this Act must be in a language, form of communication and terms that the person is likely to understand using any means of communication that is practicable and using an interpreter if necessary and practicable.\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "f265b66e5bfdd55cff385859aed04a60fba004efe9c1ca8b3fa1286fef6e015e"
     },
     {
       "formCode": "3C",
@@ -110,14 +134,20 @@
       "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "ddc510f607ec51e5f068f0c2c21f0b8ed91dae87d4f9f685930472d84ac35b22"
     },
     {
       "formCode": "4A",
       "kind": "interpreter",
       "text": "The Mental Health Act 2014 (WA) s 9(2) says: \"Any communication with a person under this Act must be in a language, form of communication and terms that the person is likely to understand using any means of communication that is practicable and using an interpreter if necessary and practicable.\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "1d656664b79aaed96d597bbe55991334bf48beb4463c485b97f9366faf797e8a"
     },
     {
       "formCode": "4A",
@@ -131,21 +161,30 @@
       "kind": "statutory",
       "text": "The Charter applies beyond examination and treatment. The Mental Health Act 2014 (WA) s 11 says: \"A person or body performing a function under this Act must have regard to the principles set out in the Charter of Mental Health Care Principles.\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "f9a6300f5bd8aef5f1b8a8435b90220c24771174f31cc04b49b45cae97fea628"
     },
     {
       "formCode": "4A",
       "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "674e3b7a341899a79f482a3f8c87f6e557cc004ac9744f88fb19450ffc915d8c"
     },
     {
       "formCode": "6A",
       "kind": "interpreter",
       "text": "The Mental Health Act 2014 (WA) s 9(2) says: \"Any communication with a person under this Act must be in a language, form of communication and terms that the person is likely to understand using any means of communication that is practicable and using an interpreter if necessary and practicable.\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "2be66bfaee339b3e7b6120c6e2ca8a4c6fee156c2cff88de25b91f2a6daf24e9"
     },
     {
       "formCode": "6A",
@@ -159,7 +198,10 @@
       "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
-      "status": "drafted"
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:26:25.231Z",
+      "reviewedContentSha256": "134143090ec526f99e6e5b1912fd69d7e4b2792013cf2c3d2935dd84bcfc82a6"
     }
   ]
 }

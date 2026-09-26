@@ -187,7 +187,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.avoidance",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "fecb805b3986d1c7890fb914b3028da5668bdf6ff42adf6617f3850a480b1003"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -281,7 +284,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.splitting",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "00ff9ff658845e675bb81c3a2759b8f3f13adfd2662eb2e4991a7c62b95a4c0e"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -414,7 +420,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.shame",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "306f4850e2891b2ce06477d2f4a5cf8bfce6659edf8bfbfc1cca168148197208"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -521,7 +530,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.emotion-regulation",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "794770c7470ea16dfde435dff1e5af9972c76424294aa2ce432a2166182f3591"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -639,7 +651,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.reassurance-seeking",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "400c69c6a6bd28596fc6e7711c95e9271d93e0033802e10f8cc705ceea0769b9"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -765,7 +780,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.attachment-avoidance",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "0eaa9f468ac213fa4c97d81375765a0fd899ebe9b809375488120d79d9958bc2"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -865,7 +883,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.negative-core-beliefs",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "5881a32b90c1f088f485051a616e367caa07dd96e74980e75092ef2e61212c81"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -959,7 +980,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.projection",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "84ddabde3d7ce2aa147665d8460c95fee56fd95c30f902da7692ff7180d46127"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -1052,7 +1076,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.rumination",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "9ec993099850f30496516a6dcff07cdb3c86d139b604ed59871b02119902ea10"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -1139,7 +1166,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.worry",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "52e5ccfaa78c1d1de9e4195575f567b0f7d3dd2ae9dd0704502f41c9264cfb0b"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -1303,7 +1333,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.dissociation",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "e6b456b27cd8c3797ad7e01ef1a29b23dbf01511510a56b03de6a4e54cdad52d"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -1425,7 +1458,10 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.perfectionistic-concerns",
-      "reviewStatus": "clinical_review_required"
+      "reviewStatus": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:25:47.688Z",
+      "reviewedContentSha256": "53cfefb036e628b4a51477b227b7805101188f39a315f190d5f44eac55cdf7d7"
     }
   ],
   "formulationTemplates": [
