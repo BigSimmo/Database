@@ -130,6 +130,7 @@
         "src/app/(search-app)/cme/routines/page.tsx",
         "src/app/(search-app)/cme/setup/page.tsx",
         "src/app/(search-app)/cme/summary/page.tsx",
+        "src/app/(search-app)/cme/training/page.tsx",
         "src/app/(search-app)/dictionary/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/compare/page.tsx",

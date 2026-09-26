@@ -165,6 +165,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "year", label: "This year", href: "/cme" },
     { id: "log", label: "Log", href: "/cme/log" },
     { id: "check", label: "Year check", href: "/cme/check" },
+    { id: "training", label: "Training", href: "/cme/training" },
     { id: "calendar", label: "Calendar", href: "/cme/calendar" },
     { id: "routines", label: "Routines", href: "/cme/routines" },
     { id: "plan", label: "Plan", href: "/cme/plan" },
@@ -321,6 +322,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   if (modeId === "cme") {
     if (pathname === "/cme/log") return "log";
     if (pathname === "/cme/check") return "check";
+    if (pathname === "/cme/training") return "training";
     if (pathname === "/cme/calendar") return "calendar";
     if (pathname === "/cme/routines") return "routines";
     if (pathname === "/cme/plan") return "plan";

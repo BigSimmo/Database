@@ -303,6 +303,7 @@
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
@@ -350,6 +351,7 @@
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
@@ -628,6 +630,7 @@
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
@@ -635,6 +638,7 @@
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
@@ -865,6 +869,7 @@
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx",
@@ -887,6 +892,7 @@
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx",
@@ -1212,6 +1218,7 @@
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
@@ -1242,6 +1249,7 @@
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
@@ -1870,11 +1878,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
@@ -2328,6 +2338,7 @@
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/service-admin-panel.tsx",
@@ -2343,6 +2354,7 @@
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-routines-route.tsx",
         "src/components/cme/cme-setup-page.tsx",
+        "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
@@ -2665,6 +2677,7 @@
         "src/app/(search-app)/cme/routines/page.tsx",
         "src/app/(search-app)/cme/setup/page.tsx",
         "src/app/(search-app)/cme/summary/page.tsx",
+        "src/app/(search-app)/cme/training/page.tsx",
         "src/app/(search-app)/dictionary/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/compare/page.tsx",
@@ -2869,6 +2882,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["CmePage"]
+        },
+        {
+          "file": "src/app/(search-app)/cme/training/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/dictionary/[slug]/page.tsx",
@@ -4568,6 +4591,7 @@
       "src/app/(search-app)/cme/routines/page.tsx",
       "src/app/(search-app)/cme/setup/page.tsx",
       "src/app/(search-app)/cme/summary/page.tsx",
+      "src/app/(search-app)/cme/training/page.tsx",
       "src/app/(search-app)/dictionary/[slug]/page.tsx",
       "src/app/(search-app)/dictionary/browse/page.tsx",
       "src/app/(search-app)/dictionary/compare/page.tsx",
@@ -4682,6 +4706,7 @@
       "src/app/(search-app)/cme/routines/page.tsx",
       "src/app/(search-app)/cme/setup/page.tsx",
       "src/app/(search-app)/cme/summary/page.tsx",
+      "src/app/(search-app)/cme/training/page.tsx",
       "src/app/(search-app)/dictionary/[slug]/page.tsx",
       "src/app/(search-app)/dictionary/browse/page.tsx",
       "src/app/(search-app)/dictionary/compare/page.tsx",
@@ -4787,7 +4812,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 119,
+    "inheritedCkbV2RootCount": 120,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4796,8 +4821,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 120,
-    "productionRouteCount": 112,
-    "nextUiEntryCount": 177
+    "rootCount": 121,
+    "productionRouteCount": 113,
+    "nextUiEntryCount": 178
   }
 }
