@@ -5,12 +5,15 @@
  *
  * Report-only by default. `--write` requires an interactive TTY, seven explicit
  * answers, and an exact final confirmation. It has no batch, yes, provider, or
- * production mode.
+ * production mode. `--walk` only chooses the order: it steps through every record
+ * still awaiting review, one screen at a time, and each record still needs its own
+ * seven answers and its own typed confirmation.
  *
  * Usage:
  *   npm run therapy:review
  *   npm run therapy:review -- --slug <slug>
  *   npm run therapy:review -- --write --slug <slug> --reviewed-by "<public attribution>"
+ *   npm run therapy:review -- --write --walk --reviewed-by "<public attribution>"
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -51,9 +54,12 @@ const GENERATOR_PATH = join(ROOT, "scripts", "build-therapies-index.mjs");
 function usage() {
   return [
     "Usage: npm run therapy:review -- [--slug <slug>] [--write --reviewed-by <public attribution>]",
+    "       npm run therapy:review -- --write --walk --reviewed-by <public attribution>",
     "",
     "Without --write this is a report-only queue/record inspection and touches nothing.",
-    "--write requires a real interactive TTY and one exact --slug.",
+    "--write requires a real interactive TTY and either one exact --slug or --walk.",
+    "--walk steps through every record awaiting review in catalogue order, one at a time.",
+    "Each record is saved the moment you confirm it, so quitting keeps everything signed so far.",
     "Every checklist answer is entered interactively; no batch or automatic-yes mode exists.",
     "",
     "reviewedBy is shipped in the public Therapy catalogue. Use only a display-approved",
@@ -63,7 +69,7 @@ function usage() {
 }
 
 export function parseTherapyReviewArgs(argv) {
-  const args = { help: false, write: false, slug: undefined, reviewedBy: undefined };
+  const args = { help: false, write: false, walk: false, slug: undefined, reviewedBy: undefined };
   const seen = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -73,10 +79,11 @@ export function parseTherapyReviewArgs(argv) {
       args.help = true;
       continue;
     }
-    if (token === "--write") {
-      if (seen.has("write")) throw new Error("--write may only be supplied once.");
-      seen.add("write");
-      args.write = true;
+    if (token === "--write" || token === "--walk") {
+      const name = token.slice(2);
+      if (seen.has(name)) throw new Error(`${token} may only be supplied once.`);
+      seen.add(name);
+      args[name] = true;
       continue;
     }
     if (token === "--slug" || token === "--reviewed-by") {
@@ -94,7 +101,25 @@ export function parseTherapyReviewArgs(argv) {
       `Unknown option: ${token}. Therapy attestations cannot be supplied through yes, answer, batch, or provider flags.`,
     );
   }
+  if (args.walk && !args.write) throw new Error("--walk is a sign-off mode; use it with --write.");
+  if (args.walk && args.slug !== undefined) throw new Error("--walk goes through the whole queue; leave out --slug.");
   return args;
+}
+
+/** Records still awaiting a clinician sign-off, in catalogue order. */
+export function therapyWalkQueue(records) {
+  return records.filter((record) => record.reviewStatus !== "reviewed").map((record) => record.slug);
+}
+
+/**
+ * The Source correspondence check asks the reviewer to compare the record with its
+ * references. A record with none cannot honestly pass it, so say so before the reader
+ * spends time on the first six screens.
+ */
+export function therapySourceWarning(record) {
+  const references = Array.isArray(record.references) ? record.references.join(" ") : String(record.references ?? "");
+  if (references.trim()) return null;
+  return "Note: this record lists no references, so the Source correspondence check has nothing to compare against.";
 }
 
 function writeLine(output, value = "") {
@@ -411,12 +436,21 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       "--write requires an interactive TTY; piped, scripted, and agent-supplied attestations are refused.",
     );
   }
-  if (!args.slug) throw new Error("--write requires one exact --slug; batch sign-off is not supported.");
+  if (!args.walk && !args.slug) {
+    throw new Error("--write requires one exact --slug, or --walk to step through the queue one record at a time.");
+  }
   if (!args.reviewedBy) throw new Error("--write requires --reviewed-by with a display-approved public attribution.");
-  const recordIndex = records.findIndex((record) => record.slug === args.slug);
-  if (recordIndex === -1) throw new Error(`Unknown Therapy slug: ${args.slug}`);
-  if (records[recordIndex].reviewStatus === "reviewed") {
-    throw new Error(`${args.slug} is already reviewed; this tool will not overwrite an existing attestation.`);
+  const slugs = args.walk ? therapyWalkQueue(records) : [args.slug];
+  if (!args.walk) {
+    const record = records.find((entry) => entry.slug === args.slug);
+    if (!record) throw new Error(`Unknown Therapy slug: ${args.slug}`);
+    if (record.reviewStatus === "reviewed") {
+      throw new Error(`${args.slug} is already reviewed; this tool will not overwrite an existing attestation.`);
+    }
+  }
+  if (slugs.length === 0) {
+    writeLine(output, "Nothing waiting: every Therapy record is already signed off.");
+    return 0;
   }
 
   writeLine(errorOutput, "CLINICAL AUTHORITY: the first five checks may only be attested by a qualified clinician.");
@@ -424,25 +458,58 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     errorOutput,
     "PRIVACY: reviewedBy is public. Do not enter contact, registration, provider, staff, or account ids.",
   );
+  const signed = [];
+  const skipped = [];
   const prompt = createPrompt({ input, output });
   try {
-    const result = await conductTherapyReview({
-      record: records[recordIndex],
-      reviewedBy: args.reviewedBy,
-      ask: prompt.ask,
-      output,
-      commit: async (reviewed) => {
-        const nextRecords = records.map((record, index) => (index === recordIndex ? reviewed : record));
-        assertValidTherapyReviewRecords(nextRecords);
-        persistTherapyReviewTransaction({ sourcePath: SOURCE_PATH, records: nextRecords, expectedRaw: raw });
-      },
-    });
-    if (result.status === "reviewed") {
-      writeLine(output, `Recorded local clinician sign-off for ${args.slug}; generated Therapy assets are current.`);
+    for (const [position, slug] of slugs.entries()) {
+      // Re-read before every record: each sign-off rewrites the source, so every save
+      // is checked against the file as it is now, never against a stale copy.
+      const current = position === 0 ? { raw, records } : readCanonicalSource();
+      assertValidTherapyReviewRecords(current.records);
+      const recordIndex = current.records.findIndex((record) => record.slug === slug);
+      if (recordIndex === -1 || current.records[recordIndex].reviewStatus === "reviewed") {
+        skipped.push(slug);
+        continue;
+      }
+      const record = current.records[recordIndex];
+      if (args.walk) {
+        writeLine(output);
+        writeLine(output, "=".repeat(60));
+        writeLine(output, `${record.slug} - ${record.name}  (${position + 1} of ${slugs.length})`);
+        writeLine(output, "=".repeat(60));
+      }
+      const warning = therapySourceWarning(record);
+      if (warning) writeLine(output, warning);
+      const result = await conductTherapyReview({
+        record,
+        reviewedBy: args.reviewedBy,
+        ask: prompt.ask,
+        output,
+        commit: async (reviewed) => {
+          const nextRecords = current.records.map((entry, index) => (index === recordIndex ? reviewed : entry));
+          assertValidTherapyReviewRecords(nextRecords);
+          persistTherapyReviewTransaction({ sourcePath: SOURCE_PATH, records: nextRecords, expectedRaw: current.raw });
+        },
+      });
+      if (result.status === "reviewed") {
+        signed.push(slug);
+        writeLine(output, `Recorded local clinician sign-off for ${slug}; generated Therapy assets are current.`);
+      } else if (result.status === "quit") {
+        writeLine(output, "Stopped. Nothing was saved for this record.");
+        break;
+      } else {
+        skipped.push(slug);
+      }
     }
     return 0;
   } finally {
     prompt.close();
+    if (args.walk) {
+      writeLine(output);
+      writeLine(output, `Signed off this session: ${signed.length ? signed.join(", ") : "none"}.`);
+      if (skipped.length) writeLine(output, `Left unsigned: ${skipped.join(", ")}.`);
+    }
   }
 }
 

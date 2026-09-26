@@ -17,6 +17,8 @@ import {
   conductTherapyReview,
   parseTherapyReviewArgs,
   persistTherapyReviewTransaction,
+  therapySourceWarning,
+  therapyWalkQueue,
   writeTherapySourceAtomically,
 } from "../scripts/review-therapy.mjs";
 
@@ -363,6 +365,44 @@ describe("Therapy clinician-input workflow", () => {
     ]) {
       expect(() => parseTherapyReviewArgs(args)).toThrow();
     }
+  });
+
+  it("accepts --walk only as a write mode and never alongside one --slug", () => {
+    expect(parseTherapyReviewArgs(["--write", "--walk", "--reviewed-by", "Dr Clinical Owner"])).toMatchObject({
+      write: true,
+      walk: true,
+    });
+    expect(() => parseTherapyReviewArgs(["--walk"])).toThrow(/--write/);
+    expect(() => parseTherapyReviewArgs(["--write", "--walk", "--slug", "x"])).toThrow(/--slug/);
+    expect(() => parseTherapyReviewArgs(["--write", "--walk", "--walk"])).toThrow(/once/);
+  });
+
+  it("walks only records still awaiting review, in catalogue order", () => {
+    const records = [
+      { slug: "a", reviewStatus: "needs_review" },
+      { slug: "b", reviewStatus: "reviewed" },
+      { slug: "c", reviewStatus: "needs_review" },
+    ];
+    expect(therapyWalkQueue(records)).toEqual(["a", "c"]);
+  });
+
+  it("warns before review when a record has no references to compare against", () => {
+    expect(therapySourceWarning({ references: "" })).toMatch(/no references/);
+    expect(therapySourceWarning({ references: "   " })).toMatch(/no references/);
+    expect(therapySourceWarning({})).toMatch(/no references/);
+    expect(therapySourceWarning({ references: "RANZCP PS #54" })).toBeNull();
+  });
+
+  it("refuses a non-TTY walk before changing the source", () => {
+    const before = readFileSync(SOURCE, "utf8");
+    const result = spawnSync(process.execPath, [SCRIPT, "--write", "--walk", "--reviewed-by", "Dr Clinical Owner"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      input: "",
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/interactive TTY/);
+    expect(readFileSync(SOURCE, "utf8")).toBe(before);
   });
 
   it("collects all seven explicit answers but never commits when any answer is no", async () => {
