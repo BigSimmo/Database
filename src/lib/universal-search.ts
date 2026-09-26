@@ -1,5 +1,5 @@
 import { normalizeSearchText } from "@/lib/catalog-search";
-import { analyzeClinicalQuery } from "@/lib/clinical-search";
+import { analyzeClinicalQuery, clinicalFacetSynonymTerms } from "@/lib/clinical-search";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { demoSearch } from "@/lib/demo-data";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
@@ -624,7 +624,7 @@ function applyTypoCorrections(query: string, corrections: Array<{ from: string; 
 }
 
 // Synonym/acronym/alias terms for the rankers' low-weight expanded lane. Dropped: the base
-// query's own tokens (already scored in the high-weight field lane) and anything past the cap
+// query's own tokens (already scored in the high-weight field lane), generic facet words, and anything past the cap
 // (analyzeClinicalQuery can emit up to ~48 vocabulary terms; too many would dilute precision).
 function deriveExpansions(analysis: ClinicalQueryAnalysis, baseQuery: string): string[] {
   const baseTokens = new Set(normalizeSearchText(baseQuery).split(/\s+/).filter(Boolean));
@@ -633,6 +633,9 @@ function deriveExpansions(analysis: ClinicalQueryAnalysis, baseQuery: string): s
   for (const term of analysis.expandedTerms) {
     const normalized = term.toLowerCase().trim();
     if (normalized.length < 2 || baseTokens.has(normalized) || seen.has(normalized)) continue;
+    // Generic facet words ("dosage", "route", "IM", "review", "range") match records in every
+    // catalogue, so they would pad each domain with results unrelated to the subject.
+    if (clinicalFacetSynonymTerms.has(normalized)) continue;
     seen.add(normalized);
     expansions.push(normalized);
     if (expansions.length >= maxExpansions) break;
