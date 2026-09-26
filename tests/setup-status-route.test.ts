@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
+  // The cached payload lives on globalThis, so resetting modules alone no longer clears it.
+  delete (globalThis as Record<symbol, unknown>)[Symbol.for("psychsift.setupStatusCache")];
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.resetModules();
@@ -126,6 +129,120 @@ describe("/api/setup-status", () => {
     expect(body.checks.length).toBeGreaterThan(0);
     expect(JSON.stringify(body)).not.toContain("service-role-key");
     expect(JSON.stringify(body)).not.toContain("openai-key");
+  });
+
+  it("serves an expired payload at once and refreshes it in the background, within a staleness bound", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));
+    const createAdminClient = vi.fn(() => ({ from, rpc: vi.fn() }));
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        OPENAI_API_KEY: "openai-key",
+        SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
+        SUPABASE_IMAGE_BUCKET: "clinical-images",
+        WORKER_POLL_MS: 1500,
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(),
+    }));
+    const slowProbe: { release?: () => void } = {};
+    const probeSupabaseHealth = vi.fn(async () => ({ ok: true }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth,
+      isSupabaseUnavailableError: () => false,
+      formatSupabaseUnavailableError: (error: unknown) => String(error),
+    }));
+    vi.doMock("@/lib/supabase/project", () => ({
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
+      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+    }));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    let now = Date.parse("2026-09-26T00:00:00Z");
+    vi.setSystemTime(now);
+    const { GET } = await import("../src/app/api/setup-status/route");
+    const request = () => new Request("https://clinical.example/api/setup-status");
+
+    const first = await (await GET(request())).json();
+    expect(probeSupabaseHealth).toHaveBeenCalledTimes(1);
+
+    // Past the 30 s idle TTL: the old payload comes back without waiting for the slow rebuild.
+    now += 31_000;
+    vi.setSystemTime(now);
+    probeSupabaseHealth.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          slowProbe.release = () => resolve({ ok: true });
+        }),
+    );
+    const stale = await (await GET(request())).json();
+    expect(stale.generatedAt).toBe(first.generatedAt);
+    expect(probeSupabaseHealth).toHaveBeenCalledTimes(2);
+
+    // A second caller during the refresh shares it rather than starting another.
+    await GET(request());
+    expect(probeSupabaseHealth).toHaveBeenCalledTimes(2);
+    slowProbe.release?.();
+    await vi.waitFor(async () => {
+      const refreshed = await (await GET(request())).json();
+      expect(refreshed.generatedAt).not.toBe(first.generatedAt);
+    });
+
+    // Beyond the ten-minute staleness bound the caller waits for current state instead.
+    now += 11 * 60_000;
+    vi.setSystemTime(now);
+    const callsBefore = probeSupabaseHealth.mock.calls.length;
+    const generatedAtBefore = (await (await GET(request())).json()).generatedAt;
+    expect(probeSupabaseHealth.mock.calls.length).toBe(callsBefore + 1);
+    expect(generatedAtBefore).toBe(new Date(now).toISOString());
+  });
+
+  it("shares its cached payload with a separately loaded copy of the route, so the boot warm counts", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        OPENAI_API_KEY: "openai-key",
+        SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
+        SUPABASE_IMAGE_BUCKET: "clinical-images",
+        WORKER_POLL_MS: 1500,
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from, rpc: vi.fn() }) }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(),
+    }));
+    const probeSupabaseHealth = vi.fn(async () => ({ ok: true }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth,
+      isSupabaseUnavailableError: () => false,
+      formatSupabaseUnavailableError: (error: unknown) => String(error),
+    }));
+    vi.doMock("@/lib/supabase/project", () => ({
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
+      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+    }));
+
+    // instrumentation.ts warms through its own copy of the module in a production build.
+    const bootCopy = await import("../src/app/api/setup-status/route");
+    await bootCopy.GET(new Request("https://startup-warm.invalid/api/setup-status"));
+    vi.resetModules();
+    const routeCopy = await import("../src/app/api/setup-status/route");
+    const response = await routeCopy.GET(new Request("https://clinical.example/api/setup-status"));
+
+    expect(response.status).toBe(200);
+    expect(probeSupabaseHealth).toHaveBeenCalledTimes(1);
   });
 
   it("treats project warning status as ready when the URL ref matches", async () => {

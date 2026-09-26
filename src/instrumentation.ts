@@ -150,6 +150,13 @@ export async function register() {
   // budget (monitor #2919 / ledger #WFSMMT). Non-blocking; failures swallowed inside.
   const { warmCanonicalCatalogueSearchCaches } = await import("@/lib/site-content/warm-catalogue-caches");
   void warmCanonicalCatalogueSearchCaches();
+
+  // Build the setup status once at boot. Every page load asks for it, and the first build after a
+  // restart took ~9.6 s in production (0.6 s warm). The route keeps its cache on globalThis, so
+  // this fills the copy requests read. The host only needs to be non-loopback to pass the
+  // local-origin guard; nothing is fetched from it. Non-blocking; failures are swallowed.
+  const { GET: warmSetupStatus } = await import("@/app/api/setup-status/route");
+  void warmSetupStatus(new Request("https://startup-warm.invalid/api/setup-status")).catch(() => undefined);
 }
 
 export { captureRequestError as onRequestError };
