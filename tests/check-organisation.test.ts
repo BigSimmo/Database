@@ -228,6 +228,28 @@ describe("check-organisation", () => {
     expect(check(root, ["--fix", "--staged"]).code).toBe(2);
   });
 
+  it("allows a rule ending in a fixed file name inside a mixed folder, as a fallback", () => {
+    const root = repo({
+      ...mapFiles({ app: ["src/app/**/page.tsx"], clinic: ["src/app/clinic/**"], knowledge: [MAP_RULE] }),
+      "src/app/new-mode/page.tsx": "",
+      "src/app/clinic/page.tsx": "",
+    });
+    const { code, report } = check(root, ["--files", "src/app/new-mode/page.tsx", "src/app/clinic/page.tsx"]);
+    expect(code).toBe(0);
+    expect(report.lookup.map((l: { area: string }) => l.area)).toEqual(["app", "clinic"]);
+  });
+
+  it("--files accepts ./ and absolute paths, and places a file not in git yet", () => {
+    const root = repo({ ...mapFiles({ app: ["src/app/pages/**"], knowledge: [MAP_RULE] }), "src/app/pages/a.ts": "" });
+    const { report } = check(root, [
+      "--files",
+      "./src/app/pages/a.ts",
+      path.join(root, "src/app/pages/a.ts"),
+      "src/app/pages/b.ts",
+    ]);
+    expect(report.lookup.map((l: { area: string }) => l.area)).toEqual(["app", "app", "app, not tracked yet"]);
+  });
+
   it("rejects reasons that contain links", () => {
     const nyp = [{ path: "a.md", reason: "See https://example.invalid for context" }];
     const root = repo({ ...mapFiles({ knowledge: [MAP_RULE] }, { nyp }), "a.md": "" });

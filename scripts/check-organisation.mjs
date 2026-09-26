@@ -41,6 +41,7 @@ const REASON_MAX = 120;
 const SUMMARY_MAX = 60_000;
 // Folders that mix areas: a wildcard sitting directly inside one must carry at least three
 // literal characters (for example `tests/rag-*`), so nobody can place a whole mixed folder at once.
+// A rule ending in a fixed file name (`src/app/**/page.tsx`) is exempt: it names one kind of file.
 const MIXED_PARENTS = new Set([
   "",
   "src/",
@@ -149,7 +150,10 @@ function patternProblem(pattern) {
   if (segments.some((s) => s === "." || s === "..")) return "uses `.` or `..` segments";
   if (segments.some((s) => s.includes("**") && s !== "**")) return "uses `**` inside a segment";
   const prefix = literalPrefix(pattern);
-  if (prefix !== null) {
+  // A rule whose last segment is a fixed file name (`src/app/**/page.tsx`) names one kind of file,
+  // not a whole mixed folder, so the three-character rule does not apply to it.
+  const namedFile = segments.length > 1 && !segments.at(-1).includes("*");
+  if (prefix !== null && !namedFile) {
     const dir = prefix.slice(0, prefix.lastIndexOf("/") + 1);
     if (MIXED_PARENTS.has(dir) && prefix.length - dir.length < 3) {
       return `is too broad: a wildcard directly inside \`${dir || "(repo root)"}\` needs at least three fixed characters`;
@@ -952,6 +956,18 @@ function touchesMap(touched) {
   );
 }
 
+// `--files` accepts repo-relative, `./`-prefixed, absolute and current-folder-relative paths.
+function repoPath(root, file, env, placement) {
+  const slashed = String(file)
+    .replaceAll("\\", "/")
+    .replace(/^(?:\.\/)+/, "");
+  if (slashed in placement) return slashed;
+  const from = env.INIT_CWD || process.cwd();
+  const relative = path.relative(root, path.resolve(from, String(file))).replaceAll("\\", "/");
+  if (relative && !relative.startsWith("../") && relative !== ".." && !path.isAbsolute(relative)) return relative;
+  return path.isAbsolute(slashed) ? null : slashed;
+}
+
 function parseArgs(argv) {
   const args = { staged: false, report: true, quiet: false, json: false, fix: false, root: null, files: null };
   for (let i = 0; i < argv.length; i++) {
@@ -994,7 +1010,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     if (ci) run = runCi(root, env);
     else {
       const snapshot = args.staged ? stagedSnapshot(root) : workingTreeSnapshot(root);
-      run = { scope: snapshot.label, result: evaluate(snapshot), baseKeys: null, touched: null };
+      run = { scope: snapshot.label, result: evaluate(snapshot), baseKeys: null, touched: null, snapshot };
     }
     const { result } = run;
     result.findings.push(...safetyListFindings(root, result, run, ci));
@@ -1022,10 +1038,19 @@ export function main(argv = process.argv.slice(2), env = process.env) {
       report.untracked = splitZ(git(root, ["ls-files", "-z", "--others", "--exclude-standard"]));
     }
     if (args.files) {
-      report.lookup = args.files.map((file) => {
-        const area = result.placement[file.replaceAll("\\", "/")] ?? "(not tracked)";
+      const lookups = args.files.map((file) => ({ file, key: repoPath(root, file, env, result.placement) }));
+      // A file not in git yet is placed as if it were, so a planned file shows its future area.
+      const missing = lookups.filter((l) => l.key && !(l.key in result.placement)).map((l) => l.key);
+      let future = {};
+      if (missing.length && run.snapshot) {
+        const blobs = new Map([...run.snapshot.blobs, ...missing.map((file) => [file, "(new)"])]);
+        future = evaluate({ ...run.snapshot, blobs }).placement;
+      }
+      report.lookup = lookups.map(({ file, key }) => {
+        const tracked = key !== null && key in result.placement;
+        const area = tracked ? result.placement[key] : (future[key] ?? "(unplaced)");
         const system = result.systems.find((s) => s.id === area);
-        return { file, area, name: system?.name ?? null };
+        return { file, path: key, area: tracked ? area : `${area}, not tracked yet`, name: system?.name ?? null };
       });
     }
     report.touchesMap = ci ? touchesMap(run.touched) : null;
@@ -1104,7 +1129,7 @@ function printConsole(report, args, ci) {
     }
     if (shown.length > 30) out(`  …and ${shown.length - 30} more (see the report)`);
     for (const item of report.lookup ?? []) out(`  ${item.file}: ${item.area}${item.name ? ` (${item.name})` : ""}`);
-    if (report.lookup?.length) out(`  ${routingHint(report.lookup.map((item) => item.file))}`);
+    if (report.lookup?.length) out(`  ${routingHint(report.lookup.map((item) => item.path ?? item.file))}`);
   }
   if (report.reportPath) out(`  report: ${report.reportPath}`);
 }
