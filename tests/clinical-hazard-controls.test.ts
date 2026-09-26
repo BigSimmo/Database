@@ -146,6 +146,13 @@ describe("clinical hazard controls contract", () => {
       expect(errors).toContain("at most 45 days");
     });
 
+    it("rejects two exceptions for the same path, which the review-date scope could not tell apart", () => {
+      const { changed, firstCitedPath } = drifted();
+      changed.driftExceptions = [exceptionFor(firstCitedPath), exceptionFor(firstCitedPath)];
+      const errors = validateClinicalHazardControls(changed, { checkGit: true, now: NOW }).join("\n");
+      expect(errors).toContain(`driftExceptions[1] (${firstCitedPath}): duplicate drift exception path`);
+    });
+
     it("drops the exceptions when the register is re-sealed, since nothing has drifted any more", () => {
       const { changed, firstCitedPath } = drifted();
       changed.driftExceptions = [exceptionFor(firstCitedPath)];

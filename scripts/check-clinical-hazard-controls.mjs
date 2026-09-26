@@ -278,9 +278,14 @@ function validateDriftExceptions(findings, manifest, drifted, today) {
   const { errors } = findings;
   const exceptions = Array.isArray(manifest?.driftExceptions) ? manifest.driftExceptions : [];
   const covered = new Set();
+  const seenPaths = new Set();
   exceptions.forEach((exception, index) => {
     const path = typeof exception?.path === "string" ? exception.path.trim() : "";
     const label = `driftExceptions[${index}]${path ? ` (${path})` : ""}`;
+    // One exception per path: the review-date scope finds an exception by its path, so a second
+    // entry for the same path could hide an edit to it.
+    if (path && seenPaths.has(path)) errors.push(`${label}: duplicate drift exception path`);
+    if (path) seenPaths.add(path);
     if (!path) {
       errors.push(`${label}: path is required`);
       return;
