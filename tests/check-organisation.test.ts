@@ -77,7 +77,7 @@ function check(root: string, args: string[] = [], env: Record<string, string> = 
 }
 
 afterEach(() => {
-  for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe("check-organisation", () => {
