@@ -1473,7 +1473,7 @@ async function searchChunksWithTiming(
     const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
     if (!args.forceEmbedding && shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
       textFastResults = await measureSearchPhase(searchTiming, "visual_hydration", () =>
-        attachPageVisualEvidence(supabase, baseTextResults, args.signal),
+        attachPageVisualEvidence(supabase, baseTextResults, args.signal, documentRankingMetadataCache),
       );
       textFastResults = applySecondStageRerankIfNeeded({
         queryClass: queryClassification.queryClass,
@@ -1520,7 +1520,7 @@ async function searchChunksWithTiming(
       telemetry,
     });
     textFastResults = await measureSearchPhase(searchTiming, "visual_hydration", () =>
-      attachPageVisualEvidence(supabase, textFastResults, args.signal),
+      attachPageVisualEvidence(supabase, textFastResults, args.signal, documentRankingMetadataCache),
     );
     textFastResults = applySecondStageRerankIfNeeded({
       queryClass: queryClassification.queryClass,
@@ -1616,6 +1616,7 @@ async function searchChunksWithTiming(
             telemetry,
           }),
           args.signal,
+          documentRankingMetadataCache,
         ),
       );
       documentLookupResults = applySecondStageRerankIfNeeded({
@@ -1866,6 +1867,7 @@ async function searchChunksWithTiming(
           telemetry,
         }),
         args.signal,
+        documentRankingMetadataCache,
       ),
     );
     results = applySecondStageRerankIfNeeded({
@@ -1957,6 +1959,7 @@ async function searchChunksWithTiming(
         telemetry,
       }),
       args.signal,
+      documentRankingMetadataCache,
     ),
   );
   results = applySecondStageRerankIfNeeded({
