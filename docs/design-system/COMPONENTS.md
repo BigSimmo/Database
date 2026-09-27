@@ -1056,8 +1056,8 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              52 |
-| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `CitationList`           | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

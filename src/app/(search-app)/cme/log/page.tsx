@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { CmeLogPage, type CmeLogAttention } from "@/components/cme/cme-log-page";
 import { CmeStateNotice } from "@/components/cme/cme-state-notice";
-import { cpdYearOf } from "@/lib/cme/cpd-year";
+import { cpdYearOf, perthCalendarDate } from "@/lib/cme/cpd-year";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
@@ -41,6 +41,7 @@ export default async function CmeLogRoute({
     <CmeLogPage
       entries={data.entries}
       set={data.set ?? placeholderSet(data.year)}
+      today={perthCalendarDate(data.now)}
       navigationYears={[currentYear, currentYear - 1, data.year]}
       justSaved={query.saved === "1"}
       missedLinkFailed={query.missed === "unlinked"}

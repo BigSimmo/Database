@@ -7,6 +7,7 @@ import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/
 import { CmeChoiceChip } from "@/components/cme/cme-choice-chip";
 import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/choice";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
 import {
@@ -690,22 +691,16 @@ export function CmeEntryForm({
               <p className={cn(textMuted, "mt-1 text-xs")}>Select only the domains this activity actually addressed.</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {availableDomains.map((domain) => (
-                  <label
+                  <Checkbox
                     key={domain}
-                    className="flex min-h-tap cursor-pointer items-center gap-3 rounded-lg border border-[color:var(--border)] px-3 text-sm text-[color:var(--text)]"
-                  >
-                    <input
-                      type="checkbox"
-                      className="size-5 shrink-0 accent-[color:var(--clinical-accent)]"
-                      checked={buckets.includes(domain)}
-                      onChange={(event) =>
-                        setBuckets((current) =>
-                          event.target.checked ? [...current, domain] : current.filter((item) => item !== domain),
-                        )
-                      }
-                    />
-                    {domain}
-                  </label>
+                    label={domain}
+                    checked={buckets.includes(domain)}
+                    onChange={(event) =>
+                      setBuckets((current) =>
+                        event.target.checked ? [...current, domain] : current.filter((item) => item !== domain),
+                      )
+                    }
+                  />
                 ))}
               </div>
             </fieldset>

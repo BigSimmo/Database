@@ -63,7 +63,8 @@ const CLINICAL_STATUS_CLASS =
  * `min-h-11` — that is the known `ui-smoke` flake the brief calls out by
  * name, and it is 44px, one token short of the floor this mode holds to.
  */
-const TAP_TARGET_CLASS = /\b(?:min-h-(?:12|tap)|size-(?:12|tap))\b/;
+// min-h-13 is the kit's two-line grouped-list row (52 px), above the 48 px floor.
+const TAP_TARGET_CLASS = /\b(?:min-h-(?:12|13|tap)|size-(?:12|tap))\b/;
 
 function hasTapTarget(className: string): boolean {
   if (TAP_TARGET_CLASS.test(className)) return true;

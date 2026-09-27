@@ -9,6 +9,7 @@ import { CmeNavHeader } from "@/components/cme/cme-nav-header";
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/choice";
 import { TextField } from "@/components/ui/text-field";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
@@ -389,27 +390,22 @@ export function CmeSetupPage({
                         <legend className="text-sm font-medium text-[color:var(--text)]">Categories included</legend>
                         <div className="mt-1 grid gap-2 sm:grid-cols-3">
                           {cmeCategories.map((category) => (
-                            <label
+                            <Checkbox
                               key={category}
-                              className="flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={
-                                  requirement.spec.shape === "hours-across-categories" &&
-                                  requirement.spec.categories.includes(category)
-                                }
-                                onChange={(event) => {
-                                  if (requirement.spec.shape !== "hours-across-categories") return;
-                                  const categories = event.target.checked
-                                    ? [...requirement.spec.categories, category]
-                                    : requirement.spec.categories.filter((item) => item !== category);
-                                  if (categories.length > 0)
-                                    setDraft((current) => updateAcross(current, requirement.id, { categories }));
-                                }}
-                              />
-                              {cmeCategoryLabels[category]}
-                            </label>
+                              label={cmeCategoryLabels[category]}
+                              checked={
+                                requirement.spec.shape === "hours-across-categories" &&
+                                requirement.spec.categories.includes(category)
+                              }
+                              onChange={(event) => {
+                                if (requirement.spec.shape !== "hours-across-categories") return;
+                                const categories = event.target.checked
+                                  ? [...requirement.spec.categories, category]
+                                  : requirement.spec.categories.filter((item) => item !== category);
+                                if (categories.length > 0)
+                                  setDraft((current) => updateAcross(current, requirement.id, { categories }));
+                              }}
+                            />
                           ))}
                         </div>
                       </fieldset>

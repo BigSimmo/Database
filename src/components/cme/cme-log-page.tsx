@@ -1,20 +1,21 @@
 "use client";
 
-import { Check, ChevronRight, Paperclip, Plus, Repeat } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { cardInteractive, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { CmeDraftsSection } from "@/components/cme/cme-drafts-section";
 import { CmeMissedSessionsSection } from "@/components/cme/cme-missed-sessions-section";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
+import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
+import { ModeStateLabel } from "@/components/mode-kit/state-label";
+import { modeNumberText } from "@/components/mode-kit/type";
 import { buttonFaceClass } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
-import { formatCalendarDateShort, formatCalendarMonthLabel } from "@/lib/cme/cpd-year";
+import { formatCalendarMonthLabel, formatCmeRowDate, perthCalendarDate } from "@/lib/cme/cpd-year";
 import type { CmeDraft } from "@/lib/cme/drafts";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
 import type { CmeMissedSession } from "@/lib/cme/missed-sessions";
@@ -46,13 +47,15 @@ export type CmeLogPageProps = {
   readonly missedSessions?: readonly CmeMissedSession[];
   /** Drafts or missed sessions could not be read. */
   readonly recordsFailed?: boolean;
+  /** Today in Perth (`YYYY-MM-DD`), so a row adds the year only to another year's date. The route passes the loader's clock. */
+  readonly today?: string;
 };
 
 /** The three things an audit asks for per activity, as log filters. */
 export type CmeLogAttention = "evidence" | "reflection" | "copy";
 
 const ATTENTION_FILTERS: readonly { value: CmeLogAttention; label: string; matches: (entry: CmeEntry) => boolean }[] = [
-  { value: "evidence", label: "Missing evidence", matches: (entry) => (entry.evidenceCount ?? 0) === 0 },
+  { value: "evidence", label: "Missing evidence", matches: (entry) => entry.evidenceCount === 0 },
   { value: "reflection", label: "No reflection", matches: (entry) => entry.reflection.trim() === "" },
   { value: "copy", label: "Not copied", matches: (entry) => !entry.transcribed },
 ];
@@ -106,63 +109,35 @@ function groupByMonth(entries: readonly CmeEntry[]): MonthGroup[] {
     }));
 }
 
-function EntryRow({ entry }: { entry: CmeEntry }) {
+/** One decimal, so the hours column lines up ("1.0", "9.5"); a finer value such as 0.25 keeps its digits rather than rounding. */
+function formatLogHours(hours: number): string {
+  const rounded = round2(hours);
+  return Number.isInteger(rounded * 10) ? rounded.toFixed(1) : String(rounded);
+}
+
+/**
+ * One activity as a 52 px row in its month's hairline list (`ModeRow`: the
+ * title at 500, the second line at 13 px muted): the day and the category,
+ * then "No certificate" only when something is known to be missing, and the
+ * hours at 400 beside the row's link. "No certificate" shows only when the log
+ * has counted the evidence and found none (`evidenceCount === 0`); an activity
+ * whose evidence was not counted says nothing rather than guessing.
+ */
+function EntryRow({ entry, today }: { entry: CmeEntry; today: string }) {
   return (
-    <li className="relative">
-      <div className={cn(cardInteractive, "flex items-center gap-3 p-3")}>
-        <Link
-          href={`/cme/log/${entry.id}`}
-          data-testid={`cme-log-row-${entry.id}`}
-          className={cn(
-            "flex min-h-tap min-w-0 flex-1 flex-col justify-center",
-            stretchedRowLinkClass,
-            focusRing,
-            "rounded-md",
-          )}
-        >
-          <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{entry.title}</span>
-          <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[color:var(--text-muted)]">
-            <span>{formatCalendarDateShort(entry.date)}</span>
-            <span aria-hidden="true">·</span>
-            <span>{categoryNames(entry)}</span>
-            <span aria-hidden="true">·</span>
-            <span>
-              {entry.evidenceCount ?? 0} evidence file{entry.evidenceCount === 1 ? "" : "s"}
-            </span>
-            {entry.documentId ? (
-              <span className="inline-flex items-center gap-0.5">
-                <Paperclip aria-hidden="true" className="size-icon-xs" />
-                Source link
-              </span>
-            ) : null}
-            {entry.transcribed ? (
-              <span className="inline-flex items-center gap-0.5">
-                <Check aria-hidden="true" className="size-icon-xs" />
-                Copied
-              </span>
-            ) : null}
-          </span>
-          {entry.routineId ? (
-            <span className="mt-1.5 inline-flex">
-              <Chip size="compact" icon={Repeat} appearance={{ kind: "information", tone: "accent" }}>
-                Routine
-              </Chip>
-            </span>
-          ) : null}
-        </Link>
-        {/* Decoration beside the anchor above, not inside it, and deliberately
-            NOT given `relative z-10`: card-recipes.ts reserves that lift for a
-            row's OTHER controls, and these two are plain display, not a
-            second target. Left as ordinary static content, they paint under
-            the anchor's stretched `::after` layer, so a tap here still
-            activates the same one link the title does — the whole card is
-            one tap target, not a title-shaped tap target beside a dead strip. */}
-        <span className="shrink-0 text-right text-sm font-normal tabular-nums text-[color:var(--text-heading)]">
-          {entry.archivedAt ? "Archived" : `${totalAllocatedHours([entry])} h`}
+    <ModeRow
+      href={`/cme/log/${entry.id}`}
+      testId={`cme-log-row-${entry.id}`}
+      title={entry.title}
+      subtitle={`${formatCmeRowDate(entry.date, today)} · ${categoryNames(entry)}`}
+      meta={entry.evidenceCount === 0 ? <ModeStateLabel>No certificate</ModeStateLabel> : null}
+      trailing={
+        // `nums font-normal` are repeated from the recipe so Task 7's scanner, which reads literal classes, sees 400.
+        <span className={cn(modeNumberText, "nums font-normal pr-2 text-base-minus text-[color:var(--text)]")}>
+          {entry.archivedAt ? "Archived" : `${formatLogHours(totalAllocatedHours([entry]))} h`}
         </span>
-        <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
-      </div>
-    </li>
+      }
+    />
   );
 }
 
@@ -179,15 +154,12 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
  * owner presses most.
  *
  * **No colour carries status here.** Design decision §12 bans red, amber and
- * green from this mode outright — including for "not transcribed yet" — so
- * the evidence and portal ticks are plain neutral text-plus-icon, shown only
- * when true, exactly like `docs/cme/design/prototypes/cme-screens.html`'s
- * "two small ticks per row" and never recoloured for their absent state.
+ * green from this mode outright, so a row says what is missing in grey words
+ * ("No certificate") and shows no ticks: in CPD a tick appears only where
+ * tapping it toggles something (spec §5).
  *
- * The closing "New entry" action is the same call to action every board in
- * the design study carries as its primary control — kept here as the
- * standing way to add to the log, not only something reached from the
- * dashboard.
+ * The closing "New entry" link stays as the standing way to reach the full
+ * form, outlined: the floating "+ Log" is this page's one dark button.
  */
 export function CmeLogPage({
   entries,
@@ -200,6 +172,7 @@ export function CmeLogPage({
   drafts = [],
   missedSessions = [],
   recordsFailed = false,
+  today = perthCalendarDate(new Date()),
 }: CmeLogPageProps) {
   const availableYears = useMemo(() => {
     const years = new Set<number>(entries.map((entry) => Number(entry.date.slice(0, 4))));
@@ -251,7 +224,10 @@ export function CmeLogPage({
   ];
 
   return (
-    <main data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
+    <main
+      data-testid="cme-log-page"
+      className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6"
+    >
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Log</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>Every activity you have recorded, by year.</p>
       <div role="status" data-testid="cme-log-saved">
@@ -444,16 +420,23 @@ export function CmeLogPage({
               key={group.key}
               data-testid={`cme-log-month-${group.key}`}
               aria-labelledby={`${group.key}-heading`}
+              className="grid gap-2"
             >
-              <h2 id={`${group.key}-heading`} className={cn(eyebrowText, "mb-2 flex items-baseline justify-between")}>
-                <span>{group.label}</span>
-                <span className="nums font-normal normal-case">{`${group.hours} h`}</span>
-              </h2>
-              <ul className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-3 px-3">
+                <h2 id={`${group.key}-heading`} className={eyebrowText}>
+                  {group.label}
+                </h2>
+                <span
+                  className={cn(modeNumberText, "nums font-normal text-2xs normal-case text-[color:var(--text-muted)]")}
+                >
+                  {`${formatLogHours(group.hours)} h`}
+                </span>
+              </div>
+              <ModeGroupedList>
                 {group.entries.map((entry) => (
-                  <EntryRow key={entry.id} entry={entry} />
+                  <EntryRow key={entry.id} entry={entry} today={today} />
                 ))}
-              </ul>
+              </ModeGroupedList>
             </section>
           ))
         )}
@@ -463,7 +446,7 @@ export function CmeLogPage({
         <Link
           href={`/cme/new?year=${set.year}`}
           data-testid="cme-log-new-entry"
-          className={cn(buttonFaceClass({ variant: "primary" }))}
+          className={cn(buttonFaceClass({ variant: "secondary" }))}
         >
           <Plus aria-hidden="true" className="size-icon-md shrink-0" />
           <span>New entry</span>

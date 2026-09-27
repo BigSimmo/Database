@@ -437,12 +437,18 @@
       "directImportFiles": [
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-evidence-panel.tsx",
+        "src/components/cme/cme-setup-page.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-evidence-panel.tsx",
+        "src/components/cme/cme-setup-page.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
@@ -452,7 +458,11 @@
         "preview": ".design-sync/previews/Checkbox.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/cme-checkbox-consistency.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -476,7 +486,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/cme/cme-entry-page.tsx",
-        "src/components/cme/cme-log-page.tsx",
         "src/components/sources/sources-catalogue-client.tsx",
         "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
@@ -488,7 +497,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/cme/cme-entry-page.tsx",
-        "src/components/cme/cme-log-page.tsx",
         "src/components/sources/sources-catalogue-client.tsx",
         "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",

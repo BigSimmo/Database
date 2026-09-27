@@ -79,7 +79,7 @@ describe("Archive, annual record and learning journeys", () => {
         entries={[
           { ...entry, sourceUrl: "/learning", evidenceCount: 0 },
           { ...entry, id: "b", title: "With evidence", evidenceCount: 1 },
-          { ...entry, id: "c", title: "Archived record", archivedAt: "now" },
+          { ...entry, id: "c", title: "Archived record", archivedAt: "now", evidenceCount: 0 },
         ]}
       />,
     );
