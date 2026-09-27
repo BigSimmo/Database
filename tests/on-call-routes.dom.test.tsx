@@ -166,6 +166,19 @@ describe("on-call section routes", () => {
     "%s renders an anchor, with the shared in-page scroll margin, for every declared section",
     (_title, route) => {
       const { container } = render(<route.Route />);
+
+      if (route.view === "compliance") {
+        // Renewals (Admin update 1) has no in-page nav rail and no anchor: it
+        // is a plain tabbed page, not a scroll-and-jump section list. Its own
+        // section structure is the Checklist/Personal tablist, with the
+        // Checklist tab's requirements summary as the equivalent landmark.
+        expect(screen.getByRole("tablist", { name: "Renewals" })).toBeInTheDocument();
+        expect(screen.getByRole("tab", { name: "Checklist" })).toBeInTheDocument();
+        expect(screen.getByRole("tab", { name: "Personal" })).toBeInTheDocument();
+        expect(screen.getByTestId("admin-renewals-summary")).toBeInTheDocument();
+        return;
+      }
+
       // The entries list is the only anchor every view declares now. There was
       // an "overview" one until the hero above the list was removed: an
       // eyebrow, a display-size title and a paragraph, all under a sticky
@@ -191,10 +204,22 @@ describe("on-call section routes", () => {
       // pages could not show entries and offered no way to create one. Each now
       // renders its own section component and its own add control, and the two
       // views over a section (Who's who, Compliance) are held to the same bar.
+      if (route.view === "compliance") {
+        // Renewals' Checklist tab always lists the full statewide requirements
+        // catalogue, so it is never literally empty; the Personal tab is the
+        // page's real "nothing recorded yet" state, with its own add action.
+        fireEvent.click(screen.getByRole("tab", { name: "Personal" }));
+        const empty = screen.getByTestId("admin-renewals-personal-empty");
+        expect(empty).toBeTruthy();
+        expect(within(empty).getByRole("button", { name: "Add a renewal" })).toBeInTheDocument();
+        // One add control per page: Renewals' floating button replaces the in-page one.
+        expect(screen.getAllByTestId(addTestId(route))).toHaveLength(1);
+        expect(screen.queryByTestId("admin-renewals-signed-out")).toBeNull();
+        return;
+      }
+
       expect(screen.getByTestId(`on-call-${route.view}-empty`)).toBeTruthy();
       expect(screen.getByTestId(addTestId(route))).toBeTruthy();
-      // One add control per page: Renewals' floating button replaces the in-page one.
-      if (route.view === "compliance") expect(screen.queryByTestId("on-call-compliance-add")).toBeNull();
       expect(screen.queryByTestId(`on-call-${route.view}-signed-out`)).toBeNull();
     },
   );
@@ -226,6 +251,20 @@ describe("on-call section routes", () => {
 
       // The generic section name is still shown, as it always was.
       expect(screen.getByRole("heading", { level: 1, name: route.title })).toBeInTheDocument();
+
+      if (route.view === "compliance") {
+        // Renewals words its own signed-out state for its own content, rather
+        // than inheriting On Call's "your hospital's On Call numbers" wording.
+        const signedOut = screen.getByTestId("admin-renewals-signed-out");
+        expect(signedOut).toHaveTextContent("Sign in to see your renewals");
+        expect(screen.queryByTestId("admin-renewals-summary")).toBeNull();
+        expect(screen.queryByTestId(addTestId(route))).toBeNull();
+        expect(screen.queryByTestId("on-call-account-setup-dialog-open")).toBeNull();
+        fireEvent.click(within(signedOut).getByRole("button", { name: "Sign in" }));
+        expect(screen.getByTestId("on-call-account-setup-dialog-open")).toBeInTheDocument();
+        return;
+      }
+
       const signedOut = screen.getByTestId(`on-call-${route.view}-signed-out`);
       expect(signedOut).toHaveTextContent("Sign in to see your hospital's On Call numbers");
       expect(screen.queryByTestId(`on-call-${route.view}-empty`)).toBeNull();
@@ -271,9 +310,15 @@ describe("Admin > Renewals header menu", () => {
     document.body.append(slot);
     try {
       render(<AdminRenewalsRoute />);
-      const trigger = screen.getByTestId("on-call-page-menu-trigger");
-      expect(trigger).toHaveAttribute("aria-label", "Open Renewals actions");
-      fireEvent.click(trigger);
+      // Renewals (Admin update 1) renders no On Call-style ellipsis page menu
+      // at all — nothing is portalled into the universal header's trailing
+      // slot. Its two page-level actions are plain, always-visible toolbar
+      // buttons named for the page, and adding is left entirely to the one
+      // floating "+ Add" control (Josh, 16:31Z).
+      expect(screen.queryByTestId("on-call-page-menu-trigger")).toBeNull();
+      expect(screen.getByRole("heading", { level: 1, name: "Renewals" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Copy for workforce" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add all to my calendar" })).toBeInTheDocument();
       expect(screen.queryByTestId("on-call-page-menu-add")).toBeNull();
       expect(screen.getAllByTestId("admin-renewals-add")).toHaveLength(1);
     } finally {
