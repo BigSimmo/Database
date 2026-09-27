@@ -62,7 +62,9 @@ it("hides the prior owner's source evidence on the identity-changing render", as
 });
 
 it("aborts a same-query source request when the page unmounts", async () => {
-  const fetchMock = vi.fn((_url: string, _init?: RequestInit) => new Promise<Response>(() => undefined));
+  const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(
+    () => new Promise<Response>(() => undefined),
+  );
   vi.stubGlobal("fetch", fetchMock);
   const page = render(<DifferentialsHomePage query="depression" autoRunSearch />);
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
