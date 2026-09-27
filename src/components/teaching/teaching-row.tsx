@@ -16,6 +16,9 @@ import { cn } from "@/components/ui-primitives";
  * and type, with the kit's 48/52px heights and inset hairline, and sits inside
  * a `ModeGroupedList` beside ordinary `ModeRow`s. In-app links still use
  * `ModeRow` itself. No icon on the row (standard §4).
+ *
+ * A `trailing` control (Resources' save toggle, U9) sits beside an external
+ * link, never inside it, exactly as the kit's `ModeRow` places one.
  */
 export function TeachingRow({
   title,
@@ -23,6 +26,7 @@ export function TeachingRow({
   meta,
   onClick,
   externalHref,
+  trailing,
   testId,
 }: {
   readonly title: ReactNode;
@@ -31,6 +35,8 @@ export function TeachingRow({
   readonly meta?: ReactNode;
   readonly onClick?: () => void;
   readonly externalHref?: string | null;
+  /** A control beside an external link, such as a save toggle. */
+  readonly trailing?: ReactNode;
   readonly testId?: string;
 }) {
   const twoLine = Boolean(subtitle) || Boolean(meta);
@@ -59,6 +65,7 @@ export function TeachingRow({
           {text}
           <ExternalLink aria-hidden="true" className={chevron} />
         </a>
+        {trailing ? <span className="flex shrink-0 items-center gap-1">{trailing}</span> : null}
       </li>
     );
   }

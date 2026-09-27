@@ -24,6 +24,7 @@ import { ActionStrip, type TeachingAction } from "@/components/teaching/teaching
 import { TeachingModule, TeachingSwitch } from "@/components/teaching/teaching-modules";
 import { TeachingNavHeader } from "@/components/teaching/teaching-nav-header";
 import type { SessionDetailRead } from "@/components/teaching/teaching-reads";
+import { SessionMaterials } from "@/components/teaching/teaching-resource-list";
 import { TeachingRow } from "@/components/teaching/teaching-row";
 import { TeachingSignInNotice } from "@/components/teaching/teaching-sign-in";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
@@ -248,17 +249,7 @@ function SessionBody({
         ) : null}
         {detail.presenterName ? <ModeRow title="Presenter" subtitle={detail.presenterName} /> : null}
       </ModeGroupedList>
-      {detail.materials.length > 0 ? (
-        <ModeGroupedList
-          mode="teaching"
-          eyebrow="Materials · chosen by the presenter"
-          testId="teaching-session-materials"
-        >
-          {detail.materials.map((item) => (
-            <TeachingRow key={item.url} title={item.label} externalHref={item.url} />
-          ))}
-        </ModeGroupedList>
-      ) : null}
+      <SessionMaterials detail={detail} />
       {staff ? (
         <>
           {detail.counts ? (

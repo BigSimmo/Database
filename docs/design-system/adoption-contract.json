@@ -187,6 +187,8 @@
         "src/app/(search-app)/teaching/logbook/page.tsx",
         "src/app/(search-app)/teaching/organise/page.tsx",
         "src/app/(search-app)/teaching/page.tsx",
+        "src/app/(search-app)/teaching/resources/[collectionId]/page.tsx",
+        "src/app/(search-app)/teaching/resources/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/page.tsx",
         "src/app/(search-app)/teaching/week/page.tsx",
