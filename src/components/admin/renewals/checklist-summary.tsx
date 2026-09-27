@@ -58,11 +58,7 @@ function ChecklistTimeline({
           <span key={row.item.id} className="contents">
             <span className={cn(textMuted, "self-center truncate text-xs")}>{row.item.title}</span>
             <span className="relative h-4 self-center">
-              <span
-                aria-hidden="true"
-                className="absolute inset-y-0 left-0 w-px bg-[color:var(--clinical-accent)]"
-                style={{ left: "0%" }}
-              />
+              <span aria-hidden="true" className="absolute inset-y-0 left-0 w-px bg-[color:var(--clinical-accent)]" />
               {/* Shape, not shade (M8): a triangle still open to renew, a
                   diamond already passed — the same shapes the list's status
                   words carry, so the mark never depends on colour alone. */}
