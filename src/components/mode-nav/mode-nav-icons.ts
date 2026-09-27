@@ -13,7 +13,6 @@ import {
   ClipboardList,
   Feather,
   GitCompareArrows,
-  GraduationCap,
   House,
   Landmark,
   LayoutGrid,
@@ -24,12 +23,13 @@ import {
   Network,
   NotebookPen,
   Phone,
+  NotebookText,
   Presentation,
-  Repeat,
   Printer,
   Search,
   Settings,
   Sparkles,
+  SlidersHorizontal,
   Stethoscope,
   Sunrise,
   Scale,
@@ -119,13 +119,8 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   // page it opens.
   year: CalendarDays,
   log: NotebookPen,
-  check: ClipboardCheck,
-  training: GraduationCap,
-  calendar: CalendarRange,
-  routines: Repeat,
   plan: Target,
   learning: Presentation,
-  programme: ClipboardList,
   setup: ListChecks,
   // Admin's page destinations in the mode picker.
   "admin-today": Sunrise,
@@ -150,6 +145,14 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   "first-nations-mistakes": Ban,
   "first-nations-going-home": House,
   "first-nations-end-of-life": Feather,
+  // Teaching shares the Today calendar icon with Roster.
+  week: CalendarClock,
+  logbook: NotebookText,
+  organise: SlidersHorizontal,
+  "whats-on": CalendarDays,
+  resources: LibraryBig,
+  teach: Presentation,
+  supervision: Users,
 };
 
 /**

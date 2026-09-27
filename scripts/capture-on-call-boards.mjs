@@ -46,7 +46,6 @@ const SECTION_LISTS = {
   "/on-call/playbook": "on-call-playbook-section",
   "/on-call/referrals": "on-call-referrals-section",
   "/on-call/orientation": "on-call-orientation-section",
-  "/on-call/education": "on-call-education-section",
   // Board 11: On Call's admin rows moved to Admin > Help (Admin update 1).
   "/admin/help": "admin-help-main",
   "/on-call/who-is-who": "on-call-who-is-who-section",

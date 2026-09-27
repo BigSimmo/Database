@@ -92,20 +92,13 @@ async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
 
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
-  // A sheet can leave the page hundreds of pixels down after its trigger was
-  // scrolled into view. WebKit may restore that offset after scrollTo returns;
-  // set the document scroll position directly and require the page to reach top.
+  // Exercise the same upward scroll that reveals the phone header to a reader.
+  // Programmatic scrollTop=0 can briefly report zero in WebKit, then snap back
+  // after the closing sheet restores focus without revealing the header.
   if (scrollTop > 0) {
-    await expect
-      .poll(async () => {
-        await page.evaluate(() => {
-          const scroller = document.scrollingElement ?? document.documentElement;
-          scroller.scrollTop = 0;
-          window.dispatchEvent(new Event("scroll"));
-        });
-        return (await readPrimaryScrollGeometry(page)).scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
+    await page.mouse.move(8, Math.floor((page.viewportSize()?.height ?? 844) / 2));
+    await page.mouse.wheel(0, -2000);
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).scrollTop).toBeLessThanOrEqual(1);
   }
   await expect(control).toBeInViewport();
 }
@@ -4549,14 +4542,14 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
     await expect(modeSearch).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(22);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(23);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Admin" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "First Nations" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "CPD and teaching", exact: true })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Roster\b/ })).toBeAttached();
@@ -4573,7 +4566,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Admin\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(22);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(23);
 
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();
@@ -6536,6 +6529,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(dialog.getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeFocused();
     await dialog.getByRole("button", { name: "Continue" }).click();
     await expect(dialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeFocused();
+    // The tour advances the heading before WebKit finishes updating the
+    // Previous button's disabled state and forced-colors foreground.
+    await expect(dialog.getByRole("button", { name: "Previous" })).toBeEnabled();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
 
     const axeResults = await new AxeBuilder({ page })
       .include('[data-testid="clinical-kb-guide-centre"]')

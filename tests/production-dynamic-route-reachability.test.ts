@@ -572,6 +572,17 @@ describe("production dynamic route reachability", () => {
       "/services/[slug]",
       "/sources/[sourceId]",
       "/specifiers/[slug]",
+      // Teaching dynamic routes (U7). Reached from device QR/link values built by
+      // checkin-token.ts's `checkinScanPath`/`teachingDisplayPath` (not `<a href>`s — a QR code
+      // value and a shared-screen link, each scanned or opened outside in-app navigation) and from
+      // `<Link>`s built with `/teaching/session/${occurrenceId}` in teaching-view-model.ts,
+      // calendar-events.ts, teaching-checkin.tsx and teaching-scan-landing.tsx.
+      "/teaching/c/[token]",
+      "/teaching/display/[token]",
+      // Collection cards in teaching-resources.tsx link to each collection.
+      "/teaching/resources/[collectionId]",
+      "/teaching/session/[id]",
+      "/teaching/session/[id]/check-in",
       "/therapy-compass/[slug]",
       "/therapy-compass/[slug]/brief",
       "/therapy-compass/[slug]/sheet",

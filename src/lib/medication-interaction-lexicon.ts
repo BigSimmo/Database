@@ -64,9 +64,9 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
   { id: "snris", surfaces: ["snris", "snri"], kind: "catalogue", select: { subclassIncludes: ["SNRI"] } },
   {
     id: "maois",
-    surfaces: ["maois", "maoi", "monoamine oxidase inhibitors"],
+    surfaces: ["maois", "maoi", "monoamine oxidase inhibitors", "rima", "rimas", "moclobemide"],
     kind: "catalogue",
-    select: { subclassIncludes: ["MAOI"] },
+    select: { subclassIncludes: ["MAOI", "RIMA"] },
   },
   {
     id: "tcas",

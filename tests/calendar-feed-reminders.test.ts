@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   cmeYear: vi.fn(),
   cmeRoutines: vi.fn(),
   onCall: vi.fn(),
+  teachingFeed: vi.fn(),
   warn: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
@@ -26,6 +27,7 @@ vi.mock("@/lib/cme/repository", () => ({
   fetchOwnerCmeRoutines: mocks.cmeRoutines,
 }));
 vi.mock("@/lib/on-call/repository", () => ({ fetchVisibleOnCallEntries: mocks.onCall }));
+vi.mock("@/lib/teaching/feed-repository", () => ({ fetchTeachingFeedSessions: mocks.teachingFeed }));
 
 import { GET as feed } from "@/app/api/calendar/feed/[token]/route";
 
@@ -73,6 +75,7 @@ beforeEach(() => {
   mocks.cmeYear.mockResolvedValue(null);
   mocks.cmeRoutines.mockResolvedValue([]);
   mocks.onCall.mockResolvedValue([session]);
+  mocks.teachingFeed.mockResolvedValue([]);
 });
 
 afterEach(() => {

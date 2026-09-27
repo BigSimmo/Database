@@ -312,6 +312,7 @@ Every remaining tracked document in this category, one line each; the descriptio
 - [product/2026-09-19-second-recommendations.md](product/2026-09-19-second-recommendations.md) — Seven more recommendations from reading the code, 2026-09-19 — nothing decided
 - [prompts/sources-mode-extraction.md](prompts/sources-mode-extraction.md) — Sources mode extraction prompt
 - [superpowers/plans/2026-09-04-on-call-mode.md](superpowers/plans/2026-09-04-on-call-mode.md) — On Call mode implementation plan
+- [superpowers/plans/2026-09-27-on-call-completion.md](superpowers/plans/2026-09-27-on-call-completion.md) — On Call plan to complete the health-service rebuild (after #3110)
 - [superpowers/plans/2026-09-20-cme-mode-phase-1.md](superpowers/plans/2026-09-20-cme-mode-phase-1.md) — CPD mode (mode id `cme`) phase 1 implementation plan
 - [superpowers/plans/2026-09-25-wa-psychiatry-build.md](superpowers/plans/2026-09-25-wa-psychiatry-build.md) — WA Psychiatry build: fast-lane implementation plan (v2)
 - [superpowers/plans/2026-09-27-roster-mode-overview.md](superpowers/plans/2026-09-27-roster-mode-overview.md) — Roster mode build overview: steps, default decisions, Josh-only actions

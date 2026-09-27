@@ -559,13 +559,13 @@ export const sourceAuthorityRegistry = [
   // sources retrieval picks, which is a separate decision from letting the register
   // name them.
   //
-  // Four further publishers were deliberately NOT registered, because the strings
-  // are descriptions rather than agencies: "Government of Western Australia",
-  // "WA Health service providers", "Mental Health Commission / WA Health" (two
-  // publishers in one field) and "4AT developers". Registering a catch-all like
-  // "Government of Western Australia" would resolve every WA government document to
-  // one authority, which is worse than leaving those four records held until their
-  // actual publishing agency is established.
+  // Four publishers were originally recorded as descriptions rather than agencies:
+  // "Government of Western Australia", "WA Health service providers", "Mental Health
+  // Commission / WA Health" (two publishers in one field) and "4AT developers". The first
+  // three now name their agencies (MHASWA, FSFHG, MHCWA). "4AT developers" is still NOT
+  // registered: the 4AT site names no publishing agency, so that record stays held until a
+  // source establishes one (owner approval 2026-09-28). A catch-all entry would be worse
+  // than leaving it held.
   authority({
     key: "mental-health-tribunal-wa",
     codes: ["MHTWA"],
