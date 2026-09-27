@@ -46,15 +46,40 @@ function parseEducationDetails(details: unknown): OnCallEducationDetails | null 
 }
 
 /**
- * `nextOccurrence` is owner-typed free text (spec: no roster/recurring-date
- * engine), not a guaranteed ISO date. A parseable value sorts by real time;
- * anything else (or missing) sorts after every dated entry, alphabetically by
- * title, rather than being silently dropped from the calendar.
+ * Undated sessions (where `!date`) sort safely after dated ones by assigning
+ * `POSITIVE_INFINITY` rather than parsing free text via `new Date()`, then
+ * tiebreaking by title.
  */
-function occurrenceSortKey(value: string | undefined): number {
-  if (!value) return Number.POSITIVE_INFINITY;
-  const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+export function occurrenceSortKey(): number {
+  return Number.POSITIVE_INFINITY;
+}
+
+/**
+ * Cleans the owner's free-text occurrence to remove stale relative phrases
+ * ("next week", "in \d+ days", "tomorrow", "today", "yesterday", "later this month",
+ * "this week") and redundant day names ("Thursday"), extracting only the time
+ * (e.g. "1pm", "13:00", "12-1pm").
+ */
+export function cleanOccurrenceTime(owner: string | null): string | null {
+  if (!owner) return null;
+  const cleaned = owner
+    .replace(/\b(?:next|this)\s+week\b/gi, "")
+    .replace(/\bin\s+\d+\s+days?\b/gi, "")
+    .replace(/\b(?:tomorrow|today|yesterday|later\s+this\s+month|next\s+month|this\s+month)\b/gi, "")
+    .replace(
+      /\b(?:mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/gi,
+      "",
+    )
+    .replace(/^[\s,·\-/–—@at]+|[\s,·\-/–—]+$/g, "")
+    .trim();
+
+  if (!cleaned) return null;
+
+  const timeMatch = cleaned.match(
+    /\b(?:(?:[01]?\d|2[0-3]):[0-5]\d(?:\s*[ap]m)?|\d{1,2}(?::\d{2})?\s*[ap]m|\d{1,2}(?=\s*(?:-|–|—|to)\s*(?:(?:[01]?\d|2[0-3]):[0-5]\d|\d{1,2}(?::\d{2})?)\s*[ap]m))(?:\s*(?:-|–|—|to)\s*(?:(?:[01]?\d|2[0-3]):[0-5]\d(?:\s*[ap]m)?|\d{1,2}(?::\d{2})?\s*[ap]m))?\b/i,
+  );
+
+  return timeMatch ? timeMatch[0] : null;
 }
 
 /**
@@ -62,23 +87,32 @@ function occurrenceSortKey(value: string | undefined): number {
  *
  * A session that repeats is asked for its NEXT occurrence rather than the date
  * somebody typed into it months ago — the same roll-forward the home uses, so
- * the two screens cannot disagree about when journal club is. Sessions with no
- * computable date keep the old free-text key, which is what still keeps an
- * undated session on the page instead of dropping it.
+ * the two screens cannot disagree about when journal club is.
+ *
+ * When `date` is present, `owner` is cleaned of stale relative phrases and
+ * redundant day names to extract the time. If a time is present, it is joined
+ * with the computed date label: `${onCallTeachingDateLabel(date)}, ${time}`.
+ * If no time remains (or the owner text was only a relative phrase), show only
+ * `onCallTeachingDateLabel(date)`.
+ *
+ * Sessions with no computable date sort safely after every dated entry with
+ * `Number.POSITIVE_INFINITY` without parsing free text, tiebreaking alphabetically
+ * by title.
  */
 function resolvedOccurrence(details: OnCallEducationDetails | null, entry: OnCallEntry, today: string) {
   const date = onCallTeachingDate(entry, today);
   const owner = details?.nextOccurrence?.trim() || null;
-  // Both, not one or the other. The computed date is the only part that can be
-  // trusted to be current, and the owner's own wording is the only part that
-  // carries a TIME — "Thursday 1pm" reduced to "Thu 17 Sep 2026" tells a reader
-  // which day to turn up and leaves them guessing when. The structured rule
-  // exists to compute with; it was never meant to speak for the free text.
-  // Codex P2 on PR #2806.
+  const time = date ? cleanOccurrenceTime(owner) : null;
+  const label = date ? (time ? `${onCallTeachingDateLabel(date)}, ${time}` : onCallTeachingDateLabel(date)) : owner;
+
   return {
     date,
-    label: date ? [onCallTeachingDateLabel(date), owner].filter(Boolean).join(", ") : owner,
-    sortKey: date ? Date.parse(`${date}T00:00:00Z`) : occurrenceSortKey(details?.nextOccurrence),
+    label,
+    sortKey: (() => {
+      if (!date) return occurrenceSortKey();
+      const parsed = Date.parse(`${date}T00:00:00Z`);
+      return Number.isNaN(parsed) ? occurrenceSortKey() : parsed;
+    })(),
   };
 }
 

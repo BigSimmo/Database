@@ -54,7 +54,6 @@ describe("the On Call domain model stays out of every page's bundle", () => {
       "@/lib/on-call/entry-model",
       "@/lib/on-call/entry-store",
       "@/lib/on-call/repository",
-      "@/lib/on-call/entry-chips",
       "@/lib/on-call/card-selection",
       "@/lib/on-call/linked-documents",
       "@/components/on-call/",

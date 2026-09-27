@@ -12,6 +12,7 @@ const documentResponseSchema = z.object({
     file_name: z.string().nullish(),
     created_at: z.string().nullish(),
     updated_at: z.string().nullish(),
+    metadata: z.record(z.string(), z.unknown()).nullish(),
   }),
 });
 
@@ -62,7 +63,12 @@ export function useOnCallLinkedDocumentsState(ids: readonly string[] = []): {
           if (!parsed.success || parsed.data.document.id !== id) continue;
           const row = parsed.data.document;
           const title = row.title?.trim() || row.file_name?.trim();
-          if (title) documents[id] = { id, title, date: row.updated_at ?? row.created_at ?? null };
+          const metadata = row.metadata;
+          const date =
+            (typeof metadata?.review_date === "string" && metadata.review_date.trim()) ||
+            (typeof metadata?.reviewDate === "string" && metadata.reviewDate.trim()) ||
+            null;
+          if (title) documents[id] = { id, title, date };
         } catch {
           // The linked ID remains visible as unavailable, never relabelled unlinked.
         }

@@ -189,11 +189,11 @@
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": ["tests/ui-style-contract.spec.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": ["tests/ckb-v2-token-contract.test.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "compact320": {
           "status": "passed",
@@ -201,7 +201,7 @@
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": ["tests/global-v2-activation.test.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "browser": {
           "status": "passed",
