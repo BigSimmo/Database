@@ -314,6 +314,13 @@ Every remaining tracked document in this category, one line each; the descriptio
 - [superpowers/plans/2026-09-04-on-call-mode.md](superpowers/plans/2026-09-04-on-call-mode.md) — On Call mode implementation plan
 - [superpowers/plans/2026-09-20-cme-mode-phase-1.md](superpowers/plans/2026-09-20-cme-mode-phase-1.md) — CPD mode (mode id `cme`) phase 1 implementation plan
 - [superpowers/plans/2026-09-25-wa-psychiatry-build.md](superpowers/plans/2026-09-25-wa-psychiatry-build.md) — WA Psychiatry build: fast-lane implementation plan (v2)
+- [superpowers/plans/2026-09-27-roster-mode-overview.md](superpowers/plans/2026-09-27-roster-mode-overview.md) — Roster mode build overview: steps, default decisions, Josh-only actions
+- [superpowers/plans/2026-09-27-roster-mode-plan-a-database.md](superpowers/plans/2026-09-27-roster-mode-plan-a-database.md) — Roster mode plan A: the combined database change (PR #3117)
+- [superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md](superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md) — Roster mode plan B: Release 1, one doctor (PR #3118)
+- [superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md](superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md) — Roster mode plan C: Release 2, Roster for a health service (the plan to complete it)
+- [superpowers/plans/2026-09-27-roster-mode-status.md](superpowers/plans/2026-09-27-roster-mode-status.md) — Roster mode: where the build stands and the plan to complete it
+- [superpowers/plans/2026-09-27-roster-mode-db-agreement.md](superpowers/plans/2026-09-27-roster-mode-db-agreement.md) — Roster mode: the Roster, On Call, Admin and Teaching agreement on the combined database change
+- [superpowers/plans/2026-09-27-roster-mode-build-brief.md](superpowers/plans/2026-09-27-roster-mode-build-brief.md) — Roster mode: the brief the build threads work from
 - [superpowers/specs/2026-09-04-on-call-mode-design.md](superpowers/specs/2026-09-04-on-call-mode-design.md) — On Call mode design spec
 
 ## Subdirectory map

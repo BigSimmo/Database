@@ -109,6 +109,23 @@ material.
 | Team membership audit (`on_call_service_member_events`): joins, removals and role changes                                                                                                                                                                                                                                                                                                                                                                                              | Supabase (Sydney), service role only                                                                                                                                                                                                                                         | Low-Med                                                                                                                                    | Platform only; 12 months.                                                                                                                                                                                                                                                                 |
 | Admin extra time, leave balances and settings (`extra_time_records`, `admin_leave_balances`, `admin_settings`) and Teaching tables (`teaching_*`)                                                                                                                                                                                                                                                                                                                                      | Supabase (Sydney), service role only                                                                                                                                                                                                                                         | Medium (staff personal information)                                                                                                        | As the Admin and Teaching plans describe.                                                                                                                                                                                                                                                 |
 
+**Planned Roster Release 2 leave access (approved by Josh 2026-09-27; not yet deployed):**
+the current table row above describes the count-only access in the merged SQL; live schema
+application is checked separately by the post-merge drift workflow. The follow-up migration's
+`roster_read('team_leave')` will let a roster manager of a confirmed team see an active team
+member's `userId`, name, leave kind (annual or professional development), start and end dates,
+and status (planned, applied or approved), for a requested window of at most 62 days. The
+purpose is to plan cover; this view does not approve leave. Ordinary members continue to see
+only the anonymous overlap count. The dates, kind and status stay in the existing owner-scoped
+`roster_leave` table in Supabase (Sydney); names come from the team's member record. No leave
+reason or patient information is collected, and the plan adds no phone storage. The merged purge
+is designed to delete leave 12 months after it ends; account deletion cascades to the leave row.
+Release 2's
+"Delete my data" flow will delete the doctor's own leave rows, and revoking team membership
+must remove named-read access immediately. Before real staff use this view, update the current
+inventory row when G4 ships, pass the manager/member/former-member staging isolation proof,
+obtain the health service's privacy approval, and resolve the Singapore app-server decision.
+
 **Roster, Admin and Teaching (added 2026-09-26):** these tables hold staff personal information,
 not patient data. The app servers run in Singapore and the database in Sydney; a health service may
 require Australian hosting, which is checked with them before real staff data goes in. P1 #F9HZEG
