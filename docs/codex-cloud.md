@@ -133,7 +133,7 @@ expected to call named providers. Configure the smallest domain/method allowlist
 least-privileged credentials for those tasks. Never commit credentials or print their
 values. The setup script does not call providers and does not prove provider authorization.
 
-Create or select a separate environment named `Database - connected` for `BigSimmo/PsychSift`,
+Create or select a separate environment named `PsychSift - connected` for `BigSimmo/PsychSift`,
 then set only these ordinary environment variables in
 [Codex environment settings](https://chatgpt.com/codex/settings/environments):
 
@@ -395,7 +395,7 @@ production-like calls. The active hosted workspace is **Personal Pro**. It does 
 dedicated-group RBAC or per-tool action disabling assumed by Enterprise/Edu instructions. Use
 Railway's installed official ChatGPT app, complete browser OAuth without static tokens or headers,
 set the global app policy to **Allow read actions**, and leave changes approval-gated. Authorize
-only workspace `bigsimmo's Projects` and project `Database`
+only workspace `bigsimmo's Projects` and project `PsychSift`
 (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) where Railway offers that choice. Reduce read results to
 non-secret account, project, workspace, environment, and service metadata. Railway's remote MCP
 does not accept project tokens; install Railway CLI separately only for explicitly approved
@@ -469,7 +469,7 @@ the host must grant OAuth and repository access in a fresh task; do not try to r
 copying credentials into the checkout.
 
 1. **Create the durable host environment.** In Codex environment settings, create or select
-   `Database - connected` for `BigSimmo/PsychSift`. Set exactly the five non-secret values from the
+   `PsychSift - connected` for `BigSimmo/PsychSift`. Set exactly the five non-secret values from the
    connected profile above. Configure setup as
    `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh` and
    maintenance as
@@ -485,7 +485,7 @@ copying credentials into the checkout.
    Personal Pro has no dedicated-group RBAC or per-tool disabling, so do not claim those controls.
    Authorize the Codex GitHub connector for
    `BigSimmo/PsychSift` with repository write access. Complete Railway OAuth only for workspace
-   `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
+   `bigsimmo's Projects` and project `PsychSift` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
    Supabase OAuth only for the organization containing `PsychSift Production`; retain project ref
    `sjrfecxgysukkwxsowpy`, `read_only=true`, and the docs/development-only feature allowlist. Do not broaden the
    production Supabase MCP to write access. Enable Figma or Sentry only for a task that names that
