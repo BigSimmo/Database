@@ -312,7 +312,7 @@ describe("live-drift failure routing", () => {
     expect(calls.created[0].title).toBe("Live drift check failing");
     expect(calls.created[0].labels).toEqual(["live-drift-failure"]);
     expect(calls.created[0]).toMatchObject(repositoryCoordinates);
-    expect(calls.created[0].body).toContain("https://github.com/BigSimmo/Database/actions/runs/99");
+    expect(calls.created[0].body).toContain("https://github.com/BigSimmo/PsychSift/actions/runs/99");
     expect(calls.created[0].body).toContain("documents_title_trgm_idx");
     expect(calls.closed).toHaveLength(0);
   });
@@ -348,7 +348,7 @@ describe("live-drift failure routing", () => {
 
     expect(calls.comments).toHaveLength(1);
     expect(calls.comments[0].body).toContain("Resolved");
-    expect(calls.comments[0].body).toContain("https://github.com/BigSimmo/Database/actions/runs/99");
+    expect(calls.comments[0].body).toContain("https://github.com/BigSimmo/PsychSift/actions/runs/99");
     expect(calls.closed).toEqual([
       { ...repositoryCoordinates, issue_number: 1234, state: "closed", state_reason: "completed" },
     ]);

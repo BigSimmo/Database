@@ -369,11 +369,9 @@ export const userFacingPluginMetadata = [
   "plugins/clinical-kb/README.md",
 ];
 
-/** The product's retired name. `Clinical KB Database` and `Clinical KB
- *  Staging` are the live Supabase projects and are excluded by the negative
- *  lookaheads — those are the databases' real names, pinned by AGENTS.md, not
- *  product names. */
-const RETIRED_PRODUCT_NAME = /Clinical KB(?! Database)(?! Staging)/g;
+/** The former product name is retired from living product surfaces. Historical
+ *  records and migration files retain their original names. */
+const RETIRED_PRODUCT_NAME = /Clinical KB/g;
 
 /** Repository surfaces outside the plugin whose *user-facing* text names the
  *  product: the repo front page, the security policy, BOTH container images'
@@ -389,8 +387,8 @@ const RETIRED_PRODUCT_NAME = /Clinical KB(?! Database)(?! Staging)/g;
  *  former name alongside the current one, because the former name still needs
  *  the same no-endorsement protection.
  *
- *  `Clinical KB Database` and `Clinical KB Staging` stay wherever they appear:
- *  those are the live Supabase projects' real names, pinned by AGENTS.md. */
+ *  `PsychSift Production` and `PsychSift Staging` are the live Supabase
+ *  project names, pinned by AGENTS.md. */
 export const userFacingProductSurfaces = [
   ".design-sync/NOTES.md",
   ".design-sync/conventions.md",

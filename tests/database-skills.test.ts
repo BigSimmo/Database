@@ -191,10 +191,10 @@ describe("the repository's user-facing product name", () => {
   });
 
   it("keeps the live Supabase project names, which are not the product name", () => {
-    // `Clinical KB Database` and `Clinical KB Staging` are pinned by AGENTS.md.
+    // `PsychSift Production` and `PsychSift Staging` are pinned by AGENTS.md.
     // A guard that stripped them would rename a real database out of the docs.
     const index = fs.readFileSync(path.resolve(import.meta.dirname, "..", "docs/codebase-index.md"), "utf8");
-    expect(index).toContain("Clinical KB Database");
+    expect(index).toContain("PsychSift Production");
     expect(validatePluginProductName(["docs/codebase-index.md"]).errors).toEqual([]);
   });
 

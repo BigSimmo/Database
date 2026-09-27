@@ -41,7 +41,7 @@ flowchart TB
 
 The app↔Supabase path is public internet fronted by Supabase's CDN (Supabase is not on
 Railway's private network — see §2.1). Both Railway services deploy from
-`BigSimmo/Database` on pushes to `main`.
+`BigSimmo/PsychSift` on pushes to `main`.
 
 ## 1. Current state (what runs today)
 
@@ -49,7 +49,7 @@ Railway's private network — see §2.1). Both Railway services deploy from
   environment `production` (`6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4`), region
   **Southeast Asia (`asia-southeast1-eqsg3a`, Singapore)** — the closest Railway
   region to the Supabase project. Two services from this one repo, both connected
-  to the `BigSimmo/Database` GitHub repo and auto-deploying on pushes to `main`:
+  to the `BigSimmo/PsychSift` GitHub repo and auto-deploying on pushes to `main`:
   - **`Database`** — the Next.js app tier (`Dockerfile`), serving the custom domain
     **`https://psychiatry.tools`**, one warm replica, Railway healthcheck path
     `/api/health/ready`, restart-on-failure.
@@ -60,7 +60,7 @@ Railway's private network — see §2.1). Both Railway services deploy from
   services, but has **zero active deployments** (last activity 2026-07-14, all
   `REMOVED`) and its generated domain `app-production-68ebf.up.railway.app` returns 404. It is not production. Do not `railway link` a worktree to it — deploys sent
   there go nowhere. Retiring it is an open operator decision.
-- **Database/auth/storage:** live Supabase project `Clinical KB Database`
+- **Database/auth/storage:** live Supabase project `PsychSift Production`
   (`sjrfecxgysukkwxsowpy`), region **ap-southeast-2 (Sydney)**, Postgres 17,
   ~2,000 indexed documents / ~69k chunks. RLS is service-role-only; the app
   layer is the ownership boundary. Supabase is a managed external service — it is
@@ -289,7 +289,7 @@ the app and ingestion worker merely to exist, including PRs opened by agents.
 
 #### Verified review and containment, 2026-09-22
 
-The live Railway project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`)
+The live Railway project `PsychSift` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`)
 had automatic PR Environments enabled, **production** selected as its base,
 bot previews enabled, and Focused PR Environments disabled. Opening the
 documentation-only PR #2987 started both app and worker builds. Its worker
@@ -311,7 +311,7 @@ auto-deploy disabled. No preview environment was manually deleted; Railway remov
 An attempted extra containment step exposed a CLI scope trap: Railway CLI 5.27.0
 `service source disconnect --environment <preview>` disconnected the shared
 service source, including production. The environment selector did not isolate
-that mutation. Both production sources were restored to `BigSimmo/Database` on
+that mutation. Both production sources were restored to `BigSimmo/PsychSift` on
 `main`. Reconnection also attached `main` auto-deploy triggers to the retained
 preview; both were disabled using each preview service's dashboard **Disable**
 control. Global PR-environment creation and existing service auto-deploy triggers
@@ -644,7 +644,7 @@ Rules:
 ## 5. Staging environment
 
 - **A second, dedicated Supabase project** (same org, ap-southeast-2) — not a
-  branch of production. `Clinical KB Staging` was provisioned and migrated on
+  branch of production. `PsychSift Staging` was provisioned and migrated on
   2026-07-19. Rationale: staging must absorb soak tests, destructive
   ingestion experiments, and migration rehearsal without any shared compute,
   pooling, or the production auth 10-connection cap; per-environment keys fall
@@ -655,7 +655,7 @@ Rules:
   (`npm run samples`) are sufficient for load-shape realism; do not copy
   clinical production documents into staging.
 - One staging `app` container and **no staging worker**. The active Railway
-  `Database` project has a `staging` environment pinned to Singapore with
+  `PsychSift` project has a `staging` environment pinned to Singapore with
   `RAG_PROVIDER_MODE=offline`, isolated Supabase credentials, and no OpenAI key.
   This keeps release proofs deterministic and prevents staging ingestion from
   draining or mutating production data. See `docs/staging-setup.md` for the

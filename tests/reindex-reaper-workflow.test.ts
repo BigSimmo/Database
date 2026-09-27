@@ -177,7 +177,7 @@ describe("reindex reaper workflow", () => {
     const workflow = readFileSync(workflowPath, "utf8").replace(/\r\n/g, "\n");
     expect(workflow).toContain("NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co");
     expect(workflow).toContain("SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy");
-    expect(workflow).toContain("SUPABASE_PROJECT_NAME: Clinical KB Database");
+    expect(workflow).toContain("SUPABASE_PROJECT_NAME: PsychSift Production");
     expect(workflow).toContain("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key");
     expect(workflow).not.toContain("qjgitjyhxrwxsrydablr");
     expect(workflow).toContain("npm run check:supabase-project");

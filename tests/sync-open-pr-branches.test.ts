@@ -80,7 +80,7 @@ describe("sync-open-pr-branches apply identity", () => {
 
 describe("sync-open-pr-branches repository identity", () => {
   it("extracts the structured gh repository response", () => {
-    expect(repositoryNameWithOwner({ nameWithOwner: "BigSimmo/Database" })).toBe("BigSimmo/Database");
+    expect(repositoryNameWithOwner({ nameWithOwner: "BigSimmo/PsychSift" })).toBe("BigSimmo/PsychSift");
   });
 
   it("rejects missing or malformed repository identity", () => {

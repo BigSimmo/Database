@@ -10,8 +10,8 @@
  *   npm run check:env-parity -- --gh
  *   npm run check:env-parity -- --railway
  *
- * GitHub reads are pinned to BigSimmo/Database. Railway reads are pinned to the
- * live Database project, production environment, and named app/worker services.
+ * GitHub reads are pinned to BigSimmo/PsychSift. Railway reads are pinned to the
+ * live PsychSift project, production environment, and named app/worker services.
  * Railway's JSON format contains raw values, so the response is captured only
  * in memory and immediately reduced to Object.keys().
  */
@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const GITHUB_REPOSITORY = "BigSimmo/Database";
+const GITHUB_REPOSITORY = "BigSimmo/PsychSift";
 const RAILWAY_TARGET = {
   project: "5deaad0b-675a-4c13-978e-5ca2b5b877f9",
   environment: "6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4",

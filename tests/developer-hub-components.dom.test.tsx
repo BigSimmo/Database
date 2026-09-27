@@ -189,7 +189,7 @@ describe("EnvironmentStrip", () => {
     expect(strip).toHaveTextContent("build e521988");
     expect(screen.getByTestId("developer-hub-build-link")).toHaveAttribute(
       "href",
-      "https://github.com/BigSimmo/Database/commit/e52198827abcdef",
+      "https://github.com/BigSimmo/PsychSift/commit/e52198827abcdef",
     );
     expect(strip).toHaveTextContent("dev@example.com");
     expect(strip).not.toHaveTextContent("environment unknown");

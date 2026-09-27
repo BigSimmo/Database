@@ -34,13 +34,13 @@ access. Its Cloud delivery section defines fallback and evidence requirements.
 
 ## Create the environment
 
-In Codex environment settings, create an environment for `BigSimmo/Database` using the
+In Codex environment settings, create an environment for `BigSimmo/PsychSift` using the
 official [Cloud environments](https://learn.chatgpt.com/docs/environments/cloud-environment)
 contract:
 
 | Setting               | Value                                                                                       |
 | --------------------- | ------------------------------------------------------------------------------------------- |
-| Repository            | `BigSimmo/Database`                                                                         |
+| Repository            | `BigSimmo/PsychSift`                                                                        |
 | Base image            | Default universal image                                                                     |
 | Node version          | `24`                                                                                        |
 | Python version        | `3.12`                                                                                      |
@@ -133,7 +133,7 @@ expected to call named providers. Configure the smallest domain/method allowlist
 least-privileged credentials for those tasks. Never commit credentials or print their
 values. The setup script does not call providers and does not prove provider authorization.
 
-Create or select a separate environment named `Database - connected` for `BigSimmo/Database`,
+Create or select a separate environment named `Database - connected` for `BigSimmo/PsychSift`,
 then set only these ordinary environment variables in
 [Codex environment settings](https://chatgpt.com/codex/settings/environments):
 
@@ -168,7 +168,7 @@ least-privilege provider mechanism.
 
 The GitHub connector is the supported repository/PR path. Follow the official
 [Codex GitHub setup](https://help.openai.com/en/articles/11390924), authorize the
-`BigSimmo/Database` repository, and ensure the installation grants the user write access if
+`BigSimmo/PsychSift` repository, and ensure the installation grants the user write access if
 Cloud tasks must publish PRs. Repository discovery proves read access only.
 
 For an explicitly authorised GitHub task, use Cloud's authenticated GitHub integration
@@ -189,7 +189,7 @@ native Push control, and GitHub UI remain the preferred Cloud publication and cl
 explicit shell fallback necessarily leaves an authenticated `gh` credential helper available to
 the agent, so it has a wider trust boundary than the connector. The setup secret itself
 is still excluded from the agent environment and the generated shell profile. The live gate never
-reads or prints the credential: it verifies the exact `BigSimmo` identity, `BigSimmo/Database`
+reads or prints the credential: it verifies the exact `BigSimmo` identity, `BigSimmo/PsychSift`
 write permission, `repo`, `workflow`, `read:org`, and `gist` scopes, PR metadata/diff/check/comment/Actions
 reads, review-thread reply and resolution schema, repository review-thread reads and resolve permission,
 successful Actions job metadata, log access
@@ -207,11 +207,11 @@ schema, unsafe-origin, and branch-policy failures fail immediately rather than b
 `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` is retained only for
 an explicitly authorised operator running outside Codex Cloud. It rejects `CODEX_CLOUD=1`,
 protected/invalid refs, and any origin other than the credential-free
-`https://github.com/BigSimmo/Database.git`. Never copy a PAT into a Cloud task, profile, checkout,
+`https://github.com/BigSimmo/PsychSift.git`. Never copy a PAT into a Cloud task, profile, checkout,
 remote URL, cache, or log.
 
 Setup restores a missing `origin` to the credential-free URL
-`https://github.com/BigSimmo/Database.git`; it preserves an existing correct remote and fails
+`https://github.com/BigSimmo/PsychSift.git`; it preserves an existing correct remote and fails
 instead of overwriting a wrong or credential-bearing remote. When GitHub CLI authentication is
 already available, setup asks `gh auth setup-git` to install its token-free helper command. It
 never embeds a token or invents a PAT. It also fetches `origin/main`, stores the current task's merge
@@ -346,7 +346,7 @@ approved mode values and presence booleans. The runtime check additionally verif
 policy and installed-lock parity, the pinned Codex CLI, Deno 2, Python 3 and worker imports,
 Tesseract, actual headless launch-and-close for Chromium/Firefox/WebKit, the Python requirements
 fingerprint plus `pip check` and medspaCy/spaCy versions, the expected base commit as an ancestor
-of HEAD, the `BigSimmo/Database` origin identity, offline credential absence when applicable,
+of HEAD, the `BigSimmo/PsychSift` origin identity, offline credential absence when applicable,
 and obsolete npm proxy variable names without reading or printing their values. It reports
 the full current HEAD, local main and origin/main when present, expected base, ancestry result,
 and a separate freshness state. Setup and maintenance use the process-local
@@ -408,7 +408,7 @@ not the current operating target.
 The Supabase MCP entry is scoped to production project `sjrfecxgysukkwxsowpy`, forces
 `read_only=true`, and exposes only documentation/development metadata tools. The database and
 debugging groups are excluded so ordinary Cloud cannot execute SQL, read clinical rows, or inspect
-production logs. Complete its browser OAuth flow for the organization containing `Clinical KB Database`
+production logs. Complete its browser OAuth flow for the organization containing `PsychSift Production`
 and restart the client if tools do not appear. Schema writes, Edge Function deployment, branching,
 and storage mutations require a separately configured non-production project or branch; do not
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
@@ -469,7 +469,7 @@ the host must grant OAuth and repository access in a fresh task; do not try to r
 copying credentials into the checkout.
 
 1. **Create the durable host environment.** In Codex environment settings, create or select
-   `Database - connected` for `BigSimmo/Database`. Set exactly the five non-secret values from the
+   `Database - connected` for `BigSimmo/PsychSift`. Set exactly the five non-secret values from the
    connected profile above. Configure setup as
    `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh` and
    maintenance as
@@ -484,9 +484,9 @@ copying credentials into the checkout.
    settings before starting a new task; repository setup cannot refresh hosted OAuth tokens.
    Personal Pro has no dedicated-group RBAC or per-tool disabling, so do not claim those controls.
    Authorize the Codex GitHub connector for
-   `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
+   `BigSimmo/PsychSift` with repository write access. Complete Railway OAuth only for workspace
    `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
-   Supabase OAuth only for the organization containing `Clinical KB Database`; retain project ref
+   Supabase OAuth only for the organization containing `PsychSift Production`; retain project ref
    `sjrfecxgysukkwxsowpy`, `read_only=true`, and the docs/development-only feature allowlist. Do not broaden the
    production Supabase MCP to write access. Enable Figma or Sentry only for a task that names that
    provider; their write-capable tools remain approval-gated. Railway's OAuth metadata advertises
@@ -514,7 +514,7 @@ copying credentials into the checkout.
    parity, `CODEX_CLOUD_ACCESS_PROFILE=connected`, no provider variable reported present, and a
    credential-free matching origin. Repository MCP metadata is configuration evidence only.
 5. **Prove each provider read-only.** Use the tools exposed by the fresh host session, not shell
-   tokens. For GitHub, read repository metadata and confirm `BigSimmo/Database` plus the intended
+   tokens. For GitHub, read repository metadata and confirm `BigSimmo/PsychSift` plus the intended
    identity. For Railway, read workspace/project/service metadata and confirm the IDs above without
    triggering a deployment. Record the exact Railway inventory. Set the app to allow reads and ask
    before changes. The Personal Pro global read-versus-change control does not provide tool-level

@@ -17,7 +17,7 @@ const headerWidths = [640, 768, 1024, 1152, 1280, 1366, 1440, 1536] as const;
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },

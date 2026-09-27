@@ -119,10 +119,10 @@ describe("branch review index rendering", () => {
       record({ hash: hash("1"), ref: "2317" }),
       record({ hash: hash("2"), ref: "work" }),
       record({ hash: hash("3"), ref: sentence }),
-      record({ hash: hash("4"), ref: "https://github.com/BigSimmo/Database/pull/2023" }),
+      record({ hash: hash("4"), ref: "https://github.com/BigSimmo/PsychSift/pull/2023" }),
     ];
     const markdown = renderBranchReviewIndex(records);
-    for (const value of ["2317", "work", sentence, "https://github.com/BigSimmo/Database/pull/2023"]) {
+    for (const value of ["2317", "work", sentence, "https://github.com/BigSimmo/PsychSift/pull/2023"]) {
       expect(markdown).toContain(`| ${value} |`);
     }
     // Every hostile ref still yields a usable grouping key rather than "undefined".

@@ -74,7 +74,7 @@ and the ten locally authored differential records still carry no clinician sign-
 
 Use the `.github/pull_request_template.md` clinical governance section for any change that touches ingestion, answer generation, search/ranking, source rendering, document access, privacy, production environment behavior, or clinical output.
 
-- Confirm the Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`).
+- Confirm the Supabase target remains `PsychSift Production` (`sjrfecxgysukkwxsowpy`).
 - Confirm service-role credentials and private document access remain server-only.
 - Confirm unknown or outdated source metadata is treated conservatively.
 - Confirm demo/synthetic content remains separated from real clinical sources.
@@ -84,7 +84,7 @@ Use the `.github/pull_request_template.md` clinical governance section for any c
 
 ### RLS & access scoping — 2026-06-28
 
-- Supabase **security advisors: 0 findings** for `Clinical KB Database` (`sjrfecxgysukkwxsowpy`). The linter specifically flags missing RLS / insecure policies, so a clean run confirms RLS is enabled and policy-covered across `public` tables.
+- Supabase **security advisors: 0 findings** for `PsychSift Production` (`sjrfecxgysukkwxsowpy`). The linter specifically flags missing RLS / insecure policies, so a clean run confirms RLS is enabled and policy-covered across `public` tables.
 - Supabase **performance advisors: INFO only** — unused indexes (expected on a low-traffic database; do not drop pre-launch) and one auth connection-strategy tip (switch to percentage-based allocation when scaling instance size).
 - Supabase unused-index advisor items are a watchlist, not a removal queue. Keep search/RAG support indexes such as document-label, title, chunk, summary, RAG logging, and audit indexes unless production query evidence plus local verification shows they are genuinely dead.
 - Document organization coverage is an operational invariant: after ingestion or generated-label reclassification, run `npm run check:document-label-coverage` and require zero indexed documents missing generated `site` or `document_type` labels.
