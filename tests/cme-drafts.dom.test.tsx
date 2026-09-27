@@ -96,7 +96,7 @@ describe("CmeDraftsSection", () => {
     expect(screen.getByText("Don't include patient details.")).toBeInTheDocument();
   });
 
-  it("puts the waiting choice back if the save fails", async () => {
+  it("keeps an unsaved waiting choice so it can be retried", async () => {
     const item = draft();
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -107,6 +107,7 @@ describe("CmeDraftsSection", () => {
     await user.selectOptions(screen.getByLabelText("Waiting on"), "workforce");
 
     await waitFor(() => expect(screen.getByText("Could not save.")).toBeInTheDocument());
+    expect(screen.getByLabelText("Waiting on")).toHaveValue("workforce");
     expect(screen.getByTestId("cme-drafts-group-nextAction")).toBeInTheDocument();
     expect(screen.queryByTestId("cme-drafts-group-workforce")).toBeNull();
   });

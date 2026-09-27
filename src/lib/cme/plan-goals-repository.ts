@@ -53,12 +53,17 @@ export async function saveOwnerCmePlanGoals(
   ownerId: string,
   yearId: string,
   goals: readonly { id?: string; goal: string }[],
+  expectedGoals: readonly { id: string; goal: string }[],
 ): Promise<CmePlanGoal[]> {
   if (!ownerId) throw new Error("Missing CME owner.");
-  const { data, error } = await supabase.rpc("cme_save_plan_goals", {
+  const params = {
     p_owner_id: ownerId,
     p_year_id: yearId,
     p_goals: goals.map((goal) => (goal.id ? { id: goal.id, goal: goal.goal } : { goal: goal.goal })) as Json,
+  };
+  const { data, error } = await supabase.rpc("cme_save_plan_goals_checked", {
+    ...params,
+    p_expected_goals: expectedGoals.map(({ id, goal }) => ({ id, goal })) as Json,
   });
   if (error) throw cmeRepositoryError(error);
   return ((data ?? []) as { id: string; goal: string; sortOrder: number }[]).map((goal) => ({
@@ -66,6 +71,24 @@ export async function saveOwnerCmePlanGoals(
     goal: goal.goal,
     sortOrder: goal.sortOrder,
   }));
+}
+
+/** Append one source-year goal to the confirmed next year without replacing its other goals. */
+export async function carryOwnerCmePlanGoal(
+  supabase: AdminClient,
+  ownerId: string,
+  sourceYear: number,
+  goalId: string,
+): Promise<{ goals: CmePlanGoal[]; carried: boolean }> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const { data, error } = await supabase.rpc("cme_carry_plan_goal", {
+    p_owner_id: ownerId,
+    p_source_year: sourceYear,
+    p_goal_id: goalId,
+  });
+  if (error) throw cmeRepositoryError(error);
+  const result = data as { goals: { id: string; goal: string; sortOrder: number }[]; carried: boolean };
+  return { goals: result.goals, carried: result.carried };
 }
 
 export async function setOwnerCmeEntryGoal(

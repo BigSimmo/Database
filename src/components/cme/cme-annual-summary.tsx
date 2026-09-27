@@ -137,6 +137,16 @@ export function CmeAnnualSummary({
             {entry.documentId ? (
               <p className={textMuted}>Private source document linked; not certified as evidence.</p>
             ) : null}
+            {(entry.evidenceCount ?? 0) > 0 ? (
+              <p>
+                <Link
+                  href={`/cme/log/${entry.id}#cme-evidence-heading`}
+                  className="font-semibold text-[color:var(--clinical-accent)] underline-offset-2 hover:underline"
+                >
+                  View {entry.evidenceCount} attached {entry.evidenceCount === 1 ? "evidence file" : "evidence files"}
+                </Link>
+              </p>
+            ) : null}
           </section>
         ))}
       </div>

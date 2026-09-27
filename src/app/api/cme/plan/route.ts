@@ -43,7 +43,7 @@ export async function PUT(request: Request) {
         code: "cme_year_not_confirmed",
       });
     }
-    const goals = await saveOwnerCmePlanGoals(supabase, user.id, year.id, body.goals);
+    const goals = await saveOwnerCmePlanGoals(supabase, user.id, year.id, body.goals, body.expectedGoals);
     return NextResponse.json({ year: body.year, goals });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
