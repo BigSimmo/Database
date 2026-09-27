@@ -53,7 +53,17 @@ export function RosterDraftUpload({
   const mounted = useRef(false);
   const generation = useRef(0);
   const selectedDraft = useRef({ id: snapshot.draft.id, version: snapshot.draft.version });
-  selectedDraft.current = { id: snapshot.draft.id, version: snapshot.draft.version };
+  const draftKey = `${snapshot.draft.id}:${snapshot.draft.version}:${serviceId}`;
+  const [seenDraftKey, setSeenDraftKey] = useState(draftKey);
+  if (seenDraftKey !== draftKey) {
+    setSeenDraftKey(draftKey);
+    setLoaded(null);
+    setChoices({});
+    setDecisions({});
+    setMessage("");
+    setReloadRequired(false);
+    setBusy(false);
+  }
 
   useEffect(() => {
     mounted.current = true;
@@ -64,13 +74,8 @@ export function RosterDraftUpload({
   }, []);
 
   useEffect(() => {
+    selectedDraft.current = { id: snapshot.draft.id, version: snapshot.draft.version };
     generation.current += 1;
-    setLoaded(null);
-    setChoices({});
-    setDecisions({});
-    setMessage("");
-    setReloadRequired(false);
-    setBusy(false);
   }, [snapshot.draft.id, snapshot.draft.version, serviceId]);
 
   const current = loaded?.draftId === snapshot.draft.id && loaded.version === snapshot.draft.version ? loaded : null;
