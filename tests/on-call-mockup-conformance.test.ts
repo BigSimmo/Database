@@ -245,7 +245,12 @@ describe("On Call mockup conformance ledger", () => {
       "on-call-orientation-group-",
       "on-call-private-flag",
       "on-call-playbook-group-no-guideline",
-      "on-call-logistics-private-note",
+      // "on-call-logistics-private-note" stood here until Admin update 1
+      // (Task 1, 2026-09-26) moved board 11's content to Admin > Help
+      // (`/admin/help`): every element that board drew is now a `deviation`
+      // row in `docs/on-call/design/mockup-conformance.md`, so this file no
+      // longer needs a browser proof for it. Admin's own build owns proving
+      // its rows render, not On Call's board ledger.
       "on-call-orientation-checklist-",
       // The second header row. It replaced the shared rail, then came back AS a
       // bar — pointed at this page's groups rather than at the mode's routes.
