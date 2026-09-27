@@ -35,7 +35,7 @@ export function EnvironmentStrip({
       {before} ·{" "}
       {sha ? (
         <a
-          href={`https://github.com/BigSimmo/Database/commit/${sha}`}
+          href={`https://github.com/BigSimmo/PsychSift/commit/${sha}`}
           target="_blank"
           rel="noreferrer"
           className="underline underline-offset-2"

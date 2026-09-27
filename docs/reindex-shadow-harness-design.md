@@ -1,7 +1,7 @@
 # Shadow Re-Index + Eval-Gate Harness — Implementation Runbook
 
 Status: **design ready, not yet applied** — the SQL here touches retrieval and MUST be
-validated against the live `Clinical KB Database` before use (see "Mandatory validation").
+validated against the live `PsychSift Production` before use (see "Mandatory validation").
 The offline decision core (`src/lib/reindex-eval-gate.ts` — `decideReindexGate`) is built and
 unit-tested; this doc specifies the remaining live pieces so they are turnkey when the billed
 OpenAI key + Supabase service secrets are available.

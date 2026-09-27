@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "45e1d764-16b7-49fe-8e7a-ca1562b012a3",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Playwright: six assertions read a count once instead of retrying",
+    "detail": "tests/ui-formulation-result-cards.spec.ts:52, tests/ui-smoke.spec.ts:3211 and 3212, tests/ui-on-call-boards.spec.ts:563, 690 and 771 use expect(await locator.count()) which never retries, so a slow render fails the test. Next action: switch each to expect.poll(() => locator.count()) with the same matcher, or toHaveCount where the count is exact.",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVVJ8HPPMXHNNMZJEH6E5"
+  }
+}

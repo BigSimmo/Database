@@ -48,8 +48,6 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Compliance",
     "Admin",
     "Teaching",
-    "My shifts",
-    "Calendar",
     "Who's who",
     "Orientation checklists",
   ],
@@ -67,6 +65,18 @@ const expectedLabels: Record<AppModeId, string[]> = {
   ],
   psychiatry: [],
   "my-work": [],
+  roster: ["Today", "Shifts", "Settings"],
+  "first-nations": [
+    "Bedside",
+    "Contacts",
+    "Talking",
+    "Family",
+    "Mental health",
+    "On the ward",
+    "Common mistakes",
+    "Going home",
+    "End of life",
+  ],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -90,6 +100,8 @@ const cleanLandingPath: Record<AppModeId, string> = {
   cme: "/cme",
   psychiatry: "/psychiatry",
   "my-work": "/my-work",
+  roster: "/roster",
+  "first-nations": "/first-nations",
 };
 
 /**
@@ -123,9 +135,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 20 modes with the approved destinations and no Home item", () => {
+  it("covers all 22 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(20);
+    expect(appModeIds).toHaveLength(22);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -493,8 +505,6 @@ describe("mode secondary navigation registry", () => {
       "Compliance",
       "Admin",
       "Teaching",
-      "My shifts",
-      "Calendar",
       "Who's who",
       "Orientation checklists",
     ]);
@@ -540,8 +550,6 @@ describe("mode secondary navigation registry", () => {
       "/on-call/compliance": "compliance",
       "/on-call/logistics": "logistics",
       "/on-call/education": "teaching",
-      "/on-call/shifts": "shifts",
-      "/on-call/calendar": "calendar",
       "/on-call/who-is-who": "whoswho",
       "/on-call/orientation": "orientation",
       "/on-call/check": null,
@@ -696,5 +704,26 @@ describe("differentials mode secondary navigation active destinations", () => {
         hasSubmittedSearch: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe("Roster mode secondary navigation active destinations", () => {
+  it("marks Today, Shifts and Settings, and nothing else", () => {
+    expect(activeModeSecondaryNavigationId("roster", "/roster")).toBe("today");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/shifts")).toBe("shifts");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/settings")).toBe("settings");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/calendar")).toBeNull();
+  });
+
+  it("opens the mode bar on Shifts and Settings, but not on the Today home", () => {
+    expect(
+      isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster/shifts", hasSubmittedSearch: false }),
+    ).toBe(true);
+    expect(
+      isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster/settings", hasSubmittedSearch: false }),
+    ).toBe(true);
+    expect(isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster", hasSubmittedSearch: false })).toBe(
+      false,
+    );
   });
 });

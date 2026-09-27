@@ -476,7 +476,13 @@ type RpcClient = {
   };
 };
 
-async function callRpc(client: RpcClient, name: string, args: Record<string, unknown>, signal?: AbortSignal) {
+async function callRpc(
+  client: RpcClient,
+  name: string,
+  args: Record<string, unknown>,
+  signal?: AbortSignal,
+  columns?: string,
+) {
   signal?.throwIfAborted();
   const request = (
     client.rpc as (
@@ -485,9 +491,17 @@ async function callRpc(client: RpcClient, name: string, args: Record<string, unk
     ) => PromiseLike<{
       data: unknown;
       error: { message: string } | null;
-    }> & { abortSignal?: (signal: AbortSignal) => PromiseLike<{ data: unknown; error: { message: string } | null }> }
+    }> & {
+      select?: (columns: string) => PromiseLike<{ data: unknown; error: { message: string } | null }> & {
+        abortSignal?: (signal: AbortSignal) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+      };
+      abortSignal?: (signal: AbortSignal) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+    }
   )(name, args);
-  const result = await (signal && request.abortSignal ? request.abortSignal(signal) : request);
+  if (columns && !request.select)
+    throw new Error(`Canonical site-content read failed: RPC ${name} cannot project columns.`);
+  const selected = columns ? request.select!(columns) : request;
+  const result = await (signal && selected.abortSignal ? selected.abortSignal(signal) : selected);
   signal?.throwIfAborted();
   return result;
 }
@@ -515,11 +529,16 @@ export async function readCanonicalSiteContentRecords<T>(input: {
    * so an operator always sees their own change immediately.
    */
   cache?: boolean;
+  /** Search-only medication projection. Full list reads still need canonicalRecord for governance. */
+  renderOnly?: boolean;
   mapRecord?: (representation: {
     canonicalRecord: Record<string, unknown>;
     finalRenderPayload: Record<string, unknown>;
   }) => T;
 }): Promise<{ records: T[]; source: "canonical_public" | "seed_uninitialized"; snapshot: unknown | null }> {
+  if (input.renderOnly && (input.mapRecord || !input.cache || input.slug !== null)) {
+    throw new Error("Render-only catalogue reads require a cached list without a governance mapper.");
+  }
   const readRows = async (signal?: AbortSignal) => {
     const { data, error } = await callRpc(
       input.supabase as RpcClient,
@@ -529,9 +548,28 @@ export async function readCanonicalSiteContentRecords<T>(input: {
         p_slug: input.slug,
       },
       signal,
+      input.renderOnly ? "initialized,render_payload,snapshot" : undefined,
     );
     if (error) throw new Error(`Canonical site-content read failed: ${error.message}`);
     if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
+    // Full reads can use `record` when a render payload is absent. A projected read cannot;
+    // fail into the visible degraded path instead of silently dropping a published medication.
+    if (
+      input.renderOnly &&
+      data.some((row) => {
+        if (!row || typeof row !== "object") return true;
+        if (row.render_payload && typeof row.render_payload === "object" && !Array.isArray(row.render_payload)) {
+          return false;
+        }
+        const snapshot = row.snapshot;
+        return (
+          row.initialized === true ||
+          (snapshot && typeof snapshot === "object" && typeof snapshot.releaseId === "string")
+        );
+      })
+    ) {
+      throw new Error("Canonical medication search read failed: missing or invalid render payload.");
+    }
     return data as Array<Record<string, unknown>>;
   };
   const rows = input.cache
@@ -539,6 +577,7 @@ export async function readCanonicalSiteContentRecords<T>(input: {
         await readSiteContentRecordsCached({
           kind: input.kind,
           slug: input.slug,
+          projection: input.renderOnly ? "render" : "full",
           signal: input.signal,
           read: readRows,
         })

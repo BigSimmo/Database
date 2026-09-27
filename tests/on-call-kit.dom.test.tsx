@@ -20,7 +20,13 @@ import { OnCallStateLabel } from "@/components/on-call/kit/state-label";
 import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import type { HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
 import { readOnCallYouCalled } from "@/lib/on-call/call-marks";
-import { formatOnCallDate, formatOnCallShortDay, formatOnCallTime, onCallAgo } from "@/lib/on-call/display-dates";
+import {
+  formatOnCallDate,
+  formatOnCallDateTime,
+  formatOnCallShortDay,
+  formatOnCallTime,
+  onCallAgo,
+} from "@/lib/on-call/display-dates";
 import { resolveHandbookPhone } from "@/lib/on-call/number-resolver";
 import { onCallRecentStorageKey, readOnCallRecent } from "@/lib/on-call/recent-storage";
 
@@ -43,6 +49,16 @@ describe("display dates (Perth, fixed month names)", () => {
   it("uses 24-hour Perth time and the short day form", () => {
     expect(formatOnCallTime("2026-09-25T18:14:00.000Z")).toBe("02:14");
     expect(formatOnCallShortDay("2026-09-26T02:00:00.000Z")).toBe("Sat 26 Sep");
+    expect(formatOnCallDateTime("2026-09-26T02:00:00.000Z")).toBe("26 Sep 2026, 10:00 am");
+  });
+
+  it("handles null, undefined, and invalid date strings gracefully without throwing", () => {
+    expect(formatOnCallDate(null)).toBe("");
+    expect(formatOnCallDate(undefined)).toBe("");
+    expect(formatOnCallDate("not-a-date")).toBe("");
+    expect(formatOnCallDateTime(null)).toBe("");
+    expect(formatOnCallDateTime(undefined)).toBe("");
+    expect(formatOnCallDateTime("not-a-date")).toBe("");
   });
 });
 

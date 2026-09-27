@@ -223,6 +223,17 @@ test.describe("CME annual records and explicit learning handoff", () => {
     const printControls = summary.locator(".cme-print-controls");
     await expect(printControls).toHaveCount(2);
     for (const control of await printControls.all()) await expect(control).toBeHidden();
+    // WebKit can hide print controls before its print color cascade has painted.
+    // Keep the all-black requirement, then inspect the settled print geometry.
+    await expect
+      .poll(() =>
+        summary.evaluate((root) => [
+          ...new Set(
+            [...root.querySelectorAll<HTMLElement>("h1,h2,h3,p,li")].map((node) => getComputedStyle(node).color),
+          ),
+        ]),
+      )
+      .toEqual(["rgb(0, 0, 0)"]);
     const printLayout = await summary.evaluate((root) => {
       const ancestors = [];
       for (let parent = root.parentElement; parent; parent = parent.parentElement) {

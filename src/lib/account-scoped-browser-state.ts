@@ -43,6 +43,8 @@ export const DATABASE_FAVOURITES_PINNED_STORAGE_KEY = "database:favourites:pinne
  * sessionStorage survives a sign-out and the next sign-in in the same tab.
  */
 export const PLAN_DRAFT_STORAGE_KEY = "caring-contacts:plan-draft";
+/** localStorage — the chosen hospital on the First Nations mode home. Describes no patient. */
+export const FIRST_NATIONS_HOSPITAL_STORAGE_KEY = "first-nations:hospital-v1";
 
 function removeQuietly(storage: () => Storage, key: string): void {
   try {
@@ -61,6 +63,7 @@ export function clearAccountScopedBrowserStorage(): void {
   removeQuietly(() => window.localStorage, DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY);
   removeQuietly(() => window.localStorage, DATABASE_FAVOURITES_PINNED_STORAGE_KEY);
   removeQuietly(() => window.sessionStorage, PLAN_DRAFT_STORAGE_KEY);
+  removeQuietly(() => window.localStorage, FIRST_NATIONS_HOSPITAL_STORAGE_KEY);
   window.dispatchEvent(new Event(ACCOUNT_TRANSITION_EVENT));
 }
 

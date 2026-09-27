@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5ee7769c-38cd-443a-92cf-c6654e142699",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Playwright: 44 fixed waitForTimeout pauses remain, mostly in the phone and chrome scroll specs",
+    "detail": "Counts on main a3fee8d1a: ui-chrome-scroll 11 (166, 226, 240, 250, 267, 272, 303, 313, 322, 384, 388), ui-phone-scroll 11 (66, 98, 102, 151, 183, 214, 402, 430, 480, 491, 536), ui-phone-scroll-routes 7 (52, 73, 85, 92, 97, 122, 147), ui-dictionary 4 (143, 228, 243, 248, despite the file's own comment at line 57 saying fixed waits only move the race), ui-phone-scroll-page-owned 684 and 837, ui-smoke 3152 and 3339, ui-style-contract 243 and 377, ui-universal-search 169 and 727, ui-pwa 628, ui-therapy-nav-scroll 54, ui-therapy-pathways 43. Next action: replace each with a bounded poll on the settled condition (the pattern #146 used), one spec at a time, keeping retries at zero. Protected: phone-scroll specs guard search chrome, so run npm run verify:phone-chrome.",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVVD6VA5SP4SAMD84TE77"
+  }
+}

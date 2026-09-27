@@ -19,11 +19,13 @@ const TAP_FLOOR = 48;
 async function openNow(page: Page, colorScheme: "light" | "dark") {
   await page.emulateMedia({ colorScheme });
   await page.setViewportSize({ width: WIDTH, height: HEIGHT });
+  await page.addInitScript((theme) => window.localStorage.setItem("clinical-kb-theme", theme), colorScheme);
   await page.goto("/on-call", { waitUntil: "domcontentloaded" });
   // The `(search-app)` group streams through a Suspense boundary, which parks a
   // hidden second copy of the page until its reveal; wait for one copy.
   await expect(page.locator('div[hidden][id^="S:"]')).toHaveCount(0, { timeout: 20_000 });
   await expect(visibleByTestId(page, "on-call-now-emergency")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("html")).toHaveClass(colorScheme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/);
 }
 
 for (const colorScheme of ["light", "dark"] as const) {
