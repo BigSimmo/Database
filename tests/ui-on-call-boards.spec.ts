@@ -483,10 +483,10 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // those words; four source files cite the measurement and nothing proved
     // the pages still obeyed it.
     //
-    // Compliance is also the one page where the bar word and the page heading
-    // differ on purpose — "Blocking" in the bar over a group headed "Stops you
-    // working". The bar word is what has to fit, and the bar is what this
-    // measures, so the two stay independent.
+    // Compliance has since left this list: it became Admin > Renewals
+    // (2026-09-26), a checklist with Checklist / Personal tabs and no section
+    // rail at all, so there is no bar there to measure. Its block at the foot
+    // of this file covers the page it became.
     //
     // What this reaches, and what it does not. Only the slots the band
     // actually renders can be measured: the tail of a longer list is
@@ -497,8 +497,8 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // likewise wait for that band. That is the right boundary rather than a
     // hole: a word folded into the sheet is not in the 48px row and cannot be
     // clipped by it, and the bands that do reveal it are wider ones, with more
-    // room per slot rather than less. Compliance shows all four at 390px.
-    for (const route of [ROUTES.contacts, ROUTES.logistics, ROUTES.orientation, ROUTES.compliance]) {
+    // room per slot rather than less.
+    for (const route of [ROUTES.contacts, ROUTES.logistics, ROUTES.orientation]) {
       const prefix = route === ROUTES.logistics ? ADMIN_SECTION_HEADER_PREFIX : undefined;
       for (const width of [NARROW, BOARD_WIDTH]) {
         await openBoard(page, route, width);
@@ -912,84 +912,71 @@ test.describe("11 Admin: Help", () => {
 });
 
 /**
- * Compliance — a page the eleven boards never drew.
+ * Compliance — a page the eleven boards never drew, now Admin > Renewals.
  *
- * It was cut out of Admin after the drawing: the same stored `logistics` rows,
- * told apart by `details.kind`, filed by what happens when one lapses rather
- * than by which folder it lives in. A registration whose expiry can stop
- * someone working had no business sitting among forms and rosters, where
- * nothing is expected to run out.
+ * It was cut out of On Call's Admin after the drawing, and on 2026-09-26
+ * (Admin update 1) it moved again: `/on-call/compliance` redirects to
+ * `/admin/renewals`, which is rebuilt as a checklist of the statewide
+ * Requirements catalogue crossed with the doctor's own recorded dates. It has
+ * no section rail and no consequence bands any more; rows are grouped by
+ * state ("Soonest first", "No end date", "Not recorded yet").
  *
- * With no artboard to check it against, this block checks it against the two
- * things its own source says it must be: bands in worst-first order, and no
- * verdict anywhere on the page.
+ * With no artboard to check it against, this block checks what ships: the
+ * groups in that order with the demo corpus's recorded rows in the first, the
+ * "not a check" line above the list, and a Personal tab that holds only the
+ * reader's own off-catalogue renewals — never a contact or a guide.
  */
 test.describe("Compliance — the view the boards never drew", () => {
-  test("files the requirements under consequence bands, worst first", async ({ page }) => {
+  test("files the requirements under state groups, soonest first", async ({ page }) => {
     await openBoard(page, ROUTES.compliance);
 
-    // Slugs from the rendered HEADING, never from the short word the bar
-    // carries: both sides derive them from `heading`, so shortening a bar slot
-    // can never move an anchor. The last one is a band in its own right and
-    // never folded upwards — no recorded consequence is unknown, not
-    // harmless, and guessing it a band would be the app forming exactly the
-    // judgement this page refuses to form.
-    const bands = [
-      "on-call-compliance-group-stops-you-working",
-      "on-call-compliance-group-stops-part-of-your-work",
-      "on-call-compliance-group-someone-chases-you",
-      "on-call-compliance-group-no-consequence-recorded",
-    ];
-    for (const id of bands) {
-      await expect(page.getByTestId(id), `${id} has rows in the demo corpus but does not render`).toBeVisible();
-    }
+    // The demo corpus links three rows to catalogue items (registration,
+    // indemnity, Working with Children Check), so both groups have rows.
+    const soonest = visibleByTestId(page, "admin-renewals-checklist-group-Soonest first");
+    const notRecorded = visibleByTestId(page, "admin-renewals-checklist-group-Not recorded yet");
+    await expect(soonest, "the demo corpus's recorded rows do not render").toBeVisible();
+    await expect(notRecorded).toBeVisible();
+    await expect(soonest).toContainText("Medical registration renewal");
+    await expect(soonest).toContainText("Working with Children Check");
 
-    // The order is the page's whole argument, so presence alone would pass
-    // with the bands reversed. Every compliance tracker ever built sorts by
-    // date, which puts a lapsed fire-safety module level with a lapsed
-    // registration when only one of them stops you working.
-    const tops = await Promise.all(
-      bands.map(async (id) => (await page.getByTestId(id).boundingBox())?.y ?? Number.NaN),
-    );
-    for (let index = 1; index < tops.length; index += 1) {
-      expect(tops[index], `${bands[index]} is above ${bands[index - 1]}`).toBeGreaterThan(tops[index - 1]!);
-    }
+    // Order is the page's argument: a recorded date to act on comes before
+    // the slots nobody has filled in yet.
+    const [soonestBox, notRecordedBox] = [await soonest.boundingBox(), await notRecorded.boundingBox()];
+    expect(notRecordedBox!.y, "Not recorded yet is above Soonest first").toBeGreaterThan(soonestBox!.y);
   });
 
-  test("says on the page that nothing here is checked with the issuing body", async ({ page }) => {
+  test("says on the page that these are dates the reader entered, not a check", async ({ page }) => {
     await openBoard(page, ROUTES.compliance);
-    const note = page.getByTestId("on-call-compliance-scope-note");
-    await expect(note).toBeVisible();
-    await expect(note).toContainText(/Nothing here is checked with the issuing body/i);
+    const summary = visibleByTestId(page, "admin-renewals-summary");
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText("Dates you entered, not a check");
 
-    // Above the first band, not at the foot of the list. A reader who meets
-    // this sentence after scrolling past their own registration has already
-    // read every date on the way down and believed them. A clinical-governance
-    // review rejected an earlier design for implying the app had checked these
-    // dates, and this sentence in this position is the control that keeps it
-    // rejected — a source-only test cannot tell it from a footnote.
-    const [noteBox, firstBand] = [
-      await note.boundingBox(),
-      await page.getByTestId("on-call-compliance-group-stops-you-working").boundingBox(),
+    // Above the list, not at its foot. A reader who meets this sentence after
+    // scrolling past their own registration has already read every date on the
+    // way down and believed them. A clinical-governance review rejected an
+    // earlier design for implying the app had checked these dates, and this
+    // sentence in this position is the control that keeps it rejected.
+    const [summaryBox, firstGroup] = [
+      await summary.boundingBox(),
+      await visibleByTestId(page, "admin-renewals-checklist-group-Soonest first").boundingBox(),
     ];
-    expect(noteBox!.y, "the scope note has slipped below the first band").toBeLessThan(firstBand!.y);
+    expect(summaryBox!.y, "the 'not a check' line has slipped below the list").toBeLessThan(firstGroup!.y);
   });
 
-  test("gives the bar one word per band while the page keeps the phrase", async ({ page }) => {
+  test("keeps Checklist and Personal tabs, and Personal holds only the reader's own renewals", async ({ page }) => {
     await openBoard(page, ROUTES.compliance);
-    // Four bands and no More at 390px: the bar's four-slot band fires from
-    // 22rem and this container is 358px here. The words are the short bar
-    // labels, cut to one each by the same 165px-against-288px measurement that
-    // cut the Admin folders (board 11 above).
-    expect(await barWords(page)).toEqual(["Blocking", "Partial", "Chased", "Unrecorded"]);
+    await expect(page.getByRole("tab", { name: "Checklist" })).toBeVisible();
+    await page.getByRole("tab", { name: "Personal" }).click();
 
-    // What the bar may not do is drop the sentence. "Blocking" over a
-    // registration renewal does not say what is blocked, so the heading keeps
-    // the phrase and only the navigation slot is shortened — and the anchor
-    // stays with the phrase, which is why the two can differ safely.
-    await expect(page.getByRole("heading", { name: "Stops you working" })).toBeVisible();
-    await expect(page.locator("#on-call-group-stops-you-working")).toHaveCount(1);
-    await expect(page.locator("#on-call-group-blocking")).toHaveCount(0);
+    const personal = visibleByTestId(page, "admin-renewals-personal");
+    await expect(personal).toBeVisible();
+    // A demo compliance row that matches no catalogue item.
+    await expect(personal).toContainText("Demo basic life support module");
+    // Never a row from another On Call section: offering "Renewed" on a
+    // contact or a guide would plant compliance keys that hide it from every
+    // colleague's shared read.
+    await expect(personal.getByText("Demo Ward One")).toHaveCount(0);
+    await expect(personal).not.toContainText("Medical registration renewal");
   });
 });
 

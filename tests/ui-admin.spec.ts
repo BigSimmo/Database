@@ -62,9 +62,13 @@ test.describe("Admin mode — redirects, pill identity and shared chrome", () =>
     await expect(page.getByRole("heading", { level: 1, name: "Renewals" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Checklist" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Personal" })).toBeVisible();
-    // The demo corpus has nothing recorded, so every catalogue row needs
-    // starting: the "Soonest first" group is the one guaranteed to render.
-    await expect(page.getByRole("heading", { name: /Soonest first/ })).toBeVisible();
+    // CI runs this in demo mode. The demo corpus links three rows to catalogue
+    // items (`src/lib/on-call/demo-entries.ts`), so "Soonest first" holds them
+    // and the rest of the catalogue waits under "Not recorded yet".
+    // `tests/admin-requirements.test.ts` pins that corpus property offline.
+    await expect(page.getByRole("heading", { name: "Soonest first" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Not recorded yet" })).toBeVisible();
+    await expect(visibleByTestId(page, "admin-renewals-checklist-row-medical-registration-renewal")).toBeVisible();
   });
 
   test("at 390px, Help puts its crisis lines ahead of every content tab, and the active tab underlines in Admin's identity colour with no brown button anywhere", async ({

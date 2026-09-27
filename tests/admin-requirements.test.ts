@@ -9,6 +9,7 @@ import {
   requirementsRecordedCount,
   type AdminRequirementCatalogueItem,
 } from "@/lib/admin/requirements";
+import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { onCallDetailsSchemaFor } from "@/lib/on-call/entry-model";
 import { complianceFixture } from "./helpers/on-call-entry-fixture";
 
@@ -226,5 +227,56 @@ describe("requirementId (entry-model.ts): a short slug, and one of the catalogue
     ]) {
       expect(schema.safeParse({ ...base, requirementId }).success, JSON.stringify(requirementId)).toBe(false);
     }
+  });
+});
+
+describe("catalogue ids are a storage contract (M12)", () => {
+  // Rows store `details.requirementId`, and the details schema accepts only a
+  // listed id. Removing one would make every stored row carrying it fail to
+  // parse, blanking its expiry date. Ids may be added; never removed or renamed.
+  const SHIPPED_2026_09_26 = [
+    "medical-registration-renewal",
+    "cpd-home-and-hours",
+    "recency-of-practice",
+    "professional-indemnity-insurance",
+    "medicare-provider-number",
+    "working-with-children-check",
+    "wwc-check-applicability",
+    "criminal-record-screening",
+    "immunisation-requirements",
+    "annual-influenza-vaccination",
+    "respirator-fit-testing",
+    "mandatory-training-modules",
+    "resuscitation-competence",
+    "als-course-certification",
+    "credentialing-and-scope",
+    "provisional-to-general-registration",
+    "img-supervised-practice",
+    "img-visa-requirements",
+    "code-of-conduct",
+    "aboriginal-cultural-elearning",
+  ];
+
+  it("keeps every id that has ever shipped", () => {
+    expect([...ADMIN_REQUIREMENT_IDS]).toEqual(expect.arrayContaining(SHIPPED_2026_09_26));
+    for (const id of SHIPPED_2026_09_26) {
+      const details = { kind: "compliance", category: "registration", requirementId: id };
+      expect(onCallDetailsSchemaFor("logistics").safeParse(details).success, id).toBe(true);
+    }
+  });
+});
+
+describe("the demo corpus (what CI's demo-mode browser journeys see)", () => {
+  it("records a few catalogue items, so demo Renewals shows 'Soonest first' and not only 'Not recorded yet'", () => {
+    const rows = requirementChecklistRows(ADMIN_REQUIREMENTS_CATALOGUE, DEMO_ON_CALL_ENTRIES);
+    const recorded = rows.filter((row) => row.state === "needs-action").map((row) => row.item.id);
+    expect(recorded).toEqual(
+      expect.arrayContaining([
+        "medical-registration-renewal",
+        "professional-indemnity-insurance",
+        "working-with-children-check",
+      ]),
+    );
+    expect(rows.some((row) => row.state === "not-recorded")).toBe(true);
   });
 });

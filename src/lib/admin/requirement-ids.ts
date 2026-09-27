@@ -13,6 +13,12 @@
  * at module-init time. That is the same trap `on-call/local-date.ts`'s
  * docblock describes for `home-modules.ts` and `compliance.ts`; a leaf module
  * both sides can depend on removes it instead of documenting it.
+ *
+ * **Append only.** Stored rows carry these ids in `details.requirementId`, and
+ * the details schema accepts only a listed id, so removing or renaming one
+ * would make every row that stores it fail to parse (its details read as
+ * null, blanking the expiry date). Add ids; never remove or rename one.
+ * `tests/admin-requirements.test.ts` pins every id that has shipped.
  */
 export const ADMIN_REQUIREMENT_IDS = [
   "medical-registration-renewal",
