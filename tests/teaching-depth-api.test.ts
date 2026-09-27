@@ -24,7 +24,7 @@ import { POST as reviewPost } from "@/app/api/teaching/cpd/review/route";
 import { GET as depthViews } from "@/app/api/teaching/depth/route";
 import { GET as depthRead, POST as depthWrite } from "@/app/api/teaching/services/[serviceId]/depth/route";
 import { IMPORT_TEMPLATE_HEADERS } from "@/lib/teaching/depth-model";
-import { parseCsv } from "@/lib/teaching/import-sheet";
+import { parseCsv } from "@/lib/teaching/import-sheet-reader";
 
 import { ENTRY, ENTRY_2, NOTE, PAIRING, SERVICE, entry, pairing } from "./helpers/teaching-depth-fixtures";
 

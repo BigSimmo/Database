@@ -453,9 +453,11 @@ made-up collections and resources.
 `depth-model.ts` holds the depth schemas (supervision, presenter readiness, feedback taps, the term
 import and the weekly CPD review); results are parsed so an organiser never receives topics or a
 registrar's target, and feedback totals never carry a responder. `depth-repository.ts` wraps
-`teaching_depth_command`, `depth-demo.ts` is its made-up demo, and `import-sheet.ts` reads a term
-spreadsheet in the browser (CSV, or `.xlsx` after an archive budget) so only rows are sent for
-preview and commit, never a file.
+`teaching_depth_command`, `depth-demo.ts` is its made-up demo, and the term-import spreadsheet is
+split across two client-safe modules so exceljs/jszip never reach the server bundle:
+`import-sheet-reader.ts` reads a term spreadsheet in the browser (CSV, or `.xlsx` after an archive
+budget, both lazy-loaded), and `import-sheet.ts` holds the row validation/preview logic the server
+runs against only rows, never a file, so a preview or commit never sends or stores the file itself.
 `api.ts` and `repository.ts` wrap every database call and map its errors to plain words;
 `request.ts` parses request bodies while keeping Teaching's own plain messages, and
 `checkin-claim.ts` is the single-use claim cookie a scan leaves, scoped to `/api/teaching/checkin`

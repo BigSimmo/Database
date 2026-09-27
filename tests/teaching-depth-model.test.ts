@@ -17,7 +17,8 @@ import {
   unloggedReviewRows,
 } from "@/lib/teaching/depth-model";
 import { demoCpdReview, demoFeedbackOpen, demoSupervision, demoTeach } from "@/lib/teaching/depth-demo";
-import { parseCsv, previewRows, readXlsxRows } from "@/lib/teaching/import-sheet";
+import { previewRows } from "@/lib/teaching/import-sheet";
+import { parseCsv, readXlsxRows } from "@/lib/teaching/import-sheet-reader";
 import { logbookRowSchema, teamSummarySchema } from "@/lib/teaching/model";
 
 import { ENTRY, ENTRY_2, NOTE, PAIRING, SERVICE, entry, pairing, pairingView } from "./helpers/teaching-depth-fixtures";
