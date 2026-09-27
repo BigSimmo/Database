@@ -51,18 +51,8 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Who's who",
     "Orientation checklists",
   ],
-  cme: [
-    "This year",
-    "Log",
-    "Year check",
-    "Training",
-    "Calendar",
-    "Routines",
-    "Plan",
-    "Learning",
-    "Programme",
-    "Set up",
-  ],
+  cme: ["Today", "Log", "Plan", "Learning", "Set up"],
+  teaching: ["Today", "Week", "What's on", "Resources", "Logbook", "Teach", "Supervision", "Organise"],
   psychiatry: [],
   "my-work": ["Today", "Renewals", "New job", "Help"],
   roster: ["Today", "Shifts", "Settings"],
@@ -98,6 +88,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   sources: "/sources/search",
   "on-call": "/on-call",
   cme: "/cme",
+  teaching: "/teaching",
   psychiatry: "/psychiatry",
   "my-work": "/admin",
   roster: "/roster",
@@ -134,9 +125,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 22 modes with the approved destinations and no Home item", () => {
+  it("covers all 23 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(22);
+    expect(appModeIds).toHaveLength(23);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -161,6 +152,32 @@ describe("mode secondary navigation registry", () => {
       label: "Search",
       href: dsmSearchHref,
     });
+  });
+
+  it("keeps every older CPD address under one of the five current pages", () => {
+    expect(modeSecondaryNavigationRegistry.cme.map(({ label }) => label)).toEqual([
+      "Today",
+      "Log",
+      "Plan",
+      "Learning",
+      "Set up",
+    ]);
+    for (const [pathname, page] of [
+      ["/cme", "year"],
+      ["/cme/check", "year"],
+      ["/cme/log", "log"],
+      ["/cme/log/example", "log"],
+      ["/cme/routines", "log"],
+      ["/cme/new", "log"],
+      ["/cme/plan", "plan"],
+      ["/cme/calendar", "plan"],
+      ["/cme/training", "plan"],
+      ["/cme/learning", "learning"],
+      ["/cme/setup", "setup"],
+      ["/cme/programme", "setup"],
+    ] as const) {
+      expect(activeModeSecondaryNavigationId("cme", pathname)).toBe(page);
+    }
   });
 
   it("suppresses clean landing pages, and still opens the bar after a submitted search", () => {

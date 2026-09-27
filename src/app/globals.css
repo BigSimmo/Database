@@ -1230,6 +1230,62 @@ body {
   }
 }
 
+/* Teaching: plum, for the pill, the current tab and module icon tiles only.
+   Light #7a3b6e (spec §6). Dark is the calmer #cfa3c6 of v4.2, cleared as a
+   fill under #2a0f24 as well as as text. Buttons, links and selection stay
+   product colours (`--primary`), which this block does not remap. The hero's
+   colours are the mode kit's `--surface-summary*`. The QR pair is not
+   redefined for dark: a camera needs dark modules on a light quiet zone. */
+[data-mode-identity="teaching"] {
+  --mode-identity: #7a3b6e;
+  --mode-identity-soft: #f8eff6;
+  --mode-identity-border: #ead6e5;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+
+  --teaching-segment-on: var(--surface-lux);
+  --teaching-segment-line: var(--border);
+  --teaching-qr-light: #ffffff;
+  --teaching-qr-dark: #000000;
+}
+
+.dark [data-mode-identity="teaching"] {
+  --mode-identity: #cfa3c6;
+  --mode-identity-soft: #2a1d27;
+  --mode-identity-border: #45303f;
+  --mode-identity-contrast: #2a0f24;
+
+  --teaching-segment-on: var(--surface-lux);
+  --teaching-segment-line: #3a434c;
+}
+
+@media (forced-colors: active) {
+  /* Its own rule: the token test reads each block by its exact selector. */
+  [data-mode-identity="teaching"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+    --teaching-segment-on: Canvas;
+    --teaching-segment-line: CanvasText;
+  }
+}
+
+/* The live dot's one pulse (LiveLabel). The kit's state label has no live
+   tone; components apply it under `motion-safe:` only. */
+@keyframes teaching-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--success) 0%, transparent);
+  }
+}
+
 /* Mode summary surface (mode design standard v13.3 §4).
    ------------------------------------------------------------------
    The dark "Right now" panel a mode home may build its hero from; every mode

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const oldPath = "supabase/migrations/20260926225309_on_call_service_items.sql";
-const newPath = "supabase/migrations/20260927130000_on_call_named_cover.sql";
+const newPath = "supabase/migrations/20260927202500_on_call_named_cover.sql";
 const commandStart = "create or replace function public.on_call_service_command";
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
 

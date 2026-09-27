@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { TextField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateLong, perthCalendarDate } from "@/lib/cme/cpd-year";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
   currentPosition,
   formatFteMonths,
@@ -277,7 +278,7 @@ export function CmeTrainingPage({
       setPeriodEditing(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save this period.");
+      setError(cmeSaveErrorText(cause, "Could not save this period."));
     } finally {
       setSaving(false);
     }
@@ -314,7 +315,7 @@ export function CmeTrainingPage({
       setMilestoneEditing(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save this milestone.");
+      setError(cmeSaveErrorText(cause, "Could not save this milestone."));
     } finally {
       setSaving(false);
     }
@@ -336,7 +337,7 @@ export function CmeTrainingPage({
       setMilestones((current) => current.map((item) => (item.id === payload.milestone.id ? payload.milestone : item)));
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not update this milestone.");
+      setError(cmeSaveErrorText(cause, "Could not update this milestone."));
     } finally {
       setSaving(false);
     }
@@ -361,7 +362,7 @@ export function CmeTrainingPage({
       if (milestoneEditing === id) setMilestoneEditing(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not delete this record.");
+      setError(cmeSaveErrorText(cause, "Could not delete this record."));
     } finally {
       setSaving(false);
       setPendingDelete(null);

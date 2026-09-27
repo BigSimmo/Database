@@ -13,6 +13,7 @@ import {
   saveCmeEntry,
   fetchOwnerCmeYear,
   markCmeEntryTranscribed,
+  clearCmeEntryTranscribed,
 } from "@/lib/cme/repository";
 import { cmeEntryAmendSchema, cmeEntryUpdateSchema } from "@/lib/cme/schemas";
 import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
@@ -54,7 +55,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     // Accepted bodies (plus `{ "archived": boolean }`, handled below):
-    // 1. `{ "transcribed": true }` — stamp transcribed_at after a successful clipboard copy.
+    // 1. `{ "transcribed": boolean }` — stamp or clear transcribed_at for Copy next / Undo.
     // 2. A full-replace `cmeEntryUpdateSchema` body (every create field required), so a partial
     //    edit cannot silently blank reflection/cost/links via create-schema defaults.
     let rawBody: unknown;
@@ -63,15 +64,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     } catch {
       return publicErrorResponse("Invalid CPD entry.", 400);
     }
-    const markTranscribed =
+    const copyStateBody =
       rawBody !== null &&
       typeof rawBody === "object" &&
       !Array.isArray(rawBody) &&
       Object.keys(rawBody as object).length === 1 &&
-      (rawBody as { transcribed?: unknown }).transcribed === true;
+      typeof (rawBody as { transcribed?: unknown }).transcribed === "boolean";
 
-    if (markTranscribed) {
-      const entry = await markCmeEntryTranscribed(supabase, user.id, id);
+    if (copyStateBody) {
+      const entry = (rawBody as { transcribed: boolean }).transcribed
+        ? await markCmeEntryTranscribed(supabase, user.id, id)
+        : await clearCmeEntryTranscribed(supabase, user.id, id);
       return NextResponse.json({ entry });
     }
 

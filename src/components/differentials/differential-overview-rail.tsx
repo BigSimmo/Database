@@ -117,16 +117,30 @@ export function DifferentialOverviewRail({
                 {groupScopeNote}
               </p>
             ) : null}
-            <ol className="grid gap-2">
-              {doNow.map((step, index) => (
-                <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
-                  <span className="nums mt-0.5 grid h-5 w-5 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xs font-extrabold text-[color:var(--clinical-accent)]">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
-                </li>
-              ))}
-            </ol>
+            {!doNowCurated ? (
+              <ul className="grid gap-2">
+                {doNow.map((step) => (
+                  <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+                    <span
+                      className="mt-2 grid h-2 w-2 place-self-center rounded-full bg-[color:var(--clinical-accent)]"
+                      aria-hidden
+                    />
+                    <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ol className="grid gap-2">
+                {doNow.map((step, index) => (
+                  <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+                    <span className="nums mt-0.5 grid h-5 w-5 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xs font-extrabold text-[color:var(--clinical-accent)]">
+                      {index + 1}
+                    </span>
+                    <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
             {doNowCurated ? (
               <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">
                 {curatedProvenanceFor(curated)}
