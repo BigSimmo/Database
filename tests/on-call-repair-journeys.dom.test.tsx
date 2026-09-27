@@ -102,4 +102,54 @@ describe("On call repair journeys", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(result.current).toEqual({});
   });
+
+  it("resolves clinical review date from metadata rather than file timestamps", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      json({
+        document: {
+          id,
+          title: "Clinical Guideline",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2026-09-20T00:00:00Z",
+          // The public document route strips metadata before sending the response.
+        },
+        publicReviewDate: "2025-06-30",
+      }),
+    );
+    const { result } = renderHook(() => useOnCallLinkedDocuments([id]));
+    await waitFor(() => expect(result.current[id]?.date).toBe("2025-06-30"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves camelCase reviewDate from metadata when review_date is absent", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      json({
+        document: {
+          id,
+          title: "Clinical Guideline",
+          updated_at: "2026-09-20T00:00:00Z",
+          metadata: { reviewDate: "2025-07-15" },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useOnCallLinkedDocuments([id]));
+    await waitFor(() => expect(result.current[id]?.date).toBe("2025-07-15"));
+  });
+
+  it("never falls back to updated_at or created_at when metadata has no review date", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      json({
+        document: {
+          id,
+          title: "Clinical Guideline",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2026-09-20T00:00:00Z",
+          metadata: { unrelated: "value" },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useOnCallLinkedDocuments([id]));
+    await waitFor(() => expect(result.current[id]?.title).toBe("Clinical Guideline"));
+    expect(result.current[id]?.date).toBeNull();
+  });
 });
