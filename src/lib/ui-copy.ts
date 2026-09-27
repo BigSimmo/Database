@@ -140,6 +140,11 @@ export const sharedHomePresentation = {
     subtitle: "Paperwork, deadlines and checks, with what is due first.",
     suggestions: ["leave", "registration", "roster"],
   },
+  "first-nations": {
+    title: "First Nations",
+    subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
+    suggestions: ["Call Aboriginal liaison", "Common mistakes", "Mental Health Act s 81"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */

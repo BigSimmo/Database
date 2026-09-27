@@ -36,6 +36,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // My Work is a landing page over pages that keep their own addresses; it
   // contributes no search domains either.
   "my-work": [],
+  // First Nations owns its own in-page search box on every page (standard
+  // §13), not the cross-entity universal search, so it contributes no domains.
+  "first-nations": [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {

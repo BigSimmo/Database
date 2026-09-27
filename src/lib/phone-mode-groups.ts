@@ -3,7 +3,7 @@ import type { AppModeId } from "@/lib/app-modes";
 /**
  * How the phone mode sheet groups the app's modes.
  *
- * A twenty-item flat list is unusable on a phone, so the sheet groups it,
+ * A twenty-one-item flat list is unusable on a phone, so the sheet groups it,
  * and the desktop menu uses the same groups whenever it is not filtered. That makes
  * this a *second* list of mode ids, and a mode missing from every group here is
  * silently dropped from the sheet — `satisfies readonly AppModeId[]` constrains
@@ -36,10 +36,10 @@ export const phoneModeGroups = [
     hint: "Medication, calculators, reference",
     modeIds: ["prescribing", "calculators", "tools", "factsheets", "dictionary"],
   },
-  // The groups above are the Clinical area. On Call, My Work and CPD are areas
-  // of their own rather than the tail of "Care", so the urgent screen is not
-  // buried at the bottom of the clinical list, and the paperwork that used to
-  // crowd it has a home of its own.
+  // The groups above are the Clinical area. On Call, My Work, First Nations and
+  // CPD are areas of their own rather than the tail of "Care", so the urgent
+  // screen is not buried at the bottom of the clinical list, and the paperwork
+  // that used to crowd it has a home of its own.
   {
     id: "on-call",
     label: "On Call",
@@ -51,6 +51,12 @@ export const phoneModeGroups = [
     label: "My Work",
     hint: "Paperwork, deadlines and checks",
     modeIds: ["my-work"],
+  },
+  {
+    id: "first-nations",
+    label: "First Nations",
+    hint: "Culturally safe care",
+    modeIds: ["first-nations"],
   },
   {
     id: "cpd",
