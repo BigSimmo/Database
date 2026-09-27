@@ -1,7 +1,7 @@
 # CPD mode elevation — design spec
 
 - **Status:** approved by Josh 2026-09-26 18:43Z; three features added 19:05Z. Release 1 merged in PR #3119. Build plan: `docs/superpowers/plans/2026-09-26-cpd-elevation.md`.
-- **Thread:** "Elevate CPD mode". Plan page with mockups: https://claude.ai/artifact/Ph4XmeMzciwkVRSY4Z5LJk. 
+- **Thread:** "Elevate CPD mode". Plan page with mockups: https://claude.ai/artifact/Ph4XmeMzciwkVRSY4Z5LJk.
 - **Read from:** `origin/main` at 65f684ad5.
 - **Naming:** the mode is called **CPD** everywhere a user can see it. The code id stays `cme`, including routes, tables and file names, and is never shown to users.
 - **Repo is public:** every example name, event and hour figure in this spec is made up.
@@ -24,17 +24,17 @@ The work succeeds when all of these hold:
 
 **Josh's answers, 26 Sep 2026, 16:48–16:50Z** (all on tap cards, all the recommended option):
 
-| # | Question | Answer |
-|---|---|---|
-| 1 | Who is CPD for? | Any doctor, any CPD home |
-| 2 | How many pages? | Five, with Year check as a tab of Today |
-| 3 | Category picture | Two fact tiles |
-| 4 | Can the health service see a doctor's CPD? | Never; the doctor shares the summary PDF themselves |
-| 5 | Weekly teaching review | Teaching owns it; CPD links to it |
-| 6 | Admin's registration row | A link only |
-| 7 | Learning list | All specialties, one checked source at a time |
-| 8 | Other CPD homes | Each one added only after its own page is read |
-| 9 | Release order | Design pass first |
+| #   | Question                                   | Answer                                                                     |
+| --- | ------------------------------------------ | -------------------------------------------------------------------------- |
+| 1   | Who is CPD for?                            | Any doctor, any CPD home                                                   |
+| 2   | How many pages?                            | Five, with Year check as a tab of Today                                    |
+| 3   | Category picture                           | Two fact tiles                                                             |
+| 4   | Can the health service see a doctor's CPD? | Never; the doctor shares their own annual summary (page or CSV) themselves |
+| 5   | Weekly teaching review                     | Teaching owns it; CPD links to it                                          |
+| 6   | Admin's registration row                   | A link only                                                                |
+| 7   | Learning list                              | All specialties, one checked source at a time                              |
+| 8   | Other CPD homes                            | Each one added only after its own page is read                             |
+| 9   | Release order                              | Design pass first                                                          |
 
 **Josh's 16:51Z message:** smart features, intuitive UX, a polished and premium feel, and an adaptive design that is good to use. This is answered in §6 (feel and polish) and §8 (smart features).
 
@@ -68,13 +68,13 @@ These are not part of this work. Each one needs Josh to reopen it.
 
 ### 4.1 Five pages in the pill's pages sheet
 
-| Page (menu label) | Second line in the sheet | Tabs (compact top tab row, standard §5) |
-|---|---|---|
-| Today | Hours, what's next, year check | Overview · Year check |
-| Log | Activities, drafts, routines | Activities · To finish · Routines |
-| Plan | Goals, calendar, training | Goals · Calendar · Training |
-| Learning | Courses and events | Upcoming · Past |
-| Set up | Your requirements and CPD home | none (read view, then an Edit view) |
+| Page (menu label) | Second line in the sheet       | Tabs (compact top tab row, standard §5) |
+| ----------------- | ------------------------------ | --------------------------------------- |
+| Today             | Hours, what's next, year check | Overview · Year check                   |
+| Log               | Activities, drafts, routines   | Activities · To finish · Routines       |
+| Plan              | Goals, calendar, training      | Goals · Calendar · Training             |
+| Learning          | Courses and events             | Upcoming · Past                         |
+| Set up            | Your requirements and CPD home | none (read view, then an Edit view)     |
 
 The "…" menu on CPD pages holds **Annual summary**, **Customise Today** and **Download CSV**.
 
@@ -82,20 +82,20 @@ The "…" menu on CPD pages holds **Annual summary**, **Customise Today** and **
 
 Every existing route stays a real page and becomes the address of a tab. Links already live in phone calendars through the calendar feed, so any redirect would have to last forever. The redirect table also cannot select a tab.
 
-| Address | Opens |
-|---|---|
-| `/cme` | Today › Overview |
-| `/cme/check` | Today › Year check |
-| `/cme/log` | Log › Activities (existing query parameters such as `year`, `copy=todo` keep working) |
-| `/cme/log?tab=finish` | Log › To finish (new query value; the tab row links here) |
-| `/cme/routines` | Log › Routines |
-| `/cme/plan` | Plan › Goals |
-| `/cme/calendar` | Plan › Calendar |
-| `/cme/training` | Plan › Training |
-| `/cme/learning` | Learning › Upcoming (`?view=past` for Past) |
-| `/cme/setup` | Set up |
-| `/cme/programme` | Set up (the same read view; the Programme page's content merges into it) |
-| `/cme/summary`, `/cme/customise`, `/cme/new`, `/cme/[id]` | unchanged, reached from "…", "+ Log" or a row |
+| Address                                                   | Opens                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `/cme`                                                    | Today › Overview                                                                      |
+| `/cme/check`                                              | Today › Year check                                                                    |
+| `/cme/log`                                                | Log › Activities (existing query parameters such as `year`, `copy=todo` keep working) |
+| `/cme/log?tab=finish`                                     | Log › To finish (new query value; the tab row links here)                             |
+| `/cme/routines`                                           | Log › Routines                                                                        |
+| `/cme/plan`                                               | Plan › Goals                                                                          |
+| `/cme/calendar`                                           | Plan › Calendar                                                                       |
+| `/cme/training`                                           | Plan › Training                                                                       |
+| `/cme/learning`                                           | Learning › Upcoming (`?view=past` for Past)                                           |
+| `/cme/setup`                                              | Set up                                                                                |
+| `/cme/programme`                                          | Set up (the same read view; the Programme page's content merges into it)              |
+| `/cme/summary`, `/cme/customise`, `/cme/new`, `/cme/[id]` | unchanged, reached from "…", "+ Log" or a row                                         |
 
 - `/cme/summary` without `?year=` opens the current year, instead of the dead end it shows today.
 - Each tab is a link to its address, so back and forward, bookmarks and sharing behave normally.
@@ -105,13 +105,13 @@ Every existing route stays a real page and becomes the address of a tab. Links a
 
 In `src/lib/mode-secondary-navigation.ts`, CPD's list becomes five entries. Keep the existing ids so the shared icon map (`iconByItemId` in `mode-nav-icons.ts`) and On Call's reuse of `calendar` are untouched:
 
-| id | label | href |
-|---|---|---|
-| `year` | Today | `/cme` |
-| `log` | Log | `/cme/log` |
-| `plan` | Plan | `/cme/plan` |
+| id         | label    | href            |
+| ---------- | -------- | --------------- |
+| `year`     | Today    | `/cme`          |
+| `log`      | Log      | `/cme/log`      |
+| `plan`     | Plan     | `/cme/plan`     |
 | `learning` | Learning | `/cme/learning` |
-| `setup` | Set up | `/cme/setup` |
+| `setup`    | Set up   | `/cme/setup`    |
 
 - Active-page matching maps each tab address to its page: `/cme/check` to `year`; `/cme/routines` to `log`; `/cme/calendar` and `/cme/training` to `plan`; `/cme/programme` to `setup`.
 - The pill therefore always names the page, never a removed entry.
@@ -155,19 +155,19 @@ These rules make it feel premium, easy and adaptive. Each is checkable in review
 - **Motion.** Opacity plus at most 4 px of movement, 150–240 ms, with the standard ease-out curve. Everything stops with reduced motion.
 - **Copy is edited.** Every string is sentence case, has no exclamation marks, and is under about 70 characters where it sits on one line. Month totals read "9.5 h", never "9.5 H".
 - **Detail pass (Josh 18:32Z, standard v13).**
-  - *Live status green:* only where a state is live and current. In CPD that is the detail sheet's "Up to date" (the figure was counted from the loaded log): a 6 px `--success` dot with the word beside it in muted text, one 600 ms pulse when it turns fresh, none on first load or with reduced motion, never looping. "Reached" and every other status word stays grey.
-  - *No explanatory text:* helper sentences, intros and instructions are cut. What stays is safety, privacy, source and freshness: the patient-details reminder, the signed-out and offline lines, "Confirmed 8 Jan 2026 against your recorded source", "Curated, not endorsed · checked 26 Sep 2026", "Part-time work never lowers your CPD targets".
-  - *Type:* headings −0.01em tracking and 1.2 line height with balanced wrapping; eyebrows open tracking; body 1.4; tabular figures; real apostrophes; en dash for ranges; a non-breaking space between a number and its unit ("0.5 h", "0.8 FTE"). Hierarchy from size and tone, never bold.
-  - *Surfaces:* two elevations only, `--e1` for raised modules and `--e4` for sheets, the floating button and the Undo bar. 1 px low-contrast hairlines, inset to the text (past the leading icon on icon rows). Concentric corners: the segmented control's 10 px track with 3 px padding holds 7 px segments.
-  - *Micro-detail:* every control darkens one surface step when pressed (no scale) and keeps the app's focus border. Icons share one stroke at 16 or 20 px. Skeletons are static, with no shimmer (standard v13). Sheets and the floating button respect the safe areas and home bar.
+  - _Live status green:_ only where a state is live and current. In CPD that is the detail sheet's "Up to date" (the figure was counted from the loaded log): a 6 px `--success` dot with the word beside it in muted text, one 600 ms pulse when it turns fresh, none on first load or with reduced motion, never looping. "Reached" and every other status word stays grey.
+  - _No explanatory text:_ helper sentences, intros and instructions are cut. What stays is safety, privacy, source and freshness: the patient-details reminder, the signed-out and offline lines, "Confirmed 8 Jan 2026 against your recorded source", "Curated, not endorsed · checked 26 Sep 2026", "Part-time work never lowers your CPD targets".
+  - _Type:_ headings −0.01em tracking and 1.2 line height with balanced wrapping; eyebrows open tracking; body 1.4; tabular figures; real apostrophes; en dash for ranges; a non-breaking space between a number and its unit ("0.5 h", "0.8 FTE"). Hierarchy from size and tone, never bold.
+  - _Surfaces:_ two elevations only, `--e1` for raised modules and `--e4` for sheets, the floating button and the Undo bar. 1 px low-contrast hairlines, inset to the text (past the leading icon on icon rows). Concentric corners: the segmented control's 10 px track with 3 px padding holds 7 px segments.
+  - _Micro-detail:_ every control darkens one surface step when pressed (no scale) and keeps the app's focus border. Icons share one stroke at 16 or 20 px. Skeletons are static, with no shimmer (standard v13). Sheets and the floating button respect the safe areas and home bar.
 - **Screenshot check before approval** (standard §12): each rebuilt page beside live On Call and CPD at 390 × 844 in both themes. Anything heavier, busier or more colourful is fixed first.
 
 ### 6.3 Adaptive
 
-| Width | Layout |
-|---|---|
-| Phone (under 768 px) | One column; the form opens as a full-height sheet; filters open in a bottom sheet. |
-| Tablet (768–1023 px) | One column up to the live `max-w-3xl` reading width; the form opens as a centred sheet. |
+| Width                    | Layout                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Phone (under 768 px)     | One column; the form opens as a full-height sheet; filters open in a bottom sheet.                                                                                                                                                                                                                                                                                             |
+| Tablet (768–1023 px)     | One column up to the live `max-w-3xl` reading width; the form opens as a centred sheet.                                                                                                                                                                                                                                                                                        |
 | Desktop (1024 px and up) | Today shows the year figure and To do side by side. Log opens an activity or the form in a side panel, so the list stays in view. The panel has previous and next arrows and a close button. The keyboard works throughout: Tab order follows the reading order, Ctrl or Cmd + Enter saves a form (plain Enter stays a new line in the reflection), and Escape closes a sheet. |
 
 - Text scales to **200%** with nothing clipped. From **135%**, rows stack: the hours move from the right-hand column into the second line under the title. Chips and toolbars wrap onto a second line, the month total stays, tabs scroll with an edge fade, and pages keep room under "+ Log".
@@ -181,23 +181,23 @@ Josh sent one stress-tested brief to every mode thread. This is how CPD meets ea
 
 **Each page's single job and top three tasks** (design for the first five seconds):
 
-| Page | Its one job | Top three tasks | First five seconds show |
-|---|---|---|---|
-| Today | Know where my year stands and what to do next | See my hours; act on the next To do; log something | Hours figure, pace line, first To do row, "+ Log" |
-| Log | Record and find my activities | Log; find one; finish a draft | The newest activities and "+ Log" |
-| Plan | Shape my year | Check goals; see what falls due; see where I am in training | Goals with hours, or the month |
-| Learning | Find something worth attending | Browse upcoming; add one to my calendar; log one I went to | The next events this month |
-| Set up | Say what my CPD home asks | Read my targets; edit them; set reminders | The CPD home and its targets |
+| Page     | Its one job                                   | Top three tasks                                             | First five seconds show                           |
+| -------- | --------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| Today    | Know where my year stands and what to do next | See my hours; act on the next To do; log something          | Hours figure, pace line, first To do row, "+ Log" |
+| Log      | Record and find my activities                 | Log; find one; finish a draft                               | The newest activities and "+ Log"                 |
+| Plan     | Shape my year                                 | Check goals; see what falls due; see where I am in training | Goals with hours, or the month                    |
+| Learning | Find something worth attending                | Browse upcoming; add one to my calendar; log one I went to  | The next events this month                        |
+| Set up   | Say what my CPD home asks                     | Read my targets; edit them; set reminders                   | The CPD home and its targets                      |
 
 **Layout.** Today is the one dashboard. It is modular, every module answers one real question or leads to one action, and nothing is decorative (Josh, 18:21Z). It is built only for CPD, around pace against this year's target, what to log next and what is left to finish, not a shared template with different labels (Josh, 18:21Z, "unique for each mode and tailored to that mode"):
 
-| Module | The question it answers | What a tap does |
-|---|---|---|
-| Hours panel (hero) | Am I on pace for this year's target? | Opens the hours detail sheet |
-| Two fact tiles | Have I met the two national minimums? | Opens that category's detail sheet |
-| Next to log (top two, then "Log") | What should I log next? | A due routine logs in one tap ("Log 1 h", with Undo); the next step opens the place to do it |
-| To finish (top two, then "All N") | What is left to finish? | "Finish" opens the draft; "Copy next" copies to the CPD home in one tap, with Undo |
-| Training line (only with a current training period) | Where am I in training? | Opens Plan › Training |
+| Module                                              | The question it answers               | What a tap does                                                                              |
+| --------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Hours panel (hero)                                  | Am I on pace for this year's target?  | Opens the hours detail sheet                                                                 |
+| Two fact tiles                                      | Have I met the two national minimums? | Opens that category's detail sheet                                                           |
+| Next to log (top two, then "Log")                   | What should I log next?               | A due routine logs in one tap ("Log 1 h", with Undo); the next step opens the place to do it |
+| To finish (top two, then "All N")                   | What is left to finish?               | "Finish" opens the draft; "Copy next" copies to the CPD home in one tap, with Undo           |
+| Training line (only with a current training period) | Where am I in training?               | Opens Plan › Training                                                                        |
 
 The home **adapts and says why**: the panel's first line names the season ("Last quarter", "Last fortnight · closing the year", "Early in the year · write your plan"), and Next to log's order follows it. Dates that fall due soon live on Plan › Calendar, not on Today. Log, Plan, Learning and Set up stay clean lists. Detail goes into sheets.
 
@@ -229,7 +229,7 @@ Buttons, links, chips, selection, status, text and numbers are never indigo. Eve
 
 **CPD's three unique features** (only CPD can offer these, each with a daily or weekly reason to open it; none overlaps another mode):
 
-1. **Three-tap Log again** (§8.1). The daily reason is the regular sessions a doctor goes to every week. Teaching's weekly review logs *hospital teaching sessions*; Log again covers everything else, so they don't repeat each other.
+1. **Three-tap Log again** (§8.1). The daily reason is the regular sessions a doctor goes to every week. Teaching's weekly review logs _hospital teaching sessions_; Log again covers everything else, so they don't repeat each other.
 2. **The pace line and one To do list** (§8.2–8.3). The daily reason is a 5-second answer to "am I behind, and what's next?" No other mode tracks a doctor's own requirement.
 3. **Copy next, for your CPD home** (§8.6). The weekly reason is that college portals still need each activity typed in. CPD holds the only record to copy from.
 
@@ -239,21 +239,21 @@ No AI, no new stored data and nothing offline is added. Anything like that would
 
 **Pass/fail checks, reported with each release PR and on the plan page:**
 
-| Check | Pass means |
-|---|---|
-| Contrast | Every text and control pair meets WCAG AA (4.5:1 for body, 3:1 for large text and icons), in light and in dark |
-| One primary action | At most one dark command button visible per screen |
-| Main task in three taps or fewer | A routine that is due: one tap ("Log 1 h" in To do). Any routine or recent activity: three ("+ Log", a Log again row, Save) |
-| One state module | Loading, empty, signed out, offline and error use one shared component with the page's header and tabs kept |
-| One demo dataset | Every drawing and every demo screen uses the same demo doctor, the same numbers and one time of day (09:41, Sat 26 Sep 2026) |
-| Tap areas | Every control has a tap area of at least 48 px; small row buttons (34 px) and chips (36 px) carry an invisible 48 px hit area |
-| No tab badges | Tabs carry no count badges; counts appear only in words inside a module ("15 to copy") (addendum C) |
-| Stress frames | One frame at 200% text (rows stack, tabs scroll with an edge fade) and one real-length title that wraps and is never truncated (addendum H) |
-| Nothing bold | No weight above 600 anywhere, and none above 400 on numbers |
-| Four sizes at most | The type floors above hold on every screen |
-| Nothing truncated | No time, date, hours figure, number or title ends in "…" |
-| Nothing jumps | The loading shapes match the loaded layout (layout shift under 0.1 in the browser tests) |
-| Side by side | Before and after screenshots next to live CPD and On Call, in both themes |
+| Check                            | Pass means                                                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contrast                         | Every text and control pair meets WCAG AA (4.5:1 for body, 3:1 for large text and icons), in light and in dark                              |
+| One primary action               | At most one dark command button visible per screen                                                                                          |
+| Main task in three taps or fewer | A routine that is due: one tap ("Log 1 h" in To do). Any routine or recent activity: three ("+ Log", a Log again row, Save)                 |
+| One state module                 | Loading, empty, signed out, offline and error use one shared component with the page's header and tabs kept                                 |
+| One demo dataset                 | Every drawing and every demo screen uses the same demo doctor, the same numbers and one time of day (09:41, Sat 26 Sep 2026)                |
+| Tap areas                        | Every control has a tap area of at least 48 px; small row buttons (34 px) and chips (36 px) carry an invisible 48 px hit area               |
+| No tab badges                    | Tabs carry no count badges; counts appear only in words inside a module ("15 to copy") (addendum C)                                         |
+| Stress frames                    | One frame at 200% text (rows stack, tabs scroll with an edge fade) and one real-length title that wraps and is never truncated (addendum H) |
+| Nothing bold                     | No weight above 600 anywhere, and none above 400 on numbers                                                                                 |
+| Four sizes at most               | The type floors above hold on every screen                                                                                                  |
+| Nothing truncated                | No time, date, hours figure, number or title ends in "…"                                                                                    |
+| Nothing jumps                    | The loading shapes match the loaded layout (layout shift under 0.1 in the browser tests)                                                    |
+| Side by side                     | Before and after screenshots next to live CPD and On Call, in both themes                                                                   |
 
 **Addendum A–I (coordinator, 18:23Z)** is met: honest forms and "Log again" never saves by itself (A, §6.1); recents first in "+ Log" (B, §8.1); status in words, no tab badges (C); no unsaved ticks anywhere in CPD (D); states keep the frame and exact privacy wording (E, §7); presets not yet available are hidden, not greyed (F, §9.1); every screen measured with Geist by script (G); stress frames (H); desktop panel arrows (I, §6.3). CPD shows no crisis numbers of its own; the app-wide crisis banner is untouched. **J–L (18:24Z)** are met too. J, home order: the hours panel is the answer card, readable in two seconds; the two tiles are part of that answer (the minimums); CPD has no ask box on Today (Log's own search stays on Log, with no mic); "Next to log" and "To finish" are CPD's tailored form of "Needs you", with no featured row on Today because the panel leads. K, shared data: nothing in CPD is seen by other people, so no preview-and-commit sheet applies; if that ever changes, K applies. L, safe thumbs: row actions ("Log 1 h", "Copy next", "Finish") are 34 px outlined shapes in 48 px tap areas at the row's right edge, and nothing destructive sits in thumb reach; archive and "Remove certificate" live in the activity's "…" menu, and removing a certificate still asks first.
 
@@ -275,12 +275,14 @@ Every state keeps the page's header and tab row, and the loading shapes match th
 ### 7.1 Today › Overview
 
 1–2. **Hero summary** (module 8, the only one in CPD; it replaces the plain first card). Command fill #111827 in light mode, `--surface-lux` with a hairline in dark mode. It holds:
-   - the season and the year's end, date first: "Last quarter · year ends 31 Dec 2026, in 14 weeks" (13 px);
-   - "32.5 of 50 h" (40 px/300);
-   - a thin module 7 progress bar of hours logged, with **no pace tick**: a mark ahead of the fill read as "you are behind", which grades the doctor;
-   - the **pace line** (§8.3).
-   The same facts are in the words, so the bar is never the only signal. The panel uses the 16 px panel radius.
-   **Never a score.** The hero shows a count of hours the doctor logged against targets they entered. It has no percentage, no ring, no ahead or behind colour, and no word that rates the doctor. CPD does not use the progress-ring variant for hours, because a ring around a doctor's own hours would read as a score (standard v10, module 7).
+
+- the season and the year's end, date first: "Last quarter · year ends 31 Dec 2026, in 14 weeks" (13 px);
+- "32.5 of 50 h" (40 px/300);
+- a thin module 7 progress bar of hours logged, with **no pace tick**: a mark ahead of the fill read as "you are behind", which grades the doctor;
+- the **pace line** (§8.3).
+  The same facts are in the words, so the bar is never the only signal. The panel uses the 16 px panel radius.
+  **Never a score.** The hero shows a count of hours the doctor logged against targets they entered. It has no percentage, no ring, no ahead or behind colour, and no word that rates the doctor. CPD does not use the progress-ring variant for hours, because a ring around a doctor's own hours would read as a score (standard v10, module 7).
+
 3. **Two fact tiles** (module 2), both in the "X of Y h" pattern: "Educational · 22.5 of 12.5 h · Minimum reached" and "Reviewing + outcomes · 10 of 25 h · Reviewing 8 h / Outcomes 2 h". Each opens its detail sheet. They carry the national baseline figures, or the doctor's own targets for another CPD home.
 4. **Training line** (only when a current training period exists): "Stage 2 · rotation 3 of 4". It links to Plan › Training.
 5. **Next to log** (§8.2, rows 1–3 and 8): the top two rows, then "Log" in the module header.
@@ -325,7 +327,7 @@ One grouped list with three eyebrows:
 
 - **Your next step:** drafts, with "Finish".
 - **Waiting for someone:** a waiting note and a follow-up day.
-- **Missed teaching:** "Tue 22 Sep · 1.5 h · not attended", with "Log catch-up". Footnote: "Missed sessions don't add hours. Link what you did instead." 
+- **Missed teaching:** "Tue 22 Sep · 1.5 h · not attended", with "Log catch-up". Footnote: "Missed sessions don't add hours. Link what you did instead."
 
 The count shows on the tab. This moves the existing drafts and missed-sessions sections out from under the Log list. Their data and behaviour are unchanged.
 
@@ -406,6 +408,7 @@ All of these run on simple rules inside the app, over the doctor's own records t
    Today splits the list in two. **Next to log** holds rows 1–3 and 8 (what to log next). **To finish** holds rows 4–7 (what is already started or owed). Each shows its top two, and "All N" opens the full list. The one-tap rows come early on purpose, so the dashboard does things rather than only reporting.
 
    Counts are grey. There is no dismissing, so nothing needs storing.
+
 3. **Pace in plain words.**
    - Formula: `weekly = (target − logged) ÷ max(1, weeks left)`, where weeks left counts from today to 31 Dec in Perth time, rounded to one decimal.
    - Wording: "About 1.3 h a week reaches 50 h by 31 Dec."
@@ -431,7 +434,7 @@ All of these run on simple rules inside the app, over the doctor's own records t
 
 Josh asked for unique, high-yield, striking features. Each is rules-based over the doctor's own records, adds no stored data and no AI, and is drawn on the plan page.
 
-12. **Your year in weeks** (Josh added it, card 19:05Z). The hours panel's thin progress bar becomes 52 thin week bars: each elapsed week's height is the hours logged that week, in the hero's indigo fill (the allowed hero graphic); this week is product blue ("now"); weeks still to come are faint 3 px stubs. It answers "when did I actually do my CPD?" and never grades. Screen readers get "Hours logged in each week of 2026, this week last; 13 weeks to go", and the hours detail sheet lists the same data by month in words.
+12. **Your year in weeks** (Josh added it, card 19:05Z). The hours panel's thin progress bar becomes 53 thin seven-day bars counted from 1 Jan in Perth time (not ISO weeks; the last bar holds 1 or 2 days): each elapsed bar's height is the hours logged that week, in the hero's indigo fill (the allowed hero graphic); this week is product blue ("now"); weeks still to come are faint 3 px stubs. It answers "when did I actually do my CPD?" and never grades. Screen readers get "Hours logged in each week of 2026, this week last; 13 weeks to go", and the hours detail sheet lists the same data by month in words.
 13. **Close the gap** (Josh added it, card 19:05Z). Tapping an open target in Next to log opens a sheet: the gap in words ("Reviewing + outcomes · 15 h to go by 31 Dec"), how much the doctor's own routines will add if they continue (cadence × hours × occurrences left before 31 Dec in Perth time, per category, shown as "about 12 of 15 h, if your routines continue"), and what is left to plan, with the number of Learning events before 31 Dec. A freshness line with the live dot, and "a plan, not a promise". Nothing is scheduled or saved.
 14. **Close the year** (Josh added it, card 19:05Z). From 17 Dec (the season rule), one sheet gathers December's jobs: Copy next for the CPD home, the self-evaluation, carrying goals forward (§8.8), confirming next year's targets, and the annual summary with certificate links (§8.9). Rows end in plain status; nothing moves or is sent without a tap. It reuses the existing year-close panel's data.
 
@@ -463,13 +466,13 @@ No screen offers to lower a target for part-time work. A doctor whose CPD home g
 
 CPD never writes another mode's data. No other mode reads CPD content. Every link is one-way into CPD, or a plain link out.
 
-| Mode | Link | Who builds it |
-|---|---|---|
-| Teaching | A To do row, "Teaching sessions to log (3)", opening Teaching's weekly review. The count comes from `GET /api/teaching?view=unlogged-count` (`{count}`). The row is hidden when the endpoint is missing, fails or returns 0. Teaching saves through its own `POST /api/teaching/cpd` (idempotent, `source_ref` `teaching:<uuid>`), so a session can't be logged twice. No CPD content enters Teaching's audit log. | CPD adds the row in Release 4, once Teaching's endpoint is on main. Teaching's PR A repoints the old "Teaching sessions" link from On Call to `/teaching`. |
-| Admin | "Open CPD year check" on the registration row in Renewals. No figures; never in "Copy for workforce". | Admin (already agreed). CPD changes nothing. |
-| First Nations | When the practice domain "culturally safe practice" has nothing logged, the season's Next step may point to `/first-nations/talking`. First Nations' "…" menu carries "Log as CPD" through `cmeLearningFromSourceHref`. | CPD adds the pointer in Release 4; First Nations adds its button. |
-| Roster | "Plan leave for this" on a Learning event. | Parked until Roster's leave feature exists. |
-| Clinical answers | "Log as CPD" on an answer's sources stays as it is and carries the source, never the question. | No change. |
+| Mode             | Link                                                                                                                                                                                                                                                                                                                                                                                                               | Who builds it                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Teaching         | A To do row, "Teaching sessions to log (3)", opening Teaching's weekly review. The count comes from `GET /api/teaching?view=unlogged-count` (`{count}`). The row is hidden when the endpoint is missing, fails or returns 0. Teaching saves through its own `POST /api/teaching/cpd` (idempotent, `source_ref` `teaching:<uuid>`), so a session can't be logged twice. No CPD content enters Teaching's audit log. | CPD adds the row in Release 4, once Teaching's endpoint is on main. Teaching's PR A repoints the old "Teaching sessions" link from On Call to `/teaching`. |
+| Admin            | "Open CPD year check" on the registration row in Renewals. No figures; never in "Copy for workforce".                                                                                                                                                                                                                                                                                                              | Admin (already agreed). CPD changes nothing.                                                                                                               |
+| First Nations    | When the practice domain "culturally safe practice" has nothing logged, the season's Next step may point to `/first-nations/talking`. First Nations' "…" menu carries "Log as CPD" through `cmeLearningFromSourceHref`.                                                                                                                                                                                            | CPD adds the pointer in Release 4; First Nations adds its button.                                                                                          |
+| Roster           | "Plan leave for this" on a Learning event.                                                                                                                                                                                                                                                                                                                                                                         | Parked until Roster's leave feature exists.                                                                                                                |
+| Clinical answers | "Log as CPD" on an answer's sources stays as it is and carries the source, never the question.                                                                                                                                                                                                                                                                                                                     | No change.                                                                                                                                                 |
 
 ## 11. Privacy
 
@@ -499,7 +502,7 @@ Each release is one PR that merges on its own, touches no `supabase/` path, and 
   - `src/components/calendar/calendar-subscribe.tsx:119`: "your CME deadlines" becomes "your CPD deadlines";
   - `src/components/clinical-dashboard/settings-reminders.tsx:90`: "which CME and On Call reminders" becomes "which CPD and On Call reminders";
   - `scripts/generate-site-map.ts:185`: "CME dashboard" becomes "CPD", and "whether the pace is on track" becomes plain wording; then `docs/site-map.md` is regenerated with `npm run sitemap:update`.
-  The code id `cme` in routes, file names and API paths stays.
+    The code id `cme` in routes, file names and API paths stays.
 - Tests:
   - a CPD **type-weight test** (no `font-bold`, `font-extrabold`, `font-black` or `--font-weight-value` in `src/components/cme/**`, and no weight above 400 on number classes);
   - a **verdict-words test** over CPD user-facing strings, which also fails on a user-facing "CME" in the three files above and in `src/components/cme/**`;
