@@ -1,12 +1,6 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { OnCallSectionPage } from "@/components/on-call/on-call-section-page";
-
-export const metadata: Metadata = {
-  title: "Teaching | On Call | PsychSift",
-  description: "The teaching calendar: what, when, who is presenting, and a link to the recording.",
-};
-
+/** Backstop for the proxy's `/on-call/education` → `/teaching/week` redirect (spec §8). */
 export default function OnCallEducationRoute() {
-  return <OnCallSectionPage view="education" />;
+  redirect("/teaching/week");
 }

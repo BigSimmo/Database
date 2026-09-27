@@ -47,7 +47,6 @@ vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
 
 import OnCallComplianceRoute from "@/app/(search-app)/on-call/compliance/page";
 import OnCallContactsRoute from "@/app/(search-app)/on-call/contacts/page";
-import OnCallEducationRoute from "@/app/(search-app)/on-call/education/page";
 import OnCallLogisticsRoute from "@/app/(search-app)/on-call/logistics/page";
 import OnCallOrientationRoute from "@/app/(search-app)/on-call/orientation/page";
 import OnCallPlaybookRoute from "@/app/(search-app)/on-call/playbook/page";
@@ -68,12 +67,9 @@ const routes: RouteCase[] = [
   { view: "playbook", title: "Playbook", Route: OnCallPlaybookRoute },
   { view: "referrals", title: "Referrals", Route: OnCallReferralsRoute },
   { view: "orientation", title: "Orientation", Route: OnCallOrientationRoute },
-  // Titled "Teaching" everywhere a reader sees it, even though the section id
-  // (route segment, database check constraint) stays "education".
-  { view: "education", title: "Teaching", Route: OnCallEducationRoute },
-  // Titled "Admin" on the same terms as "Teaching" above: the section id, the
-  // route segment and the database check constraint all stay "logistics",
-  // because renaming them is a migration for no functional gain.
+  // Titled "Admin"; the section id, the route segment and the database check
+  // constraint all stay "logistics", because renaming them is a migration for
+  // no functional gain.
   { view: "logistics", title: "Admin", Route: OnCallLogisticsRoute },
   { view: "who-is-who", title: "Who's who", Route: OnCallWhoIsWhoRoute },
   // Compliance is a view over `logistics` split on `details.kind`, exactly as
@@ -121,19 +117,28 @@ afterEach(() => {
 });
 
 describe("on-call section routes", () => {
-  it("covers every declared on-call page, in order — the six sections, then the two views over one", () => {
+  it("covers every declared on-call page, in order — the five sections with a page, then the two views over one", () => {
     // Fails loudly if a section is added to the data model without a route case
     // here, rather than leaving the new section silently unguarded. Who's who and
     // Compliance are not stored sections — they are `contacts` and `logistics`
     // rows behind `details.kind` — so they are named separately rather than
     // folded into the model's list.
-    expect(routes.map((route) => route.view)).toEqual([...ON_CALL_SECTIONS, "who-is-who", "compliance"]);
+    // Education is a section in the data model, but its page now forwards to Teaching's Week (spec §8), which
+    // tests/teaching-on-call-relocation.dom.test.tsx pins.
+    expect(routes.map((route) => route.view)).toEqual([
+      ...ON_CALL_SECTIONS.filter((section) => section !== "education"),
+      "who-is-who",
+      "compliance",
+    ]);
 
     // The same guard for the half of this mode the model's list cannot see. A
     // view over an existing section costs no migration, which is exactly why one
     // can be built and shipped without anything here noticing: Compliance was.
-    // Every page the identity map names must appear above, section or not.
-    const declaredViews: string[] = Object.keys(ON_CALL_VIEW_TITLES);
+    // Every page the identity map names must appear above, section or not —
+    // except "education", whose identity entry stays (card-selection, search
+    // and the calendar still classify entries by it) even though its own page
+    // now only forwards to Teaching's Week (spec §8).
+    const declaredViews: string[] = Object.keys(ON_CALL_VIEW_TITLES).filter((view) => view !== "education");
     expect(routes.map((route) => route.view as string).sort()).toEqual(declaredViews.sort());
   });
 

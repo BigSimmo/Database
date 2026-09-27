@@ -46,6 +46,8 @@ const TEACHING = entry("education", "ward-teaching", "Ward teaching", {
   details: { recurrence: "Weekly", presenter: "Dr Halsey" },
 });
 
+const REFERRAL = entry("referrals", "cl-psych", "CL psychiatry referral");
+
 const PRIVATE = entry("contacts", "okafor", "Dr M. Okafor — ward direct", {
   details: { role: "Consultant", phone: "0412 000 111" },
   isPersonal: true,
@@ -76,8 +78,8 @@ describe("OnCallSearchBox — results", () => {
     render(<OnCallSearchBox entries={ENTRIES} />);
     type("ward");
     expect(screen.getByTestId("on-call-search-group-contacts")).toHaveTextContent("Contacts");
-    // `education` is titled "Teaching" everywhere a reader sees it.
-    expect(screen.getByTestId("on-call-search-group-education")).toHaveTextContent("Teaching");
+    // Teaching entries are found in Teaching now (spec §8), so no group renders for them.
+    expect(screen.queryByTestId("on-call-search-group-education")).not.toBeInTheDocument();
   });
 
   it("links to the exact contact while showing its recorded number", () => {
@@ -91,10 +93,10 @@ describe("OnCallSearchBox — results", () => {
   });
 
   it("sends a row with no number to that section's page instead", () => {
-    render(<OnCallSearchBox entries={ENTRIES} />);
-    type("teaching");
-    const row = screen.getByTestId("on-call-search-row-ward-teaching");
-    expect(row).toHaveAttribute("href", "/on-call/education#on-call-entry-ward-teaching");
+    render(<OnCallSearchBox entries={[ED, REFERRAL, PRIVATE]} />);
+    type("referral");
+    const row = screen.getByTestId("on-call-search-row-cl-psych");
+    expect(row).toHaveAttribute("href", "/on-call/referrals#on-call-entry-cl-psych");
   });
 
   it("never prints a personal number, and links to the section instead", () => {
@@ -132,13 +134,15 @@ describe("OnCallSearchBox — announcements", () => {
     const status = screen.getByTestId("on-call-search-status");
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status.className).toContain("sr-only");
-    expect(status).toHaveTextContent("3 results");
+    // TEACHING is filtered out before the search runs (spec §8), so "ward"
+    // matches only ED (tagged "ward") and PRIVATE ("ward direct" in its title).
+    expect(status).toHaveTextContent("2 results");
     expect(screen.getByTestId("on-call-search-results")).not.toHaveAttribute("aria-live");
   });
 
   it("uses the singular for one match, and announces an empty result", () => {
     render(<OnCallSearchBox entries={ENTRIES} />);
-    type("teaching");
+    type("registrar");
     expect(screen.getByTestId("on-call-search-status")).toHaveTextContent("1 result");
     type("cardiology");
     expect(screen.getByTestId("on-call-search-status")).toHaveTextContent(/nothing matched/i);

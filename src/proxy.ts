@@ -61,6 +61,9 @@ const staticRouteRedirects: Record<string, string> = {
   // sentence) all name this route by hand, so `sitemap:check` cannot notice the entry
   // going away. Retiring it means moving all four together.
   "/mockups/document-search-command": "/documents/search",
+  // Teaching moved out of On Call into its own mode (spec §8). The reader's On
+  // Call teaching list now shows in Teaching's Week, so the old page forwards there.
+  "/on-call/education": "/teaching/week",
 };
 
 /**

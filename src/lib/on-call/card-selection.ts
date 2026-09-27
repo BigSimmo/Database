@@ -97,6 +97,8 @@ export function selectCardEntries(entries: readonly OnCallEntry[], now: Date = n
   return entries.filter((entry) => {
     if (!entry.includeOnCard) return false;
     if (entry.isPersonal) return false;
+    // Teaching lives in Teaching mode now (spec §8); a session time is not a number to ring.
+    if (entry.section === "education") return false;
     if (isComplianceEntry(entry)) return false;
     if (isRoleExplainerEntry(entry)) return false;
     if (onCallEntryFreshness(entry, now).state === "stale") return false;
