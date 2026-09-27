@@ -34,6 +34,14 @@ const srcRoot = path.join(repoRoot, "src");
 /** Intentionally-unlinked static page routes, each with the reason it is exempt. */
 const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
+    "/roster/join",
+    "Invite-link landing page reached from shared invite URLs; in-app entry is a ModeRow on Roster Today/Team, which this Link-only scan does not model.",
+  ],
+  [
+    "/roster/manage",
+    "Manager surface reached via ModeRow rows on Roster Today and Alerts (manager-only), which this Link-only scan does not model.",
+  ],
+  [
     "/documents/source",
     "Legacy compatibility redirect target reached by external/legacy deep links, not in-app navigation (frontend-architecture.md).",
   ],

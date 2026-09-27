@@ -112,7 +112,10 @@ export function useRosterSettings(): RosterSettingsState {
     return () => controller.abort();
   }, [accept]);
 
-  const update = useCallback(
+  // Writes run one at a time so an older completion (or its rollback) can never overwrite a newer state.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+
+  const write = useCallback(
     async (patch: RosterSettingsPatch) => {
       const before = current.current;
       accept(applyRosterSettingsPatch(before, patch));
@@ -135,6 +138,15 @@ export function useRosterSettings(): RosterSettingsState {
       }
     },
     [accept],
+  );
+
+  const update = useCallback(
+    (patch: RosterSettingsPatch) => {
+      const next = queue.current.then(() => write(patch));
+      queue.current = next.catch(() => undefined);
+      return next;
+    },
+    [write],
   );
 
   return { status, settings, update };

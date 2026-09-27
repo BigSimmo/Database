@@ -42,6 +42,9 @@ import { useRosterRead, useRosterTeams } from "./use-roster-team";
 
 type View = "week" | "month" | "hours";
 
+/** Mirrors PAST_SHIFT_DAYS in `GET /api/roster/shifts`: how far back the owner's own shifts are loaded. */
+const LOADED_PAST_DAYS = 21;
+
 const VIEWS = [
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
@@ -88,6 +91,8 @@ function WeekView({
   readonly onTeamShift: (shift: OnCallShift) => void;
 }) {
   const sunday = addDaysToDate(monday, 6);
+  // The shifts API returns only the last LOADED_PAST_DAYS; a week wholly before that would falsely read as empty.
+  const previousWeekLoaded = addDaysToDate(monday, -1) >= addDaysToDate(perthDateOf(now), -LOADED_PAST_DAYS);
   const inWeek = shifts
     .filter((shift) => {
       const date = perthDateOf(shift.startsAt);
@@ -102,6 +107,7 @@ function WeekView({
         <ModeActionButton
           icon={ChevronLeft}
           label="Previous week"
+          disabled={!previousWeekLoaded}
           onClick={() => onWeekChange(addDaysToDate(monday, -7))}
         />
         <h2 className={cn(modeNumberText, "text-base-minus text-[color:var(--text-heading)]")}>

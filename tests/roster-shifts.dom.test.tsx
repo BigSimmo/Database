@@ -115,6 +115,26 @@ describe("Roster Shifts", () => {
     expect(await screen.findByText("Tue 20 Oct")).toBeInTheDocument();
   });
 
+  it("stops going back once the previous week is outside the loaded history", async () => {
+    mockShifts([]);
+    for (const [from, to] of [
+      ["2026-10-12", "2026-10-18"],
+      ["2026-10-05", "2026-10-11"],
+      ["2026-09-28", "2026-10-04"],
+      ["2026-09-21", "2026-09-27"],
+    ])
+      mockTeamWindow(from, to, []);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    await screen.findByText("No shifts this week");
+    const previous = () => screen.findByRole("button", { name: "Previous week" });
+    for (let step = 0; step < 3; step += 1) {
+      const button = await previous();
+      expect(button).toBeEnabled();
+      fireEvent.click(button);
+    }
+    expect(await previous()).toBeDisabled();
+  });
+
   it("loads the newly selected month before displaying its team shifts", async () => {
     mockShifts([]);
     mockTeamWindow("2026-10-12", "2026-10-18", []);

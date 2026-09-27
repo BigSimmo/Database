@@ -107,7 +107,7 @@ describe("invited service request boundary", () => {
     );
     const sent = rpc.mock.calls[0][1].p_payload;
     expect(sent.tokenHash).toBe(hashServiceInvitation(parsed.code));
-    expect(sent.invitedEmail).toBe("sam@example.org");
+    expect(sent.invitedEmail).toBe("dr.ivy@example.org");
     expect(sent).not.toHaveProperty("code");
     expect(JSON.stringify(sent)).not.toContain(parsed.code);
   });

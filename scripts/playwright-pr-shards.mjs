@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|call|now|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|call|now|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|roster-team|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Timings: mean of the successful post-critical production Chromium reports from
@@ -245,6 +245,13 @@ export const prUiSpecProfiles = Object.freeze([
     file: "tests/ui-pwa.spec.ts",
     shard: 3,
     fullSeconds: 9.1,
+    criticalSeconds: 0,
+  },
+  {
+    // Unmeasured (new in Roster release two); estimated until a CI timing report exists.
+    file: "tests/ui-roster-team.spec.ts",
+    shard: 1,
+    fullSeconds: 4,
     criticalSeconds: 0,
   },
   {

@@ -1,6 +1,6 @@
 import { fortnightFor, summariseHours } from "@/lib/roster/hours";
 import type { AskAssignment, AskQuestion } from "@/lib/roster/ask/parse";
-import type { MyShift } from "@/components/roster/use-roster-shifts";
+import type { RosterDisplayShift as MyShift } from "@/lib/roster/team/team-view";
 import { inferShiftKind, isWorkedKind } from "@/lib/roster/shift-kind";
 import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
