@@ -183,9 +183,7 @@ function ReportRow({
     <article className={cn(cardSurface, "grid gap-3 p-4")}>
       <div>
         <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">{entryTitle}</h4>
-        <p className={cn(textMuted, "mt-0.5 text-xs")}>
-          Correction reported {formatOnCallDate(report.createdAt)}
-        </p>
+        <p className={cn(textMuted, "mt-0.5 text-xs")}>Correction reported {formatOnCallDate(report.createdAt)}</p>
       </div>
       <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[color:var(--text)]">{report.reason}</p>
       <FormField

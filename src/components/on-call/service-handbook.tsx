@@ -35,9 +35,7 @@ function humanStatus(status: ServiceEntry["status"]): string {
 
 function updateLabel(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? "Review date unavailable"
-    : `Updated ${formatOnCallDate(date)}`;
+  return Number.isNaN(date.getTime()) ? "Review date unavailable" : `Updated ${formatOnCallDate(date)}`;
 }
 
 function learningHref(entry: ServiceEntry): string | null {

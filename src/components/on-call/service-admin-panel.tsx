@@ -63,9 +63,7 @@ function MemberRow({ member, onAction }: { readonly member: ServiceMember; reado
         <p className="break-all text-sm font-semibold text-[color:var(--text-heading)]">
           Member {member.id.slice(0, 8)}
         </p>
-        <p className={cn(textMuted, "mt-0.5 text-xs")}>
-          Joined {formatOnCallDate(member.joinedAt)}
-        </p>
+        <p className={cn(textMuted, "mt-0.5 text-xs")}>Joined {formatOnCallDate(member.joinedAt)}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <FormField label="Role" id={`service-member-${member.id}-role`}>
@@ -298,9 +296,7 @@ export function ServiceAdminPanel({
         {newInvitation ? (
           <InlineNotice tone="neutral">
             <span className="grid min-w-0 gap-2">
-              <span>
-                This code is shown once and expires {formatOnCallDateTime(newInvitation.expiresAt)}.
-              </span>
+              <span>This code is shown once and expires {formatOnCallDateTime(newInvitation.expiresAt)}.</span>
               <code className="select-all break-all rounded-sm bg-[color:var(--surface-subtle)] p-2 text-xs">
                 {newInvitation.code}
               </code>

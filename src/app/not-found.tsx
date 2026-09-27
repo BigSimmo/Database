@@ -29,7 +29,10 @@ export default function NotFound() {
         <div className="mt-6 flex flex-col gap-2">
           <Link
             href="/"
-            className={cn(primaryControl, "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+            className={cn(
+              primaryControl,
+              "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium",
+            )}
           >
             <Search aria-hidden="true" className="h-4 w-4" />
             Back to search

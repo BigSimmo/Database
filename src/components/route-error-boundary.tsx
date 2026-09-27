@@ -100,7 +100,10 @@ export function RouteErrorBoundary({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className={cn(primaryControl, "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+              className={cn(
+                primaryControl,
+                "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium",
+              )}
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Reload page
@@ -109,7 +112,10 @@ export function RouteErrorBoundary({
             <button
               type="button"
               onClick={() => reset()}
-              className={cn(primaryControl, "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+              className={cn(
+                primaryControl,
+                "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium",
+              )}
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Try again
