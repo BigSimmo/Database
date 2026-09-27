@@ -4,26 +4,26 @@ Roster is a phone-first mode where hospital doctors across WA Health keep their 
 
 ## Files here
 
-| File | What it is |
-|---|---|
-| `2026-09-27-roster-mode-overview.md` | Steps, default decisions, what only the owner can do, risks, Release 2 and 3 outlines |
-| `2026-09-27-roster-mode-db-agreement.md` | The agreement between the Roster, On Call, Admin and Teaching threads on the one combined database change |
-| `2026-09-27-roster-mode-plan-a-database.md` | Build plan for the combined database PR |
-| `2026-09-27-roster-mode-plan-b-release-1.md` | Build plan for Release 1 (Roster for one doctor), with what the review changed |
-| `2026-09-27-roster-mode-plan-c-release-2.md` | Build plan for Release 2 (Roster for a health service) |
-| `2026-09-27-roster-mode-build-brief.md` | The short brief the build threads work from |
-| `2026-09-27-roster-mode-screens.png` | The approved screens |
+| File                                         | What it is                                                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `2026-09-27-roster-mode-overview.md`         | Steps, default decisions, what only the owner can do, risks, Release 2 and 3 outlines                     |
+| `2026-09-27-roster-mode-db-agreement.md`     | The agreement between the Roster, On Call, Admin and Teaching threads on the one combined database change |
+| `2026-09-27-roster-mode-plan-a-database.md`  | Build plan for the combined database PR                                                                   |
+| `2026-09-27-roster-mode-plan-b-release-1.md` | Build plan for Release 1 (Roster for one doctor), with what the review changed                            |
+| `2026-09-27-roster-mode-plan-c-release-2.md` | Build plan for Release 2 (Roster for a health service)                                                    |
+| `2026-09-27-roster-mode-build-brief.md`      | The short brief the build threads work from                                                               |
+| `2026-09-27-roster-mode-screens.png`         | The approved screens                                                                                      |
 
 Paths under `/mnt/project-files/` in these files are the project's shared working folder, not part of the repository.
 
 ## Where it stands (27 Sep 2026, 02:45Z)
 
-| Step | State | Next |
-|---|---|---|
-| A. Database change | PR #3117 open, CI was green on 1ff5de84f; now has a merge conflict with main | The build thread resolves the conflict and re-runs CI. **The owner merges it himself**: merging applies the migrations to the live database within seconds |
-| B. Release 1 app | PR #3118 open, behind main | Merges only after #3117; then the merge lineup lands it once CI is green |
-| C. Release 2 | Plan written and reviewed once (`2026-09-27-roster-mode-plan-c-release-2.md`); building on `claude/project-thread-yrumov-release-2` | Its database gaps go in a separate follow-up database PR after #3117 merges, merged by the owner |
-| D. Release 3 (roster maker) | Outline in `2026-09-27-roster-mode-overview.md` | Full plan written while Release 2 is in review |
+| Step                        | State                                                                                                                               | Next                                                                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. Database change          | PR #3117 open, CI was green on 1ff5de84f; now has a merge conflict with main                                                        | The build thread resolves the conflict and re-runs CI. **The owner merges it himself**: merging applies the migrations to the live database within seconds |
+| B. Release 1 app            | PR #3118 open, behind main                                                                                                          | Merges only after #3117; then the merge lineup lands it once CI is green                                                                                   |
+| C. Release 2                | Plan written and reviewed once (`2026-09-27-roster-mode-plan-c-release-2.md`); building on `claude/project-thread-yrumov-release-2` | Its database gaps go in a separate follow-up database PR after #3117 merges, merged by the owner                                                           |
+| D. Release 3 (roster maker) | Outline in `2026-09-27-roster-mode-overview.md`                                                                                     | Full plan written while Release 2 is in review                                                                                                             |
 
 ## Plan to complete
 

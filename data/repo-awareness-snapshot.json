@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-26"
+    "committed_at": "2026-09-27"
   },
   "routes": {
     "modes": [
@@ -1767,6 +1767,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-overview.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/archive/phase-3-design-decision-log.md",
         "section": "archive",
         "catalogued": true
@@ -1913,6 +1918,11 @@
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-21-rag-repository-content-sync.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md",
         "section": "superpowers",
         "catalogued": true
       },
@@ -2544,6 +2554,11 @@
       {
         "path": "docs/governance/privacy-role-attestation-pack-2026-09-01.md",
         "section": "governance",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -3262,6 +3277,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-a-database.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/README.md",
         "section": "root",
         "catalogued": true
@@ -3497,6 +3517,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-build-brief.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/decisions/2026-09-26-register-wa-service-issuers.md",
         "section": "decisions",
         "catalogued": false
@@ -3634,6 +3659,11 @@
       {
         "path": "docs/wiring-conventions.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-status.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -4025,6 +4055,11 @@
         "path": "docs/decisions/2026-09-25-calculator-governance-reference-not-linked.md",
         "section": "decisions",
         "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-db-agreement.md",
+        "section": "superpowers",
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-22-accept-24-hour-recovery-point.md",

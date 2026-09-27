@@ -52,9 +52,11 @@ Teaching's assumed names are confirmed, with the corrections marked **Changed**.
    - Roster writes take a per-service advisory lock: `pg_advisory_xact_lock(hashtextextended(service_id::text, 74817))`.
    - Other modes pick their own second key: Teaching 74818 and Admin 74819. Each key guards only that mode's own tables.
    - **Invitations have one writer (v5).** Every insert or update on `on_call_service_invitations` goes through `on_call_service_command` (with `issued_via_mode` set), which takes `FOR UPDATE` on the service row before the 1,000-open-invite and 5,000-member cap checks. No mode writes that table directly, and 74817 is not the cap lock.
-10. **Revoke cascades (v5).** When a shared membership is revoked (`revoked_at` goes from null to a time), every active per-mode role row for that user and service is revoked in the same transaction.
-   - Each mode's own file adds an `AFTER UPDATE OF revoked_at ON on_call_service_members FOR EACH ROW WHEN (OLD.revoked_at IS NULL AND NEW.revoked_at IS NOT NULL)` trigger (the WHEN clause is required: rejoin is an `INSERT ... ON CONFLICT DO UPDATE` that clears `revoked_at` and would otherwise re-revoke mode roles; On Call, 18:32Z) that sets `revoked_at = now()` on its own `<mode>_member_roles` rows where `revoked_at is null`, and writes one audit row with `mode = '<mode>'`. This keeps On Call's file free of references to tables created later.
-   - Rejoining reuses the member row: `revoked_at` is cleared and `joined_at` is reset to the rejoin time. Per-mode roles are not restored; they must be granted again.
+8. **Revoke cascades (v5).** When a shared membership is revoked (`revoked_at` goes from null to a time), every active per-mode role row for that user and service is revoked in the same transaction.
+
+- Each mode's own file adds an `AFTER UPDATE OF revoked_at ON on_call_service_members FOR EACH ROW WHEN (OLD.revoked_at IS NULL AND NEW.revoked_at IS NOT NULL)` trigger (the WHEN clause is required: rejoin is an `INSERT ... ON CONFLICT DO UPDATE` that clears `revoked_at` and would otherwise re-revoke mode roles; On Call, 18:32Z) that sets `revoked_at = now()` on its own `<mode>_member_roles` rows where `revoked_at is null`, and writes one audit row with `mode = '<mode>'`. This keeps On Call's file free of references to tables created later.
+- Rejoining reuses the member row: `revoked_at` is cleared and `joined_at` is reset to the rejoin time. Per-mode roles are not restored; they must be granted again.
+
 8. **Who can invite.**
    - A mode manager or editor can invite as `member` only.
    - Only a service `admin` can invite as `editor` or `admin`.
