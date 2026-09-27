@@ -3,10 +3,12 @@ import { nextTeachingOccurrence, type RecurringSessionFrequency } from "@/lib/da
 import type {
   LogbookRow,
   Notice,
+  SeriesAudience,
   SessionDetail,
   SessionSummary,
   TeachingWeek,
   TeamSummary,
+  WhatsOnRow,
 } from "@/lib/teaching/model";
 import { perthInstant, perthToday } from "@/lib/teaching/time";
 
@@ -21,6 +23,10 @@ import { perthInstant, perthToday } from "@/lib/teaching/time";
  * Recurring series hang off fixed 2026 anchors, so a week view is a real timetable
  * and a session keeps its id from one day to the next. The one-off simulation
  * afternoon is always forty days away, as it was in On Call's demo.
+ *
+ * What's on (master plan R8) adds two more made-up services in the made-up "Demo health
+ * service", each opening its weekly sessions to it: five open sessions every week. The
+ * demo viewer is a visitor there, so those sessions open read-only.
  */
 
 export const DEMO_TEACHING_SERVICE_ID = "00000000-0000-4000-9000-000000000001";
@@ -45,7 +51,12 @@ type DemoSeries = {
   readonly venue: string;
   readonly presenter: boolean;
   readonly joinLink: boolean;
+  /** Master plan R4: which level the series is for. Left out, it is for all doctors. */
+  readonly audience?: SeriesAudience;
 };
+
+/** A weekly series another made-up service has opened to the demo health service. */
+type DemoOpenSeries = DemoSeries & { readonly serviceId: string; readonly teamName: string };
 
 const DEMO_SERIES: readonly DemoSeries[] = [
   {
@@ -59,6 +70,7 @@ const DEMO_SERIES: readonly DemoSeries[] = [
     venue: "Demo seminar room",
     presenter: true,
     joinLink: true,
+    audience: "registrars",
   },
   {
     key: 2,
@@ -95,6 +107,7 @@ const DEMO_SERIES: readonly DemoSeries[] = [
     venue: "Demo tutorial room",
     presenter: false,
     joinLink: false,
+    audience: "registrars",
   },
   {
     key: 5,
@@ -131,6 +144,84 @@ const DEMO_SERIES: readonly DemoSeries[] = [
     venue: "Demo meeting room",
     presenter: false,
     joinLink: false,
+  },
+];
+
+export const DEMO_OLDER_ADULT_SERVICE_ID = "00000000-0000-4000-9000-000000000002";
+export const DEMO_YOUTH_SERVICE_ID = "00000000-0000-4000-9000-000000000003";
+const OLDER_ADULT = { serviceId: DEMO_OLDER_ADULT_SERVICE_ID, teamName: "Demo older adult service" } as const;
+const YOUTH = { serviceId: DEMO_YOUTH_SERVICE_ID, teamName: "Demo youth service" } as const;
+
+/** Keys 11 to 15, so their occurrence ids never meet the demo service's own (1 to 7). */
+const DEMO_OPEN_SERIES: readonly DemoOpenSeries[] = [
+  {
+    ...OLDER_ADULT,
+    key: 11,
+    title: "Demo psychopharmacology update",
+    anchor: "2026-01-07",
+    anchorOffsetDays: 0,
+    frequency: "weekly",
+    startTime: "11:15",
+    minutes: 60,
+    venue: "Demo older adult unit, also on Teams",
+    presenter: true,
+    joinLink: true,
+  },
+  {
+    ...OLDER_ADULT,
+    key: 12,
+    title: "Demo ECT journal club",
+    anchor: "2026-01-07",
+    anchorOffsetDays: 0,
+    frequency: "weekly",
+    startTime: "13:00",
+    minutes: 60,
+    venue: "Demo older adult unit, also on Teams",
+    presenter: false,
+    joinLink: true,
+    audience: "registrars",
+  },
+  {
+    ...OLDER_ADULT,
+    key: 13,
+    title: "Demo delirium teaching",
+    anchor: "2026-01-08",
+    anchorOffsetDays: 0,
+    frequency: "weekly",
+    startTime: "08:00",
+    minutes: 60,
+    venue: "Demo education centre",
+    presenter: true,
+    joinLink: false,
+    audience: "interns",
+  },
+  {
+    ...YOUTH,
+    key: 14,
+    title: "Demo eating disorders case conference",
+    anchor: "2026-01-07",
+    anchorOffsetDays: 0,
+    frequency: "weekly",
+    startTime: "14:00",
+    minutes: 60,
+    venue: "Demo youth unit, also on Teams",
+    presenter: true,
+    joinLink: true,
+    audience: "consultants",
+  },
+  {
+    ...YOUTH,
+    key: 15,
+    title: "Demo early psychosis seminar",
+    anchor: "2026-01-08",
+    anchorOffsetDays: 0,
+    frequency: "weekly",
+    startTime: "15:00",
+    minutes: 60,
+    venue: "Demo seminar room 4",
+    presenter: false,
+    joinLink: false,
+    audience: "residents",
   },
 ];
 
@@ -173,12 +264,16 @@ function movedDate(today: string): string | null {
   return series ? nextTeachingOccurrence(anchorOf(series, today), series.frequency, today) : null;
 }
 
-function demoSummary(series: DemoSeries, date: string, today: string): SessionSummary {
+function isOpenSeries(series: DemoSeries | DemoOpenSeries): series is DemoOpenSeries {
+  return "serviceId" in series;
+}
+
+function demoSummary(series: DemoSeries | DemoOpenSeries, date: string, today: string): SessionSummary {
   const startsAt = perthInstant(date, series.startTime);
   const moved = series.key === MOVED_SERIES_KEY && date === movedDate(today);
   return {
     occurrenceId: demoOccurrenceId(series.key, date),
-    serviceId: DEMO_TEACHING_SERVICE_ID,
+    serviceId: isOpenSeries(series) ? series.serviceId : DEMO_TEACHING_SERVICE_ID,
     title: series.title,
     startsAt,
     endsAt: new Date(Date.parse(startsAt) + series.minutes * 60_000).toISOString(),
@@ -211,25 +306,66 @@ export function demoTeachingWeek(range: { from: string; to: string }, now: Date 
   return { teams: [DEMO_TEACHING_TEAM], sessions, notices, attendance: [] };
 }
 
-export function demoTeachingSessionDetail(occurrenceId: string, now: Date = new Date()): SessionDetail | null {
+function whatsOnRow(series: DemoSeries | DemoOpenSeries, date: string, today: string): WhatsOnRow {
+  const own = !isOpenSeries(series);
+  return {
+    ...demoSummary(series, date, today),
+    teamName: isOpenSeries(series) ? series.teamName : DEMO_TEACHING_TEAM.name,
+    joinUrl: series.joinLink ? DEMO_JOIN_URL : null,
+    own,
+    // The demo service's own sessions are already in the viewer's week; an open one is not until added.
+    inMyWeek: own,
+    audience: series.audience ?? "all_doctors",
+  };
+}
+
+/**
+ * What's on for the demo (master plan R8): the demo service's own week, plus the five sessions the
+ * two other made-up services open to the demo health service each week. Ordered as the database
+ * orders it, by start time and then id.
+ */
+export function demoWhatsOnSessions(range: { from: string; to: string }, now: Date = new Date()): WhatsOnRow[] {
+  const today = perthToday(now);
+  return [...DEMO_SERIES, ...DEMO_OPEN_SERIES]
+    .flatMap((series) =>
+      datesBetween(series, range.from, range.to, today).map((date) => whatsOnRow(series, date, today)),
+    )
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.occurrenceId.localeCompare(b.occurrenceId));
+}
+
+/** The demo series' own ids, for resources linked to a whole series. */
+export function demoSeriesId(key: number): string {
+  return `00000000-0000-4000-b${String(key).padStart(3, "0")}-000000000000`;
+}
+
+/** A demo occurrence id read back into its series key and Perth date, or null. */
+export function parseDemoOccurrenceId(occurrenceId: string): { key: number; date: string } | null {
   const match = ID_PATTERN.exec(occurrenceId);
   if (!match) return null;
-  const series = DEMO_SERIES.find((candidate) => candidate.key === Number(match[1]));
-  if (!series) return null;
   const compact = match[2];
-  const date = `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`;
+  return { key: Number(match[1]), date: `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}` };
+}
+
+export function demoTeachingSessionDetail(occurrenceId: string, now: Date = new Date()): SessionDetail | null {
+  const parsed = parseDemoOccurrenceId(occurrenceId);
+  if (!parsed) return null;
+  const { key, date } = parsed;
+  const series = [...DEMO_SERIES, ...DEMO_OPEN_SERIES].find((candidate) => candidate.key === key);
+  if (!series) return null;
   const today = perthToday(now);
   if (!datesBetween(series, date, date, today).includes(date)) return null;
   const summary = demoSummary(series, date, today);
+  // Master plan R5/R15: another service's open session is a read-only visitor view with no presenter name.
+  const visitor = isOpenSeries(series);
   return {
     ...summary,
     joinUrl: series.joinLink ? DEMO_JOIN_URL : null,
-    presenterName: series.presenter ? DEMO_PRESENTER : null,
+    presenterName: series.presenter && !visitor ? DEMO_PRESENTER : null,
     materials: [DEMO_MATERIAL],
     changeReason: summary.status === "moved" ? "room_change" : null,
     canShowCode: false,
     counts: null,
-    visitor: false,
+    visitor,
   };
 }
 

@@ -701,3 +701,202 @@ export const roleSetSchema = emptyTeachingResultSchema;
 export const calendarSetSchema = z.object({ enabled: z.boolean() });
 export const groupDeletedSchema = z.object({ groupId: uuid });
 export const groupMembersSetSchema = z.object({ groupId: uuid });
+
+// ---- What's on and Resources (spec §5a, part 1 D4b) ------------------------------
+
+export const healthServiceCodes = ["nmhs", "smhs", "emhs", "wachs", "cahs", "demo"] as const;
+export type HealthServiceCode = (typeof healthServiceCodes)[number];
+export const resourceKinds = ["slides", "recording", "reading", "link", "library"] as const;
+export type ResourceKind = (typeof resourceKinds)[number];
+export const seriesOpenToValues = ["team", "health_service"] as const;
+/** The two collections every viewer has without an organiser making them. */
+export const builtInCollections = ["recordings", "saved"] as const;
+export type BuiltInCollection = (typeof builtInCollections)[number];
+
+/** One resource as `teaching_resource_row` returns it. Who added it is never returned. */
+export type ResourceRow = {
+  resourceId: string;
+  serviceId: string;
+  title: string;
+  kind: ResourceKind;
+  url: string | null;
+  libraryDocumentId: string | null;
+  collectionId: string | null;
+  sectionId: string | null;
+  occurrenceId: string | null;
+  seriesId: string | null;
+  addedAt: string;
+  saved: boolean;
+};
+export const resourceRowSchema = z.object({
+  resourceId: uuid,
+  serviceId: uuid,
+  title: z.string(),
+  kind: z.enum(resourceKinds),
+  url: z.string().nullable(),
+  libraryDocumentId: uuid.nullable(),
+  collectionId: uuid.nullable(),
+  sectionId: uuid.nullable(),
+  occurrenceId: uuid.nullable(),
+  seriesId: uuid.nullable(),
+  addedAt: instant,
+  saved: z.boolean(),
+}) satisfies z.ZodType<ResourceRow>;
+
+/**
+ * A What's on row: a session of the viewer's own service, or one another service has opened to their
+ * health service. `audience` is the series' level (a one-off reads all_doctors); the client works out
+ * "For my level" from it (master plan R4).
+ */
+export type WhatsOnRow = SessionSummary & {
+  teamName: string;
+  joinUrl: string | null;
+  own: boolean;
+  inMyWeek: boolean;
+  audience: SeriesAudience;
+};
+export const whatsOnRowSchema = sessionSummarySchema.extend({
+  teamName: z.string(),
+  joinUrl: z.string().nullable(),
+  own: z.boolean(),
+  inMyWeek: z.boolean(),
+  audience: z.enum(seriesAudiences),
+}) satisfies z.ZodType<WhatsOnRow>;
+export const whatsOnReadResultSchema = z.object({
+  healthServices: z.array(z.enum(healthServiceCodes)),
+  sessions: z.array(whatsOnRowSchema),
+});
+export type WhatsOnRead = z.infer<typeof whatsOnReadResultSchema>;
+
+export const weekAddResultSchema = z.object({ inMyWeek: z.boolean() });
+export const resourceSaveResultSchema = z.object({ saved: z.boolean() });
+export const resourcesForSessionSchema = z.object({ items: z.array(resourceRowSchema) });
+export type ResourcesForSession = z.infer<typeof resourcesForSessionSchema>;
+export const resourcesForWeekSchema = z.object({
+  forThisWeek: z.array(resourceRowSchema.extend({ catchUp: z.boolean() })),
+  collections: z.array(
+    z.object({ collectionId: uuid, serviceId: uuid, name: z.string(), count: z.number().int().nonnegative() }),
+  ),
+  recordingsCount: z.number().int().nonnegative(),
+  savedCount: z.number().int().nonnegative(),
+});
+export type ResourcesForWeek = z.infer<typeof resourcesForWeekSchema>;
+export const collectionReadResultSchema = z.object({
+  collection: z.object({ collectionId: uuid, serviceId: uuid, name: z.string() }).nullable(),
+  sections: z.array(z.object({ sectionId: uuid, name: z.string(), sortOrder: z.number().int() })),
+  items: z.array(resourceRowSchema),
+});
+export type CollectionRead = z.infer<typeof collectionReadResultSchema>;
+export const resourceAddedSchema = z.object({ resourceId: uuid });
+/** `resource.remove` confirms with nothing but `{}`. */
+export const resourceRemovedSchema = emptyTeachingResultSchema;
+export const seriesOpenToResultSchema = z.object({ seriesId: uuid, openTo: z.enum(seriesOpenToValues) });
+export const collectionSavedSchema = z.object({ collectionId: uuid });
+export const collectionSectionSavedSchema = z.object({ sectionId: uuid });
+
+/** `GET /api/teaching/whats-on`: the health-service and own-service sessions for one week. */
+export const teachingWhatsOnQuerySchema = z.object({ weekStart: teachingDateSchema });
+export type TeachingWhatsOnQuery = z.infer<typeof teachingWhatsOnQuerySchema>;
+
+/** `POST /api/teaching/whats-on`: every personal action. No service is named, so no membership is checked here. */
+export const teachingWhatsOnActionSchema = z
+  .discriminatedUnion("action", [
+    z.object({ action: z.literal("week_add.set"), occurrenceId: uuid.optional(), seriesId: uuid.optional() }).strict(),
+    z
+      .object({ action: z.literal("week_add.unset"), occurrenceId: uuid.optional(), seriesId: uuid.optional() })
+      .strict(),
+    // Master plan R15: a visitor's "I was there" comes here, never through attendance.self.
+    z.object({ action: z.literal("whats_on.attend"), occurrenceId: uuid }).strict(),
+    z.object({ action: z.literal("resource_save.set"), resourceId: uuid }).strict(),
+    z.object({ action: z.literal("resource_save.unset"), resourceId: uuid }).strict(),
+  ])
+  .superRefine((value, ctx) => {
+    if (value.action !== "week_add.set" && value.action !== "week_add.unset") return;
+    if (Boolean(value.occurrenceId) === Boolean(value.seriesId))
+      ctx.addIssue({ code: "custom", message: "Give a session or a series, not both.", path: ["occurrenceId"] });
+  });
+export type TeachingWhatsOnAction = z.infer<typeof teachingWhatsOnActionSchema>;
+
+/** `GET /api/teaching/resources`: materials for the week or one session, or a collection. */
+export const teachingResourcesQuerySchema = z
+  .discriminatedUnion("action", [
+    z.object({
+      action: z.literal("resources.read"),
+      weekStart: teachingDateSchema.optional(),
+      occurrenceId: uuid.optional(),
+    }),
+    z.object({
+      action: z.literal("collection.read"),
+      collectionId: uuid.optional(),
+      builtIn: z.enum(builtInCollections).optional(),
+    }),
+  ])
+  .superRefine((value, ctx) => {
+    if (value.action === "resources.read" && Boolean(value.weekStart) === Boolean(value.occurrenceId))
+      ctx.addIssue({ code: "custom", message: "Give a week or a session, not both.", path: ["weekStart"] });
+    if (value.action === "collection.read" && Boolean(value.collectionId) === Boolean(value.builtIn))
+      ctx.addIssue({
+        code: "custom",
+        message: "Give a collection or a built-in name, not both.",
+        path: ["collectionId"],
+      });
+  });
+export type TeachingResourcesQuery = z.infer<typeof teachingResourcesQuerySchema>;
+
+/** `POST /api/teaching/resources/services/[serviceId]`: organiser and presenter writes for one service. */
+export const teachingResourceTeamActionSchema = z
+  .discriminatedUnion("action", [
+    z
+      .object({
+        action: z.literal("resource.add"),
+        title: z.string().trim().min(1).max(160),
+        kind: z.enum(resourceKinds),
+        url: teachingLinkUrlSchema.optional(),
+        libraryDocumentId: uuid.optional(),
+        collectionId: uuid.optional(),
+        sectionId: uuid.optional(),
+        occurrenceId: uuid.optional(),
+        seriesId: uuid.optional(),
+        noPatientDetails: z.literal(true),
+      })
+      .strict(),
+    z.object({ action: z.literal("resource.remove"), resourceId: uuid }).strict(),
+    z.object({ action: z.literal("series.set_open_to"), seriesId: uuid, openTo: z.enum(seriesOpenToValues) }).strict(),
+    z
+      .object({
+        action: z.literal("collection.save"),
+        collectionId: uuid.optional(),
+        name: z.string().trim().min(1).max(80),
+        sortOrder: z.number().int().min(0).max(999).optional(),
+      })
+      .strict(),
+    z
+      .object({
+        action: z.literal("collection.section.save"),
+        collectionId: uuid,
+        sectionId: uuid.optional(),
+        name: z.string().trim().min(1).max(80),
+        sortOrder: z.number().int().min(0).max(999).optional(),
+      })
+      .strict(),
+  ])
+  .superRefine((value, ctx) => {
+    if (value.action !== "resource.add") return;
+    if (Boolean(value.url) === Boolean(value.libraryDocumentId))
+      ctx.addIssue({ code: "custom", message: "Give a link or a library document, not both.", path: ["url"] });
+    if ((value.kind === "library") !== Boolean(value.libraryDocumentId))
+      ctx.addIssue({ code: "custom", message: "A library document must use the library kind.", path: ["kind"] });
+    if (value.sectionId && !value.collectionId)
+      ctx.addIssue({ code: "custom", message: "A section needs its collection too.", path: ["sectionId"] });
+    if (value.occurrenceId && value.seriesId)
+      ctx.addIssue({ code: "custom", message: "Give a session or a series, not both.", path: ["occurrenceId"] });
+    // Master plan R27: slides belong to one session, so every slide link sits behind that session's
+    // cases-checked gate (`teaching_slides_released`). The database does not check this itself.
+    if (value.kind === "slides" && !value.occurrenceId)
+      ctx.addIssue({
+        code: "custom",
+        message: "Slides belong to one session. Choose the session.",
+        path: ["occurrenceId"],
+      });
+  });
+export type TeachingResourceTeamAction = z.infer<typeof teachingResourceTeamActionSchema>;

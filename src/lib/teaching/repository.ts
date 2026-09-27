@@ -13,6 +13,9 @@ import {
   checkinCodeSchema,
   checkinCompletedSchema,
   checkinOpenedSchema,
+  collectionReadResultSchema,
+  collectionSavedSchema,
+  collectionSectionSavedSchema,
   cpdSavedSchema,
   displayCodeSchema,
   displayCreatedSchema,
@@ -27,13 +30,21 @@ import {
   occurrenceChangedSchema,
   organiseResultSchema,
   registerResultSchema,
+  resourceAddedSchema,
+  resourceRemovedSchema,
+  resourceSaveResultSchema,
+  resourcesForSessionSchema,
+  resourcesForWeekSchema,
   roleSetSchema,
+  seriesOpenToResultSchema,
   seriesSavedSchema,
   sessionDetailSchema,
   sessionNextResultSchema,
   supervisionPendingSchema,
   teachingWeekSchema,
   unloggedCountSchema,
+  weekAddResultSchema,
+  whatsOnReadResultSchema,
   type AttendanceMark,
   type CheckinCompleted,
   type CheckinOpened,
@@ -42,9 +53,13 @@ import {
   type SessionDetail,
   type TeachingAction,
   type TeachingCpdBody,
+  type TeachingResourcesQuery,
+  type TeachingResourceTeamAction,
   type TeachingServiceAction,
   type TeachingServiceQuery,
   type TeachingWeek,
+  type TeachingWhatsOnAction,
+  type WhatsOnRead,
 } from "@/lib/teaching/model";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
@@ -383,4 +398,96 @@ export async function saveTeachingCpdEntry(
     throw teachingRpcError(error);
   }
   return parseTeachingResult(cpdSavedSchema, data);
+}
+
+// ---- What's on and Resources (spec §5a, part 1 D4b) ------------------------------
+
+type WhatsOnCommandAction =
+  | "whats_on.read"
+  | TeachingWhatsOnAction["action"]
+  | TeachingResourcesQuery["action"]
+  | TeachingResourceTeamAction["action"];
+
+/**
+ * `teaching_whats_on_command`, not `teaching_command`: the viewer's own actions across services
+ * (service id null) and the resource writes for one service. Membership and role are checked in the
+ * database, and its codes map through the same `teachingErrors` as every other Teaching call.
+ */
+async function teachingWhatsOnCommand(
+  client: AdminClient,
+  actorId: string,
+  serviceId: string | null,
+  action: WhatsOnCommandAction,
+  payload: object = {},
+): Promise<unknown> {
+  if (!actorId)
+    throw new PublicApiError(teachingErrors.teaching_auth_required.message, 401, { code: "teaching_auth_required" });
+  const { data, error } = await client.rpc("teaching_whats_on_command", {
+    p_actor_id: actorId,
+    p_service_id: serviceId,
+    p_action: action,
+    p_payload: payload,
+  });
+  if (error) throw teachingRpcError(error);
+  return data;
+}
+
+/** What's on for one week: the viewer's own services' sessions and those opened to their health service. */
+export async function readWhatsOn(client: AdminClient, actorId: string, weekStart: string): Promise<WhatsOnRead> {
+  return parseTeachingResult(
+    whatsOnReadResultSchema,
+    await teachingWhatsOnCommand(client, actorId, null, "whats_on.read", { weekStart }),
+  );
+}
+
+export async function teachingWhatsOnMutation(
+  client: AdminClient,
+  actorId: string,
+  input: TeachingWhatsOnAction,
+): Promise<unknown> {
+  const data = await teachingWhatsOnCommand(client, actorId, null, input.action, payloadOf(input));
+  switch (input.action) {
+    case "week_add.set":
+    case "week_add.unset":
+      return parseTeachingResult(weekAddResultSchema, data);
+    case "whats_on.attend":
+      // Stored as method `self` with the visitor flag (master plan R15); never a fourth method.
+      return parseTeachingResult(attendanceMarkSchema, data);
+    case "resource_save.set":
+    case "resource_save.unset":
+      return parseTeachingResult(resourceSaveResultSchema, data);
+  }
+}
+
+export async function teachingResourcesRead(
+  client: AdminClient,
+  actorId: string,
+  query: TeachingResourcesQuery,
+): Promise<unknown> {
+  const data = await teachingWhatsOnCommand(client, actorId, null, query.action, payloadOf(query));
+  if (query.action === "collection.read") return parseTeachingResult(collectionReadResultSchema, data);
+  return query.occurrenceId
+    ? parseTeachingResult(resourcesForSessionSchema, data)
+    : parseTeachingResult(resourcesForWeekSchema, data);
+}
+
+export async function teachingResourceTeamMutation(
+  client: AdminClient,
+  actorId: string,
+  serviceId: string,
+  input: TeachingResourceTeamAction,
+): Promise<unknown> {
+  const data = await teachingWhatsOnCommand(client, actorId, serviceId, input.action, payloadOf(input));
+  switch (input.action) {
+    case "resource.add":
+      return parseTeachingResult(resourceAddedSchema, data);
+    case "resource.remove":
+      return parseTeachingResult(resourceRemovedSchema, data);
+    case "series.set_open_to":
+      return parseTeachingResult(seriesOpenToResultSchema, data);
+    case "collection.save":
+      return parseTeachingResult(collectionSavedSchema, data);
+    case "collection.section.save":
+      return parseTeachingResult(collectionSectionSavedSchema, data);
+  }
 }
