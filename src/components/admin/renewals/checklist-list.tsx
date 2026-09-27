@@ -5,6 +5,7 @@ import type { ChecklistKindFilter } from "@/components/admin/renewals/kind-chips
 import { checklistKindLabel } from "@/components/admin/renewals/kind-chips";
 import { requirementDateLine, requirementRowUrgency } from "@/components/admin/renewals/urgency";
 import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import type {
   AdminRequirementCatalogueItem,
@@ -88,6 +89,7 @@ export function ChecklistList({
                   ) : undefined
                 }
                 onOpen={() => onOpen(row.item, row.entry)}
+                anchorId={row.entry ? onCallEntryAnchorId(row.entry.id) : undefined}
                 testId={`${testId}-row-${row.item.id}`}
               />
             );
@@ -122,6 +124,7 @@ export function ChecklistList({
                     />
                   }
                   onOpen={() => (item ? onOpen(item, entry) : undefined)}
+                  anchorId={onCallEntryAnchorId(entry.id)}
                   testId={`${testId}-not-for-this-job-row-${entry.slug}`}
                 />
               );

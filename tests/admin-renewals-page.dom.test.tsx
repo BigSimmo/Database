@@ -10,7 +10,7 @@
 // tests (`tests/on-call-compliance-page.dom.test.tsx`) are left in place,
 // covering code that still exists and is still directly exercised there.
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
@@ -78,6 +78,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
+  window.history.replaceState(null, "", "/");
 });
 
 function renderPage() {
@@ -302,5 +304,133 @@ describe("AdminRenewalsPage — Copy for workforce and Add all to my calendar", 
       "renewals.ics",
       "text/calendar;charset=utf-8",
     );
+  });
+});
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+describe("AdminRenewalsPage — a deep link to one entry (I3)", () => {
+  it("puts the entry anchor on its checklist row", () => {
+    renderPage();
+    const row = screen.getByTestId("admin-renewals-checklist-row-als-course-certification");
+    expect(row.closest(`#on-call-entry-${ALS.id}`)).not.toBeNull();
+  });
+
+  it("opens that entry's detail sheet when the page loads with its hash, so Today's Renewed is two taps", () => {
+    window.history.replaceState(null, "", `/admin/renewals#on-call-entry-${ALS.id}`);
+    renderPage();
+    const sheet = screen.getByTestId("admin-renewals-item-sheet");
+    expect(within(sheet).getByText("ALS course certification")).toBeInTheDocument();
+    expect(within(sheet).getByTestId("admin-renewals-item-sheet-renew").textContent).toBe("Renewed");
+  });
+
+  it("opens a personal renewal on the Personal tab", () => {
+    const car = complianceFixture("A car I lease for work", { category: "Personal", expiresOn: "2027-01-01" });
+    storeState.entries = [...ALL, car];
+    window.history.replaceState(null, "", `/admin/renewals#on-call-entry-${car.id}`);
+    renderPage();
+    expect(screen.getByRole("tab", { name: "Personal" }).getAttribute("aria-selected")).toBe("true");
+    expect(within(screen.getByTestId("admin-renewals-item-sheet")).getAllByText("A car I lease for work").length).toBe(
+      1,
+    );
+  });
+
+  it("ignores a hash for a row that is not the reader's renewal", () => {
+    window.history.replaceState(null, "", "/admin/renewals#on-call-entry-00000000-0000-4000-8000-00000000ffff");
+    renderPage();
+    expect(screen.queryByTestId("admin-renewals-item-sheet")).toBeNull();
+  });
+});
+
+describe("AdminRenewalsPage — Not for this job on an item never recorded (I4)", () => {
+  it("creates a minimal private row with no date, and Undo deletes it", async () => {
+    const created = complianceFixture(
+      "IMG visa requirements",
+      { category: "job", requirementId: "img-visa-requirements", notForThisJob: true },
+      { slug: "img-visa-new", id: "00000000-0000-4000-8000-0000000000aa" },
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ entry: created }, 201))
+      .mockResolvedValueOnce(jsonResponse({ deleted: true, id: created.id }));
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-img-visa-requirements"));
+    fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-not-for-this-job"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("admin-renewals-checklist-not-for-this-job-row-img-visa-new")).toBeInTheDocument(),
+    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/on-call/entries");
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.details).toEqual({
+      kind: "compliance",
+      category: "job",
+      requirementId: "img-visa-requirements",
+      notForThisJob: true,
+    });
+    expect(body.details.expiresOn).toBeUndefined();
+    expect(body.isPersonal).toBe(true);
+
+    fireEvent.click(within(screen.getByTestId("admin-renewals-undo-bar")).getByText("Undo"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/on-call/entries/${created.id}`);
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("DELETE");
+    await waitFor(() =>
+      expect(screen.queryByTestId("admin-renewals-checklist-not-for-this-job-row-img-visa-new")).toBeNull(),
+    );
+    expect(screen.getByTestId("admin-renewals-checklist-row-img-visa-requirements")).toBeInTheDocument();
+  });
+});
+
+describe("AdminRenewalsPage — failed saves are never silent (I5)", () => {
+  const flaggedIndemnity = {
+    ...INDEMNITY,
+    details: { ...(INDEMNITY.details as object), notForThisJob: true },
+  } as OnCallEntry;
+
+  it("shows a neutral notice with Retry when Move back fails, and Retry sends it again", async () => {
+    storeState.entries = [WWC, ALS, flaggedIndemnity, REGISTRATION];
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ error: "Service unavailable." }, 503))
+      .mockResolvedValueOnce(jsonResponse({ entry: INDEMNITY }));
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-move-back-indemnity"));
+    const notice = await screen.findByTestId("admin-renewals-action-failed");
+    expect(notice.textContent).toMatch(/Couldn.t move .*Indemnity insurance declaration/);
+    fireEvent.click(within(notice).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByTestId("admin-renewals-action-failed")).toBeNull());
+    expect(screen.queryByTestId("admin-renewals-checklist-not-for-this-job-row-indemnity")).toBeNull();
+  });
+
+  it("keeps the Undo bar, says the undo failed, and offers Retry", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ entry: flaggedIndemnity }))
+      .mockResolvedValueOnce(jsonResponse({ error: "Service unavailable." }, 503));
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-professional-indemnity-insurance"));
+    fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-not-for-this-job"));
+    const bar = await screen.findByTestId("admin-renewals-undo-bar");
+    fireEvent.click(within(bar).getByText("Undo"));
+    await waitFor(() => expect(within(bar).getByText(/Undo didn.t save/)).toBeInTheDocument());
+    expect(within(bar).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.getByTestId("admin-renewals-checklist-not-for-this-job-row-indemnity")).toBeInTheDocument();
+  });
+
+  it("keeps the Undo bar for ten seconds (M9)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(jsonResponse({ entry: flaggedIndemnity }));
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-professional-indemnity-insurance"));
+    fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-not-for-this-job"));
+    await screen.findByTestId("admin-renewals-undo-bar");
+    await act(() => vi.advanceTimersByTimeAsync(7_000));
+    expect(screen.getByTestId("admin-renewals-undo-bar")).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(3_500));
+    expect(screen.queryByTestId("admin-renewals-undo-bar")).toBeNull();
   });
 });

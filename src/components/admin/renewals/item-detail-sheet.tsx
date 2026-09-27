@@ -41,9 +41,14 @@ export function ChecklistItemDetailSheet({
   readonly now: Date;
   readonly onClose: () => void;
   readonly onRenew: () => void;
-  /** Present only for a catalogue-linked row; toggles "not for this job" and
-   *  reports the saved entry back so the page can move the row and offer Undo. */
-  readonly onNotForThisJob?: (entry: OnCallEntry, notForThisJob: boolean) => Promise<void>;
+  /** Catalogue items only; toggles "not for this job". `entry` is null for an
+   *  item never recorded — the page then creates a minimal row to carry the flag
+   *  (the design's "Visa and work rights — Not recorded yet — Not for this job"). */
+  readonly onNotForThisJob?: (
+    item: AdminRequirementCatalogueItem,
+    entry: OnCallEntry | null,
+    notForThisJob: boolean,
+  ) => Promise<void>;
   readonly testId?: string;
 }) {
   const [busy, setBusy] = useState(false);
@@ -65,11 +70,11 @@ export function ChecklistItemDetailSheet({
       : null;
 
   async function toggleNotForThisJob() {
-    if (!entry || !onNotForThisJob) return;
+    if (!item || !onNotForThisJob) return;
     setBusy(true);
     setError(null);
     try {
-      await onNotForThisJob(entry, !flagged);
+      await onNotForThisJob(item, entry, !flagged);
       onClose();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save that.");
@@ -128,7 +133,7 @@ export function ChecklistItemDetailSheet({
                 {`Source: ${item.sourceName} · Updated ${formatRecordedDate(item.updated)}`}
               </a>
             ) : null}
-            {item && entry && onNotForThisJob ? (
+            {item && onNotForThisJob ? (
               <button
                 type="button"
                 onClick={() => void toggleNotForThisJob()}

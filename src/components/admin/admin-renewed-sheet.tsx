@@ -70,6 +70,7 @@ export function AdminRenewedSheet({
   createItem,
   onClose,
   onSaved,
+  onRemoved,
 }: {
   /**
    * Visibility, separate from `entry`/`createItem`: the final design keeps a
@@ -83,6 +84,8 @@ export function AdminRenewedSheet({
   createItem?: AdminRequirementCatalogueItem;
   onClose: () => void;
   onSaved: (entry: OnCallEntry) => void;
+  /** Undo of a first-time date ("Add date"): the row this sheet created was deleted. */
+  onRemoved: (id: string) => void;
 }) {
   const subjectTitle = entry?.title ?? createItem?.title ?? "";
   const [date, setDate] = useState("");
@@ -138,9 +141,17 @@ export function AdminRenewedSheet({
   }
 
   async function undo() {
-    if (!saved || !entry) return;
+    if (!saved) return;
     setBusy(true);
     try {
+      if (!entry) {
+        // A first-time date created this row, so taking it back deletes it.
+        const removed = await fetch(`/api/on-call/entries/${saved.id}`, { method: "DELETE" });
+        if (!removed.ok) throw await parseApiErrorResponse(removed);
+        onRemoved(saved.id);
+        setSaved(null);
+        return;
+      }
       const response = await fetch(`/api/on-call/entries/${entry.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -202,7 +213,7 @@ export function AdminRenewedSheet({
             <Button variant="secondary" onClick={addToCalendar} testId="admin-renewed-calendar">
               Add to my calendar
             </Button>
-            {entry ? (
+            {saved ? (
               <button
                 type="button"
                 onClick={() => void undo()}

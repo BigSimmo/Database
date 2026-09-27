@@ -4,7 +4,8 @@ import { formatRecordedDate, renewalStartOn } from "@/lib/admin/renewal-dates";
 import { addDays, type CalendarEvent } from "@/lib/calendar/calendar-event";
 import { toIcs } from "@/lib/calendar/ics";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import type { updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
+import type { AdminRequirementCatalogueItem } from "@/lib/admin/requirements";
+import type { createOnCallEntrySchema, updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 import { onCallExpiryEvents } from "@/lib/on-call/calendar-events";
 import {
   complianceExpiresOn,
@@ -114,9 +115,15 @@ export function renewalCalendarEvent(entry: OnCallEntry, now: Date): CalendarEve
   return { ...event, alarmsAt: alarms };
 }
 
-/** One file with every dated renewal (spec review 9, "Add all to my calendar"). No calendar name. */
+/** The compliance rows that belong in an export: never one marked "not for this job". */
+function exportableComplianceEntries(entries: readonly OnCallEntry[]): OnCallEntry[] {
+  return partitionLogisticsEntries(entries).compliance.filter((entry) => !entryNotForThisJob(entry));
+}
+
+/** One file with every dated renewal (spec review 9, "Add all to my calendar"). No calendar name.
+ *  A row marked "not for this job" is left out: it does not apply to this doctor. */
 export function renewalsCalendarFile(entries: readonly OnCallEntry[], now: Date): string | null {
-  const events = partitionLogisticsEntries(entries).compliance.flatMap((entry) => {
+  const events = exportableComplianceEntries(entries).flatMap((entry) => {
     const event = renewalCalendarEvent(entry, now);
     return event ? [event] : [];
   });
@@ -124,7 +131,7 @@ export function renewalsCalendarFile(entries: readonly OnCallEntry[], now: Date)
 }
 
 export function workforceCopyText(entries: readonly OnCallEntry[], now: Date): string {
-  const lines = sortComplianceEntries(partitionLogisticsEntries(entries).compliance).map((entry) => {
+  const lines = sortComplianceEntries(exportableComplianceEntries(entries)).map((entry) => {
     const issuer = detailsOf(entry).issuingBody;
     const name = typeof issuer === "string" && issuer.trim() ? `${entry.title} (${issuer.trim()})` : entry.title;
     const expiresOn = complianceExpiresOn(entry);
@@ -181,4 +188,32 @@ export function buildNotForThisJobToggleBody(entry: OnCallEntry, notForThisJob: 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `rest`
   const { notForThisJob: _dropped, ...rest } = detailsOf(entry);
   return fullBody(entry, notForThisJob ? { ...rest, notForThisJob: true } : rest);
+}
+
+/**
+ * "Not for this job" on a catalogue item never recorded (the design's own
+ * example: "Visa and work rights — Not recorded yet — Not for this job"). No
+ * row exists to flag, so this creates the smallest one that can carry the
+ * flag: private, off the card, with the item's id and group and NO expiry date
+ * — nothing is guessed. Undo deletes the row it created.
+ */
+export function buildNotForThisJobCreateBody(
+  item: AdminRequirementCatalogueItem,
+  slugSuffix: string,
+): z.input<typeof createOnCallEntrySchema> {
+  return {
+    section: "logistics",
+    slug: `${item.id}-${slugSuffix}`,
+    title: item.title,
+    subtitle: null,
+    body: null,
+    details: { kind: "compliance", category: item.group, requirementId: item.id, notForThisJob: true },
+    linkedDocumentIds: [],
+    tags: [],
+    // Compliance rows are private by the server whatever the body says (PIA-9); say so here too.
+    isPersonal: true,
+    includeOnCard: false,
+    sortOrder: 0,
+    lastVerifiedAt: null,
+  };
 }

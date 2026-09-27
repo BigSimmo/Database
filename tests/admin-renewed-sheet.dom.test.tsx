@@ -48,7 +48,7 @@ beforeEach(() => {
 describe("AdminRenewedSheet — renewing an already-recorded entry", () => {
   it("keeps Save grey until a valid date is typed, then PATCHes the entry", async () => {
     const onSaved = vi.fn();
-    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={onSaved} />);
+    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={onSaved} onRemoved={vi.fn()} />);
     const sheet = within(screen.getByTestId("admin-renewed-sheet"));
     expect(sheet.getByText(/Renewed: ALS course certification/)).toBeInTheDocument();
     const save = sheet.getByTestId("admin-renewed-save");
@@ -68,7 +68,7 @@ describe("AdminRenewedSheet — renewing an already-recorded entry", () => {
   });
 
   it("never says the word 'checked' anywhere in the sheet", () => {
-    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} onRemoved={vi.fn()} />);
     const sheet = screen.getByTestId("admin-renewed-sheet");
     expect(sheet.textContent ?? "").not.toMatch(/\bchecked\b/i);
   });
@@ -79,7 +79,7 @@ describe("AdminRenewedSheet — renewing an already-recorded entry", () => {
         JSON.stringify({ entry: { ...ENTRY, details: { ...(ENTRY.details as object), expiresOn: "2026-01-01" } } }),
       ),
     );
-    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} onRemoved={vi.fn()} />);
     const sheet = within(screen.getByTestId("admin-renewed-sheet"));
     fireEvent.change(sheet.getByLabelText("New expiry date"), { target: { value: "2026-01-01" } });
     fireEvent.click(sheet.getByTestId("admin-renewed-save"));
@@ -88,7 +88,7 @@ describe("AdminRenewedSheet — renewing an already-recorded entry", () => {
 
   it("offers Add to my calendar and Undo once saved", async () => {
     const onSaved = vi.fn();
-    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={onSaved} />);
+    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={onSaved} onRemoved={vi.fn()} />);
     const sheet = within(screen.getByTestId("admin-renewed-sheet"));
     fireEvent.change(sheet.getByLabelText("New expiry date"), { target: { value: "2030-10-14" } });
     fireEvent.click(sheet.getByTestId("admin-renewed-save"));
@@ -104,22 +104,26 @@ describe("AdminRenewedSheet — renewing an already-recorded entry", () => {
   });
 
   it("keeps a dismissed half-filled draft when reopened for the same entry", () => {
-    const { rerender } = render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const { rerender } = render(
+      <AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} onRemoved={vi.fn()} />,
+    );
     let sheet = within(screen.getByTestId("admin-renewed-sheet"));
     fireEvent.change(sheet.getByLabelText("New expiry date"), { target: { value: "2030-10-14" } });
 
     // Dismiss without saving, then reopen the SAME entry: the same component
     // instance stays mounted (no `key` change), so its half-typed date is
     // kept — Addendum A, "dismissed half-filled sheet is kept".
-    rerender(<AdminRenewedSheet open={false} entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} />);
-    rerender(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} />);
+    rerender(<AdminRenewedSheet open={false} entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} onRemoved={vi.fn()} />);
+    rerender(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} onRemoved={vi.fn()} />);
     sheet = within(screen.getByTestId("admin-renewed-sheet"));
     expect((sheet.getByLabelText("New expiry date") as HTMLInputElement).value).toBe("2030-10-14");
   });
 
   it("clears the form once a save has actually completed", async () => {
     const onClose = vi.fn();
-    const { rerender } = render(<AdminRenewedSheet open entry={ENTRY} onClose={onClose} onSaved={vi.fn()} />);
+    const { rerender } = render(
+      <AdminRenewedSheet open entry={ENTRY} onClose={onClose} onSaved={vi.fn()} onRemoved={vi.fn()} />,
+    );
     let sheet = within(screen.getByTestId("admin-renewed-sheet"));
     fireEvent.change(sheet.getByLabelText("New expiry date"), { target: { value: "2030-10-14" } });
     fireEvent.click(sheet.getByTestId("admin-renewed-save"));
@@ -128,8 +132,8 @@ describe("AdminRenewedSheet — renewing an already-recorded entry", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
 
-    rerender(<AdminRenewedSheet open={false} entry={ENTRY} onClose={onClose} onSaved={vi.fn()} />);
-    rerender(<AdminRenewedSheet open entry={ENTRY} onClose={onClose} onSaved={vi.fn()} />);
+    rerender(<AdminRenewedSheet open={false} entry={ENTRY} onClose={onClose} onSaved={vi.fn()} onRemoved={vi.fn()} />);
+    rerender(<AdminRenewedSheet open entry={ENTRY} onClose={onClose} onSaved={vi.fn()} onRemoved={vi.fn()} />);
     sheet = within(screen.getByTestId("admin-renewed-sheet"));
     expect((sheet.getByLabelText("New expiry date") as HTMLInputElement).value).toBe("");
   });
@@ -138,7 +142,7 @@ describe("AdminRenewedSheet — renewing an already-recorded entry", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ error: "Save failed" }), { status: 500 }),
     );
-    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<AdminRenewedSheet open entry={ENTRY} onClose={vi.fn()} onSaved={vi.fn()} onRemoved={vi.fn()} />);
     const sheet = within(screen.getByTestId("admin-renewed-sheet"));
     fireEvent.change(sheet.getByLabelText("New expiry date"), { target: { value: "2030-10-14" } });
     fireEvent.click(sheet.getByTestId("admin-renewed-save"));
@@ -161,12 +165,21 @@ describe("AdminRenewedSheet — Add date on a catalogue item never recorded", ()
       ),
     );
     const onSaved = vi.fn();
-    render(<AdminRenewedSheet open entry={null} createItem={CATALOGUE_ITEM} onClose={vi.fn()} onSaved={onSaved} />);
+    render(
+      <AdminRenewedSheet
+        open
+        entry={null}
+        createItem={CATALOGUE_ITEM}
+        onClose={vi.fn()}
+        onSaved={onSaved}
+        onRemoved={vi.fn()}
+      />,
+    );
     const sheet = within(screen.getByTestId("admin-renewed-sheet"));
     expect(sheet.getByRole("heading", { name: "New expiry date" })).toBeInTheDocument();
     expect((sheet.getByLabelText("New expiry date") as HTMLInputElement).value).toBe("");
     expect(sheet.getByTestId("admin-renewed-save")).toBeDisabled();
-    // No "recorded before" line and no Undo for a brand-new item.
+    // No "recorded before" line for a brand-new item.
     expect(sheet.queryByText(/Recorded before/)).toBeNull();
 
     fireEvent.change(sheet.getByLabelText("New expiry date"), { target: { value: "2027-01-01" } });
@@ -179,6 +192,37 @@ describe("AdminRenewedSheet — Add date on a catalogue item never recorded", ()
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body.details.requirementId).toBe("criminal-record-screening");
     expect(body.details.category).toBe("checks");
-    expect(within(screen.getByTestId("admin-renewed-sheet")).queryByTestId("admin-renewed-undo")).toBeNull();
+    // "Saved · Undo" for every save (M6): the new row can be taken back too.
+    expect(within(screen.getByTestId("admin-renewed-sheet")).getByTestId("admin-renewed-undo")).toBeInTheDocument();
+  });
+
+  it("undoes a first-time date by deleting the row it created", async () => {
+    const created = complianceFixture(
+      CATALOGUE_ITEM.title,
+      { category: CATALOGUE_ITEM.group, requirementId: CATALOGUE_ITEM.id, expiresOn: "2027-01-01" },
+      { slug: "crs", id: "00000000-0000-4000-8000-0000000000cc" },
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entry: created }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ deleted: true, id: created.id })));
+    const onRemoved = vi.fn();
+    render(
+      <AdminRenewedSheet
+        open
+        entry={null}
+        createItem={CATALOGUE_ITEM}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onRemoved={onRemoved}
+      />,
+    );
+    const sheet = within(screen.getByTestId("admin-renewed-sheet"));
+    fireEvent.change(sheet.getByLabelText("New expiry date"), { target: { value: "2027-01-01" } });
+    fireEvent.click(sheet.getByTestId("admin-renewed-save"));
+    fireEvent.click(await screen.findByTestId("admin-renewed-undo"));
+    await waitFor(() => expect(onRemoved).toHaveBeenCalledWith(created.id));
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/on-call/entries/${created.id}`);
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("DELETE");
   });
 });

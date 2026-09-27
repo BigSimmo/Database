@@ -30,6 +30,7 @@ export function ChecklistPressableRow({
   statusTrailing,
   actionTrailing,
   onOpen,
+  anchorId,
   testId,
 }: {
   readonly title: ReactNode;
@@ -38,6 +39,8 @@ export function ChecklistPressableRow({
   readonly statusTrailing?: ReactNode;
   readonly actionTrailing?: ReactNode;
   readonly onOpen: () => void;
+  /** The entry's `onCallEntryAnchorId`, when the row has an entry, so a link to that entry lands here. */
+  readonly anchorId?: string;
   readonly testId?: string;
 }) {
   const twoLine = Boolean(subtitle) || Boolean(meta);
@@ -52,7 +55,7 @@ export function ChecklistPressableRow({
     </span>
   );
   return (
-    <li className={cn(modeInsetHairline, "flex min-w-0 items-center pr-1")}>
+    <li id={anchorId} className={cn(modeInsetHairline, "flex min-w-0 scroll-mt-24 items-center pr-1")}>
       <button
         type="button"
         onClick={onOpen}

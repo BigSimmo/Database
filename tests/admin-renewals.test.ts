@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildNotForThisJobCreateBody,
   buildNotForThisJobToggleBody,
   buildRenewedEntryBody,
   buildRestoreEntryBody,
@@ -10,7 +11,8 @@ import {
   renewalsCalendarFile,
   workforceCopyText,
 } from "@/lib/admin/renewals";
-import { updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
+import { createOnCallEntrySchema, updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
+import { ADMIN_REQUIREMENTS_CATALOGUE } from "@/lib/admin/requirements";
 import { mayContainOnCallCompliance } from "@/lib/on-call/compliance";
 import { onCallDetailsSchemaFor } from "@/lib/on-call/entry-model";
 import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
@@ -179,5 +181,42 @@ describe('"Not for this job" (owner-approved, spec 28)', () => {
     const restored = buildRestoreEntryBody(registration);
     expect(updateOnCallEntrySchema.safeParse(restored).success).toBe(true);
     expect(restored.details).toEqual(registration.details);
+  });
+});
+
+describe('"Not for this job" on an item never recorded (I4)', () => {
+  it("creates a minimal private compliance row with no date, that the API and details schema accept", () => {
+    const item = ADMIN_REQUIREMENTS_CATALOGUE.find((candidate) => candidate.id === "img-visa-requirements")!;
+    const body = buildNotForThisJobCreateBody(item, "ab12cd");
+    expect(createOnCallEntrySchema.safeParse(body).success).toBe(true);
+    expect(onCallDetailsSchemaFor("logistics").safeParse(body.details).success).toBe(true);
+    expect(body).toMatchObject({ section: "logistics", title: item.title, isPersonal: true, includeOnCard: false });
+    expect(body.details).toEqual({
+      kind: "compliance",
+      category: item.group,
+      requirementId: item.id,
+      notForThisJob: true,
+    });
+  });
+});
+
+describe("rows marked not for this job leave the exports (M13)", () => {
+  const flagged = complianceFixture("IMG visa requirements", {
+    category: "job",
+    expiresOn: "2027-03-01",
+    notForThisJob: true,
+  });
+
+  it("are not in Add all to my calendar", () => {
+    const file = renewalsCalendarFile([registration, flagged], NOW) ?? "";
+    expect(file).toContain("Medical registration");
+    expect(file).not.toContain("IMG visa requirements");
+    expect(renewalsCalendarFile([flagged], NOW)).toBeNull();
+  });
+
+  it("are not in Copy for workforce", () => {
+    const text = workforceCopyText([registration, flagged], NOW);
+    expect(text).toContain("Medical registration");
+    expect(text).not.toContain("IMG visa requirements");
   });
 });

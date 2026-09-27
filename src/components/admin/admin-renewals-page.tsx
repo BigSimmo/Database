@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminFloatingAdd } from "@/components/admin/admin-floating-add";
 import { AdminQuickAddSheet } from "@/components/admin/admin-quick-add-sheet";
 import { AdminRenewedSheet } from "@/components/admin/admin-renewed-sheet";
-import { isPersonalRenewal } from "@/components/admin/renewals/catalogue-lookup";
+import { catalogueItemForEntry, isPersonalRenewal } from "@/components/admin/renewals/catalogue-lookup";
 import { ChecklistList } from "@/components/admin/renewals/checklist-list";
 import { ChecklistKindChips, type ChecklistKindFilter } from "@/components/admin/renewals/kind-chips";
 import { ChecklistItemDetailSheet, type ChecklistItemSubject } from "@/components/admin/renewals/item-detail-sheet";
@@ -15,12 +15,14 @@ import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setu
 import { focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
-import { EmptyState } from "@/components/primitive-recipes/feedback";
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+import { EmptyState, InlineNotice } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { cn, floatingControl, textMuted } from "@/components/ui-primitives";
 import { downloadTextFile } from "@/lib/admin/download-file";
 import {
+  buildNotForThisJobCreateBody,
   buildNotForThisJobToggleBody,
   buildRestoreEntryBody,
   renewalsCalendarFile,
@@ -38,7 +40,29 @@ import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 
-type RenewSubject = { entry: OnCallEntry | null; createItem?: (typeof ADMIN_REQUIREMENTS_CATALOGUE)[number] };
+type CatalogueItem = (typeof ADMIN_REQUIREMENTS_CATALOGUE)[number];
+type RenewSubject = { entry: OnCallEntry | null; createItem?: CatalogueItem };
+
+/** Design: "Undo for 10 s" (M9). The bar stays past this while an undo is failing. */
+const UNDO_WINDOW_MS = 10_000;
+
+type UndoBar = {
+  readonly message: string;
+  readonly undo: () => Promise<void>;
+  /** Set once an undo attempt failed: the bar then stays, with Retry, until it works or is dismissed. */
+  readonly failed?: boolean;
+};
+
+/** A failed save that is not an undo ("Move back"): shown as a neutral notice with Retry. */
+type FailedAction = { readonly message: string; readonly retry: () => Promise<void> };
+
+async function parsedEntry(response: Response): Promise<OnCallEntry> {
+  if (!response.ok) throw await parseApiErrorResponse(response);
+  const payload: unknown = await response.json();
+  const parsed = onCallEntrySchema.safeParse((payload as { entry?: unknown } | null)?.entry);
+  if (!parsed.success) throw new Error("Save response was invalid.");
+  return parsed.data;
+}
 
 /**
  * Renewals (final design, screens-v3): a Checklist tab built from the
@@ -76,12 +100,14 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   const [renewOpen, setRenewOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
-  const [undoBar, setUndoBar] = useState<{ message: string; undo: () => void } | null>(null);
+  const [undoBar, setUndoBar] = useState<UndoBar | null>(null);
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [failedAction, setFailedAction] = useState<FailedAction | null>(null);
 
   useEffect(() => {
-    if (!undoBar) return;
-    const timer = window.setTimeout(() => setUndoBar(null), 6000);
-    return () => window.clearTimeout(timer);
+    if (!undoBar || undoBar.failed) return;
+    const timer = setTimeout(() => setUndoBar(null), UNDO_WINDOW_MS);
+    return () => clearTimeout(timer);
   }, [undoBar]);
 
   const rows = useMemo(() => requirementChecklistRows(ADMIN_REQUIREMENTS_CATALOGUE, own), [own]);
@@ -96,6 +122,61 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   function upsert(entry: OnCallEntry) {
     cacheOnCallEntries([...state.entries.filter((existing) => existing.id !== entry.id), entry]);
     setEntryVersion((version) => version + 1);
+  }
+
+  function removeEntry(id: string) {
+    cacheOnCallEntries(state.entries.filter((existing) => existing.id !== id));
+    setEntryVersion((version) => version + 1);
+  }
+
+  // A link to one entry (`/admin/renewals#on-call-entry-<id>`: Today's
+  // "Renewed", Needs you, an old `/on-call/compliance#…` bookmark) opens that
+  // entry's detail sheet once the reader's rows have loaded, so "Renewed" is
+  // the next tap. Each hash opens once; a later hashchange opens the new one.
+  const openedHash = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ready) return;
+    function openFromHash() {
+      const hash = window.location.hash.slice(1);
+      if (!hash.startsWith("on-call-entry-") || openedHash.current === hash) return;
+      const entry = own.find((candidate) => onCallEntryAnchorId(candidate.id) === hash);
+      if (!entry) return;
+      const item = catalogueItemForEntry(entry);
+      if (item) {
+        openedHash.current = hash;
+        setTab("checklist");
+        setDetailSubject({ kind: "catalogue", item, entry });
+      } else if (isPersonalRenewal(entry)) {
+        openedHash.current = hash;
+        setTab("personal");
+        setDetailSubject({ kind: "personal", entry });
+      }
+    }
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+  }, [ready, own]);
+
+  async function runUndo(bar: UndoBar) {
+    setUndoBusy(true);
+    try {
+      await bar.undo();
+      setUndoBar(null);
+    } catch {
+      // Spec "Offline" / design point 11: a failed save stays on screen with Retry.
+      setUndoBar({ ...bar, failed: true });
+    } finally {
+      setUndoBusy(false);
+    }
+  }
+
+  async function moveBack(entry: OnCallEntry) {
+    setFailedAction(null);
+    try {
+      await setNotForThisJob(entry, false);
+    } catch {
+      setFailedAction({ message: `Couldn't move back ${entry.title}.`, retry: () => moveBack(entry) });
+    }
   }
 
   async function copyForWorkforce() {
@@ -114,31 +195,45 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   }
 
   async function setNotForThisJob(entry: OnCallEntry, flag: boolean) {
-    const response = await fetch(`/api/on-call/entries/${entry.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildNotForThisJobToggleBody(entry, flag)),
-    });
-    if (!response.ok) throw await parseApiErrorResponse(response);
-    const payload: unknown = await response.json();
-    const parsed = onCallEntrySchema.safeParse((payload as { entry?: unknown } | null)?.entry);
-    if (!parsed.success) throw new Error("Save response was invalid.");
-    upsert(parsed.data);
+    const saved = await parsedEntry(
+      await fetch(`/api/on-call/entries/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildNotForThisJobToggleBody(entry, flag)),
+      }),
+    );
+    upsert(saved);
     setUndoBar({
       message: flag ? `Not for this job · ${entry.title}` : `Moved back · ${entry.title}`,
-      undo: () => {
-        void (async () => {
-          const restore = await fetch(`/api/on-call/entries/${entry.id}`, {
+      undo: async () => {
+        const restored = await parsedEntry(
+          await fetch(`/api/on-call/entries/${entry.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(buildRestoreEntryBody(entry)),
-          });
-          if (!restore.ok) return;
-          const restoredPayload: unknown = await restore.json();
-          const restoredParsed = onCallEntrySchema.safeParse((restoredPayload as { entry?: unknown } | null)?.entry);
-          if (restoredParsed.success) upsert(restoredParsed.data);
-          setUndoBar(null);
-        })();
+          }),
+        );
+        upsert(restored);
+      },
+    });
+  }
+
+  /** "Not for this job" on a catalogue item never recorded: a minimal row, and Undo deletes it. */
+  async function markItemNotForThisJob(item: CatalogueItem) {
+    const created = await parsedEntry(
+      await fetch("/api/on-call/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildNotForThisJobCreateBody(item, crypto.randomUUID().slice(0, 6))),
+      }),
+    );
+    upsert(created);
+    setUndoBar({
+      message: `Not for this job · ${item.title}`,
+      undo: async () => {
+        const response = await fetch(`/api/on-call/entries/${created.id}`, { method: "DELETE" });
+        if (!response.ok) throw await parseApiErrorResponse(response);
+        removeEntry(created.id);
       },
     });
   }
@@ -218,6 +313,23 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
             ]}
           />
 
+          {failedAction ? (
+            <div data-testid="admin-renewals-action-failed">
+              <InlineNotice tone="neutral">
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{failedAction.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => void failedAction.retry()}
+                    className={cn(focusRing, "min-h-tap px-2 text-sm font-medium text-[color:var(--clinical-accent)]")}
+                  >
+                    Retry
+                  </button>
+                </span>
+              </InlineNotice>
+            </div>
+          ) : null}
+
           {tab === "checklist" ? (
             <div className="grid gap-4">
               <ChecklistSummary
@@ -239,7 +351,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
                   setRenewSubject({ entry: null, createItem: item });
                   setRenewOpen(true);
                 }}
-                onMoveBack={(entry) => void setNotForThisJob(entry, false)}
+                onMoveBack={(entry) => void moveBack(entry)}
               />
             </div>
           ) : (
@@ -258,14 +370,31 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
           data-testid="admin-renewals-undo-bar"
           className="fixed inset-x-4 bottom-20 z-[var(--z-chrome)] flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 shadow-[var(--e4)]"
         >
-          <span className="text-sm text-[color:var(--text)]">{undoBar.message}</span>
-          <button
-            type="button"
-            onClick={undoBar.undo}
-            className={cn(focusRing, "min-h-tap px-2 text-sm font-medium text-[color:var(--clinical-accent)]")}
-          >
-            Undo
-          </button>
+          <span className="text-sm text-[color:var(--text)]">
+            {undoBar.failed ? `Undo didn't save · ${undoBar.message}` : undoBar.message}
+          </span>
+          <span className="flex shrink-0 items-center gap-1">
+            {undoBar.failed ? (
+              <button
+                type="button"
+                onClick={() => setUndoBar(null)}
+                className={cn(focusRing, "min-h-tap px-2 text-sm text-[color:var(--text-muted)]")}
+              >
+                Dismiss
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void runUndo(undoBar)}
+              disabled={undoBusy}
+              className={cn(
+                focusRing,
+                "min-h-tap px-2 text-sm font-medium text-[color:var(--clinical-accent)] disabled:opacity-60",
+              )}
+            >
+              {undoBar.failed ? "Retry" : "Undo"}
+            </button>
+          </span>
         </div>
       ) : null}
 
@@ -289,7 +418,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
           }
           setRenewOpen(true);
         }}
-        onNotForThisJob={(entry, flag) => setNotForThisJob(entry, flag)}
+        onNotForThisJob={(item, entry, flag) => (entry ? setNotForThisJob(entry, flag) : markItemNotForThisJob(item))}
       />
 
       <AdminRenewedSheet
@@ -302,6 +431,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
           upsert(entry);
           setUndoBar(null);
         }}
+        onRemoved={removeEntry}
       />
 
       <AdminQuickAddSheet open={quickAddOpen} onClose={() => setQuickAddOpen(false)} onSaved={upsert} />

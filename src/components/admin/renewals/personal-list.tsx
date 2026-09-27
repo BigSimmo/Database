@@ -2,6 +2,7 @@ import { ChecklistPressableRow } from "@/components/admin/renewals/checklist-row
 import { ChecklistStatus } from "@/components/admin/renewals/checklist-status";
 import { requirementDateLine } from "@/components/admin/renewals/urgency";
 import { modeModuleSurface } from "@/components/mode-kit/recipes";
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { Button } from "@/components/ui/button";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { complianceExpiresOn } from "@/lib/on-call/compliance";
@@ -56,6 +57,7 @@ export function PersonalRenewalsList({
             subtitle={requirementDateLine(expiresOn, now)}
             statusTrailing={<ChecklistStatus urgency={personalStatus(entry, now)} />}
             onOpen={() => onOpen(entry)}
+            anchorId={onCallEntryAnchorId(entry.id)}
             testId={`${testId}-row-${entry.slug}`}
           />
         );
