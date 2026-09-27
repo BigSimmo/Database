@@ -2,11 +2,13 @@
 // bare toLocaleDateString() uses each side's own time zone, so an entry saved
 // in the Perth morning could read as the previous day and fail hydration
 // (ledger #5K1788). Pin every On Call date to Perth and one "12 Aug 2026" style.
+import { PERTH_TIME_ZONE } from "@/lib/perth-time";
+
 const PERTH_DATE = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
   month: "short",
   year: "numeric",
-  timeZone: "Australia/Perth",
+  timeZone: PERTH_TIME_ZONE,
 });
 
 const PERTH_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
@@ -15,7 +17,7 @@ const PERTH_DATE_TIME = new Intl.DateTimeFormat("en-AU", {
   year: "numeric",
   hour: "numeric",
   minute: "2-digit",
-  timeZone: "Australia/Perth",
+  timeZone: PERTH_TIME_ZONE,
 });
 
 export function formatOnCallDate(value: string | number | Date): string {

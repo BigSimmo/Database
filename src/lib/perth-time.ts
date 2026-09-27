@@ -13,8 +13,6 @@ export const PERTH_TIME_ZONE = "Australia/Perth";
 export const PERTH_UTC_OFFSET_MINUTES = CALENDAR_UTC_OFFSET_MINUTES; // 480
 export const PERTH_OFFSET_MS = PERTH_UTC_OFFSET_MINUTES * 60 * 1000;
 
-export const OFFSET_MS = PERTH_OFFSET_MS;
-
 /**
  * Derives the Perth calendar date `YYYY-MM-DD` for an instant (Date, ISO string, or epoch ms).
  * Defaults to current time when omitted.

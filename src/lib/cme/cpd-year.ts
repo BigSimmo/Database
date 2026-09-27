@@ -13,8 +13,7 @@
  */
 import { addDaysToDate, perthCalendarDate as sharedPerthCalendarDate, PERTH_TIME_ZONE } from "@/lib/perth-time";
 
-
-export const CPD_TIME_ZONE = "Australia/Perth";
+export const CPD_TIME_ZONE = PERTH_TIME_ZONE;
 
 /**
  * Below this, a projection is arithmetic on noise: four weeks of a 52-week year
@@ -23,6 +22,13 @@ export const CPD_TIME_ZONE = "Australia/Perth";
  * `paceProjection` returns null.
  */
 export const CPD_PACE_MINIMUM_ELAPSED_DAYS = 28;
+
+const perthDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: CPD_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 const MS_PER_DAY = 86_400_000;
 
@@ -168,7 +174,6 @@ export function formatCmeRowDate(date: string, today: string): string {
 export function addCalendarDays(dateOnly: string, days: number): string {
   return addDaysToDate(dateOnly, days);
 }
-
 
 /** `YYYY-MM-DD` as the Australian "26/09/2026" the date box shows. Empty for anything else. */
 export function formatCmeDayInput(dateOnly: string): string {
