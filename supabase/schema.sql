@@ -22328,7 +22328,7 @@ language sql immutable security invoker set search_path = public, pg_catalog, pg
     when p_reason = 'wrong_topics' then
       case
         when p_value - 'topics' <> '{}'::jsonb or jsonb_typeof(p_value->'topics') is distinct from 'array' then false
-        else jsonb_array_length(p_value->'topics') between 1 and 5
+        else jsonb_array_length(p_value->'topics') between 0 and 5
           and not exists (
             select 1 from jsonb_array_elements(p_value->'topics') as t(value)
             where jsonb_typeof(t.value) is distinct from 'string'
@@ -22601,7 +22601,10 @@ create index teaching_resource_saves_resource on public.teaching_resource_saves(
 create table public.teaching_readiness (
   occurrence_id uuid primary key,
   service_id uuid not null,
-  items text[] not null default '{}' check (items <@ array['slides_ready','room_confirmed','join_link_tested','materials_linked','reading_list_set']::text[]),
+  -- The presenter's checklist (the four approved items) and the cases-checked confirmation. Until the
+  -- presenter confirms the cases check, the occurrence's slides are hidden from everyone but the
+  -- presenter and organisers (teaching_slides_released).
+  items text[] not null default '{}' check (items <@ array['reading_list','aims','slides_link','room']::text[]),
   deid_confirmed_at timestamptz,
   deid_confirmed_by uuid references auth.users(id) on delete set null,
   updated_at timestamptz not null default now(),
@@ -22653,7 +22656,8 @@ create table public.teaching_supervision_entries (
   session_date date not null,
   minutes integer not null check (minutes between 15 and 240 and minutes % 15 = 0),
   type text not null check (type in ('individual','group')),
-  topics text[] not null check (cardinality(topics) between 1 and 5 and topics <@ array['case_review','risk','psychotherapy','formulation','medication','mha_legal','teaching_skills','career','exam_prep','wellbeing','other']::text[]),
+  -- Optional: none to five topics.
+  topics text[] not null check (cardinality(topics) between 0 and 5 and topics <@ array['case_review','risk','psychotherapy','formulation','medication','mha_legal','teaching_skills','career','exam_prep','wellbeing','other']::text[]),
   status text not null default 'pending' check (status in ('pending','confirmed')),
   confirmed_by uuid references auth.users(id) on delete set null,
   confirmed_at timestamptz,
@@ -23248,6 +23252,83 @@ grant execute on function public.teaching_week_added(uuid, uuid) to service_role
 revoke all on function public.teaching_series_generate(uuid) from public, anon, authenticated;
 grant execute on function public.teaching_series_generate(uuid) to service_role;
 
+-- A series save: validates the payload, writes the series and brings its occurrences into line.
+-- No role check, lock or audit here: series.save (organisers) and import.commit (organisers and
+-- admins, spec §4) check the role, hold lock 74818 and write the audit rows themselves.
+create function public.teaching_series_save(p_actor_id uuid, p_service_id uuid, p_payload jsonb) returns jsonb
+language plpgsql volatile security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare
+  v_series public.teaching_series;
+  v_id uuid;
+  v_user uuid;
+  v_ids uuid[];
+  v_dates date[];
+  v_from date;
+  v_to date;
+  v_text text;
+  v_venue text;
+  v_code text;
+  v_audience text;
+  v_minutes integer;
+  v_count integer;
+begin
+  if p_actor_id is null or p_service_id is null or p_payload is null or jsonb_typeof(p_payload) <> 'object' then
+    raise exception 'teaching_invalid_request';
+  end if;
+  v_id := public.teaching_uuid_arg(p_payload, 'seriesId');
+  v_text := public.teaching_text_arg(p_payload, 'startTime');
+  v_minutes := public.teaching_int_arg(p_payload, 'minutes');
+  v_from := public.teaching_date_arg(p_payload, 'firstDate');
+  v_to := public.teaching_date_arg(p_payload, 'endDate');
+  v_user := public.teaching_uuid_arg(p_payload, 'presenterId');
+  v_ids := public.teaching_uuid_array_arg(p_payload, 'groupIds', 20);
+  v_dates := public.teaching_date_array_arg(p_payload, 'skipDates', 60);
+  v_venue := nullif(btrim(coalesce(public.teaching_text_arg(p_payload, 'venue'), '')), '');
+  v_code := nullif(btrim(coalesce(public.teaching_text_arg(p_payload, 'joinUrl'), '')), '');
+  -- Optional: a new series defaults to all doctors, and a save without it keeps the current value.
+  v_audience := public.teaching_text_arg(p_payload, 'audience');
+  if char_length(btrim(coalesce(public.teaching_text_arg(p_payload, 'title'), ''))) not between 3 and 160
+    or (p_payload ? 'audience' and coalesce(v_audience, '') not in ('interns','residents','registrars','consultants','all_doctors'))
+    or coalesce(public.teaching_text_arg(p_payload, 'kind'), '') not in ('lecture','case','journal','grand_round','simulation','workshop','other')
+    or coalesce(public.teaching_text_arg(p_payload, 'repeat'), '') not in ('once','weekly','fortnightly','monthly_nth')
+    or v_text is null or v_text !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+    or v_minutes is null or v_minutes not between 10 and 480
+    or v_from is null or v_to is null or v_to < v_from or v_to > v_from + 366
+    or (v_venue is not null and char_length(v_venue) > 160)
+    or (v_code is not null and (char_length(v_code) > 2000 or v_code !~ '^https://[^/@[:space:]]+(/|$)'))
+    or not public.teaching_valid_links(coalesce(p_payload->'materials', '[]'::jsonb))
+    or (v_user is not null and not public.service_member_active(p_service_id, v_user))
+    or exists (select 1 from unnest(v_ids) as g where not exists (
+      select 1 from public.teaching_groups tg where tg.id = g and tg.service_id = p_service_id)) then
+    raise exception 'teaching_invalid_request';
+  end if;
+  if v_id is null then
+    if (select count(*) from public.teaching_series where service_id = p_service_id) >= 500 then raise exception 'teaching_limit'; end if;
+    insert into public.teaching_series(service_id, title, kind, group_ids, repeat, first_date, start_time, minutes,
+      venue, join_url, skip_dates, end_date, presenter_id, materials, audience, last_confirmed_at, created_by)
+    values (p_service_id, btrim(public.teaching_text_arg(p_payload, 'title')), public.teaching_text_arg(p_payload, 'kind'),
+      v_ids, public.teaching_text_arg(p_payload, 'repeat'), v_from, v_text::time, v_minutes,
+      v_venue, v_code, v_dates, v_to, v_user, coalesce(p_payload->'materials', '[]'::jsonb),
+      coalesce(v_audience, 'all_doctors'), now(), p_actor_id)
+    returning * into v_series;
+  else
+    update public.teaching_series set
+      title = btrim(public.teaching_text_arg(p_payload, 'title')), kind = public.teaching_text_arg(p_payload, 'kind'),
+      group_ids = v_ids, repeat = public.teaching_text_arg(p_payload, 'repeat'), first_date = v_from,
+      start_time = v_text::time, minutes = v_minutes, venue = v_venue, join_url = v_code, skip_dates = v_dates,
+      end_date = v_to, presenter_id = v_user, materials = coalesce(p_payload->'materials', '[]'::jsonb),
+      audience = coalesce(v_audience, audience), last_confirmed_at = now(), updated_at = now()
+    where id = v_id and service_id = p_service_id
+    returning * into v_series;
+    if not found then raise exception 'teaching_not_found'; end if;
+  end if;
+  v_count := public.teaching_series_generate(v_series.id);
+  return jsonb_build_object('seriesId', v_series.id, 'occurrences', v_count);
+end $$;
+
+revoke all on function public.teaching_series_save(uuid, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.teaching_series_save(uuid, uuid, jsonb) to service_role;
+
 create function public.teaching_command(p_actor_id uuid, p_service_id uuid, p_action text, p_payload jsonb default '{}') returns jsonb
 language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
 declare
@@ -23261,7 +23342,6 @@ declare
   v_id uuid;
   v_user uuid;
   v_ids uuid[];
-  v_dates date[];
   v_from date;
   v_to date;
   v_starts timestamptz;
@@ -23277,12 +23357,10 @@ declare
   v_venue text;
   v_status text;
   v_reason text;
-  v_minutes integer;
   v_count integer;
   v_window bigint;
   v_is_presenter boolean;
   v_visitor boolean;
-  v_audience text;
   v_needs_lock boolean;
 begin
   if p_actor_id is null then raise exception 'teaching_auth_required'; end if;
@@ -23291,7 +23369,7 @@ begin
   end if;
 
   -- Actions across all of the actor's own teams. The service id must be null.
-  if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending') then
+  if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending','teach.read','feedback.open') then
     if p_service_id is not null then raise exception 'teaching_invalid_request'; end if;
 
     if p_action = 'week.read' then
@@ -23311,7 +23389,12 @@ begin
       select jsonb_build_object(
         'teams', coalesce((select jsonb_agg(jsonb_build_object(
             'id', t.id, 'name', t.name, 'role', t.role,
-            'acceptsRealData', t.verified_at is not null or t.is_demo, 'isDemo', t.is_demo) order by t.name, t.id)
+            'acceptsRealData', t.verified_at is not null or t.is_demo, 'isDemo', t.is_demo,
+            -- The pages sheet shows Teach while the actor presents a session of this team that has not
+            -- ended and starts in the next 90 days (teach.read's upcoming window), whatever week is loaded.
+            'presenting', exists (select 1 from public.teaching_occurrences o
+              where o.service_id = t.id and o.presenter_id = p_actor_id and o.status <> 'cancelled'
+                and o.ends_at > now() and o.starts_at < now() + interval '90 days')) order by t.name, t.id)
           from teams t), '[]'::jsonb),
         'sessions', coalesce((select jsonb_agg(jsonb_build_object(
             'occurrenceId', o.id, 'serviceId', o.service_id, 'title', o.title, 'startsAt', o.starts_at, 'endsAt', o.ends_at,
@@ -23422,6 +23505,49 @@ begin
           where p.supervisor_id = p_actor_id and n.confirmed_at is null and public.service_member_active(p.service_id, p_actor_id))
       into v_count;
       return jsonb_build_object('count', v_count);
+
+    elsif p_action in ('teach.read','feedback.open') then
+      perform 1 from public.on_call_services s
+      where exists (select 1 from public.on_call_service_members m where m.service_id = s.id and m.user_id = p_actor_id and m.revoked_at is null)
+      order by s.id for share;
+      if p_action = 'teach.read' then
+        -- The actor's own talks only (presenter_id = actor): the next 90 days with their checklist, and
+        -- up to 50 ended talks from the last year.
+        select jsonb_build_object(
+          'upcoming', coalesce((select jsonb_agg(jsonb_build_object(
+              'occurrenceId', o.id, 'serviceId', o.service_id, 'title', o.title, 'startsAt', o.starts_at,
+              'endsAt', o.ends_at, 'venue', o.venue, 'status', o.status,
+              'items', coalesce(to_jsonb(r.items), '[]'::jsonb), 'deidConfirmedAt', r.deid_confirmed_at)
+              order by o.starts_at, o.id)
+            from public.teaching_occurrences o
+            left join public.teaching_readiness r on r.occurrence_id = o.id
+            where o.presenter_id = p_actor_id and o.ends_at > now() and o.starts_at < now() + interval '90 days'
+              and public.service_member_active(o.service_id, p_actor_id)), '[]'::jsonb),
+          'taught', coalesce((select jsonb_agg(jsonb_build_object(
+              'occurrenceId', t.id, 'serviceId', t.service_id, 'title', t.title, 'startsAt', t.starts_at,
+              'endsAt', t.ends_at) order by t.starts_at desc, t.id)
+            from (select o.id, o.service_id, o.title, o.starts_at, o.ends_at from public.teaching_occurrences o
+              where o.presenter_id = p_actor_id and o.status <> 'cancelled' and o.ends_at <= now()
+                and o.ends_at > now() - interval '365 days' and public.service_member_active(o.service_id, p_actor_id)
+              order by o.starts_at desc, o.id limit 50) as t), '[]'::jsonb))
+        into v_result;
+      else
+        -- Sessions the actor attended as a member, ended in the last 7 days and not yet answered. It checks
+        -- the same one-way marker feedback.submit writes, so nothing new ties a person to an answer.
+        select jsonb_build_object('sessions', coalesce(jsonb_agg(jsonb_build_object(
+            'occurrenceId', o.id, 'serviceId', o.service_id, 'title', o.title, 'startsAt', o.starts_at,
+            'endsAt', o.ends_at) order by o.ends_at desc, o.id), '[]'::jsonb))
+        into v_result
+        from public.teaching_attendance a
+        join public.teaching_occurrences o on o.id = a.occurrence_id
+        where a.user_id = p_actor_id and o.status <> 'cancelled'
+          and o.ends_at <= now() and o.ends_at > now() - interval '7 days'
+          and public.service_member_active(o.service_id, p_actor_id)
+          and not exists (select 1 from public.teaching_feedback_replied f
+            where f.occurrence_id = o.id and f.reply_marker = encode(extensions.digest(
+              convert_to('teaching-feedback:' || o.id::text || ':' || p_actor_id::text, 'UTF8'), 'sha256'), 'hex'));
+      end if;
+      return v_result;
 
     elsif p_action = 'checkin.complete' then
       -- Redeem a claim recorded by teaching_checkin_open, after sign-in.
@@ -23629,56 +23755,9 @@ begin
 
   elsif p_action = 'series.save' then
     if v_role <> 'organiser' then raise exception 'teaching_role_denied'; end if;
-    v_id := public.teaching_uuid_arg(p_payload, 'seriesId');
-    v_text := public.teaching_text_arg(p_payload, 'startTime');
-    v_minutes := public.teaching_int_arg(p_payload, 'minutes');
-    v_from := public.teaching_date_arg(p_payload, 'firstDate');
-    v_to := public.teaching_date_arg(p_payload, 'endDate');
-    v_user := public.teaching_uuid_arg(p_payload, 'presenterId');
-    v_ids := public.teaching_uuid_array_arg(p_payload, 'groupIds', 20);
-    v_dates := public.teaching_date_array_arg(p_payload, 'skipDates', 60);
-    v_venue := nullif(btrim(coalesce(public.teaching_text_arg(p_payload, 'venue'), '')), '');
-    v_code := nullif(btrim(coalesce(public.teaching_text_arg(p_payload, 'joinUrl'), '')), '');
-    -- Optional: a new series defaults to all doctors, and a save without it keeps the current value.
-    v_audience := public.teaching_text_arg(p_payload, 'audience');
-    if char_length(btrim(coalesce(public.teaching_text_arg(p_payload, 'title'), ''))) not between 3 and 160
-      or (p_payload ? 'audience' and coalesce(v_audience, '') not in ('interns','residents','registrars','consultants','all_doctors'))
-      or coalesce(public.teaching_text_arg(p_payload, 'kind'), '') not in ('lecture','case','journal','grand_round','simulation','workshop','other')
-      or coalesce(public.teaching_text_arg(p_payload, 'repeat'), '') not in ('once','weekly','fortnightly','monthly_nth')
-      or v_text is null or v_text !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
-      or v_minutes is null or v_minutes not between 10 and 480
-      or v_from is null or v_to is null or v_to < v_from or v_to > v_from + 366
-      or (v_venue is not null and char_length(v_venue) > 160)
-      or (v_code is not null and (char_length(v_code) > 2000 or v_code !~ '^https://[^/@[:space:]]+(/|$)'))
-      or not public.teaching_valid_links(coalesce(p_payload->'materials', '[]'::jsonb))
-      or (v_user is not null and not public.service_member_active(p_service_id, v_user))
-      or exists (select 1 from unnest(v_ids) as g where not exists (
-        select 1 from public.teaching_groups tg where tg.id = g and tg.service_id = p_service_id)) then
-      raise exception 'teaching_invalid_request';
-    end if;
-    if v_id is null then
-      if (select count(*) from public.teaching_series where service_id = p_service_id) >= 500 then raise exception 'teaching_limit'; end if;
-      insert into public.teaching_series(service_id, title, kind, group_ids, repeat, first_date, start_time, minutes,
-        venue, join_url, skip_dates, end_date, presenter_id, materials, audience, last_confirmed_at, created_by)
-      values (p_service_id, btrim(public.teaching_text_arg(p_payload, 'title')), public.teaching_text_arg(p_payload, 'kind'),
-        v_ids, public.teaching_text_arg(p_payload, 'repeat'), v_from, v_text::time, v_minutes,
-        v_venue, v_code, v_dates, v_to, v_user, coalesce(p_payload->'materials', '[]'::jsonb),
-        coalesce(v_audience, 'all_doctors'), now(), p_actor_id)
-      returning * into v_series;
-    else
-      update public.teaching_series set
-        title = btrim(public.teaching_text_arg(p_payload, 'title')), kind = public.teaching_text_arg(p_payload, 'kind'),
-        group_ids = v_ids, repeat = public.teaching_text_arg(p_payload, 'repeat'), first_date = v_from,
-        start_time = v_text::time, minutes = v_minutes, venue = v_venue, join_url = v_code, skip_dates = v_dates,
-        end_date = v_to, presenter_id = v_user, materials = coalesce(p_payload->'materials', '[]'::jsonb),
-        audience = coalesce(v_audience, audience), last_confirmed_at = now(), updated_at = now()
-      where id = v_id and service_id = p_service_id
-      returning * into v_series;
-      if not found then raise exception 'teaching_not_found'; end if;
-    end if;
-    v_count := public.teaching_series_generate(v_series.id);
-    perform public.teaching_audit(p_service_id, p_actor_id, 'series.save', v_series.id);
-    return jsonb_build_object('seriesId', v_series.id, 'occurrences', v_count);
+    v_result := public.teaching_series_save(p_actor_id, p_service_id, p_payload);
+    perform public.teaching_audit(p_service_id, p_actor_id, 'series.save', public.teaching_uuid_arg(v_result, 'seriesId'));
+    return v_result;
 
   elsif p_action = 'occurrence.change' then
     if v_role <> 'organiser' then raise exception 'teaching_role_denied'; end if;
@@ -23719,7 +23798,8 @@ begin
     return '{}'::jsonb;
 
   elsif p_action = 'group.save' then
-    if v_role <> 'organiser' then raise exception 'teaching_role_denied'; end if;
+    -- Spec §4: groups are for organisers and admins.
+    if v_role not in ('organiser','admin') then raise exception 'teaching_role_denied'; end if;
     v_id := public.teaching_uuid_arg(p_payload, 'groupId');
     v_text := btrim(coalesce(public.teaching_text_arg(p_payload, 'name'), ''));
     if char_length(v_text) not between 1 and 80 then raise exception 'teaching_invalid_request'; end if;
@@ -23734,7 +23814,8 @@ begin
     return jsonb_build_object('groupId', v_id);
 
   elsif p_action = 'group.delete' then
-    if v_role <> 'organiser' then raise exception 'teaching_role_denied'; end if;
+    -- Spec §4: groups are for organisers and admins.
+    if v_role not in ('organiser','admin') then raise exception 'teaching_role_denied'; end if;
     v_id := public.teaching_uuid_arg(p_payload, 'groupId');
     delete from public.teaching_groups where id = v_id and service_id = p_service_id;
     if not found then raise exception 'teaching_not_found'; end if;
@@ -23745,7 +23826,8 @@ begin
     return jsonb_build_object('groupId', v_id);
 
   elsif p_action = 'group.members.set' then
-    if v_role <> 'organiser' then raise exception 'teaching_role_denied'; end if;
+    -- Spec §4: groups are for organisers and admins.
+    if v_role not in ('organiser','admin') then raise exception 'teaching_role_denied'; end if;
     v_id := public.teaching_uuid_arg(p_payload, 'groupId');
     if v_id is null or not exists (select 1 from public.teaching_groups where id = v_id and service_id = p_service_id) then
       raise exception 'teaching_not_found';
@@ -24003,8 +24085,8 @@ begin
 end
 $cron$;
 
--- PR B's actions (supervision, presenter readiness, feedback). Same shape and rules as
--- teaching_command; created in this migration so the database changes once.
+-- PR B's actions (supervision, presenter readiness, feedback, and the term import). Same shape and
+-- rules as teaching_command; created in this migration so the database changes once.
 create function public.teaching_depth_command(p_actor_id uuid, p_service_id uuid, p_action text, p_payload jsonb default '{}') returns jsonb
 language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
 declare
@@ -24029,22 +24111,31 @@ declare
   v_useful integer;
   v_count integer;
   v_result jsonb;
+  v_row jsonb;
+  v_leaver boolean := false;
 begin
   if p_actor_id is null then raise exception 'teaching_auth_required'; end if;
   if p_action is null or p_payload is null or jsonb_typeof(p_payload) <> 'object' or p_service_id is null
     or p_action not in ('pairing.save','pairing.reassign','supervision.log','supervision.confirm','supervision.note',
       'supervision.note.confirm','supervision.read','supervision.target.set','readiness.set','readiness.deid.confirm',
-      'feedback.submit','feedback.totals') then
+      'feedback.submit','feedback.totals','import.commit') then
     raise exception 'teaching_invalid_request';
   end if;
   select * into v_service from public.on_call_services where id = p_service_id for share;
   if not found then raise exception 'teaching_access_denied'; end if;
   v_role := public.teaching_member_role(p_service_id, p_actor_id);
-  if v_role is null then raise exception 'teaching_access_denied'; end if;
+  if v_role is null then
+    -- A leaver keeps read-only access to their own supervision entries (as registrar) for 90 days
+    -- from the shared revoke, as logbook.read keeps their attendance (spec §9). Nothing else.
+    v_leaver := p_action = 'supervision.read' and exists (select 1 from public.on_call_service_members m
+      where m.service_id = p_service_id and m.user_id = p_actor_id
+        and m.revoked_at is not null and m.revoked_at > now() - interval '90 days');
+    if not v_leaver then raise exception 'teaching_access_denied'; end if;
+  end if;
   if p_action not in ('supervision.read','feedback.totals') and not (v_service.verified_at is not null or v_service.is_demo) then
     raise exception 'teaching_team_unverified';
   end if;
-  if p_action in ('pairing.save','pairing.reassign') then
+  if p_action in ('pairing.save','pairing.reassign','import.commit') then
     perform pg_advisory_xact_lock(hashtextextended(p_service_id::text, 74818));
   end if;
 
@@ -24141,7 +24232,8 @@ begin
       or v_date > (now() at time zone 'Australia/Perth')::date
       or v_minutes is null or v_minutes not between 15 and 240 or v_minutes % 15 <> 0
       or v_text is null or v_text not in ('individual','group')
-      or cardinality(v_topics) not between 1 and 5
+      -- Topics are optional: none to five.
+      or cardinality(v_topics) not between 0 and 5
       or not (v_topics <@ array['case_review','risk','psychotherapy','formulation','medication','mha_legal','teaching_skills','career','exam_prep','wellbeing','other']::text[]) then
       raise exception 'teaching_invalid_request';
     end if;
@@ -24206,19 +24298,25 @@ begin
 
   elsif p_action = 'supervision.read' then
     -- The registrar and supervisor of a pairing see its entries; an organiser sees totals and
-    -- status only (never topics). Reading anyone else's pairing is audited.
+    -- status only (never topics). Reading anyone else's pairing is audited. A leaver (v_leaver)
+    -- sees only the pairings where they are the registrar, and reads their own record unaudited.
     v_id := public.teaching_uuid_arg(p_payload, 'pairingId');
     if v_id is not null and not exists (
       select 1 from public.teaching_supervision_pairings p where p.id = v_id and p.service_id = p_service_id
-        and (p.registrar_id = p_actor_id or p.supervisor_id = p_actor_id or v_role = 'organiser')) then
+        and (p.registrar_id = p_actor_id or (not v_leaver and (p.supervisor_id = p_actor_id or v_role = 'organiser')))) then
       raise exception 'teaching_not_found';
     end if;
-    insert into public.teaching_audit_events(service_id, actor_id, action, subject_id)
-    select p_service_id, p_actor_id, 'supervision.read', p.id
-    from public.teaching_supervision_pairings p
-    where p.service_id = p_service_id and (v_id is null or p.id = v_id)
-      and p.registrar_id is distinct from p_actor_id
-      and (p.supervisor_id = p_actor_id or v_role = 'organiser');
+    if v_id is null and v_role = 'organiser' then
+      -- An organiser's whole-team read (Logbook, Today): one service-level row per call.
+      perform public.teaching_audit(p_service_id, p_actor_id, 'supervision.read', null);
+    elsif not v_leaver then
+      insert into public.teaching_audit_events(service_id, actor_id, action, subject_id)
+      select p_service_id, p_actor_id, 'supervision.read', p.id
+      from public.teaching_supervision_pairings p
+      where p.service_id = p_service_id and (v_id is null or p.id = v_id)
+        and p.registrar_id is distinct from p_actor_id
+        and (p.supervisor_id = p_actor_id or v_role = 'organiser');
+    end if;
     select jsonb_build_object('pairings', coalesce(jsonb_agg(jsonb_build_object(
         'pairingId', p.id,
         'access', case when p.registrar_id = p_actor_id then 'registrar' when p.supervisor_id = p_actor_id then 'supervisor' else 'organiser' end,
@@ -24247,7 +24345,7 @@ begin
     into v_result
     from public.teaching_supervision_pairings p
     where p.service_id = p_service_id and (v_id is null or p.id = v_id)
-      and (p.registrar_id = p_actor_id or p.supervisor_id = p_actor_id or v_role = 'organiser');
+      and (p.registrar_id = p_actor_id or (not v_leaver and (p.supervisor_id = p_actor_id or v_role = 'organiser')));
     return v_result;
 
   elsif p_action in ('readiness.set','readiness.deid.confirm') then
@@ -24259,7 +24357,7 @@ begin
     on conflict (occurrence_id) do nothing;
     if p_action = 'readiness.set' then
       v_text := public.teaching_text_arg(p_payload, 'item');
-      if v_text is null or v_text not in ('slides_ready','room_confirmed','join_link_tested','materials_linked','reading_list_set')
+      if v_text is null or v_text not in ('reading_list','aims','slides_link','room')
         or jsonb_typeof(p_payload->'done') is distinct from 'boolean' then
         raise exception 'teaching_invalid_request';
       end if;
@@ -24302,6 +24400,27 @@ begin
     perform public.teaching_audit(p_service_id, null, 'feedback.submit', v_occ.id);
     return '{}'::jsonb;
 
+  elsif p_action = 'import.commit' then
+    -- A term from a spreadsheet, all or nothing: every row is a new series through the same save as
+    -- series.save, inside this one transaction, so one refused row rolls back every row before it.
+    -- Spec §4 gives import to organisers and admins.
+    if v_role not in ('organiser','admin') then raise exception 'teaching_role_denied'; end if;
+    if jsonb_typeof(p_payload->'rows') is distinct from 'array'
+      or jsonb_array_length(p_payload->'rows') not between 1 and 200 then
+      raise exception 'teaching_invalid_request';
+    end if;
+    v_count := 0;
+    for v_row in select r.value from jsonb_array_elements(p_payload->'rows') as r(value) loop
+      if jsonb_typeof(v_row) is distinct from 'object' or v_row ? 'seriesId' then
+        raise exception 'teaching_invalid_request';
+      end if;
+      v_result := public.teaching_series_save(p_actor_id, p_service_id, v_row);
+      perform public.teaching_audit(p_service_id, p_actor_id, 'series.save', public.teaching_uuid_arg(v_result, 'seriesId'));
+      v_count := v_count + public.teaching_int_arg(v_result, 'occurrences');
+    end loop;
+    perform public.teaching_audit(p_service_id, p_actor_id, 'import.commit', null);
+    return jsonb_build_object('series', jsonb_array_length(p_payload->'rows'), 'occurrences', v_count);
+
   elsif p_action = 'feedback.totals' then
     v_id := public.teaching_uuid_arg(p_payload, 'occurrenceId');
     select * into v_occ from public.teaching_occurrences where id = v_id and service_id = p_service_id;
@@ -24330,14 +24449,33 @@ end $$;
 revoke all on function public.teaching_depth_command(uuid, uuid, text, jsonb) from public, anon, authenticated;
 grant execute on function public.teaching_depth_command(uuid, uuid, text, jsonb) to service_role;
 
+-- Slides stay hidden until cases are checked: a session's slides are released to attendees once its
+-- presenter has confirmed the cases check (readiness.deid.confirm). The presenter and the team's
+-- organisers see them before that; everyone else, admins and visitors included, does not.
+create function public.teaching_slides_released(p_occurrence_id uuid, p_actor_id uuid) returns boolean
+language plpgsql stable security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare v_occ public.teaching_occurrences;
+begin
+  select * into v_occ from public.teaching_occurrences where id = p_occurrence_id;
+  if not found then return false; end if;
+  return exists (select 1 from public.teaching_readiness r where r.occurrence_id = v_occ.id and r.deid_confirmed_at is not null)
+    or (p_actor_id is not null and v_occ.presenter_id is not distinct from p_actor_id)
+    or coalesce(public.teaching_member_role(v_occ.service_id, p_actor_id) = 'organiser', false);
+end $$;
+
 -- What's on and Resources (spec §5a). A resource is seen by its own team, and by the team's health
--- service while the session or series it is linked to is open. Removed resources are seen by no one.
+-- service while the session or series it is linked to is open. Removed resources are seen by no one,
+-- and a session's slides by no one but its presenter and organisers until its cases are checked.
 create function public.teaching_resource_visible(p_resource_id uuid, p_actor_id uuid) returns boolean
 language plpgsql stable security invoker set search_path = public, pg_catalog, pg_temp as $$
 declare v_resource public.teaching_resources;
 begin
   select * into v_resource from public.teaching_resources where id = p_resource_id;
   if not found or v_resource.removed_at is not null then return false; end if;
+  if v_resource.kind = 'slides' and v_resource.occurrence_id is not null
+    and not public.teaching_slides_released(v_resource.occurrence_id, p_actor_id) then
+    return false;
+  end if;
   if public.service_member_active(v_resource.service_id, p_actor_id) then return true; end if;
   if v_resource.occurrence_id is not null then
     return public.teaching_occurrence_open_to(v_resource.occurrence_id, p_actor_id);
@@ -24520,7 +24658,8 @@ begin
           ) as w), '[]'::jsonb),
         'collections', coalesce((select jsonb_agg(jsonb_build_object(
             'collectionId', c.id, 'serviceId', c.service_id, 'name', c.name,
-            'count', (select count(*) from public.teaching_resources r where r.collection_id = c.id and r.removed_at is null))
+            'count', (select count(*) from public.teaching_resources r where r.collection_id = c.id and r.removed_at is null
+              and public.teaching_resource_visible(r.id, p_actor_id)))
             order by c.sort_order, lower(c.name), c.id)
           from public.teaching_collections c
           where public.service_member_active(c.service_id, p_actor_id)), '[]'::jsonb),
@@ -24546,7 +24685,8 @@ begin
               order by cs.sort_order, lower(cs.name), cs.id)
             from public.teaching_collection_sections cs where cs.collection_id = v_collection.id), '[]'::jsonb),
           'items', coalesce((select jsonb_agg(public.teaching_resource_row(r.id, p_actor_id) order by lower(r.title), r.id)
-            from public.teaching_resources r where r.collection_id = v_collection.id and r.removed_at is null), '[]'::jsonb));
+            from public.teaching_resources r where r.collection_id = v_collection.id and r.removed_at is null
+              and public.teaching_resource_visible(r.id, p_actor_id)), '[]'::jsonb));
       elsif v_text = 'recordings' then
         return jsonb_build_object('collection', null, 'sections', '[]'::jsonb,
           'items', coalesce((select jsonb_agg(public.teaching_resource_row(x.id, p_actor_id) order by x.added_at desc, x.id)
@@ -24742,6 +24882,8 @@ begin
   raise exception 'teaching_invalid_request';
 end $$;
 
+revoke all on function public.teaching_slides_released(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.teaching_slides_released(uuid, uuid) to service_role;
 revoke all on function public.teaching_resource_visible(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.teaching_resource_visible(uuid, uuid) to service_role;
 revoke all on function public.teaching_resource_row(uuid, uuid) from public, anon, authenticated;

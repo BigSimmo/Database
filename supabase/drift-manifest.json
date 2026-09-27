@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-26T23:34:01.752Z",
+  "generated_at": "2026-09-27T00:01:05.897Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "86c516a1600f5a9766c38634eaf4deef686c9606008d3580c3211dde5f96b3d7",
-  "replay_seconds": 18,
+  "schema_sha256": "ccaef486264990fce2e719d502777a8e5e64c9f4a89042a7345192fd2f9cf424",
+  "replay_seconds": 26,
   "snapshot": {
     "views": [
       {
@@ -18313,7 +18313,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "3241d7f01056ad0a0ad87c6775c12e4b",
+        "def_hash": "7723e103550139426e9c6f50e340fa26",
         "signature": "public.teaching_command(uuid,uuid,text,jsonb)"
       },
       {
@@ -18345,7 +18345,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "99eeb5245aa6f250ebd5ba9c94274a95",
+        "def_hash": "0067fcf58f915903cea57f86357b06ff",
         "signature": "public.teaching_depth_command(uuid,uuid,text,jsonb)"
       },
       {
@@ -18433,7 +18433,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a07b87577b7d4701b1a05f6eed7fc681",
+        "def_hash": "65406d6d09fb916eb734379aad147bd5",
         "signature": "public.teaching_resource_visible(uuid,uuid)"
       },
       {
@@ -18451,6 +18451,22 @@
         ],
         "def_hash": "1e3f063cdc0c64cf3743823277671f81",
         "signature": "public.teaching_series_open_to(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "468c64be99e85c307d85c3a66cade410",
+        "signature": "public.teaching_series_save(uuid,uuid,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "9f40f61d66c514fc9c06c3ebc910983e",
+        "signature": "public.teaching_slides_released(uuid,uuid)"
       },
       {
         "acl": [
@@ -18505,7 +18521,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "63403ca1443a01a319601be533a07993",
+        "def_hash": "dac61f06f2c099d104c4353d04ff7238",
         "signature": "public.teaching_valid_correction(text,jsonb)"
       },
       {
@@ -18529,7 +18545,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "51547c221ebdc9212fb398f8a83b2afd",
+        "def_hash": "cacaf33adaac34ceee62c9fc5b1c0763",
         "signature": "public.teaching_whats_on_command(uuid,uuid,text,jsonb)"
       },
       {
@@ -22371,7 +22387,7 @@
         "table": "teaching_readiness"
       },
       {
-        "def": "CHECK ((items <@ ARRAY['slides_ready'::text, 'room_confirmed'::text, 'join_link_tested'::text, 'materials_linked'::text, 'reading_list_set'::text]))",
+        "def": "CHECK ((items <@ ARRAY['reading_list'::text, 'aims'::text, 'slides_link'::text, 'room'::text]))",
         "name": "teaching_readiness_items_check",
         "table": "teaching_readiness"
       },
@@ -22606,7 +22622,7 @@
         "table": "teaching_supervision_entries"
       },
       {
-        "def": "CHECK ((((cardinality(topics) >= 1) AND (cardinality(topics) <= 5)) AND (topics <@ ARRAY['case_review'::text, 'risk'::text, 'psychotherapy'::text, 'formulation'::text, 'medication'::text, 'mha_legal'::text, 'teaching_skills'::text, 'career'::text, 'exam_prep'::text, 'wellbeing'::text, 'other'::text])))",
+        "def": "CHECK ((((cardinality(topics) >= 0) AND (cardinality(topics) <= 5)) AND (topics <@ ARRAY['case_review'::text, 'risk'::text, 'psychotherapy'::text, 'formulation'::text, 'medication'::text, 'mha_legal'::text, 'teaching_skills'::text, 'career'::text, 'exam_prep'::text, 'wellbeing'::text, 'other'::text])))",
         "name": "teaching_supervision_entries_topics_check",
         "table": "teaching_supervision_entries"
       },

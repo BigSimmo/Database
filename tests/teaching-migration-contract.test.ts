@@ -411,6 +411,8 @@ describe("teaching migration: teaching_command (D3)", () => {
     "attendance.remove",
     "session.next",
     "supervision.pending",
+    "teach.read",
+    "feedback.open",
   ];
 
   it("has the contract's signature and handles every contract action", () => {
@@ -423,7 +425,7 @@ describe("teaching migration: teaching_command (D3)", () => {
 
   it("takes a null team only for the actor's own cross-team actions, and for session.read from a calendar link", () => {
     expect(command).toContain(
-      "if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending') then",
+      "if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending','teach.read','feedback.open') then",
     );
     expect(command).toContain("if p_service_id is not null then raise exception 'teaching_invalid_request'; end if;");
     // session.read takes the team from the occurrence, before the unchanged membership check.
@@ -541,9 +543,10 @@ describe("teaching migration: teaching_command (D3)", () => {
     expect(actionBranch(command, "session.read")).toContain(
       "'canShowCode', v_is_presenter or coalesce(v_role = 'organiser', false),",
     );
+    // Spec §4 (R23): groups, pairings and import are for organisers and admins.
     for (const action of ["group.save", "group.delete", "group.members.set"]) {
       expect(actionBranch(command, action), action).toContain(
-        "if v_role <> 'organiser' then raise exception 'teaching_role_denied'; end if;",
+        "if v_role not in ('organiser','admin') then raise exception 'teaching_role_denied'; end if;",
       );
     }
   });
@@ -679,7 +682,12 @@ describe("teaching migration: teaching_command (D3)", () => {
   });
 
   it("takes an optional audience on series.save and returns it with openTo on organise.read (R3, R4, R6)", () => {
-    const save = actionBranch(command, "series.save");
+    // series.save checks the role and audits; the shared save (also import.commit's) does the rest.
+    const branch = actionBranch(command, "series.save");
+    expect(branch).toContain("if v_role <> 'organiser' then raise exception 'teaching_role_denied'; end if;");
+    expect(branch).toContain("v_result := public.teaching_series_save(p_actor_id, p_service_id, p_payload);");
+    const save = functionBody("teaching_series_save");
+    expect(save).not.toMatch(/teaching_audit|v_role|pg_advisory/);
     expect(save).toContain(
       "or (p_payload ? 'audience' and coalesce(v_audience, '') not in ('interns','residents','registrars','consultants','all_doctors'))",
     );
@@ -772,6 +780,116 @@ describe("teaching migration: teaching_command (D3)", () => {
     }
     expect(actionBranch(command, "calendar.set")).toContain(
       "if jsonb_typeof(p_payload->'enabled') is distinct from 'boolean' then raise exception 'teaching_invalid_request'; end if;",
+    );
+  });
+});
+
+describe("teaching migration: depth decisions (R23)", () => {
+  const command = functionBody("teaching_command");
+  const depth = functionBody("teaching_depth_command");
+  const blocks = tableBlocks();
+
+  it("handles import.commit all or nothing, for organisers and admins, through the shared series save", () => {
+    expect(depth).toContain("'feedback.submit','feedback.totals','import.commit') then");
+    expect(depth).toContain("if p_action in ('pairing.save','pairing.reassign','import.commit') then");
+    const commit = actionBranch(depth, "import.commit");
+    expect(commit).toContain(
+      "if v_role not in ('organiser','admin') then raise exception 'teaching_role_denied'; end if;",
+    );
+    expect(commit).toContain("jsonb_array_length(p_payload->'rows') not between 1 and 200");
+    expect(commit).toContain("if jsonb_typeof(v_row) is distinct from 'object' or v_row ? 'seriesId' then");
+    expect(commit).toContain("v_result := public.teaching_series_save(p_actor_id, p_service_id, v_row);");
+    expect(commit).toContain("public.teaching_audit(p_service_id, p_actor_id, 'series.save'");
+    expect(commit).toContain("public.teaching_audit(p_service_id, p_actor_id, 'import.commit', null)");
+    // No exception handler: one refused row aborts the statement, so nothing before it is kept.
+    expect(commit).not.toMatch(/exception when/);
+    // Pairings stay open to admins, including a pairing that includes the admin.
+    expect(actionBranch(depth, "pairing.save")).toContain("if not (v_role = 'admin' or (v_role = 'organiser' and");
+  });
+
+  it("reads a presenter's own talks and the feedback still owed, across the actor's active teams", () => {
+    const teach = actionBranch(command, "teach.read");
+    expect(teach).toContain(
+      "where o.presenter_id = p_actor_id and o.ends_at > now() and o.starts_at < now() + interval '90 days'",
+    );
+    expect(teach).toContain(
+      "'items', coalesce(to_jsonb(r.items), '[]'::jsonb), 'deidConfirmedAt', r.deid_confirmed_at)",
+    );
+    expect(teach).toContain("order by o.starts_at desc, o.id limit 50");
+    const open = actionBranch(command, "feedback.open");
+    expect(open).toContain("and o.ends_at <= now() and o.ends_at > now() - interval '7 days'");
+    // The same one-way marker feedback.submit writes; nothing new ties a person to an answer.
+    const marker =
+      "convert_to('teaching-feedback:' || o.id::text || ':' || p_actor_id::text, 'UTF8'), 'sha256'), 'hex')";
+    expect(open).toContain(marker);
+    expect(actionBranch(depth, "feedback.submit")).toContain(marker.replace("o.id::text", "v_occ.id::text"));
+    expect(open).not.toMatch(/teaching_feedback_answers|teaching_audit/);
+  });
+
+  it("adds presenting to week.read's teams for the pages sheet", () => {
+    expect(actionBranch(command, "week.read")).toContain(
+      "'presenting', exists (select 1 from public.teaching_occurrences o\n              where o.service_id = t.id and o.presenter_id = p_actor_id and o.status <> 'cancelled'\n                and o.ends_at > now() and o.starts_at < now() + interval '90 days')",
+    );
+  });
+
+  it("takes none to five supervision topics, in the table, the log and a correction", () => {
+    const entries = (blocks.get("teaching_supervision_entries") ?? []).join("\n");
+    expect(entries).toContain("topics text[] not null check (cardinality(topics) between 0 and 5 and topics <@");
+    expect(actionBranch(depth, "supervision.log")).toContain("or cardinality(v_topics) not between 0 and 5");
+    expect(functionBody("teaching_valid_correction")).toContain(
+      "else jsonb_array_length(p_value->'topics') between 0 and 5",
+    );
+    expect(sql).not.toMatch(/cardinality\((v_)?topics\) (not )?between 1|'topics'\) between 1/);
+  });
+
+  it("uses the four approved readiness items and keeps the cases-checked confirmation", () => {
+    const readiness = (blocks.get("teaching_readiness") ?? []).join("\n");
+    expect(readiness).toContain(
+      "items text[] not null default '{}' check (items <@ array['reading_list','aims','slides_link','room']::text[]),",
+    );
+    expect(readiness).toContain("deid_confirmed_at timestamptz,");
+    expect(actionBranch(depth, "readiness.set")).toContain(
+      "if v_text is null or v_text not in ('reading_list','aims','slides_link','room')",
+    );
+    expect(sql).not.toMatch(/slides_ready|room_confirmed|join_link_tested|materials_linked|reading_list_set/);
+  });
+
+  it("hides a session's slides from all but its presenter and organisers until its cases are checked", () => {
+    const released = functionBody("teaching_slides_released");
+    expect(released).toContain("r.deid_confirmed_at is not null");
+    expect(released).toContain("(p_actor_id is not null and v_occ.presenter_id is not distinct from p_actor_id)");
+    expect(released).toContain(
+      "coalesce(public.teaching_member_role(v_occ.service_id, p_actor_id) = 'organiser', false)",
+    );
+    expect(released).not.toMatch(/'admin'/);
+    const visible = functionBody("teaching_resource_visible");
+    const gate = visible.indexOf("if v_resource.kind = 'slides' and v_resource.occurrence_id is not null");
+    expect(gate).toBeGreaterThan(-1);
+    expect(gate).toBeLessThan(visible.indexOf("public.service_member_active(v_resource.service_id, p_actor_id)"));
+    // Every resource read goes through the visibility check, including a team collection's items.
+    const whatsOn = functionBody("teaching_whats_on_command");
+    const collection = actionBranch(whatsOn, "collection.read");
+    expect(collection).toContain(
+      "from public.teaching_resources r where r.collection_id = v_collection.id and r.removed_at is null\n              and public.teaching_resource_visible(r.id, p_actor_id)",
+    );
+  });
+
+  it("audits an organiser's whole-team supervision read once, and lets a leaver read their own for 90 days", () => {
+    const read = actionBranch(depth, "supervision.read");
+    expect(read).toContain(
+      "if v_id is null and v_role = 'organiser' then\n      -- An organiser's whole-team read (Logbook, Today): one service-level row per call.\n      perform public.teaching_audit(p_service_id, p_actor_id, 'supervision.read', null);",
+    );
+    expect(depth).toContain(
+      "v_leaver := p_action = 'supervision.read' and exists (select 1 from public.on_call_service_members m\n      where m.service_id = p_service_id and m.user_id = p_actor_id\n        and m.revoked_at is not null and m.revoked_at > now() - interval '90 days');",
+    );
+    expect(depth).toContain("if not v_leaver then raise exception 'teaching_access_denied'; end if;");
+    // A leaver sees only pairings where they are the registrar.
+    expect(read).toContain(
+      "and (p.registrar_id = p_actor_id or (not v_leaver and (p.supervisor_id = p_actor_id or v_role = 'organiser')));",
+    );
+    // Totals stay organiser-only.
+    expect(actionBranch(depth, "feedback.totals")).toContain(
+      "if not (v_occ.presenter_id = p_actor_id or v_role = 'organiser')",
     );
   });
 });
