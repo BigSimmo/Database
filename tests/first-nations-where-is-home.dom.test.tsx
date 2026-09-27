@@ -24,7 +24,7 @@ describe("WhereIsHomePanel", () => {
   it("has one filled button: Add to letter", () => {
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: "Goldfields" }));
-    const filled = document.querySelectorAll("[data-fn-filled]");
+    const filled = document.querySelectorAll("[data-mode-filled]");
     expect(filled).toHaveLength(1);
     expect(filled[0].textContent).toBe("Add to letter");
   });

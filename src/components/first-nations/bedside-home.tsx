@@ -1,4 +1,6 @@
-// Server component: the Bedside home, composed from the view-model and the client islands.
+"use client";
+// Public service information only; patient-context tools keep their own transient state.
+import { useChosenHospital } from "@/components/first-nations/hospital-choice";
 import { BeforeYouGoIn } from "@/components/first-nations/before-you-go-in";
 import { CrisisStrip } from "@/components/first-nations/crisis";
 import { FirstNationsSearch } from "@/components/first-nations/first-nations-search";
@@ -45,7 +47,7 @@ export function BedsideHomeView({
   training?: Training;
   mapSource?: SourceView | null;
 }) {
-  const hospital = model.hospitals[0] ?? null;
+  const [hospital, chooseHospital] = useChosenHospital(model.hospitals);
   return (
     <SituationProvider situations={model.situations} liaison={hospital?.liaison ?? null}>
       <FirstNationsHomeMenu
@@ -58,6 +60,22 @@ export function BedsideHomeView({
         <div className="grid min-w-0 content-start gap-3 px-3 pb-6 pt-3 lg:px-5">
           {model.showExampleLine ? <ExampleLine /> : null}
           <OfflineState />
+          {model.hospitals.length > 1 ? (
+            <label className="grid gap-1 text-sm-minus text-[color:var(--text-muted)]">
+              Your workplace hospital
+              <select
+                value={hospital?.id ?? ""}
+                onChange={(event) => chooseHospital(event.target.value)}
+                className="min-h-12 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--text-heading)]"
+              >
+                {model.hospitals.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-[1.1fr_1fr] md:items-start">
             <div className="grid min-w-0 gap-3 md:col-start-1 md:row-start-1">
               {hospital ? (

@@ -72,7 +72,7 @@ test("@critical Sources catalogue filters and opens traceability", async ({ page
   await page.goto("/sources/search?usedBy=dictionary", { waitUntil: "domcontentloaded" });
   await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
   await expect(page.getByRole("button", { name: "Remove Used in: Dictionary filter" })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("source");
+  await expect(page.getByTestId("search-query-ribbon").getByRole("status")).toContainText("source");
 
   // Below the sm breakpoint the toolbar swaps the desktop trigger for its phone twin.
   const phoneWidth = (page.viewportSize()?.width ?? 1280) < 640;
@@ -104,7 +104,7 @@ test("@critical Sources browse tabs carry the results band and reach the filtere
   const topics = await expectSingleSettledOwner(visibleByTestId(page, "sources-topics-main"));
   // The same band the Catalogue shows, counting topics rather than sources.
   await expect(page.getByTestId("search-query-ribbon")).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("topic");
+  await expect(page.getByTestId("search-query-ribbon").getByRole("status")).toContainText("topic");
   await expectNoHorizontalOverflow(page);
 
   // The phone control is the badged trigger, which is what keeps the band on
@@ -123,7 +123,7 @@ test("@critical Sources browse tabs carry the results band and reach the filtere
 
   await page.goto("/sources/publishers", { waitUntil: "domcontentloaded" });
   await expectSingleSettledOwner(page.getByTestId("sources-publishers-main"));
-  await expect(page.getByRole("status")).toContainText("publisher");
+  await expect(page.getByTestId("search-query-ribbon").getByRole("status")).toContainText("publisher");
   await expectNoHorizontalOverflow(page);
 });
 
@@ -140,7 +140,7 @@ test("catalogue Clear search stays on the catalogue and keeps the filters", asyn
 
 test("a browse query narrows the browse list instead of being ignored", async ({ page }) => {
   await page.goto("/sources/topics?q=zzzzznomatch", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("status")).toContainText("0 topics");
+  await expect(page.getByTestId("search-query-ribbon").getByRole("status")).toContainText("0 topics");
   await expect(page.getByTestId("search-results-empty-clear-search")).toBeVisible();
 });
 
