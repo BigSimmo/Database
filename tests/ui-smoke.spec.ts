@@ -93,9 +93,20 @@ async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
   // A sheet can leave the page hundreds of pixels down after its trigger was
-  // scrolled into view. A 48px upward nudge does not bring the phone header
-  // back into the viewport under WebKit.
-  if (scrollTop > 0) await scrollPrimarySurface(page, 0);
+  // scrolled into view. WebKit may restore that offset after scrollTo returns;
+  // set the document scroll position directly and require the page to reach top.
+  if (scrollTop > 0) {
+    await expect
+      .poll(async () => {
+        await page.evaluate(() => {
+          const scroller = document.scrollingElement ?? document.documentElement;
+          scroller.scrollTop = 0;
+          window.dispatchEvent(new Event("scroll"));
+        });
+        return (await readPrimaryScrollGeometry(page)).scrollTop;
+      })
+      .toBeLessThanOrEqual(1);
+  }
   await expect(control).toBeInViewport();
 }
 
@@ -1829,6 +1840,9 @@ test.describe("PsychSift UI smoke coverage", () => {
       { width: 639, height: 820 },
     ]) {
       await page.setViewportSize(viewportSize);
+      await setupScrollPort.evaluate((element) => {
+        element.scrollTop = 0;
+      });
       await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
       await expectNoPageHorizontalOverflow(page);
     }
