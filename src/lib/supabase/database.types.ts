@@ -4564,10 +4564,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      roster_publication_protections: {
+        Row: {
+          id: string;
+          service_id: string;
+          swap_id: string | null;
+          open_shift_id: string | null;
+          give_assignment_id: string;
+          take_assignment_id: string | null;
+          overridden_at: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          swap_id?: string | null;
+          open_shift_id?: string | null;
+          give_assignment_id: string;
+          take_assignment_id?: string | null;
+          overridden_at?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          swap_id?: string | null;
+          open_shift_id?: string | null;
+          give_assignment_id?: string;
+          take_assignment_id?: string | null;
+          overridden_at?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       roster_team_settings: {
         Row: {
           ai_helper_consented_at: string | null;
           ai_helper_consented_by: string | null;
+          next_cutoff_on: string | null;
           pay_fortnight_anchor: string | null;
           rules: Json;
           rules_source: string | null;
@@ -4579,6 +4613,7 @@ export type Database = {
         Insert: {
           ai_helper_consented_at?: string | null;
           ai_helper_consented_by?: string | null;
+          next_cutoff_on?: string | null;
           pay_fortnight_anchor?: string | null;
           rules?: Json;
           rules_source?: string | null;
@@ -4590,6 +4625,7 @@ export type Database = {
         Update: {
           ai_helper_consented_at?: string | null;
           ai_helper_consented_by?: string | null;
+          next_cutoff_on?: string | null;
           pay_fortnight_anchor?: string | null;
           rules?: Json;
           rules_source?: string | null;
@@ -4720,6 +4756,18 @@ export type Database = {
       };
       roster_command: {
         Args: { p_actor_id: string; p_service_id: string; p_action: string; p_payload?: Json };
+        Returns: Json;
+      };
+      roster_set_cutoff: {
+        Args: { p_actor_id: string; p_service_id: string; p_cutoff: string | null };
+        Returns: Json;
+      };
+      roster_publish_preview: {
+        Args: { p_actor_id: string; p_service_id: string; p_from: string; p_to: string };
+        Returns: Json;
+      };
+      roster_publish: {
+        Args: { p_actor_id: string; p_service_id: string; p_expected_token: string; p_payload: Json };
         Returns: Json;
       };
       roster_set_manager: {
