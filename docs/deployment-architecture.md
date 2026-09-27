@@ -17,7 +17,7 @@ and are specified here.
 flowchart TB
     user["Clinician (browser / PWA)"]
     subgraph railway["Railway — Southeast Asia (Singapore)"]
-        app["app tier: Next.js 16 (Dockerfile)<br/>service Database → psychiatry.tools"]
+        app["app tier: Next.js 16 (Dockerfile)<br/>service PsychSift → psychiatry.tools"]
         worker["ingestion worker (Dockerfile.worker)<br/>parse · OCR · chunk · embed"]
     end
     subgraph supabase["Supabase — ap-southeast-2 (Sydney)"]
@@ -45,12 +45,12 @@ Railway's private network — see §2.1). Both Railway services deploy from
 
 ## 1. Current state (what runs today)
 
-- **Live on Railway.** Project **`Database`** (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`),
+- **Live on Railway.** Project **`PsychSift`** (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`),
   environment `production` (`6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4`), region
   **Southeast Asia (`asia-southeast1-eqsg3a`, Singapore)** — the closest Railway
   region to the Supabase project. Two services from this one repo, both connected
   to the `BigSimmo/PsychSift` GitHub repo and auto-deploying on pushes to `main`:
-  - **`Database`** — the Next.js app tier (`Dockerfile`), serving the custom domain
+  - **`PsychSift`** — the Next.js app tier (`Dockerfile`), serving the custom domain
     **`https://psychiatry.tools`**, one warm replica, Railway healthcheck path
     `/api/health/ready`, restart-on-failure.
   - **`worker`** — the ingestion worker (`Dockerfile.worker`), one always-on
@@ -676,7 +676,7 @@ Rules:
   deliberately does not push to a registry; Railway builds the
   deployable image itself from the tree on deploy, after the standard gates
   (`verify` + `ui-smoke` + the clinical governance preflight where relevant).
-- **Deploy:** `railway up --service Database` / `--service worker` (or the
+- **Deploy:** `railway up --service PsychSift` / `--service worker` (or the
   connected GitHub source) builds and releases. Per-service watch patterns skip
   docs, tests, and CI-only commits while retaining every runtime, dependency,
   Docker, and service-config input. Railway does a rolling app deploy and marks

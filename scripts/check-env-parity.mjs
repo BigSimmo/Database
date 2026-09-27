@@ -108,7 +108,7 @@ export function githubListArgs(kind) {
 }
 
 export function railwayVariableArgs(service) {
-  if (service !== "Database" && service !== "worker") throw new Error(`Unsupported Railway service: ${service}`);
+  if (service !== "PsychSift" && service !== "worker") throw new Error(`Unsupported Railway service: ${service}`);
   return [
     "variable",
     "list",
@@ -238,8 +238,8 @@ function main() {
   reportSource({
     enabled: useRailway,
     flag: "--railway",
-    label: "Railway Database variables",
-    getter: () => railwayNames("Database"),
+    label: "Railway PsychSift variables",
+    getter: () => railwayNames("PsychSift"),
     expected: EXPECTED_RAILWAY_APP_VARIABLES,
     canonical,
     problems,

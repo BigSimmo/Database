@@ -373,7 +373,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 # Railway project safety
 
 - This repo deploys to the live Railway project `PsychSift` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) in workspace `bigsimmo's Projects`. Full topology: `docs/deployment-architecture.md` §1.
-- Production services `Database` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/PsychSift` pushes to `main`; the `staging` environment runs the `app` service.
+- Production services `PsychSift` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/PsychSift` pushes to `main`; the `staging` environment runs the `app` service.
 - The older Railway project `clinical-kb` (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) is superseded with zero active deployments; treat it as stale — never `railway link` to it or deploy there.
 - The similarly named Supabase project `PsychSift Production` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
 - Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects; Cloud runtime acceptance no longer installs or probes the CLI, so that substitution rule is documentation-enforced until an operator workflow reintroduces CLI checks. Desktop/CLI MCP uses the secret-free `railway` entry (enable in `$CODEX_HOME/config.toml` or via a never-committed local edit — never commit `enabled = true`) plus `codex mcp login railway`; neither repository MCP file activates a hosted ChatGPT/Codex app.
