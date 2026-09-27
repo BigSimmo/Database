@@ -1055,7 +1055,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              54 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              59 |
 | `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
@@ -1091,15 +1091,15 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `SearchField`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              37 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              40 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
-| `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
-| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
+| `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              18 |
 | `TextLink`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
