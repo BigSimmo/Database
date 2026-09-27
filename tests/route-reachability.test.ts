@@ -38,6 +38,14 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "Legacy /on-call/calendar redirect target for existing bookmarks; Roster Settings owns current calendar subscription, so no in-app navigation links this compatibility page.",
   ],
   [
+    "/roster/manage",
+    "Manager-only destination rendered by ModeRow on Today and Settings; it is deliberately absent from navigation for non-managers.",
+  ],
+  [
+    "/roster/join",
+    "Invite destination rendered by ModeRow on Team and Today; ModeRow owns the link rather than a direct Next Link in the page.",
+  ],
+  [
     "/documents/source",
     "Legacy compatibility redirect target reached by external/legacy deep links, not in-app navigation (frontend-architecture.md).",
   ],

@@ -162,6 +162,14 @@ function SwapSession({
       setError(result.message);
       return;
     }
+    if (action === "swap.accept" && result.result.status === "cancelled") {
+      setError(
+        result.result.cancelReason === "no_longer_fits"
+          ? "This swap no longer fits the current roster. Refresh Requests before trying again."
+          : "This swap was cancelled because the roster changed. Refresh Requests before trying again.",
+      );
+      return;
+    }
     if (action === "swap.undo") {
       onSent("Swap undone");
       onClose();

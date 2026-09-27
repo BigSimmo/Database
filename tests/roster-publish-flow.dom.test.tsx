@@ -184,7 +184,7 @@ describe("Roster publication preparation", () => {
     ]);
   });
 
-  it("requires an explicit file choice to undo an approved open-shift claim", async () => {
+  it("routes a changed published duty to Maker instead of undoing its claim directly", async () => {
     const userId = "5e000000-0000-4000-8000-000000000008";
     const assignmentId = "5e000000-0000-4000-8000-000000000007";
     const openShiftId = "5e000000-0000-4000-8000-000000000009";
@@ -222,18 +222,12 @@ describe("Roster publication preparation", () => {
     chooseFile();
     fireEvent.click(await screen.findByRole("button", { name: "Open shift" }));
     await screen.findByText(/Would undo 1 approved open-shift claim/);
-    expect(screen.getByText(/0 open shifts to post/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Use file, undo claim" }));
-    expect(screen.getByText(/1 open shift to post/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
-    await screen.findByText(/1 open shift ready/);
+    expect(screen.getByText(/This upload can only publish the first roster/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
     const post = fetchMock.mock.calls.find(
       ([url, init]) => String(url).endsWith("/publish") && init?.method === "POST",
     );
-    const body = JSON.parse(post![1].body as string);
-    expect(body.overrideChanges).toEqual([{ kind: "open", id: openShiftId }]);
-    expect(body.publication.assignments).toEqual([]);
-    expect(body.openShifts).toHaveLength(1);
+    expect(post).toBeUndefined();
   });
 
   it("recognises a saved day-off code on the next roster and carries it into publication", async () => {

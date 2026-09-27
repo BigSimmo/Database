@@ -17,8 +17,31 @@ export async function withdrawRosterRequests(client: RosterAdminClient, ownerId:
         else if (swap.counterpartyId === ownerId && swap.status === "requested")
           await rosterCommand(client, ownerId, team.serviceId, { action: "swap.decline", swapId: swap.id });
       }
-      for (const open of requests.openShifts.filter((row) => row.mine && ["reported", "open"].includes(row.status)))
+      for (const open of requests.openShifts.filter(
+        (row) => row.mine && ["reported", "open", "claimed"].includes(row.status),
+      ))
         await rosterCommand(client, ownerId, team.serviceId, { action: "open.cancel", openShiftId: open.id });
+      // The ordinary RPC permits only a manager to decline an accepted swap or
+      // a claim. Data deletion still has to release this actor's pending role.
+      const { error: acceptedSwapError } = await client
+        .from("roster_swaps")
+        .update({
+          status: "cancelled",
+          cancel_reason: "member_left",
+          decided_at: now.toISOString(),
+          decided_by: ownerId,
+        })
+        .eq("service_id", team.serviceId)
+        .eq("counterparty_id", ownerId)
+        .eq("status", "accepted");
+      if (acceptedSwapError) throw rosterUnavailable();
+      const { error: claimError } = await client
+        .from("roster_open_shifts")
+        .update({ status: "open", claimed_by: null, claimed_at: null })
+        .eq("service_id", team.serviceId)
+        .eq("claimed_by", ownerId)
+        .eq("status", "claimed");
+      if (claimError) throw rosterUnavailable();
       // There is no date horizon in SQL; the per-member cap is 120 entries.
       const today = perthDateOf(now);
       const { data: dates, error } = await client

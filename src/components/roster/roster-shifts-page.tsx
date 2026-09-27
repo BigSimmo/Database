@@ -19,7 +19,7 @@ import { cn, primaryControl } from "@/components/ui-primitives";
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
 import { monthGridRange, monthKeyOf } from "@/lib/calendar/month-grid";
 import { isWorkedKind, SHIFT_KIND_LABEL, SHIFT_LETTER } from "@/lib/roster/shift-kind";
-import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
+import { waPublicHolidaysForYear } from "@/lib/on-call/wa-public-holidays";
 import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
@@ -59,9 +59,9 @@ function hoursOf(shift: OnCallShift): number {
 
 /** Shifts as calendar events: the letter and kind as the title, no place. */
 function toCalendarEvents(shifts: readonly OnCallShift[]): CalendarEvent[] {
-  return shifts.map((shift) => {
+  return shifts.flatMap((shift) => {
     const kind = kindOf(shift);
-    return {
+    const first: CalendarEvent = {
       id: `roster-${shift.id}`,
       title: `${SHIFT_LETTER[kind]} · ${SHIFT_KIND_LABEL[kind]}`,
       date: perthDateOf(shift.startsAt),
@@ -69,6 +69,20 @@ function toCalendarEvents(shifts: readonly OnCallShift[]): CalendarEvent[] {
       durationMinutes: Math.round(hoursOf(shift) * 60),
       kind: "other",
     };
+    const endDate = perthDateOf(shift.endsAt);
+    if (endDate <= first.date || perthTimeOf(shift.endsAt) === "00:00") return [first];
+    return [
+      first,
+      {
+        ...first,
+        id: `${first.id}-continued`,
+        date: endDate,
+        title: `${first.title} (continued)`,
+        startTime: "00:00",
+        durationMinutes:
+          Number(perthTimeOf(shift.endsAt).slice(0, 2)) * 60 + Number(perthTimeOf(shift.endsAt).slice(3, 5)),
+      },
+    ];
   });
 }
 
@@ -195,9 +209,9 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const monthRange = monthGridRange(month);
   const teamRange =
     view === "month"
-      ? { from: monthRange.start, to: monthRange.end }
+      ? { from: addDaysToDate(monthRange.start, -1), to: monthRange.end }
       : view === "week"
-        ? { from: monday, to: addDaysToDate(monday, 6) }
+        ? { from: addDaysToDate(monday, -1), to: addDaysToDate(monday, 6) }
         : { from: addDaysToDate(today, -21), to: addDaysToDate(today, 40) };
   const shifts = useRosterShifts(teamRange);
   const teams = useRosterTeams();
@@ -216,10 +230,15 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const events = useMemo(() => toCalendarEvents(shifts.shifts), [shifts.shifts]);
   const holidayEvents = useMemo<CalendarEvent[]>(
     () =>
-      [...WA_PUBLIC_HOLIDAYS]
-        .filter((date) => date.slice(0, 4) >= today.slice(0, 4))
+      [
+        ...new Set([
+          ...waPublicHolidaysForYear(Number(monthRange.start.slice(0, 4))),
+          ...waPublicHolidaysForYear(Number(monthRange.end.slice(0, 4))),
+        ]),
+      ]
+        .filter((date) => date >= monthRange.start && date <= monthRange.end)
         .map((date) => ({ id: `wa-holiday-${date}`, title: "WA public holiday", date, kind: "other" })),
-    [today],
+    [monthRange.start, monthRange.end],
   );
   const workplaces = useMemo(
     () => [...new Set(shifts.shifts.flatMap((shift) => (shift.workplace ? [shift.workplace] : [])))],
@@ -283,7 +302,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
                   <div className={shifts.teamLoading ? "hidden" : undefined}>
                     <CalendarView
                       events={[...events, ...holidayEvents]}
-                      exportEvents={events}
+                      exportEvents={events.filter((event) => !event.id.endsWith("-continued"))}
                       today={today}
                       exportName="Roster"
                       testId="roster-shifts-month"

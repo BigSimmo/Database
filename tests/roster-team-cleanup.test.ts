@@ -46,26 +46,43 @@ it("withdraws only the actor's unfinished requests and future dates, never assig
     swaps: [
       { id: "mine", requesterId: "owner", counterpartyId: "other", status: "accepted" },
       { id: "incoming", requesterId: "other", counterpartyId: "owner", status: "requested" },
+      { id: "accepted-incoming", requesterId: "other", counterpartyId: "owner", status: "accepted" },
       { id: "finished", requesterId: "owner", status: "approved" },
     ],
     openShifts: [
       { id: "open", mine: true, status: "open" },
+      { id: "my-claimed-offer", mine: true, status: "claimed" },
       { id: "theirs", mine: false, status: "open" },
+      { id: "claimed", mine: false, claimedByMe: true, status: "claimed" },
     ],
   });
   const eq = vi.fn().mockReturnThis();
   const gte = vi.fn().mockReturnThis();
   const limit = vi.fn().mockResolvedValue({ data: [{ on_date: "2028-01-01" }], error: null });
-  const from = vi.fn(() => ({ select: () => ({ eq, gte, limit }) }));
+  let updateFilterCount = 0;
+  const updateChain = { eq: vi.fn() };
+  updateChain.eq.mockImplementation(() => {
+    updateFilterCount++;
+    return updateFilterCount % 3 === 0 ? Promise.resolve({ error: null }) : updateChain;
+  });
+  const update = vi.fn(() => updateChain);
+  const from = vi.fn((table: string) =>
+    table === "roster_unavailability" ? { select: () => ({ eq, gte, limit }) } : { update },
+  );
   const result = await withdrawRosterRequests({ from } as unknown as RosterAdminClient, "owner", now);
   expect(result.skippedTeams).toBe(0);
   expect(mocks.command.mock.calls.map((args) => args[3])).toEqual([
     { action: "swap.cancel", swapId: "mine" },
     { action: "swap.decline", swapId: "incoming" },
     { action: "open.cancel", openShiftId: "open" },
+    { action: "open.cancel", openShiftId: "my-claimed-offer" },
     { action: "unavailability.set", set: [], clear: ["2028-01-01"] },
   ]);
   expect(from).toHaveBeenCalledWith("roster_unavailability");
+  expect(from).toHaveBeenCalledWith("roster_swaps");
+  expect(from).toHaveBeenCalledWith("roster_open_shifts");
+  expect(updateChain.eq).toHaveBeenCalledWith("counterparty_id", "owner");
+  expect(updateChain.eq).toHaveBeenCalledWith("claimed_by", "owner");
   expect(eq).toHaveBeenCalledWith("user_id", "owner");
   expect(eq).toHaveBeenCalledWith("service_id", "team");
 });

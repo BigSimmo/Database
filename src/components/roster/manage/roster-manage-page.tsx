@@ -35,7 +35,7 @@ function ManagerTeam({ serviceId }: { serviceId: string }) {
         <RosterMakerTab serviceId={serviceId} overview={overview.data} />
       ) : (
         <>
-          <RosterPublishTab serviceId={serviceId} overview={overview.data} />
+          <RosterPublishTab serviceId={serviceId} overview={overview.data} onOpenMaker={() => setSection("maker")} />
           <RosterPeopleList
             team={{
               serviceId,

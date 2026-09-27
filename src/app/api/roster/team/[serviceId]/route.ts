@@ -77,6 +77,19 @@ export async function POST(request: Request, context: Context) {
   return withRosterApi(request, async (client, actorId) => {
     const serviceId = await serviceIdFrom(context);
     const action = await parseJsonBody(request, rosterActionSchema, "Check the request and try again.");
+    if (action.action === "settings.set") {
+      // These two rules have a dated Maker review. The legacy command leaves
+      // that date untouched, so refuse changes here and require Maker instead.
+      const current = await rosterRead(client, actorId, serviceId, "overview");
+      const reviewedRules = ["minBreakHours", "maxHours7d"] as const;
+      if (
+        reviewedRules.some((key) => (action.rules[key] ?? null) !== (current.settings.rules[key] ?? null)) ||
+        (reviewedRules.some((key) => current.settings.rules[key] != null) &&
+          action.rulesSource !== current.settings.rulesSource)
+      ) {
+        throw rosterInvalidRequest("Review staffing rules in Maker before saving them.");
+      }
+    }
     let before: RosterAlertEvent["before"];
     if (action.action === "open.decline") {
       // The SQL clears the claimer on decline, so read it first for the alert. A failed read

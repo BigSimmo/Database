@@ -87,7 +87,15 @@ function validGrid(value: unknown): value is RosterGrid {
   );
 }
 
-export function RosterPublishTab({ serviceId, overview }: { serviceId: string; overview: RosterOverview }) {
+export function RosterPublishTab({
+  serviceId,
+  overview,
+  onOpenMaker,
+}: {
+  serviceId: string;
+  overview: RosterOverview;
+  onOpenMaker?: () => void;
+}) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [grid, setGrid] = useState<RosterGrid | null>(null);
   const [sourceName, setSourceName] = useState<string | null>(null);
@@ -278,7 +286,9 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
       return caught instanceof Error ? caught.message : "Check the roster before publishing.";
     }
   }, [canBuild, period, sourceName, comparison, read.rows, read.openShifts]);
-  const canPublish = live.status === "ready" && Boolean(comparison) && !publishing && canBuild && !previewError;
+  const hasExistingDuties = live.status === "ready" && live.assignments.length > 0;
+  const canPublish =
+    live.status === "ready" && Boolean(comparison) && !hasExistingDuties && !publishing && canBuild && !previewError;
 
   async function publish() {
     if (!canPublish || !period || !grid || !comparison || live.status !== "ready") return;
@@ -458,6 +468,17 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
             />
           ) : null}
           {previewError ? <ModeNotice tone="warning">{previewError}</ModeNotice> : null}
+          {hasExistingDuties ? (
+            <ModeNotice tone="warning">
+              This upload can only publish the first roster. To change existing duties, use Maker so each affected
+              doctor can review and agree.
+              {onOpenMaker ? (
+                <Button variant="secondary" onClick={onOpenMaker}>
+                  Open Maker
+                </Button>
+              ) : null}
+            </ModeNotice>
+          ) : null}
           <Button variant="primary" disabled={!canPublish} onClick={() => void publish()}>
             {publishing ? "Publishing…" : "Publish"}
           </Button>

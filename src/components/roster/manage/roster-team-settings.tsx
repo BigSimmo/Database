@@ -6,10 +6,8 @@ import { postRosterAction } from "@/components/roster/use-roster-team";
 import { rosterRulesSchema, type RosterOverview, type RosterRules } from "@/lib/roster/team/model";
 
 const rules: readonly [keyof RosterRules, string][] = [
-  ["minBreakHours", "Minimum break (hours)"],
   ["maxNightsInRow", "Maximum nights in a row"],
   ["maxDaysInRow", "Maximum days in a row"],
-  ["maxHours7d", "Maximum hours in 7 days"],
   ["maxHours14d", "Maximum hours in 14 days"],
 ];
 export function RosterTeamSettings({ serviceId, overview }: { serviceId: string; overview: RosterOverview }) {
@@ -97,6 +95,7 @@ export function RosterTeamSettings({ serviceId, overview }: { serviceId: string;
           onChange={(event) => setValues({ ...values, [key]: event.target.value })}
         />
       ))}
+      <p className="text-sm">Review minimum breaks and maximum hours per week in Maker.</p>
       <TextField
         label="Where the rules come from"
         value={source}

@@ -156,7 +156,7 @@ export function waPublicHolidaysByRule(year: number): string[] {
 
 const ruleCache = new Map<number, ReadonlySet<string>>();
 
-function holidaysFor(year: number): ReadonlySet<string> {
+export function waPublicHolidaysForYear(year: number): ReadonlySet<string> {
   if (year <= WA_PUBLIC_HOLIDAYS_LAST_YEAR) return WA_PUBLIC_HOLIDAYS;
   let set = ruleCache.get(year);
   if (!set) {
@@ -175,5 +175,5 @@ function holidaysFor(year: number): ReadonlySet<string> {
  */
 export function isWaPublicHoliday(now: Date): boolean {
   const key = onCallLocalDateKey(now);
-  return holidaysFor(Number(key.slice(0, 4))).has(key);
+  return waPublicHolidaysForYear(Number(key.slice(0, 4))).has(key);
 }
