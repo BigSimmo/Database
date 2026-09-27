@@ -39,7 +39,7 @@ diagnose_setup_failure() {
 }
 trap diagnose_setup_failure ERR
 
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "Run this script from the Database repository."
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "Run this script from the PsychSift repository."
 cd "$repo_root"
 
 expected_node_major="$(tr -cd '0-9' < .node-version)"
