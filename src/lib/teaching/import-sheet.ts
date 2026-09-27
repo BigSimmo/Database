@@ -9,11 +9,11 @@ import { plainTeachingIssue, type GroupRow, type SeriesInput } from "@/lib/teach
 
 /*
  * Row validation for a term of sessions from the template (spec §9). Master plan R25: the browser
- * reads the file with `parseCsv` or `readXlsxRows` (both in `import-sheet-reader.ts`, the browser-only
- * module that also carries the size/archive checks and the lazy exceljs/jszip loads) and sends only
- * the rows; this module runs `previewRows` against the organiser's groups, and the commit is one
- * all-or-nothing call. No file is sent or stored. The template has no presenter or patient-related
- * column.
+ * parses a CSV itself (`import-csv.ts`); an .xlsx goes to `/api/teaching/import/read`, which reads it
+ * in memory with `readXlsxRows` (`import-sheet-reader.ts`, which carries the size/archive checks and
+ * the lazy exceljs/jszip loads) and returns only the rows, so exceljs stays out of the client bundle.
+ * This module runs `previewRows` against the organiser's groups, and the commit is one all-or-nothing
+ * call. No file is stored. The template has no presenter or patient-related column.
  *
  * This module is imported by `depth-repository.ts` (server), so it must stay free of exceljs/jszip —
  * a prior version held the reader functions here too, and the bundler traced exceljs -> unzipper -> an

@@ -66,7 +66,7 @@ export function TeachingWeekScreen({ demoMode, sidePanel }: { demoMode: boolean;
   const view = useTeachingWeek(range, { demoMode, signedOutDemo }, now);
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-week">
-      <div className="grid gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
         <h1 className="sr-only">Week</h1>
         {today && monday ? (
           <WeekBody

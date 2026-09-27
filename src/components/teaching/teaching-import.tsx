@@ -6,7 +6,7 @@ import { ModeNotice } from "@/components/mode-kit/notice";
 import { TeachingAccountPage, TeachingDepthPage } from "@/components/teaching/teaching-depth-page";
 import { useTeachingResource } from "@/components/teaching/use-teaching-resource";
 import { Button } from "@/components/ui/button";
-import { teachingErrorMessage, teachingPost } from "@/lib/teaching/client";
+import { teachingErrorMessage, teachingPost, teachingUpload } from "@/lib/teaching/client";
 import { DEMO_TEACHING_SERVICE_ID } from "@/lib/teaching/demo-programme";
 import {
   IMPORT_MAX_FILE_BYTES,
@@ -14,9 +14,19 @@ import {
   teachingDepthUrl,
   type ImportCommitted,
   type ImportPreview,
+  type SheetRow,
 } from "@/lib/teaching/depth-model";
+import { parseCsv } from "@/lib/teaching/import-csv";
 import { previewRows } from "@/lib/teaching/import-sheet";
 import type { TeamSummary } from "@/lib/teaching/model";
+
+const TEACHING_IMPORT_READ_URL = "/api/teaching/import/read";
+
+function formWith(file: File): FormData {
+  const form = new FormData();
+  form.append("file", file);
+  return form;
+}
 
 function ImportPage({ demoMode }: { demoMode: boolean }) {
   const resource = useTeachingResource<{ teams: TeamSummary[] }>(demoMode ? null : "/api/teaching?view=week");
@@ -92,11 +102,11 @@ function ImportPage({ demoMode }: { demoMode: boolean }) {
                 }
                 setBusy(true);
                 try {
-                  const reader = await import("@/lib/teaching/import-sheet-reader");
+                  // An .xlsx is read on the server so exceljs never ships to the browser; CSV stays local.
                   const rows = /\.xlsx$/i.test(file.name)
-                    ? await reader.readXlsxRows(await file.arrayBuffer())
+                    ? (await teachingUpload<{ rows: SheetRow[] }>(TEACHING_IMPORT_READ_URL, formWith(file))).rows
                     : /\.csv$/i.test(file.name)
-                      ? reader.parseCsv(await file.text())
+                      ? parseCsv(await file.text())
                       : null;
                   if (!rows) throw new Error("Choose a CSV or XLSX file.");
                   const next = demoMode

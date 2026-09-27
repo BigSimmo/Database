@@ -471,7 +471,7 @@ export function TeachingSwitch<T extends string>({
       data-testid="teaching-switch"
       data-fade={fade ? "true" : "false"}
       className={cn(
-        "overflow-x-auto overscroll-x-contain [scrollbar-width:none]",
+        "min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none]",
         "[--clinical-accent:var(--text-heading)] [--clinical-accent-soft:var(--teaching-segment-on)] [--clinical-accent-border:var(--teaching-segment-line)]",
         fade && "[mask-image:linear-gradient(90deg,black_80%,transparent)]",
       )}

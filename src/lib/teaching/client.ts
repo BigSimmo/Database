@@ -40,6 +40,11 @@ export async function teachingPost<T>(
   );
 }
 
+/** A multipart upload (the term import's .xlsx); the browser sets the boundary header itself. */
+export async function teachingUpload<T>(url: string, form: FormData): Promise<T> {
+  return settle<T>(await fetch(url, { method: "POST", cache: "no-store", body: form }));
+}
+
 export function teachingServiceUrl(serviceId: string, query?: Record<string, string>): string {
   const base = `/api/teaching/services/${encodeURIComponent(serviceId)}`;
   return query ? `${base}?${new URLSearchParams(query).toString()}` : base;

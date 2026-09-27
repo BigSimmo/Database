@@ -1,60 +1,22 @@
 import { IMPORT_MAX_FILE_BYTES, type SheetRow } from "@/lib/teaching/depth-model";
 
 /*
- * The browser-only half of the term import (spec §9, master plan R25): reading a chosen file on the
- * device. Never imported by server code — `previewRows` (the row validation/preview logic the server
- * runs) lives in `import-sheet.ts` instead, precisely so this file's exceljs/jszip never reaches the
- * server bundle (F1). Import this module only from client components; exceljs and jszip load lazily
- * via dynamic `import()`, so they only enter a lazy chunk when a file is actually chosen.
+ * The server half of the term import's file reading (spec §9, master plan R25). Imported only by
+ * `app/api/teaching/import/read/route.ts`, so exceljs and jszip stay out of every client bundle:
+ * the browser posts the chosen .xlsx and gets its rows back. CSV parsing, which is tiny and needs
+ * no library, stays in the browser (`import-csv.ts`). Never import this from `import-sheet.ts` or
+ * `depth-repository.ts`: those are traced into other server routes, and exceljs pulls an optional
+ * `@aws-sdk/client-s3` the build cannot resolve (F1). This route loads exceljs lazily, like Roster's
+ * `read-file` route loads its reader.
  */
+import { MAX_COLUMNS } from "@/lib/teaching/import-csv";
+
+export { parseCsv } from "@/lib/teaching/import-csv";
 export type { SheetRow };
-/** Columns past this are never read; the template has ten. Matches `sheetRowSchema`. */
-const MAX_COLUMNS = 30;
 const MAX_ARCHIVE_ENTRIES = 1_000;
 const MAX_EXPANDED_BYTES = 32 * 1024 * 1024;
 export const IMPORT_UNREADABLE_MESSAGE = "This file couldn't be read. Save it from the template as .xlsx or .csv.";
 export const IMPORT_TOO_LARGE_MESSAGE = "Use a file under 1 MB.";
-
-/** RFC 4180 (quotes, doubled quotes, CRLF or LF). Blank rows are skipped; line numbers stay true. */
-export function parseCsv(text: string): SheetRow[] {
-  const rows: SheetRow[] = [];
-  let cells: string[] = [];
-  let cell = "";
-  let quoted = false;
-  let line = 1;
-  let start = 1;
-  const end = () => {
-    cells.push(cell);
-    if (cells.some((value) => value.trim() !== "")) rows.push({ line: start, cells: cells.slice(0, MAX_COLUMNS) });
-    cells = [];
-    cell = "";
-  };
-  const body = text.replace(/^﻿/, "");
-  for (let i = 0; i < body.length; i += 1) {
-    const ch = body[i];
-    if (quoted) {
-      if (ch === '"' && body[i + 1] === '"') {
-        cell += '"';
-        i += 1;
-      } else if (ch === '"') quoted = false;
-      else {
-        if (ch === "\n") line += 1;
-        cell += ch;
-      }
-    } else if (ch === '"') quoted = true;
-    else if (ch === ",") {
-      cells.push(cell);
-      cell = "";
-    } else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && body[i + 1] === "\n") i += 1;
-      end();
-      line += 1;
-      start = line;
-    } else cell += ch;
-  }
-  end();
-  return rows;
-}
 
 function cellText(value: unknown): string {
   if (value instanceof Date) {
