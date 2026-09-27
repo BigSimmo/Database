@@ -254,6 +254,7 @@ export function DocumentViewer({
     setPdfRotation(0);
     setPdfFullscreen(false);
     setPdfPageCount(null);
+    setPdfCanvasLoadFailed(false);
   }
   const {
     status: authStatus,
