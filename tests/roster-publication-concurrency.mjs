@@ -8,18 +8,37 @@ import { fileURLToPath } from "node:url";
 // then reject the old preview once that approval commits. Never pass a shared/live stack.
 const container = process.argv[2];
 assert(container, "Usage: node tests/roster-publication-concurrency.mjs <owned scratch container>");
-const owner = createHash("sha256").update(fileURLToPath(new URL("../", import.meta.url)).toLowerCase()).digest("hex").slice(0, 12);
+const owner = createHash("sha256")
+  .update(fileURLToPath(new URL("../", import.meta.url)).toLowerCase())
+  .digest("hex")
+  .slice(0, 12);
 const inspection = JSON.parse(execFileSync("docker", ["inspect", container], { encoding: "utf8" }))[0];
 const label = inspection.Config.Labels?.["com.psychiatry-tools.drift-manifest.worktree"];
 assert.equal(label, owner, "Refusing a container not owned by this scratch worktree");
-const prefix = ["exec", "-i", container, "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"];
-const sql = (text) => execFileSync("docker", prefix, { input: text, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }).trim();
+const prefix = [
+  "exec",
+  "-i",
+  container,
+  "psql",
+  "-X",
+  "-qAt",
+  "-v",
+  "ON_ERROR_STOP=1",
+  "-U",
+  "postgres",
+  "-d",
+  "postgres",
+];
+const sql = (text) =>
+  execFileSync("docker", prefix, { input: text, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }).trim();
 const lit = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const j = (value) => `${lit(JSON.stringify(value))}::jsonb`;
 const ids = Object.fromEntries(["manager", "one", "two", "team"].map((key) => [key, randomUUID()]));
 const actorSql = "set role service_role;\n";
-const previewSql = () => `select public.roster_publish_preview(${lit(ids.manager)},${lit(ids.team)},current_date+90,current_date+97);`;
-const command = (actor, action, payload) => `select public.roster_command(${lit(ids[actor])},${lit(ids.team)},${lit(action)},${j(payload)});`;
+const previewSql = () =>
+  `select public.roster_publish_preview(${lit(ids.manager)},${lit(ids.team)},current_date+90,current_date+97);`;
+const command = (actor, action, payload) =>
+  `select public.roster_command(${lit(ids[actor])},${lit(ids.team)},${lit(action)},${j(payload)});`;
 let approval;
 let publishing;
 try {
@@ -37,20 +56,45 @@ try {
   const first = JSON.parse(sql(actorSql + previewSql()));
   const give = first.assignments.find((row) => row.userId === ids.one);
   const take = first.assignments.find((row) => row.userId === ids.two);
-  const swap = JSON.parse(sql(actorSql + command("one", "swap.create", { giveAssignmentId: give.id, takeAssignmentId: take.id, counterpartyId: ids.two })));
+  const swap = JSON.parse(
+    sql(
+      actorSql +
+        command("one", "swap.create", {
+          giveAssignmentId: give.id,
+          takeAssignmentId: take.id,
+          counterpartyId: ids.two,
+        }),
+    ),
+  );
   const preview = JSON.parse(sql(actorSql + previewSql()));
-  const publication = JSON.parse(sql("select jsonb_build_object('kind','full','periodStart',current_date+90,'periodEnd',current_date+97,'assignments','[]'::jsonb);"));
+  const publication = JSON.parse(
+    sql(
+      "select jsonb_build_object('kind','full','periodStart',current_date+90,'periodEnd',current_date+97,'assignments','[]'::jsonb);",
+    ),
+  );
   const payload = { roles: [], codes: [], publication };
   const startSession = (name) => {
-    const process = spawn("docker", ["exec", "-i", "-e", `PGAPPNAME=${name}`, container, ...prefix.slice(3)], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    const process = spawn("docker", ["exec", "-i", "-e", `PGAPPNAME=${name}`, container, ...prefix.slice(3)], {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
     let output = "";
-    process.stdout.on("data", (data) => { output += data; });
-    process.stderr.on("data", (data) => { output += data; });
-    const done = new Promise((resolve, reject) => { process.once("error", reject); process.once("close", (code) => resolve({ code, output })); });
+    process.stdout.on("data", (data) => {
+      output += data;
+    });
+    process.stderr.on("data", (data) => {
+      output += data;
+    });
+    const done = new Promise((resolve, reject) => {
+      process.once("error", reject);
+      process.once("close", (code) => resolve({ code, output }));
+    });
     return { process, done, output: () => output };
   };
   approval = startSession("roster-followup-approval");
-  approval.process.stdin.write("begin;\n" + actorSql + command("two", "swap.accept", { swapId: swap.swapId }) + "\n\\echo APPROVAL_LOCK_HELD\n");
+  approval.process.stdin.write(
+    "begin;\n" + actorSql + command("two", "swap.accept", { swapId: swap.swapId }) + "\n\\echo APPROVAL_LOCK_HELD\n",
+  );
   const waitFor = async (predicate, message) => {
     for (let tries = 0; tries < 100; tries++) {
       if (predicate()) return;
@@ -61,18 +105,33 @@ try {
   await waitFor(() => approval.output().includes("APPROVAL_LOCK_HELD"), "approval did not reach held-lock checkpoint");
   assert(approval.output().includes('"approved"'), "fixture must really approve the swap");
   publishing = startSession("roster-followup-publish");
-  publishing.process.stdin.end(actorSql + `select public.roster_publish(${lit(ids.manager)},${lit(ids.team)},${lit(preview.freshnessToken)},${j(payload)});`);
-  await waitFor(() => sql("select count(*) from pg_stat_activity where application_name='roster-followup-publish' and wait_event_type='Lock';") === "1", "publication did not wait on the approval's team lock");
+  publishing.process.stdin.end(
+    actorSql +
+      `select public.roster_publish(${lit(ids.manager)},${lit(ids.team)},${lit(preview.freshnessToken)},${j(payload)});`,
+  );
+  await waitFor(
+    () =>
+      sql(
+        "select count(*) from pg_stat_activity where application_name='roster-followup-publish' and wait_event_type='Lock';",
+      ) === "1",
+    "publication did not wait on the approval's team lock",
+  );
   approval.process.stdin.end("commit;\n");
   assert.equal((await approval.done).code, 0);
   const result = await publishing.done;
   assert.notEqual(result.code, 0, "stale publication must fail after the approval commits");
   assert.match(result.output, /roster_conflict/);
-  assert.equal(sql(`select user_id from public.roster_assignments where id=${lit(give.id)};`), ids.two, "agreed swap must survive");
+  assert.equal(
+    sql(`select user_id from public.roster_assignments where id=${lit(give.id)};`),
+    ids.two,
+    "agreed swap must survive",
+  );
   console.log("Roster concurrency: publication waited for approval, rejected stale preview, preserved swap.");
 } finally {
   if (approval && !approval.process.stdin.writableEnded) approval.process.stdin.end("rollback;\n");
   if (approval) await approval.done;
   if (publishing) await publishing.done;
-  sql(`delete from public.on_call_services where id=${lit(ids.team)}; delete from auth.users where id in (${lit(ids.manager)},${lit(ids.one)},${lit(ids.two)});`);
+  sql(
+    `delete from public.on_call_services where id=${lit(ids.team)}; delete from auth.users where id in (${lit(ids.manager)},${lit(ids.one)},${lit(ids.two)});`,
+  );
 }

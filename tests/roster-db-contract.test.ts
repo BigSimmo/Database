@@ -131,7 +131,9 @@ describe("file 3: Roster", () => {
 describe("Roster Release 2 follow-up", () => {
   const sql = migration("roster_release_two");
   it("preserves the read signature and keeps writes service-role only", () => {
-    expect(sql).toContain("create or replace function public.roster_read(p_actor_id uuid, p_service_id uuid, p_what text, p_payload jsonb default '{}')");
+    expect(sql).toContain(
+      "create or replace function public.roster_read(p_actor_id uuid, p_service_id uuid, p_what text, p_payload jsonb default '{}')",
+    );
     expect(sql).not.toMatch(/create (?:or replace )?function public\.roster_command/);
     expect(sql).not.toMatch(/security definer/i);
     for (const signature of [
@@ -147,7 +149,10 @@ describe("Roster Release 2 follow-up", () => {
     }
   });
   it("checks freshness under the same team lock before any metadata write", () => {
-    const lock = sql.slice(sql.indexOf("create function public.roster_lock_manager"), sql.indexOf("create function public.roster_set_cutoff"));
+    const lock = sql.slice(
+      sql.indexOf("create function public.roster_lock_manager"),
+      sql.indexOf("create function public.roster_set_cutoff"),
+    );
     expect(lock.indexOf("for share")).toBeLessThan(lock.indexOf("pg_advisory_xact_lock"));
     expect(lock).toContain("pg_advisory_xact_lock(hashtextextended(p_service_id::text, 74817))");
     const publish = sql.slice(sql.indexOf("create function public.roster_publish("));
@@ -159,8 +164,21 @@ describe("Roster Release 2 follow-up", () => {
     expect(publish).not.toMatch(/exception when others then\s+return/i);
   });
   it("includes assignments, approvals, metadata and exact dates in the comparison token", () => {
-    const token = sql.slice(sql.indexOf("create function public.roster_publish_fingerprint"), sql.indexOf("create function public.roster_lock_manager"));
-    for (const table of ["roster_assignments", "roster_swaps", "roster_open_shifts", "on_call_service_members", "roster_member_roles", "roster_shift_codes", "roster_team_settings", "on_call_service_sites", "roster_publications"]) {
+    const token = sql.slice(
+      sql.indexOf("create function public.roster_publish_fingerprint"),
+      sql.indexOf("create function public.roster_lock_manager"),
+    );
+    for (const table of [
+      "roster_assignments",
+      "roster_swaps",
+      "roster_open_shifts",
+      "on_call_service_members",
+      "roster_member_roles",
+      "roster_shift_codes",
+      "roster_team_settings",
+      "on_call_service_sites",
+      "roster_publications",
+    ]) {
       expect(token).toContain(`public.${table}`);
     }
     expect(token).toContain("'from', p_from, 'to', p_to");
@@ -170,7 +188,10 @@ describe("Roster Release 2 follow-up", () => {
       const branch = sql.slice(sql.indexOf(`elsif p_what = '${read}' then`)).split("\n  elsif p_what")[0];
       expect(branch).toContain("if not v_is_manager then raise exception 'roster_role_denied'");
     }
-    const mine = sql.slice(sql.indexOf("elsif p_what = 'my_changes' then"), sql.indexOf("elsif p_what = 'team_leave' then"));
+    const mine = sql.slice(
+      sql.indexOf("elsif p_what = 'my_changes' then"),
+      sql.indexOf("elsif p_what = 'team_leave' then"),
+    );
     expect(mine.match(/a\.user_id = p_actor_id/g)).toHaveLength(2);
     expect(sql).toContain("p_cutoff > v_today + 180");
   });
@@ -189,7 +210,9 @@ describe("Roster Release 2 follow-up", () => {
   it("posts real vacant shifts atomically and reuses unchanged gaps without losing multiplicity", () => {
     const publish = sql.slice(sql.indexOf("create function public.roster_publish("));
     expect(publish).toContain("jsonb_array_length(v_open_rows) > 1000");
-    expect(publish).toContain("jsonb_array_length(v_publication -> 'assignments') + jsonb_array_length(v_open_rows) > 5000");
+    expect(publish).toContain(
+      "jsonb_array_length(v_publication -> 'assignments') + jsonb_array_length(v_open_rows) > 5000",
+    );
     expect(publish).toContain("not (o.id = any(v_open_ids))");
     expect(publish).toContain("o.status in ('claimed', 'reported')");
     expect(publish).toContain("'open.post', v_row");
@@ -199,14 +222,23 @@ describe("Roster Release 2 follow-up", () => {
   it("remembers off codes without changing assignment kinds or allowing working hours", () => {
     expect(sql).toContain("drop constraint roster_shift_codes_kind_check");
     expect(sql).toContain("kind <> 'off' or (starts is null and ends is null)");
-    const codes = sql.slice(sql.indexOf("for v_row in select value from jsonb_array_elements(p_payload -> 'codes')"), sql.indexOf("for v_row in select value from jsonb_array_elements(v_publication -> 'assignments')"));
+    const codes = sql.slice(
+      sql.indexOf("for v_row in select value from jsonb_array_elements(p_payload -> 'codes')"),
+      sql.indexOf("for v_row in select value from jsonb_array_elements(v_publication -> 'assignments')"),
+    );
     expect(codes).toContain("'other', 'off'");
     expect(codes).toContain("v_row ->> 'starts' is not null or v_row ->> 'ends' is not null");
     expect(sql).not.toMatch(/alter table public\.roster_assignments/);
   });
 
   it("does not infer another vacancy from changed metadata or bypass a pending claim", () => {
-    const pending = sql.slice(sql.indexOf("o.status in ('claimed', 'reported')"), sql.indexOf("then raise exception 'roster_conflict'; end if;", sql.indexOf("o.status in ('claimed', 'reported')")));
+    const pending = sql.slice(
+      sql.indexOf("o.status in ('claimed', 'reported')"),
+      sql.indexOf(
+        "then raise exception 'roster_conflict'; end if;",
+        sql.indexOf("o.status in ('claimed', 'reported')"),
+      ),
+    );
     expect(pending).not.toContain("min_grade");
     expect(pending).not.toContain("urgent");
     expect(sql).toContain("o.min_grade is distinct from v_row ->> 'minGrade'");
