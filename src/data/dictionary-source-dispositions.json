@@ -202,6 +202,11 @@
           "code": "host_now_governed_date_still_required",
           "blocker": "meteor.aihw.gov.au is now in GOVERNED_SOURCE_HOSTS (PR #3142, owner approval 2026-09-28), so the host no longer blocks this record. What remains is that the METEOR page has not been read since, so no publication date has been established from the publisher. The candidate carries registration and effective dates inherited from the research master, which are not a publisher read.",
           "nextAction": "Read the METEOR page and record the date it states, with its true precision and event type (registration, effective or superseded), before any admission decision. Admission to the acquisition ledger stays a separate decision."
+        },
+        {
+          "code": "publication_event_not_stated_by_the_publisher",
+          "blocker": "The METEOR entry (identifier 807042) records a registration date, 2026-02-05, not a publication event. A registration is not a publication, so even with the host governed the record stays held rather than filing that date as publicationDate, and no separate unlinked ledger record is kept (owner approval 2026-09-28).",
+          "nextAction": "Cite a dated AIHW publication of the NOCC NBEDS 2026-27 specification, or extend the ledger date model to carry a registration date as its own event, then admit this source against a single ledger record."
         }
       ],
       "decisionOwner": "Source register owner",

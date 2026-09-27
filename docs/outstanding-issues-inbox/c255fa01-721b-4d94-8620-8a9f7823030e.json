@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c255fa01-721b-4d94-8620-8a9f7823030e",
+  "createdOn": "2026-09-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "fa2213e2-2217-4ce9-9493-5f58557e0306",
+    "reason": "Duplicate done for #TN4PMR: PR #3142's done request e9f5050f-fced-4fe1-8fb3-ebcdce11125b already records the same alignment."
+  }
+}
