@@ -8,7 +8,7 @@ import {
   shellRun,
 } from "../scripts/check-github-shell-access.mjs";
 
-const repository = "BigSimmo/Database";
+const repository = "BigSimmo/PsychSift";
 const origin = `https://github.com/${repository}.git`;
 const sha = "a".repeat(40);
 
@@ -105,7 +105,7 @@ function fixtureRun(options: FixtureOptions = {}) {
     }
     if (key === `gh pr diff 123 --repo ${repository} --name-only`) return success("README.md\n");
     if (
-      /gh api repos\/BigSimmo\/Database\/(pulls\/123\/reviews|issues\/123\/comments|pulls\/123\/comments)/u.test(key)
+      /gh api repos\/BigSimmo\/PsychSift\/(pulls\/123\/reviews|issues\/123\/comments|pulls\/123\/comments)/u.test(key)
     ) {
       return success("[]");
     }

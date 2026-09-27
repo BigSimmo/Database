@@ -53,8 +53,8 @@ vi.mock("@/components/on-call/use-hospital-handbook", async (importOriginal) => 
   ...(await importOriginal<typeof import("@/components/on-call/use-hospital-handbook")>()),
   useHospitalHandbook: () => handbook.state,
 }));
-vi.mock("@/components/on-call/use-on-call-shifts", () => ({
-  useOnCallShifts: () => ({ status: "ready", shifts: [], latestImport: null, demoMode: false }),
+vi.mock("@/components/roster/use-roster-shifts", () => ({
+  useRosterShifts: () => ({ status: "ready", shifts: [], latestImport: null, demoMode: false }),
 }));
 
 const storeState = vi.hoisted(() => ({

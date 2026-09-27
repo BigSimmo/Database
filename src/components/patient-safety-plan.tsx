@@ -554,6 +554,19 @@ export function PatientSafetyPlan() {
     [draftDirtyByRow, entries, planDate, reasons],
   );
 
+  // The back control asks before discarding, but closing the tab, refreshing or
+  // a swipe-back did not (ledger #846DP9). Ask the browser to confirm too. The
+  // plan is still never written anywhere: this only prompts before it is lost.
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [isDirty]);
+
   const planText = useMemo(() => {
     const guardLines = exampleActive
       ? ["*** EXAMPLE — SAMPLE SAFETY PLAN WITH NON-WORKING NUMBERS, NOT FOR PATIENT HANDOVER ***", ""]
@@ -777,11 +790,13 @@ export function PatientSafetyPlan() {
           aria-labelledby="spg-tab-build"
           className={cn("min-w-0 grid content-start gap-4", mobileTab === "build" ? "grid" : "hidden", "lg:grid")}
         >
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
+          {/* At 390px the heading and both buttons each wrapped onto two lines;
+              let the row wrap as whole items and keep every label on one line. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="whitespace-nowrap text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
               Build the plan
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 whitespace-nowrap">
               <button type="button" onClick={loadExample} className={softButton}>
                 <Sparkles className="size-icon-sm" aria-hidden="true" />
                 Load example

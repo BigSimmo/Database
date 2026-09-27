@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 export const requiredClinicalGovernanceItems = [
   "Source-backed claims still require linked source verification before clinical use",
   "No patient-identifiable document workflow was introduced or expanded without explicit governance approval",
-  "Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`)",
+  "Supabase target remains `PsychSift Production` (`sjrfecxgysukkwxsowpy`)",
   "Service-role keys and private document access remain server-only",
   "Demo/synthetic content remains clearly separated from real clinical sources",
   "Source metadata, review status, and outdated/unknown-source behavior remain conservative",
@@ -1762,7 +1762,7 @@ function selfTest() {
   console.error("[pr-policy] self-test passed");
 }
 
-// PR #2814's changed files, exactly as `gh api repos/BigSimmo/Database/pulls/2814/files`
+// PR #2814's changed files, exactly as `gh api repos/BigSimmo/PsychSift/pulls/2814/files`
 // listed them on 2026-09-17 (status, filename). It merged with three applied migrations
 // modified in place, which is the incident the history guard exists for.
 const pr2814FileStatuses = `modified .gitleaksignore

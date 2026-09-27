@@ -9,9 +9,9 @@ import {
   onCallDeviceStoreChangedEvent,
   onCallShiftPickStorageKey,
 } from "@/lib/on-call/device-state-keys";
-import type { OnCallShift } from "@/lib/on-call/shifts/model";
-import { selectNextShift } from "@/lib/on-call/shifts/next-shift";
-import { addDaysToDate, perthDateOf, perthTimeOf } from "@/lib/on-call/shifts/perth-time";
+import type { OnCallShift } from "@/lib/roster/shifts/model";
+import { selectNextShift } from "@/lib/roster/shifts/next-shift";
+import { addDaysToDate, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
 /**
  * Which shift "now" belongs to, for Now's shift lists and the "Your usual"

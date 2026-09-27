@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4e459ffd-b577-4fd5-b1e8-f6df2d7dd762",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The search 'rerank' timing is mostly database time, so the 4.1 s blamed on re-ranking in #T9PRB9 is really database round trips",
+    "detail": "src/lib/rag/rag.ts starts rerankStartedAt at line 1453 and adds the elapsed time at 1484 and 1531, and src/lib/rag/rag-hydration.ts:137 does the same. Those windows include metadata hydration, memory-card hydration and visual-evidence hydration, which are Supabase round trips (Singapore to Sydney). The deterministic second-stage rerank itself is in-process arithmetic, and the semantic reranker is off by default (RAG_SEMANTIC_RERANK_ENABLED=false). So in the #T9PRB9 probe (search 9.2 s = rpc 4.2 s + rerank 4.1 s), nearly all search time is database work. Consequence: #CWWH2E (27 to 45 round trips per search, currently P3) is the first latency lever, not reranking. Also note: the 1.4 s rate-limit figure in #T9PRB9 predates 5c1ac4f87 (2026-09-26, one-round-trip anonymous rate limit), which has not been re-measured live. Next action: split rerank_latency_ms so hydration round trips are timed separately from ranking. This is RAG telemetry on a protected surface: flag before editing and write a RAG impact line (no ordering change expected). Then re-run scripts/probe-answer-timing.mjs from Perth (provider-backed, owner approval) to confirm.",
+    "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+    "issueUlid": "01M3GND2FBH69FNZ9NC7EK5XWT"
+  }
+}

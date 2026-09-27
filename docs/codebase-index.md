@@ -5,7 +5,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 _Updated 2026-09-26 — added the generated Areas section from the organisation map._
 
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
-**Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
+**Live Supabase:** `PsychSift Production` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
 
 ---
 
@@ -158,7 +158,7 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 - **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell; the shared home for every mode as `/?mode=<id>`
 - **Consolidated mode homes:** bare mode paths (`/documents`, `/dsm`, `/dictionary`, `/factsheets`, `/services`, `/forms`, `/calculators`, `/specifiers`, `/formulation`, `/differentials`, `/therapy-compass`, `/sources`) 307 to `/?mode=<id>`, and submitted queries (`?q=…&run=1`) to `/<mode>/search` — `src/lib/consolidated-mode-home-redirect.ts`, applied in `src/proxy.ts`, with each page's own `redirect()` as a backstop. `/medications` goes to `/?mode=prescribing`. Only `/tools`, `/favourites`, `/on-call` and `/cme` render their own home.
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (20, counted 2026-09-26):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary, Sources, On Call, CPD (mode id `cme`), Psychiatry, My Work (mode id `my-work`)
+- **Modes (21, counted 2026-09-26):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary, Sources, On Call, CPD (mode id `cme`), Psychiatry, My Work (mode id `my-work`), First Nations (mode id `first-nations`)
   - **Sources catalogue:** `/sources/search` (bare `/sources` redirects to the shared home) provides a read-only, quality-banded catalogue with Topics, Publishers, Method and source-detail traceability; `/dictionary/sources` redirects into its Dictionary-filtered view. Method (`/sources/method`) and the Guide Centre's Source rating topic both render `src/components/reference/source-method-reference-content.tsx` — one component, `variant: "page" | "guide"`, the same arrangement `colour-coding-reference-content.tsx` uses for `/reference/colour-coding`.
   - **Therapy review disclosure.** Therapy was `devOnly` while its 205-record catalogue awaited qualified-clinician sign-off. That hid the mode from production navigation, 404'd `/therapy-compass` in the route layout, and made `therapyRecordsForEnvironment` filter every record out — so all 205 detail/brief/sheet routes and every universal-search therapy hit 404'd for real users while working locally. The owner's decision (2026-08-19) replaced the gate with disclosure: reachability is no longer conditioned on review status anywhere, and the caveat is stated per record instead, by the `reviewStatus` badge on every card, detail page, brief, sheet, comparison, pathway, and universal-search result. A catalogue-wide banner (`TherapyReviewNotice`, counts from the generated `THERAPY_CATALOGUE_SUMMARY.needsReviewCount`) sat above the search band until 2026-09-06, when the owner removed it: a caveat repeated above every search is read past, while the per-record badge sits where the decision is actually made. `therapyNeedsReview` survives as the label source only. Pinned by `tests/app-modes.test.ts` (reachability), `tests/therapy-review-regressions.test.ts` (the per-record badges, and the banner's absence), and `tests/therapy-pr-unblocking-contract.test.ts` (the retired `PLAYWRIGHT_OFFLINE_MODE` bypass that existed only to reach the gated route).
 
@@ -212,6 +212,7 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 | Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                                                                                                                                                                                                                   | `ingestion/`                                                    |
 | Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                                                                                                                                                                                                           | `registry/records/`                                             |
 | On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries); `/api/on-call/services`, `/api/on-call/services/[serviceId]`, `/api/on-call/services/join` (shared service handbooks, via `service-api.withServiceApi`); `/api/on-call/demo-content` | `on-call/`                                                      |
+| Roster           | `/api/roster/shifts`, `/api/roster/shifts/imports/[id]`, `/api/roster/shifts/manual`, `/api/roster/shifts/manual/[seriesId]` (owner-scoped roster shifts, moved from `/api/on-call/shifts`, whose old path now re-exports these)                                                                                                  | `roster/`                                                       |
 | CME              | `/api/cme/entries`, `/api/cme/entries/[id]`, `/api/cme/entries/[id]/evidence`, `/api/cme/entries/[id]/evidence/[evidenceId]`, `/api/cme/routines`, `/api/cme/routines/[id]`, `/api/cme/export`, `/api/cme/year` (owner-scoped continuing-education record; demo mode branches here, never in the repository)                      | `cme/`                                                          |
 | Calendar         | `/api/calendar/feed` (signed in: report, make or turn off the private link); `/api/calendar/feed/[token]` (no session; the private `.ics` subscription feed)                                                                                                                                                                      | `calendar/`                                                     |
 | Images           | `/api/images/[id]/signed-url`, `/api/images/signed-urls` (batch); `/api/documents/images/batch` re-exports the batch handler                                                                                                                                                                                                      | `images/`, `documents/images/batch/route.ts`                    |
@@ -360,14 +361,39 @@ publishing, independent clinical/legal review, revision conflicts, correction re
 and owner-private orientation completion. They never pool legacy entries or personal
 CME/compliance. `handbook-resources` holds linked official WA starting points.
 
-**My shifts.** `/on-call/shifts` is the doctor's own roster, and the On Call home shows the shift on
-now or the next one. `src/lib/on-call/shifts/` reads an `.ics` or `.csv` export on the device
-(`parse-ics`, `parse-csv`), keeping only start, end, title, site and calendar ID, so descriptions and
-attendees never leave the browser. `diff` works out what a new roster changed; `repository` saves it
-through the `on_call_shifts_replace` RPC, which replaces the owner's shifts inside the roster's Perth
-dates and records the import in one transaction. `on_call_shifts` and `on_call_shift_imports` are
-private to their owner: service-role only, every query filtered by `owner_id`, never shared the way
-non-personal On Call entries are. The API is `/api/on-call/shifts` and `imports/[id]`.
+**My shifts moved to Roster.** The doctor's own roster now lives in **`src/lib/roster/`**
+(`src/lib/roster/shifts/`, moved from the old On Call shifts folder, plus `shift-kind.ts` for the
+day/evening/night/on-call/leave/other kinds shown as letter squares) and its API at
+**`/api/roster/shifts`** (plus `imports/[id]` and `manual`, `manual/[seriesId]` for hand-added
+shifts). It reads an `.ics` or `.csv` export on the device (`parse-ics`, `parse-csv`), keeping only
+start, end, title, site and calendar ID, so descriptions and attendees never leave the browser.
+`diff` works out what a new roster changed; `repository` saves it through the
+`roster_own_shifts_replace` RPC, which replaces only the same workplace's imported shifts inside the
+roster's Perth dates (a hand-added shift, and another workplace's import, are untouched) and records
+the import in one transaction. `on_call_shifts` and `on_call_shift_imports` (widened with `kind`,
+`workplace`, `source`, `series_id`) are private to their owner: service-role only, every query
+filtered by `owner_id`, never shared the way non-personal On Call entries are. The old
+`/on-call/shifts` and `/on-call/calendar` URLs and the old API path keep working as redirects/re-exports.
+
+**Roster mode (Release 1).** `/roster` (Today), `/roster/shifts` (Week, Month, Hours),
+`/roster/calendar` and `/roster/settings`, with components in `src/components/roster/`. Other files
+in `src/lib/roster/` (the import folder, `calendar-link-fetch`, `calendar-links`, `hours`, `today`,
+`settings`) are covered below.
+
+- `import/` reads a PDF or Excel roster into a grid (`read-pdf`, `read-xlsx`, `table`), then `grid`
+  finds the doctor's row and turns their codes into shifts.
+- Uploaded files are read in memory by `/api/roster/read-file` and never stored or logged.
+- `calendar-links` keeps up to three calendar subscription links (`/api/roster/links`, refreshed
+  through the guarded `calendar-link-fetch`). Link addresses are never returned or logged.
+- `hours` and `today` summarise the fortnight and the day.
+- `settings` keeps the remembered row, code meanings and calendar switch under
+  `user_preferences.roster` (`/api/roster/settings`). They are never copied to the device.
+- `/api/roster/extra-time` records "stayed late" into Admin's `extra_time_records` without
+  overwriting a row Admin holds.
+- Shift reminders are the `shifts` reminder type (evening before, 20:00 Perth).
+- Roster shifts reach the calendar feed only when the doctor turns that on.
+- Nothing about shifts is stored offline, and Roster uses no AI. The On Call home still shows the
+  shift on now or the next one, linking to `/roster`.
 
 ---
 
@@ -477,6 +503,10 @@ the downloads read the preferences hook. The CME dashboard and On Call notificat
 `showsReminderInApp` and offer "Snooze for a week"; Settings → Notifications holds the Reminders card
 (`settings-reminders.tsx`). The defaults show everything in the app and add no alarms.
 
+### First Nations mode
+
+`src/lib/first-nations/` holds the mode's content types, loaders and approval checks over `src/data/first-nations/`; `src/components/first-nations/` renders the nine pages under `/first-nations` (Bedside home plus eight sections) and the `/first-nations/card` pocket card, with the crisis strip drawn on the server in every state.
+
 ---
 
 ## Supabase
@@ -495,9 +525,13 @@ the downloads read the preferences hook. The CME dashboard and On Call notificat
 
 `documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `cme_evidence`, `cme_year_snapshots`, `cme_year_amendments`, `cme_plan_goals`, `cme_entry_goals`, `cme_training_periods`, `cme_training_milestones`, `cme_missed_sessions`, `cme_entry_drafts`, `calendar_feed_tokens`, `on_call_shift_imports`, `on_call_shifts`, `on_call_services`, `on_call_service_sites`, `on_call_service_members`, `on_call_service_invitations`, `on_call_service_entries`, `on_call_service_reports`, `on_call_service_orientation`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
 
+Team modes (Roster, Admin, Teaching): `admin_leave_balances`, `admin_settings`, `extra_time_records`, `on_call_service_member_events`, `roster_assignments`, `roster_calendar_links`, `roster_change_agreements`, `roster_changes`, `roster_draft_assignments`, `roster_drafts`, `roster_leave`, `roster_member_roles`, `roster_open_shifts`, `roster_publication_seen`, `roster_publications`, `roster_shift_codes`, `roster_staffing_needs`, `roster_swaps`, `roster_team_settings`, `roster_unavailability`, `teaching_attendance`, `teaching_audit_events`, `teaching_calendar_optins`, `teaching_checkin_claims`, `teaching_collection_sections`, `teaching_collections`, `teaching_display_links`, `teaching_feedback_answers`, `teaching_feedback_replied`, `teaching_group_members`, `teaching_groups`, `teaching_member_roles`, `teaching_notice_reads`, `teaching_notices`, `teaching_occurrences`, `teaching_readiness`, `teaching_resource_saves`, `teaching_resources`, `teaching_series`, `teaching_supervision_entries`, `teaching_supervision_notes`, `teaching_supervision_pairings`, `teaching_team_settings`, `teaching_week_adds`, `web_push_subscriptions`.
+
 Public-source control-plane tables: `public_source_policy_entries`, `public_source_activation_events`, `public_source_versions`, `public_source_upload_attempts`, `public_source_activation_guards`, `public_source_cleanup_mutation_guards`.
 
 **Storage buckets:** `clinical-documents`, `clinical-images`, `cme-private-evidence` (all private)
+
+**Roster (combined DB change, 5 files):** team tables are reached only through the roster_read and roster_command functions (membership and Roster role checked in SQL; advisory lock 74817 per team). Own shifts: roster_own_shifts_replace replaces imported shifts of one workplace only; hand-added shifts are never touched. Retention: roster_retention_purge() nightly via pg_cron. Behaviour checks: `tests/sql/roster-behaviour.sql` against a replay.
 
 ### Migration themes
 

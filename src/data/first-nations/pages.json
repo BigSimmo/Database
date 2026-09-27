@@ -1,0 +1,1269 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "id": "bedside",
+      "title": "Bedside",
+      "sections": [
+        {
+          "id": "bedside",
+          "tab": "Bedside",
+          "modules": [
+            {
+              "id": "before-you-go-in",
+              "title": "Before you go in",
+              "icon": "check",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "bedside-offer-worker",
+                  "do": "Offer an Aboriginal mental health worker or liaison officer",
+                  "why": "The Act asks for assessment and examination with Aboriginal mental health workers, where practicable and appropriate.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "tip",
+                  "id": "bedside-who-with",
+                  "do": "Ask who they would like with them",
+                  "why": "The Act names family and significant community members, including elders and traditional healers.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "tip",
+                  "id": "bedside-language",
+                  "do": "Ask which language they are most comfortable in",
+                  "why": "Aboriginal Interpreting WA is the primary language service for Aboriginal people in WA.",
+                  "sourceId": "wa-health-language-services-guidelines-2025",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "tip",
+                  "id": "bedside-home",
+                  "do": "Ask where home is",
+                  "why": "Connection to Country, family and community is part of social and emotional wellbeing.",
+                  "sourceId": "sewb-national-framework",
+                  "checkedAt": "2026-09-26"
+                },
+                {
+                  "kind": "tip",
+                  "id": "bedside-sorry-business",
+                  "do": "Check whether family or cultural business, such as Sorry Business, is happening",
+                  "why": "Care should fit the person's cultural and spiritual practices and the views of their family.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contacts",
+      "title": "Contacts",
+      "sections": [
+        {
+          "id": "contacts-hospital",
+          "tab": "Hospital",
+          "modules": [
+            {
+              "id": "contacts-most-used",
+              "title": "Most used",
+              "icon": "phone",
+              "layout": "tiles",
+              "blocks": [
+                {
+                  "kind": "contact",
+                  "id": "tile-13yarn",
+                  "name": "13YARN",
+                  "detail": "24 hours, every day",
+                  "number": "13 92 76",
+                  "layer": "statewide",
+                  "sourceId": "13yarn",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "contact",
+                  "id": "tile-mherl",
+                  "name": "Mental Health Emergency Response Line (MHERL)",
+                  "detail": "Perth metro · 24 hours, every day",
+                  "number": "1300 555 788",
+                  "layer": "statewide",
+                  "sourceId": "mherl",
+                  "checkedAt": "2026-08-20"
+                },
+                {
+                  "kind": "contact",
+                  "id": "tile-rurallink",
+                  "name": "Rurallink support line",
+                  "detail": "Regional WA · weeknights 16:30–08:30, 24 hours weekends and public holidays",
+                  "number": "1800 552 002",
+                  "layer": "statewide",
+                  "sourceId": "rurallink",
+                  "checkedAt": "2026-08-20"
+                },
+                {
+                  "kind": "contact",
+                  "id": "tile-lifeline",
+                  "name": "Lifeline",
+                  "detail": "24 hours, every day",
+                  "number": "13 11 14",
+                  "layer": "statewide",
+                  "sourceId": "lifeline",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            },
+            {
+              "id": "contacts-service",
+              "title": "Your hospital",
+              "icon": "phone",
+              "layout": "service-contacts",
+              "blocks": []
+            }
+          ]
+        },
+        {
+          "id": "contacts-community",
+          "tab": "Community",
+          "modules": [
+            {
+              "id": "contacts-community-services",
+              "title": "Community health services",
+              "icon": "house",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "contacts-accho",
+                  "do": "Ask whether they use a local Aboriginal community controlled health service",
+                  "why": "AHCWA is the peak body for these services across WA.",
+                  "sourceId": "ahcwa",
+                  "checkedAt": "2026-09-26"
+                },
+                {
+                  "kind": "linkList",
+                  "id": "contacts-community-links",
+                  "heading": "Find a service",
+                  "items": [
+                    {
+                      "label": "Aboriginal Health Council of WA",
+                      "detail": "Peak body for Aboriginal community controlled health services in WA",
+                      "href": "https://www.ahcwa.org.au/about-us/"
+                    }
+                  ],
+                  "sourceId": "ahcwa",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "contacts-mental",
+          "tab": "Mental",
+          "modules": [
+            {
+              "id": "contacts-mental-lines",
+              "title": "Mental health lines",
+              "icon": "brain",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "contacts-13yarn",
+                  "do": "Offer 13YARN",
+                  "why": "A crisis line for Aboriginal and Torres Strait Islander people, open 24 hours.",
+                  "sourceId": "13yarn",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "contact",
+                  "id": "contacts-mherl-peel",
+                  "name": "Mental Health Emergency Response Line (MHERL), Peel",
+                  "detail": "Peel region · 24 hours, every day",
+                  "number": "1800 676 822",
+                  "layer": "statewide",
+                  "sourceId": "mherl",
+                  "checkedAt": "2026-08-20"
+                },
+                {
+                  "kind": "contact",
+                  "id": "contacts-suicide-call-back",
+                  "name": "Suicide Call Back Service",
+                  "detail": "24 hours, every day",
+                  "number": "1300 659 467",
+                  "layer": "statewide",
+                  "sourceId": "suicide-callback",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "contacts-language",
+          "tab": "Language",
+          "modules": [
+            {
+              "id": "contacts-language-services",
+              "title": "Interpreters",
+              "icon": "message",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "contacts-aiwa",
+                  "do": "Book Aboriginal Interpreting WA for Aboriginal languages",
+                  "why": "WA Health guidelines name it the primary language service for Aboriginal people in WA.",
+                  "sourceId": "wa-health-language-services-guidelines-2025",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "tip",
+                  "id": "contacts-interpreter-in-person",
+                  "do": "Book an on-site or video interpreter for mental health",
+                  "why": "WA Health guidelines say phone interpreting is not suited to sensitive interviews such as mental health.",
+                  "sourceId": "wa-health-language-services-guidelines-2025",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "talking",
+      "title": "Talking",
+      "sections": [
+        {
+          "id": "talking-asking",
+          "tab": "Asking",
+          "modules": [
+            {
+              "id": "talking-deck",
+              "title": "Words to try",
+              "icon": "message",
+              "layout": "deck",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "talking-who-with",
+                  "do": "Ask who they would like with them",
+                  "why": "The Act names family and community members, including elders.",
+                  "say": "Is there someone you would like with you while we talk?",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "tip",
+                  "id": "talking-offer-worker",
+                  "do": "Offer an Aboriginal mental health worker",
+                  "why": "The Act asks for collaboration with Aboriginal mental health workers where practicable.",
+                  "say": "Would you like an Aboriginal mental health worker to join us?",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "tip",
+                  "id": "talking-plain-words",
+                  "do": "Use words that make sense to them",
+                  "why": "The Act says communication must be in terms the person is likely to understand.",
+                  "say": "Tell me if I use a word that does not make sense.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "talking-language",
+          "tab": "Language",
+          "modules": [
+            {
+              "id": "talking-language-tips",
+              "title": "Language",
+              "icon": "message",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "talking-interpreter",
+                  "do": "Use an interpreter if one is needed",
+                  "why": "The Act asks for an interpreter where necessary and practicable.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "talking-be-aware",
+          "tab": "Be aware",
+          "modules": [
+            {
+              "id": "talking-background",
+              "title": "Background",
+              "icon": "book",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "note",
+                  "id": "talking-cultural-safety",
+                  "heading": "Cultural safety",
+                  "text": "Cultural safety is decided by Aboriginal and Torres Strait Islander people, families and communities, not by the clinician.",
+                  "sourceId": "ahpra-cultural-safety",
+                  "checkedAt": "2026-09-26"
+                },
+                {
+                  "kind": "note",
+                  "id": "talking-wellbeing",
+                  "heading": "Wellbeing is whole",
+                  "text": "Social and emotional wellbeing covers body, mind, family, community, culture, Country and spirit.",
+                  "sourceId": "sewb-national-framework",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "family",
+      "title": "Family",
+      "sections": [
+        {
+          "id": "family-kinship",
+          "tab": "Kinship",
+          "modules": [
+            {
+              "id": "family-deck",
+              "title": "Words to try",
+              "icon": "users",
+              "layout": "deck",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "family-who-involve",
+                  "do": "Ask who in the family should be involved",
+                  "why": "The Act asks services to have regard to the views of the family.",
+                  "say": "Who in your family should we talk with?",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "tip",
+                  "id": "family-elder",
+                  "do": "Ask about elders",
+                  "why": "The Act names elders among the community members to work with.",
+                  "say": "Is there an elder you would like us to involve?",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            },
+            {
+              "id": "family-who-to-involve",
+              "title": "Who to involve",
+              "icon": "users",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "family-who-counts",
+                  "do": "Let the person and family say who counts as family",
+                  "why": "Cultural safety is decided by the person, their family and community.",
+                  "sourceId": "ahpra-cultural-safety",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "family-visitors",
+          "tab": "Visitors",
+          "modules": [
+            {
+              "id": "family-visiting",
+              "title": "Visitors",
+              "icon": "door",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "family-visiting-ask",
+                  "do": "Ask the person and family what visiting would help",
+                  "why": "Care should fit cultural practice and the views of the family.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mental-health",
+      "title": "Mental health",
+      "sections": [
+        {
+          "id": "mh-act",
+          "tab": "Act",
+          "modules": [
+            {
+              "id": "mh-s81",
+              "title": "Section 81",
+              "icon": "scale",
+              "layout": "quote",
+              "blocks": [
+                {
+                  "kind": "quote",
+                  "id": "mh-s81-quote",
+                  "heading": "Mental Health Act 2014 (WA), section 81",
+                  "text": "To the extent that it is practicable and appropriate to do so, the examination of a person who is of Aboriginal or Torres Strait Islander descent must be conducted in collaboration with — (a) Aboriginal or Torres Strait Islander mental health workers; and (b) significant members of the person's community, including elders and traditional healers.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            },
+            {
+              "id": "mh-before-you-assess",
+              "title": "Before you assess",
+              "icon": "clipboard",
+              "layout": "steps",
+              "blocks": [
+                {
+                  "kind": "steps",
+                  "id": "mh-before-steps",
+                  "heading": "Before you assess",
+                  "items": [
+                    {
+                      "title": "Offer an Aboriginal mental health worker",
+                      "detail": "Involve them where practicable and appropriate."
+                    },
+                    {
+                      "title": "Ask about family, elders or healers",
+                      "detail": "Ask the person who they want involved."
+                    },
+                    {
+                      "title": "Check language",
+                      "detail": "Use an interpreter if needed and practicable."
+                    }
+                  ],
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mh-assessment",
+          "tab": "Assessment",
+          "modules": [
+            {
+              "id": "mh-assessment-notes",
+              "title": "Assessment",
+              "icon": "brain",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "note",
+                  "id": "mh-culture-not-illness",
+                  "heading": "Culture is not illness",
+                  "text": "Under the Act, holding a cultural belief or taking part in cultural activity does not by itself mean a person has a mental illness.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "note",
+                  "id": "mh-information-from-others",
+                  "heading": "Information from others",
+                  "text": "Information from an Aboriginal mental health worker or community member can inform the examination, but the Act says an order cannot rest on that information alone.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "noteWording",
+                  "id": "mh-what-to-record",
+                  "heading": "What to record",
+                  "template": "Examined in collaboration with [blank] (Aboriginal mental health worker) and [blank] (family or community member), in line with s 81.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mh-wellbeing",
+          "tab": "Wellbeing",
+          "modules": [
+            {
+              "id": "mh-sewb",
+              "title": "Social and emotional wellbeing",
+              "icon": "feather",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "linkList",
+                  "id": "mh-sewb-links",
+                  "heading": "Read more",
+                  "items": [
+                    {
+                      "label": "National SEWB framework",
+                      "detail": "Aboriginal and Torres Strait Islander mental health and social and emotional wellbeing",
+                      "href": "https://www.niaa.gov.au/sites/default/files/documents/publications/mhsewb-framework_0.pdf"
+                    }
+                  ],
+                  "sourceId": "sewb-national-framework",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "on-the-ward",
+      "title": "On the ward",
+      "sections": [
+        {
+          "id": "ward-respect",
+          "tab": "Respect",
+          "modules": [
+            {
+              "id": "ward-respect-tips",
+              "title": "Respect",
+              "icon": "users",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "ward-ask-what-matters",
+                  "do": "Ask the person and family what matters to them in their care",
+                  "why": "Cultural safety is decided by the person, their family and community.",
+                  "sourceId": "ahpra-cultural-safety",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ward-healing",
+          "tab": "Healing",
+          "modules": [
+            {
+              "id": "ward-healing-tips",
+              "title": "Healing",
+              "icon": "feather",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "ward-healer",
+                  "do": "Ask whether they would like an elder or traditional healer involved",
+                  "why": "The Act names elders and traditional healers among those to work with, where practicable and appropriate.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ward-country",
+          "tab": "Country",
+          "modules": [
+            {
+              "id": "ward-country-tips",
+              "title": "Country",
+              "icon": "map-pin",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "ward-home-country",
+                  "do": "Ask about home and Country",
+                  "why": "Connection to Country is part of social and emotional wellbeing.",
+                  "sourceId": "sewb-national-framework",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ward-bias",
+          "tab": "Bias",
+          "modules": [
+            {
+              "id": "ward-bias-tips",
+              "title": "Bias",
+              "icon": "shield",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "ward-reflect",
+                  "do": "Reflect on your own assumptions and power in the room",
+                  "why": "The national definition of culturally safe practice includes ongoing critical reflection and care free of racism.",
+                  "sourceId": "ahpra-cultural-safety",
+                  "checkedAt": "2026-09-26"
+                },
+                {
+                  "kind": "linkList",
+                  "id": "ward-bias-learning",
+                  "heading": "Learning",
+                  "items": [
+                    {
+                      "label": "Aboriginal Cultural eLearning",
+                      "detail": "WA Health online cultural learning",
+                      "href": "https://www.health.wa.gov.au/improving-wa-health/about-aboriginal-health/aboriginal-cultural-learning"
+                    }
+                  ],
+                  "sourceId": "wa-cultural-elearning",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mistakes",
+      "title": "Common mistakes",
+      "sections": [
+        {
+          "id": "mistakes-talking",
+          "tab": "Talking",
+          "modules": [
+            {
+              "id": "mistakes-talking-cards",
+              "title": "Talking",
+              "icon": "message",
+              "layout": "numbered",
+              "blocks": [
+                {
+                  "kind": "avoid",
+                  "id": "avoid-phone-interpreter",
+                  "avoid": "Relying on a phone interpreter for a mental health interview",
+                  "instead": "Book an on-site or video interpreter; Aboriginal Interpreting WA for Aboriginal languages.",
+                  "sourceId": "wa-health-language-services-guidelines-2025",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "avoid",
+                  "id": "avoid-assume-english",
+                  "avoid": "Assuming English is the person's first language",
+                  "instead": "Ask which language they are most comfortable in.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mistakes-family",
+          "tab": "Family",
+          "modules": [
+            {
+              "id": "mistakes-family-cards",
+              "title": "Family",
+              "icon": "users",
+              "layout": "numbered",
+              "blocks": [
+                {
+                  "kind": "avoid",
+                  "id": "avoid-choose-family",
+                  "avoid": "Deciding for the person who counts as family",
+                  "instead": "Ask the person and family who should be involved.",
+                  "sourceId": "ahpra-cultural-safety",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mistakes-mental",
+          "tab": "Mental",
+          "modules": [
+            {
+              "id": "mistakes-mental-cards",
+              "title": "Mental",
+              "icon": "brain",
+              "layout": "numbered",
+              "blocks": [
+                {
+                  "kind": "avoid",
+                  "id": "avoid-culture-as-illness",
+                  "avoid": "Reading a cultural belief or practice as a sign of illness",
+                  "instead": "Remember the Act: culture alone does not mean mental illness. Ask the Aboriginal mental health worker for context.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                },
+                {
+                  "kind": "avoid",
+                  "id": "avoid-no-worker",
+                  "avoid": "Examining without offering an Aboriginal mental health worker",
+                  "instead": "Offer one and involve them where practicable (s 81).",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mistakes-ward",
+          "tab": "Ward",
+          "modules": [
+            {
+              "id": "mistakes-ward-cards",
+              "title": "Ward",
+              "icon": "bed",
+              "layout": "numbered",
+              "blocks": [
+                {
+                  "kind": "avoid",
+                  "id": "avoid-assume-safe",
+                  "avoid": "Assuming you know what the person needs culturally",
+                  "instead": "Ask. Cultural safety is decided by the person, their family and community.",
+                  "sourceId": "ahpra-cultural-safety",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "going-home",
+      "title": "Going home",
+      "sections": [
+        {
+          "id": "gh-leaving",
+          "tab": "Leaving",
+          "modules": [
+            {
+              "id": "gh-leaving-steps",
+              "title": "Before they leave",
+              "icon": "door",
+              "layout": "steps",
+              "blocks": [
+                {
+                  "kind": "steps",
+                  "id": "gh-before-steps",
+                  "heading": "Before they leave",
+                  "items": [
+                    {
+                      "title": "Involve family and the Aboriginal mental health worker",
+                      "detail": "Have regard to the family's views in the plan."
+                    },
+                    {
+                      "title": "Explain the plan in words they understand",
+                      "detail": "Use an interpreter if needed."
+                    }
+                  ],
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            },
+            {
+              "id": "gh-leaving-tips",
+              "title": "Support after",
+              "icon": "phone",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "gh-13yarn",
+                  "do": "Offer 13YARN for support after discharge",
+                  "why": "A crisis line for Aboriginal and Torres Strait Islander people, open 24 hours.",
+                  "sourceId": "13yarn",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gh-medicines",
+          "tab": "Medicines",
+          "modules": [
+            {
+              "id": "gh-medicines-tips",
+              "title": "Medicines",
+              "icon": "clipboard",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "gh-ctg",
+                  "do": "Ask whether they are registered for the Closing the Gap PBS co-payment",
+                  "why": "It lowers what eligible Aboriginal and Torres Strait Islander people pay for PBS medicines.",
+                  "sourceId": "close-the-gap-pbs",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gh-travel",
+          "tab": "Travel",
+          "modules": [
+            {
+              "id": "gh-travel-tips",
+              "title": "Travel",
+              "icon": "map-pin",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "gh-pats",
+                  "do": "If they live in the country, check whether PATS can help with travel",
+                  "why": "PATS is WA Country Health Service's travel and accommodation subsidy for country patients.",
+                  "sourceId": "wa-pats",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gh-follow-up",
+          "tab": "Follow-up",
+          "modules": [
+            {
+              "id": "gh-where-is-home",
+              "title": "Where is home?",
+              "icon": "house",
+              "layout": "where-is-home",
+              "blocks": []
+            },
+            {
+              "id": "gh-follow-up-tips",
+              "title": "Follow-up",
+              "icon": "users",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "gh-accho",
+                  "do": "Offer follow-up with their local Aboriginal community controlled health service",
+                  "why": "AHCWA is the peak body for these services across WA.",
+                  "sourceId": "ahcwa",
+                  "checkedAt": "2026-09-26"
+                },
+                {
+                  "kind": "linkList",
+                  "id": "gh-follow-up-links",
+                  "heading": "Aboriginal-led services",
+                  "items": [
+                    {
+                      "label": "Aboriginal Health Council of WA",
+                      "detail": "Peak body for Aboriginal community controlled health services in WA",
+                      "href": "https://www.ahcwa.org.au/about-us/"
+                    }
+                  ],
+                  "sourceId": "ahcwa",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "end-of-life",
+      "title": "End of life",
+      "sections": [
+        {
+          "id": "eol-family",
+          "tab": "Family",
+          "modules": [
+            {
+              "id": "eol-family-tips",
+              "title": "Family",
+              "icon": "users",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "eol-family-first",
+                  "do": "Involve family and the Aboriginal mental health worker early",
+                  "why": "The Act asks services to have regard to the family's views and to work with Aboriginal mental health workers.",
+                  "sourceId": "mha-2014-communication-and-cultural-provisions",
+                  "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eol-country",
+          "tab": "Country",
+          "modules": [
+            {
+              "id": "eol-country-tips",
+              "title": "Country",
+              "icon": "map-pin",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "eol-return-to-country",
+                  "do": "Ask whether being on Country matters to the person and family",
+                  "why": "Connection to Country and spirit is part of social and emotional wellbeing.",
+                  "sourceId": "sewb-national-framework",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "eol-afterwards",
+          "tab": "Afterwards",
+          "modules": [
+            {
+              "id": "eol-afterwards-tips",
+              "title": "Afterwards",
+              "icon": "feather",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "eol-ask-family",
+                  "do": "Ask the family what they need; do not assume rules",
+                  "why": "Cultural safety is decided by the family and community.",
+                  "sourceId": "ahpra-cultural-safety",
+                  "checkedAt": "2026-09-26"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "situations": [
+    {
+      "id": "new-admission",
+      "label": "New admission",
+      "icon": "bed",
+      "phrases": [
+        {
+          "say": "Would you like an Aboriginal mental health worker to be with us?",
+          "why": "The Act asks for collaboration with Aboriginal mental health workers where practicable.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Is there someone you would like with you while we talk?",
+          "why": "The Act names family and community members, including elders.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Which language would you like to talk in?",
+          "why": "The Act says communication must be in a language the person is likely to understand.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        }
+      ],
+      "firstStepRef": "bedside-offer-worker",
+      "plan": ["bedside-offer-worker", "bedside-who-with", "bedside-language", "bedside-home", "bedside-sorry-business"]
+    },
+    {
+      "id": "wants-to-leave",
+      "label": "Wants to leave",
+      "icon": "door",
+      "phrases": [
+        {
+          "say": "Can I ask an Aboriginal mental health worker to come and talk with us?",
+          "why": "The Act asks for collaboration with Aboriginal mental health workers where practicable.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Is there someone in your family you would like us to call?",
+          "why": "The Act asks services to have regard to the views of the family.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Would it help to talk in your own language, with an interpreter?",
+          "why": "Aboriginal Interpreting WA is the primary language service for Aboriginal people in WA.",
+          "sourceId": "wa-health-language-services-guidelines-2025",
+          "checkedAt": "2026-09-25"
+        }
+      ],
+      "firstStepRef": "bedside-offer-worker",
+      "plan": ["bedside-offer-worker", "family-who-involve", "contacts-aiwa", "gh-13yarn"],
+      "riskLineRef": "wants-to-leave-risk"
+    },
+    {
+      "id": "family-meeting",
+      "label": "Family meeting",
+      "icon": "users",
+      "phrases": [
+        {
+          "say": "Who in your family should be part of this talk?",
+          "why": "Cultural safety is decided by the person, their family and community.",
+          "sourceId": "ahpra-cultural-safety",
+          "checkedAt": "2026-09-26"
+        },
+        {
+          "say": "Would you like an elder or someone from community here too?",
+          "why": "The Act names elders among the community members to work with.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Shall we book an interpreter to be here in person?",
+          "why": "WA Health guidelines say phone interpreting is not suited to sensitive mental health talks.",
+          "sourceId": "wa-health-language-services-guidelines-2025",
+          "checkedAt": "2026-09-25"
+        }
+      ],
+      "firstStepRef": "family-who-involve",
+      "plan": ["family-who-involve", "family-elder", "contacts-interpreter-in-person"]
+    },
+    {
+      "id": "mental-health-act",
+      "label": "Mental Health Act",
+      "icon": "scale",
+      "phrases": [
+        {
+          "say": "I want to explain what the Mental Health Act means for you, in words that make sense to you.",
+          "why": "The Act says communication must be in terms the person is likely to understand.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Would you like an Aboriginal mental health worker with us for this examination?",
+          "why": "Section 81 asks for the examination to be in collaboration with Aboriginal mental health workers where practicable.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Is there an elder or traditional healer you would like us to involve?",
+          "why": "Section 81 names elders and traditional healers.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        }
+      ],
+      "firstStepRef": "bedside-offer-worker",
+      "plan": ["bedside-offer-worker", "ward-healer", "talking-plain-words", "mh-culture-not-illness"]
+    },
+    {
+      "id": "sorry-business",
+      "label": "Sorry Business",
+      "icon": "feather",
+      "phrases": [
+        {
+          "say": "Is anything happening in your family or community right now that we should know about?",
+          "why": "Family and community are part of social and emotional wellbeing.",
+          "sourceId": "sewb-national-framework",
+          "checkedAt": "2026-09-26"
+        },
+        {
+          "say": "What do you need from us so you can take part in family and cultural business?",
+          "why": "The Act asks for care that fits the person's cultural and spiritual practices.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        },
+        {
+          "say": "Who in your family should we talk with about this?",
+          "why": "The Act asks services to have regard to the views of the family.",
+          "sourceId": "mha-2014-communication-and-cultural-provisions",
+          "checkedAt": "2026-09-25"
+        }
+      ],
+      "firstStepRef": "bedside-sorry-business",
+      "plan": ["bedside-sorry-business", "family-who-involve", "ward-ask-what-matters"]
+    },
+    {
+      "id": "going-home",
+      "label": "Going home",
+      "icon": "house",
+      "phrases": [
+        {
+          "say": "Where is home, and how will you get there?",
+          "why": "PATS can help country patients with travel and accommodation costs.",
+          "sourceId": "wa-pats",
+          "checkedAt": "2026-09-26"
+        },
+        {
+          "say": "Do you have a local Aboriginal health service you would like us to link with?",
+          "why": "AHCWA is the peak body for Aboriginal community controlled health services across WA.",
+          "sourceId": "ahcwa",
+          "checkedAt": "2026-09-26"
+        },
+        {
+          "say": "Are you registered for Closing the Gap help with medicine costs?",
+          "why": "It lowers what eligible people pay for PBS medicines.",
+          "sourceId": "close-the-gap-pbs",
+          "checkedAt": "2026-09-26"
+        }
+      ],
+      "firstStepRef": "gh-accho",
+      "plan": ["gh-accho", "gh-ctg", "gh-pats", "gh-13yarn", "rurallink"]
+    }
+  ],
+  "riskLines": [
+    {
+      "kind": "note",
+      "id": "wants-to-leave-risk",
+      "heading": "Immediate risk",
+      "text": "Immediate risk? Follow your hospital's Mental Health Act and security process first.",
+      "sourceId": "mha-2014-communication-and-cultural-provisions",
+      "checkedAt": "2026-09-25"
+    }
+  ],
+  "statewideContacts": [
+    {
+      "kind": "contact",
+      "id": "aboriginal-interpreting-wa",
+      "name": "Aboriginal Interpreting WA",
+      "detail": "Aboriginal language interpreters across WA · booking number to be added",
+      "number": "See website",
+      "layer": "statewide",
+      "sourceId": "aiwa",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "kind": "contact",
+      "id": "yarn-13",
+      "name": "13YARN",
+      "detail": "24 hours, every day",
+      "number": "13 92 76",
+      "layer": "statewide",
+      "sourceId": "13yarn",
+      "checkedAt": "2026-09-25"
+    },
+    {
+      "kind": "contact",
+      "id": "mherl-metro",
+      "name": "Mental Health Emergency Response Line (MHERL)",
+      "detail": "Perth metro · 24 hours, every day",
+      "number": "1300 555 788",
+      "layer": "statewide",
+      "sourceId": "mherl",
+      "checkedAt": "2026-08-20"
+    },
+    {
+      "kind": "contact",
+      "id": "mherl-peel",
+      "name": "Mental Health Emergency Response Line (MHERL), Peel",
+      "detail": "Peel region · 24 hours, every day",
+      "number": "1800 676 822",
+      "layer": "statewide",
+      "sourceId": "mherl",
+      "checkedAt": "2026-08-20"
+    },
+    {
+      "kind": "contact",
+      "id": "rurallink",
+      "name": "Rurallink support line",
+      "detail": "Regional WA · weeknights 16:30–08:30, 24 hours weekends and public holidays",
+      "number": "1800 552 002",
+      "layer": "statewide",
+      "sourceId": "rurallink",
+      "checkedAt": "2026-08-20"
+    }
+  ],
+  "interpreterContactId": "aboriginal-interpreting-wa",
+  "regions": [
+    {
+      "id": "kimberley",
+      "label": "Kimberley",
+      "serviceContactIds": ["rurallink", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "pilbara",
+      "label": "Pilbara",
+      "serviceContactIds": ["rurallink", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "midwest",
+      "label": "Midwest",
+      "serviceContactIds": ["rurallink", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "goldfields",
+      "label": "Goldfields",
+      "serviceContactIds": ["rurallink", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "wheatbelt",
+      "label": "Wheatbelt",
+      "serviceContactIds": ["rurallink", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "perth",
+      "label": "Perth metro",
+      "serviceContactIds": ["mherl-metro", "mherl-peel", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "south-west",
+      "label": "South West",
+      "serviceContactIds": ["rurallink", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "great-southern",
+      "label": "Great Southern",
+      "serviceContactIds": ["rurallink", "yarn-13"],
+      "languages": [],
+      "sourceId": "wa-health-regions-dataset",
+      "checkedAt": "2026-09-26"
+    }
+  ],
+  "training": {
+    "label": "Aboriginal Cultural eLearning",
+    "detail": "WA Health online cultural learning",
+    "href": "https://www.health.wa.gov.au/improving-wa-health/about-aboriginal-health/aboriginal-cultural-learning",
+    "sourceId": "wa-cultural-elearning",
+    "checkedAt": "2026-09-26"
+  }
+}

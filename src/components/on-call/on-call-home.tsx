@@ -25,7 +25,7 @@ import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { ON_CALL_HOME_ICON, ON_CALL_SECTION_HREFS } from "@/components/on-call/on-call-section-identity";
 import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { useHospitalHandbook } from "@/components/on-call/use-hospital-handbook";
-import { useOnCallShifts } from "@/components/on-call/use-on-call-shifts";
+import { useRosterShifts } from "@/components/roster/use-roster-shifts";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { onCallCallNowScenarios, onCallCallNowSteps } from "@/lib/on-call/call-now";
@@ -101,7 +101,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut, demoMode } = useOnCallEntries();
   const loadFailed = !loading && isOffline && entries.length === 0;
   const handbook = useHospitalHandbook();
-  const shifts = useOnCallShifts();
+  const shifts = useRosterShifts();
   const pick = useOnCallShiftPick();
   const myTeam = useOnCallMyTeam();
 

@@ -315,6 +315,13 @@ Every remaining tracked document in this category, one line each; the descriptio
 - [superpowers/plans/2026-09-27-on-call-completion.md](superpowers/plans/2026-09-27-on-call-completion.md) — On Call plan to complete the health-service rebuild (after #3110)
 - [superpowers/plans/2026-09-20-cme-mode-phase-1.md](superpowers/plans/2026-09-20-cme-mode-phase-1.md) — CPD mode (mode id `cme`) phase 1 implementation plan
 - [superpowers/plans/2026-09-25-wa-psychiatry-build.md](superpowers/plans/2026-09-25-wa-psychiatry-build.md) — WA Psychiatry build: fast-lane implementation plan (v2)
+- [superpowers/plans/2026-09-27-roster-mode-overview.md](superpowers/plans/2026-09-27-roster-mode-overview.md) — Roster mode build overview: steps, default decisions, Josh-only actions
+- [superpowers/plans/2026-09-27-roster-mode-plan-a-database.md](superpowers/plans/2026-09-27-roster-mode-plan-a-database.md) — Roster mode plan A: the combined database change (PR #3117)
+- [superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md](superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md) — Roster mode plan B: Release 1, one doctor (PR #3118)
+- [superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md](superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md) — Roster mode plan C: Release 2, Roster for a health service (the plan to complete it)
+- [superpowers/plans/2026-09-27-roster-mode-status.md](superpowers/plans/2026-09-27-roster-mode-status.md) — Roster mode: where the build stands and the plan to complete it
+- [superpowers/plans/2026-09-27-roster-mode-db-agreement.md](superpowers/plans/2026-09-27-roster-mode-db-agreement.md) — Roster mode: the Roster, On Call, Admin and Teaching agreement on the combined database change
+- [superpowers/plans/2026-09-27-roster-mode-build-brief.md](superpowers/plans/2026-09-27-roster-mode-build-brief.md) — Roster mode: the brief the build threads work from
 - [superpowers/specs/2026-09-04-on-call-mode-design.md](superpowers/specs/2026-09-04-on-call-mode-design.md) — On Call mode design spec
 
 ## Subdirectory map
@@ -412,9 +419,9 @@ Every remaining tracked document in this category (dated records and the `eviden
 - [audit/gate-consolidation-audit-2026-09-02.md](audit/gate-consolidation-audit-2026-09-02.md) — Gate consolidation audit — 2026-09-02 — Status: proposal only.
 - [audit/live-design-interaction-audit-2026-08-06.md](audit/live-design-interaction-audit-2026-08-06.md) — Live design & interaction audit — master report — Date: 2026-08-06 App:
 - [audit/live-drift-forensics-2026-08.md](audit/live-drift-forensics-2026-08.md) — Live-drift forensics — 2026-08 — Evidence record for the phased database remediation plan and playbook.
-- [audit/performance-image-cwv-audit-2026-08-02.md](audit/performance-image-cwv-audit-2026-08-02.md) — Performance, Image & Core Web Vitals Audit — Clinical KB Database — Date: 2026-08-02 Scope:
+- [audit/performance-image-cwv-audit-2026-08-02.md](audit/performance-image-cwv-audit-2026-08-02.md) — Performance, Image & Core Web Vitals Audit — PsychSift Production — Date: 2026-08-02 Scope:
 - [audit/primary-checkout-reconciliation-2026-07-24.md](audit/primary-checkout-reconciliation-2026-07-24.md) — Primary checkout reconciliation — 2026-07-24 — This record covers the dirty primary checkout and the final cloud-chat salvage wave.
-- [audit/repo-audit-2026-07-01.md](audit/repo-audit-2026-07-01.md) — Repository Audit — Clinical KB Database — Date: 2026-07-01 Branch:
+- [audit/repo-audit-2026-07-01.md](audit/repo-audit-2026-07-01.md) — Repository Audit — PsychSift Production — Date: 2026-07-01 Branch:
 - [audit/repo-wide-review-remediation-plan-2026-07-23.md](audit/repo-wide-review-remediation-plan-2026-07-23.md) — Repository-wide review remediation completion plan — 2026-07-24 — Complete every outstanding finding from the 2026-07-19 repository-wide review sweep with the smallest safe patches, clear ownership boundari…
 - [audit/repo-wide-review-sweep-2026-07-19.md](audit/repo-wide-review-sweep-2026-07-19.md) — Repository-wide review sweep — 2026-07-19 — This was a broad static repository sweep of /workspace/Database on branch work, combining the repo workflow guidance, local static commands,…
 - [audit/ux-accessibility-review-2026-07-07.md](audit/ux-accessibility-review-2026-07-07.md) — UX & Accessibility Review — Date: 2026-07-07 Reviewer role:

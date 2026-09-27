@@ -1114,7 +1114,7 @@ describe("Codex Cloud origin repair", () => {
     expect(configuredOriginUrl(wrong)).toBe("https://github.com/example/other.git");
 
     const credentialed = temporaryGitRepository();
-    const unsafe = "https://token-value@github.com/BigSimmo/Database.git";
+    const unsafe = "https://token-value@github.com/BigSimmo/PsychSift.git";
     expect(git(credentialed, "remote", "add", "origin", unsafe).status).toBe(0);
     expect(() => ensureOriginRemote(credentialed)).toThrow(/embedded credentials/);
     expect(configuredOriginUrl(credentialed)).toBe(unsafe);

@@ -10,6 +10,7 @@
 @import "./ckb-v2-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant pointer-fine (@media (pointer: fine));
 
 /*
  * Motion variants are redefined so the in-app Motion preference is authoritative
@@ -1163,6 +1164,42 @@ body {
   }
 }
 
+/* Roster: violet. The design record's identity colour (Roster Release 1 plan,
+   Global Constraints). Light ~6.9:1 and dark ~7.2:1 against their own contrast
+   token, both cleared as a FILL (the pill's circle) as well as text, which is
+   why the contrast partner is declared rather than assumed white. Same
+   delivery mechanism as On Call and CME above: the local `--clinical-accent`
+   remap, scoped to the elements carrying the attribute. */
+[data-mode-identity="roster"] {
+  --mode-identity: #634f8f;
+  --mode-identity-soft: #f2eef9;
+  --mode-identity-border: #ddd3ee;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="roster"] {
+  --mode-identity: #b0a0d8;
+  --mode-identity-soft: #241c3a;
+  --mode-identity-border: #3b3054;
+  --mode-identity-contrast: #170f26;
+}
+
+@media (forced-colors: active) {
+  /* Declared as its own rule, as On Call's and CME's are, so a grouped
+     selector cannot stop this from matching an exact-selector read. */
+  [data-mode-identity="roster"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
 /* Mode summary surface (mode design standard v13.3 §4).
    ------------------------------------------------------------------
    The dark "Right now" panel a mode home may build its hero from; every mode
@@ -1194,6 +1231,58 @@ body {
     --surface-summary-muted: CanvasText;
     --surface-summary-line: CanvasText;
   }
+}
+
+/* First Nations: olive (mode design standard v13.1 §3). Light 6.1:1 on white,
+   dark 9.0:1 on a dark card, disc glyph 9.4:1. Used only on the pill, the
+   current tab, module icon tiles, the hero's day track and quotation accents.
+   Pinned by tests/first-nations-mode-colour.test.ts. */
+[data-mode-identity="first-nations"] {
+  --mode-identity: #4d6b2f;
+  --mode-identity-soft: #f2f5ee;
+  --mode-identity-border: #dce4d2;
+  --mode-identity-contrast: #ffffff;
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="first-nations"] {
+  --mode-identity: #b5c98c;
+  --mode-identity-soft: #232b1d;
+  --mode-identity-border: #3a4730;
+  --mode-identity-contrast: #172009;
+}
+
+/* On the hero summary panel the mode colour uses its dark value in both themes (v13.3). */
+[data-mode-identity="first-nations"].fn-on-summary {
+  --mode-identity: #b5c98c;
+}
+
+@media (forced-colors: active) {
+  [data-mode-identity="first-nations"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* The one display figure on the First Nations hero (standard §1: 36 px at 300). */
+.fn-display-36 {
+  font-size: 2.25rem;
+  line-height: var(--leading-display);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Serif accent: words to say aloud, quoted law, the Acknowledgement. */
+.fn-voice {
+  font-family: var(--font-fn-serif), ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
 }
 
 /* CPD's hero bar fill (Today's hero summary, the hero's one graphic).

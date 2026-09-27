@@ -29,9 +29,9 @@ merged or deployed, and they are not proof that a provider works in production.
 
 ### Supabase
 
-- Production: `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), healthy,
+- Production: `PsychSift Production` (`sjrfecxgysukkwxsowpy`), healthy,
   `ap-southeast-2`.
-- Staging: `Clinical KB Staging` (`ikoiolksxqxfxgiyqpnu`), healthy,
+- Staging: `PsychSift Staging` (`ikoiolksxqxfxgiyqpnu`), healthy,
   `ap-southeast-2`.
 - The primary checkout is currently linked to **staging**, not production.
 
