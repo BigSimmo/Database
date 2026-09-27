@@ -148,11 +148,14 @@ function dayIndex(dateIso: string, year: number): number {
   return Math.round((day - start) / 86_400_000);
 }
 
+// Where each month's first day falls on the plot, as a share of its width:
+// PAD_LEFT + (day / lastDay) * plotWidth, over CHART_WIDTH. A leap year moves
+// them by under 0.2%, so fixed positions keep these out of inline styles.
 const MONTH_TICKS = [
-  { month: 1, label: "Jan" },
-  { month: 4, label: "Apr" },
-  { month: 7, label: "Jul" },
-  { month: 10, label: "Oct" },
+  { label: "Jan", position: "left-[1.25%]" },
+  { label: "Apr", position: "left-[25.3%]" },
+  { label: "Jul", position: "left-[49.7%]" },
+  { label: "Oct", position: "left-[74.4%]" },
 ] as const;
 
 /**
@@ -256,35 +259,34 @@ export function CmePaceChart({
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
           />
+          {/* Today is product blue (standard module 7); a whole past year ends in the line's own ink.
+              A zero-length round-capped line with a non-scaling stroke draws a dot that stays round
+              when the plot is stretched to the card's width. */}
+          <line
+            data-testid="cme-pace-chart-end"
+            x1={x(endIndex)}
+            y1={y(running)}
+            x2={x(endIndex)}
+            y2={y(running)}
+            strokeWidth={9}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+            className={
+              todayIndex === null
+                ? "stroke-[color:var(--command)] forced-colors:stroke-[CanvasText]"
+                : "stroke-[color:var(--clinical-accent)] forced-colors:stroke-[Highlight]"
+            }
+          />
         </svg>
-        {/* Today is product blue (standard module 7); a whole past year ends in the line's own ink. */}
-        <span
-          aria-hidden="true"
-          data-testid="cme-pace-chart-end"
-          style={{
-            left: `${(x(endIndex) / CHART_WIDTH) * 100}%`,
-            top: `${(y(running) / CHART_HEIGHT) * 100}%`,
-          }}
-          className={cn(
-            "absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
-            todayIndex === null
-              ? "bg-[color:var(--command)] forced-colors:bg-[CanvasText]"
-              : "bg-[color:var(--clinical-accent)] forced-colors:bg-[Highlight]",
-          )}
-        />
-        {MONTH_TICKS.map((tick) => {
-          const index = dayIndex(`${year}-${String(tick.month).padStart(2, "0")}-01`, year);
-          return (
-            <span
-              key={tick.label}
-              aria-hidden="true"
-              style={{ left: `${(x(index) / CHART_WIDTH) * 100}%` }}
-              className="absolute bottom-0 text-2xs text-[color:var(--text-muted)]"
-            >
-              {tick.label}
-            </span>
-          );
-        })}
+        {MONTH_TICKS.map((tick) => (
+          <span
+            key={tick.label}
+            aria-hidden="true"
+            className={cn("absolute bottom-0 text-2xs text-[color:var(--text-muted)]", tick.position)}
+          >
+            {tick.label}
+          </span>
+        ))}
       </div>
       <figcaption className={cn(textMuted, "mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs")}>
         <span className="inline-flex items-center gap-1.5">
