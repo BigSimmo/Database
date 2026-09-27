@@ -34,6 +34,15 @@ export const productionSpecFilePattern =
 export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-admin.spec.ts", shard: 1, fullSeconds: 24, criticalSeconds: 0 },
   {
+    // Roster Team (added 2026-09-28): four mocked-API journeys, estimated at
+    // ~2s each; no timing report yet, so criticalSeconds stays 0 until one
+    // exists. Shard 1 carries no critical time, so it takes the new file.
+    file: "tests/ui-roster-team.spec.ts",
+    shard: 1,
+    fullSeconds: 8,
+    criticalSeconds: 0,
+  },
+  {
     file: "tests/adaptive-answer-ui.spec.ts",
     shard: 3,
     fullSeconds: 19,

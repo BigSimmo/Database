@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
@@ -168,11 +168,13 @@ export function RosterMakerTab({ serviceId, overview }: { serviceId: string; ove
   const editReturn = useRef<HTMLButtonElement | null>(null);
   const codeRef = useRef<HTMLSelectElement | null>(null);
   useEffect(() => {
+    const requestSerial = serial;
+    const requestController = controller;
     alive.current = true;
     return () => {
       alive.current = false;
-      serial.current++;
-      controller.current?.abort();
+      requestSerial.current++;
+      requestController.current?.abort();
     };
   }, []);
   const people = peopleRead.data?.people ?? [];
@@ -307,10 +309,9 @@ export function RosterMakerTab({ serviceId, overview }: { serviceId: string; ove
       );
     }
   }
-  function startEdit(personId: string, date: string, button: HTMLButtonElement) {
-    if (!snapshot || busy) return;
+  function startEdit(personId: string, date: string) {
+    if (!snapshot || busy) return false;
     const first = forCell(personId, date)[0];
-    editReturn.current = button;
     setEditor({
       personId,
       date,
@@ -321,6 +322,12 @@ export function RosterMakerTab({ serviceId, overview }: { serviceId: string; ove
     });
     setProposal(null);
     setReview(false);
+    return true;
+  }
+  function startEditFromButton(event: MouseEvent<HTMLButtonElement>) {
+    const button = event.currentTarget;
+    const { person, date } = button.dataset;
+    if (person && date && startEdit(person, date)) editReturn.current = button;
   }
   function closeEdit() {
     setEditor(null);
@@ -685,7 +692,9 @@ export function RosterMakerTab({ serviceId, overview }: { serviceId: string; ove
                             disabled={busy}
                             aria-label={`Edit ${nameOf(person)} ${formatPerthDay(date)}: ${rows.length ? rows.map((row) => row.shiftCode).join(", ") : "no shift"}`}
                             onKeyDown={(event) => navigate(event, pi, di)}
-                            onClick={(event) => startEdit(person.userId, date, event.currentTarget)}
+                            data-person={person.userId}
+                            data-date={date}
+                            onClick={startEditFromButton}
                           >
                             {rows.length ? rows.map((row) => row.shiftCode).join(" · ") : "—"}
                           </button>
@@ -713,25 +722,26 @@ export function RosterMakerTab({ serviceId, overview }: { serviceId: string; ove
               </select>
             </label>
             {mobilePerson ? (
-              days.map((date) => (
-                <button
-                  type="button"
-                  key={date}
-                  className={`${control} text-left`}
-                  disabled={busy}
-                  aria-label={`Edit ${nameOf(mobilePerson)} ${formatPerthDay(date)}: ${
-                    forCell(mobilePerson.userId, date)
-                      .map((row) => row.shiftCode)
-                      .join(", ") || "no shift"
-                  }`}
-                  onClick={(event) => startEdit(mobilePerson.userId, date, event.currentTarget)}
-                >
-                  <span className="block font-medium">{formatPerthDay(date)}</span>
-                  <span>
-                    {forCell(mobilePerson.userId, date).map(rowLabel).join(" · ") || "No shift · tap to edit"}
-                  </span>
-                </button>
-              ))
+              days.map((date) => {
+                const rows = forCell(mobilePerson.userId, date);
+                return (
+                  <button
+                    type="button"
+                    key={date}
+                    className={`${control} text-left`}
+                    disabled={busy}
+                    aria-label={`Edit ${nameOf(mobilePerson)} ${formatPerthDay(date)}: ${
+                      rows.map((row) => row.shiftCode).join(", ") || "no shift"
+                    }`}
+                    data-person={mobilePerson.userId}
+                    data-date={date}
+                    onClick={startEditFromButton}
+                  >
+                    <span className="block font-medium">{formatPerthDay(date)}</span>
+                    <span>{rows.map(rowLabel).join(" · ") || "No shift · tap to edit"}</span>
+                  </button>
+                );
+              })
             ) : (
               <p>No team members loaded.</p>
             )}

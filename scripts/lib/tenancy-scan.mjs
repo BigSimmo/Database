@@ -1611,6 +1611,24 @@ export const UNTIERED_TABLE_DECLARATIONS = [
     reason:
       "Tenancy columns are named `owner_role`/`owner_user_id`, so no tier claims this table. Administrator-gated cross-tenant governance triage queue: GET and PATCH call authorizeAndLimit before this helper runs, the projection is triage disposition metadata (signal type/id, status, resolution code, reviewer id and timestamps) and never question, answer, excerpt or patient text, and per-owner filtering would defeat the oversight purpose (tenancy review §6).",
   },
+  {
+    file: "src/lib/roster/team/delete-my-data.ts",
+    table: "roster_swaps",
+    fn: "withdrawRosterRequests",
+    queries: 1,
+    proof: PROOF_KINDS.UNTIERED_TABLE,
+    reason:
+      "Team-scoped table whose people columns are `requester_id`/`counterparty_id`, so no tier claims it. Delete my data only: ownerId is the signed-in user from authorise() in DELETE /api/roster/shifts, the service id comes from rosterReadTeams(client, ownerId) (the actor's own teams), and the update is pinned on its own chain to that service, `counterparty_id = ownerId` and `status = accepted`, so it can only release the actor's own pending acceptance. Added 2026-09-28.",
+  },
+  {
+    file: "src/lib/roster/team/delete-my-data.ts",
+    table: "roster_open_shifts",
+    fn: "withdrawRosterRequests",
+    queries: 1,
+    proof: PROOF_KINDS.UNTIERED_TABLE,
+    reason:
+      "Team-scoped table whose person column is `claimed_by`, so no tier claims it. Delete my data only: ownerId is the signed-in user from authorise() in DELETE /api/roster/shifts, the service id comes from rosterReadTeams(client, ownerId) (the actor's own teams), and the update is pinned on its own chain to that service, `claimed_by = ownerId` and `status = claimed`, so it can only return the actor's own claim to open. Added 2026-09-28.",
+  },
 ];
 
 /**

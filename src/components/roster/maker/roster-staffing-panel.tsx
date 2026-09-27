@@ -32,7 +32,9 @@ const fromServer = (needs: RosterMakerState["needs"]): EditableNeed[] =>
     siteId: need.siteId,
     needed: need.needed,
   }));
-const serialise = (needs: readonly EditableNeed[]) => needs.map(({ key: _key, ...need }) => need);
+const serialise = (needs: readonly EditableNeed[]) =>
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop the client-side key
+  needs.map(({ key: _key, ...need }) => need);
 function needLabel(need: StaffingNeed, overview: RosterOverview): string {
   const site = need.siteId
     ? (overview.sites.find((entry) => entry.id === need.siteId)?.name ?? "Unknown site")
@@ -47,9 +49,10 @@ function errorMessage(value: unknown, fallback: string): string {
 function sameSettings(state: RosterMakerState, needs: readonly EditableNeed[], rules: RosterMakerRules): boolean {
   const sorted = (items: readonly Omit<StaffingNeed, "id">[]) =>
     [...items].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop the server id
+  const current = state.needs.map(({ id: _id, ...need }) => need);
   return (
-    JSON.stringify(sorted(serialise(needs))) ===
-      JSON.stringify(sorted(state.needs.map(({ id: _id, ...need }) => need))) &&
+    JSON.stringify(sorted(serialise(needs))) === JSON.stringify(sorted(current)) &&
     JSON.stringify(rules) === JSON.stringify(state.rules)
   );
 }
@@ -84,11 +87,13 @@ export function RosterStaffingPanel({
   const alive = useRef(true);
   const newKey = useRef(0);
   useEffect(() => {
+    const requests = requestNumber;
+    const requestController = controller;
     alive.current = true;
     return () => {
       alive.current = false;
-      requestNumber.current++;
-      controller.current?.abort();
+      requests.current++;
+      requestController.current?.abort();
     };
   }, []);
 
@@ -132,9 +137,15 @@ export function RosterStaffingPanel({
     [manager, serviceId, snapshot.draft.id],
   );
   useEffect(() => {
-    void load(false);
+    // Deferred through a timer so the load's "loading" state is not set
+    // synchronously inside the effect (react-hooks/set-state-in-effect).
+    const requestController = controller;
+    const timer = window.setTimeout(() => {
+      void load(false);
+    }, 0);
     return () => {
-      controller.current?.abort();
+      window.clearTimeout(timer);
+      requestController.current?.abort();
     };
   }, [load]);
 
