@@ -41,6 +41,16 @@ const containerByVariant: Record<FormCodeBadgeVariant, string> = {
   hero: "h-14 w-14 gap-0 px-1 sm:h-24 sm:w-24 sm:gap-1",
 };
 
+// The list chip is 48px wide: even sentence-case "Attachment" at 10px does not
+// fit, so it reads "Attach…". Use the short form there; the full code stays in
+// the screen-reader text and the tooltip.
+const SHORT_QUALIFIERS: Record<string, string> = { attachment: "Attach." };
+
+function visibleQualifier(qualifier: string, variant: FormCodeBadgeVariant) {
+  if (variant !== "sm") return qualifier;
+  return SHORT_QUALIFIERS[qualifier.toLowerCase()] ?? qualifier;
+}
+
 const qualifierSizeByVariant: Record<FormCodeBadgeVariant, string> = {
   // The 8px `text-4xs` step these used is retired — indefensible at any density
   // in a clinical product. `text-3xs` (10px) is the dense-metadata floor and is
@@ -91,7 +101,7 @@ export function FormCodeBadge({
             qualifierSizeByVariant[variant],
           )}
         >
-          {qualifier}
+          {visibleQualifier(qualifier, variant)}
         </span>
       ) : null}
     </div>
