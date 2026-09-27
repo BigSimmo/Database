@@ -367,7 +367,7 @@ describe("fetchSharedOnCallEntries and compliance requirements", () => {
    * until the new key is sorted into one list or the other on purpose.
    */
   it("classifies every logistics detail field as either a compliance marker or admin-safe", () => {
-    const ADMIN_SAFE_KEYS = ["category", "location", "hours", "phone", "url"];
+    const ADMIN_SAFE_KEYS = ["category", "location", "hours", "phone", "url", "done", "jobStartsOn"];
     const schema = onCallDetailsSchemaFor("logistics") as unknown as { shape: Record<string, unknown> };
     const declared = Object.keys(schema.shape).sort();
     const classified = [...COMPLIANCE_MARKER_KEYS, ...ADMIN_SAFE_KEYS].sort();
@@ -478,6 +478,44 @@ describe("contact names on the shared read", () => {
     expect((await fetchOwnerOnCallEntries(fakeClient([NAMED_ROW]) as never, "owner-1"))[0].details).toMatchObject({
       contactName: "Dr A. Colleague",
     });
+  });
+});
+
+/**
+ * New job's checklist tick and start date (`src/lib/admin/new-job-progress.ts`) are owner-only for
+ * the same reason a colleague's name is above: a shared New job row is read-only guidance, not a
+ * shared checklist, so a colleague's progress and start date are never sent to another viewer.
+ */
+describe("New job's done tick and start date on the shared read", () => {
+  const NEW_JOB_ROW = {
+    ...SHARED_ROW,
+    id: "14141414-1414-4141-8141-141414141414",
+    section: "logistics",
+    slug: "hr-logins",
+    title: "HR system logins",
+    details: { category: "Logins", done: true, jobStartsOn: "2026-11-02" },
+  };
+
+  it("drops done and jobStartsOn from a shared row for a viewer who does not own it", async () => {
+    const [entry] = await fetchSharedOnCallEntries(fakeClient([NEW_JOB_ROW]) as never);
+    expect(entry.details).toEqual({ category: "Logins" });
+    expect(JSON.stringify(entry)).not.toContain("jobStartsOn");
+  });
+
+  it("keeps them for the owner, whose own copy wins the merge", async () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      in: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce({ data: [NEW_JOB_ROW], error: null })
+        .mockResolvedValueOnce({ data: [NEW_JOB_ROW], error: null }),
+    };
+    const [entry] = await fetchVisibleOnCallEntries({ from: vi.fn(() => chain) } as never, "owner-1");
+    expect(entry.isOwn).toBe(true);
+    expect(entry.details).toMatchObject({ done: true, jobStartsOn: "2026-11-02" });
   });
 });
 

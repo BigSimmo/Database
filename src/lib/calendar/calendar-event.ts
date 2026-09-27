@@ -53,6 +53,8 @@ export type CalendarEvent = {
   readonly reminderType?: ReminderType;
   /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
   readonly alarmAt?: string;
+  /** Further absolute alarm instants (ISO, UTC), one VALARM each. Set only by Admin's one-off renewal file. */
+  readonly alarmsAt?: readonly string[];
 };
 
 /**

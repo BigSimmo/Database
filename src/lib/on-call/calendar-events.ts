@@ -77,7 +77,9 @@ export function onCallExpiryEvents(entries: readonly OnCallEntry[]): CalendarEve
         date: expiresOn,
         kind: "expiry" as const,
         reminderType: "compliance-dates" as const,
-        href: "/on-call/compliance",
+        // Admin > Renewals, where compliance rows live since Admin update 1. The ICS
+        // feed never writes `href`, so the live calendar feed is unchanged.
+        href: "/admin/renewals",
         notes: "The date you recorded. Confirm it with the issuing body.",
       },
     ];

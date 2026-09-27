@@ -271,6 +271,21 @@ describe("toIcs alarms", () => {
     const withoutType = toIcs([{ ...TIMED, reminderType: undefined }], { now });
     expect(toIcs([TIMED], { now })).toBe(withoutType);
   });
+
+  it("writes one VALARM per extra alarm instant, and an event without alarms is unchanged", () => {
+    const text = toIcs([{ ...ALL_DAY, alarmAt: "2026-10-09T01:00:00.000Z", alarmsAt: ["2026-09-25T01:00:00.000Z"] }], {
+      now,
+    });
+    expect(text.match(/BEGIN:VALARM/g)).toHaveLength(2);
+    expect(text).toContain(
+      "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20261009T010000Z\r\nDESCRIPTION:End of the CPD year\r\nEND:VALARM\r\n",
+    );
+    expect(text).toContain(
+      "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20260925T010000Z\r\nDESCRIPTION:End of the CPD year\r\nEND:VALARM\r\n",
+    );
+    // An event with neither field is unchanged: same byte-for-byte output as before `alarmsAt` existed.
+    expect(toIcs([ALL_DAY], { now })).not.toContain("VALARM");
+  });
 });
 
 describe("which reminder governs each calendar event", () => {

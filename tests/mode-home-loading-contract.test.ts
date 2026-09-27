@@ -32,8 +32,8 @@ const MODE_HOME_LOADING_ROUTES = [
   "cme",
   // Psychiatry's dashboard, a standalone mode home for the same reason.
   "psychiatry",
-  // My Work's dashboard, likewise.
-  "my-work",
+  // Admin's Today (mode id `my-work`), likewise.
+  "admin",
   // Roster's dashboard, a standalone mode home for the same reason.
   "roster",
   // First Nations' home: static skeleton plus the real crisis strip (spec §5),

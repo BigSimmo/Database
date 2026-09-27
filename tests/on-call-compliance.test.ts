@@ -534,9 +534,12 @@ const COMPLIANCE_SURFACES = [
   /** The hub home. Its Compliance tile moved to My Work on 2026-09-26; it
    *  stays in scope because Recent still lists compliance rows by name. */
   "src/components/on-call/on-call-home.tsx",
-  /** My Work: the What's next rows print each requirement's recorded date,
-   *  and its Compliance card carries the page's one-line description. */
-  "src/components/my-work/my-work-home.tsx",
+  /** Admin Today now owns the requirement summary and recorded renewal date. */
+  "src/components/admin/today/today-requirements-module.tsx",
+  "src/components/admin/today/today-renew-next-card.tsx",
+  /** Admin Renewals owns the moved checklist and its reader-facing status. */
+  "src/components/admin/admin-renewals-page.tsx",
+  "src/components/admin/renewals/checklist-status.tsx",
   /** The demo requirements, which ARE the page's content in demo mode. */
   "src/lib/on-call/demo-entries.ts",
   /** The compliance form's labels, hints and privacy sentence — and
