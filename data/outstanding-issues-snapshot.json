@@ -4,13 +4,13 @@
     "committed_at": "2026-09-27"
   },
   "counts": {
-    "open": 150,
+    "open": 157,
     "p1": 20,
     "p2": 69,
-    "p3": 61,
+    "p3": 68,
     "queued": 6,
     "pending": 0,
-    "resolved": 687
+    "resolved": 680
   },
   "queue": [
     {
@@ -748,6 +748,15 @@
       "added": "2026-09-20"
     },
     {
+      "id": "#6TBVZ9",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Three knip-confirmed dead files are still in src/ after the maturity review flagged them",
+      "detail": "Confirm each against docs/agents/dead-code-deletion.md, then remove: src/components/care-plan/mockups/index.ts (orphaned barrel, every consumer imports the sub-files), src/components/clinical-dashboard/use-mobile-preview-sheet.ts (zero importers), src/components/dictionary/dictionary-sources-page.tsx (superseded — the route now redirects to /sources/search?usedBy=dictionary). Why: triage only, not a delete list; knip found exactly these three across 1660 source files, which is an unusually clean result worth keeping clean. Owner: assistant. Confidence: high — all three verified still present 2026-09-20. Depends on: nothing.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
       "id": "#383YXX",
       "priority": "P2",
       "type": "issue",
@@ -781,6 +790,15 @@
       "summary": "Two Firefox failures survive the 2026-09-20 triage: the document-viewer hit counter and the tools Forms panel, both a click whose state change never lands",
       "detail": "Read the Playwright trace from the failing run BEFORE proposing any fix; playwright.config.ts sets trace: retain-on-failure so it exists, and its After-DOM snapshot of the click answers this in minutes. THE TWO: (1) ui-smoke.spec.ts \"search regressions avoid fetch errors and open viewer hits @critical\" - after clicking Next document search hit, \"Hit 2 of 2\" never appears (element NOT FOUND, not hidden); (2) ui-tools.spec.ts \"tool links point to the expected in-app modes\" - the Forms complementary panel resolves to zero elements, on the 4th of 6 loop passes, while Services with an identical /?mode=<id> href passes. SAME SHAPE, so probably one shared Firefox cause. RULED OUT by two independent agent reads, do not re-derive: text split across elements (Playwright elementText flattens descendants and JSX/SSR comment separators); a collapsed <details> or any CSS cause (a hidden node still matches, and would report hidden not not-found - no stylesheet removes a node from the DOM); scrollIntoView/smooth scroll (suite-wide reducedMotion: reduce makes resolveScrollBehavior return auto); keyboard/focus; a click intercepted by the fixed composer (Playwright's hit-target interceptor blocks and retries, failing AT the click); Forms-specific data or markup (tools-catalog.ts Forms and Services are the same shape, and DetailActions renders the href link unconditionally). LEADING CANDIDATES: for (1), the handler firing zero times or twice - with exactly 2 hits, (i+d+2)%2 returns to 0 either way - with the exclusive-accordion open-attribute fight at source-panels.tsx:1063 as a plausible Gecko-specific trigger; for (2), the panel's hardcoded aria-labelledby id resolving against a hidden duplicate page root (the #093 failure mode visibleByTestId exists for), or the bare focus() at tools-search-results-page.tsx:470 scrolling late. NEITHER IS PROVEN. Why: Why it matters - if the click genuinely no-ops, a Firefox user cannot page through document search hits at all, which is a clinical reading path; if it double-fires it is a harness artefact and the test should assert the active chunk id rather than a modulo-2 counter. Context: Six Firefox failures in main run 35503893104; four fixed in PRs #2932 and #2933, these two left. Parent row #9Z197J. Owner: unknown - depends on what the trace shows. Confidence: high that the cause is shared and not CSS/text-matching; low on any single mechanism. Depends on: the egress row - the trace could not be downloaded from the cloud container.",
       "source": "session 2026-09-20 Firefox failure triage; two parallel agent investigations; main run 35503893104",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#NQH33S",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Local and http-served builds emit https:// absolute URLs that cannot connect",
+      "detail": "metadata-base.ts:49 defaults the protocol to https when no x-forwarded-proto header is present, so a local build emits https://localhost:<port>/... links failing with ERR_SSL_PROTOCOL_ERROR. This was the ONLY distinct console error across 509 captures of 78 routes. Production behind Railway sets the header and is unaffected; this is a local-development and reverse-proxy-without-the-header concern.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
     {
@@ -865,6 +883,15 @@
       "added": "2026-09-20"
     },
     {
+      "id": "#HWYCPF",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Toast host is never mounted, so 35 files hand-roll their own 'Copied' confirmation",
+      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Toast host still never mounted. Recount: 3 files use CopyButton and about 24 non-mockup .tsx files hand-roll 'Copied', not 35. A consistency recommendation, so P3. PRIOR DETAIL: grep -rn 'ui/toast' src returns nothing; on-call-copy-number.tsx:36-37 states it in a comment. 35 in-scope files implement their own copy confirmation against 2 using ui/copy-button.tsx, with four different wordings. The 2026-07-07 fix for single-slot notifications overwriting each other exists as a primitive but nothing mounts it. Copying a dose or citation is high-frequency here and the confirmation differs by mode.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
       "id": "#ZPHK2F",
       "priority": "P1",
       "type": "issue",
@@ -898,6 +925,15 @@
       "summary": "next dev is OOM-killed after compiling roughly 55-60 routes in sequence",
       "detail": "Reproduced three times at ~13.6 GB RSS in a 16 GB container, each time around the same point in a sequential route sweep; a --max-old-space-size cap did not help. The visual audit had to build and serve production instead. Not a product defect, but it costs anyone doing sustained local work across many routes, and a whole sweep going blank looks like an app failure (the 2026-08-06 audit recorded exactly that misreading).",
       "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#7D21P1",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Two stale statements in docs/codebase-index.md and one missing On Call row in generate-site-map.ts",
+      "detail": "Found while adding CME, deliberately not fixed there because none is CME's doing. (1) docs/codebase-index.md's mode-homes paragraph says 'Fourteen modes are now consolidated onto the shared home'. On Call has left consolidatedModeHomePaths, so the real count is thirteen. Verifying it properly means auditing every consolidated route, which was not worth widening a seventy-file change for. (2) scripts/generate-site-map.ts's renderModePageIndex() has no On Call row and has not had one since On Call shipped — this is the one site-map input with no gate behind it, which is exactly why it was missed. CME's row was added; On Call's was reported rather than added, as a separate change. (3) Already fixed in #2902 but worth knowing it happened: the 'Modes (16)' id list in codebase-index.md was missing On Call entirely, independent of CME.",
+      "source": "PR #2902 task-18 agent report and controller verification against src/lib/search-route-ownership.ts, 2026-09-20",
       "added": "2026-09-20"
     },
     {
@@ -944,6 +980,15 @@
       "detail": "(1) Contact rows have ragged right columns and ~150px stale rows (on-call-contacts-section.tsx ContactRow). (2) Three date styles across the modes (formatClinicalDate 14/08/2026, compliance '12 Mar 2027', CME '12 March 2026'). (3) Both modes use the mode-home loading skeleton for every sub-route and have no error.tsx. (4) CME entry dates are not checked against the year or today, so a future-dated entry counts toward totals. (5) CME dashboard module order is per device (localStorage), not per account, and not cleared on account switch. (6) On Call lastVerifiedAt is accepted from the client on POST/PATCH, so a direct API call can set a future date; editing a number does not refresh it. (7) No browser test for /on-call/card or /cme/log/[id]; On Call is missing from the phone scroll-hide sweep. (8) Two college extras in the CME preset (10 h formal peer review; one activity per practice domain) should be checked against the current RANZCP handbook.",
       "source": "On Call + CME audit 2026-09-24, round 2 (branch claude/on-call-cme-audit-gltczi)",
       "added": "2026-09-24"
+    },
+    {
+      "id": "#D2M0NW",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "perthCalendarDate is a third independent Perth-date implementation in this repo",
+      "detail": "src/lib/cme/cpd-year.ts's perthCalendarDate uses the en-CA Intl trick to get a YYYY-MM-DD Perth date. src/lib/caring-contacts/clock.ts and src/components/ui/date-display.tsx each already do the same job their own way. All three are currently correct — the en-CA behaviour was verified on this Node version, and the leap-year arithmetic matches Intl's own Perth calendar for 2028 — so nothing is broken. But it is the third copy, each with its own tests pinning its own behaviour, and the fourth author to need a Perth date will write a fourth. Collapsing them was deliberately NOT done in PR #2902: it drags an unrelated clinical feature (caring-contacts) and a shared UI primitive into a change already at seventy files, for no behaviour change.",
+      "source": "PR #2902 task-1 review, 2026-09-20",
+      "added": "2026-09-20"
     },
     {
       "id": "#789SD7",
@@ -1077,6 +1122,15 @@
       "type": "task",
       "summary": "Clinical eval battery misses high-risk scenarios: no hepatic, older-adult, interaction or false-premise cases (audit F14 + F15)",
       "detail": "OWNER DECISION 2026-09-25: approved. Engineering drafts the 20 cases (question, key facts a correct answer must contain, facts it must not state, expected source); the owner reviews and corrects them before any are added to the harness. A first draft of all 20 was delivered to the owner on 2026-09-25 as a Word document (not committed: clinical content awaiting review). Verified offline by topic count over src/lib/rag/rag-eval-cases.ts (101 cases): hepatic 0, older adult/elderly 0, drug interaction 0, unsafe/false premise 0, Mental Health Act 1, QTc 2, pregnancy 3, paediatric 2. Owner recommendation (2026-09-25): start with ~20 clinician-reviewed cases (3 pregnancy/breastfeeding, 3 renal/hepatic, 2 older adults, 2 QTc, 2 lithium/clozapine monitoring, 2 overdose, 2 interactions, 2 MHA, 2 false-premise where the right answer corrects the premise); engineering drafts expected key facts + source, owner reviews. Adding golden cases touches the eval harness (RAG-protected surface): flag before editing, and live canary dispatches need approval.",
+      "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#2CRP5C",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Move withSentryConfig import to @sentry/nextjs/config before Sentry v11 (audit F25)",
+      "detail": "Verified offline: next.config.ts imports withSentryConfig from @sentry/nextjs (installed 10.74.0), which prints 'Importing withSentryConfig from @sentry/nextjs is deprecated and will stop working in v11. Import it from @sentry/nextjs/config instead'. One-line change; do it before any Sentry major upgrade.",
       "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
       "added": "2026-09-25"
     },
@@ -1322,6 +1376,15 @@
       "detail": "Pre-existing on main, confirmed offline 2026-09-25 (rankServiceRecords, top 12, no provider access). None of Lifeline, Suicide Call Back Service, 13YARN or Kids Helpline appears in the top 12 for 'youth self harm', 'suicidal youth', 'trans youth suicidal', 'gay youth suicidal', 'child self harm', 'suicidal teen perth' or 'young person self harming who do I call'. Where one does appear it is low and alone: Suicide Call Back Service #9 for 'youth suicide' and 'lgbti youth suicide', Kids Helpline #10 for 'young person suicidal' and #12 for 'teen suicidal'. Exceptions: 13YARN #1 for 'aboriginal youth suicide' (pinned by urgent routing) and Kids Helpline #1 for 'kid self harm' (organic). Urgent routing (src/lib/service-urgent-routing.ts) pins CAMHS Crisis Connect for child wording and, after PR C, CAMHS Crisis Connect plus MHERL for plain youth wording (owner decision 15), but pins no national line for youth. After PR C's pins the low entries move down one or two places (e.g. Suicide Call Back Service #9 to #11). NEXT: owner decision on which national lines, if any, to pin for youth and child self-harm or suicidal wording, and in what order relative to CAMHS Crisis Connect and MHERL; then add the intents with a routing test.",
       "source": "PR C services safety probe 2026-09-25",
       "added": "2026-09-25"
+    },
+    {
+      "id": "#V1NYQ0",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Claude review workflow: the enableAllProjectMcpServers false setting is still overridden to true",
+      "detail": "Observed 2026-09-26 in job 108333544464 (run 36216555282, PR #3046): the workflow passes settings '{\"enableAllProjectMcpServers\": false}' but the action logs 'Updated settings with enableAllProjectMcpServers: true', the same as first recorded under #NNAWDT on 2026-09-20. Impact looks low, not proven: the reviewer's allowedTools list names no project MCP tool, and .mcp.json is restored from main rather than the PR head, but the project MCP servers may still be started on the runner. Next action: read how claude-code-action v1.0.223 merges the settings input, then either pass the setting in the form it honours or record why auto-load is harmless here; update the workflow header comment either way.",
+      "source": "GitHub Actions job 108333544464 log, read 2026-09-26 in session claude/review-assessment-4s1w86",
+      "added": "2026-09-26"
     },
     {
       "id": "#25PJFR",
