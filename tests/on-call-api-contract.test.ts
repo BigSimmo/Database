@@ -49,6 +49,15 @@ describe("On Call entries route", () => {
     expect(insertIndex).toBeGreaterThan(0);
     expect(callIndex).toBeLessThan(insertIndex);
   });
+
+  it("refuses an identifier-shaped proof note before writing", () => {
+    expect(list).toContain("adminFreeTextProblem(");
+    const problemIndex = list.indexOf("adminFreeTextProblem(");
+    const insertIndex = list.indexOf('.from("on_call_entries")');
+    expect(problemIndex).toBeGreaterThan(0);
+    expect(insertIndex).toBeGreaterThan(0);
+    expect(problemIndex).toBeLessThan(insertIndex);
+  });
 });
 
 describe("On Call entry [id] route", () => {
@@ -82,6 +91,15 @@ describe("On Call entry [id] route", () => {
     // A single not-found branch fed by the same scoped lookup — no separate existence check
     // that would let a caller distinguish "missing" from "not yours".
     expect(detail.match(/On Call entry not found\./g)?.length).toBe(2);
+  });
+
+  it("refuses an identifier-shaped proof note before writing", () => {
+    expect(detail).toContain("adminFreeTextProblem(");
+    const problemIndex = detail.indexOf("adminFreeTextProblem(");
+    const updateIndex = detail.indexOf('.from("on_call_entries")');
+    expect(problemIndex).toBeGreaterThan(0);
+    expect(updateIndex).toBeGreaterThan(0);
+    expect(problemIndex).toBeLessThan(updateIndex);
   });
 });
 

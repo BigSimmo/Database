@@ -290,6 +290,17 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/admin/admin-help-page.tsx",
+        "src/components/admin/admin-load-failed.tsx",
+        "src/components/admin/admin-new-job-page.tsx",
+        "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewals-page.tsx",
+        "src/components/admin/admin-renewed-sheet.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/admin-today-page.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
+        "src/components/admin/renewals/item-detail-sheet.tsx",
+        "src/components/admin/renewals/personal-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/settings-reminders.tsx",
@@ -355,6 +366,17 @@
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/admin/admin-help-page.tsx",
+        "src/components/admin/admin-load-failed.tsx",
+        "src/components/admin/admin-new-job-page.tsx",
+        "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewals-page.tsx",
+        "src/components/admin/admin-renewed-sheet.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/admin-today-page.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
+        "src/components/admin/renewals/item-detail-sheet.tsx",
+        "src/components/admin/renewals/personal-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/settings-reminders.tsx",
@@ -1048,6 +1070,8 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-help-item-row.tsx",
+        "src/components/admin/new-job/admin-new-job-step-row.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
@@ -1056,6 +1080,8 @@
         "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-help-item-row.tsx",
+        "src/components/admin/new-job/admin-new-job-step-row.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
@@ -1211,11 +1237,13 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
@@ -1536,7 +1564,6 @@
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
-        "src/components/my-work/my-work-home.tsx",
         "src/components/psychiatry/psychiatry-home.tsx",
         "src/components/specifiers/specifier-compare-page.tsx",
         "src/components/specifiers/specifier-map-page.tsx",
@@ -1556,7 +1583,6 @@
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
-        "src/components/my-work/my-work-home.tsx",
         "src/components/psychiatry/psychiatry-home.tsx",
         "src/components/specifiers/specifier-compare-page.tsx",
         "src/components/specifiers/specifier-map-page.tsx",
@@ -2009,6 +2035,11 @@
         "src/components/AccessibleTable.tsx",
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
+        "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewed-sheet.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-records-page.tsx",
+        "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
@@ -2061,6 +2092,11 @@
         "src/components/AccessibleTable.tsx",
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
+        "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewed-sheet.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-records-page.tsx",
+        "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
@@ -2386,11 +2422,13 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-renewals-page.tsx",
         "src/components/cme/cme-log-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-renewals-page.tsx",
         "src/components/cme/cme-log-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx"
@@ -2428,6 +2466,11 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-help-page.tsx",
+        "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewed-sheet.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
@@ -2448,6 +2491,11 @@
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-help-page.tsx",
+        "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewed-sheet.tsx",
+        "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
@@ -2770,6 +2818,11 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": [
+        "src/app/(search-app)/admin/help/page.tsx",
+        "src/app/(search-app)/admin/new-job/page.tsx",
+        "src/app/(search-app)/admin/new-job/records/page.tsx",
+        "src/app/(search-app)/admin/page.tsx",
+        "src/app/(search-app)/admin/renewals/page.tsx",
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
@@ -2817,7 +2870,6 @@
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
         "src/app/(search-app)/my-work/page.tsx",
-        "src/app/(search-app)/on-call/calendar/page.tsx",
         "src/app/(search-app)/on-call/call/page.tsx",
         "src/app/(search-app)/on-call/card/page.tsx",
         "src/app/(search-app)/on-call/check/page.tsx",
@@ -2834,7 +2886,6 @@
         "src/app/(search-app)/on-call/refer/page.tsx",
         "src/app/(search-app)/on-call/referrals/page.tsx",
         "src/app/(search-app)/on-call/service/page.tsx",
-        "src/app/(search-app)/on-call/shifts/page.tsx",
         "src/app/(search-app)/on-call/who-is-who/page.tsx",
         "src/app/(search-app)/on-call/whos-on/page.tsx",
         "src/app/(search-app)/psychiatry/page.tsx",
@@ -2890,6 +2941,56 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["CmeDashboard", "CmePage", "DetailPage", "ModeHome", "SearchPage"],
       "roots": [
+        {
+          "file": "src/app/(search-app)/admin/help/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/new-job/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/new-job/records/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/renewals/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
         {
           "file": "src/app/(search-app)/cme/calendar/page.tsx",
           "exists": true,
@@ -3361,16 +3462,6 @@
           "sanctionedPatternsPresent": []
         },
         {
-          "file": "src/app/(search-app)/on-call/calendar/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
-        },
-        {
           "file": "src/app/(search-app)/on-call/call/page.tsx",
           "exists": true,
           "imports": [],
@@ -3522,16 +3613,6 @@
         },
         {
           "file": "src/app/(search-app)/on-call/service/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
-        },
-        {
-          "file": "src/app/(search-app)/on-call/shifts/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4757,6 +4838,11 @@
   ],
   "routeCoverage": {
     "discovered": [
+      "src/app/(search-app)/admin/help/page.tsx",
+      "src/app/(search-app)/admin/new-job/page.tsx",
+      "src/app/(search-app)/admin/new-job/records/page.tsx",
+      "src/app/(search-app)/admin/page.tsx",
+      "src/app/(search-app)/admin/renewals/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/cme/calendar/page.tsx",
@@ -4826,7 +4912,6 @@
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/my-work/page.tsx",
-      "src/app/(search-app)/on-call/calendar/page.tsx",
       "src/app/(search-app)/on-call/call/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
       "src/app/(search-app)/on-call/check/page.tsx",
@@ -4843,7 +4928,6 @@
       "src/app/(search-app)/on-call/refer/page.tsx",
       "src/app/(search-app)/on-call/referrals/page.tsx",
       "src/app/(search-app)/on-call/service/page.tsx",
-      "src/app/(search-app)/on-call/shifts/page.tsx",
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/on-call/whos-on/page.tsx",
       "src/app/(search-app)/page.tsx",
@@ -4883,6 +4967,11 @@
       "src/app/safety-plan/page.tsx"
     ],
     "declared": [
+      "src/app/(search-app)/admin/help/page.tsx",
+      "src/app/(search-app)/admin/new-job/page.tsx",
+      "src/app/(search-app)/admin/new-job/records/page.tsx",
+      "src/app/(search-app)/admin/page.tsx",
+      "src/app/(search-app)/admin/renewals/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/cme/calendar/page.tsx",
@@ -4952,7 +5041,6 @@
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/my-work/page.tsx",
-      "src/app/(search-app)/on-call/calendar/page.tsx",
       "src/app/(search-app)/on-call/call/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
       "src/app/(search-app)/on-call/check/page.tsx",
@@ -4969,7 +5057,6 @@
       "src/app/(search-app)/on-call/refer/page.tsx",
       "src/app/(search-app)/on-call/referrals/page.tsx",
       "src/app/(search-app)/on-call/service/page.tsx",
-      "src/app/(search-app)/on-call/shifts/page.tsx",
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/on-call/whos-on/page.tsx",
       "src/app/(search-app)/page.tsx",
@@ -5014,7 +5101,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 131,
+    "inheritedCkbV2RootCount": 134,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -5023,8 +5110,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 45,
-    "rootCount": 132,
-    "productionRouteCount": 124,
-    "nextUiEntryCount": 195
+    "rootCount": 135,
+    "productionRouteCount": 127,
+    "nextUiEntryCount": 198
   }
 }

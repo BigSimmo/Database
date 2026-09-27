@@ -79,8 +79,8 @@
       },
       {
         "id": "my-work",
-        "label": "My Work",
-        "home": "/my-work",
+        "label": "Admin",
+        "home": "/admin",
         "dev_only": false
       },
       {
@@ -173,11 +173,6 @@
         "path": "/mockups/care-plan/system-states",
         "file": "src/app/mockups/care-plan/system-states/page.tsx",
         "area": "mockup"
-      },
-      {
-        "path": "/my-work",
-        "file": "src/app/(search-app)/my-work/page.tsx",
-        "area": "product"
       },
       {
         "path": "/roster/shifts",
@@ -410,11 +405,6 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/compliance",
-        "file": "src/app/(search-app)/on-call/compliance/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/cme/log/[id]",
         "file": "src/app/(search-app)/cme/log/[id]/page.tsx",
         "area": "product"
@@ -485,6 +475,11 @@
         "area": "mockup"
       },
       {
+        "path": "/admin",
+        "file": "src/app/(search-app)/admin/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
@@ -513,6 +508,11 @@
         "path": "/mockups/answer-chat-perfected",
         "file": "src/app/mockups/answer-chat-perfected/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/admin/help",
+        "file": "src/app/(search-app)/admin/help/page.tsx",
+        "area": "product"
       },
       {
         "path": "/dictionary/topics/[slug]",
@@ -647,6 +647,11 @@
       {
         "path": "/on-call/playbook",
         "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/admin/renewals",
+        "file": "src/app/(search-app)/admin/renewals/page.tsx",
         "area": "product"
       },
       {
@@ -880,6 +885,11 @@
         "area": "product"
       },
       {
+        "path": "/admin/new-job/records",
+        "file": "src/app/(search-app)/admin/new-job/records/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/therapy-recommend-popup-workbench",
         "file": "src/app/mockups/therapy-recommend-popup-workbench/page.tsx",
         "area": "mockup"
@@ -1037,6 +1047,11 @@
       {
         "path": "/first-nations/family",
         "file": "src/app/(search-app)/first-nations/family/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/admin/new-job",
+        "file": "src/app/(search-app)/admin/new-job/page.tsx",
         "area": "product"
       },
       {
@@ -1210,11 +1225,6 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/logistics",
-        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/first-nations/contacts",
         "file": "src/app/(search-app)/first-nations/contacts/page.tsx",
         "area": "product"
@@ -1246,6 +1256,11 @@
       }
     ],
     "redirects": [
+      {
+        "path": "/my-work",
+        "file": "src/app/(search-app)/my-work/page.tsx",
+        "target": "/admin"
+      },
       {
         "path": "/calculators",
         "file": "src/app/(search-app)/calculators/page.tsx",
@@ -1280,6 +1295,11 @@
         "path": "/dictionary",
         "file": "src/app/(search-app)/dictionary/page.tsx",
         "target": "/?mode=dictionary"
+      },
+      {
+        "path": "/on-call/compliance",
+        "file": "src/app/(search-app)/on-call/compliance/page.tsx",
+        "target": "/admin/renewals"
       },
       {
         "path": "/medications",
@@ -1342,19 +1362,14 @@
         "target": "/?mode=therapy-compass"
       },
       {
-        "path": "/on-call/calendar",
-        "file": "src/app/(search-app)/on-call/calendar/page.tsx",
-        "target": "/roster/calendar"
-      },
-      {
         "path": "/dictionary/sources",
         "file": "src/app/(search-app)/dictionary/sources/page.tsx",
         "target": "/sources/search?usedBy=dictionary"
       },
       {
-        "path": "/on-call/shifts",
-        "file": "src/app/(search-app)/on-call/shifts/page.tsx",
-        "target": "/roster/shifts"
+        "path": "/on-call/logistics",
+        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "target": "/admin/help"
       }
     ],
     "api": [
@@ -3336,7 +3351,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-27-on-call-completion.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex-prompt-playbook.md",
@@ -11957,6 +11972,14 @@
         "scope": "Production UI CI fix: differentials-home hydration strict-mode",
         "outcome": "FIXED. Hosted Production UI failed solely on `dashboard differentials mode param redirects…`: `getByTestId(differentials-home)` hit 2 nodes (server+client overlap). Applied `expectSingleSettledOwner` before the visibility assert. No product change.",
         "checks": "Focused production Playwright journey PASS 1/1 via `npm run test:e2e` (system Chrome); no provider-backed checks."
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "codex/chat-first-nations-completion-first-nations-completion",
+        "head": "5c5d181eb2c0b17e7de81268d7780ef60407b573",
+        "scope": "PR3155 CI and three existing review findings",
+        "outcome": "Validated all three existing findings; prepared account-transition reset, visible-destination search filtering, canonical crisis verification-date synchronization, and dial-sheet typography repair.",
+        "checks": "GitHub run 36321975569 failed Static PR checks: sameFileTextSmMinusMix at dial-sheet.tsx. Source inspection; regression assertions added. No local tests/build/lint/typecheck run by explicit owner request; follow-up validation delegated to GitHub."
       },
       {
         "date": "2026-07-29",
