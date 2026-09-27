@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-26"
+    "committed_at": "2026-09-27"
   },
   "routes": {
     "modes": [
@@ -499,6 +499,11 @@
         "area": "product"
       },
       {
+        "path": "/on-call/call",
+        "file": "src/app/(search-app)/on-call/call/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/care-plan/team",
         "file": "src/app/mockups/care-plan/team/page.tsx",
         "area": "mockup"
@@ -989,6 +994,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/refer",
+        "file": "src/app/(search-app)/on-call/refer/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/psychiatry",
         "file": "src/app/(search-app)/psychiatry/page.tsx",
         "area": "product"
@@ -1059,6 +1069,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/whos-on",
+        "file": "src/app/(search-app)/on-call/whos-on/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/[sourceId]",
         "file": "src/app/(search-app)/sources/[sourceId]/page.tsx",
         "area": "product"
@@ -1111,6 +1126,11 @@
       {
         "path": "/first-nations/going-home",
         "file": "src/app/(search-app)/first-nations/going-home/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/find",
+        "file": "src/app/(search-app)/on-call/find/page.tsx",
         "area": "product"
       },
       {
@@ -2305,6 +2325,16 @@
       {
         "path": "docs/archive/search-rag-phase-2-answer-plan.md",
         "section": "archive",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/COMPONENTS.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/COMPONENTS.md",
+        "section": "design-system",
         "catalogued": true
       },
       {
@@ -3633,6 +3663,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/ADOPTION.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/ADOPTION.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
         "path": "docs/design-system/sweep-fix-missing-values.md",
         "section": "design-system",
         "catalogued": true
@@ -3791,6 +3831,16 @@
         "path": "docs/decisions/2026-08-24-answer-citation-marks-one-colour.md",
         "section": "decisions",
         "catalogued": false
+      },
+      {
+        "path": "docs/site-map.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/site-map.md",
+        "section": "root",
+        "catalogued": true
       },
       {
         "path": "docs/site-map.md",

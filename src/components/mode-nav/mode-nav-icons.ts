@@ -4,6 +4,7 @@ import {
   BookOpenText,
   Brain,
   BookMarked,
+  BriefcaseMedical,
   Building2,
   CalendarDays,
   CalendarRange,
@@ -35,7 +36,7 @@ import {
 } from "lucide-react";
 
 import {
-  ON_CALL_HOME_ICON,
+  ON_CALL_HUB_PAGE_ICONS,
   ON_CALL_SECTION_ICONS,
   ON_CALL_VIEW_ICONS,
 } from "@/components/on-call/on-call-section-identity";
@@ -81,11 +82,19 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   //
   // `extended` hides these below its top band; they still have to be right,
   // because the sheet and the wide bar both show them.
-  tonight: ON_CALL_HOME_ICON,
-  contacts: ON_CALL_SECTION_ICONS.contacts,
+  //
+  // The six shift pages read `ON_CALL_HUB_PAGE_ICONS`, the map their own pages
+  // use. Call and Refer are the successors of Contacts and Referrals, so they
+  // wear the same Phone and Repeat.
+  now: ON_CALL_HUB_PAGE_ICONS.now,
+  whoson: ON_CALL_HUB_PAGE_ICONS["whos-on"],
+  call: ON_CALL_HUB_PAGE_ICONS.call,
   playbook: ON_CALL_SECTION_ICONS.playbook,
-  referrals: ON_CALL_SECTION_ICONS.referrals,
+  refer: ON_CALL_HUB_PAGE_ICONS.refer,
+  find: ON_CALL_HUB_PAGE_ICONS.find,
   orientation: ON_CALL_SECTION_ICONS.orientation,
+  // The My shifts page's own glyph. `calendar` below is shared with CME.
+  shifts: BriefcaseMedical,
   // The registry id and the stored section id genuinely differ here, and this
   // is the only place the two vocabularies meet: the rail slot is `teaching`
   // (what the reader is shown) and the section is `education` (route segment,

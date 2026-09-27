@@ -1,9 +1,15 @@
 import {
+  BedDouble,
   Bell,
   BookOpen,
   BriefcaseBusiness,
+  Building2,
   CircleHelp,
+  CloudOff,
   FileText,
+  Globe,
+  UserRound,
+  Wrench,
   OctagonAlert,
   Phone,
   Repeat,
@@ -28,6 +34,7 @@ import {
   type OnCallEntry,
 } from "@/lib/on-call/entry-model";
 import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/who-is-who";
+import { compareOnCallTeams, onCallTeamBarLabel, type OnCallTeam } from "@/lib/on-call/handbook-title";
 
 /**
  * The groups on an On Call page, for the in-page header's jump list.
@@ -471,4 +478,80 @@ function pageGroups({
     case "education":
       return [];
   }
+}
+
+/**
+ * The rebuilt shift pages' groups (kit 1.8), in page order. Each group renders
+ * as `id="on-call-group-<slug>"`; empty groups are dropped before the bar sees
+ * them, and one group alone is a heading, not navigation.
+ *
+ * Standard §5 and the r6 amendments: underlined tabs only FILTER one list and
+ * carry three labels at most (`ON_CALL_CALL_TABS`, `ON_CALL_WHOS_ON_TABS`). A
+ * page with more groups than that lists them through the header's chevron
+ * sheet rather than a tab row.
+ */
+export const ON_CALL_HUB_GROUPS = {
+  call: [
+    { slug: "hospital", label: "Hospital", icon: Building2 },
+    { slug: "wards", label: "Wards", icon: BedDouble },
+    { slug: "external", label: "External", icon: Globe },
+    { slug: "mine", label: "Mine", icon: UserRound },
+  ],
+  refer: [
+    { slug: "hospital", label: "Hospital", icon: Building2 },
+    { slug: "mine", label: "Mine", icon: UserRound },
+  ],
+  find: [
+    { slug: "downtime", label: "Systems down", icon: CloudOff },
+    { slug: "wards", label: "Wards", icon: BedDouble },
+    { slug: "equipment", label: "Equipment", icon: Wrench },
+    { slug: "manuals", label: "Manuals", icon: BookOpen },
+    { slug: "other", label: "Other", icon: CircleHelp },
+  ],
+} as const satisfies Record<"call" | "refer" | "find", readonly { slug: string; label: string; icon: LucideIcon }[]>;
+
+/** Call's filter tabs: one list, two labels (amendments r6, "Tabs"). */
+export const ON_CALL_CALL_TABS = [
+  { slug: "hospital", label: "Hospital" },
+  { slug: "external", label: "External" },
+] as const;
+
+/** Who's on's filter tabs, for Stage C's roster days. */
+export const ON_CALL_WHOS_ON_TABS = [
+  { slug: "yesterday", label: "Yesterday" },
+  { slug: "today", label: "Today" },
+  { slug: "tomorrow", label: "Tomorrow" },
+] as const;
+
+export function onCallHubPageSections(
+  page: "call" | "refer" | "find",
+  counts: ReadonlyMap<string, number>,
+): PageSection[] {
+  return navigable(
+    ON_CALL_HUB_GROUPS[page]
+      .map((group) => ({ ...group, count: counts.get(group.slug) ?? 0 }))
+      .filter((group) => group.count > 0)
+      .map((group) => toSection(group)),
+  );
+}
+
+/** Who's on's team groups: the reader's team first, then the common teams in order, then the rest by name. */
+export function onCallWhosOnSections(
+  teams: readonly { team: OnCallTeam; count: number }[],
+  myTeam: OnCallTeam | null,
+): PageSection[] {
+  const taken = new Set<string>();
+  return navigable(
+    teams
+      .filter((entry) => entry.count > 0)
+      .sort((a, b) => Number(b.team === myTeam) - Number(a.team === myTeam) || compareOnCallTeams(a.team, b.team))
+      .map((entry) =>
+        toSection({
+          slug: allocateOnCallGroupSlug(entry.team, taken),
+          label: onCallTeamBarLabel(entry.team),
+          count: entry.count,
+          icon: Users,
+        }),
+      ),
+  );
 }

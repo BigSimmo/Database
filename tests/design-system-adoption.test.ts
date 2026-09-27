@@ -1479,7 +1479,11 @@ describe("design-system adoption manifest", () => {
     //
     // 106 -> 116 on 2026-09-26: the First Nations mode home, its eight section pages
     //   and its pocket card (`/first-nations/card`).
-    expect(manifest.routeCoverage.discovered).toHaveLength(116);
+    //
+    // 116 -> 120 on 2026-09-27: the rebuilt On Call's shift pages `/on-call/call`,
+    // `/on-call/refer`, `/on-call/find` and `/on-call/whos-on` (Who's on hidden from the
+    // menu behind its flag, but still a route).
+    expect(manifest.routeCoverage.discovered).toHaveLength(120);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

@@ -22,7 +22,8 @@ import {
   type OnCallCallNowStep,
 } from "@/lib/on-call/call-now";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
-import { msUntilOnCallHoursBoundary, ON_CALL_HOME_TAGS, onCallTelHref } from "@/lib/on-call/home-modules";
+import { ON_CALL_HOME_TAGS, onCallTelHref } from "@/lib/on-call/home-modules";
+import { msUntilOnCallPeriodChange } from "@/lib/on-call/number-resolver";
 
 /**
  * WHO DO I CALL NOW — pick the situation, get the ladder with call buttons.
@@ -40,11 +41,11 @@ export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Re-read the clock when working hours start or end, so a phone left open on
-  // this page does not keep offering the daytime order at night.
+  // Re-read the clock when the in-hours period starts or ends (holidays count),
+  // so a phone left open on this page does not keep offering the daytime order at night.
   useEffect(() => {
     if (nowProp) return;
-    const timer = window.setTimeout(() => setClock(new Date()), msUntilOnCallHoursBoundary(clock));
+    const timer = window.setTimeout(() => setClock(new Date()), msUntilOnCallPeriodChange(clock));
     return () => window.clearTimeout(timer);
   }, [clock, nowProp]);
 

@@ -1,14 +1,26 @@
 "use client";
 
-import { BookOpen, Building2, ClipboardCheck, Settings, ShieldCheck, Users } from "lucide-react";
+import {
+  BookOpen,
+  Building2,
+  ClipboardCheck,
+  FileSpreadsheet,
+  ListTodo,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { OnCallCrisisLines } from "@/components/on-call/call/external-line-rows";
 import { ServiceAdminPanel } from "@/components/on-call/service-admin-panel";
+import { ServiceCheckingPanel } from "@/components/on-call/service-checking-panel";
 import { ServiceEntryEditor } from "@/components/on-call/service-entry-editor";
 import { ServiceGovernancePanel } from "@/components/on-call/service-governance-panel";
 import { ServiceHandbook } from "@/components/on-call/service-handbook";
+import { ServiceImportPanel } from "@/components/on-call/service-import-panel";
 import { ServiceOrientationPanel } from "@/components/on-call/service-orientation-panel";
 import { focusOnCallEntryFromHash } from "@/components/on-call/on-call-page-anchors";
 import { cardSurface, focusRing } from "@/components/card-recipes";
@@ -17,6 +29,7 @@ import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
 import { EmptyState, InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
+import { DEMO_SERVICE_ID, DEMO_SITE_ID, demoServiceDetail, demoServiceSummary } from "@/lib/on-call/service-demo";
 import {
   type ServiceAction,
   type ServiceDetail,
@@ -25,134 +38,15 @@ import {
 } from "@/lib/on-call/service-model";
 import { useAuthSession } from "@/lib/supabase/client";
 
-type WorkspaceTab = "handbook" | "orientation" | "review" | "admin" | "services";
+type WorkspaceTab = "handbook" | "import" | "checking" | "orientation" | "review" | "admin" | "services";
 type LoadState = "loading" | "ready" | "signed-out" | "unavailable";
 type OwnedServices = { readonly authEpoch: number; readonly items: ServiceSummary[] };
 type OwnedDetail = { readonly contextKey: string; readonly value: ServiceDetail };
 
-const DEMO_SERVICE_ID = "60000000-0000-4000-8000-000000000001";
-const DEMO_SITE_ID = "60000000-0000-4000-8000-000000000002";
-const DEMO_AUTHOR_ID = "60000000-0000-4000-8000-000000000003";
-const DEMO_REVIEWER_ID = "60000000-0000-4000-8000-000000000004";
-
-function demoEntry(
-  id: string,
-  content: ServiceEntry["content"],
-  overrides: Partial<Omit<ServiceEntry, "id" | "content">> = {},
-): ServiceEntry {
-  return {
-    id,
-    revision: 1,
-    publishedRevision: 1,
-    content,
-    publishedContent: content,
-    status: "published",
-    authorId: DEMO_AUTHOR_ID,
-    reviewedBy: null,
-    reviewedAt: null,
-    reviewComment: "",
-    updatedAt: "2026-09-20T04:00:00.000Z",
-    ...overrides,
-  };
-}
-
-const demoServiceDetail: ServiceDetail = {
-  service: { id: DEMO_SERVICE_ID, name: "Synthetic Metro Psychiatry Service" },
-  membership: { role: "admin", clinicalReviewer: true },
-  sites: [{ id: DEMO_SITE_ID, name: "Demonstration Hospital" }],
-  entries: [
-    demoEntry("61000000-0000-4000-8000-000000000001", {
-      siteId: DEMO_SITE_ID,
-      section: "contacts",
-      kind: "operational",
-      title: "Example after-hours coordination extension",
-      body: "Synthetic example only. This is not a real service or contact.",
-      phone: "0001",
-      sources: [],
-      orientationPhase: "first_shift",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000002", {
-      siteId: DEMO_SITE_ID,
-      section: "referrals",
-      kind: "operational",
-      title: "Example internal referral route",
-      body: "Synthetic demonstration of where a locally maintained referral route would appear.",
-      phone: "",
-      sources: [],
-      orientationPhase: "first_shift",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000003", {
-      siteId: DEMO_SITE_ID,
-      section: "orientation",
-      kind: "operational",
-      title: "Collect the synthetic on-call handset",
-      body: "Demonstration item only.",
-      phone: "",
-      sources: [],
-      orientationPhase: "before_start",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000004", {
-      siteId: DEMO_SITE_ID,
-      section: "orientation",
-      kind: "operational",
-      title: "Locate the synthetic escalation list",
-      body: "Demonstration item only.",
-      phone: "",
-      sources: [],
-      orientationPhase: "first_shift",
-    }),
-    demoEntry("61000000-0000-4000-8000-000000000005", {
-      siteId: DEMO_SITE_ID,
-      section: "orientation",
-      kind: "operational",
-      title: "Return the synthetic handset",
-      body: "Demonstration item only.",
-      phone: "",
-      sources: [],
-      orientationPhase: "leaving",
-    }),
-    demoEntry(
-      "61000000-0000-4000-8000-000000000006",
-      {
-        siteId: null,
-        section: "documentation",
-        kind: "clinical",
-        title: "Example reviewed clinical summary",
-        body: "Synthetic example showing independent review metadata; it contains no clinical advice.",
-        phone: "",
-        sources: [
-          {
-            label: "WA Health policy frameworks",
-            url: "https://www.health.wa.gov.au/About-us/Policy-frameworks",
-          },
-        ],
-        orientationPhase: "first_shift",
-      },
-      {
-        reviewedBy: DEMO_REVIEWER_ID,
-        reviewedAt: "2026-09-21T04:00:00.000Z",
-      },
-    ),
-  ],
-  members: [
-    { id: DEMO_AUTHOR_ID, role: "admin", clinicalReviewer: false, joinedAt: "2026-08-01T00:00:00.000Z" },
-    { id: DEMO_REVIEWER_ID, role: "editor", clinicalReviewer: true, joinedAt: "2026-08-02T00:00:00.000Z" },
-  ],
-  invitations: [],
-  reports: [],
-  orientation: [],
-};
-
-const demoServiceSummary: ServiceSummary = {
-  id: DEMO_SERVICE_ID,
-  name: demoServiceDetail.service.name,
-  role: "admin",
-  clinicalReviewer: true,
-  sites: demoServiceDetail.sites,
-};
-
 const workspaceTabs = [
   { id: "handbook", label: "Handbook", icon: BookOpen },
+  { id: "import", label: "Import", icon: FileSpreadsheet },
+  { id: "checking", label: "Needs checking", icon: ListTodo },
   { id: "orientation", label: "Orientation", icon: ClipboardCheck },
   { id: "review", label: "Review", icon: ShieldCheck },
   { id: "admin", label: "Members", icon: Users },
@@ -376,11 +270,13 @@ export function ServicePage({
   const visibleTabs = useMemo(
     () =>
       workspaceTabs.filter((item) => {
+        // Editor tools; members never see them (plan Task 4).
+        if (item.id === "import" || item.id === "checking") return canEdit;
         if (item.id === "review") return canReview;
         if (item.id === "admin") return detail?.membership.role === "admin";
         return true;
       }),
-    [canReview, detail?.membership.role],
+    [canEdit, canReview, detail?.membership.role],
   );
 
   function canLeaveEditor(): boolean {
@@ -398,6 +294,12 @@ export function ServicePage({
   }
 
   const renderedEditorSession = editorSession.current;
+
+  /** One detail reload for the import panel, at the end of each run (correction C14). */
+  async function reloadDetail(): Promise<void> {
+    if (demoMode || !selectedServiceId) return;
+    await loadDetail(selectedServiceId, selectedSiteId, rotation, contextKey);
+  }
 
   async function action(actionPayload: ServiceAction): Promise<Record<string, unknown>> {
     if (demoMode)
@@ -488,6 +390,7 @@ export function ServicePage({
       <InformationPageShell testId="service-page-loading" width="narrow">
         <h1 className="sr-only">Service handbook</h1>
         <p className={cn(textMuted, "text-sm")}>Loading your service handbook…</p>
+        <OnCallCrisisLines />
       </InformationPageShell>
     );
   }
@@ -507,6 +410,7 @@ export function ServicePage({
           }
         />
         <AccountSetupDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
+        <OnCallCrisisLines />
       </InformationPageShell>
     );
   }
@@ -535,6 +439,7 @@ export function ServicePage({
           }
         />
         {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+        <OnCallCrisisLines />
       </InformationPageShell>
     );
   }
@@ -542,8 +447,8 @@ export function ServicePage({
   return (
     <InformationPageShell testId="service-page">
       <header className="grid gap-2">
-        <p className="text-xs font-bold uppercase tracking-kicker text-[color:var(--clinical-accent)]">On Call</p>
-        <h1 className="text-2xl font-bold text-[color:var(--text-heading)]">Service handbook</h1>
+        <p className="text-xs font-semibold uppercase tracking-kicker text-[color:var(--clinical-accent)]">On Call</p>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Service handbook</h1>
         <p className={cn(textMuted, "max-w-3xl text-sm leading-6")}>
           Practical service information, orientation and corrections maintained by the people who use it.
         </p>
@@ -593,6 +498,7 @@ export function ServicePage({
                 {(field) => (
                   <select
                     id={field.id}
+                    aria-describedby={field.describedBy}
                     value={selectedServiceId ?? ""}
                     onChange={(event) => {
                       if (!canLeaveEditor()) return;
@@ -614,6 +520,7 @@ export function ServicePage({
                 {(field) => (
                   <select
                     id={field.id}
+                    aria-describedby={field.describedBy}
                     value={selectedSiteId ?? ""}
                     onChange={(event) => {
                       if (!canLeaveEditor()) return;
@@ -696,6 +603,7 @@ export function ServicePage({
               entry={editingEntry}
               sites={detail.sites}
               defaultSiteId={selectedSiteId}
+              entries={detail.entries}
               onCancel={() => {
                 if (canLeaveEditor()) closeEditor();
               }}
@@ -712,6 +620,25 @@ export function ServicePage({
               onAdd={() => openEditor(null)}
               onEdit={openEditor}
               onAction={action}
+            />
+          ) : tab === "import" && canEdit ? (
+            <ServiceImportPanel
+              serviceId={detail.service.id}
+              siteId={selectedSiteId}
+              siteName={selectedSite?.name ?? null}
+              authEpoch={auth.authEpoch}
+              detail={detail}
+              demo={demoMode}
+              reload={reloadDetail}
+            />
+          ) : tab === "checking" && canEdit ? (
+            <ServiceCheckingPanel
+              detail={detail}
+              siteId={selectedSiteId}
+              onEdit={(entry) => {
+                openEditor(entry);
+                setTab("handbook");
+              }}
             />
           ) : tab === "orientation" ? (
             <ServiceOrientationPanel
@@ -743,7 +670,7 @@ export function ServicePage({
               <div>
                 <h2
                   id="service-membership-actions-heading"
-                  className="text-lg font-bold text-[color:var(--text-heading)]"
+                  className="text-lg font-semibold text-[color:var(--text-heading)]"
                 >
                   Create or join another service
                 </h2>
@@ -751,7 +678,7 @@ export function ServicePage({
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
                 <section aria-labelledby="create-service-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-                  <h3 id="create-service-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+                  <h3 id="create-service-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
                     Create service
                   </h3>
                   <TextField
@@ -777,7 +704,7 @@ export function ServicePage({
                   </Button>
                 </section>
                 <section aria-labelledby="join-service-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-                  <h3 id="join-service-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+                  <h3 id="join-service-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
                     Join with invitation
                   </h3>
                   <TextField
@@ -803,7 +730,7 @@ export function ServicePage({
         </Fragment>
       ) : services.length === 0 ? (
         <section aria-labelledby="first-service-heading" className="grid gap-4" data-testid="service-first-run">
-          <h2 id="first-service-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+          <h2 id="first-service-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
             Start your first service
           </h2>
           <div className="grid gap-4 lg:grid-cols-2">

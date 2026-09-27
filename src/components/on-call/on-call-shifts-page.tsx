@@ -160,7 +160,7 @@ export function OnCallShiftsPage({ now: nowProp }: { now?: Date } = {}) {
 
         {canImport ? (
           <section className={cn(cardSurface, "mb-4 grid gap-3 p-4")} data-testid="on-call-shifts-import">
-            <h2 className="text-base font-bold text-[color:var(--text-heading)]">Import your roster</h2>
+            <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Import your roster</h2>
             <p className={cn(textMuted, "text-sm")}>
               Choose the calendar file (.ics) your rostering system exports, or a spreadsheet saved as .csv with columns
               named date, start, end, role and site. The file is read on this device. Only each shift&rsquo;s times,
@@ -220,7 +220,7 @@ export function OnCallShiftsPage({ now: nowProp }: { now?: Date } = {}) {
 
         {changes ? (
           <section className={cn(cardSurface, "mb-4 grid gap-2 p-4")} data-testid="on-call-shifts-changes">
-            <h2 className="text-base font-bold text-[color:var(--text-heading)]">
+            <h2 className="text-base font-semibold text-[color:var(--text-heading)]">
               What changed: {describeRosterChangeCounts(changes)}
             </h2>
             <p className={cn(textMuted, "text-sm")}>
@@ -256,7 +256,7 @@ export function OnCallShiftsPage({ now: nowProp }: { now?: Date } = {}) {
             <div className="grid gap-4" data-testid="on-call-shifts-list">
               {groupByWeek(upcoming).map((group) => (
                 <section key={group.week} className="grid gap-2">
-                  <h2 className={cn(textMuted, "text-xs font-bold uppercase tracking-wide")}>
+                  <h2 className={cn(textMuted, "text-xs font-semibold uppercase tracking-wide")}>
                     Week of {formatPerthDay(group.week)}
                   </h2>
                   <ul className="grid gap-2">
@@ -272,7 +272,7 @@ export function OnCallShiftsPage({ now: nowProp }: { now?: Date } = {}) {
                           )}
                           data-testid="on-call-shifts-row"
                         >
-                          <span className="text-sm font-bold text-[color:var(--text-heading)]">
+                          <span className="text-sm font-medium text-[color:var(--text-heading)]">
                             {formatPerthDay(perthDateOf(shift.startsAt))}
                             {onNow ? " · on now" : ""}
                           </span>
