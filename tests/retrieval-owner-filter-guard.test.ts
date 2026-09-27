@@ -455,10 +455,20 @@ describe("tenancy table tiers", () => {
     // 20260922174716_on_call_service_handbooks.sql) and so classify into this tier by shape —
     // but every read/write against them goes through `on_call_service_command`, the single
     // security-invoker RPC, never a direct `.from()` in a scanned file. That is why they
-    // appear here and NOT in the queried-tables assertion below.
+    // appear here and NOT in the queried-tables assertion below. The Roster tables and the
+    // membership audit table (the combined Roster database change) are the same shape: a
+    // `user_id` column, reached only through `roster_read` / `roster_command` or
+    // `on_call_service_command`.
     expect([...tiers.userKeyed].sort()).toEqual([
+      "on_call_service_member_events",
       "on_call_service_members",
       "on_call_service_orientation",
+      "roster_assignments",
+      "roster_change_agreements",
+      "roster_draft_assignments",
+      "roster_member_roles",
+      "roster_publication_seen",
+      "roster_unavailability",
       "user_favourite_sets",
       "user_favourites",
       "user_preferences",

@@ -91,6 +91,7 @@ describe("invited service request boundary", () => {
       action: "invitation.create",
       role: "member",
       expiresInDays: 2,
+      invitedEmail: "dr.ivy@example.org",
     });
     const parsed = serviceJoinSchema.parse(
       result && typeof result === "object" && "code" in result ? { code: result.code } : null,
