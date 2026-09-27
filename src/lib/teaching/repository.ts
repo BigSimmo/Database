@@ -149,7 +149,7 @@ export function hashTeachingSecret(secret: string): string {
   return createHash("sha256").update(secret, "utf8").digest("hex");
 }
 
-function payloadOf<T extends { action: string }>(input: T): Omit<T, "action"> {
+export function payloadOf<T extends { action: string }>(input: T): Omit<T, "action"> {
   const copy: Partial<T> = { ...input };
   delete copy.action;
   return copy as Omit<T, "action">;

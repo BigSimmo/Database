@@ -3931,6 +3931,7 @@ export type Database = {
       cme_guard_archived_entry: { Args: never; Returns: unknown };
       on_call_service_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
       teaching_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_depth_command: { Args: { p_actor_id: string; p_service_id: string; p_action: string; p_payload: Json }; Returns: Json };
       teaching_whats_on_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
       teaching_platform_command: { Args: { p_platform_actor_id: string; p_service_id: string; p_action: string; p_payload: Json }; Returns: Json };
       teaching_checkin_open: { Args: { p_token: string; p_claim_hash: string }; Returns: Json };

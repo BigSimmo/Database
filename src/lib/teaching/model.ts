@@ -45,6 +45,9 @@ export const teachingActions = [
   "calendar.set",
   "logbook.read",
   "cpd.unlogged",
+  // Part 4 (S11): the presenter's own talks and the sessions whose feedback is still open, across teams.
+  "teach.read",
+  "feedback.open",
   "series.save",
   "occurrence.change",
   "group.save",
@@ -65,7 +68,15 @@ export const teachingActions = [
 ] as const;
 export type TeachingAction = (typeof teachingActions)[number];
 
-export type TeamSummary = { id: string; name: string; role: TeachingRole; acceptsRealData: boolean; isDemo: boolean };
+export type TeamSummary = {
+  id: string;
+  name: string;
+  role: TeachingRole;
+  acceptsRealData: boolean;
+  isDemo: boolean;
+  /** `week.read` (part 4): the reader presents a session of this service in the next 90 days. */
+  presenting?: boolean;
+};
 export type SessionSummary = {
   occurrenceId: string;
   serviceId: string;
@@ -111,6 +122,10 @@ export type LogbookRow = AttendanceMark & {
   endsAt: string;
   serviceName: string;
   cpdEntryId: string | null;
+  /** `logbook.read` sends both; optional so fixtures that predate them stay valid. */
+  serviceId?: string;
+  /** Master plan R28: set for a leaver, whose record stays readable (read-only) until this time. */
+  readOnlyUntil?: string | null;
 };
 export type TeachingWeek = {
   teams: TeamSummary[];
@@ -187,6 +202,17 @@ export const CHECKIN_TOKEN_PATTERN = /^([0-9a-f]{32})([rt])(\d{1,12})([0-9a-f]{3
 /** Display-link secrets and claim secrets: 32 random bytes as lower-case hex. */
 export const TEACHING_SECRET_PATTERN = /^[0-9a-f]{64}$/;
 
+const GENERIC_ISSUE_MESSAGE = "Check the details and try again.";
+
+/**
+ * Teaching's schema messages are plain sentences ending in a full stop ("Remove the passcode
+ * from this link. Share passcodes another way."). Zod's built-in English ("Too small: expected
+ * string to have >=3 characters", "Invalid UUID") never ends in one, so it becomes a generic line.
+ */
+export function plainTeachingIssue(issues: readonly { message: string }[]): string {
+  return issues.find((issue) => /^[A-Z][^{}<>]*\.$/.test(issue.message))?.message ?? GENERIC_ISSUE_MESSAGE;
+}
+
 // ---- Field rules ----------------------------------------------------------------
 
 const uuid = z.uuid();
@@ -195,6 +221,8 @@ const instant = z
   .min(1)
   .max(64)
   .refine((value) => Number.isFinite(Date.parse(value)), "Use an ISO date and time.");
+/** The ISO instant rule, shared with `depth-model.ts`. */
+export const teachingInstantSchema = instant;
 const DAY_MS = 86_400_000;
 
 /** `YYYY-MM-DD` that really exists: V8 would otherwise read 30 February as 2 March. */
@@ -464,6 +492,7 @@ export const teamSummarySchema = z.object({
   role: z.enum(teachingRoles),
   acceptsRealData: z.boolean(),
   isDemo: z.boolean(),
+  presenting: z.boolean().optional(),
 }) satisfies z.ZodType<TeamSummary>;
 
 export const sessionSummarySchema = z.object({
@@ -529,6 +558,8 @@ export const logbookRowSchema = attendanceMarkSchema.extend({
   endsAt: instant,
   serviceName: z.string(),
   cpdEntryId: uuid.nullable(),
+  serviceId: uuid.optional(),
+  readOnlyUntil: instant.nullable().optional(),
 }) satisfies z.ZodType<LogbookRow>;
 export const logbookSchema = z.object({ attendance: z.array(logbookRowSchema) });
 export const unloggedCountSchema = z.object({ count: z.number().int().nonnegative() });
