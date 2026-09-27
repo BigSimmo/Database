@@ -501,6 +501,7 @@ function renderModeRoutes() {
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
     psychiatry: appModeHomeHref("psychiatry"),
     "my-work": appModeHomeHref("my-work"),
+    roster: appModeHomeHref("roster"),
     "first-nations": appModeHomeHref("first-nations"),
   };
 

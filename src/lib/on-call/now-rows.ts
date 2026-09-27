@@ -3,7 +3,7 @@ import type { OnCallCallNowStep } from "@/lib/on-call/call-now";
 import type { HandbookItem } from "@/lib/on-call/handbook-items";
 import { compareOnCallTeams, type OnCallTeam } from "@/lib/on-call/handbook-title";
 import { resolveHandbookPhone, type HandbookDial, type OnCallPeriod } from "@/lib/on-call/number-resolver";
-import { perthTimeOf } from "@/lib/on-call/shifts/perth-time";
+import { perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
 /**
  * Now's row rules, pure so the page and its tests agree (plan 2.2, v6 Now).

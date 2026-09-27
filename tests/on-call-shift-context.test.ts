@@ -9,7 +9,7 @@ import {
   readOnCallShiftPick,
   saveOnCallShiftPick,
 } from "@/lib/on-call/shift-context";
-import type { OnCallShift } from "@/lib/on-call/shifts/model";
+import type { OnCallShift } from "@/lib/roster/shifts/model";
 
 // Perth is UTC+8 all year (no daylight saving), so UTC instants are exact here.
 const at = (iso: string) => new Date(iso);

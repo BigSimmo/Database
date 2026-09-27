@@ -34,6 +34,8 @@ const MODE_HOME_LOADING_ROUTES = [
   "psychiatry",
   // My Work's dashboard, likewise.
   "my-work",
+  // Roster's dashboard, a standalone mode home for the same reason.
+  "roster",
   // First Nations' home: static skeleton plus the real crisis strip (spec §5),
   // so it names its own loading component.
   "first-nations",

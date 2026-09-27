@@ -18,7 +18,7 @@ import {
   ON_CALL_ON_SITE_HREF,
   ON_CALL_ON_SITE_LABEL,
 } from "@/components/on-call/on-call-section-identity";
-import type { OnCallShiftsState } from "@/components/on-call/use-on-call-shifts";
+import type { RosterShiftsState } from "@/components/roster/use-roster-shifts";
 import { cn } from "@/components/ui-primitives";
 import type { HandbookItem } from "@/lib/on-call/handbook-items";
 import type { OnCallShiftContext } from "@/lib/on-call/shift-context";
@@ -54,7 +54,7 @@ export function NowFooter({
   now,
 }: {
   readonly context: OnCallShiftContext;
-  readonly shifts: OnCallShiftsState;
+  readonly shifts: RosterShiftsState;
   /** The hospital's items when the handbook is ready; empty otherwise. */
   readonly items: readonly HandbookItem[];
   readonly now: Date;

@@ -1483,7 +1483,11 @@ describe("design-system adoption manifest", () => {
     // 116 -> 120 on 2026-09-27: the rebuilt On Call's shift pages `/on-call/call`,
     // `/on-call/refer`, `/on-call/find` and `/on-call/whos-on` (Who's on hidden from the
     // menu behind its flag, but still a route).
-    expect(manifest.routeCoverage.discovered).toHaveLength(120);
+    //
+    // 120 -> 122 on 2026-09-27: Roster's registration and Release 1 screens, merged in:
+    // `/on-call/shifts` deleted (proxy redirect), `/on-call/calendar` moved to `/roster/calendar`,
+    // and Roster's Today (`/roster`), `/roster/shifts` and `/roster/settings` added — net plus two.
+    expect(manifest.routeCoverage.discovered).toHaveLength(122);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
