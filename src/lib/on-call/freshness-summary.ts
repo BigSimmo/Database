@@ -1,10 +1,5 @@
-import {
-  ON_CALL_SECTIONS,
-  onCallEntryFreshness,
-  type OnCallEntry,
-  type OnCallFreshness,
-  type OnCallSection,
-} from "@/lib/on-call/entry-model";
+import { onCallEntryFreshness, type OnCallEntry, type OnCallFreshness } from "@/lib/on-call/entry-model";
+import { ON_CALL_VIEW_PAGES, onCallViewForEntry, type OnCallPageView } from "@/lib/on-call/view";
 
 /**
  * What needs checking, across the whole hub.
@@ -35,11 +30,11 @@ export interface OnCallFreshnessSummary {
   neverVerifiedCount: number;
   /** Confirmed once, too long ago. */
   overdueCount: number;
-  /** Stale entries per section. A section with nothing stale is absent, not zero,
-   *  so `.size` is the number of affected sections. */
-  bySection: ReadonlyMap<OnCallSection, number>;
+  /** Stale entries per section/view. A view with nothing stale is absent, not zero,
+   *  so `.size` is the number of affected views. */
+  bySection: ReadonlyMap<OnCallPageView, number>;
   /** The affected sections, worst first. */
-  sections: readonly OnCallSection[];
+  sections: readonly OnCallPageView[];
   /** The stale entries themselves, worst first. */
   stale: readonly OnCallStaleEntry[];
 }
@@ -88,7 +83,7 @@ export function summariseOnCallFreshness(
   now: Date = new Date(),
 ): OnCallFreshnessSummary {
   const stale: OnCallStaleEntry[] = [];
-  const bySection = new Map<OnCallSection, number>();
+  const bySection = new Map<OnCallPageView, number>();
   let neverVerifiedCount = 0;
   let overdueCount = 0;
 
@@ -96,7 +91,8 @@ export function summariseOnCallFreshness(
     const freshness = onCallEntryFreshness(entry, now);
     if (freshness.state !== "stale") continue;
     stale.push({ entry, freshness });
-    bySection.set(entry.section, (bySection.get(entry.section) ?? 0) + 1);
+    const view = onCallViewForEntry(entry);
+    bySection.set(view, (bySection.get(view) ?? 0) + 1);
     if (freshness.reason === "never-verified") neverVerifiedCount += 1;
     else overdueCount += 1;
   }
@@ -104,11 +100,12 @@ export function summariseOnCallFreshness(
   stale.sort(worstFirst);
 
   // Most-affected section first, so a strip that can only show three shows the
-  // three worth showing. Equal counts fall back to the mode's own section order
+  // three worth showing. Equal counts fall back to the mode's own view page order
   // rather than to whatever order the entries happened to arrive in.
   const sections = [...bySection.keys()].sort(
     (a, b) =>
-      (bySection.get(b) ?? 0) - (bySection.get(a) ?? 0) || ON_CALL_SECTIONS.indexOf(a) - ON_CALL_SECTIONS.indexOf(b),
+      (bySection.get(b) ?? 0) - (bySection.get(a) ?? 0) ||
+      ON_CALL_VIEW_PAGES.indexOf(a) - ON_CALL_VIEW_PAGES.indexOf(b),
   );
 
   return { staleCount: stale.length, neverVerifiedCount, overdueCount, bySection, sections, stale };
