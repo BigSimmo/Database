@@ -7,7 +7,10 @@ import { useAppPreferences } from "@/components/clinical-dashboard/use-app-prefe
 import { CmeDashboard, type CmeReportingReminder } from "@/components/cme/cme-dashboard";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
+import { CmeTeachingPrompt } from "@/components/cme/cme-teaching-prompt";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
 import type { CmeRoutine } from "@/lib/cme/routines";
+import type { TrainingPosition } from "@/lib/cme/training-timeline";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { perthDateKey, snoozeReminder } from "@/lib/reminders/settings";
 
@@ -20,6 +23,10 @@ export type CmeDashboardRouteProps = {
   readonly demoMode?: boolean;
   readonly reportingReminder?: CmeReportingReminder | null;
   readonly draftsToFinish?: number;
+  readonly currentTrainingPosition?: TrainingPosition | null;
+  readonly goals?: readonly CmePlanGoal[];
+  readonly nextYearConfirmed?: boolean | null;
+  readonly nextYearGoals?: readonly CmePlanGoal[];
 };
 
 /**
@@ -42,6 +49,10 @@ export function CmeDashboardRoute({
   demoMode = false,
   reportingReminder = null,
   draftsToFinish = 0,
+  currentTrainingPosition = null,
+  goals,
+  nextYearConfirmed = null,
+  nextYearGoals,
 }: CmeDashboardRouteProps) {
   const router = useRouter();
   const { preferences, setPreference } = useAppPreferences();
@@ -62,8 +73,13 @@ export function CmeDashboardRoute({
           setPreference("reminders", snoozeReminder(preferences.reminders, type, perthDateKey(now)))
         }
         draftsToFinish={draftsToFinish}
+        currentTrainingPosition={currentTrainingPosition}
+        goals={goals}
+        nextYearConfirmed={nextYearConfirmed}
+        nextYearGoals={nextYearGoals}
       />
-      <CmeQuickLog set={set} demoMode={demoMode} />
+      {!demoMode ? <CmeTeachingPrompt /> : null}
+      <CmeQuickLog set={set} entries={entries} routines={routines} nowIso={nowIso} demoMode={demoMode} />
     </>
   );
 }
