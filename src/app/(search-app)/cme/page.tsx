@@ -55,7 +55,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
   // Demo mode pins its own clock and year, where no earlier year is configured, so it never has one.
   const now = new Date();
   const [data, reportingReminder] = await Promise.all([
-    loadCmePageData(year, { drafts: true, trainingPosition: true }),
+    loadCmePageData(year, { drafts: true, trainingPosition: true, nextYear: true }),
     isDemoMode() ? Promise.resolve(null) : loadReportingReminder(now, year ?? cpdYearOf(now)),
   ]);
   if (data.state !== "ready") {
@@ -75,6 +75,9 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
       demoMode={data.demoMode}
       draftsToFinish={groupDrafts(data.drafts).nextAction.length}
       currentTrainingPosition={data.trainingPosition}
+      goals={data.goals}
+      nextYearConfirmed={data.nextYearConfirmed}
+      nextYearGoals={data.nextYearGoals}
     />
   );
 }

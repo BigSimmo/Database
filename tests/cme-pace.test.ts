@@ -51,10 +51,42 @@ describe("cmeRoutineGapScenarios", () => {
 
   it("uses active templates for illustrative total and category scenarios", () => {
     expect(cmeRoutineGapScenarios(routines, 5)).toEqual([
-      { routineId: "active", title: "Journal club", hoursPerOccurrence: 2, occurrences: 3, projectedHours: 6 },
+      {
+        routineId: "active",
+        title: "Journal club",
+        hoursPerOccurrence: 2,
+        occurrences: 3,
+        projectedHours: 6,
+        closesGap: true,
+      },
     ]);
     expect(cmeRoutineGapScenarios(routines, 5, "educational")[0]?.occurrences).toBe(5);
     expect(cmeRoutineGapScenarios(routines, 0)).toEqual([]);
+  });
+
+  it("limits projections to occurrences left before year end", () => {
+    const monthly: CmeRoutine[] = [{ ...routines[0]!, usualHours: 1, nextDue: "2026-12-20" }];
+    expect(cmeRoutineGapScenarios(monthly, 5, undefined, { today: "2026-12-18", year: 2026 })).toEqual([
+      {
+        routineId: "active",
+        title: "Journal club",
+        hoursPerOccurrence: 1,
+        occurrences: 1,
+        projectedHours: 1,
+        closesGap: false,
+      },
+    ]);
+    const weekly: CmeRoutine[] = [{ ...routines[0]!, cadence: "weekly", usualHours: 1, nextDue: "2026-12-01" }];
+    expect(cmeRoutineGapScenarios(weekly, 5, undefined, { today: "2026-12-10", year: 2026 })[0]).toMatchObject({
+      occurrences: 4,
+      closesGap: false,
+    });
+    expect(cmeRoutineGapScenarios(monthly, 5, undefined, { today: "2027-01-02", year: 2026 })).toEqual([]);
+    const unscheduled: CmeRoutine[] = [{ ...routines[0]!, usualHours: 1 }];
+    expect(cmeRoutineGapScenarios(unscheduled, 2, undefined, { today: "2026-03-01", year: 2026 })[0]).toMatchObject({
+      occurrences: 2,
+      closesGap: true,
+    });
   });
 });
 

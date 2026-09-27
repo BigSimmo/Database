@@ -1,6 +1,11 @@
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { routinesDueOn, type CmeRoutine } from "@/lib/cme/routines";
-import type { CmeEntry, CmeRequirementSet, CmeRequirementStatus } from "@/lib/cme/types";
+import {
+  cmeCertificateMissing,
+  type CmeEntry,
+  type CmeRequirementSet,
+  type CmeRequirementStatus,
+} from "@/lib/cme/types";
 
 export type CmeTodoRow = {
   readonly id: string;
@@ -76,7 +81,7 @@ export function buildCmeTodo(args: {
       href: `/cme/log?year=${set.year}&fix=reflection`,
     });
   // Unknown evidence counts have never been checked. Do not imply a missing certificate.
-  const noEvidence = yearEntries.filter((entry) => entry.evidenceCount === 0).length;
+  const noEvidence = yearEntries.filter(cmeCertificateMissing).length;
   if (noEvidence)
     toFinish.push({
       id: "evidence",

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   entry: vi.fn(),
   routines: vi.fn(),
   evidenceCounts: vi.fn(),
+  certificateEntryIds: vi.fn(),
   planGoals: vi.fn(),
   entryGoals: vi.fn(),
   trainingPeriods: vi.fn(),
@@ -16,7 +17,10 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ isDemoMode: mocks.demo }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: mocks.server }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
-vi.mock("@/lib/cme/evidence-repository", () => ({ fetchCmeEvidenceCounts: mocks.evidenceCounts }));
+vi.mock("@/lib/cme/evidence-repository", () => ({
+  fetchCmeEvidenceCounts: mocks.evidenceCounts,
+  fetchCmeCertificateEntryIds: mocks.certificateEntryIds,
+}));
 vi.mock("@/lib/cme/training-repository", () => ({ fetchOwnerTrainingPeriods: mocks.trainingPeriods }));
 // Plan goals are read beside the entries; an empty plan leaves every assertion below unchanged.
 vi.mock("@/lib/cme/plan-goals-repository", () => ({
@@ -44,6 +48,7 @@ beforeEach(() => {
   mocks.routines.mockResolvedValue([]);
   mocks.entry.mockResolvedValue(null);
   mocks.evidenceCounts.mockResolvedValue({});
+  mocks.certificateEntryIds.mockResolvedValue(new Set());
   mocks.planGoals.mockResolvedValue([]);
   mocks.entryGoals.mockResolvedValue({});
   mocks.trainingPeriods.mockResolvedValue([]);
@@ -103,8 +108,8 @@ describe("CME page state is honest and owner-scoped", () => {
     const data = await loadCmeEntryPageData("old-entry");
     expect(data.state).toBe("unconfigured");
     expect(data.set).toEqual(legacy);
-    expect(data.entries).toEqual([{ ...historicalEntry, evidenceCount: 0 }]);
-    expect(data.entry).toEqual({ ...historicalEntry, evidenceCount: 0 });
+    expect(data.entries).toEqual([{ ...historicalEntry, evidenceCount: 0, certificateCount: 0 }]);
+    expect(data.entry).toEqual({ ...historicalEntry, evidenceCount: 0, certificateCount: 0 });
     expect(data.routines).toEqual([{ id: "routine" }]);
     expect(data.year).toBe(2024);
   });
@@ -117,7 +122,7 @@ describe("CME page state is honest and owner-scoped", () => {
       const data = await loadCmePageData(2026);
       expect(data.state).toBe("unconfigured");
       expect(data.set).toEqual(stored);
-      expect(data.entries).toEqual([{ id: "existing-entry", evidenceCount: 0 }]);
+      expect(data.entries).toEqual([{ id: "existing-entry", evidenceCount: 0, certificateCount: 0 }]);
     },
   );
   it("does not present corrupted requirement data as a clean setup opportunity", async () => {
@@ -155,6 +160,8 @@ describe("CME page state is honest and owner-scoped", () => {
     const data = await loadCmePageData(2026);
     expect(data.entries.map((entry) => entry.evidenceCount)).toEqual([0, 2]);
     expect(mocks.evidenceCounts).toHaveBeenCalledWith({}, "owner", 2026);
+    mocks.certificateEntryIds.mockResolvedValue(new Set(["certificate"]));
+    expect((await loadCmePageData(2026)).entries.map((entry) => entry.certificateCount)).toEqual([0, 1]);
     mocks.evidenceCounts.mockRejectedValue(new Error("Unavailable"));
     expect((await loadCmePageData(2026)).state).toBe("unavailable");
   });

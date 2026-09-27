@@ -108,7 +108,9 @@ describe("Today figure details", () => {
     await user.click(screen.getByTestId("cme-close-gap"));
     const sheet = screen.getByTestId("cme-today-detail-sheet");
     expect(within(sheet).getByText(/7 h remain to your 10 h target/)).toBeInTheDocument();
-    expect(within(sheet).getByTestId("cme-gap-scenarios")).toHaveTextContent("4 × 2 h = 8 h");
+    expect(within(sheet).getByTestId("cme-gap-scenarios")).toHaveTextContent(
+      /3 × 2\s+h = 6\s+h by 31\s+Dec, short of the gap/,
+    );
     expect(within(sheet).getByText(/Only activities you actually complete and save count/)).toBeInTheDocument();
   });
 });

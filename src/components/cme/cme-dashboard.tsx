@@ -1,5 +1,8 @@
 "use client";
 
+import { CmeYearEndActions } from "@/components/cme/cme-year-close-panel";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
+import { canOfferCmeYearEnd } from "@/lib/cme/year-close-actions";
 import {
   BellOff,
   CalendarClock,
@@ -196,6 +199,11 @@ export type CmeDashboardProps = {
   readonly currentTrainingPosition?: TrainingPosition | null;
   /** A frozen demonstration never suggests that its records refresh. */
   readonly demoMode?: boolean;
+  /** This year's plan goals, for the year-end checklist opened from Today. */
+  readonly goals?: readonly CmePlanGoal[];
+  /** Null means the next year's targets have not been read; never guess their status. */
+  readonly nextYearConfirmed?: boolean | null;
+  readonly nextYearGoals?: readonly CmePlanGoal[];
 };
 
 export type CmeReportingReminder = {
@@ -313,6 +321,9 @@ export function CmeDashboard({
   draftsToFinish = 0,
   currentTrainingPosition = null,
   demoMode = false,
+  goals = [],
+  nextYearConfirmed = null,
+  nextYearGoals,
 }: CmeDashboardProps) {
   const [detail, setDetail] = useState<"hours" | "gap" | string | null>(null);
   const { moduleIds } = useCmeModuleOrder();
@@ -390,6 +401,8 @@ export function CmeDashboard({
     onLogRoutine(routineLogPrefill(routine, now));
   }
 
+  // The year-end checklist (copying, self-evaluation, goal carry, next year, summary) opens from Today.
+  const offerYearEnd = canOfferCmeYearEnd(set, now);
   const nextActionHref =
     set.closedAt || (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS)
       ? `/cme/summary?year=${set.year}`
@@ -418,7 +431,7 @@ export function CmeDashboard({
     })
     .slice(0, 2);
   const totalGap = Math.max(0, Number((set.totalHours - totalHours).toFixed(2)));
-  const gapScenarios = cmeRoutineGapScenarios(routines, totalGap);
+  const gapScenarios = cmeRoutineGapScenarios(routines, totalGap, undefined, { today, year: set.year });
   const detailRequirement =
     detail && detail !== "hours" && detail !== "gap"
       ? set.requirements.find((requirement) => requirement.id === detail)
@@ -580,18 +593,31 @@ export function CmeDashboard({
             </Link>
           </div>
           <ul className="divide-y divide-[color:var(--border)]">
-            {todo.nextToLog.slice(0, 2).map((item) => (
-              <li key={item.id}>
-                <Link
-                  data-testid={item.id === "next" ? "cme-next-action" : undefined}
-                  href={item.href}
-                  className="flex min-h-tap flex-col justify-center py-2 text-sm text-[color:var(--text)]"
-                >
-                  <span className="font-medium">{item.label}</span>
-                  {item.detail ? <span className={textMuted}>{item.detail}</span> : null}
-                </Link>
-              </li>
-            ))}
+            {todo.nextToLog.slice(0, 2).map((item) =>
+              item.id === "next" && offerYearEnd ? (
+                <li key={item.id} className="py-2" data-testid="cme-next-action">
+                  <CmeYearEndActions
+                    set={set}
+                    entries={entries}
+                    goals={goals}
+                    now={now}
+                    nextYearConfirmed={nextYearConfirmed}
+                    nextYearGoals={nextYearGoals}
+                  />
+                </li>
+              ) : (
+                <li key={item.id}>
+                  <Link
+                    data-testid={item.id === "next" ? "cme-next-action" : undefined}
+                    href={item.href}
+                    className="flex min-h-tap flex-col justify-center py-2 text-sm text-[color:var(--text)]"
+                  >
+                    <span className="font-medium">{item.label}</span>
+                    {item.detail ? <span className={textMuted}>{item.detail}</span> : null}
+                  </Link>
+                </li>
+              ),
+            )}
           </ul>
         </section>
       </div>
@@ -777,6 +803,7 @@ export function CmeDashboard({
                     <strong>{scenario.title}</strong>: {scenario.occurrences} ×{" "}
                     {formatCmeHours(scenario.hoursPerOccurrence)} h
                     {` = ${formatCmeHours(scenario.projectedHours)} h`}
+                    {scenario.closesGap ? null : " by 31 Dec, short of the gap on its own"}
                   </li>
                 ))}
               </ul>

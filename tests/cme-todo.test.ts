@@ -23,6 +23,26 @@ function logged(id: string, changes: Partial<CmeEntry> = {}): CmeEntry {
 }
 
 describe("buildCmeTodo", () => {
+  it("counts certificates separately from other evidence", () => {
+    const set = createAustralianRanzcpPreset(2026, "2026-01-08");
+    const entries = [
+      logged("receipt-only", { evidenceCount: 1, certificateCount: 0 }),
+      logged("certified", { evidenceCount: 1, certificateCount: 1 }),
+      logged("unchecked"),
+    ];
+    const result = buildCmeTodo({
+      set,
+      entries,
+      routines: [],
+      statuses: evaluateYear({ set, entries }).statuses,
+      now: new Date("2026-09-26T04:00:00Z"),
+      draftsToFinish: 0,
+      nextStep: { id: "next", label: "Write your plan", href: "/cme/setup" },
+      nextRequirementId: "combined",
+    });
+    expect(result.toFinish.find((row) => row.id === "evidence")?.count).toBe(1);
+  });
+
   it("orders work and excludes an unchecked evidence count", () => {
     const set = createAustralianRanzcpPreset(2026, "2026-01-08");
     const entries = [logged("one"), logged("two", { evidenceCount: 0 }), logged("old", { date: "2025-12-01" })];

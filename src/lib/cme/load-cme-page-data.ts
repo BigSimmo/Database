@@ -1,5 +1,5 @@
 import "server-only";
-import { fetchCmeEvidenceCounts } from "@/lib/cme/evidence-repository";
+import { fetchCmeCertificateEntryIds, fetchCmeEvidenceCounts } from "@/lib/cme/evidence-repository";
 import type { CmeDraft } from "@/lib/cme/drafts";
 import { fetchOwnerCmeDraft, fetchOwnerCmeDrafts } from "@/lib/cme/drafts-repository";
 import type { CmeMissedSession } from "@/lib/cme/missed-sessions";
@@ -104,7 +104,10 @@ async function loadAllYears(
 ) {
   if (!options.allYears) return {};
   try {
-    const years = await fetchOwnerCmeYears(admin, ownerId);
+    const [years, certificateEntryIds] = await Promise.all([
+      fetchOwnerCmeYears(admin, ownerId),
+      fetchCmeCertificateEntryIds(admin, ownerId),
+    ]);
     const byYear = await Promise.all(
       years.map(async ({ id, year }) => {
         if (year === selectedYear) return selectedEntries;
@@ -112,7 +115,11 @@ async function loadAllYears(
           fetchOwnerCmeEntries(admin, ownerId, id, options),
           fetchCmeEvidenceCounts(admin, ownerId, year),
         ]);
-        return entries.map((entry) => ({ ...entry, evidenceCount: evidenceCounts[entry.id] ?? 0 }));
+        return entries.map((entry) => ({
+          ...entry,
+          evidenceCount: evidenceCounts[entry.id] ?? 0,
+          certificateCount: certificateEntryIds.has(entry.id) ? 1 : 0,
+        }));
       }),
     );
     return {
@@ -200,9 +207,10 @@ async function load(
     }
     // Only the entry-goal links depend on the entry list; everything else needs just the year, so it
     // is read side by side rather than one after another (each read crosses Singapore -> Sydney).
-    const [loadedEntries, evidenceCounts, goals, close, nextYear] = await Promise.all([
+    const [loadedEntries, evidenceCounts, certificateEntryIds, goals, close, nextYear] = await Promise.all([
       fetchOwnerCmeEntries(admin, auth.user.id, set.id, options),
       fetchCmeEvidenceCounts(admin, auth.user.id, targetYear),
+      fetchCmeCertificateEntryIds(admin, auth.user.id),
       fetchOwnerCmePlanGoals(admin, auth.user.id, set.id),
       set.closedAt ? fetchOwnerCmeYearClose(admin, auth.user.id, set.id) : Promise.resolve(null),
       options.nextYear && canOfferCmeYearEnd(set, now)
@@ -222,6 +230,7 @@ async function load(
     const entries = loadedEntries.map((item) => ({
       ...item,
       evidenceCount: evidenceCounts[item.id] ?? 0,
+      certificateCount: certificateEntryIds.has(item.id) ? 1 : 0,
       // Only an activity linked to a goal carries the field, so an unlinked one reads as before.
       ...(entryGoals[item.id] ? { goalId: entryGoals[item.id] } : {}),
     }));
@@ -248,6 +257,7 @@ async function load(
         ? {
             ...entry,
             evidenceCount: evidenceCounts[entry.id] ?? 0,
+            certificateCount: certificateEntryIds.has(entry.id) ? 1 : 0,
             ...(entryGoals[entry.id] ? { goalId: entryGoals[entry.id] } : {}),
           }
         : null,

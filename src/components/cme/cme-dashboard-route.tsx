@@ -8,6 +8,7 @@ import { CmeDashboard, type CmeReportingReminder } from "@/components/cme/cme-da
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import { CmeTeachingPrompt } from "@/components/cme/cme-teaching-prompt";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { TrainingPosition } from "@/lib/cme/training-timeline";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
@@ -23,6 +24,9 @@ export type CmeDashboardRouteProps = {
   readonly reportingReminder?: CmeReportingReminder | null;
   readonly draftsToFinish?: number;
   readonly currentTrainingPosition?: TrainingPosition | null;
+  readonly goals?: readonly CmePlanGoal[];
+  readonly nextYearConfirmed?: boolean | null;
+  readonly nextYearGoals?: readonly CmePlanGoal[];
 };
 
 /**
@@ -46,6 +50,9 @@ export function CmeDashboardRoute({
   reportingReminder = null,
   draftsToFinish = 0,
   currentTrainingPosition = null,
+  goals,
+  nextYearConfirmed = null,
+  nextYearGoals,
 }: CmeDashboardRouteProps) {
   const router = useRouter();
   const { preferences, setPreference } = useAppPreferences();
@@ -67,9 +74,12 @@ export function CmeDashboardRoute({
         }
         draftsToFinish={draftsToFinish}
         currentTrainingPosition={currentTrainingPosition}
+        goals={goals}
+        nextYearConfirmed={nextYearConfirmed}
+        nextYearGoals={nextYearGoals}
       />
       {!demoMode ? <CmeTeachingPrompt /> : null}
-      <CmeQuickLog set={set} demoMode={demoMode} />
+      <CmeQuickLog set={set} entries={entries} routines={routines} nowIso={nowIso} demoMode={demoMode} />
     </>
   );
 }

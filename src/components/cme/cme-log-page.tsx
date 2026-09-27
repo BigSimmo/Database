@@ -24,6 +24,7 @@ import type { CmeMissedSession } from "@/lib/cme/missed-sessions";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import {
   cmeCategories,
+  cmeCertificateMissing,
   cmeCategoryLabels,
   type CmeCategory,
   type CmeEntry,
@@ -65,7 +66,7 @@ export type CmeLogPageProps = {
 export type CmeLogAttention = "evidence" | "reflection" | "copy";
 
 const ATTENTION_FILTERS: readonly { value: CmeLogAttention; label: string; matches: (entry: CmeEntry) => boolean }[] = [
-  { value: "evidence", label: "Missing evidence", matches: (entry) => entry.evidenceCount === 0 },
+  { value: "evidence", label: "Missing evidence", matches: cmeCertificateMissing },
   { value: "reflection", label: "No reflection", matches: (entry) => entry.reflection.trim() === "" },
   { value: "copy", label: "Not copied", matches: (entry) => !entry.transcribed },
 ];
@@ -130,7 +131,7 @@ function formatLogHours(hours: number): string {
  * title at 500, the second line at 13 px muted): the day and the category,
  * then "No certificate" only when something is known to be missing, and the
  * hours at 400 beside the row's link. "No certificate" shows only when the log
- * has counted the evidence and found none (`evidenceCount === 0`); an activity
+ * has counted active certificates and found none (`cmeCertificateMissing`); an activity
  * whose evidence was not counted says nothing rather than guessing.
  */
 function EntryRow({ entry, today }: { entry: CmeEntry; today: string }) {
@@ -140,7 +141,7 @@ function EntryRow({ entry, today }: { entry: CmeEntry; today: string }) {
       testId={`cme-log-row-${entry.id}`}
       title={entry.title}
       subtitle={`${formatCmeRowDate(entry.date, today)} · ${categoryNames(entry)}`}
-      meta={entry.evidenceCount === 0 ? <ModeStateLabel>No certificate</ModeStateLabel> : null}
+      meta={cmeCertificateMissing(entry) ? <ModeStateLabel>No certificate</ModeStateLabel> : null}
       trailing={
         // `nums font-normal` are repeated from the recipe so Task 7's scanner, which reads literal classes, sees 400.
         <span className={cn(modeNumberText, "nums font-normal pr-2 text-base-minus text-[color:var(--text)]")}>

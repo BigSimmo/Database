@@ -160,7 +160,36 @@ export type CmeRoutineGapScenario = {
   readonly hoursPerOccurrence: number;
   readonly occurrences: number;
   readonly projectedHours: number;
+  /** False when the routine cannot recur often enough before 31 Dec to cover the gap. */
+  readonly closesGap: boolean;
 };
+
+const CADENCE_STEP: Record<CmeRoutine["cadence"], { days: number; months: number }> = {
+  weekly: { days: 7, months: 0 },
+  monthly: { days: 0, months: 1 },
+  quarterly: { days: 0, months: 3 },
+};
+
+function stepDate(dateIso: string, cadence: CmeRoutine["cadence"], times: number): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const { days, months } = CADENCE_STEP[cadence];
+  if (days) return new Date(Date.UTC(y, m - 1, d + days * times)).toISOString().slice(0, 10);
+  const monthIndex = m - 1 + months * times;
+  const lastDay = new Date(Date.UTC(y, monthIndex + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, monthIndex, Math.min(d, lastDay))).toISOString().slice(0, 10);
+}
+
+/** How many times a routine can still occur from `today` (Perth) to 31 Dec of `year`, by cadence and next due date. */
+export function routineOccurrencesBeforeYearEnd(routine: CmeRoutine, today: string, year: number): number {
+  const yearEnd = `${year}-12-31`;
+  const yearStart = `${year}-01-01`;
+  if (today > yearEnd) return 0;
+  let start = routine.nextDue && routine.nextDue > today ? routine.nextDue : today;
+  if (start < yearStart) start = yearStart;
+  let occurrences = 0;
+  while (stepDate(start, routine.cadence, occurrences) <= yearEnd) occurrences += 1;
+  return occurrences;
+}
 
 /**
  * Illustrative arithmetic from an owner's active routine template. A routine
@@ -170,6 +199,7 @@ export function cmeRoutineGapScenarios(
   routines: readonly CmeRoutine[],
   hoursToGo: number,
   category?: CmeCategory,
+  window?: { readonly today: string; readonly year: number },
 ): CmeRoutineGapScenario[] {
   if (!(hoursToGo > 0)) return [];
   return routines
@@ -183,13 +213,17 @@ export function cmeRoutineGapScenarios(
           )
         : routine.usualHours;
       if (!(hoursPerOccurrence > 0)) return null;
-      const occurrences = Math.ceil((hoursToGo - 0.000001) / hoursPerOccurrence);
+      const needed = Math.ceil((hoursToGo - 0.000001) / hoursPerOccurrence);
+      const available = window ? routineOccurrencesBeforeYearEnd(routine, window.today, window.year) : needed;
+      const occurrences = Math.min(needed, available);
+      if (occurrences < 1) return null;
       return {
         routineId: routine.id,
         title: routine.title,
         hoursPerOccurrence,
         occurrences,
         projectedHours: round2(occurrences * hoursPerOccurrence),
+        closesGap: occurrences >= needed,
       };
     })
     .filter((scenario): scenario is CmeRoutineGapScenario => scenario !== null)

@@ -205,10 +205,9 @@ describe("the dashboard", () => {
   it("turns into the year-end checklist in the last fortnight", () => {
     renderAt("2026-12-28T02:00:00Z");
     const next = screen.getByTestId("cme-next-action");
-    expect(next).toHaveTextContent(/year end/i);
-    // Closing happens on the annual summary, so the action names it and sends the owner there.
-    expect(next).toHaveTextContent(/close the year from your annual summary/i);
-    expect(next).toHaveAttribute("href", "/cme/summary?year=2026");
+    // Today opens the year-end checklist rather than bypassing it with a summary link.
+    expect(within(next).getByTestId("cme-year-end-open")).toHaveTextContent(/close the year/i);
+    expect(within(next).queryByRole("link")).toBeNull();
   });
 
   it("points a closed year at its snapshot instead of at more logging", () => {
