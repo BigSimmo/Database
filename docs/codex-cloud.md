@@ -585,10 +585,15 @@ To run it after a Codex Cloud change:
 3. Select `main` and choose `run-authenticated-live-tests` after reviewing the disclosed mutations.
 4. Review the `Database / production` environment deployment and test log.
 
-The current GitHub plan does not support required environment reviewers for this private
-repository, so the workflow's manual dispatch and explicit confirmation are the approval
-gate. Add required reviewers to the environment if the repository plan later supports
-them.
+As checked on 2026-09-27, the `Database / production` environment lists BigSimmo
+as its only required reviewer, permits self-review and administrator bypass, and has no
+environment secrets. The workflow's manual dispatch and explicit confirmation authorize
+the bounded live-test mutations described above. The configured reviewer may pause this
+one environment job, but it does not provide independent approval or gate Railway app
+and worker deployments. Verify the current environment settings and an actual waiting
+run before relying on a reviewer prompt. See
+[`deployment-architecture.md`](deployment-architecture.md#production-release-controls-checked-2026-09-27)
+for the release-control scope and steps needed for independent approval.
 
 Adding a future provider to `*.live.test.ts` does not automatically grant its credentials.
 Expand the workflow's secret list deliberately and preserve the project/target guard.
