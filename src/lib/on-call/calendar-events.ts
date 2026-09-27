@@ -10,6 +10,9 @@ import { nextTeachingOccurrence } from "@/lib/on-call/teaching-schedule";
  * A session's time is used only when the owner wrote it as a plain 24-hour
  * "HH:MM"; any other wording ("Thursday lunchtime") stays as the event's note
  * on an all-day event, rather than being guessed into a time.
+ *
+ * Teaching sessions now live in Teaching mode; these events are the owner's own On Call
+ * teaching list, shown in Teaching's Week until their team goes live on Teaching.
  */
 
 const FREQUENCY_RECURRENCE: Record<OnCallRecurrenceFrequency, CalendarRecurrence> = {
@@ -53,7 +56,8 @@ export function onCallTeachingEvents(entries: readonly OnCallEntry[], today: str
       recurrence: frequency ? FREQUENCY_RECURRENCE[frequency] : undefined,
       location: details.location,
       notes: notes.length ? notes.join(". ") : undefined,
-      href: "/on-call/education",
+      // Teaching now shows these (spec §8). The id above is unchanged, so subscribers see no gap.
+      href: "/teaching/week",
     });
   }
   return events;

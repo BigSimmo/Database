@@ -61,7 +61,9 @@ export type ApiRateLimitBucket =
   | "document_admin"
   | "ingestion_admin"
   | "on_call"
-  | "cme";
+  | "cme"
+  | "teaching"
+  | "teaching_code";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -104,6 +106,12 @@ const apiRateLimitDefaults = {
   // CME entry/year reads and writes: an owner's own CPD log and confirmed targets. Same
   // shape as on_call — generous for interactive single-owner use, bounded against abuse.
   cme: { limit: 60, windowSeconds: 60 },
+  // Teaching reads and writes: a doctor's week, logbook and check-ins, and an organiser's
+  // programme. Same shape as on_call and cme.
+  teaching: { limit: 60, windowSeconds: 60 },
+  // Typed six-digit check-in codes can be guessed, so a signed-in doctor gets few attempts.
+  // Scanned codes carry a 128-bit MAC and cannot be guessed; see the anonymous entry below.
+  teaching_code: { limit: 12, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
@@ -119,6 +127,10 @@ const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit:
   // cannot use the public catalog endpoints as a high-volume egress lever, while still
   // leaving ample headroom for legitimate public browsing.
   registry: { limit: 60, windowSeconds: 60 },
+  // Signed-out QR scans and display-screen polling. A lecture theatre on hospital Wi-Fi shares
+  // one network address, and the scanned code cannot be guessed, so this is load protection
+  // only: generous enough for a full room scanning in the same minute.
+  teaching_code: { limit: 300, windowSeconds: 60 },
 };
 
 /**

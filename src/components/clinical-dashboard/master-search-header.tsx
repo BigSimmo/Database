@@ -106,6 +106,7 @@ import {
   visibleModeSecondaryNavigationEntries,
 } from "@/lib/mode-secondary-navigation";
 import { readOnCallEditorFlag, subscribeOnCallEditorFlag } from "@/lib/on-call/device-state-keys";
+import { modePageVisible, useTeachingRoles } from "@/lib/teaching/page-visibility";
 import { orderByPhoneModeGroups, phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
@@ -577,8 +578,16 @@ export function MasterSearchHeader({
    * id: a mode with a search surface already has somewhere its pages are listed
    * and a composer the pill must keep pointing at.
    */
-  const modeOwnPages =
-    selectedAppMode.search.resultsSurface === "none" ? modeSecondaryNavigationEntries(selectedAppMode.id) : [];
+  const teachingRoles = useTeachingRoles();
+  const modeOwnPages = useMemo(
+    () =>
+      selectedAppMode.search.resultsSurface === "none"
+        ? modeSecondaryNavigationEntries(selectedAppMode.id).filter((entry) =>
+            modePageVisible(selectedAppMode.id, entry.id, teachingRoles),
+          )
+        : [],
+    [selectedAppMode, teachingRoles],
+  );
   const modeOwnPagesAvailable = modeOwnPages.length > 0;
   /**
    * Whether the pages sheet offers "Manage service": true for an editor, and

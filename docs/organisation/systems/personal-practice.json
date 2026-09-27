@@ -4,7 +4,10 @@
   "kind": "area",
   "name": "Personal practice",
   "owns": "The clinician's own records and tools: their logic, data and server routes. Pages sit in App experience.",
-  "canonicalDocs": ["docs/personal-practice/README.md", "docs/codebase-index.md"],
+  "canonicalDocs": [
+    "docs/personal-practice/README.md",
+    "docs/codebase-index.md"
+  ],
   "paths": [
     "docs/cme/**",
     "docs/current-clinical-work-brief.md",
@@ -15,12 +18,14 @@
     "src/app/api/calendar/**",
     "src/app/api/cme/**",
     "src/app/api/on-call/**",
+    "src/app/api/teaching/**",
     "src/components/calendar/**",
     "src/components/clinical-dashboard/saved-registry-favourites-status.ts",
     "src/components/clinical-dashboard/use-saved-registry-favourites.ts",
     "src/components/cme/**",
     "src/components/favourites/**",
     "src/components/on-call/**",
+    "src/components/teaching/**",
     "src/data/cme/**",
     "src/lib/calendar/**",
     "src/lib/cme/**",
@@ -30,6 +35,7 @@
     "src/lib/on-call/**",
     "src/lib/reminders/**",
     "src/lib/saved-registry-storage.ts",
+    "src/lib/teaching/**",
     "tests/calendar-*",
     "tests/cme-*",
     "tests/favourites-*",
@@ -39,7 +45,9 @@
     "tests/reminder-*",
     "tests/saved-registry-favourites-status.test.ts",
     "tests/saved-registry-storage.test.ts",
+    "tests/teaching-*",
     "tests/ui-cme-phone.spec.ts",
-    "tests/ui-on-*"
+    "tests/ui-on-*",
+    "tests/ui-teaching.spec.ts"
   ]
 }

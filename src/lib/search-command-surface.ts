@@ -233,6 +233,19 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "sources", "on-call"],
     remoteSearchEnabled: false,
   },
+  teaching: {
+    // Session titles only, and never the remote index: nothing personal
+    // (logbook, attendance, supervision, members) is ever part of a query
+    // (plan contracts §8).
+    examples: [...sharedHomePresentation.teaching.suggestions],
+    suggestions: [
+      { text: "grand round", meta: "Sessions" },
+      { text: "journal club", meta: "Sessions" },
+      { text: "case conference", meta: "Sessions" },
+    ],
+    crossModes: ["cme", "on-call", "documents"],
+    remoteSearchEnabled: false,
+  },
   psychiatry: {
     // Psychiatry is a dashboard of links to the sections it gathers, each of
     // which keeps its own search, so its command panel must not query the

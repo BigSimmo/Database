@@ -61,6 +61,7 @@ const staticRouteRedirects: Record<string, string> = {
   // sentence) all name this route by hand, so `sitemap:check` cannot notice the entry
   // going away. Retiring it means moving all four together.
   "/mockups/document-search-command": "/documents/search",
+  // Keep the existing On Call teaching records reachable until a service approves transfer.
 };
 
 /**

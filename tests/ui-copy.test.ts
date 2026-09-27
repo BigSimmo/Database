@@ -120,6 +120,11 @@ const EXPECTED_MODE_TITLES: Record<
     standaloneTitle: "CPD",
     subtitle: "What you have done this year, and what is still short.",
   },
+  teaching: {
+    sharedTitle: "Teaching",
+    standaloneTitle: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+  },
   psychiatry: {
     sharedTitle: "Psychiatry",
     standaloneTitle: "Psychiatry",

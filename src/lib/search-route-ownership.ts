@@ -57,6 +57,8 @@ export const standaloneModeHomePaths = [
   // First Nations' home, for the same reason again: no results surface, so
   // without it the mode pill would retarget a composer this mode never reads.
   "/first-nations",
+  // Teaching's dashboard, for the same reason again.
+  "/teaching",
 ] as const;
 
 /**
@@ -120,6 +122,9 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // land the reader on a page that ignores it.
     case "first-nations":
       return "/first-nations";
+    // The Teaching dashboard at `/teaching`, likewise with no results surface.
+    case "teaching":
+      return "/teaching";
     default:
       return null;
   }
@@ -187,6 +192,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/psychiatry",
   "/my-work",
   "/first-nations",
+  "/teaching",
 ] as const;
 
 /**

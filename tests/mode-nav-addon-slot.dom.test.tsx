@@ -96,6 +96,14 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/first-nations/going-home")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/first-nations/end-of-life")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/first-nations/card")).toBe(true);
+    // Teaching claims the slot on exactly the two pages that mount
+    // `TeachingNavHeader`. Its four top pages use the pages sheet instead.
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/session/11111111-1111-4111-8111-111111111111")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/session/11111111-1111-4111-8111-111111111111/check-in")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/week")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/organise")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/c/complete")).toBe(false);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
@@ -174,6 +182,8 @@ describe("header addon slot ownership", () => {
       "/first-nations/going-home",
       "/first-nations/end-of-life",
       "/first-nations/card",
+      "/teaching/session/11111111-1111-4111-8111-111111111111",
+      "/teaching/session/11111111-1111-4111-8111-111111111111/check-in",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -353,6 +363,7 @@ describe("header addon slot ownership", () => {
       // and needs no `*-nav-header.tsx` sibling to carry hooks or icons.
       "src/components/sources/sources-pages.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
+      "src/components/teaching/teaching-nav-header.tsx",
       "src/components/therapy-compass/therapy-record-nav-header.tsx",
     ]);
   });

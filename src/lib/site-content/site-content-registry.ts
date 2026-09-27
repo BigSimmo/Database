@@ -16,7 +16,7 @@ export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
   modeId: Exclude<
     AppModeId,
-    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work" | "first-nations"
+    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work" | "first-nations" | "teaching"
   >;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
@@ -315,6 +315,15 @@ export const siteContentModeExclusions = [
     // pages), not a retrieval corpus.
     modeId: "first-nations",
     reason: "operational_chrome",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // Teaching holds each service's programme and each doctor's own attendance.
+    // It publishes nothing and must never become a retrieval corpus.
+    modeId: "teaching",
+    reason: "private_user_state",
     permanent: true,
     reviewed: true,
     reviewOwner: "clinical_content_governance",

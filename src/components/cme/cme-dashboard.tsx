@@ -540,7 +540,7 @@ export function CmeDashboard({
       </div>
 
       <Link
-        href="/on-call/education"
+        href="/teaching"
         data-testid="cme-teaching-link"
         className={cn(cardSurface, "mt-3 flex min-h-tap items-center gap-3 px-4 py-3")}
       >

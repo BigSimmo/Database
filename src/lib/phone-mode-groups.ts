@@ -52,6 +52,8 @@ export const phoneModeGroups = [
     hint: "Paperwork, deadlines and checks",
     modeIds: ["my-work"],
   },
+  // Teaching sits beside CPD: the sessions a doctor attends and the record
+  // they log them to are one area of work (spec §5).
   {
     id: "first-nations",
     label: "First Nations",
@@ -60,9 +62,9 @@ export const phoneModeGroups = [
   },
   {
     id: "cpd",
-    label: "CPD",
-    hint: "Learning and evidence",
-    modeIds: ["cme"],
+    label: "CPD and teaching",
+    hint: "Learning, teaching and evidence",
+    modeIds: ["cme", "teaching"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;

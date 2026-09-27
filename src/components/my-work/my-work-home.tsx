@@ -228,11 +228,7 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
           </li>
           <li>
             <Link href="/on-call/calendar" data-testid="my-work-page-calendar" className={pageCard}>
-              <PageCardBody
-                icon={CalendarDays}
-                title="Calendar"
-                description="Teaching and recorded expiry dates by month"
-              />
+              <PageCardBody icon={CalendarDays} title="Calendar" description="Recorded expiry dates by month" />
             </Link>
           </li>
           <li>

@@ -1,0 +1,70 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { teachingPost } from "@/lib/teaching/client";
+import { useAuthSession } from "@/lib/supabase/client";
+
+/*
+ * One organiser post held for 10 seconds under an Undo bar (v5.2). Sent with
+ * `keepalive` once the Undo window expires. Leaving or changing accounts cancels
+ * unsent work, so another account can never submit it. Only one post can be held.
+ */
+export const UNDO_MS = 10_000;
+
+type Job = {
+  label: string;
+  url: string;
+  body: Record<string, unknown>;
+  onPosted: () => void;
+  onFailed: (error: unknown) => void;
+};
+
+export function useDelayedPost(): {
+  pending: string | null;
+  schedule: (input: Job) => void;
+  undo: () => void;
+} {
+  const auth = useAuthSession();
+  const held = useRef<{ job: Job; timer: number } | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+
+  const send = useCallback(() => {
+    const current = held.current;
+    if (!current) return;
+    window.clearTimeout(current.timer);
+    held.current = null;
+    setPending(null);
+    teachingPost(current.job.url, current.job.body, { keepalive: true }).then(
+      () => current.job.onPosted(),
+      current.job.onFailed,
+    );
+  }, []);
+
+  const schedule = useCallback(
+    (next: Job) => {
+      if (held.current || auth.status !== "authenticated") return;
+      held.current = { job: next, timer: window.setTimeout(send, UNDO_MS) };
+      setPending(next.label);
+    },
+    [send, auth.status],
+  );
+
+  const undo = useCallback(() => {
+    if (held.current) window.clearTimeout(held.current.timer);
+    held.current = null;
+    setPending(null);
+  }, []);
+
+  useEffect(() => {
+    undo();
+    window.addEventListener("pagehide", undo);
+    return () => {
+      window.removeEventListener("pagehide", undo);
+      if (held.current) window.clearTimeout(held.current.timer);
+      held.current = null;
+    };
+  }, [undo, auth.authEpoch, auth.status]);
+
+  return { pending, schedule, undo };
+}

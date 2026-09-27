@@ -37,6 +37,8 @@ const MODE_HOME_LOADING_ROUTES = [
   // First Nations' home: static skeleton plus the real crisis strip (spec §5),
   // so it names its own loading component.
   "first-nations",
+  // Teaching's dashboard, likewise.
+  "teaching",
 ] as const;
 
 /**
