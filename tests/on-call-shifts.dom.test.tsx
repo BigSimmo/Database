@@ -57,6 +57,8 @@ function state(overrides: Partial<RosterShiftsState> = {}): RosterShiftsState {
     addManual: vi.fn(async () => null),
     removeSeries: vi.fn(async () => null),
     deleteAll: vi.fn(async () => null),
+    removeWorkplace: vi.fn(async () => null),
+    reload: vi.fn(async () => undefined),
     dismissChanges: vi.fn(async () => undefined),
     ...overrides,
   };

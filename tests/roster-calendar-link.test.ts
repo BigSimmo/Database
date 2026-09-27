@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { fetchCalendarLink, normaliseCalendarLink, type LinkRequest } from "@/lib/roster/calendar-link-fetch";
+import {
+  fetchCalendarLink,
+  normaliseCalendarLink,
+  pinnedLookup,
+  type LinkRequest,
+} from "@/lib/roster/calendar-link-fetch";
 
 vi.mock("server-only", () => ({}));
 
@@ -33,6 +38,22 @@ describe("normaliseCalendarLink", () => {
     ]) {
       expect(() => normaliseCalendarLink(bad)).toThrow(expect.objectContaining({ reason: "not_https" }));
     }
+  });
+});
+
+describe("pinnedLookup", () => {
+  const lookup = pinnedLookup({ address: "93.184.216.34", family: 4 });
+
+  it("answers with a list when the connection asks for every address (Node 24's default)", () => {
+    const callback = vi.fn();
+    lookup("roster.example.org", { all: true }, callback);
+    expect(callback).toHaveBeenCalledWith(null, [{ address: "93.184.216.34", family: 4 }]);
+  });
+
+  it("answers with the single address and its family otherwise", () => {
+    const callback = vi.fn();
+    lookup("roster.example.org", {}, callback);
+    expect(callback).toHaveBeenCalledWith(null, "93.184.216.34", 4);
   });
 });
 

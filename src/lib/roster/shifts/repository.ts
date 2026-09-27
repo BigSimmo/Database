@@ -215,8 +215,9 @@ function addWeeks(instant: string, weeks: number): string {
 /**
  * Add one or more shifts by hand. A shift never touched by an import (never
  * has a workplace). When `repeatWeeks` is positive, every given shift repeats
- * weekly that many more times, and every repeat shares one `seriesId` so they
- * can all be removed together; a single shift keeps `seriesId` null.
+ * weekly that many more times. Every row added here shares one new
+ * `seriesId`, a one-off shift included, because that is how a hand-added
+ * shift is removed.
  */
 export async function addManualShifts(
   supabase: AdminClient,
@@ -226,7 +227,7 @@ export async function addManualShifts(
 ): Promise<OnCallShift[]> {
   requireOwner(ownerId);
   const weeks = Math.max(0, Math.min(Math.trunc(repeatWeeks), ON_CALL_MANUAL_SHIFT_REPEAT_MAX_WEEKS));
-  const seriesId = weeks > 0 ? crypto.randomUUID() : null;
+  const seriesId = crypto.randomUUID();
   const rows = shifts.flatMap((input) =>
     Array.from({ length: weeks + 1 }, (_unused, occurrence) => ({
       owner_id: ownerId,
@@ -259,9 +260,29 @@ export async function deleteManualSeries(supabase: AdminClient, ownerId: string,
 }
 
 /**
- * Delete every shift and import record the owner has. Once calendar links
- * (Task 3) and Roster settings (Task 5) exist, `DELETE /api/roster/shifts`
- * should clear those too; this function only owns what Task 1 stores.
+ * Delete one workplace's imported shifts (Settings, Remove workplace). No
+ * import record is written: a removal is not a roster. Hand-added shifts,
+ * which never carry a workplace, are never touched.
+ */
+export async function deleteWorkplaceImportedShifts(
+  supabase: AdminClient,
+  ownerId: string,
+  workplace: string,
+): Promise<void> {
+  requireOwner(ownerId);
+  const { error } = await supabase
+    .from("on_call_shifts")
+    .delete()
+    .eq("owner_id", ownerId)
+    .eq("source", "import")
+    .eq("workplace", workplace);
+  if (error) throw error;
+}
+
+/**
+ * Delete every shift and import record the owner has. Delete my data calls
+ * this last, after the owner's calendar links and Roster settings are gone
+ * (see `DELETE /api/roster/shifts`).
  */
 export async function deleteOwnerShifts(supabase: AdminClient, ownerId: string): Promise<void> {
   requireOwner(ownerId);

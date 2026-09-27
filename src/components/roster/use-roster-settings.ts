@@ -25,11 +25,30 @@ export type RosterSettings = {
 
 export type RosterSettingsStatus = "loading" | "ready" | "signed-out" | "error";
 
+/**
+ * A change to send. `codes` names only the workplaces it changes, and the
+ * server merges it into what is stored: null removes a workplace's codes.
+ */
+export type RosterSettingsPatch = Partial<Omit<RosterSettings, "codes">> & {
+  readonly codes?: Readonly<Record<string, Readonly<Record<string, CodeMeaning>> | null>>;
+};
+
+/** The same per-workplace merge the server does, so the screen shows the change at once. */
+export function applyRosterSettingsPatch(settings: RosterSettings, patch: RosterSettingsPatch): RosterSettings {
+  const { codes: codesPatch, ...rest } = patch;
+  const codes: Record<string, Readonly<Record<string, CodeMeaning>>> = { ...settings.codes };
+  for (const [workplace, meaning] of Object.entries(codesPatch ?? {})) {
+    if (meaning === null) delete codes[workplace];
+    else codes[workplace] = meaning;
+  }
+  return { ...settings, ...rest, codes };
+}
+
 export type RosterSettingsState = {
   readonly status: RosterSettingsStatus;
   readonly settings: RosterSettings;
   /** Change some settings. Shows the change at once; resolves to an error sentence, or null. */
-  readonly update: (patch: Partial<RosterSettings>) => Promise<string | null>;
+  readonly update: (patch: RosterSettingsPatch) => Promise<string | null>;
 };
 
 export const EMPTY_ROSTER_SETTINGS: RosterSettings = { calendarShifts: false, rowName: null, codes: {} };
@@ -82,9 +101,9 @@ export function useRosterSettings(): RosterSettingsState {
   }, [accept]);
 
   const update = useCallback(
-    async (patch: Partial<RosterSettings>) => {
+    async (patch: RosterSettingsPatch) => {
       const before = current.current;
-      accept({ ...before, ...patch });
+      accept(applyRosterSettingsPatch(before, patch));
       try {
         const response = await fetch(SETTINGS_URL, {
           method: "PUT",

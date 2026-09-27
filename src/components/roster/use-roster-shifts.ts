@@ -36,6 +36,10 @@ export type RosterShiftsState = {
    * which is how a pending "Delete my data" still happens on `pagehide`.
    */
   readonly deleteAll: (options?: { keepalive?: boolean }) => Promise<string | null>;
+  /** Remove one workplace's imported shifts and its calendar links. No import is recorded. */
+  readonly removeWorkplace: (workplace: string) => Promise<string | null>;
+  /** Fetch the shifts again, e.g. after a calendar link refresh brought new ones. */
+  readonly reload: () => Promise<void>;
   readonly dismissChanges: () => Promise<void>;
 };
 
@@ -47,6 +51,7 @@ type Payload = {
 };
 
 export const ROSTER_SHIFTS_URL = "/api/roster/shifts";
+const ROSTER_WORKPLACES_URL = "/api/roster/workplaces";
 
 async function readPayload(response: Response): Promise<Payload> {
   return ((await response.json().catch(() => null)) as Payload | null) ?? {};
@@ -167,6 +172,23 @@ export function useRosterShifts(): RosterShiftsState {
     [accept],
   );
 
+  const removeWorkplace = useCallback(async (workplace: string) => {
+    try {
+      const response = await fetch(ROSTER_WORKPLACES_URL, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workplace }),
+      });
+      if (!response.ok) {
+        return errorText(await readPayload(response), "That workplace could not be removed. Try again.");
+      }
+      setShifts((current) => current.filter((shift) => !(shift.source === "import" && shift.workplace === workplace)));
+      return null;
+    } catch {
+      return "That workplace could not be removed. Check your connection and try again.";
+    }
+  }, []);
+
   const dismissChanges = useCallback(async () => {
     const current = latestImport;
     if (!current || current.seenAt) return;
@@ -174,7 +196,19 @@ export function useRosterShifts(): RosterShiftsState {
     await fetch(`${ROSTER_SHIFTS_URL}/imports/${current.id}`, { method: "PATCH" }).catch(() => undefined);
   }, [latestImport]);
 
-  return { status, shifts, latestImport, demoMode, save, addManual, removeSeries, deleteAll, dismissChanges };
+  return {
+    status,
+    shifts,
+    latestImport,
+    demoMode,
+    save,
+    addManual,
+    removeSeries,
+    deleteAll,
+    removeWorkplace,
+    reload: load,
+    dismissChanges,
+  };
 }
 
 /** "2 added, 1 moved, 1 removed", leaving out the zeros. */

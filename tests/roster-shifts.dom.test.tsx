@@ -126,6 +126,53 @@ describe("Roster Shifts", () => {
     expect(within(screen.getByTestId("roster-hours-facts")).getByText("1.25 h")).toBeInTheDocument();
   });
 
+  it("reads a new calendar link straight away, and shows the new shifts", async () => {
+    mockShifts([]);
+    routes.set("POST /api/roster/links", () =>
+      Response.json({
+        link: {
+          id: "new-link",
+          workplace: "Example Hospital",
+          hostPreview: "calendar.example.org/…",
+          lastFetchedAt: null,
+          lastError: null,
+          createdAt: "2026-10-13T02:00:00Z",
+        },
+      }),
+    );
+    routes.set("POST /api/roster/links/refresh", () => {
+      mockShifts([night("2026-10-15")]);
+      return Response.json({ results: [{ id: "new-link", ok: true }] });
+    });
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Add a calendar link/ }));
+    fireEvent.change(screen.getByLabelText("Calendar link"), {
+      target: { value: "https://calendar.example.org/feed.ics" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+    expect(await screen.findByText(/08:00\s*\+1/)).toBeInTheDocument();
+    const refreshes = fetchCalls("/api/roster/links/refresh", "POST");
+    expect(refreshes).toHaveLength(1);
+    expect(JSON.parse(String(refreshes[0]?.[1]?.body))).toEqual({ id: "new-link" });
+  });
+
+  it("says plainly when a workplace already has a calendar link", async () => {
+    mockShifts([]);
+    routes.set("POST /api/roster/links", () =>
+      Response.json({ error: "Duplicate", code: "duplicate_workplace" }, { status: 409 }),
+    );
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Add a calendar link/ }));
+    fireEvent.change(screen.getByLabelText("Calendar link"), {
+      target: { value: "https://calendar.example.org/feed.ics" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+    expect(await screen.findByText("You already have a calendar link for that workplace.")).toBeInTheDocument();
+    expect(fetchCalls("/api/roster/links/refresh", "POST")).toHaveLength(0);
+  });
+
   it("adds a shift by hand that repeats weekly", async () => {
     mockShifts([]);
     routes.set("POST /api/roster/shifts/manual", () => Response.json({ shifts: [] }));

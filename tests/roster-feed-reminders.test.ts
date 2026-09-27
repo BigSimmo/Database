@@ -46,6 +46,7 @@ vi.mock("@/lib/roster/shifts/repository", () => ({ fetchOwnerShifts: mocks.owner
 
 import { calendarFeedEvents } from "@/lib/calendar/feed-repository";
 import { applyReminderAlarms, DEFAULT_REMINDER_SETTINGS, updateReminderType } from "@/lib/reminders/settings";
+import { clearRosterSettings } from "@/lib/roster/settings";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
@@ -171,6 +172,15 @@ describe("the private calendar feed", () => {
     expect(JSON.stringify(events)).not.toMatch(/workplace|Example Hospital|location/i);
   });
 
+  it("gives a shift stored without a kind one from its times, instead of dropping it", async () => {
+    mocks.ownerShifts.mockResolvedValue([{ ...night("2026-10-15"), title: "Ward shift", kind: null }]);
+    mockStoredPreferences({ roster: { calendarShifts: true } });
+    const events = (await calendarFeedEvents(createAdminClient(), ownerId, NOW)).filter((event) =>
+      event.title.startsWith("Roster"),
+    );
+    expect(events.map((event) => event.title)).toEqual(["Roster: Night"]);
+  });
+
   it("reaches only 60 days ahead, and never touches shifts when it never fetches them", async () => {
     mocks.ownerShifts.mockResolvedValue([night("2026-10-15"), night("2026-12-31")]);
     mockStoredPreferences({ roster: { calendarShifts: true } });
@@ -269,6 +279,56 @@ describe("GET/PUT /api/roster/settings", () => {
 
     const getResponse = await getRosterSettings(request("https://x.test/api/roster/settings", "GET"));
     expect(await getResponse.json()).toMatchObject({ calendarShifts: true, rowName: "Dr Alex Example" });
+  });
+
+  it("merges codes per workplace: a patch replaces only the workplaces it names, and null removes one", async () => {
+    const table = fakePreferencesTable({
+      [ownerId]: {
+        preferences: {
+          roster: {
+            codes: {
+              "Example Hospital": { ADO: { kind: "off" } },
+              "Example Clinic": { N: { kind: "night", start: "21:30", end: "08:00" } },
+            },
+          },
+        },
+        updated_at: "2026-08-25T00:00:00.000Z",
+      },
+    });
+    mocks.from.mockImplementation(table.from);
+    const put = (body: unknown) => putRosterSettings(request("https://x.test/api/roster/settings", "PUT", body));
+
+    const merged = await put({ codes: { "Example Hospital": { ADO: { kind: "off" }, AL: { kind: "off" } } } });
+    expect(merged.status).toBe(200);
+    expect(((await merged.json()) as { codes: object }).codes).toEqual({
+      "Example Hospital": { ADO: { kind: "off" }, AL: { kind: "off" } },
+      "Example Clinic": { N: { kind: "night", start: "21:30", end: "08:00" } },
+    });
+
+    // An empty patch (as sent by a screen whose settings never loaded) wipes nothing.
+    expect(((await (await put({ codes: {} })).json()) as { codes: object }).codes).toHaveProperty("Example Clinic");
+
+    const removed = await put({ codes: { "Example Clinic": null } });
+    expect(((await removed.json()) as { codes: object }).codes).toEqual({
+      "Example Hospital": { ADO: { kind: "off" }, AL: { kind: "off" } },
+    });
+  });
+
+  it("clears Roster settings for Delete my data, carrying every other key through, and is safe to repeat", async () => {
+    const table = fakePreferencesTable({
+      [ownerId]: {
+        preferences: { density: "compact", reminders: { enabled: true }, roster: { rowName: "Dr Alex Example" } },
+        updated_at: "2026-08-25T00:00:00.000Z",
+      },
+    });
+    const admin = { from: table.from } as unknown as ReturnType<typeof createAdminClient>;
+    await clearRosterSettings(admin, ownerId);
+    expect(table.rows.get(ownerId)?.preferences).toEqual({ density: "compact", reminders: { enabled: true } });
+    const afterFirst = table.rows.get(ownerId)?.updated_at;
+    await clearRosterSettings(admin, ownerId);
+    expect(table.rows.get(ownerId)?.updated_at).toBe(afterFirst);
+    await clearRosterSettings(admin, "22222222-2222-4222-8222-222222222222");
+    expect(table.rows.has("22222222-2222-4222-8222-222222222222")).toBe(false);
   });
 
   it("refuses a signed-out request, and refuses writes in demo mode", async () => {

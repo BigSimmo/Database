@@ -231,6 +231,19 @@ describe("the next shift", () => {
   it("has nothing to say when every shift is over", () => {
     expect(describeNextShift([stored(shift("2026-10-04", "08:00", "17:00"), "1")], now)).toBeNull();
   });
+
+  it("skips the past shifts the list now carries, and leads with the next future one", () => {
+    const next = describeNextShift(
+      [
+        stored(shift("2026-09-20", "08:00", "17:00"), "past"),
+        stored(shift("2026-10-04", "21:00", "08:00"), "last-night"),
+        stored(shift("2026-10-07", "08:00", "17:00"), "future"),
+      ],
+      now,
+    );
+    expect(next?.shift.id).toBe("future");
+    expect(next?.onNow).toBe(false);
+  });
 });
 
 describe("the save request", () => {
@@ -274,6 +287,8 @@ type Recorded = {
   filters: Array<[string, string, unknown]>;
   /** Rows passed to `.insert(...)`, when this call was one. */
   insertedRows?: unknown[];
+  /** The value passed to `.update(...)`, when this call was one. */
+  updatedValue?: unknown;
 };
 
 function fakeSupabase(rows: Record<string, unknown[]>) {
@@ -282,13 +297,14 @@ function fakeSupabase(rows: Record<string, unknown[]>) {
     const call: Recorded = { table, op: "select", eq: [], filters: [] };
     calls.push(call);
     const result = () => {
-      const owner = call.eq.find(([column]) => column === "owner_id")?.[1];
+      const owner = call.eq.find(([column]) => column === "owner_id" || column === "user_id")?.[1];
       const data = (rows[table] ?? []).filter((row) => (row as { owner_id: string }).owner_id === owner);
       return { data, error: null };
     };
     const builder: Record<string, unknown> = {};
-    for (const method of ["select", "gt", "gte", "lt", "order", "limit"]) builder[method] = () => builder;
-    builder.update = () => ((call.op = "update"), builder);
+    for (const method of ["select", "gte", "lt", "order", "limit"]) builder[method] = () => builder;
+    builder.gt = (column: string, value: unknown) => (call.filters.push(["gt", column, value]), builder);
+    builder.update = (value: unknown) => ((call.op = "update"), (call.updatedValue = value), builder);
     builder.delete = () => ((call.op = "delete"), builder);
     builder.insert = (payload: unknown) => ((call.op = "insert"), (call.insertedRows = payload as unknown[]), builder);
     builder.eq = (column: string, value: unknown) => (
@@ -377,6 +393,18 @@ describe("the My shifts API", () => {
     for (const call of calls) expect(call.eq).toContainEqual(["owner_id", ownerId]);
   });
 
+  it("lists the last three weeks as well as what is coming up, so hours and the week can show past shifts", async () => {
+    const calls = fakeSupabase(storedRows);
+    const before = Date.now();
+    await GET(request("GET"));
+    const [, , from] = calls
+      .flatMap((call) => call.filters)
+      .find(([op, column]) => op === "gt" && column === "ends_at")!;
+    const days = (before - Date.parse(from as string)) / 86_400_000;
+    expect(days).toBeGreaterThan(20.9);
+    expect(days).toBeLessThan(21.1);
+  });
+
   it("refuses a signed-out request", async () => {
     fakeSupabase(storedRows);
     mocks.auth.mockRejectedValue(new AuthenticationError("no session"));
@@ -450,12 +478,39 @@ describe("the My shifts API", () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
-  it("deletes only the signed-in owner's shifts and imports", async () => {
-    const calls = fakeSupabase(storedRows);
+  it("deletes only the signed-in owner's links, settings, shifts and imports, links first", async () => {
+    const calls = fakeSupabase({
+      ...storedRows,
+      user_preferences: [
+        {
+          owner_id: ownerId,
+          user_id: ownerId,
+          preferences: { density: "compact", roster: { rowName: "Dr Alex Example" } },
+          updated_at: "2026-09-01T00:00:00.000Z",
+        },
+      ],
+    });
     expect((await DELETE(request("DELETE"))).status).toBe(200);
-    const deletes = calls.filter((call) => call.op === "delete");
-    expect(deletes.map((call) => call.table).sort()).toEqual(["on_call_shift_imports", "on_call_shifts"]);
-    for (const call of deletes) expect(call.eq).toContainEqual(["owner_id", ownerId]);
+    const writes = calls.filter((call) => call.op === "delete" || call.op === "update");
+    expect(writes.map((call) => `${call.op} ${call.table}`)).toEqual([
+      "delete roster_calendar_links",
+      "update user_preferences",
+      "delete on_call_shifts",
+      "delete on_call_shift_imports",
+    ]);
+    for (const call of writes.filter((write) => write.op === "delete")) {
+      expect(call.eq).toContainEqual(["owner_id", ownerId]);
+    }
+    const settingsWrite = writes[1]!;
+    expect(settingsWrite.eq).toContainEqual(["user_id", ownerId]);
+    expect(settingsWrite.updatedValue).toMatchObject({ preferences: { density: "compact" } });
+    expect((settingsWrite.updatedValue as { preferences: object }).preferences).not.toHaveProperty("roster");
+  });
+
+  it("deletes again without error when there is nothing left", async () => {
+    const calls = fakeSupabase({});
+    expect((await DELETE(request("DELETE"))).status).toBe(200);
+    expect(calls.some((call) => call.op === "update" || call.op === "insert")).toBe(false);
   });
 
   it("will not save or delete in demo mode", async () => {
@@ -506,13 +561,27 @@ describe("hand-added shifts", () => {
     expect(new Set(rows.map((row) => row.starts_at)).size).toBe(3);
   });
 
-  it("keeps a single, non-repeating shift out of any series", async () => {
+  it("gives a single, non-repeating shift its own series, so it can be removed", async () => {
     const calls = fakeSupabase({ on_call_shifts: [] });
     await postManualShift(manualRequest({ shift: shift("2026-10-05", "08:00", "17:00"), repeatWeeks: 0 }));
     const insert = calls.find((call) => call.op === "insert");
     const rows = insert?.insertedRows as Array<{ series_id: string | null }>;
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.series_id).toBeNull();
+    const oneOff = rows[0]?.series_id;
+    expect(oneOff).toMatch(/^[0-9a-f-]{36}$/);
+
+    const response = await deleteManualShiftSeries(
+      new Request(`https://psychiatry.tools/api/roster/shifts/manual/${oneOff}`, { method: "DELETE" }),
+      { params: Promise.resolve({ seriesId: oneOff! }) },
+    );
+    expect(response.status).toBe(200);
+    const removal = calls.find((call) => call.op === "delete");
+    expect(removal?.eq).toEqual(
+      expect.arrayContaining([
+        ["owner_id", ownerId],
+        ["series_id", oneOff],
+      ]),
+    );
   });
 
   it("refuses to add a hand-added shift in demo mode", async () => {

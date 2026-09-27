@@ -382,8 +382,10 @@ export function RosterImportFlow({
     const key = normaliseCode(code);
     setChosen((current) => ({ ...current, [key]: meaning }));
     setChooser(null);
-    const all = settings.settings.codes;
-    void settings.update({ codes: { ...all, [place]: { ...(all[place] ?? {}), [key]: meaning } } });
+    // Remember the code only once the stored codes are known: saving over codes that never loaded would lose them.
+    if (settings.status !== "ready") return;
+    const stored = settings.settings.codes[place] ?? {};
+    void settings.update({ codes: { [place]: { ...stored, [key]: meaning } } });
   }
 
   async function save() {
@@ -417,7 +419,7 @@ export function RosterImportFlow({
     <section className="grid min-w-0 gap-4" data-testid="roster-import-flow" aria-label="Import a file">
       <div className="flex min-w-0 items-center gap-2 border-b border-[color:var(--border)] pb-2">
         <ModeActionButton icon={X} label="Close" onClick={onClose} testId="roster-import-close" />
-        <h2 className="min-w-0 flex-1 text-base-minus font-medium text-[color:var(--text-heading)]">Import a file</h2>
+        <h2 className="min-w-0 flex-1 text-base-minus font-normal text-[color:var(--text-heading)]">Import a file</h2>
         <span className={cn(modeNumberText, "text-sm text-[color:var(--text-muted)]")}>Step {stepNumber} of 3</span>
       </div>
 
@@ -474,7 +476,7 @@ export function RosterImportFlow({
               <button
                 type="button"
                 onClick={() => chooseRow(index)}
-                className="flex min-h-12 w-full min-w-0 items-center px-3 text-left text-base-minus font-medium text-[color:var(--text-heading)] active:bg-[color:var(--surface-wash)]"
+                className="flex min-h-12 w-full min-w-0 items-center px-3 text-left text-base-minus font-normal text-[color:var(--text-heading)] active:bg-[color:var(--surface-wash)]"
               >
                 {row.name}
               </button>

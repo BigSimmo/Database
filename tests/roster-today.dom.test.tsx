@@ -55,6 +55,18 @@ function mockLinks(links: unknown[]) {
   routes.set("GET /api/roster/links", () => Response.json({ links }));
 }
 
+/** A calendar link in the server's own shape (`RosterCalendarLink`): a host preview, never the address. */
+function link(lastFetchedAt: string | null, lastError: string | null = null) {
+  return {
+    id: "l1",
+    workplace: "Example Hospital",
+    hostPreview: "calendar.example.org/…",
+    lastFetchedAt,
+    lastError,
+    createdAt: "2026-10-01T00:00:00Z",
+  };
+}
+
 function renderToday(now = "2026-10-13T02:00:00Z") {
   return render(<RosterTodayPage now={new Date(now)} />);
 }
@@ -123,14 +135,39 @@ describe("Roster Today", () => {
 
   it("shows the green Up to date only while a calendar link refreshed in the last six hours", async () => {
     mockShifts([night("2026-10-15")]);
-    mockLinks([{ id: "l1", display: "calendar.example.org/…", refreshedAt: "2026-10-12T22:00:00Z", failure: null }]);
+    mockLinks([link("2026-10-12T22:00:00Z")]);
     const { unmount } = renderToday("2026-10-13T02:00:00Z");
     expect(await screen.findByTestId("roster-fresh")).toHaveTextContent("Up to date");
     unmount();
-    mockLinks([{ id: "l1", display: "calendar.example.org/…", refreshedAt: "2026-10-12T10:00:00Z", failure: null }]);
+    mockLinks([link("2026-10-12T10:00:00Z")]);
     renderToday("2026-10-13T02:00:00Z");
     await screen.findByText(/Thu 15 Oct/);
     expect(screen.queryByTestId("roster-fresh")).toBeNull();
+  });
+
+  it("is not Up to date when the last refresh failed", async () => {
+    mockShifts([night("2026-10-15")]);
+    mockLinks([link("2026-10-12T22:00:00Z", "unreachable")]);
+    renderToday("2026-10-13T02:00:00Z");
+    await screen.findByText(/Thu 15 Oct/);
+    expect(screen.queryByTestId("roster-fresh")).toBeNull();
+  });
+
+  it("asks the server once, on opening, to refresh whichever links are due, then reads the new shifts", async () => {
+    mockShifts([]);
+    routes.set("POST /api/roster/links/refresh", () => {
+      mockShifts([night("2026-10-15")]);
+      mockLinks([link("2026-10-13T01:59:00Z")]);
+      return Response.json({ results: [{ id: "l1", ok: true }] });
+    });
+    renderToday("2026-10-13T02:00:00Z");
+    expect(await screen.findByText(/Thu 15 Oct/)).toBeInTheDocument();
+    expect(await screen.findByTestId("roster-fresh")).toHaveTextContent("Up to date");
+    const refreshes = fetchMock.mock.calls.filter(
+      ([input, init]) => String(input) === "/api/roster/links/refresh" && init?.method === "POST",
+    );
+    expect(refreshes).toHaveLength(1);
+    expect(JSON.parse(String(refreshes[0]?.[1]?.body))).toEqual({});
   });
 
   it("asks a signed-out reader to sign in and offers no import", async () => {

@@ -181,9 +181,9 @@ export const modeSecondaryNavigationRegistry = {
   "my-work": [],
   // Roster's three Release 1 pages, registered so the mode pill's section
   // sheet can open them. Like On Call and CME, Roster is absent from
-  // `MODE_NAV_ADOPTED_MODES`: its pages own their own in-page header
-  // (`InPageNavHeader`, the DocumentViewer template) rather than a shared rail
-  // repeating the same three destinations.
+  // `MODE_NAV_ADOPTED_MODES`, so no shared rail is mounted. Its pages carry no
+  // in-page navigation header either: the mode pill's section sheet is how a
+  // reader moves between Today, Shifts and Settings.
   roster: [
     { id: "today", label: "Today", href: "/roster" },
     { id: "shifts", label: "Shifts", href: "/roster/shifts" },

@@ -16,6 +16,7 @@ import {
   toStoredLinkReason,
   type RosterCalendarLinkForRefresh,
 } from "@/lib/roster/calendar-links";
+import { inferShiftKind } from "@/lib/roster/shift-kind";
 import { parseRosterIcs } from "@/lib/roster/shifts/parse-ics";
 import { addDaysToDate, perthDateOf, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 import { replaceOwnerShifts } from "@/lib/roster/shifts/repository";
@@ -85,7 +86,8 @@ async function refreshOne(
     fileName: null,
     windowStart: window.startDate,
     windowEnd: window.endDate,
-    shifts: parsed.shifts,
+    // A calendar feed carries no kind, so each shift gets one here, the same way a file import does.
+    shifts: parsed.shifts.map((shift) => ({ ...shift, kind: shift.kind ?? inferShiftKind(shift) })),
   });
   await recordCalendarLinkRefresh(supabase, ownerId, link.id, { ok: true });
   return { id: link.id, ok: true };

@@ -14,7 +14,6 @@ import { ModeNotice } from "@/components/mode-kit/notice";
 import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { ToggleSwitch } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
-import { rosterWindow } from "@/lib/roster/shifts/diff";
 import { updateReminderType, type ReminderLeadTime, type ReminderType } from "@/lib/reminders/settings-model";
 
 import { describeLinkFailure, useRosterLinks } from "./use-roster-links";
@@ -27,8 +26,9 @@ import { useRosterShifts } from "./use-roster-shifts";
  *
  * Delete asks no "Are you sure?". Everything is hidden at once and Undo shows
  * for 30 seconds; the delete request is sent only when those 30 seconds end,
- * or when the page is closed first (`pagehide`, with `keepalive` so the
- * request outlives the page). Undo cancels the timer, so nothing was deleted.
+ * or when the page is left first: closed (`pagehide`) or navigated away from
+ * inside the app (unmount), both with `keepalive` so the request outlives the
+ * page. Undo cancels the timer, so nothing was deleted.
  */
 
 export const ROSTER_DELETE_UNDO_MS = 30_000;
@@ -81,9 +81,18 @@ export function RosterSettingsPage() {
     return () => window.removeEventListener("pagehide", onPageHide);
   }, [deleteState, sendDelete]);
 
+  const latestDeleteAll = useRef(deleteAll);
+  useEffect(() => {
+    latestDeleteAll.current = deleteAll;
+  }, [deleteAll]);
+
   useEffect(
     () => () => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
+      if (timer.current === null) return;
+      window.clearTimeout(timer.current);
+      timer.current = null;
+      // Leaving the page inside the app during the 30 seconds deletes, just as closing it does.
+      void latestDeleteAll.current({ keepalive: true });
     },
     [],
   );
@@ -115,25 +124,14 @@ export function RosterSettingsPage() {
   }
 
   async function removeWorkplace(name: string) {
-    const imported = shifts.shifts.filter((shift) => shift.source === "import" && shift.workplace === name);
-    const span = rosterWindow(imported);
-    if (span) {
-      const failure = await shifts.save({
-        format: "csv",
-        workplace: name,
-        fileName: null,
-        windowStart: span.start,
-        windowEnd: span.end,
-        shifts: [],
-      });
-      if (failure) {
-        setNotice({ tone: "warning", text: failure });
-        return;
-      }
+    // Its calendar links and imported shifts go together, so no refresh brings it back; then its codes.
+    const removed = await shifts.removeWorkplace(name);
+    if (removed) {
+      setNotice({ tone: "warning", text: removed });
+      return;
     }
-    const codes = { ...settings.settings.codes };
-    delete codes[name];
-    const failure = await settings.update({ codes });
+    void links.reload();
+    const failure = await settings.update({ codes: { [name]: null } });
     setNotice(failure ? { tone: "warning", text: failure } : { tone: "neutral", text: "Removed" });
   }
 
@@ -202,26 +200,32 @@ export function RosterSettingsPage() {
             </ModeGroupedList>
             {calendarShifts ? <CalendarSubscribe testId="roster-settings-subscribe" /> : null}
 
-            <ModeGroupedList eyebrow="Workplaces" testId="roster-settings-workplaces">
-              {workplaces.length === 0 ? (
-                <ModeRow title="None yet" />
-              ) : (
-                workplaces.map((name) => (
-                  <ModeRow
-                    key={name}
-                    title={name}
-                    trailing={
-                      <ModeActionButton
-                        icon={Trash2}
-                        label={`Remove ${name}`}
-                        onClick={() => void removeWorkplace(name)}
-                        disabled={shifts.demoMode}
-                      />
-                    }
-                  />
-                ))
-              )}
-            </ModeGroupedList>
+            {shifts.status === "error" ? (
+              <ModeNotice tone="warning" testId="roster-settings-error">
+                Your shifts could not be loaded. Try again later.
+              </ModeNotice>
+            ) : (
+              <ModeGroupedList eyebrow="Workplaces" testId="roster-settings-workplaces">
+                {workplaces.length === 0 ? (
+                  <ModeRow title="None yet" />
+                ) : (
+                  workplaces.map((name) => (
+                    <ModeRow
+                      key={name}
+                      title={name}
+                      trailing={
+                        <ModeActionButton
+                          icon={Trash2}
+                          label={`Remove ${name}`}
+                          onClick={() => void removeWorkplace(name)}
+                          disabled={shifts.demoMode}
+                        />
+                      }
+                    />
+                  ))
+                )}
+              </ModeGroupedList>
+            )}
 
             <ModeGroupedList eyebrow="Calendar links" testId="roster-settings-links">
               {links.links.length === 0 ? (
@@ -230,23 +234,23 @@ export function RosterSettingsPage() {
                 links.links.map((link) => (
                   <ModeRow
                     key={link.id}
-                    title={link.display}
+                    title={link.hostPreview}
                     subtitle={
-                      describeLinkFailure(link.failure) ??
-                      (link.refreshedAt
-                        ? `Updated ${formatModeDate(link.refreshedAt)} ${formatModeTime(link.refreshedAt)}`
+                      describeLinkFailure(link.lastError) ??
+                      (link.lastFetchedAt
+                        ? `Updated ${formatModeDate(link.lastFetchedAt)} ${formatModeTime(link.lastFetchedAt)}`
                         : (link.workplace ?? undefined))
                     }
                     trailing={
                       <>
                         <ModeActionButton
                           icon={RefreshCw}
-                          label={`Refresh ${link.display}`}
+                          label={`Refresh ${link.hostPreview}`}
                           onClick={() => void linkAction(links.refresh(link.id), "Refreshed")}
                         />
                         <ModeActionButton
                           icon={Trash2}
-                          label={`Remove ${link.display}`}
+                          label={`Remove ${link.hostPreview}`}
                           onClick={() => void linkAction(links.remove(link.id), "Removed")}
                         />
                       </>

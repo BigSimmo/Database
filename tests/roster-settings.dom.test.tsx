@@ -127,6 +127,61 @@ describe("Roster Settings", () => {
     expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(1);
   });
 
+  it("still deletes, with keepalive, if the page is left inside the app during the 30 seconds", async () => {
+    mockShifts([day("2026-10-12")]);
+    const { unmount } = render(<RosterSettingsPage />);
+    await screen.findByText("Example Hospital");
+    vi.useFakeTimers();
+    await deleteMyData();
+    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(0);
+    unmount();
+    const calls = fetchCalls("/api/roster/shifts", "DELETE");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.[1]).toMatchObject({ method: "DELETE", keepalive: true });
+    act(() => {
+      vi.advanceTimersByTime(31_000);
+    });
+    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(1);
+  });
+
+  it("sends nothing on leaving the page when nothing is pending", async () => {
+    mockShifts([day("2026-10-12")]);
+    const { unmount } = render(<RosterSettingsPage />);
+    await screen.findByText("Example Hospital");
+    unmount();
+    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(0);
+  });
+
+  it("says the shifts could not be loaded, rather than that there are no workplaces", async () => {
+    routes.set("GET /api/roster/shifts", () => Response.json({ error: "Unavailable" }, { status: 503 }));
+    render(<RosterSettingsPage />);
+    expect(await screen.findByTestId("roster-settings-error")).toHaveTextContent(
+      "Your shifts could not be loaded. Try again later.",
+    );
+    expect(screen.queryByTestId("roster-settings-workplaces")).toBeNull();
+  });
+
+  it("removes a workplace with its calendar links and codes, without recording an import", async () => {
+    mockShifts([day("2026-10-12")]);
+    mockSettings({ calendarShifts: false, rowName: null, codes: { "Example Hospital": { ADO: { kind: "off" } } } });
+    routes.set("DELETE /api/roster/workplaces", () => Response.json({ ok: true }));
+    routes.set("PUT /api/roster/settings", () => Response.json({ calendarShifts: false, rowName: null, codes: {} }));
+    render(<RosterSettingsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Example Hospital" }));
+    await waitFor(() => expect(fetchCalls("/api/roster/settings", "PUT")).toHaveLength(1));
+    expect(JSON.parse(String(fetchCalls("/api/roster/workplaces", "DELETE")[0]?.[1]?.body))).toEqual({
+      workplace: "Example Hospital",
+    });
+    expect(JSON.parse(String(fetchCalls("/api/roster/settings", "PUT")[0]?.[1]?.body))).toEqual({
+      codes: { "Example Hospital": null },
+    });
+    expect(fetchCalls("/api/roster/shifts", "POST")).toHaveLength(0);
+    // The links list is read again, so the removed workplace's link is gone from it.
+    await waitFor(() => expect(fetchCalls("/api/roster/links", "GET").length).toBeGreaterThanOrEqual(2));
+    expect(await screen.findByText("Removed")).toBeInTheDocument();
+    expect(screen.queryByText("Example Hospital")).toBeNull();
+  });
+
   it("turns calendar shifts on through Roster settings and only then offers the evening reminder", async () => {
     mockShifts([]);
     render(<RosterSettingsPage />);
@@ -148,16 +203,37 @@ describe("Roster Settings", () => {
     mockShifts([]);
     routes.set("GET /api/roster/links", () =>
       Response.json({
-        links: [{ id: "l1", display: "calendar.example.org/…", workplace: "Example Hospital", failure: "unreachable" }],
+        links: [
+          {
+            id: "l1",
+            workplace: "Example Hospital",
+            hostPreview: "calendar.example.org/…",
+            lastFetchedAt: "2026-10-12T22:00:00.000Z",
+            lastError: "unreachable",
+            createdAt: "2026-10-01T00:00:00.000Z",
+          },
+        ],
       }),
     );
-    routes.set("DELETE /api/roster/links", () => Response.json({ deleted: true }));
+    routes.set("DELETE /api/roster/links", () => Response.json({ ok: true }));
+    // The refresh route answers 200 either way; only `ok` says whether the link was read.
+    let refreshOk = false;
+    routes.set("POST /api/roster/links/refresh", () =>
+      Response.json({
+        results: [refreshOk ? { id: "l1", ok: true } : { id: "l1", ok: false, reason: "not_calendar" }],
+      }),
+    );
     render(<RosterSettingsPage />);
     expect(await screen.findByText("calendar.example.org/…")).toBeInTheDocument();
     expect(screen.getByText("That calendar could not be reached.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Refresh calendar.example.org/…" }));
     await waitFor(() => expect(fetchCalls("/api/roster/links/refresh", "POST")).toHaveLength(1));
     expect(JSON.parse(String(fetchCalls("/api/roster/links/refresh", "POST")[0]?.[1]?.body))).toEqual({ id: "l1" });
+    expect(await screen.findByText("That link is not a calendar.")).toBeInTheDocument();
+    expect(screen.queryByText("Refreshed")).toBeNull();
+    refreshOk = true;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh calendar.example.org/…" }));
+    expect(await screen.findByText("Refreshed")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove calendar.example.org/…" }));
     await waitFor(() => expect(screen.queryByText("calendar.example.org/…")).toBeNull());
     expect(screen.getByText("Uploaded files are never kept.", { exact: false })).toBeInTheDocument();

@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { LookupAddress } from "node:dns";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
 
@@ -45,6 +46,22 @@ const defaultResolver: LinkResolver = async (hostname) =>
     family: entry.family === 6 ? 6 : 4,
   }));
 
+/**
+ * A connection `lookup` that always answers with the address already checked.
+ * Node 24 asks with `{ all: true }` (to race IPv4 and IPv6), and then the
+ * answer must be a list; otherwise it is the single address and its family.
+ */
+export function pinnedLookup(address: Address) {
+  return (
+    _hostname: string,
+    options: { all?: boolean } | null | undefined,
+    callback: (error: Error | null, address: string | LookupAddress[], family?: number) => void,
+  ) => {
+    if (options?.all) callback(null, [{ address: address.address, family: address.family }]);
+    else callback(null, address.address, address.family);
+  };
+}
+
 const defaultRequest: LinkRequest = ({ url, address, signal }) =>
   new Promise((resolve, reject) => {
     const request = httpsRequest(
@@ -53,7 +70,7 @@ const defaultRequest: LinkRequest = ({ url, address, signal }) =>
         method: "GET",
         headers: { accept: "text/calendar, text/plain" },
         servername: url.hostname,
-        lookup: (_hostname, _options, callback) => callback(null, address.address, address.family),
+        lookup: pinnedLookup(address),
         signal,
       },
       (response) =>

@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { PublicApiError } from "@/lib/http";
 import type { CodeMeaning } from "@/lib/roster/import/grid";
 import { SHIFT_KINDS } from "@/lib/roster/shift-kind";
 
@@ -42,7 +43,13 @@ export type RosterSettings = {
   readonly codes: Readonly<Record<string, Readonly<Record<string, CodeMeaning>>>>;
 };
 
-export type RosterSettingsPatch = Partial<RosterSettings>;
+/**
+ * What a PUT may change. `codes` is merged per workplace: a patch replaces
+ * only the workplaces it names, and a workplace set to null is removed.
+ */
+export type RosterSettingsPatch = Partial<Omit<RosterSettings, "codes">> & {
+  readonly codes?: Readonly<Record<string, Readonly<Record<string, CodeMeaning>> | null>>;
+};
 
 export const DEFAULT_ROSTER_SETTINGS: RosterSettings = { calendarShifts: false, rowName: null, codes: {} };
 
@@ -70,9 +77,19 @@ const codesSchema = z
 
 const rowNameSchema = z.string().trim().min(1).max(ROSTER_SETTINGS_ROW_NAME_MAX).nullable();
 
-/** What a PUT may send: any of the three fields, each a whole replacement. Unknown keys are refused. */
+const codesPatchSchema = z
+  .record(workplaceKeySchema, codesForWorkplaceSchema.nullable())
+  .refine((codes) => Object.keys(codes).length <= ROSTER_SETTINGS_MAX_WORKPLACES, {
+    message: `At most ${ROSTER_SETTINGS_MAX_WORKPLACES} workplaces.`,
+  });
+
+/**
+ * What a PUT may send: any of the three fields. `calendarShifts` and
+ * `rowName` are whole replacements; `codes` names only the workplaces it
+ * changes (null removes one). Unknown keys are refused.
+ */
 export const rosterSettingsPatchSchema = z
-  .object({ calendarShifts: z.boolean(), rowName: rowNameSchema, codes: codesSchema })
+  .object({ calendarShifts: z.boolean(), rowName: rowNameSchema, codes: codesPatchSchema })
   .partial()
   .strict();
 
@@ -120,17 +137,16 @@ function nextUpdatedAt(previous: string | null): string {
 }
 
 /**
- * Apply a patch and persist it, touching only the `roster` key of the stored
- * preferences JSON: every other key on that row (account preferences,
- * reminders) is carried through byte-for-byte. Optimistic on `updated_at`,
- * the same compare-and-swap the account preferences route uses, because both
- * routes write the same underlying row.
+ * Compare-and-swap on the owner's preferences row, optimistic on
+ * `updated_at`: the same guard the account preferences route uses, because
+ * both routes write the same underlying row. `change` is handed the stored
+ * preferences and returns the next ones, or null when nothing needs writing.
  */
-export async function writeRosterSettings(
+async function swapPreferences<T>(
   supabase: AdminClient,
   ownerId: string,
-  patch: RosterSettingsPatch,
-): Promise<RosterSettings> {
+  change: (preferences: Record<string, unknown>) => { next: Record<string, unknown> | null; result: T },
+): Promise<T> {
   requireOwner(ownerId);
   for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt += 1) {
     const { data: existing, error: readError } = await supabase
@@ -141,29 +157,75 @@ export async function writeRosterSettings(
     if (readError) throw readError;
 
     const rawPreferences = isPlainObject(existing?.preferences) ? existing.preferences : {};
-    const current = normalizeRosterSettings(rawPreferences.roster);
-    const merged = normalizeRosterSettings({ ...current, ...patch });
-    const nextPreferences = { ...rawPreferences, roster: merged };
+    const { next, result } = change(rawPreferences);
+    if (next === null) return result;
     const updatedAt = nextUpdatedAt(existing?.updated_at ?? null);
 
     if (!existing) {
       const { error: insertError } = await supabase
         .from("user_preferences")
-        .insert({ user_id: ownerId, preferences: nextPreferences, updated_at: updatedAt });
-      if (!insertError) return merged;
+        .insert({ user_id: ownerId, preferences: next, updated_at: updatedAt });
+      if (!insertError) return result;
       if (insertError.code === "23505") continue;
       throw insertError;
     }
 
     const { data: updated, error: updateError } = await supabase
       .from("user_preferences")
-      .update({ preferences: nextPreferences, updated_at: updatedAt })
+      .update({ preferences: next, updated_at: updatedAt })
       .eq("user_id", ownerId)
       .eq("updated_at", existing.updated_at)
       .select("updated_at")
       .maybeSingle();
     if (updateError) throw updateError;
-    if (updated) return merged;
+    if (updated) return result;
   }
   throw new Error("Roster settings changed too frequently. Please retry.");
+}
+
+/** Stored codes with a patch's workplaces replaced, and any set to null removed. */
+function mergeCodes(current: RosterSettings["codes"], patch: RosterSettingsPatch["codes"]): RosterSettings["codes"] {
+  if (!patch) return current;
+  const merged: Record<string, Readonly<Record<string, CodeMeaning>>> = { ...current };
+  for (const [workplace, codes] of Object.entries(patch)) {
+    if (codes === null) delete merged[workplace];
+    else merged[workplace] = codes;
+  }
+  if (Object.keys(merged).length > ROSTER_SETTINGS_MAX_WORKPLACES) {
+    throw new PublicApiError(`Roster remembers codes for at most ${ROSTER_SETTINGS_MAX_WORKPLACES} workplaces.`, 400, {
+      code: "invalid_body",
+    });
+  }
+  return merged;
+}
+
+/**
+ * Apply a patch and persist it, touching only the `roster` key of the stored
+ * preferences JSON: every other key on that row (account preferences,
+ * reminders) is carried through byte-for-byte.
+ */
+export async function writeRosterSettings(
+  supabase: AdminClient,
+  ownerId: string,
+  patch: RosterSettingsPatch,
+): Promise<RosterSettings> {
+  return swapPreferences(supabase, ownerId, (rawPreferences) => {
+    const current = normalizeRosterSettings(rawPreferences.roster);
+    const merged = normalizeRosterSettings({ ...current, ...patch, codes: mergeCodes(current.codes, patch.codes) });
+    return { next: { ...rawPreferences, roster: merged }, result: merged };
+  });
+}
+
+/**
+ * Remove the owner's Roster settings (part of Delete my data): drops the
+ * `roster` key and carries every other key through unchanged. Idempotent: an
+ * owner with no row, or no `roster` key, is left as they are.
+ */
+export async function clearRosterSettings(supabase: AdminClient, ownerId: string): Promise<void> {
+  return swapPreferences(supabase, ownerId, (rawPreferences) => {
+    if (!("roster" in rawPreferences)) return { next: null, result: undefined };
+    const next = { ...rawPreferences };
+    delete next.roster;
+    return { next, result: undefined };
+  });
 }

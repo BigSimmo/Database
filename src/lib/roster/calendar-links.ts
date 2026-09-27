@@ -125,7 +125,9 @@ export async function fetchOwnerCalendarLinks(supabase: AdminClient, ownerId: st
  */
 function assertAddableLink(rawUrl: string): URL {
   const url = normaliseCalendarLink(rawUrl);
-  if (isIP(url.hostname) !== 0 && !isGlobalPublicAddress(url.hostname)) {
+  // `URL.hostname` keeps an IPv6 literal's brackets (`[::1]`), which `isIP` does not read.
+  const host = url.hostname.replace(/^\[(.*)\]$/, "$1");
+  if (isIP(host) !== 0 && !isGlobalPublicAddress(host)) {
     throw new CalendarLinkError("private_address");
   }
   return url;
@@ -176,6 +178,28 @@ export async function removeCalendarLink(supabase: AdminClient, ownerId: string,
     .select("id");
   if (error) throw error;
   return (data ?? []).length > 0;
+}
+
+/** Remove every calendar link one workplace has, so a removed workplace does not come back on the next refresh. */
+export async function removeWorkplaceCalendarLinks(
+  supabase: AdminClient,
+  ownerId: string,
+  workplace: string,
+): Promise<void> {
+  requireOwner(ownerId);
+  const { error } = await supabase
+    .from("roster_calendar_links")
+    .delete()
+    .eq("owner_id", ownerId)
+    .eq("workplace", workplace);
+  if (error) throw error;
+}
+
+/** Remove every calendar link the owner has (part of Delete my data). Idempotent. */
+export async function deleteOwnerCalendarLinks(supabase: AdminClient, ownerId: string): Promise<void> {
+  requireOwner(ownerId);
+  const { error } = await supabase.from("roster_calendar_links").delete().eq("owner_id", ownerId);
+  if (error) throw error;
 }
 
 /** One named link's full address, read only for a server-side refresh. Null when it isn't the caller's. */

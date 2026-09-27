@@ -29,7 +29,7 @@ import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from
 import { RosterImportFlow } from "./roster-import-flow";
 import { RosterNightDial } from "./roster-night-dial";
 import { RosterWeekStrip } from "./roster-week-strip";
-import { hasFreshLink, useRosterLinks } from "./use-roster-links";
+import { hasFreshLink, refreshDueRosterLinks, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
 
@@ -136,7 +136,7 @@ function Hero({
   if (lead.state === "empty") {
     return (
       <section className={cn(modeModuleSurface, "grid gap-3 p-4")} data-testid="roster-today-empty">
-        <h2 className="text-lg-minus font-medium text-[color:var(--text-heading)]">Get your shifts in</h2>
+        <h2 className="text-lg-minus font-normal text-[color:var(--text-heading)]">Get your shifts in</h2>
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" onClick={onImport} disabled={!canEdit}>
             Import a file
@@ -216,6 +216,20 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
   const [importing, setImporting] = useState(false);
   const [addView, setAddView] = useState<RosterAddView | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+
+  // Opening Today refreshes any calendar link that is due (the server decides which). Once per visit, never retried.
+  const refreshStarted = useRef(false);
+  const { reload: reloadShifts } = shifts;
+  const { reload: reloadLinks } = links;
+  useEffect(() => {
+    if (refreshStarted.current) return;
+    refreshStarted.current = true;
+    void refreshDueRosterLinks().then((results) => {
+      if (!results || results.length === 0) return;
+      void reloadLinks();
+      if (results.some((result) => result.ok)) void reloadShifts();
+    });
+  }, [reloadLinks, reloadShifts]);
 
   const today = perthDateOf(now);
   const byId = useMemo(() => new Map(shifts.shifts.map((shift) => [shift.id, shift])), [shifts.shifts]);
@@ -349,6 +363,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
         onAddLink={async (url, workplace) => {
           const failure = await links.add(url, workplace);
           if (!failure) {
+            void shifts.reload();
             setAddView(null);
             setSaved("Saved");
           }

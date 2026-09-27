@@ -246,6 +246,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
         onAddLink={async (url, workplace) => {
           const failure = await links.add(url, workplace);
           if (!failure) {
+            void shifts.reload();
             setAddView(null);
             setNotice({ tone: "neutral", text: "Saved" });
           }

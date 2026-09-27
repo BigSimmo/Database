@@ -14,7 +14,7 @@ import {
   normalizeReminderSettings,
   type ReminderSettings,
 } from "@/lib/reminders/settings";
-import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
+import { inferShiftKind, SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import type { OnCallShift } from "@/lib/roster/shifts/model";
 import { perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { fetchOwnerShifts } from "@/lib/roster/shifts/repository";
@@ -126,17 +126,16 @@ const ROSTER_FEED_WINDOW_DAYS = 60;
  * holding the link can read it.
  */
 function rosterShiftEvents(shifts: readonly OnCallShift[]): CalendarEvent[] {
-  return shifts
-    .filter((shift): shift is OnCallShift & { kind: NonNullable<OnCallShift["kind"]> } => shift.kind !== null)
-    .map((shift) => ({
-      id: `roster-shift-${shift.id}`,
-      title: `Roster: ${SHIFT_KIND_LABEL[shift.kind]}`,
-      date: perthDateOf(shift.startsAt),
-      startTime: perthTimeOf(shift.startsAt),
-      durationMinutes: Math.max(1, Math.round((Date.parse(shift.endsAt) - Date.parse(shift.startsAt)) / 60_000)),
-      kind: "other" as const,
-      reminderType: "shifts" as const,
-    }));
+  // A shift stored without a kind (an older calendar-link refresh) is given one from its times, never dropped.
+  return shifts.map((shift) => ({
+    id: `roster-shift-${shift.id}`,
+    title: `Roster: ${SHIFT_KIND_LABEL[shift.kind ?? inferShiftKind(shift)]}`,
+    date: perthDateOf(shift.startsAt),
+    startTime: perthTimeOf(shift.startsAt),
+    durationMinutes: Math.max(1, Math.round((Date.parse(shift.endsAt) - Date.parse(shift.startsAt)) / 60_000)),
+    kind: "other" as const,
+    reminderType: "shifts" as const,
+  }));
 }
 
 export async function calendarFeedEvents(supabase: AdminClient, ownerId: string, now: Date): Promise<CalendarEvent[]> {

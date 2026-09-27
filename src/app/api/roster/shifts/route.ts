@@ -7,6 +7,8 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
+import { deleteOwnerCalendarLinks } from "@/lib/roster/calendar-links";
+import { clearRosterSettings } from "@/lib/roster/settings";
 import { demoOnCallShifts } from "@/lib/roster/shifts/demo-shifts";
 import { shiftIsInWindow } from "@/lib/roster/shifts/diff";
 import { onCallShiftImportRequestSchema } from "@/lib/roster/shifts/model";
@@ -23,13 +25,25 @@ import { parseJsonBody } from "@/lib/validation/body";
 export const runtime = "nodejs";
 
 /**
- * My shifts: the signed-in doctor's own roster. List what is coming up and the
- * latest import (GET), save an imported roster (POST), or delete every shift
- * (DELETE). The owner comes from the validated session only, never the request,
- * and every query is filtered by it.
+ * My shifts: the signed-in doctor's own roster. List the last three weeks and
+ * what is coming up, with the latest import (GET), save an imported roster
+ * (POST), or delete all of the doctor's Roster data: calendar links, settings,
+ * shifts and imports (DELETE). The owner comes from the validated session
+ * only, never the request, and every query is filtered by it.
  */
 
 const noStore = { "Cache-Control": "no-store" };
+
+/**
+ * How far back the list reaches: hours, "stayed late", Today's week and the
+ * previous week, and an import's preview all need recent past shifts. The
+ * calendar feed and On Call's next shift still start from now.
+ */
+const PAST_SHIFT_DAYS = 21;
+
+function listFrom(now = new Date()): Date {
+  return new Date(now.getTime() - PAST_SHIFT_DAYS * 24 * 60 * 60 * 1000);
+}
 
 async function authorise(request: Request) {
   const supabase = createAdminClient();
@@ -60,7 +74,7 @@ export async function GET(request: Request) {
     const { supabase, user, rateLimit } = await authorise(request);
     if (rateLimit.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rateLimit);
     const [shifts, latestImport] = await Promise.all([
-      fetchOwnerShifts(supabase, user.id, new Date()),
+      fetchOwnerShifts(supabase, user.id, listFrom()),
       fetchLatestShiftImport(supabase, user.id),
     ]);
     return NextResponse.json({ shifts, latestImport }, { headers: noStore });
@@ -83,7 +97,7 @@ export async function POST(request: Request) {
     }
     await replaceOwnerShifts(supabase, user.id, body);
     const [shifts, latestImport] = await Promise.all([
-      fetchOwnerShifts(supabase, user.id, new Date()),
+      fetchOwnerShifts(supabase, user.id, listFrom()),
       fetchLatestShiftImport(supabase, user.id),
     ]);
     return NextResponse.json({ shifts, latestImport }, { headers: noStore });
@@ -98,6 +112,9 @@ export async function DELETE(request: Request) {
     if (isDemoMode()) return demoRefusal();
     const { supabase, user, rateLimit } = await authorise(request);
     if (rateLimit.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rateLimit);
+    // Delete my data: links first (so no refresh can bring shifts back), then settings, then shifts and imports.
+    await deleteOwnerCalendarLinks(supabase, user.id);
+    await clearRosterSettings(supabase, user.id);
     await deleteOwnerShifts(supabase, user.id);
     return NextResponse.json({ shifts: [], latestImport: null }, { headers: noStore });
   } catch (error) {

@@ -107,6 +107,18 @@ describe("Roster import flow", () => {
     expect(puts).toContainEqual({ codes: { "": { ...DAY_CODE, ADO: { kind: "off" } } } });
   });
 
+  it("never saves codes over settings that did not load, which would wipe the stored ones", async () => {
+    routes.set("GET /api/roster/settings", () => Response.json({ error: "Unavailable" }, { status: 503 }));
+    mockReadFile(gridWithCodes(["ADO"]));
+    render(<RosterShiftsPage now={now} />);
+    await importFile("oct.xlsx");
+    await chooseRow("Dr Alex Example");
+    await chooseCode("ADO", "Day off");
+    expect(screen.getByRole("button", { name: /Save/ })).toBeEnabled();
+    const puts = fetchCalls("/api/roster/settings", "PUT").map(([, init]) => JSON.parse(String(init?.body)));
+    expect(puts.some((put) => "codes" in put)).toBe(false);
+  });
+
   it("skips Which row is you when the remembered name is in the file, and sends only the grid's shifts", async () => {
     mockSettings({ calendarShifts: false, rowName: "Example, Alex", codes: { "": DAY_CODE } });
     mockReadFile(gridWithCodes(["D", "OFF", "D"]));

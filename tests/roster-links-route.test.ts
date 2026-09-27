@@ -38,6 +38,7 @@ vi.mock("@/lib/roster/calendar-link-fetch", async (importOriginal) => {
 
 import { DELETE, GET, POST } from "@/app/api/roster/links/route";
 import { POST as refreshLinks } from "@/app/api/roster/links/refresh/route";
+import { DELETE as removeWorkplace } from "@/app/api/roster/workplaces/route";
 import { AuthenticationError } from "@/lib/supabase/auth";
 
 const ownerId = "11111111-1111-4111-8111-111111111111";
@@ -252,6 +253,28 @@ describe("POST /api/roster/links", () => {
     expect(((await priv.json()) as { code: string }).code).toBe("private_address");
   });
 
+  it("refuses a private IPv6 literal, whose hostname keeps its brackets", async () => {
+    const calls = fakeSupabase({ roster_calendar_links: [] });
+    for (const url of ["https://[::1]/a.ics", "https://[fd00::5]/a.ics"]) {
+      const response = await POST(request("POST", { url, workplace: null }));
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { code: string }).code).toBe("private_address");
+    }
+    expect(calls.some((call) => call.op === "insert")).toBe(false);
+  });
+
+  it("tells a duplicate workplace apart from the 3-link cap by its code", async () => {
+    fakeSupabase(
+      { roster_calendar_links: [] },
+      { insertError: (table) => (table === "roster_calendar_links" ? { code: "23505", message: "duplicate" } : null) },
+    );
+    const response = await POST(
+      request("POST", { url: "https://roster.example.org/a.ics", workplace: "Example Hospital" }),
+    );
+    expect(response.status).toBe(409);
+    expect(((await response.json()) as { code: string }).code).toBe("duplicate_workplace");
+  });
+
   it("refuses a link over 2000 characters before any insert", async () => {
     const calls = fakeSupabase({ roster_calendar_links: [] });
     const tooLong = `https://roster.example.org/a.ics?t=${"x".repeat(2000)}`;
@@ -301,6 +324,12 @@ describe("POST /api/roster/links/refresh", () => {
     expect(args.p_format).toBe("link");
     expect(args.p_workplace).toBe("Example Hospital");
     expect((args.p_shifts as unknown[]).length).toBe(3);
+    // A feed carries no kind; each shift is given one so the calendar feed and hours can use it.
+    expect((args.p_shifts as Array<{ kind?: string | null }>).map((shift) => shift.kind)).toEqual([
+      "evening",
+      "evening",
+      "evening",
+    ]);
   });
 
   it("maps a failed fetch to the table's own reason code and saves nothing", async () => {
@@ -330,5 +359,44 @@ describe("POST /api/roster/links/refresh", () => {
     const response = await refreshLinks(refreshRequest({ id: otherLinkId }));
     expect(response.status).toBe(404);
     expect(mocks.fetchLink).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/roster/workplaces", () => {
+  function workplaceRequest(body: unknown) {
+    return new Request("https://psychiatry.tools/api/roster/workplaces", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("removes the workplace's links, then its imported shifts, for the caller only, recording no import", async () => {
+    const calls = fakeSupabase(storedLinks);
+    const response = await removeWorkplace(workplaceRequest({ workplace: "Example Hospital" }));
+    expect(response.status).toBe(200);
+    expect(calls.map((call) => `${call.op} ${call.table}`)).toEqual([
+      "delete roster_calendar_links",
+      "delete on_call_shifts",
+    ]);
+    for (const call of calls) {
+      expect(call.eq).toContainEqual(["owner_id", ownerId]);
+      expect(call.eq).toContainEqual(["workplace", "Example Hospital"]);
+    }
+    expect(calls[1]?.eq).toContainEqual(["source", "import"]);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a body without a workplace, a signed-out request, and demo mode", async () => {
+    const calls = fakeSupabase(storedLinks);
+    expect((await removeWorkplace(workplaceRequest({}))).status).toBe(400);
+    expect(
+      (await removeWorkplace(workplaceRequest({ workplace: "Example Hospital", ownerId: otherOwnerId }))).status,
+    ).toBe(400);
+    expect(calls.some((call) => call.op === "delete")).toBe(false);
+    mocks.auth.mockRejectedValue(new AuthenticationError("no session"));
+    expect((await removeWorkplace(workplaceRequest({ workplace: "Example Hospital" }))).status).toBe(401);
+    mocks.demo.mockReturnValue(true);
+    expect((await removeWorkplace(workplaceRequest({ workplace: "Example Hospital" }))).status).toBe(400);
   });
 });
