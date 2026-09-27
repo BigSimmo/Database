@@ -3,6 +3,7 @@
 import { Users } from "lucide-react";
 import { useMemo } from "react";
 
+import { OnCallCrisisLines } from "@/components/on-call/call/external-line-rows";
 import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
 import { OnCallHandbookState } from "@/components/on-call/kit/handbook-state";
@@ -84,6 +85,7 @@ export function OnCallWhosOnPage() {
       lead={<OnCallHospitalLine handbook={handbook} testId="on-call-hub-hospital" />}
     >
       <OnCallHandbookState handbook={handbook} page="whos-on" />
+      {ready ? null : <OnCallCrisisLines />}
       {ready ? (
         <>
           <div className="px-3">

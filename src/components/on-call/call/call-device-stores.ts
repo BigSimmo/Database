@@ -25,7 +25,7 @@ import {
  */
 
 export { onCallDidntConnectStorageKey, onCallHospitalPhoneStorageKey };
-export const ON_CALL_LANE_B_DEVICE_KEYS = [onCallDidntConnectStorageKey, onCallHospitalPhoneStorageKey] as const;
+const ON_CALL_LANE_B_DEVICE_KEYS = [onCallDidntConnectStorageKey, onCallHospitalPhoneStorageKey] as const;
 
 const DIDNT_CONNECT_HOURS = 12;
 const EXPIRY_MS = DIDNT_CONNECT_HOURS * 60 * 60 * 1000;

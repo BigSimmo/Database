@@ -39,6 +39,9 @@ async function open(page: Page, path: string, colorScheme: "light" | "dark") {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
   await page.goto(path);
+  // React parks a hidden staged copy of a streamed page until its reveal, so a
+  // strict locator would match twice (#093). Wait for the one live copy.
+  await expect(page.locator('div[hidden][id^="S:"]')).toHaveCount(0, { timeout: 20_000 });
 }
 
 for (const colorScheme of ["light", "dark"] as const) {

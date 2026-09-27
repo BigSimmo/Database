@@ -581,10 +581,10 @@ export function MasterSearchHeader({
     selectedAppMode.search.resultsSurface === "none" ? modeSecondaryNavigationEntries(selectedAppMode.id) : [];
   const modeOwnPagesAvailable = modeOwnPages.length > 0;
   /**
-   * Whether this device last saw the reader as a handbook editor. Recorded by
-   * the hub's own handbook read, so the pages sheet can show "Manage service"
-   * to editors only without a fetch of its own (F24). False on the server and
-   * for anyone who has never edited, which hides the row by default.
+   * Whether the pages sheet offers "Manage service": true for an editor, and
+   * while the role is still unknown (S3), false only once the hub's own
+   * handbook read has seen a non-editor. Read from the device, so the sheet
+   * needs no fetch of its own (F24). False on the server.
    */
   const onCallEditor = useSyncExternalStore(subscribeOnCallEditorFlag, readOnCallEditorFlag, () => false);
   /**

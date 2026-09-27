@@ -86,10 +86,17 @@ describe("Who's on", () => {
     expect(screen.queryByText(/being built|being set up/i)).toBeNull();
   });
 
-  it("shows only the handbook's own state until its numbers are ready", () => {
+  it("shows the handbook's own state and the public crisis lines until its numbers are ready", () => {
     handbook.state = readyHandbook([], { status: "signed-out" });
     render(<OnCallWhosOnPage />);
     expect(screen.getByTestId("on-call-handbook-state-signed-out")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-crisis-lines")).toBeInTheDocument();
     expect(screen.queryByTestId("on-call-whos-on-my-team")).toBeNull();
+  });
+
+  it("drops the crisis lines once the hospital's numbers are on screen", () => {
+    handbook.state = readyHandbook([]);
+    render(<OnCallWhosOnPage />);
+    expect(screen.queryByTestId("on-call-crisis-lines")).toBeNull();
   });
 });

@@ -11,7 +11,7 @@
  *
  * Adding a store to the rebuilt On Call pages means adding its key to
  * `ON_CALL_DEVICE_STATE_KEYS` below, not inventing a second sign-out path.
- * None of these stores holds a phone number: they hold ids, titles, times,
+ * None of these stores holds a phone number or an entry title: they hold ids, times,
  * yes/no answers and the reader's own choices.
  *
  * Keep it free of imports. Anything added here is added to every page.
@@ -19,7 +19,7 @@
 
 /** `{ serviceId, siteId }` — the hospital this reader last chose. */
 export const onCallHospitalChoiceStorageKey = "clinical-kb-on-call-hospital-choice";
-/** `{ [service:site]: { [entryId]: title } }` — titles only, to name a withdrawn row. */
+/** `{ [service:site]: { seen: { [entryId]: time }, gone: { [entryId]: time } } }` — ids and times only (review B2). */
 export const onCallHandbookSeenStorageKey = "clinical-kb-on-call-handbook-seen";
 /** Reports sent from this device, so one fault is reported once (30 days). */
 export const onCallHandbookReportedStorageKey = "clinical-kb-on-call-handbook-reported";

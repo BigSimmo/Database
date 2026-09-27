@@ -14,6 +14,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { OnCallCrisisLines } from "@/components/on-call/call/external-line-rows";
 import { ServiceAdminPanel } from "@/components/on-call/service-admin-panel";
 import { ServiceCheckingPanel } from "@/components/on-call/service-checking-panel";
 import { ServiceEntryEditor } from "@/components/on-call/service-entry-editor";
@@ -389,6 +390,7 @@ export function ServicePage({
       <InformationPageShell testId="service-page-loading" width="narrow">
         <h1 className="sr-only">Service handbook</h1>
         <p className={cn(textMuted, "text-sm")}>Loading your service handbook…</p>
+        <OnCallCrisisLines />
       </InformationPageShell>
     );
   }
@@ -408,6 +410,7 @@ export function ServicePage({
           }
         />
         <AccountSetupDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
+        <OnCallCrisisLines />
       </InformationPageShell>
     );
   }
@@ -436,6 +439,7 @@ export function ServicePage({
           }
         />
         {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+        <OnCallCrisisLines />
       </InformationPageShell>
     );
   }

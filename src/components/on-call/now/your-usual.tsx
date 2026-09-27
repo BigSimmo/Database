@@ -325,7 +325,7 @@ export function NowYourUsual({
         <TileOutlines count={Math.max(1, Math.min(outlineCount, ON_CALL_USUAL_TILE_LIMIT))} />
       ) : tiles.length === 0 ? (
         <p className={cn(onCallSecondaryText, "px-3")} data-testid="on-call-now-usual-empty">
-          Numbers you call show here. To start the list, tick &quot;Call first on the home&quot; on your own entries.
+          To add a number, tick &quot;Call first on the home&quot; on your own entry.
         </p>
       ) : (
         <>

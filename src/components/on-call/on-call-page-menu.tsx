@@ -172,7 +172,7 @@ export function OnCallPageMenuActions({
         <span className="grid gap-0.5">
           <span className="font-semibold">What the home shows</span>
           <span className={cn(textMuted, "text-xs")}>
-            {`Tick "Call first on the home" when editing a contact. Tag a contact "${ON_CALL_HOME_TAGS.switchboard}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home too.`}
+            {`Tick "Call first on the home" on a contact to add it to Your usual. Tag a playbook scenario "${ON_CALL_HOME_TAGS.pinned}" to open it first in Who do I call now.`}
           </span>
         </span>
       </div>

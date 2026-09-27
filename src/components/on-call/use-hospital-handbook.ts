@@ -38,7 +38,7 @@ import { useAuthSession } from "@/lib/supabase/client";
  *  - one read is held for 60 s per `${authEpoch}:${serviceId}:${siteId}`, since
  *    every service call shares one per-user rate-limit bucket (C14). The memo is
  *    dropped on the sign-out wipe and whenever the auth epoch changes;
- *  - the "seen" map stores titles only, never numbers.
+ *  - the "seen" map stores entry ids and times only, never titles or numbers.
  */
 
 export type HospitalHandbookStatus = "loading" | "signed-out" | "expired" | "no-service" | "ready" | "unavailable";
