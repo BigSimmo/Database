@@ -27,7 +27,7 @@ export function useDelayedPost(): {
 } {
   const auth = useAuthSession();
   const held = useRef<{ job: Job; timer: number } | null>(null);
-  const [pending, setPending] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ label: string; authEpoch: number } | null>(null);
 
   const send = useCallback(() => {
     const current = held.current;
@@ -45,9 +45,9 @@ export function useDelayedPost(): {
     (next: Job) => {
       if (held.current || auth.status !== "authenticated") return;
       held.current = { job: next, timer: window.setTimeout(send, UNDO_MS) };
-      setPending(next.label);
+      setPending({ label: next.label, authEpoch: auth.authEpoch });
     },
-    [send, auth.status],
+    [send, auth.authEpoch, auth.status],
   );
 
   const undo = useCallback(() => {
@@ -57,7 +57,6 @@ export function useDelayedPost(): {
   }, []);
 
   useEffect(() => {
-    undo();
     window.addEventListener("pagehide", undo);
     return () => {
       window.removeEventListener("pagehide", undo);
@@ -66,5 +65,7 @@ export function useDelayedPost(): {
     };
   }, [undo, auth.authEpoch, auth.status]);
 
-  return { pending, schedule, undo };
+  const visiblePending =
+    auth.status === "authenticated" && pending?.authEpoch === auth.authEpoch ? pending.label : null;
+  return { pending: visiblePending, schedule, undo };
 }
