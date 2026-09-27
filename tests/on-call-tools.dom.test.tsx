@@ -169,20 +169,18 @@ describe("first night", () => {
 });
 
 describe("On Call calendar", () => {
-  it("shows a repeating teaching session in this month", () => {
+  it("shows a recorded expiry date in this month", () => {
     state.entries = [
       entry({
-        id: "teach",
-        section: "education",
-        title: "Registrar teaching",
-        details: { nextOccurrence: "12:30", nextOccurrenceDate: "2026-09-02", recurrenceRule: { frequency: "weekly" } },
+        id: "licence",
+        section: "logistics",
+        title: "Driver's licence",
+        details: { kind: "compliance", expiresOn: "2026-09-30" },
       }),
     ];
     render(<OnCallCalendarPage now={new Date(2026, 8, 30, 9, 0)} />);
     const day = screen.getByTestId("on-call-calendar-view-day");
-    expect(day).toHaveTextContent("Registrar teaching");
-    expect(day).toHaveTextContent("12:30 pm");
-    expect(day).toHaveTextContent("Every week");
+    expect(day).toHaveTextContent("Driver's licence expires");
   });
 
   it("moves today at midnight on a page nobody is touching", () => {

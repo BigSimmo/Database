@@ -22,7 +22,6 @@ import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
 import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
-import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
 import { useOnCallShifts } from "@/components/on-call/use-on-call-shifts";
 import {
   ON_CALL_HOME_ICON,
@@ -44,13 +43,12 @@ const homeToolTile = cn(
   focusRing,
   "flex min-h-tap flex-col items-start gap-0.5 p-3 text-sm font-semibold text-[color:var(--text)] no-underline",
 );
-import { msUntilNextOnCallLocalDay, onCallLocalDateKey } from "@/lib/on-call/local-date";
+import { msUntilNextOnCallLocalDay } from "@/lib/on-call/local-date";
 import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { deriveOnCallNotifications, visibleOnCallNotifications } from "@/lib/on-call/notifications";
 import { perthDateKey, snoozeReminder, type ReminderType } from "@/lib/reminders/settings";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
-import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
   ON_CALL_HOME_TAGS,
@@ -322,23 +320,17 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     // A pinned clock is the caller's to move. Scheduling against it would drag a
     // print view or a test off the moment it deliberately stood on.
     if (pinnedNow) return;
-    // Midnight is a boundary too: "today" drives Coming up and the reminders,
+    // Midnight is a boundary too: "today" drives the reminders,
     // and the hours rule alone would leave it on yesterday until 08:00.
     const delay = Math.min(msUntilOnCallHoursBoundary(now), msUntilNextOnCallLocalDay(now));
     const timer = setTimeout(() => setTick(new Date()), delay);
     return () => clearTimeout(timer);
   }, [pinnedNow, now]);
 
-  const today = onCallLocalDateKey(now);
   const callFirst = useMemo(() => selectCallFirstContacts(entries), [entries]);
   const switchboard = useMemo(() => selectSwitchboardContact(entries), [entries]);
   const wards = useMemo(() => selectWardContacts(entries), [entries]);
   const pinned = useMemo(() => selectPinnedPlaybookEntry(entries), [entries]);
-  // `selectUpcomingTeachingSessions` rather than `home-modules`' own selector:
-  // a session with a recurrence rolls forward from its anchor instead of
-  // vanishing the afternoon its date passes, which is what made this block go
-  // blank every Thursday. Same `(entries, today)` string-date contract.
-  const upcoming = useMemo(() => selectUpcomingTeachingSessions(entries, today), [entries, today]);
   const { counts } = useMemo(() => countOnCallEntriesBySection(entries), [entries]);
 
   // A hub with no entries at all and a hub whose entries are simply untagged are
@@ -696,21 +688,6 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         {pinned ? (
           <HomeModule id="on-call-home-pinned-module" label="Remember">
             <PinnedReminder entry={pinned} />
-          </HomeModule>
-        ) : null}
-
-        {upcoming.length > 0 ? (
-          <HomeModule
-            id="on-call-home-upcoming"
-            label="Coming up"
-            action={
-              <Link href={ON_CALL_SECTION_HREFS.education} className={moduleAction}>
-                All teaching
-                <ChevronRight aria-hidden="true" className="size-icon-xs" />
-              </Link>
-            }
-          >
-            <OnCallTeachingStrip sessions={upcoming} />
           </HomeModule>
         ) : null}
 

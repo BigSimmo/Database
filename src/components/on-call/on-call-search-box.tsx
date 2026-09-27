@@ -144,7 +144,15 @@ function groupByView(results: readonly OnCallSearchResult[]): Array<[OnCallPageV
 export function OnCallSearchBox({ entries }: { entries: readonly OnCallEntry[] }) {
   const [query, setQuery] = useState("");
   const trimmed = query.trim();
-  const results = useMemo(() => searchOnCallEntries(entries, query), [entries, query]);
+  // Teaching entries are found in Teaching now (spec §8), so On Call's box skips them.
+  const results = useMemo(
+    () =>
+      searchOnCallEntries(
+        entries.filter((entry) => entry.section !== "education"),
+        query,
+      ),
+    [entries, query],
+  );
   const groups = useMemo(() => groupByView(results), [results]);
 
   // The count goes to assistive technology only. Putting `aria-live` on the

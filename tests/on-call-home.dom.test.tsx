@@ -261,17 +261,18 @@ describe("On Call home layout", () => {
     expect(card).toHaveTextContent(/after hours/i);
   });
 
-  it("rolls a weekly session forward rather than going blank once its date passes", () => {
+  it("no longer shows a teaching session on the home, now that teaching lives in Teaching mode", () => {
+    // Was "rolls a weekly session forward rather than going blank once its date
+    // passes": the Coming up module and `OnCallTeachingStrip` moved out of On
+    // Call entirely (spec §8). The session still reaches the reader — in
+    // Teaching's Week, under "Teaching list (from On Call)" — just not here.
     storeState.entries = [recurringSession()];
 
-    // Months after the stored anchor of 8 January.
     render(<OnCallHome now={new Date(2026, 8, 16, 9, 0, 0)} />);
 
-    const strip = screen.getByTestId("on-call-home-teaching-strip");
-    expect(strip).toHaveTextContent("Journal club");
-    // A date, never a countdown: it has to be checkable against a roster.
-    expect(strip).toHaveTextContent(/Sep/);
-    expect(screen.getByTestId("on-call-home-teaching-next-badge")).toBeInTheDocument();
+    expect(screen.queryByTestId("on-call-home-upcoming")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("on-call-home-teaching-strip")).not.toBeInTheDocument();
+    expect(screen.queryByText("Journal club")).not.toBeInTheDocument();
   });
 
   it("says nothing about overdue entries, which are the developer hub's business", () => {
@@ -331,21 +332,17 @@ describe("On Call home layout", () => {
     }
   });
 
-  it("puts a dated teaching card inside the Coming up module, as the browser board test looks for", () => {
-    // A standing double for `tests/ui-on-call-boards.spec.ts` "dates the next
-    // teaching session with a weekday". That spec went red on PR #2806 because
-    // the card's test id moved from `on-call-home-upcoming-` to
-    // `on-call-home-teaching-` when the row became a strip, and nothing offline
-    // covered it. Same corpus, same nesting, same weekday assertion, no browser.
+  it("draws no Coming up module at all, even from the full demo corpus", () => {
+    // A standing double for `tests/ui-on-call-boards.spec.ts` "no longer draws
+    // a teaching card on the home". The Coming up module is gone (spec §8), so
+    // even the full demo corpus — which includes recurring teaching entries —
+    // must not resurrect it.
     storeState.entries = [...DEMO_ON_CALL_ENTRIES];
 
     render(<OnCallHome />);
 
-    const comingUp = screen.getByTestId("on-call-home-upcoming");
-    const cards = comingUp.querySelectorAll('[data-testid^="on-call-home-teaching-"]');
-    expect(cards.length).toBeGreaterThan(0);
-    // A date a reader can check against a roster, never a countdown.
-    expect(cards[0]).toHaveTextContent(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
+    expect(screen.queryByTestId("on-call-home-upcoming")).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-testid^="on-call-home-teaching-"]')).toHaveLength(0);
   });
 });
 

@@ -73,6 +73,8 @@ const ROUTES = {
   playbook: "/on-call/playbook",
   referrals: "/on-call/referrals",
   orientation: "/on-call/orientation",
+  // Teaching moved out of On Call into its own mode (spec §8); the route still
+  // exists as a redirect to Teaching's Week, which the test below covers.
   teaching: "/on-call/education",
   logistics: "/on-call/logistics",
   // A route of its own over rows that are not a section of their own.
@@ -91,7 +93,6 @@ const SECTION_LIST_TEST_IDS: Record<string, string> = {
   [ROUTES.playbook]: "on-call-playbook-section",
   [ROUTES.referrals]: "on-call-referrals-section",
   [ROUTES.orientation]: "on-call-orientation-section",
-  [ROUTES.teaching]: "on-call-education-section",
   [ROUTES.logistics]: "on-call-logistics-section",
   [ROUTES.compliance]: "on-call-compliance-section",
   [ROUTES.whoIsWho]: "on-call-who-is-who-section",
@@ -125,8 +126,9 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
     return;
   }
   // The list, not the header: a section page renders a header only when it has
-  // two or more groups to move between, and Playbook, Who's who and Teaching
-  // have one or none in the demo corpus. The list is also the better signal
+  // two or more groups to move between, and Playbook and Who's who have one or
+  // none in the demo corpus. Teaching's route now only redirects (spec §8), so
+  // it has no list test id here at all. The list is also the better signal
   // either way — the header used to render before the fetch resolved, so
   // waiting on it measured the loading state.
   const listTestId = SECTION_LIST_TEST_IDS[route];
@@ -221,7 +223,6 @@ test.describe("01 Home", () => {
       "on-call-home-call-first",
       "on-call-home-wards",
       "on-call-home-pinned-module",
-      "on-call-home-upcoming",
       "on-call-home-sections",
     ];
     for (const id of modules) {
@@ -274,15 +275,14 @@ test.describe("01 Home", () => {
     expect(painted).not.toBe("rgba(0, 0, 0, 0)");
   });
 
-  test("dates the next teaching session with a weekday, as drawn", async ({ page }) => {
+  test("no longer draws a teaching card on the home, now that teaching lives in Teaching mode", async ({ page }) => {
+    // Was "dates the next teaching session with a weekday, as drawn": the
+    // Coming up module and its date-card strip moved out of On Call entirely
+    // (spec §8). The reader's On Call teaching list now shows in Teaching's
+    // Week instead.
     await openBoard(page, ROUTES.home);
-    // The row became a date-card strip when recurring sessions landed, so the
-    // card test id moved from `on-call-home-upcoming-` to `on-call-home-teaching-`.
-    // The module id around it is unchanged, and so is what this test is really
-    // asserting: a date a reader can check against a roster, never a countdown.
-    const card = page.getByTestId("on-call-home-upcoming").locator('[data-testid^="on-call-home-teaching-"]').first();
-    await expect(card).toBeVisible();
-    await expect(card).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
+    await expect(page.getByTestId("on-call-home-upcoming")).toHaveCount(0);
+    await expect(page.locator('[data-testid^="on-call-home-teaching-"]')).toHaveCount(0);
   });
 
   test("gives each shift-time page a tile, and gives Who's who no count", async ({ page }) => {
@@ -544,16 +544,14 @@ test.describe("02 More — the second row is about the page you are on", () => {
     await expect(page.getByRole("button", { name: "Start a new chat" })).toHaveCount(0);
   });
 
-  test("renders no header at all on a page with nothing to move between", async ({ page }) => {
-    // Teaching has no facet to file by — its sessions are dated, not tagged —
-    // so it is one flat list. One group is a heading, not navigation, and with
-    // the title and the actions both gone there is nothing left for a header
-    // to hold. It is absent rather than drawn as an empty 48px band.
-    await openBoard(page, ROUTES.teaching);
-    await expect(page.getByTestId("on-call-section-detail-header")).toHaveCount(0);
-    // The page is still named, and still has its actions — both one level up.
-    await expect(page.getByRole("button", { name: "Mode On Call, page Teaching" })).toBeVisible();
-    await expect(page.getByTestId("on-call-page-menu-trigger")).toBeVisible();
+  test("forwards /on-call/education straight to Teaching's Week", async ({ page }) => {
+    // Was "renders no header at all on a page with nothing to move between",
+    // which tested the old On Call teaching page's flat-list header. That page
+    // is gone: teaching moved to its own mode (spec §8), and the old route now
+    // only redirects. `tests/teaching-on-call-relocation.dom.test.tsx` pins the
+    // redirect itself offline; this proves it holds in a real browser too.
+    await page.goto(ROUTES.teaching, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/teaching\/week$/);
   });
 
   test("gives a page that lost its chips real groups instead", async ({ page }) => {

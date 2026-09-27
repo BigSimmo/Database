@@ -46,7 +46,6 @@ const SECTION_LISTS = {
   "/on-call/playbook": "on-call-playbook-section",
   "/on-call/referrals": "on-call-referrals-section",
   "/on-call/orientation": "on-call-orientation-section",
-  "/on-call/education": "on-call-education-section",
   "/on-call/logistics": "on-call-logistics-section",
   "/on-call/who-is-who": "on-call-who-is-who-section",
 };

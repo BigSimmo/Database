@@ -11,13 +11,13 @@ import { OnCallToolNavHeader } from "@/components/on-call/on-call-nav-header";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, textMuted } from "@/components/ui-primitives";
-import { onCallCalendarEvents } from "@/lib/on-call/calendar-events";
+import { onCallExpiryEvents } from "@/lib/on-call/calendar-events";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { msUntilNextOnCallLocalDay, onCallLocalDateKey } from "@/lib/on-call/local-date";
 
 /**
- * CALENDAR — teaching sessions and recorded expiry dates on one month view,
- * each of which can go into the reader's own calendar.
+ * CALENDAR — the expiry dates recorded on Compliance on one month view, each
+ * of which can go into the reader's own calendar. Teaching sessions are in Teaching mode.
  */
 export function OnCallCalendarPage({ now: nowProp }: { now?: Date } = {}) {
   const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
@@ -31,22 +31,20 @@ export function OnCallCalendarPage({ now: nowProp }: { now?: Date } = {}) {
     return () => clearTimeout(timer);
   }, [nowProp, now]);
   const today = onCallLocalDateKey(now);
-  const events = useMemo(() => onCallCalendarEvents(entries, today), [entries, today]);
+  const events = useMemo(() => onCallExpiryEvents(entries), [entries]);
 
   return (
     <>
       <OnCallToolNavHeader title="Calendar" testIdPrefix="on-call-calendar" />
       <InformationPageShell testId="on-call-calendar-main" width="narrow">
         <h1 className="sr-only">Calendar</h1>
-        <p className={cn(textMuted, "mb-4 text-sm")}>
-          Teaching sessions, and the expiry dates you recorded on Compliance.
-        </p>
+        <p className={cn(textMuted, "mb-4 text-sm")}>The expiry dates you recorded on Compliance.</p>
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
         {loading && entries.length === 0 ? (
           <EmptyState
             icon={CalendarDays}
             title="Loading your calendar"
-            body="Fetching sessions and dates."
+            body="Fetching your dates."
             testId="on-call-calendar-loading"
           />
         ) : isOffline && entries.length === 0 ? (

@@ -233,7 +233,6 @@ describe("On Call mockup conformance ledger", () => {
       "on-call-home-call-first",
       "on-call-home-wards",
       "on-call-home-pinned",
-      "on-call-home-upcoming",
       "on-call-home-sections",
       "on-call-page-menu-trigger",
       "on-call-page-menu-order",
