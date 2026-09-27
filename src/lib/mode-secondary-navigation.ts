@@ -144,6 +144,13 @@ export const modeSecondaryNavigationRegistry = {
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
     { id: "service", label: "Service", href: "/on-call/service" },
     { id: "card", label: "Pocket card", href: "/on-call/card" },
+    // A maintenance queue over the reader's own entries (never checked,
+    // overdue, or due in 30 days), not a stored section — the same shape as
+    // Who's who and Compliance are views rather than sections. It had no
+    // in-app link at all once the old Today page's link grid was removed
+    // (Admin update 1, Task 10), so it is registered here, in the mode's own
+    // page list, alongside the other utility pages over the reader's data.
+    { id: "check", label: "Check these", href: "/on-call/check" },
   ],
   // CME's destinations. Like On Call's, they are registered here so the mode
   // pill's section level can open them, but CME is deliberately absent from

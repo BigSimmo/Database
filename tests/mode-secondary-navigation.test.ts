@@ -47,6 +47,10 @@ const expectedLabels: Record<AppModeId, string[]> = {
     // reached at `/on-call/service`.
     "Service",
     "Pocket card",
+    // A maintenance queue over the reader's own entries, not a stored section —
+    // registered here (Admin update 1, Task 10) once the old Today page's link
+    // grid stopped being its only inbound link.
+    "Check these",
   ],
   cme: [
     "This year",

@@ -1,6 +1,6 @@
 "use client";
 
-import { BriefcaseMedical, Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
+import { BriefcaseMedical, Calendar, Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
@@ -148,6 +148,25 @@ export function OnCallPageMenuActions({
                   reader after the tap. */}
           <span className={cn(textMuted, "text-xs font-normal")}>
             One printable page. Excludes private and overdue entries.
+          </span>
+        </span>
+      </Link>
+
+      {/* Your own shift calendar. It carries its own event id so a re-download
+          replaces rather than duplicates an entry; heading to Roster later
+          (see task-10-brief.md), it stays here — the app's existing list of
+          personal pages — until that move happens. */}
+      <Link
+        href="/on-call/calendar"
+        onClick={() => onNavigate?.()}
+        className={inPageActionRowClass}
+        data-testid="on-call-page-menu-calendar"
+      >
+        <Calendar aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="grid gap-0.5">
+          <span>Calendar</span>
+          <span className={cn(textMuted, "text-xs font-normal")}>
+            Teaching sessions and your recorded expiry dates.
           </span>
         </span>
       </Link>
