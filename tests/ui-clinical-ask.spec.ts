@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "playwright/test";
 
-import { visibleByTestId } from "./playwright-settlement";
+import { expectHydrated, visibleByTestId } from "./playwright-settlement";
 
 const smartModes = [
   ["services", "/services/search", "Where can a young person get support after discharge?"],
@@ -213,6 +213,7 @@ test("@critical keeps the one-composer Smart cue accessible across phone and des
     });
     await page.goto("/?mode=differentials");
     const input = composer(page);
+    await expectHydrated(input);
     await input.fill("What can cause hearing voices?");
     await expect(page.getByText("Smart search selected for Differentials.")).toHaveCount(1);
     if (width >= 640) await expect(page.getByTestId("smart-search-intent-cue")).toBeVisible();
