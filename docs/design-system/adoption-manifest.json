@@ -328,6 +328,7 @@
         "src/components/teaching/teaching-actions.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
+        "src/components/teaching/teaching-week.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/pathway-step-stack.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
@@ -386,6 +387,7 @@
         "src/components/teaching/teaching-actions.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
+        "src/components/teaching/teaching-week.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/pathway-step-stack.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
@@ -445,13 +447,15 @@
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
-        "src/components/on-call/on-call-entry-editor.tsx"
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/teaching-calendar-sheet.tsx"
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
-        "src/components/on-call/on-call-entry-editor.tsx"
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/teaching-calendar-sheet.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -2002,6 +2006,7 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/teaching-calendar-sheet.tsx",
         "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-states.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -2043,6 +2048,7 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/teaching-calendar-sheet.tsx",
         "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-states.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -2781,8 +2787,10 @@
         "src/app/(search-app)/sources/topics/page.tsx",
         "src/app/(search-app)/teaching/c/[token]/page.tsx",
         "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "src/app/(search-app)/teaching/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
-        "src/app/(search-app)/teaching/session/[id]/page.tsx"
+        "src/app/(search-app)/teaching/session/[id]/page.tsx",
+        "src/app/(search-app)/teaching/week/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -3483,6 +3491,16 @@
           "sanctionedPatternsPresent": []
         },
         {
+          "file": "src/app/(search-app)/teaching/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
           "file": "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
           "exists": true,
           "imports": [],
@@ -3494,6 +3512,16 @@
         },
         {
           "file": "src/app/(search-app)/teaching/session/[id]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/week/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4654,8 +4682,10 @@
       "src/app/(search-app)/specifiers/search/page.tsx",
       "src/app/(search-app)/teaching/c/[token]/page.tsx",
       "src/app/(search-app)/teaching/c/complete/page.tsx",
+      "src/app/(search-app)/teaching/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/page.tsx",
+      "src/app/(search-app)/teaching/week/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
@@ -4767,8 +4797,10 @@
       "src/app/(search-app)/specifiers/search/page.tsx",
       "src/app/(search-app)/teaching/c/[token]/page.tsx",
       "src/app/(search-app)/teaching/c/complete/page.tsx",
+      "src/app/(search-app)/teaching/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/page.tsx",
+      "src/app/(search-app)/teaching/week/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
@@ -4790,7 +4822,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 118,
+    "inheritedCkbV2RootCount": 120,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -4799,8 +4831,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 119,
-    "productionRouteCount": 111,
-    "nextUiEntryCount": 176
+    "rootCount": 121,
+    "productionRouteCount": 113,
+    "nextUiEntryCount": 178
   }
 }

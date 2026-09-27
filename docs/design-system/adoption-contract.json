@@ -184,8 +184,10 @@
         "src/app/(search-app)/sources/topics/page.tsx",
         "src/app/(search-app)/teaching/c/[token]/page.tsx",
         "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "src/app/(search-app)/teaching/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
-        "src/app/(search-app)/teaching/session/[id]/page.tsx"
+        "src/app/(search-app)/teaching/session/[id]/page.tsx",
+        "src/app/(search-app)/teaching/week/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
