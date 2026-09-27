@@ -215,7 +215,7 @@ proceed on Phase 4's index-only precedent until that is enabled or the rule is d
 
 ## Prompt to start the coordination chat (paste verbatim)
 
-> You are the coordinator for the database remediation of BigSimmo/Database. Read, in order:
+> You are the coordinator for the database remediation of BigSimmo/PsychSift. Read, in order:
 > docs/database-remediation-coordination.md (handover + status board),
 > docs/database-remediation-plan.md (plan of record), and
 > docs/database-remediation-playbook.md (per-phase worker prompts). Also read ledger row #316 via

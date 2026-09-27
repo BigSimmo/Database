@@ -5,7 +5,7 @@ import { projectClientAnswerPayload, type ClientRagAnswerPayload } from "../src/
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Synthetic test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Synthetic project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Synthetic project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Synthetic schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Synthetic search ready." },
   { id: "openai", label: "Answer provider", status: "ready", detail: "Synthetic stream ready." },

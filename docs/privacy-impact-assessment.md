@@ -1,9 +1,9 @@
-﻿# Privacy Impact Assessment â€” Clinical KB Database
+﻿# Privacy Impact Assessment â€” PsychSift Production
 
 **Current status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This narrative explains the assessment; the versioned register separates code proof from provider configuration, legal approval, and clinical acceptance. Pending external items in that register are not completed by technical controls described here.
 
 **Status:** Draft for governance approval Â· **Date:** 2026-07-06 Â· **Revised:** 2026-09-01
-**Scope:** Clinical data flows through the PsychSift app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
+**Scope:** Clinical data flows through the PsychSift app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `PsychSift Production` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
 **Author:** Automated code-level assessment (multi-agent audit of `src/app/api/**`, `src/lib/*`, `supabase/schema.sql`, `supabase/migrations/**`), cross-checked against the live database.
 
 **Repository last verified:** `d3074946a917cac378de64284c67cbc1d4dc58fa` on 2026-09-01.
@@ -362,7 +362,7 @@ cache purge jobs onto the existing bounded hourly purge. The remaining retention
 
 **Schedule re-creation, 2026-09-01 (supersedes the job ids above).** Migration
 `20260901033250_enable_staging_privacy_retention_schedules.sql` ships in `supabase/migrations`, so
-merging it to `main` applied it to the live `Clinical KB Database` project as well as to staging: its
+merging it to `main` applied it to the live `PsychSift Production` project as well as to staging: its
 name says "staging" but its effect is environment-neutral. It unschedules the five named purge jobs and
 re-schedules four of them, so `purge-expired-rag-queries`, `purge-rag-retrieval-logs`,
 `purge-rag-query-misses` and `purge-rag-response-cache` now hold **new `cron.job` ids on production**.
@@ -374,7 +374,7 @@ not among those categories - so a failed or skipped apply of `20260901033250` wo
 green while the purge jobs sat in whatever prior state they had. That blind spot is recorded as finding
 **M23** in [docs/audit/full-repository-audit-2026-09-02.md](audit/full-repository-audit-2026-09-02.md).
 **Production configuration recheck, 2026-09-13.** An operator-authorised read-only `cron.job`
-comparison on Clinical KB Database confirmed exactly one active instance of all four jobs, with
+comparison on PsychSift Production confirmed exactly one active instance of all four jobs, with
 schedules and commands matching `20260901033250_enable_staging_privacy_retention_schedules.sql`.
 The obsolete `purge-expired-rag-response-cache` job was absent. Only job names, schedules and
 boolean comparisons were returned; no user records or raw commands were exported. This closes the

@@ -1,4 +1,4 @@
-# Database maintenance notes (Supabase `Clinical KB Database`)
+# Database maintenance notes (Supabase `PsychSift Production`)
 
 Live project `sjrfecxgysukkwxsowpy`. This file records advisor snapshots and the standing
 disposition for each finding class, so routine advisor output does not get re-triaged from
