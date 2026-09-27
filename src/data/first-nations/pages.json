@@ -37,7 +37,7 @@
                   "do": "Ask which language they are most comfortable in",
                   "why": "Aboriginal Interpreting WA is the primary language service for Aboriginal people in WA.",
                   "sourceId": "wa-health-language-services-guidelines-2025",
-                  "checkedAt": "2026-09-25"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "tip",
@@ -83,17 +83,17 @@
                   "number": "13 92 76",
                   "layer": "statewide",
                   "sourceId": "13yarn",
-                  "checkedAt": "2026-09-25"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "contact",
                   "id": "tile-mherl",
                   "name": "Mental Health Emergency Response Line (MHERL)",
-                  "detail": "Perth metro · 24 hours, every day",
+                  "detail": "Perth metro · 24 hours, every day · not an emergency service; call 000 in an emergency",
                   "number": "1300 555 788",
                   "layer": "statewide",
                   "sourceId": "mherl",
-                  "checkedAt": "2026-08-20"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "contact",
@@ -103,7 +103,7 @@
                   "number": "1800 552 002",
                   "layer": "statewide",
                   "sourceId": "rurallink",
-                  "checkedAt": "2026-08-20"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "contact",
@@ -150,13 +150,27 @@
                   "heading": "Find a service",
                   "items": [
                     {
-                      "label": "Aboriginal Health Council of WA",
-                      "detail": "Peak body for Aboriginal community controlled health services in WA",
-                      "href": "https://www.ahcwa.org.au/about-us/"
+                      "label": "Find an AHCWA member service",
+                      "detail": "Community-controlled services listed by area; confirm the appropriate service with the person.",
+                      "href": "https://www.ahcwa.org.au/member-services/"
                     }
                   ],
-                  "sourceId": "ahcwa",
-                  "checkedAt": "2026-09-26"
+                  "sourceId": "ahcwa-members",
+                  "checkedAt": "2026-09-27"
+                },
+                {
+                  "kind": "linkList",
+                  "id": "wachs-directory",
+                  "heading": "WACHS regional directories",
+                  "items": [
+                    {
+                      "label": "WACHS regional directories",
+                      "detail": "Official regional service directories. Contact details and hours should be confirmed with the service.",
+                      "href": "https://wacountry.health.wa.gov.au/Our-services"
+                    }
+                  ],
+                  "sourceId": "wachs-regions",
+                  "checkedAt": "2026-09-27"
                 }
               ]
             }
@@ -178,17 +192,17 @@
                   "do": "Offer 13YARN",
                   "why": "A crisis line for Aboriginal and Torres Strait Islander people, open 24 hours.",
                   "sourceId": "13yarn",
-                  "checkedAt": "2026-09-25"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "contact",
                   "id": "contacts-mherl-peel",
                   "name": "Mental Health Emergency Response Line (MHERL), Peel",
-                  "detail": "Peel region · 24 hours, every day",
+                  "detail": "Peel region · 24 hours, every day · not an emergency service; call 000 in an emergency",
                   "number": "1800 676 822",
                   "layer": "statewide",
                   "sourceId": "mherl",
-                  "checkedAt": "2026-08-20"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "contact",
@@ -220,7 +234,7 @@
                   "do": "Book Aboriginal Interpreting WA for Aboriginal languages",
                   "why": "WA Health guidelines name it the primary language service for Aboriginal people in WA.",
                   "sourceId": "wa-health-language-services-guidelines-2025",
-                  "checkedAt": "2026-09-25"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "tip",
@@ -228,7 +242,21 @@
                   "do": "Book an on-site or video interpreter for mental health",
                   "why": "WA Health guidelines say phone interpreting is not suited to sensitive interviews such as mental health.",
                   "sourceId": "wa-health-language-services-guidelines-2025",
-                  "checkedAt": "2026-09-25"
+                  "checkedAt": "2026-09-27"
+                },
+                {
+                  "kind": "linkList",
+                  "id": "aiwa-language-list",
+                  "heading": "AIWA language list",
+                  "items": [
+                    {
+                      "label": "AIWA language list",
+                      "detail": "Confirm the person’s language and interpreter availability with AIWA; the list does not establish availability in each health region.",
+                      "href": "https://aiwaac.org.au/languages/"
+                    }
+                  ],
+                  "sourceId": "aiwa-languages",
+                  "checkedAt": "2026-09-27"
                 }
               ]
             }
@@ -240,6 +268,58 @@
       "id": "talking",
       "title": "Talking",
       "sections": [
+        {
+          "id": "talking-yarning",
+          "tab": "Yarning",
+          "modules": [
+            {
+              "id": "talking-yarning-guidance",
+              "title": "Yarning",
+              "icon": "message",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "yarning-relationship",
+                  "do": "Make space to get to know each other",
+                  "why": "The social yarn builds connection before focusing on health concerns.",
+                  "sourceId": "clinical-yarning",
+                  "checkedAt": "2026-09-27"
+                },
+                {
+                  "kind": "tip",
+                  "id": "yarning-story",
+                  "do": "Invite the person to tell their health story",
+                  "why": "The diagnostic yarn listens to their account and connects it with the clinical assessment.",
+                  "sourceId": "clinical-yarning",
+                  "checkedAt": "2026-09-27"
+                },
+                {
+                  "kind": "tip",
+                  "id": "yarning-plan",
+                  "do": "Work towards a shared understanding of the plan",
+                  "why": "The management yarn uses understandable explanations and discussion to agree the way forward.",
+                  "sourceId": "clinical-yarning",
+                  "checkedAt": "2026-09-27"
+                },
+                {
+                  "kind": "linkList",
+                  "id": "yarning-paper",
+                  "heading": "Read the clinical yarning paper",
+                  "items": [
+                    {
+                      "label": "Read the clinical yarning paper",
+                      "detail": "A communication approach from Lin, Green and Bessarab; adapt to the person, not a universal cultural script.",
+                      "href": "https://doi.org/10.1071/PY16051"
+                    }
+                  ],
+                  "sourceId": "clinical-yarning",
+                  "checkedAt": "2026-09-27"
+                }
+              ]
+            }
+          ]
+        },
         {
           "id": "talking-asking",
           "tab": "Asking",
@@ -276,6 +356,22 @@
                   "say": "Tell me if I use a word that does not make sense.",
                   "sourceId": "mha-2014-communication-and-cultural-provisions",
                   "checkedAt": "2026-09-25"
+                }
+              ]
+            },
+            {
+              "id": "talking-identity",
+              "title": "Asking about identity",
+              "icon": "message",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "ask-identity",
+                  "do": "Ask about Aboriginal and Torres Strait Islander identity; do not infer it from appearance",
+                  "why": "WA Health explains why this is asked of everyone. Record an answer only in the authorised clinical record, never in PsychSift.",
+                  "sourceId": "wa-identity",
+                  "checkedAt": "2026-09-27"
                 }
               ]
             }
@@ -388,6 +484,42 @@
           ]
         },
         {
+          "id": "family-consent",
+          "tab": "Consent",
+          "modules": [
+            {
+              "id": "family-consent-guidance",
+              "title": "Consent",
+              "icon": "shield",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "tip",
+                  "id": "family-consent-choice",
+                  "do": "Ask whom the person wants involved in treatment discussions",
+                  "why": "Involving family supports discussion; it does not itself establish authority to consent.",
+                  "sourceId": "wa-consent",
+                  "checkedAt": "2026-09-27"
+                },
+                {
+                  "kind": "linkList",
+                  "id": "consent-policy",
+                  "heading": "Consent policy and decision-maker guidance",
+                  "items": [
+                    {
+                      "label": "Consent policy and decision-maker guidance",
+                      "detail": "Use the current policy for capacity, consent and substitute decision-making requirements.",
+                      "href": "https://healthywa.health.wa.gov.au/sitecore/content/Corporate/Home/About-us/Policy-frameworks/Clinical-Governance-Safety-and-Quality/Mandatory-requirements/Consent-to-Treatment-Policy"
+                    }
+                  ],
+                  "sourceId": "wa-consent",
+                  "checkedAt": "2026-09-27"
+                }
+              ]
+            }
+          ]
+        },
+        {
           "id": "family-visitors",
           "tab": "Visitors",
           "modules": [
@@ -404,6 +536,34 @@
                   "why": "Care should fit cultural practice and the views of the family.",
                   "sourceId": "mha-2014-communication-and-cultural-provisions",
                   "checkedAt": "2026-09-25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "family-safety",
+          "tab": "Safety",
+          "modules": [
+            {
+              "id": "family-safety-resources",
+              "title": "Family and domestic violence guidance",
+              "icon": "shield",
+              "layout": "list",
+              "blocks": [
+                {
+                  "id": "family-safety-link",
+                  "kind": "linkList",
+                  "heading": "Family and domestic violence guidance",
+                  "sourceId": "wa-family-safety",
+                  "checkedAt": "2026-09-27",
+                  "items": [
+                    {
+                      "label": "Family and domestic violence guidance",
+                      "href": "https://www.health.wa.gov.au/en/Articles/F_I/Family-and-domestic-violence-guideline-reference-manual-policy-education-and-training",
+                      "detail": "Official WA Health resources for staff, including screening, referral and safety guidance. Follow your service’s current procedure."
+                    }
+                  ]
                 }
               ]
             }
@@ -662,7 +822,7 @@
                   "avoid": "Relying on a phone interpreter for a mental health interview",
                   "instead": "Book an on-site or video interpreter; Aboriginal Interpreting WA for Aboriginal languages.",
                   "sourceId": "wa-health-language-services-guidelines-2025",
-                  "checkedAt": "2026-09-25"
+                  "checkedAt": "2026-09-27"
                 },
                 {
                   "kind": "avoid",
@@ -797,7 +957,7 @@
                   "do": "Offer 13YARN for support after discharge",
                   "why": "A crisis line for Aboriginal and Torres Strait Islander people, open 24 hours.",
                   "sourceId": "13yarn",
-                  "checkedAt": "2026-09-25"
+                  "checkedAt": "2026-09-27"
                 }
               ]
             }
@@ -819,7 +979,7 @@
                   "do": "Ask whether they are registered for the Closing the Gap PBS co-payment",
                   "why": "It lowers what eligible Aboriginal and Torres Strait Islander people pay for PBS medicines.",
                   "sourceId": "close-the-gap-pbs",
-                  "checkedAt": "2026-09-26"
+                  "checkedAt": "2026-09-27"
                 }
               ]
             }
@@ -841,7 +1001,7 @@
                   "do": "If they live in the country, check whether PATS can help with travel",
                   "why": "PATS is WA Country Health Service's travel and accommodation subsidy for country patients.",
                   "sourceId": "wa-pats",
-                  "checkedAt": "2026-09-26"
+                  "checkedAt": "2026-09-27"
                 }
               ]
             }
@@ -878,13 +1038,35 @@
                   "heading": "Aboriginal-led services",
                   "items": [
                     {
-                      "label": "Aboriginal Health Council of WA",
-                      "detail": "Peak body for Aboriginal community controlled health services in WA",
-                      "href": "https://www.ahcwa.org.au/about-us/"
+                      "label": "Find an AHCWA member service",
+                      "detail": "Community-controlled services listed by area; confirm the appropriate service with the person.",
+                      "href": "https://www.ahcwa.org.au/member-services/"
                     }
                   ],
-                  "sourceId": "ahcwa",
-                  "checkedAt": "2026-09-26"
+                  "sourceId": "ahcwa-members",
+                  "checkedAt": "2026-09-27"
+                }
+              ]
+            },
+            {
+              "id": "gh-patient-materials",
+              "title": "Patient and family resources",
+              "icon": "book",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "linkList",
+                  "id": "ahcwa-publications",
+                  "heading": "AHCWA publications",
+                  "items": [
+                    {
+                      "label": "AHCWA publications",
+                      "detail": "Browse Aboriginal-produced resources with the person. Selection of a local patient resource pack still awaits the Aboriginal health team.",
+                      "href": "https://www.ahcwa.org.au/publications/"
+                    }
+                  ],
+                  "sourceId": "ahcwa-materials",
+                  "checkedAt": "2026-09-27"
                 }
               ]
             }
@@ -961,6 +1143,34 @@
               ]
             }
           ]
+        },
+        {
+          "id": "eol-coroner",
+          "tab": "Coroner",
+          "modules": [
+            {
+              "id": "eol-coroner-guidance",
+              "title": "Coroner",
+              "icon": "scale",
+              "layout": "list",
+              "blocks": [
+                {
+                  "kind": "linkList",
+                  "id": "coroner-family-information",
+                  "heading": "Coroner information for families",
+                  "items": [
+                    {
+                      "label": "Coroner information for families",
+                      "detail": "Official information about the coronial process, counselling and contacting the Court. Check with the Court about requests concerning the person who has died.",
+                      "href": "https://www.coronerscourt.wa.gov.au/I/information_for_next_of_kin.aspx"
+                    }
+                  ],
+                  "sourceId": "wa-coroner",
+                  "checkedAt": "2026-09-27"
+                }
+              ]
+            }
+          ]
         }
       ]
     }
@@ -1014,7 +1224,7 @@
           "say": "Would it help to talk in your own language, with an interpreter?",
           "why": "Aboriginal Interpreting WA is the primary language service for Aboriginal people in WA.",
           "sourceId": "wa-health-language-services-guidelines-2025",
-          "checkedAt": "2026-09-25"
+          "checkedAt": "2026-09-27"
         }
       ],
       "firstStepRef": "bedside-offer-worker",
@@ -1042,7 +1252,7 @@
           "say": "Shall we book an interpreter to be here in person?",
           "why": "WA Health guidelines say phone interpreting is not suited to sensitive mental health talks.",
           "sourceId": "wa-health-language-services-guidelines-2025",
-          "checkedAt": "2026-09-25"
+          "checkedAt": "2026-09-27"
         }
       ],
       "firstStepRef": "family-who-involve",
@@ -1111,7 +1321,7 @@
           "say": "Where is home, and how will you get there?",
           "why": "PATS can help country patients with travel and accommodation costs.",
           "sourceId": "wa-pats",
-          "checkedAt": "2026-09-26"
+          "checkedAt": "2026-09-27"
         },
         {
           "say": "Do you have a local Aboriginal health service you would like us to link with?",
@@ -1123,7 +1333,7 @@
           "say": "Are you registered for Closing the Gap help with medicine costs?",
           "why": "It lowers what eligible people pay for PBS medicines.",
           "sourceId": "close-the-gap-pbs",
-          "checkedAt": "2026-09-26"
+          "checkedAt": "2026-09-27"
         }
       ],
       "firstStepRef": "gh-accho",
@@ -1145,11 +1355,11 @@
       "kind": "contact",
       "id": "aboriginal-interpreting-wa",
       "name": "Aboriginal Interpreting WA",
-      "detail": "Aboriginal language interpreters across WA · booking number to be added",
-      "number": "See website",
+      "detail": "Aboriginal language interpreter bookings across WA. Confirm language, availability and appointment arrangements with AIWA.",
+      "number": "1800 330 331",
       "layer": "statewide",
       "sourceId": "aiwa",
-      "checkedAt": "2026-09-26"
+      "checkedAt": "2026-09-27"
     },
     {
       "kind": "contact",
@@ -1159,27 +1369,27 @@
       "number": "13 92 76",
       "layer": "statewide",
       "sourceId": "13yarn",
-      "checkedAt": "2026-09-25"
+      "checkedAt": "2026-09-27"
     },
     {
       "kind": "contact",
       "id": "mherl-metro",
       "name": "Mental Health Emergency Response Line (MHERL)",
-      "detail": "Perth metro · 24 hours, every day",
+      "detail": "Perth metro · 24 hours, every day · not an emergency service; call 000 in an emergency",
       "number": "1300 555 788",
       "layer": "statewide",
       "sourceId": "mherl",
-      "checkedAt": "2026-08-20"
+      "checkedAt": "2026-09-27"
     },
     {
       "kind": "contact",
       "id": "mherl-peel",
       "name": "Mental Health Emergency Response Line (MHERL), Peel",
-      "detail": "Peel region · 24 hours, every day",
+      "detail": "Peel region · 24 hours, every day · not an emergency service; call 000 in an emergency",
       "number": "1800 676 822",
       "layer": "statewide",
       "sourceId": "mherl",
-      "checkedAt": "2026-08-20"
+      "checkedAt": "2026-09-27"
     },
     {
       "kind": "contact",
@@ -1189,7 +1399,67 @@
       "number": "1800 552 002",
       "layer": "statewide",
       "sourceId": "rurallink",
-      "checkedAt": "2026-08-20"
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "brams",
+      "kind": "contact",
+      "name": "Broome Regional Aboriginal Medical Service",
+      "number": "(08) 9194 4800",
+      "detail": "Broome reception; confirm clinic hours and eligibility.",
+      "layer": "statewide",
+      "sourceId": "brams",
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "wirraka-maya",
+      "kind": "contact",
+      "name": "Wirraka Maya Health Service",
+      "number": "(08) 9172 0410",
+      "detail": "South Hedland; confirm clinic hours and the appropriate team.",
+      "layer": "statewide",
+      "sourceId": "wirraka-maya",
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "grams",
+      "kind": "contact",
+      "name": "Geraldton Regional Aboriginal Medical Service",
+      "number": "(08) 9956 6555",
+      "detail": "Geraldton reception; confirm clinic hours and the appropriate team.",
+      "layer": "statewide",
+      "sourceId": "grams",
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "bega",
+      "kind": "contact",
+      "name": "Bega Garnbirringu Health Service",
+      "number": "(08) 9022 5500",
+      "detail": "Kalgoorlie reception; option 1 for clinic, option 4 for SEWB counsellors.",
+      "layer": "statewide",
+      "sourceId": "bega",
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "derbarl",
+      "kind": "contact",
+      "name": "Derbarl Yerrigan Health Service",
+      "number": "1800 311 888",
+      "detail": "Select the East Perth option to speak with clinic reception.",
+      "layer": "statewide",
+      "sourceId": "derbarl",
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "swams",
+      "kind": "contact",
+      "name": "South West Aboriginal Medical Service",
+      "number": "(08) 9726 6000",
+      "detail": "Bunbury clinic; confirm clinic hours and the appropriate team.",
+      "layer": "statewide",
+      "sourceId": "swams",
+      "checkedAt": "2026-09-27"
     }
   ],
   "interpreterContactId": "aboriginal-interpreting-wa",
@@ -1197,47 +1467,47 @@
     {
       "id": "kimberley",
       "label": "Kimberley",
-      "serviceContactIds": ["rurallink", "yarn-13"],
+      "serviceContactIds": ["brams", "rurallink", "yarn-13"],
       "languages": [],
-      "sourceId": "wa-health-regions-dataset",
-      "checkedAt": "2026-09-26"
+      "sourceId": "wachs-regions",
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "pilbara",
       "label": "Pilbara",
-      "serviceContactIds": ["rurallink", "yarn-13"],
+      "serviceContactIds": ["wirraka-maya", "rurallink", "yarn-13"],
       "languages": [],
-      "sourceId": "wa-health-regions-dataset",
-      "checkedAt": "2026-09-26"
+      "sourceId": "wachs-regions",
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "midwest",
       "label": "Midwest",
-      "serviceContactIds": ["rurallink", "yarn-13"],
+      "serviceContactIds": ["grams", "rurallink", "yarn-13"],
       "languages": [],
-      "sourceId": "wa-health-regions-dataset",
-      "checkedAt": "2026-09-26"
+      "sourceId": "wachs-regions",
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "goldfields",
       "label": "Goldfields",
-      "serviceContactIds": ["rurallink", "yarn-13"],
+      "serviceContactIds": ["bega", "rurallink", "yarn-13"],
       "languages": [],
-      "sourceId": "wa-health-regions-dataset",
-      "checkedAt": "2026-09-26"
+      "sourceId": "wachs-regions",
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "wheatbelt",
       "label": "Wheatbelt",
       "serviceContactIds": ["rurallink", "yarn-13"],
       "languages": [],
-      "sourceId": "wa-health-regions-dataset",
-      "checkedAt": "2026-09-26"
+      "sourceId": "wachs-regions",
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "perth",
       "label": "Perth metro",
-      "serviceContactIds": ["mherl-metro", "mherl-peel", "yarn-13"],
+      "serviceContactIds": ["derbarl", "mherl-metro", "mherl-peel", "yarn-13"],
       "languages": [],
       "sourceId": "wa-health-regions-dataset",
       "checkedAt": "2026-09-26"
@@ -1245,18 +1515,18 @@
     {
       "id": "south-west",
       "label": "South West",
-      "serviceContactIds": ["rurallink", "yarn-13"],
+      "serviceContactIds": ["swams", "rurallink", "yarn-13"],
       "languages": [],
-      "sourceId": "wa-health-regions-dataset",
-      "checkedAt": "2026-09-26"
+      "sourceId": "wachs-regions",
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "great-southern",
       "label": "Great Southern",
       "serviceContactIds": ["rurallink", "yarn-13"],
       "languages": [],
-      "sourceId": "wa-health-regions-dataset",
-      "checkedAt": "2026-09-26"
+      "sourceId": "wachs-regions",
+      "checkedAt": "2026-09-27"
     }
   ],
   "training": {
@@ -1265,5 +1535,6 @@
     "href": "https://www.health.wa.gov.au/improving-wa-health/about-aboriginal-health/aboriginal-cultural-learning",
     "sourceId": "wa-cultural-elearning",
     "checkedAt": "2026-09-26"
-  }
+  },
+  "reportEmail": "support@psychsift.com"
 }
