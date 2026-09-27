@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "430cb8db-cb4f-4c2c-9645-3167847d042c",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#T3ZQGK",
+    "outcome": "Safely removed obsolete visual chip component src/lib/on-call/entry-chips.ts, tests/on-call-entry-chips.test.ts, and forbidden-bundle entry under dead-code deletion protocol with diff-integrity approval (#T3ZQGK).",
+    "baseRowFingerprint": "3a82a92145d9b0559a7442f3a6b328d6b972fcbbb44f8c73ff58856fff03eea3"
+  }
+}
