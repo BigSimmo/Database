@@ -160,7 +160,7 @@ async function runRoutingScript(options: {
 
   const context = {
     eventName: "schedule",
-    repo: { owner: "BigSimmo", repo: "Database" },
+    repo: { owner: "BigSimmo", repo: "PsychSift" },
     runId: 99,
     serverUrl: "https://github.com",
   };
@@ -201,7 +201,7 @@ async function runRoutingScript(options: {
 
 const pinnedIssue: Issue = { number: 1234, title: "Live drift check failing" };
 const sampleFindings = "UNEXPECTED DRIFT (2):\n  ! [indexes] missing_live documents_title_trgm_idx";
-const repositoryCoordinates = { owner: "BigSimmo", repo: "Database" };
+const repositoryCoordinates = { owner: "BigSimmo", repo: "PsychSift" };
 
 function workflowJobPermissionMaps(source: string) {
   const jobsStart = source.indexOf("jobs:\n");
