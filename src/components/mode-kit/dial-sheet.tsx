@@ -118,9 +118,11 @@ export function ModeDialSheet({
   const canShare = useSyncExternalStore(noSubscription, canShareNow, () => false);
   const copyValue = number.copy ?? number.display;
   const [shareStatus, setShareStatus] = useState("");
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
     if (!open) setShareStatus("");
-  }, [open]);
+  }
 
   const share = async () => {
     const where = context ? `, ${context}` : "";
