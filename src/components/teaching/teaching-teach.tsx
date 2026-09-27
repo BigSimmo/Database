@@ -38,7 +38,7 @@ function FeedbackSummary({ session, demoMode }: { session: SessionRef; demoMode:
         {open ? "Hide feedback" : "View feedback"}
       </Button>
       {open ? (
-        <div aria-live="polite">
+        <div>
           {!demoMode && ["error", "offline", "setup", "signed-out"].includes(resource.status) ? (
             <>
               <ModeNotice>Feedback could not load.</ModeNotice>

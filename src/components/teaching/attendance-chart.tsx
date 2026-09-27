@@ -37,7 +37,7 @@ export function AttendanceChart({ weeks, currentKey }: { weeks: readonly Attenda
   const slot = 100 / weeks.length;
   return (
     <figure data-testid="teaching-attendance-chart" className="grid gap-2 px-3 pt-2 pb-3">
-      <svg aria-hidden="true" viewBox="0 0 100 40" preserveAspectRatio="none" className="h-11 w-full">
+      <svg aria-hidden="true" viewBox="0 0 100 40" preserveAspectRatio="none" className="h-10 w-full">
         {weeks.map((week, index) => {
           const isCurrent = week.key === currentKey;
           const height = week.count === 0 ? 1.5 : Math.max(3, (week.count / max) * 37);
