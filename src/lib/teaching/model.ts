@@ -734,9 +734,9 @@ export const supervisionPendingSchema = z.object({ count: z.number().int().nonne
  * against an empty shape is still worth doing, so a database change that started leaking a field
  * (the check-in secret, say) would be dropped here rather than reach the browser. */
 export const emptyTeachingResultSchema = z.object({});
-export const noticeReadResultSchema = emptyTeachingResultSchema;
-export const occurrenceChangedSchema = emptyTeachingResultSchema;
-export const roleSetSchema = emptyTeachingResultSchema;
+export const noticeReadResultSchema = z.object({});
+export const occurrenceChangedSchema = z.object({});
+export const roleSetSchema = z.object({});
 export const calendarSetSchema = z.object({ enabled: z.boolean() });
 export const groupDeletedSchema = z.object({ groupId: uuid });
 export const groupMembersSetSchema = z.object({ groupId: uuid });
@@ -830,7 +830,7 @@ export const collectionReadResultSchema = z.object({
 export type CollectionRead = z.infer<typeof collectionReadResultSchema>;
 export const resourceAddedSchema = z.object({ resourceId: uuid });
 /** `resource.remove` confirms with nothing but `{}`. */
-export const resourceRemovedSchema = emptyTeachingResultSchema;
+export const resourceRemovedSchema = z.object({});
 export const seriesOpenToResultSchema = z.object({ seriesId: uuid, openTo: z.enum(seriesOpenToValues) });
 export const collectionSavedSchema = z.object({ collectionId: uuid });
 export const collectionSectionSavedSchema = z.object({ sectionId: uuid });
