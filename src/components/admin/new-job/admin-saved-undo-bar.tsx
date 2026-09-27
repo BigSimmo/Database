@@ -44,7 +44,7 @@ export function AdminSavedUndoBar({
           type="button"
           onClick={onUndo}
           data-testid={`${testId}-undo`}
-          className={cn(floatingControl, "min-h-9 px-3 py-1 text-xs")}
+          className={cn(floatingControl, "text-xs")}
         >
           Undo
         </button>

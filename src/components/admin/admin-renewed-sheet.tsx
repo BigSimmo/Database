@@ -7,7 +7,7 @@ import { InlineNotice } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
-import { cn, textMuted } from "@/components/ui-primitives";
+import { cn, controlDisabled, textMuted } from "@/components/ui-primitives";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { downloadTextFile } from "@/lib/admin/download-file";
 import { formatDateEcho, formatRecordedDate } from "@/lib/admin/renewal-dates";
@@ -221,7 +221,8 @@ export function AdminRenewedSheet({
                 data-testid="admin-renewed-undo"
                 className={cn(
                   focusRing,
-                  "min-h-tap px-2 text-sm text-[color:var(--clinical-accent)] underline-offset-2 hover:underline disabled:opacity-60",
+                  controlDisabled,
+                  "min-h-tap px-2 text-sm text-[color:var(--clinical-accent)] underline-offset-2 hover:underline",
                 )}
               >
                 Undo

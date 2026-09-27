@@ -9,7 +9,7 @@ import { focusRing } from "@/components/card-recipes";
 import { InlineNotice } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
-import { cn, textMuted } from "@/components/ui-primitives";
+import { cn, controlDisabled, textMuted } from "@/components/ui-primitives";
 import { formatRecordedDate } from "@/lib/admin/renewal-dates";
 import { complianceExpiryHistory, renewalCalendarEvent } from "@/lib/admin/renewals";
 import type { AdminRequirementCatalogueItem, RequirementChecklistRow } from "@/lib/admin/requirements";
@@ -145,7 +145,8 @@ export function ChecklistItemDetailSheet({
                 data-testid={`${testId}-not-for-this-job`}
                 className={cn(
                   focusRing,
-                  "min-h-tap w-fit text-left text-sm text-[color:var(--text-muted)] underline-offset-2 hover:underline disabled:opacity-60",
+                  controlDisabled,
+                  "min-h-tap w-fit text-left text-sm text-[color:var(--text-muted)] underline-offset-2 hover:underline",
                 )}
               >
                 {flagged ? "Move back" : "Not for this job"}

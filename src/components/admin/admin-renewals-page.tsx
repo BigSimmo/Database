@@ -19,7 +19,7 @@ import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { EmptyState, InlineNotice } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
-import { cn, floatingControl, textMuted } from "@/components/ui-primitives";
+import { cn, controlDisabled, floatingControl, textMuted } from "@/components/ui-primitives";
 import { downloadTextFile } from "@/lib/admin/download-file";
 import {
   buildNotForThisJobCreateBody,
@@ -253,7 +253,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
           onClick={() => void copyForWorkforce()}
           disabled={!ready}
           data-testid="admin-renewals-copy"
-          className={cn(floatingControl, "disabled:cursor-not-allowed disabled:opacity-60")}
+          className={floatingControl}
         >
           {copy === "copied" ? "Copied" : "Copy for workforce"}
         </button>
@@ -262,7 +262,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
           onClick={downloadAll}
           disabled={!ready || !calendarFile}
           data-testid="admin-renewals-calendar-all"
-          className={cn(floatingControl, "disabled:cursor-not-allowed disabled:opacity-60")}
+          className={floatingControl}
         >
           Add all to my calendar
         </button>
@@ -393,7 +393,8 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
               disabled={undoBusy}
               className={cn(
                 focusRing,
-                "min-h-tap px-2 text-sm font-medium text-[color:var(--clinical-accent)] disabled:opacity-60",
+                controlDisabled,
+                "min-h-tap px-2 text-sm font-medium text-[color:var(--clinical-accent)]",
               )}
             >
               {undoBar.failed ? "Retry" : "Undo"}
