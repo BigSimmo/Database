@@ -13,6 +13,7 @@ import {
   checkinCodeSchema,
   checkinCompletedSchema,
   checkinOpenedSchema,
+  cpdSavedSchema,
   displayCodeSchema,
   displayCreatedSchema,
   exportResultSchema,
@@ -40,6 +41,7 @@ import {
   type LogbookRow,
   type SessionDetail,
   type TeachingAction,
+  type TeachingCpdBody,
   type TeachingServiceAction,
   type TeachingServiceQuery,
   type TeachingWeek,
@@ -348,4 +350,37 @@ export async function teachingServiceMutation(
     default:
       return teachingCommand(client, actorId, serviceId, input.action, payloadOf(input));
   }
+}
+
+/**
+ * `cme_save_teaching_entry` raises `teaching_window_closed` while the session has not ended yet.
+ * The shared message talks about check-in, so the CPD save says what is actually true.
+ */
+export const TEACHING_CPD_NOT_ENDED_MESSAGE = "You can log this to CPD once the session has ended.";
+
+/**
+ * "Log to CPD" (plan-contracts §10): one CPD entry for one attended session, made by the CPD
+ * function that owns the rule (attendance required, an open CPD year for the session's Perth
+ * date, an archived entry reused). Never CPD's generic entries API, and no Teaching audit row, so
+ * no CPD detail enters any Teaching log. `requestId` makes a retried tap return the same entry.
+ */
+export async function saveTeachingCpdEntry(
+  client: AdminClient,
+  ownerId: string,
+  body: TeachingCpdBody,
+): Promise<{ entryId: string; created: boolean }> {
+  if (!ownerId)
+    throw new PublicApiError(teachingErrors.teaching_auth_required.message, 401, { code: "teaching_auth_required" });
+  const { data, error } = await client.rpc("cme_save_teaching_entry", {
+    p_owner_id: ownerId,
+    p_occurrence_id: body.occurrenceId,
+    p_hours: body.hours,
+    p_request_id: body.requestId,
+  });
+  if (error) {
+    if (error.message === "teaching_window_closed")
+      throw new PublicApiError(TEACHING_CPD_NOT_ENDED_MESSAGE, 409, { code: "teaching_window_closed" });
+    throw teachingRpcError(error);
+  }
+  return parseTeachingResult(cpdSavedSchema, data);
 }
