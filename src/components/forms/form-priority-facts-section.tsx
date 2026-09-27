@@ -361,6 +361,32 @@ const CULTURAL_NOTE_ICONS: Record<FormCulturalNoteKind, typeof Languages> = {
 };
 
 /**
+ * On a phone the notes are statutory quotes of 60–120 words each, and five of
+ * them pushed the form's purpose and pathway about four screens down. Show the
+ * first three lines with a "Show more" toggle there; wider screens show the full
+ * text. The whole quote stays in the page for screen readers and find-in-page,
+ * and no wording changes.
+ */
+function CulturalNoteText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <>
+      <p className={cn("mt-1 text-sm leading-6 text-[color:var(--text)]", expanded ? null : "max-sm:line-clamp-3")}>
+        {text}
+      </p>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((current) => !current)}
+        className="-ml-1 inline-flex min-h-tap items-center px-1 text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
+      >
+        {expanded ? "Show less" : "Show more"}
+      </button>
+    </>
+  );
+}
+
+/**
  * Interpreter and Aboriginal-liaison notes drafted for this form code, if any
  * exist in `data/forms-cultural-notes.json`. Deliberately plain rows rather
  * than another card grid or Sheet: there are at most a couple of notes per
@@ -404,7 +430,7 @@ function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
                 <p className="text-2xs font-bold uppercase leading-4 text-[color:var(--text-muted)]">
                   {CULTURAL_NOTE_LABELS[note.kind]}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{note.text}</p>
+                <CulturalNoteText text={note.text} />
                 {anySigned ? (
                   <p className={cn("mt-1 text-xs leading-5", textMuted)}>
                     {reviewers[index] ? `Reviewed by ${reviewers[index]}.` : "Awaiting clinical review."}
