@@ -24443,7 +24443,7 @@ begin
     v_id := public.teaching_uuid_arg(p_payload, 'occurrenceId');
     select * into v_occ from public.teaching_occurrences where id = v_id and service_id = p_service_id;
     if not found then raise exception 'teaching_not_found'; end if;
-    if not (v_occ.presenter_id = p_actor_id or v_role = 'organiser') then raise exception 'teaching_role_denied'; end if;
+    if (v_occ.presenter_id = p_actor_id or v_role = 'organiser') is not true then raise exception 'teaching_role_denied'; end if;
     select count(*) into v_count from public.teaching_feedback_answers where occurrence_id = v_occ.id;
     if now() < v_occ.ends_at + interval '7 days' or v_count < 3 then
       return jsonb_build_object('released', false);
@@ -24801,7 +24801,7 @@ begin
     select * into v_resource from public.teaching_resources
     where id = v_id and service_id = p_service_id and removed_at is null for update;
     if not found then raise exception 'teaching_not_found'; end if;
-    if not (v_role = 'organiser' or v_resource.added_by = p_actor_id) then raise exception 'teaching_role_denied'; end if;
+    if (v_role = 'organiser' or v_resource.added_by = p_actor_id) is not true then raise exception 'teaching_role_denied'; end if;
     update public.teaching_resources set removed_at = now(), removed_by = p_actor_id where id = v_resource.id;
     perform public.teaching_audit(p_service_id, p_actor_id, 'resource.remove', v_resource.id);
     return '{}'::jsonb;

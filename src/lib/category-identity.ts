@@ -99,6 +99,7 @@ export const CATEGORY_ICON_KEYS = [
   "phoneCall",
   "graduationCap",
   "brain",
+  "presentation",
   "calendarRange",
 ] as const;
 
@@ -128,6 +129,7 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   sources: "libraryBig",
   "on-call": "phoneCall",
   cme: "graduationCap",
+  teaching: "presentation",
   psychiatry: "brain",
   "my-work": "clipboardList",
   roster: "calendarRange",
@@ -168,6 +170,7 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   answer: "clinical",
   "on-call": "purple",
   cme: "indigo",
+  teaching: "rose",
   psychiatry: "purple",
   "my-work": "slate",
   roster: "rose",
