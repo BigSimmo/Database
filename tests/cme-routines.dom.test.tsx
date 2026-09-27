@@ -63,6 +63,13 @@ function renderPage(overrides: Partial<CmeRoutinesPageProps> = {}) {
   return { ...utils, onLogRoutine, onNewRoutine };
 }
 
+/** Every button or link painted with the dark command fill — the "one primary per screen" check (spec §5). */
+function commandFilled(root: ParentNode): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>("button, a[href]")].filter((node) =>
+    node.className.includes("bg-[color:var(--command)]"),
+  );
+}
+
 describe("Routines", () => {
   it("saves a routine, then routes its Log action to the pre-filled entry form", async () => {
     const user = userEvent.setup();
@@ -77,8 +84,28 @@ describe("Routines", () => {
     await user.type(screen.getByLabelText(/routine name/i), "Supervision");
     await user.click(screen.getByRole("button", { name: /save routine/i }));
     expect(globalThis.fetch).toHaveBeenCalledWith("/api/cme/routines", expect.objectContaining({ method: "POST" }));
-    await user.click(screen.getByRole("button", { name: /log usual hours for supervision/i }));
+    await user.click(screen.getByRole("button", { name: /log now for supervision/i }));
     expect(navigation.push).toHaveBeenCalledWith("/cme/new?routine=r1");
+  });
+
+  it("takes the next due day as dd/mm/yyyy, with no browser date box", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ routine: dueRoutine }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    render(<CmeRoutinesRoute nowIso={NOW.toISOString()} initialRoutines={[]} demoMode={false} />);
+    await user.click(screen.getByRole("button", { name: /new routine/i }));
+    await user.type(screen.getByLabelText(/routine name/i), "Supervision");
+    await user.type(screen.getByLabelText("Next due"), "1/12/2026");
+    await user.click(screen.getByRole("button", { name: /save routine/i }));
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      title: "Supervision",
+      nextDue: "2026-12-01",
+    });
   });
 
   // Regression, 2026-09-24: the form opened above the list, out of sight on a
@@ -130,7 +157,7 @@ describe("Routines", () => {
   it("lets the owner log a routine that is not yet due, from the general list", async () => {
     const user = userEvent.setup();
     const { onLogRoutine } = renderPage();
-    await user.click(screen.getByRole("button", { name: "Log usual hours for Journal club" }));
+    await user.click(screen.getByRole("button", { name: "Log now for Journal club" }));
     expect(onLogRoutine).toHaveBeenCalledWith({
       routineId: "r2",
       date: "2026-09-28",
@@ -198,5 +225,36 @@ describe("Routines", () => {
       /\b(?:bg|text|border|ring)-(?:red|amber|green|orange|rose|emerald|yellow)-/.test(node.className),
     );
     expect(offenders.map((node) => node.className)).toEqual([]);
+  });
+
+  it("draws no dark button on the list: Log, Log now, Edit and New routine are all outlined", () => {
+    const { container } = renderPage({ onEditRoutine: vi.fn() });
+    expect(commandFilled(container)).toEqual([]);
+    expect(screen.getByRole("button", { name: "Log 1.0 h for Supervision" })).toHaveTextContent("Log 1.0 h");
+    expect(screen.getByRole("button", { name: "Log now for Journal club" })).toHaveTextContent("Log now");
+    expect(screen.getByRole("button", { name: "Edit Journal club" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new routine/i })).toBeInTheDocument();
+  });
+
+  it("draws each list as one hairline card of rows, not a card per routine", () => {
+    renderPage();
+    const due = screen.getByTestId("cme-routines-due");
+    expect(within(due).getByRole("heading", { level: 2, name: "Due now" })).toBeInTheDocument();
+    expect(within(due).getAllByRole("list")).toHaveLength(1);
+    expect(within(due).getAllByRole("listitem")).toHaveLength(1);
+    const list = screen.getByTestId("cme-routines-list");
+    expect(within(list).getByRole("heading", { level: 2, name: "Your routines" })).toBeInTheDocument();
+    expect(within(list).getAllByRole("list")).toHaveLength(1);
+    // The archived routine is still left out.
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("keeps Save routine as the one dark button while the routine form is open", async () => {
+    const user = userEvent.setup();
+    render(
+      <CmeRoutinesRoute nowIso={NOW.toISOString()} initialRoutines={[dueRoutine, notYetDueRoutine]} demoMode={false} />,
+    );
+    await user.click(screen.getByRole("button", { name: /new routine/i }));
+    expect(commandFilled(document.body).map((node) => node.textContent?.trim())).toEqual(["Save routine"]);
   });
 });

@@ -48,23 +48,20 @@ const DESKTOP = 1280;
 /** This repository's production tap floor, in CSS pixels. */
 const TAP_FLOOR = 48;
 
-test("search opens and focuses the exact contact on a narrow phone", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 844 });
-  await page.goto("/on-call");
-  const result = page.getByTestId("on-call-search-row-demo-ward-one");
+// Now carries no search (ruling F6): the one search box lives on Call.
+test("Call search narrows to the exact contact on a narrow phone", async ({ page }) => {
+  await page.setViewportSize({ width: NARROW, height: BOARD_HEIGHT });
+  await page.goto("/on-call/call");
+  const main = page.getByTestId("on-call-call-main");
+  const status = main.getByRole("status").filter({ hasText: /result/ });
   // Text typed before hydration is dropped (mobile WebKit, release matrix 2026-09-25).
   await expect(async () => {
-    await page.getByRole("searchbox", { name: "Search On Call" }).fill("Demo Ward One");
-    await expect(result).toBeVisible({ timeout: 2_000 });
+    await main.getByRole("searchbox", { name: "Search Call" }).fill("coordination");
+    await expect(status).toHaveText("1 result", { timeout: 2_000 });
   }).toPass({ timeout: 20_000 });
-  const destination = await result.getAttribute("href");
-  expect(destination).toMatch(/^\/on-call\/contacts#on-call-entry-/);
-  await result.click();
-  await expect(page).toHaveURL(new RegExp(`${destination!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
-  const target = page.locator(`[id="${destination!.split("#")[1]}"]`);
-  await expect(target).toBeFocused();
-  await expect(target).toBeInViewport();
-  await expect(target).toContainText("Demo Ward One");
+  await expect(main).toContainText("Example after-hours coordination extension");
+  await expect(main).not.toContainText("Synthetic emergency line");
+  expect(await main.evaluate((el) => el.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 const ROUTES = {
@@ -121,7 +118,11 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   if (route === ROUTES.home) {
     // Visible owner only: a full load can briefly leave Next's hidden streamed
     // copy of the page in the DOM, which a bare testid counts twice (#093).
-    await expect(visibleByTestId(page, "on-call-home-sections")).toBeVisible({ timeout: 20_000 });
+    // The v6 rebuild replaced Home's tile grid with Now (plan C25); the demo
+    // handbook always pins a synthetic emergency route (`service-demo.ts`), so
+    // that module is the settled signal rather than the hospital line, which
+    // can render before the handbook itself has arrived.
+    await expect(visibleByTestId(page, "on-call-now-emergency")).toBeVisible({ timeout: 20_000 });
     return;
   }
   // The list, not the header: a section page renders a header only when it has
@@ -214,22 +215,30 @@ async function expectTapFloor(target: Locator, label: string) {
 }
 
 test.describe("01 Home", () => {
-  test("draws every module the board draws, in the order it draws them", async ({ page }) => {
+  // The v6 rebuild (plan C25) replaced board 01's tile-grid Home with Now: the
+  // hospital line, its pinned emergency route, the dark Right now hero, Your
+  // usual, Your team and the footer group. `docs/on-call/design/mockup-conformance.md`
+  // records each retired element's departure; this block proves what replaced
+  // it actually renders, in the safety order.
+
+  test("draws Now's modules, in the order the page draws them", async ({ page }) => {
     await openBoard(page, ROUTES.home);
 
     const modules = [
-      "on-call-home-call-first",
-      "on-call-home-wards",
-      "on-call-home-pinned-module",
-      "on-call-home-upcoming",
-      "on-call-home-sections",
+      "on-call-now-hospital",
+      "on-call-now-emergency",
+      "on-call-now-right-now",
+      "on-call-home-recent",
+      "on-call-now-team",
+      "on-call-now-footer",
     ];
     for (const id of modules) {
-      await expect(visibleByTestId(page, id), `${id} is drawn on board 01 but does not render`).toBeVisible();
+      await expect(visibleByTestId(page, id), `${id} is drawn on Now but does not render`).toBeVisible();
     }
 
     // Top to bottom in the drawn order. A module that renders in the wrong
-    // place still passes a presence check, and the order is the board.
+    // place still passes a presence check, and the order is the safety order:
+    // hospital, its emergency route, Right now, Your usual, Your team, footer.
     const tops = await Promise.all(
       modules.map(async (id) => (await visibleByTestId(page, id).boundingBox())?.y ?? Number.NaN),
     );
@@ -246,80 +255,26 @@ test.describe("01 Home", () => {
     await expect(page.getByTestId("on-call-now-steps").getByRole("listitem").first()).toBeVisible();
   });
 
-  test("puts two call cards and the switchboard row under Call first", async ({ page }) => {
+  test("answers Right now with the hospital's switchboard, and reaches all roles in one tap", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    const callFirst = page.getByTestId("on-call-home-call-first");
-    const cards = callFirst.locator('[data-testid^="on-call-home-call-"]').filter({ hasNot: page.locator("nothing") });
-    await expect(cards.first()).toBeVisible();
-    await expect(page.getByTestId("on-call-home-switchboard")).toBeVisible();
-    // The drawing's whole argument for this module: one tap rings it.
-    await expect(page.getByTestId("on-call-home-switchboard")).toHaveAttribute("href", /^tel:/);
-    await expectTapFloor(page.getByTestId("on-call-home-switchboard"), "switchboard row");
+    // No hospital has set after-hours times in the demo handbook, so the
+    // switchboard is the answer (v6 figure 03) rather than a team role.
+    const hero = visibleByTestId(page, "on-call-now-right-now");
+    await expect(hero).toContainText("Switchboard");
+    const allRoles = hero.getByRole("link", { name: "All roles" });
+    await expect(allRoles).toHaveAttribute("href", "/on-call/call");
+    await expectTapFloor(allRoles, "Right now's All roles link");
   });
 
-  test("scrolls the ward strip inside itself rather than the page", async ({ page }) => {
+  test("keeps First night and Who do I call now live in the footer group", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    const wards = page.getByTestId("on-call-home-wards");
-    await expect(wards.locator('[data-testid^="on-call-home-ward-"]').first()).toBeVisible();
-    await expectNoHorizontalOverflow(page, "the home with a ward strip on it");
-  });
-
-  test("paints the pinned reminder in the mode's own colour, with an icon and words too", async ({ page }) => {
-    await openBoard(page, ROUTES.home);
-    const pinned = page.getByTestId("on-call-home-pinned");
-    await expect(pinned).toBeVisible();
-    // Colour is never the only signal: the row carries a heading and a glyph.
-    await expect(pinned.locator("svg")).toHaveCount(2);
-    const painted = await pinned.evaluate((node) => getComputedStyle(node).backgroundColor);
-    expect(painted).not.toBe("rgba(0, 0, 0, 0)");
-  });
-
-  test("dates the next teaching session with a weekday, as drawn", async ({ page }) => {
-    await openBoard(page, ROUTES.home);
-    // The row became a date-card strip when recurring sessions landed, so the
-    // card test id moved from `on-call-home-upcoming-` to `on-call-home-teaching-`.
-    // The module id around it is unchanged, and so is what this test is really
-    // asserting: a date a reader can check against a roster, never a countdown.
-    const card = page.getByTestId("on-call-home-upcoming").locator('[data-testid^="on-call-home-teaching-"]').first();
-    await expect(card).toBeVisible();
-    await expect(card).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
-  });
-
-  test("gives each shift-time page a tile, and gives Who's who no count", async ({ page }) => {
-    await openBoard(page, ROUTES.home);
-    const tiles = visibleByTestId(page, "on-call-home-sections").locator('[data-testid^="on-call-home-tile-"]');
-    // Four, and the list underneath is the reason rather than the number.
-    // On 2026-09-26 Orientation, Teaching, Admin and Compliance moved off this
-    // home to My Work (`/my-work`), which keeps the page to what a shift needs.
-    // Their routes did not move. The order below names every tile, so a page
-    // has to earn a name here before the count moves.
-    await expect(tiles).toHaveCount(4);
-    expect(
-      await tiles.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid"))),
-      "the tile grid is not the pages it should be, in the order it should draw them",
-    ).toEqual([
-      "on-call-home-tile-contacts",
-      "on-call-home-tile-playbook",
-      "on-call-home-tile-referrals",
-      "on-call-home-tile-who-is-who",
-    ]);
-
-    // Board 01 draws this one differently and without a number: the others
-    // count things to read, this one explains the ladder.
-    await expect(page.getByTestId("on-call-home-tile-who-is-who")).not.toContainText(/\d/);
-  });
-
-  test("sends the admin pages to My Work from the tool row", async ({ page }) => {
-    await openBoard(page, ROUTES.home);
-    const tools = visibleByTestId(page, "on-call-home-tools");
-    await expect(tools.getByTestId("on-call-home-first-night")).toBeVisible();
-    const myWork = tools.getByTestId("on-call-home-my-work");
-    await expect(myWork).toHaveAttribute("href", "/my-work");
-    await expect(myWork).toContainText("My Work");
-    await expectTapFloor(myWork, "My Work tile");
-    // "Check these" and "Calendar" live on My Work now, not here.
-    await expect(page.getByTestId("on-call-home-check")).toHaveCount(0);
-    await expect(page.getByTestId("on-call-home-calendar")).toHaveCount(0);
+    const footer = visibleByTestId(page, "on-call-now-footer");
+    const firstNight = footer.getByTestId("on-call-home-first-night");
+    await expect(firstNight).toHaveAttribute("href", "/on-call/first-night");
+    await expectTapFloor(firstNight, "First night row");
+    // The literal href the route-reachability guard reads; the click test
+    // above proves the destination actually renders.
+    await expect(footer.getByTestId("on-call-home-call-now")).toHaveAttribute("href", "/on-call/now");
   });
 
   test("puts the page menu in the universal header, and offers no chat there", async ({ page }) => {
@@ -337,8 +292,24 @@ test.describe("01 Home", () => {
 
   test("holds together at the site's narrow width, which the drawing never shows", async ({ page }) => {
     await openBoard(page, ROUTES.home, NARROW);
-    await expect(visibleByTestId(page, "on-call-home-sections")).toBeVisible();
-    await expectNoHorizontalOverflow(page, "the home at 320px");
+    await expect(visibleByTestId(page, "on-call-now-footer")).toBeVisible();
+    await expectNoHorizontalOverflow(page, "Now at 320px");
+  });
+});
+
+test.describe("Coming up — moved off Home to Teaching (plan C25)", () => {
+  test("dates the next teaching session with a weekday, as drawn", async ({ page }) => {
+    // Now (v6) drops the tile grid and, with it, the Coming up module: teaching
+    // sessions now surface only on the Teaching page (`/on-call/education`),
+    // which is where this same corpus and the same weekday assertion now live.
+    await openBoard(page, ROUTES.teaching);
+    // The row became a date-card strip when recurring sessions landed, so the
+    // card test id moved from `on-call-home-upcoming-` to `on-call-home-teaching-`.
+    // The module id around it is unchanged, and so is what this test is really
+    // asserting: a date a reader can check against a roster, never a countdown.
+    const card = page.getByTestId("on-call-home-upcoming").locator('[data-testid^="on-call-home-teaching-"]').first();
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
   });
 });
 
@@ -353,7 +324,7 @@ test.describe("02 More, 03 All modes — the pill owns page switching", () => {
     const sections = page.locator("#app-mode-menu");
     await expect(sections).toBeVisible();
     await expect(sections).toHaveAttribute("aria-label", /On Call pages/);
-    await expect(sections.getByRole("link", { name: "Tonight" })).toBeVisible();
+    await expect(sections.getByRole("link", { name: "Now" })).toBeVisible();
 
     // And never a dead end: the level above is one control away.
     await page.getByTestId("app-mode-popover-back").click();
@@ -410,9 +381,10 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // The pill's accessible name still opens `Mode …` — twelve test files and
     // the shared helper find this control by that prefix — and now says the
     // page as well.
-    const pill = page.getByRole("button", { name: "Mode On Call, page Contacts" });
+    // Contacts is the editor behind Call (kit 1.7), so the pill names Call.
+    const pill = page.getByRole("button", { name: "Mode On Call, page Call" });
     await expect(pill).toBeVisible();
-    await expect(pill).toContainText("Contacts");
+    await expect(pill).toContainText("Call");
     await expect(pill).toContainText("On Call");
 
     // And nothing else on the page paints the name. Measured, not counted by

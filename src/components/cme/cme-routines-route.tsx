@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { CmeDateField, useCmeDateChecks } from "@/components/cme/cme-date-field";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import { CmeRoutinesPage } from "@/components/cme/cme-routines-page";
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import {
   cmeRoutineCadenceLabels,
   cmeRoutineCadences,
@@ -49,6 +51,7 @@ export function CmeRoutinesRoute({
   const [draft, setDraft] = useState<RoutineDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dateChecks = useCmeDateChecks();
   // The form renders above the list, so on a phone tapping Edit on a routine
   // further down opened it out of sight and looked like nothing happened.
   // Bring it into view and move focus to its heading each time it opens.
@@ -75,6 +78,10 @@ export function CmeRoutinesRoute({
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingId || saving) return;
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     if (demoMode) {
       setError("Demo mode is read-only. Sign in to save routines to a private CPD record.");
       return;
@@ -188,12 +195,14 @@ export function CmeRoutinesRoute({
               }
               hint="Changing the duration clears the saved category split; review the split when you log the activity."
             />
-            <TextField
+            <CmeDateField
               label="Next due"
+              onInvalidChange={dateChecks.report("nextDue")}
               id="cme-routine-next-due"
-              type="date"
+              chips={false}
+              today={perthCalendarDate(new Date(nowIso))}
               value={draft.nextDue ?? ""}
-              onChange={(event) => setDraft((current) => ({ ...current, nextDue: event.target.value || null }))}
+              onChange={(nextDue) => setDraft((current) => ({ ...current, nextDue: nextDue || null }))}
             />
             <p className={cn(textMuted, "text-xs")}>
               Logging this routine opens a pre-filled activity. Nothing is recorded until you review and save it.

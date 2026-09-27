@@ -56,7 +56,7 @@ export function OnCallNextShift({ state, now }: { state: OnCallShiftsState; now:
       <span className="flex items-center justify-between gap-3">
         <span
           className={cn(
-            "text-xs font-bold uppercase tracking-wide",
+            "text-xs font-semibold uppercase tracking-wide",
             next.onNow ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
           )}
         >
@@ -64,7 +64,7 @@ export function OnCallNextShift({ state, now }: { state: OnCallShiftsState; now:
         </span>
         <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
       </span>
-      <span className="text-base font-bold text-[color:var(--text-heading)]" data-testid="on-call-next-shift-when">
+      <span className="text-base font-medium text-[color:var(--text-heading)]" data-testid="on-call-next-shift-when">
         {next.when}
       </span>
       <span className="text-sm text-[color:var(--text)]">
