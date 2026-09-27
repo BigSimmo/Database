@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import type { CodeMeaning } from "@/lib/roster/import/grid";
-import { SHIFT_KINDS, type ShiftKind } from "@/lib/roster/shift-kind";
+import { SHIFT_KINDS } from "@/lib/roster/shift-kind";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
