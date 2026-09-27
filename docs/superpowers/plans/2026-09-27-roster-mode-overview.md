@@ -1,7 +1,6 @@
 # Roster mode build plan: overview
 
-Written 26 Sep 2026 against `origin/main` 67d961107, after Josh approved design v8 (18:44Z).
-No app code has been written. Nothing here is pushed to the public repository until Josh approves this plan.
+Written 26 Sep 2026 against `origin/main` 67d961107, after Josh approved design v8 (18:44Z). This is the original planning snapshot. PRs #3115, #3117 and #3118 have since merged, and Release 2 is in draft PR #3126. Use the [status file](2026-09-27-roster-mode-status.md) for current work and the full [Release 2 plan](2026-09-27-roster-mode-plan-c-release-2.md) for its remaining steps.
 
 ## What gets built, in order
 
@@ -9,10 +8,10 @@ No app code has been written. Nothing here is pushed to the public repository un
 | ---- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------- |
 | A    | One database change: shared team-system hardening, On Call's items, Roster, Admin and Teaching tables | **Josh, himself** (it changes the live database the moment it merges) | `plan-a-database.md` (full, SQL written and replayed)         |
 | B    | Release 1: Roster for one doctor                                                                      | The merge lineup                                                      | `plan-b-release-1.md` (full)                                  |
-| C    | Release 2: Roster for a health service                                                                | The merge lineup                                                      | Outline below; full plan written while Release 1 is in review |
+| C    | Release 2: Roster for a health service                                                                | The merge lineup                                                      | `2026-09-27-roster-mode-plan-c-release-2.md`                  |
 | D    | Release 3: the roster maker                                                                           | The merge lineup                                                      | Outline below; full plan written while Release 2 is in review |
 
-Release 1 can be built while the database change waits for Josh, but it can only merge after it. Releases 2 and 3 get their own full plans because each depends on what the previous one teaches; writing them in full now would mean guessing at screens and code that do not exist yet.
+Release 1 merged after the database change. Release 2 has its own full plan; Release 3 still has the outline below.
 
 ## Efficiency
 
@@ -31,8 +30,8 @@ Josh asked (19:06Z, 19:11Z, 19:20Z) for a faster, cheaper build with no loss of 
 
 ## What only Josh can do, and when
 
-- Approve this plan (before any code).
-- Merge the database change (Plan A), in his window.
+- Plan approval and the Plan A merge are historical steps already completed.
+- Merge the follow-up Release 2 database change in an approved window, after reviewing its guarded publishing and privacy scope.
 - For Release 2: set the phone-alert key pair in Railway (two values; the thread will give exact steps, never the values themselves), and press "verify" for the first team and "make manager" for its roster manager in the owner panel.
 - Before real staff use it: the health service's privacy approval, P1 #F9HZEG (two-user isolation proof, run against staging with his OK), and a decision on Singapore app servers.
 

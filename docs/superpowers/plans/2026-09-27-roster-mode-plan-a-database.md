@@ -1,5 +1,7 @@
 # Roster combined database change: Implementation Plan (Plan A)
 
+**Completed:** PR #3117 has merged. This plan records how that change was built; do not rerun its branch, migration or PR steps. New database changes must use new migrations as described in [Plan C](2026-09-27-roster-mode-plan-c-release-2.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** One database pull request that Josh merges himself, carrying the shared team-system hardening, On Call's service items, Roster's own-shift fix and team tables, Admin's owner tables and Teaching's tables, replayed from scratch before it opens.

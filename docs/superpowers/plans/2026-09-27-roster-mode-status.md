@@ -16,21 +16,21 @@ Roster is a phone-first mode where hospital doctors across WA Health keep their 
 
 Paths under `/mnt/project-files/` in these files are the project's shared working folder, not part of the repository.
 
-## Where it stands (27 Sep 2026, 02:45Z)
+## Where it stands (27 Sep 2026, 05:14Z)
 
-| Step                        | State                                                                                                                               | Next                                                                                                                                                       |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A. Database change          | PR #3117 open, CI was green on 1ff5de84f; now has a merge conflict with main                                                        | The build thread resolves the conflict and re-runs CI. **The owner merges it himself**: merging applies the migrations to the live database within seconds |
-| B. Release 1 app            | PR #3118 open, behind main                                                                                                          | Merges only after #3117; then the merge lineup lands it once CI is green                                                                                   |
-| C. Release 2                | Plan written and reviewed once (`2026-09-27-roster-mode-plan-c-release-2.md`); building on `claude/project-thread-yrumov-release-2` | Its database gaps go in a separate follow-up database PR after #3117 merges, merged by the owner                                                           |
-| D. Release 3 (roster maker) | Outline in `2026-09-27-roster-mode-overview.md`                                                                                     | Full plan written while Release 2 is in review                                                                                                             |
+| Step                        | State                                                                                   | Next                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A. Database change          | PR #3117 merged                                                                         | Confirm the post-merge `live-drift` result includes green `check:drift` and `check:migration-history`; this status file does not establish that result |
+| B. Release 1 app            | PR #3118 merged after #3117                                                             | Its finished code is the base for Release 2                                                                                                            |
+| C. Release 2                | Draft PR #3126 is in progress. The plan is `2026-09-27-roster-mode-plan-c-release-2.md` | Finish the app and its checks. A separate database follow-up is needed for the missing reads and guarded publishing; Josh merges that migration PR     |
+| D. Release 3 (roster maker) | Outline in `2026-09-27-roster-mode-overview.md`                                         | Full plan written while Release 2 is in review                                                                                                         |
 
 ## Plan to complete
 
-1. Resolve #3117's conflict with main, re-run its CI, and re-date its migrations if main has a newer one (`2026-09-27-roster-mode-plan-a-database.md`, Task 5 Step 0).
-2. The owner merges #3117 in his window. After merge, the `live-drift` workflow must show `check:drift` and `check:migration-history` green.
-3. Bring #3118 up to date with main and let CI finish; the merge lineup merges it.
-4. Finish Release 2 per `2026-09-27-roster-mode-plan-c-release-2.md`; open its follow-up database PR only after #3117 has merged.
-5. Write and build Release 3 from the outline.
+1. Confirm #3117's post-merge `live-drift` workflow shows both `check:drift` and `check:migration-history` green. This is a separate production check, not proved by #3117's merge or local replay.
+2. Continue the existing #3126 Release 2 build and the separate follow-up database work. Do not recreate either from the old branch-setup steps in Plan C.
+3. Before enabling Publish, the follow-up migration must provide G1's approved-change read **and** G6's guarded, atomic publish operation. A swap approved after the manager's preview must cause a conflict with no publication or partial name/code changes. The merged #3117 function does not enforce that condition.
+4. Josh approved named planned leave for roster managers on 27 Sep 2026. Record its exact fields, purpose and audience in the privacy assessment; keep ordinary members on the anonymous count and prove the boundary in staging before real staff use.
+5. Have Josh merge the follow-up migration inside an approved window, then verify its post-merge drift checks. Finish #3126's local, hosted and privacy checks before considering its merge. Write and build Release 3 from the outline.
 
 Before real staff data is used: the health service's privacy approval, the two-user isolation proof (P1 #F9HZEG) and a decision on the Singapore app servers. Phone alerts in Release 2 need the owner to set the alert key pair in Railway.

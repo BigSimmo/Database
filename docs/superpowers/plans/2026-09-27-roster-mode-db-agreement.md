@@ -1,5 +1,7 @@
 # Shared team system: database contract for the combined DB PR
 
+**Historical contract:** PR #3117 has merged. Its five migrations on `main` are the source of the implemented schema and must not be edited. The text below records the agreement used to build them; Release 2 changes belong in a new migration under [Plan C](2026-09-27-roster-mode-plan-c-release-2.md).
+
 **Owner.** The Roster thread owns this file. Other threads should read it but not edit it; send changes to the coordinator.
 
 - Version 6: 2026-09-26 19:10Z. Written and replayed locally with the real file 1 and file 3 (see build-plan/). Roster-only changes: `roster_member_roles.role` is `member|manager` (every member can carry a grade and roster name, not only managers), plus `roster_name` and `rotation_ends_on`; managers are named only by the platform function `roster_set_manager`; a manager may remove an ordinary member (`member.remove` in `roster_command`, which revokes the shared membership under the service row `FOR UPDATE`, never an editor or admin); `on_call_service_set_verified` is the platform path for §1–2. **One ask of On Call's file 2:** `invitation.create` must accept `issuedViaMode: 'roster'|'teaching'`, check `roster_can_invite`/`teaching_can_invite` for the actor instead of the On Call role, force `role = 'member'`, and store `issued_via_mode`. Without it a roster manager cannot invite anyone.

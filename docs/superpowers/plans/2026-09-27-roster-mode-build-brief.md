@@ -2,6 +2,8 @@
 
 Written 26 Sep 2026 by the "Plan Roster mode" thread. That thread stays for design questions only; the build runs from this brief.
 
+**Historical handoff:** The "Current state" and branch instructions below describe the original launch. PRs #3117 and #3118 have since merged and Release 2 is in draft PR #3126. Continue from [the status file](2026-09-27-roster-mode-status.md) and [Plan C](2026-09-27-roster-mode-plan-c-release-2.md); do not restart Plan A or B from the old shared-folder paths.
+
 ## Start only when
 
 Josh said at 19:24Z to start the build automatically once the plan is written and reviewed, with no approval step. Execution: parallel subagent lanes (lighter models for routine lanes), one review per lane and one whole-branch review.

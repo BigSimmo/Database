@@ -1,5 +1,7 @@
 # Roster Release 1 (Roster for one doctor) Implementation Plan
 
+**Completed:** PR #3118 has merged after #3117. This plan records the Release 1 build; continue Release 2 from [Plan C](2026-09-27-roster-mode-plan-c-release-2.md) and [the status file](2026-09-27-roster-mode-status.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A new Roster mode where one doctor keeps their own shifts (imported from PDF, Excel, CSV, calendar file or calendar link, or added by hand) and sees Today, Shifts (week, month, hours) and Settings. My shifts moves here from On call.
