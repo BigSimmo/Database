@@ -73,6 +73,49 @@ Railway's private network — see §2.1). Both Railway services deploy from
   quietly while the app kept serving from fallbacks. Every topology decision
   below biases toward _loud_ failure and standing guards.
 
+### Production release controls (checked 2026-09-27)
+
+The active GitHub `Protections` ruleset (18011271) targets `main` and
+`release/**`, requires a PR, an up-to-date branch, and the GitHub Actions
+checks `Gitleaks`, `PR required`, `PR policy`, and `PR mergeability`. Its required
+approval count is **zero**; Code Owners review and approval of the most recent
+push are **off**. `Owner approval` is not a required check. These are merge
+controls, not an independent production deployment approval.
+
+The GitHub `Database / production` environment names BigSimmo as its only
+required reviewer, but permits self-review and administrator bypass and has no
+environment secrets. Only `authenticated-live-tests.yml` currently attaches a
+job to it; the recovery jobs use repository secrets. Neither the Railway app
+nor the worker deploy passes through this GitHub environment. Its
+`Protected branches only` selector also reports that no repository branch
+protection rules are set, so it permits all branches; do not infer that the
+ruleset restricts this environment's jobs.
+
+Both production Railway services source `BigSimmo/Database` at `main` with
+`source.checkSuites: false`. Their GitHub autodeploys can therefore start
+without waiting for the post-merge GitHub Actions verdict. The app and worker
+hold their own Railway runtime variables. Railway's **Wait for CI** setting
+would wait for _every GitHub Actions check suite_ on the pushed commit, rather
+than only the required `PR required` job. Both services successfully deployed
+`a3fee8d1a88b` on 2026-09-27, while that commit's main CI run 36295647367
+failed unit coverage and Firefox/WebKit lanes (issue #3099). Follow the owner decision in
+`docs/decisions/2026-09-25-railway-waits-for-ci-once-safe.md` before enabling
+it. Even when enabled, Wait for CI is a quality gate, not a second person's
+approval and not a gate on manual Railway deploys.
+
+To add actual human approval to a GitHub-initiated production deploy, first
+provide an independent reviewer and configure the environment to prevent
+self-review and administrator bypass. Move _only the credential needed for
+that deploy_ from repository scope to the environment, then put the deploy job
+behind `environment: Database / production`; verify a waiting approval and a
+rejected run before relying on it. Railway's own autodeploy and manual deploy
+permissions must be changed and tested separately. Do not attach the whole
+scheduled read-only reaper or autopilot job to the environment: their apply
+paths require separate gated jobs, after the existing disabled switches and
+destructive-path defects have been addressed. Merging migrations still applies
+them via the separate Supabase integration; the merge itself is their release
+decision (see `AGENTS.md` `# Supabase project safety`).
+
 ## 2. App tier
 
 ### Decision
