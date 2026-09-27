@@ -48,6 +48,7 @@ describe("custom @theme scales are not misclassified", () => {
     "text-2xl-minus",
     "text-3xl-minus",
     "text-hero",
+    "text-display",
   ];
 
   it.each(CUSTOM_TEXT_STEPS)("keeps %s beside a text colour", (step) => {

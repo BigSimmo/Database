@@ -255,6 +255,11 @@
      misreads the clamp() value as a font-family list. Call sites that set an
      explicit leading-* utility still win over this default. */
   --text-hero--line-height: 1.12;
+  /* The one display figure on a mode home (mode design standard module 8:
+     36–44px at weight 300, inside the hero summary only). CPD's Today uses it
+     for "32.5" in "32.5 of 50 h". Declared in CLINICAL_TWMERGE_THEME.text too. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
 
   /* Named leading steps for the two contexts the stepped scale could not
      express, so neither has to be spelled as an arbitrary value. Tailwind owns
@@ -1241,6 +1246,17 @@ body {
   font-family: var(--font-fn-serif), ui-serif, Georgia, serif;
   font-style: italic;
   font-weight: 400;
+}
+
+/* CPD's hero bar fill (Today's hero summary, the hero's one graphic).
+   The dashboard is not inside [data-mode-identity="cme"] (only the pill and
+   the rail carry it), so the fill cannot read --mode-identity. The summary panel is
+   dark in both themes, so both themes take CPD's dark-theme indigo, as the
+   standard says for the mode colour on a hero: 7.3:1 on the light panel and
+   6.7:1 on the dark one; 5.1:1 and 5.4:1 against the bar's track
+   (--surface-summary-line). */
+:root {
+  --cme-hero-fill: #97a3df;
 }
 
 @layer base {

@@ -39,6 +39,17 @@ const MODE_HOME_LOADING_ROUTES = [
   "first-nations",
 ] as const;
 
+/**
+ * Mode homes whose loading boundary draws their own dashboard's shapes instead
+ * of the generic hero skeleton, so nothing jumps when the dashboard arrives.
+ * CPD: spec §6.2 and standard v13 §7 (static, the loaded layout's shapes).
+ */
+const OWN_SKELETON: Partial<Record<(typeof MODE_HOME_LOADING_ROUTES)[number], string>> = {
+  cme: "CmeLoadingSkeleton",
+  // First Nations' home: static skeleton plus the real crisis strip (spec §5).
+  "first-nations": "FirstNationsLoading",
+};
+
 describe("mode-home loading contract", () => {
   it("keeps every named standalone mode home in the broader loading inventory", () => {
     for (const pathname of standaloneModeHomePaths) {
@@ -46,15 +57,12 @@ describe("mode-home loading contract", () => {
     }
   });
 
-  it("uses ModeHomeRouteLoading for every mode-home loading route", () => {
-    const LOADING_COMPONENT_EXCEPTIONS: Partial<Record<(typeof MODE_HOME_LOADING_ROUTES)[number], string>> = {
-      "first-nations": "FirstNationsLoading",
-    };
+  it("uses ModeHomeRouteLoading, or the home's own static skeleton, for every mode-home loading route", () => {
     for (const route of MODE_HOME_LOADING_ROUTES) {
       const loadingPath = join(SEARCH_APP_ROOT, route, "loading.tsx");
       expect(existsSync(loadingPath), `missing ${route}/loading.tsx`).toBe(true);
       const source = readFileSync(loadingPath, "utf8");
-      expect(source).toContain(LOADING_COMPONENT_EXCEPTIONS[route] ?? "ModeHomeRouteLoading");
+      expect(source).toContain(OWN_SKELETON[route] ?? "ModeHomeRouteLoading");
       expect(source).not.toMatch(/Loading services|Loading medication|Loading library/);
     }
   });

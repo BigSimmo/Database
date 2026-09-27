@@ -195,7 +195,7 @@ const routeDescriptions: Record<string, string> = {
   "/first-nations/end-of-life": "First Nations End of life: Sorry Business and caring for the family.",
   "/first-nations/card": "First Nations pocket card: the key numbers and prompts on one printable card.",
   "/cme":
-    "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
+    "CPD dashboard: total hours logged this year against the confirmed targets, a plain-words pace line for the year's end, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CPD has no search results surface.",
   "/cme/log":
     "Every continuing-education activity recorded, grouped by month, with a category filter and a text search box. Each row opens the entry it belongs to.",
   "/cme/log/[id]":
@@ -209,13 +209,13 @@ const routeDescriptions: Record<string, string> = {
   "/cme/plan":
     "The yearly development plan screen. Not yet built in this phase — the page says so plainly, and offers logging the time spent writing the plan as an activity so the hours still count toward the year.",
   "/cme/learning":
-    "A curated list of upcoming Western Australian courses and events for psychiatrists, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
+    "A curated list of upcoming Western Australian courses and events, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
   "/cme/programme":
     "The requirement targets confirmed for this year — hours required in each category — and the source document they were confirmed against.",
   "/cme/setup":
     "The one-time setup checklist: confirm this year's requirement targets, set up routines, and the other steps this phase has not built yet.",
   "/cme/customise":
-    "Choose which modules show on the CME dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
+    "Choose which modules show on the CPD dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
   // The second On Call page that is a view rather than a stored section, and
   // the second to need a line here for that reason: both are `details.kind`
   // discriminators over an existing section, so neither has a section title
@@ -308,7 +308,7 @@ const routeOwnershipRows = [
   ],
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
-  ["CME", "src/app/(search-app)/cme, src/components/cme"],
+  ["CPD", "src/app/(search-app)/cme, src/components/cme"],
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
   ["My Work", "src/app/(search-app)/my-work, src/components/my-work"],
   ["First Nations", "src/app/(search-app)/first-nations, src/components/first-nations, src/lib/first-nations"],
@@ -632,7 +632,7 @@ function renderModePageIndex() {
         "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
     {
-      mode: "CME",
+      mode: "CPD",
       home: appModeHomeHref("cme"),
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
       detail:
@@ -643,7 +643,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("psychiatry"),
       search: appModeHomeHref("psychiatry"),
       detail:
-        'No results page — `resultsSurface: "none"`, like On Call and CME. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
+        'No results page — `resultsSurface: "none"`, like On Call and CPD. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
     },
     {
       mode: "My Work",
