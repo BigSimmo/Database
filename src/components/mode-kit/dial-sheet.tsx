@@ -1,7 +1,7 @@
 "use client";
 
 import { Clipboard, ClipboardCheck, Phone, Share2, TriangleAlert } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
 import { ModeActionButton } from "@/components/mode-kit/action-button";
@@ -95,6 +95,7 @@ export function ModeDialSheet({
   now,
   onCall,
   testId,
+  footer,
 }: {
   readonly open: boolean;
   readonly onClose: () => void;
@@ -111,15 +112,34 @@ export function ModeDialSheet({
   /** Called when any call link in the sheet is tapped. */
   readonly onCall?: () => void;
   readonly testId?: string;
+  /** Mode-owned actions; never contains patient context. */
+  readonly footer?: ReactNode;
 }) {
   const canShare = useSyncExternalStore(noSubscription, canShareNow, () => false);
   const copyValue = number.copy ?? number.display;
+  const [shareStatus, setShareStatus] = useState("");
+  useEffect(() => {
+    if (!open) setShareStatus("");
+  }, [open]);
 
-  const share = () => {
-    if (!canShareNow()) return;
+  const share = async () => {
     const where = context ? `, ${context}` : "";
-    // A cancelled share is not an error worth showing.
-    navigator.share({ title: label, text: `${label}${where}: ${number.display}` }).catch(() => {});
+    const text = `${label}${where}: ${number.display}`;
+    setShareStatus("");
+    if (canShareNow()) {
+      try {
+        await navigator.share({ title: label, text });
+        return;
+      } catch (error) {
+        if (typeof error === "object" && error !== null && "name" in error && error.name === "AbortError") return;
+      }
+    }
+    try {
+      await copyTextToClipboard(text);
+      setShareStatus("Contact copied to share");
+    } catch {
+      setShareStatus(`Not copied. ${text}`);
+    }
   };
 
   return (
@@ -177,6 +197,18 @@ export function ModeDialSheet({
         ) : null}
 
         <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {number.tel ? (
+            <a
+              href={number.tel}
+              onClick={onCall}
+              className={cn(
+                focusRing,
+                "inline-flex min-h-12 items-center gap-2 rounded-md bg-[color:var(--command)] px-4 text-sm-minus text-[color:var(--command-contrast)]",
+              )}
+            >
+              <Phone aria-hidden="true" className="size-icon-md" /> Call {label}
+            </a>
+          ) : null}
           {copyValue ? (
             <ModeCopyNumber
               value={copyValue}
@@ -184,14 +216,19 @@ export function ModeDialSheet({
               testId={testId ? `${testId}-copy` : undefined}
             />
           ) : null}
-          {canShare ? (
+          <>
             <ModeActionButton
               icon={Share2}
-              label={`Share ${label}`}
-              onClick={share}
+              label={canShare ? `Share ${label}` : `Copy ${label} to share`}
+              onClick={() => {
+                void share();
+              }}
               testId={testId ? `${testId}-share` : undefined}
             />
-          ) : null}
+            <span role="status" className="text-xs text-[color:var(--text-muted)]">
+              {shareStatus}
+            </span>
+          </>
         </div>
 
         <ModeUpdatedLine
@@ -201,6 +238,7 @@ export function ModeDialSheet({
           now={now}
           testId={testId ? `${testId}-checked` : undefined}
         />
+        {footer}
       </div>
     </Sheet>
   );

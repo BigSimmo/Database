@@ -132,7 +132,7 @@ function contactView(c: ContactBlock, inputs: ModelInputs): ContactView {
     reportHref: mailto(
       reportEmail(inputs),
       `Wrong number: ${c.name}`,
-      `The number shown for ${c.name} is ${c.number}. The right number is: `,
+      `Public contact correction only. Do not include patient details, staff names or personal numbers.\n\nThe number shown for ${c.name} is ${c.number}.\nOfficial source: ${inputs.sources[c.sourceId]?.url ?? ""}\nCorrection and official source: `,
     ),
   };
 }
@@ -378,7 +378,11 @@ export function buildBedsideModel(inputs: ModelInputs): BedsideModel {
     map: inputs.map,
     acknowledgement: acknowledgementFor(inputs),
     topMistakes,
-    missingNumberHref: mailto(reportEmail(inputs), "Missing number", "The number that is missing is for: "),
+    missingNumberHref: mailto(
+      reportEmail(inputs),
+      "Missing number",
+      "Public contact correction only. Do not include patient details, staff names or personal numbers.\n\nMissing public service number and official source: ",
+    ),
     search: buildSearchIndex(inputs),
   };
 }
@@ -394,7 +398,11 @@ export function buildInnerPageModel(inputs: ModelInputs, id: Exclude<FirstNation
     regions: regionViews(inputs),
     interpreter: interpreterView(inputs),
     map: inputs.map,
-    missingNumberHref: mailto(reportEmail(inputs), "Missing number", "The number that is missing is for: "),
+    missingNumberHref: mailto(
+      reportEmail(inputs),
+      "Missing number",
+      "Public contact correction only. Do not include patient details, staff names or personal numbers.\n\nMissing public service number and official source: ",
+    ),
     search: buildSearchIndex(inputs),
   };
 }
