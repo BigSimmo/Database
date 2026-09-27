@@ -1,8 +1,8 @@
 {
   "version": "clinical-kb-site-static-manifest-v1",
-  "gitSha": "bb8e4b402e3be994fb0b5679a532abbb9e8a7be1",
+  "gitSha": "368717e61bc05aa5b51a7e2e660abb009459062e",
   "registryVersion": "site-content-registry-v1",
-  "generatedAt": "2026-09-26T09:04:25.087Z",
+  "generatedAt": "2026-09-27T14:06:06.127Z",
   "records": [
     {
       "logicalId": "calculators:auditc",
@@ -4881,8 +4881,8 @@
       "logicalId": "specifiers:specifier-icd-olfactory-reference-disorder-insight-with-absent-insight",
       "domain": "specifiers",
       "route": "/specifiers/specifier-icd-olfactory-reference-disorder-insight-with-absent-insight",
-      "contentHash": "0d845616872fcd3f4fe79c62cf2bdccd14ae1d8abde8dd4c612856824decd990",
-      "lineageDigest": "466f28497135516f6446568922cf50429b501df12b558955423882dfffaa5eb5",
+      "contentHash": "6b1303123847942e68b5b8f16317576902b56cda75faa873c602ee21050705f2",
+      "lineageDigest": "e98b2e5f9c6c62be924d9c097cdd1a14f1f78755483952b53bb4734c931c1f98",
       "validationStatus": "unverified",
       "sourceStatus": "review_due",
       "eligible": false,
@@ -11907,5 +11907,5 @@
       "exclusionReason": null
     }
   ],
-  "staticManifestDigest": "48f5aeadcf75558184e2d236377ef7f54f57c2e1d2d1933f867aed9a4f7ec60d"
+  "staticManifestDigest": "283a078ace6ebd59b082e2a10c1139772001a8abd71949a96c8827d972d63096"
 }
