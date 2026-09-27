@@ -35,10 +35,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Playbook",
     "Referrals",
     "Orientation",
-    // "Teaching" is the label; the id, route segment and check constraint all
-    // stay "education".
-    "Teaching",
-    // "Admin" is likewise label-only: the id, route segment and check
+    // "Admin" is label-only: the id, route segment and check
     // constraint all stay "logistics". Compliance is not a section at all —
     // it is a view over those same stored rows, discriminated by
     // `details.kind`, so it costs no migration and appears here without one.
@@ -63,6 +60,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Programme",
     "Set up",
   ],
+  teaching: ["Today", "Week", "Logbook", "Organise"],
   psychiatry: [],
   "my-work": [],
 };
@@ -86,6 +84,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   sources: "/sources/search",
   "on-call": "/on-call",
   cme: "/cme",
+  teaching: "/teaching",
   psychiatry: "/psychiatry",
   "my-work": "/my-work",
 };
@@ -121,9 +120,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 20 modes with the approved destinations and no Home item", () => {
+  it("covers all 21 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(20);
+    expect(appModeIds).toHaveLength(21);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);

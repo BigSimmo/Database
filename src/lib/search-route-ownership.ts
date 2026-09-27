@@ -54,6 +54,8 @@ export const standaloneModeHomePaths = [
   "/psychiatry",
   // My Work's dashboard, for the same reason again.
   "/my-work",
+  // Teaching's dashboard, for the same reason again.
+  "/teaching",
 ] as const;
 
 /**
@@ -112,6 +114,9 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // The My Work dashboard at `/my-work`, likewise a page of links.
     case "my-work":
       return "/my-work";
+    // The Teaching dashboard at `/teaching`, likewise with no results surface.
+    case "teaching":
+      return "/teaching";
     default:
       return null;
   }
@@ -178,6 +183,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/cme",
   "/psychiatry",
   "/my-work",
+  "/teaching",
 ] as const;
 
 /**

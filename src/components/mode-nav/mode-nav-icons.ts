@@ -2,6 +2,7 @@ import {
   BookOpenText,
   BookMarked,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
@@ -13,13 +14,16 @@ import {
   ListChecks,
   Network,
   NotebookPen,
+  NotebookText,
   Presentation,
   Repeat,
   Printer,
   Search,
   Sparkles,
+  SlidersHorizontal,
   Stethoscope,
   Scale,
+  Sun,
   Target,
   Waypoints,
   type LucideIcon,
@@ -77,11 +81,6 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   playbook: ON_CALL_SECTION_ICONS.playbook,
   referrals: ON_CALL_SECTION_ICONS.referrals,
   orientation: ON_CALL_SECTION_ICONS.orientation,
-  // The registry id and the stored section id genuinely differ here, and this
-  // is the only place the two vocabularies meet: the rail slot is `teaching`
-  // (what the reader is shown) and the section is `education` (route segment,
-  // database check constraint). Same pair as `whoswho` / `who-is-who` below.
-  teaching: ON_CALL_SECTION_ICONS.education,
   logistics: ON_CALL_SECTION_ICONS.logistics,
   // Compliance and Who's who are VIEWS over a stored section, not sections, so
   // neither has an entry in `ON_CALL_SECTION_ICONS` — their glyphs live in
@@ -107,6 +106,11 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
+  // Teaching (v5.2 pages sheet).
+  today: Sun,
+  week: CalendarClock,
+  logbook: NotebookText,
+  organise: SlidersHorizontal,
 };
 
 /**

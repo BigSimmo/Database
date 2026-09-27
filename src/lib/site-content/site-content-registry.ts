@@ -16,7 +16,7 @@ export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
   modeId: Exclude<
     AppModeId,
-    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work"
+    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work" | "teaching"
   >;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
@@ -303,6 +303,15 @@ export const siteContentModeExclusions = [
     // My Work is a landing page over the owner's own On Call records and
     // settings. It publishes nothing: the records are private user state.
     modeId: "my-work",
+    reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // Teaching holds each service's programme and each doctor's own attendance.
+    // It publishes nothing and must never become a retrieval corpus.
+    modeId: "teaching",
     reason: "private_user_state",
     permanent: true,
     reviewed: true,

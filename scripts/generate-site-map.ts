@@ -181,6 +181,23 @@ const routeDescriptions: Record<string, string> = {
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
   "/my-work":
     "My Work dashboard: what is due next (compliance items whose recorded date falls in the next 30 days or has passed, and On Call entries due their check), then one card each for Admin, Compliance, Check these, My shifts, Calendar, Orientation and reminder settings, linking to those pages at their own addresses. A dashboard, not a redirect to the shared search home — My Work has no search results surface.",
+  "/teaching":
+    "Teaching's Today: the next session as a summary hero with only the actions that apply (Join and Details, or Scan to check in and Check in without code while it is on), what needs the doctor, and one row to the rest of the week, across every service the doctor belongs to. Signed-out readers can open a made-up demo.",
+  "/teaching/week":
+    "The week: a seven-day rail, Whole service or Presenting, every remaining day grouped, Add to my calendar, the doctor's own teaching list moved from On Call (edited with On Call's editor) and the service handbook's teaching entries.",
+  "/teaching/logbook":
+    "The doctor's attendance record: this term, hours, sessions not yet in CPD, a weekly chart, and a ledger by month with Log to CPD and a CSV download.",
+  "/teaching/organise":
+    "For a service's organisers: the next 48 hours with clashes named, counts, series, groups, members, invitations, posting a change with a 10-second undo, and the attendance export.",
+  "/teaching/session/[id]":
+    "One session under the in-page header: when and where, a change line when it was moved or cancelled, the phase module (On now, check-in, Log to CPD after it ends), details and materials. A removed session says it is no longer in the programme.",
+  "/teaching/session/[id]/check-in":
+    "The presenter's check-in screen: a QR and its six digits that change every 30 seconds, a draining hairline, Room or Teams, counts, and a link to a shared screen. The code comes down when the connection drops.",
+  "/teaching/c/[token]":
+    "Where a scanned check-in QR lands. It opens the scan and finishes it; signed out, it sends a sign-in link that returns to `/teaching/c/complete`. Not indexed, and sends no referrer.",
+  "/teaching/c/complete": "Finishes a check-in after sign-in, from the claim this browser holds.",
+  "/teaching/display/[token]":
+    "The shared check-in screen for a projector or a Teams share: title, room, the QR, its six digits and a draining hairline. No app chrome and no sign-in.",
   "/cme":
     "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
   "/cme/log":
@@ -298,6 +315,7 @@ const routeOwnershipRows = [
   ["CME", "src/app/(search-app)/cme, src/components/cme"],
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
   ["My Work", "src/app/(search-app)/my-work, src/components/my-work"],
+  ["Teaching", "src/app/(search-app)/teaching, src/app/(display)/teaching, src/components/teaching"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -483,6 +501,7 @@ function renderModeRoutes() {
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
     psychiatry: appModeHomeHref("psychiatry"),
     "my-work": appModeHomeHref("my-work"),
+    teaching: appModeHomeHref("teaching"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -636,6 +655,13 @@ function renderModePageIndex() {
       search: appModeHomeHref("my-work"),
       detail:
         'No results page — `resultsSurface: "none"`, like Psychiatry. `/my-work` is a dashboard of what is due and links; the pages it gathers keep their On Call routes.',
+    },
+    {
+      mode: "Teaching",
+      home: appModeHomeHref("teaching"),
+      search: appModeHomeHref("teaching"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like CPD. `/teaching` is Today; Week, Logbook and Organise are its other pages; `/teaching/session/[id]` is one session with `/check-in`; `/teaching/c/[token]` is the scan landing; `/teaching/display/[token]` is the chrome-free shared screen.',
     },
   ]);
 }

@@ -178,6 +178,12 @@ describe("links run one way, into CPD (plan-contracts §10)", () => {
     const save = repository.slice(repository.indexOf("export async function saveTeachingCpdEntry"));
     expect(save).not.toContain("teachingCommand(");
   });
+
+  it("opens Teaching from CPD's Teaching sessions card", () => {
+    const dashboard = readFileSync("src/components/cme/cme-dashboard.tsx", "utf8");
+    expect(dashboard).toMatch(/href="\/teaching"\s+data-testid="cme-teaching-link"/);
+    expect(dashboard).not.toContain('href="/on-call/education"');
+  });
 });
 
 describe("the CPD save matches its database function", () => {

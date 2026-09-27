@@ -34,6 +34,8 @@ const MODE_HOME_LOADING_ROUTES = [
   "psychiatry",
   // My Work's dashboard, likewise.
   "my-work",
+  // Teaching's dashboard, likewise.
+  "teaching",
 ] as const;
 
 describe("mode-home loading contract", () => {
