@@ -14,7 +14,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
-import { complianceFixture } from "./helpers/on-call-entry-fixture";
+import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
 vi.mock("@/lib/admin/download-file", () => ({ downloadTextFile: vi.fn() }));
 import { downloadTextFile } from "@/lib/admin/download-file";
@@ -241,6 +241,21 @@ describe("AdminRenewalsPage — Personal tab", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Personal" }));
     expect(screen.getByText("A car I lease for work")).toBeInTheDocument();
     expect(screen.queryByText("Working with Children Check")).toBeNull();
+  });
+
+  it("never lists the reader's rows from other On Call sections, or their logistics guides", () => {
+    storeState.entries = [
+      ...ALL,
+      onCallEntryFixture({ section: "contacts", title: "Ward 4 switchboard", details: {} }),
+      onCallEntryFixture({ section: "playbook", title: "Agitation first steps", details: {} }),
+      onCallEntryFixture({ section: "logistics", title: "Staff car park", details: { category: "Facilities" } }),
+    ];
+    renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Personal" }));
+    expect(screen.getByText("No personal renewals")).toBeInTheDocument();
+    expect(screen.queryByText("Ward 4 switchboard")).toBeNull();
+    expect(screen.queryByText("Agitation first steps")).toBeNull();
+    expect(screen.queryByText("Staff car park")).toBeNull();
   });
 
   it("creates a new personal renewal from the Add sheet", async () => {

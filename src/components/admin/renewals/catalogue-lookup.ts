@@ -1,4 +1,5 @@
 import { ADMIN_REQUIREMENTS_CATALOGUE, type AdminRequirementCatalogueItem } from "@/lib/admin/requirements";
+import { isComplianceEntry } from "@/lib/on-call/compliance";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 
 /**
@@ -28,6 +29,10 @@ export function catalogueItemForEntry(
   entry: OnCallEntry,
   catalogue: readonly AdminRequirementCatalogueItem[] = ADMIN_REQUIREMENTS_CATALOGUE,
 ): AdminRequirementCatalogueItem | undefined {
+  // Only a compliance row can be a requirement: a contacts, playbook or
+  // logistics-guide row that happens to share a title is never one. This is
+  // the same gate `isItemsEntry` in `src/lib/admin/requirements.ts` applies.
+  if (!isComplianceEntry(entry)) return undefined;
   const requirementId = entryRequirementId(entry);
   const byId = catalogue.find((item) => item.id === requirementId);
   if (byId) return byId;
@@ -35,10 +40,15 @@ export function catalogueItemForEntry(
   return catalogue.find((item) => normalizedTitle(item.title) === title);
 }
 
-/** Whether an entry has no catalogue item at all — Personal-tab membership. */
+/**
+ * Personal-tab membership: a compliance row that no catalogue item matches.
+ * Rows from every other On Call section, and logistics guides, are never
+ * renewals — listing them here would offer "Renewed" on a guide, planting
+ * compliance keys that then hide it from every colleague's shared read.
+ */
 export function isPersonalRenewal(
   entry: OnCallEntry,
   catalogue: readonly AdminRequirementCatalogueItem[] = ADMIN_REQUIREMENTS_CATALOGUE,
 ): boolean {
-  return catalogueItemForEntry(entry, catalogue) === undefined;
+  return isComplianceEntry(entry) && catalogueItemForEntry(entry, catalogue) === undefined;
 }

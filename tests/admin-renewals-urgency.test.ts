@@ -4,7 +4,7 @@ import { catalogueItemForEntry, isPersonalRenewal } from "@/components/admin/ren
 import { requirementDateLine, requirementRowUrgency, shortStartDate } from "@/components/admin/renewals/urgency";
 import { ADMIN_REQUIREMENTS_CATALOGUE } from "@/lib/admin/requirements";
 import type { RequirementChecklistRow } from "@/lib/admin/requirements";
-import { complianceFixture } from "./helpers/on-call-entry-fixture";
+import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
 const NOW = new Date("2026-09-26T04:00:00.000Z"); // Perth: 26 Sep 2026, midday-ish
 
@@ -86,5 +86,15 @@ describe("catalogueItemForEntry / isPersonalRenewal", () => {
     const entry = complianceFixture("A car I lease for work", { category: "Personal" });
     expect(catalogueItemForEntry(entry)).toBeUndefined();
     expect(isPersonalRenewal(entry)).toBe(true);
+  });
+
+  it("is never a renewal when the row is not a compliance row, whatever its title", () => {
+    const contact = onCallEntryFixture({ section: "contacts", title: "Switchboard", details: {} });
+    const guide = onCallEntryFixture({ section: "logistics", title: "Parking", details: { category: "Facilities" } });
+    const namedLikeAnItem = onCallEntryFixture({ section: "playbook", title: catalogueItem.title, details: {} });
+    for (const entry of [contact, guide, namedLikeAnItem]) {
+      expect(isPersonalRenewal(entry)).toBe(false);
+      expect(catalogueItemForEntry(entry)).toBeUndefined();
+    }
   });
 });
