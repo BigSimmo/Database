@@ -402,10 +402,12 @@ describe("mode identity accent", () => {
    */
   const identityBlock = (selector: string) =>
     declarations(sourceSegment(globals, `\n${selector} {`, "\n}", { label: `${selector} block` }));
-  const identityThemes = [
-    { name: "light", tokens: identityBlock('[data-mode-identity="on-call"]') },
-    { name: "dark", tokens: identityBlock('.dark [data-mode-identity="on-call"]') },
-  ] as const;
+  // Every mode that names an identity: On Call's teal, CME's indigo and Admin's brown
+  // (mode id `my-work`). Each case below runs once per theme of each.
+  const identityThemes = (["on-call", "cme", "my-work"] as const).flatMap((mode) => [
+    { name: `${mode} light`, theme: "light", tokens: identityBlock(`[data-mode-identity="${mode}"]`) },
+    { name: `${mode} dark`, theme: "dark", tokens: identityBlock(`.dark [data-mode-identity="${mode}"]`) },
+  ]);
 
   it.each(identityThemes)("clears 4.5:1 as a fill against its own label colour in $name", ({ tokens, name }) => {
     // A fill, not only text: the pill's 32px circle is painted in this colour
@@ -416,10 +418,10 @@ describe("mode identity accent", () => {
     ).toBeGreaterThanOrEqual(4.5);
   });
 
-  it.each(identityThemes)("clears 4.5:1 as text on the page surface in $name", ({ tokens, name }) => {
+  it.each(identityThemes)("clears 4.5:1 as text on the page surface in $name", ({ tokens, name, theme }) => {
     // The other half of its job: the small "On Call" line under the page name
     // in the pill is this colour on the pill's own surface.
-    const surface = name === "light" ? colourOf(light, "--surface") : colourOf(dark, "--surface");
+    const surface = theme === "light" ? colourOf(light, "--surface") : colourOf(dark, "--surface");
     expect(
       contrastRatio(tokens.get("--mode-identity")!, surface),
       `${name} mode identity as text`,
@@ -449,6 +451,29 @@ describe("mode identity accent", () => {
     });
     expect(forced).toContain("--mode-identity: LinkText;");
     expect(forced).toContain("--mode-identity-contrast: ButtonText;");
+  });
+
+  it("paints Admin in the app's forms brown, and flattens it under forced colours", () => {
+    expect(identityBlock('[data-mode-identity="my-work"]').get("--mode-identity")).toBe("#7d5a2c");
+    expect(identityBlock('.dark [data-mode-identity="my-work"]').get("--mode-identity")).toBe("#d6bd8a");
+    const forced = sourceSegment(globals, '  [data-mode-identity="my-work"] {', "\n  }", {
+      label: "forced-colors Admin identity block",
+    });
+    expect(forced).toContain("--mode-identity: LinkText;");
+  });
+
+  it("keeps Admin's brown, soft and border shades equal to the forms tokens they copy", () => {
+    // The identity block writes `--type-form`'s values out as literals (the
+    // contrast cases above measure declarations directly), so pin each shade
+    // to its source token: a change to one without the other fails here.
+    for (const suffix of ["", "-soft", "-border"]) {
+      expect(identityBlock('[data-mode-identity="my-work"]').get(`--mode-identity${suffix}`)).toBe(
+        v2Light.get(`--type-form${suffix}`),
+      );
+      expect(identityBlock('.dark [data-mode-identity="my-work"]').get(`--mode-identity${suffix}`)).toBe(
+        v2Dark.get(`--type-form${suffix}`),
+      );
+    }
   });
 
   it("delivers the hue by remapping the accent locally, never by a dynamic class", () => {
