@@ -230,8 +230,10 @@ describe("shared header hide/reveal wiring", () => {
     // under-reserves by 8px wherever the phone reports no top inset, so the
     // layout effect corrects it after paint (Codex P1, 2026-07-30 — second
     // round). `--shell-header-h` already covers the inner min-h-14 bar + pb-2.
-    expect(globalsSource).toContain(
-      "--phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h))",
+    // The addon term lets a portal make the seed exact on a cold load, before
+    // the quiet window settles (#CHPC5C); it defaults to 0px with no row.
+    expect(globalsSource.replace(/\s+/g, " ")).toContain(
+      "--phone-overlay-chrome-h: calc( max(0.5rem, var(--safe-area-top)) + var(--shell-header-h) + var(--phone-overlay-addon-h, 0px) )",
     );
     expect(headerSource).toContain("pt-[max(0.5rem,var(--safe-area-top))]");
     expect(reserveHookSource).toContain("useLayoutEffect");

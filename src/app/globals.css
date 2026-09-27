@@ -667,18 +667,18 @@
      Playwright's default emulation), which the layout effect then corrects
      after paint. That is the same cold-load shift in miniature.
 
-     Exact for routes without a `header-collapse-addon` row; addon routes
-     refine by that row's height. On an in-session navigation the portal that
-     claims the row publishes that refinement synchronously, in the same commit
-     that takes it out of page flow (`publishPhoneOverlayChromeReserveNow`), and
-     it must stay synchronous: letting the reserve hook's 80ms quiet window own
-     that transition left every element on the page 49px too high for ~110ms,
-     long enough for a tap to press one control and release on another
-     (#CHPC5C). On a COLD load this seed still stands unrefined for the whole
-     quiet window, because that immediate publish is suppressed until the hook
-     has settled once — see `use-phone-overlay-chrome-reserve.ts` for why, and
-     docs/search-chrome-behaviour.md for what closing it would take. */
-  --phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h));
+     `--phone-overlay-addon-h` is the height of a `header-collapse-addon` row
+     (a mode nav bar) that a portal has moved into the header. The portal sets
+     it in the same commit that takes the row out of page flow
+     (`claimPhoneOverlayAddonReserve`), so the seed is exact on a COLD load too,
+     before the reserve hook's 80ms quiet window has settled anything. Leaving
+     that transition to the quiet window put every element on the page 49px too
+     high for ~110ms, long enough for a tap to press one control and release on
+     another (#CHPC5C). Once the hook publishes its measured inline value, that
+     value already includes the row and this seed no longer applies. */
+  --phone-overlay-chrome-h: calc(
+    max(0.5rem, var(--safe-area-top)) + var(--shell-header-h) + var(--phone-overlay-addon-h, 0px)
+  );
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --keyboard-height: 0px;
   --phone-dock-hidden-pad: 0rem;

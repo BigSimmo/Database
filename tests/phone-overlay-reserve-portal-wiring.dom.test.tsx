@@ -20,11 +20,10 @@
  * the immediate publish never fires and the quiet window alone corrects the
  * reserve, exactly as it did before PR #2929.
  *
- * What the fix does cover is every subsequent in-session navigation, where the
- * shell stays mounted and settled — which is most Differentials navigation, but
- * NOT the cold `page.goto` that #CHPC5C recorded. That case is still open. The
- * cold assertion below exists so nobody can quietly come to believe otherwise;
- * when it is genuinely fixed, that test flips and says so.
+ * That is why portals now go through `claimPhoneOverlayAddonReserve`: it adds
+ * the row's own height to the CSS seed (`--phone-overlay-addon-h`) on a cold
+ * load, re-measures once settled, and gives the height back on release. The
+ * cold and release cases below were pinned as known gaps until that landed.
  */
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -94,6 +93,11 @@ function mountChrome() {
   const measure = () => baseStackPx + (slot.childElementCount > 0 ? addonRowPx : 0);
   Object.defineProperty(stack, "offsetHeight", { configurable: true, get: measure });
   Object.defineProperty(collapse, "offsetHeight", { configurable: true, get: measure });
+  // The slot holds one page-owned row, so its own height is that row's height.
+  Object.defineProperty(slot, "offsetHeight", {
+    configurable: true,
+    get: () => (slot.childElementCount > 0 ? addonRowPx : 0),
+  });
   return { slot, container: document.getElementById("app-root")! };
 }
 
@@ -103,6 +107,7 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 const reserve = () => document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h");
+const addonReserve = () => document.documentElement.style.getPropertyValue("--phone-overlay-addon-h");
 
 /** Runs whatever frames the hook has queued, at the timestamps given. */
 function flushFrames(timestamps: number[]) {
@@ -127,6 +132,7 @@ describe("portal wiring into the immediate reserve publisher", () => {
   afterEach(() => {
     __setPhoneOverlayReserveSettledForTests(false);
     document.documentElement.style.removeProperty("--phone-overlay-chrome-h");
+    document.documentElement.style.removeProperty("--phone-overlay-addon-h");
     document.body.innerHTML = "";
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -197,21 +203,11 @@ describe("portal wiring into the immediate reserve publisher", () => {
     });
   });
 
-  it("KNOWN GAP: unmounting the portal leaves the reserve too large", () => {
+  it("shrinks the reserve in the same commit the row returns to page flow", () => {
     // The mirror of the defect — content held 49px too LOW instead of too high,
-    // the same tap-retarget class — and it is NOT wired, despite the comment on
-    // the effect and the name of a case in the sibling test file both implying
-    // it is. The effect has a `[host]` dependency and no cleanup, so nothing at
-    // all runs when the component goes away.
-    //
-    // Two repairs were tried and neither works. A cleanup that publishes
-    // directly measures 121px, because React runs layout-effect destroys before
-    // it detaches the portal's children from the slot. Deferring that publish
-    // to a microtask does measure the right DOM and does land before paint, but
-    // it is then no longer "the same commit", which is the only guarantee this
-    // whole mechanism rests on. Doing it properly means the portal publishing
-    // its own height as a delta rather than re-measuring the stack — a real
-    // change to shared phone chrome, not a patch.
+    // the same tap-retarget class. A cleanup cannot re-measure (React runs
+    // layout-effect destroys before it detaches the portal's children), so the
+    // claim gives back the row's own height as a delta instead.
     const { slot, container } = mountChrome();
     const root = createRoot(container);
 
@@ -233,9 +229,43 @@ describe("portal wiring into the immediate reserve publisher", () => {
     act(() => {
       root.render(<Shell>{null}</Shell>);
     });
-    // The row is back in page flow...
     expect(slot.childElementCount).toBe(0);
-    // ...and the reserve still claims the taller stack.
+    expect(reserve()).toBe(`${baseStackPx}px`);
+    expect(addonReserve()).toBe("");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("swaps one row for another without drifting the reserve", () => {
+    // In-session navigation between two addon routes: the old portal's cleanup
+    // subtracts and the new portal's claim re-measures, in one commit.
+    const { container } = mountChrome();
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<Shell>{null}</Shell>);
+    });
+    flushFrames([0, phoneOverlayReserveGeometryQuietWindowMs + 1]);
+    act(() => {
+      root.render(
+        <Shell>
+          <PhoneHeaderCollapsePortal key="a">
+            <nav>a</nav>
+          </PhoneHeaderCollapsePortal>
+        </Shell>,
+      );
+    });
+    act(() => {
+      root.render(
+        <Shell>
+          <ModeNavHeaderPortal key="b">
+            <nav>b</nav>
+          </ModeNavHeaderPortal>
+        </Shell>,
+      );
+    });
     expect(reserve()).toBe(`${baseStackPx + addonRowPx}px`);
 
     act(() => {
@@ -243,43 +273,44 @@ describe("portal wiring into the immediate reserve publisher", () => {
     });
   });
 
-  it("KNOWN GAP: a cold first mount is still corrected only by the quiet window", () => {
-    // Not an aspiration — a pin on current behaviour. Layout effects run
-    // children-first, so the portal publishes before the shell's hook exists,
-    // and the publisher's pre-settle guard (#147) correctly refuses it. The
-    // reserve is therefore still wrong for the whole quiet window on the exact
-    // path #CHPC5C recorded: a cold `page.goto` on a Differentials phone route.
-    //
-    // When that is fixed, this test fails — and it should. Change it then, with
-    // the fix, rather than before it.
-    const { slot, container } = mountChrome();
-    const root = createRoot(container);
+  it("covers a cold first mount in the same commit, through the CSS seed", () => {
+    // The #CHPC5C path: a cold `page.goto` on a Differentials phone route.
+    // Layout effects run children-first, so the portal claims before the shell's
+    // hook has settled anything. The inline reserve correctly stays unset (no
+    // stack measurement may be published before settle, #147), and the row's
+    // own height goes to `--phone-overlay-addon-h`, which the CSS seed adds —
+    // so the page clears the taller header from the very commit that shortened
+    // it. The seed arithmetic itself is pinned in header-scroll-hide-contract.
+    for (const Portal of [PhoneHeaderCollapsePortal, ModeNavHeaderPortal]) {
+      const { slot, container } = mountChrome();
+      const root = createRoot(container);
 
-    act(() => {
-      root.render(
-        <Shell>
-          <PhoneHeaderCollapsePortal>
-            <nav>nav</nav>
-          </PhoneHeaderCollapsePortal>
-        </Shell>,
-      );
-    });
+      act(() => {
+        root.render(
+          <Shell>
+            <Portal>
+              <nav>nav</nav>
+            </Portal>
+          </Shell>,
+        );
+      });
 
-    // The row HAS left page flow — the page is already 49px short.
-    expect(slot.childElementCount).toBe(1);
-    // ...and the reserve has not moved off the CSS seed to compensate.
-    expect(reserve()).toBe("");
+      expect(slot.childElementCount).toBe(1);
+      expect(reserve()).toBe("");
+      expect(addonReserve()).toBe(`${addonRowPx}px`);
 
-    // It takes the quiet window to correct, and twice over: the hook's first
-    // candidate is the 72px it measured before the portal's own re-render moved
-    // the row, so the frame that sees 121px has to re-stage it from scratch.
-    flushFrames([0, phoneOverlayReserveGeometryQuietWindowMs + 1]);
-    expect(reserve()).toBe("");
-    flushFrames([2 * (phoneOverlayReserveGeometryQuietWindowMs + 1)]);
-    expect(reserve()).toBe(`${baseStackPx + addonRowPx}px`);
+      // The quiet window later settles the same total, so nothing moves again.
+      flushFrames([0, phoneOverlayReserveGeometryQuietWindowMs + 1]);
+      flushFrames([2 * (phoneOverlayReserveGeometryQuietWindowMs + 1)]);
+      expect(reserve()).toBe(`${baseStackPx + addonRowPx}px`);
 
-    act(() => {
-      root.unmount();
-    });
+      act(() => {
+        root.unmount();
+      });
+      expect(addonReserve()).toBe("");
+      pendingFrames.clear();
+      __setPhoneOverlayReserveSettledForTests(false);
+      document.documentElement.style.removeProperty("--phone-overlay-chrome-h");
+    }
   });
 });

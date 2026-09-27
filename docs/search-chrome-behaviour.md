@@ -735,34 +735,38 @@ mounts collapsed; the page reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` r
 height only after mount and across the evidence-calibrated 80ms geometry quiet window
 (`phoneOverlayReserveGeometryQuietWindowMs` in `use-phone-overlay-chrome-reserve.ts`).
 
-**A portal that moves a `header-collapse-addon` row out of page flow must publish the reserve in the
-same commit** — `publishPhoneOverlayChromeReserveNow`, called by `ModeNavHeaderPortal` and
-`PhoneHeaderCollapsePortal`. It is not enough to let the quiet window catch up. Taking the row out of
-flow shortens the page by its height immediately, so until the reserve grows every element sits that
-much too high. Measured on `/differentials/compare` at 390x844 (#CHPC5C): the row portalled at ~315ms
-and the reserve only republished at ~423ms, and a tap inside that window pressed "Open comparison"
-and released on "Edit selection" where the link had just been — the browser retargets such a click to
-the two controls' common ancestor, so the link never activates and nothing at all happens. Under
-renderer load the window widens; at 10x CPU throttle the tap failed 10 times out of 10, and 0 out of
-10 once the reserve settled first. The quiet window still owns the case it was built for, a transient
-wide-stack measurement during hydration (#147).
+**A portal that moves a `header-collapse-addon` row out of page flow must correct the reserve in the
+same commit** — `claimPhoneOverlayAddonReserve`, called by `ModeNavHeaderPortal` and
+`PhoneHeaderCollapsePortal` from a layout effect keyed on the host. It is not enough to let the quiet
+window catch up. Taking the row out of flow shortens the page by its height immediately, so until the
+reserve grows every element sits that much too high. Measured on `/differentials/compare` at 390x844
+(#CHPC5C): the row portalled at ~315ms and the reserve only republished at ~423ms, and a tap inside that
+window pressed "Open comparison" and released on "Edit selection" where the link had just been — the
+browser retargets such a click to the two controls' common ancestor, so the link never activates and
+nothing at all happens. Under renderer load the window widens; at 10x CPU throttle the tap failed 10
+times out of 10, and 0 out of 10 once the reserve settled first. The quiet window still owns the case it
+was built for, a transient wide-stack measurement during hydration (#147).
 
-**What that publisher does NOT cover, which includes the incident above.** It refuses to publish until
-the quiet window has settled a reserve at least once, because before that responsive layout can still
-be reporting the wide 200px stack (#147) and publishing that would move content twice. React runs
-layout effects children-first and the reserve hook belongs to the shell, so on a **cold first load the
-portal's effect always runs before the hook has settled anything** and the immediate publish is
-suppressed — the quiet window alone corrects the reserve, exactly as it did before. The fix therefore
-covers in-session navigation while the shell stays mounted and settled, and not the cold `page.goto`
-that #CHPC5C recorded. Unmounting a portal is not covered either: the effect has no cleanup, and a
-cleanup that published directly would measure the row it is about to lose, because React runs
-layout-effect destroys before it detaches portal children. Both gaps are pinned as
-failing-when-fixed cases in `tests/phone-overlay-reserve-portal-wiring.dom.test.tsx` — which is also
-the only place the portals' wiring is covered at all, since the cases in
-`tests/phone-overlay-chrome-reserve.dom.test.ts` call the publisher directly and would all still pass
-if both `useLayoutEffect` blocks were deleted. Closing the gaps properly means the portal publishing
-its own height as a **delta** to the reserve in force rather than re-measuring the whole stack: that
-removes the #147 exposure, and with it the need for the settle precondition.
+**How the claim covers every path.** It publishes the row's own height as a delta instead of
+re-measuring the whole stack:
+
+- **Cold first load.** React runs layout effects children-first, so the portal claims before the
+  shell's reserve hook has settled anything. The claim writes the row's height to
+  `--phone-overlay-addon-h`, which the CSS seed for `--phone-overlay-chrome-h` adds, so seed + row is
+  exact in the commit that shortened the page. It takes no stack measurement, so the #147 transient
+  cannot leak in; the quiet window later settles the same total and nothing moves again.
+- **In-session navigation.** Once settled, the inline measured value is in force and ignores the addon
+  property; the claim re-measures through `publishPhoneOverlayChromeReserveNow`, which is safe after
+  settle.
+- **Release.** The claim's cleanup subtracts the row's height from the inline value. It cannot
+  re-measure, because React runs layout-effect destroys before it detaches portal children, so the row
+  is still in the stack when it runs. A swap between two addon routes therefore subtracts, then
+  re-measures, within one commit.
+
+The addon slot holds one page-owned row (see `ModeNavHeaderPortal`), which is why the host's own height
+is that row's height. `tests/phone-overlay-reserve-portal-wiring.dom.test.tsx` covers the wiring of both
+portals on all three paths; the cases in `tests/phone-overlay-chrome-reserve.dom.test.ts` call the
+publisher directly and prove nothing about who calls it.
 
 The settle assertion below is still required, because hydration timing is unchanged. A Playwright screenshot or `page.evaluate()` DOM measurement run immediately at `networkidle` can
 therefore read premature geometry before the stack settles (for example, reading `main` at `y=72` with
