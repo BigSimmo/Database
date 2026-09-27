@@ -528,6 +528,16 @@ export async function loadAuthorizedDocumentDetail(args: {
     ? document
     : redactNonOwnedDocumentFields(document as unknown as Record<string, unknown>, access.ownerId);
   const documentMetadata = safeMetadata(document.metadata);
+  // The authorisation scope has already restricted non-owned rows to the public
+  // corpus. Project this single clinical date without disclosing raw metadata.
+  const recordedReviewDate = documentMetadata.review_date ?? documentMetadata.reviewDate;
+  const publicReviewDate =
+    !isOwner &&
+    documentMetadata.public_corpus === true &&
+    typeof recordedReviewDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(recordedReviewDate)
+      ? recordedReviewDate
+      : null;
   const metadata = windowMetadata({
     requestedPage,
     effectivePage,
@@ -550,6 +560,7 @@ export async function loadAuthorizedDocumentDetail(args: {
           ? (summaryResult.data ?? null)
           : redactNonOwnedDocumentFields(summaryResult.data as Record<string, unknown>, access.ownerId),
     } as unknown as ClinicalDocument,
+    ...(!isOwner ? { publicReviewDate } : {}),
     pages: publicRows(
       committedRows(document, pagesResult.data ?? []).map(withoutMetadata) as Record<string, unknown>[],
     ) as DocumentDetailPage[],

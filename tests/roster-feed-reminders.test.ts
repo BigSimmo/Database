@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   cmeRoutines: vi.fn(),
   onCall: vi.fn(),
   ownerShifts: vi.fn(),
+  teachingFeed: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -42,6 +43,7 @@ vi.mock("@/lib/cme/repository", () => ({
   fetchOwnerCmeRoutines: mocks.cmeRoutines,
 }));
 vi.mock("@/lib/on-call/repository", () => ({ fetchVisibleOnCallEntries: mocks.onCall }));
+vi.mock("@/lib/teaching/feed-repository", () => ({ fetchTeachingFeedSessions: mocks.teachingFeed }));
 vi.mock("@/lib/roster/shifts/repository", () => ({ fetchOwnerShifts: mocks.ownerShifts }));
 
 import { calendarFeedEvents } from "@/lib/calendar/feed-repository";
@@ -155,6 +157,7 @@ beforeEach(() => {
   mocks.cmeRoutines.mockResolvedValue([]);
   mocks.onCall.mockResolvedValue([]);
   mocks.ownerShifts.mockResolvedValue([]);
+  mocks.teachingFeed.mockResolvedValue([]);
 });
 
 describe("the private calendar feed", () => {

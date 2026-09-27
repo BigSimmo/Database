@@ -219,7 +219,7 @@ function ContactRow({
           A personal entry gets no copy control at all: the page withholds those
           digits from the room, and a control that copies them hands them out. */}
       {onEdit || showVerify || primary ? (
-        <div className="flex shrink-0 flex-col items-stretch justify-center gap-1.5">
+        <div className="flex shrink-0 items-center justify-end gap-1.5 self-center">
           {primary ? (
             <OnCallCopyNumber
               value={primary.value}
