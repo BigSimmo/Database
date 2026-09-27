@@ -5,8 +5,8 @@
     {
       "handoverSourceId": "4AT-OFFICIAL",
       "title": "4AT: rapid clinical test for delirium",
-      "publisher": "Edinburgh Delirium Research Group",
-      "publisherCode": "EDRG",
+      "publisher": "4AT developers",
+      "publisherCode": null,
       "canonicalUrl": "https://www.the4at.com/",
       "jurisdiction": "International",
       "version": "4AT",

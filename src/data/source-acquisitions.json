@@ -2885,30 +2885,5 @@
     "dispositionReason": "The Chief Psychiatrist's own page states 'Last updated: 5 December 2025' and gives no publication or review date, which is why this record is dateModel last_updated (owner decision 2026-09-26). Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
     "notes": "The version is the publisher's own update statement, because the page carries no edition or version identifier. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review."
-  },
-  {
-    "id": "dictionary-aihw-meteor-nocc-data-set",
-    "title": "National Outcomes and Casemix Collection NBEDS 2026-27",
-    "publisher": "Australian Institute of Health and Welfare",
-    "publisherCode": "AIHW",
-    "canonicalUrl": "https://meteor.aihw.gov.au/content/807042",
-    "jurisdiction": "Australia",
-    "version": "NBEDS 2026-27; METEOR 807042",
-    "publicationDate": "2026-02-05",
-    "datePrecision": "day",
-    "reviewDate": null,
-    "expiryDate": null,
-    "evidenceType": "standard",
-    "documentStatus": "current",
-    "validationStatus": "unverified",
-    "contentMode": "link_only",
-    "topics": ["Dictionary", "NOCC", "Outcome Measures"],
-    "rung": 3,
-    "capturedAt": "2026-09-27",
-    "capturedFor": "Dictionary sense drafts reference NOCC metadata specifications registered on the AIHW METEOR portal. Captured for metadata provenance only.",
-    "disposition": "candidate",
-    "dispositionReason": "Official AIHW METEOR metadata online registry entry (identifier 807042). Registered on 2026-02-05. Candidate only pending clinical sign-off.",
-    "supersededBy": [],
-    "notes": "Published by Australian Institute of Health and Welfare on meteor.aihw.gov.au with registration date 2026-02-05."
   }
 ]

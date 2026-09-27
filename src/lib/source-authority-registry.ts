@@ -559,11 +559,13 @@ export const sourceAuthorityRegistry = [
   // sources retrieval picks, which is a separate decision from letting the register
   // name them.
   //
-  // Four publishers previously described in descriptive text ("Government of Western Australia",
-  // "WA Health service providers", "Mental Health Commission / WA Health", and "4AT developers")
-  // were standardized to official agency names: Mental Health Advocacy Service (MHASWA),
-  // Fiona Stanley Fremantle Hospitals Group (FSFHG), Mental Health Commission WA (MHCWA),
-  // and Edinburgh Delirium Research Group (EDRG).
+  // Four publishers were originally recorded as descriptions rather than agencies:
+  // "Government of Western Australia", "WA Health service providers", "Mental Health
+  // Commission / WA Health" (two publishers in one field) and "4AT developers". The first
+  // three now name their agencies (MHASWA, FSFHG, MHCWA). "4AT developers" is still NOT
+  // registered: the 4AT site names no publishing agency, so that record stays held until a
+  // source establishes one (owner approval 2026-09-28). A catch-all entry would be worse
+  // than leaving it held.
   authority({
     key: "mental-health-tribunal-wa",
     codes: ["MHTWA"],
@@ -868,16 +870,6 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
-    catalogueIdentityOnly: true,
-  }),
-  authority({
-    key: "edinburgh-delirium-research-group",
-    codes: ["EDRG"],
-    publisher: "Edinburgh Delirium Research Group",
-    publisherAliases: ["University of Edinburgh Delirium Research Group", "4AT developers"],
-    jurisdictions: ["International", "UK", "Scotland"],
-    scope: "international",
-    tier: "supplementary",
     catalogueIdentityOnly: true,
   }),
 ] satisfies SourceAuthorityDefinition[];

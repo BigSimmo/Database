@@ -199,9 +199,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
-          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
+          "code": "publication_event_not_stated_by_the_publisher",
+          "blocker": "meteor.aihw.gov.au is now a governed source host (PR #3146), so the host no longer blocks this source. What remains is the date: the METEOR entry (identifier 807042) records a registration date, 2026-02-05, not a publication event. A registration is not a publication, so the record stays held rather than filing that date as publicationDate, and no separate unlinked ledger record is kept (owner approval 2026-09-28).",
+          "nextAction": "Cite a dated AIHW publication of the NOCC NBEDS 2026-27 specification, or extend the ledger date model to carry a registration date as its own event, then admit this source against a single ledger record."
         }
       ],
       "decisionOwner": "Source register owner",

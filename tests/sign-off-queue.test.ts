@@ -45,8 +45,7 @@ const EXPECTED: Record<SignOffFamilyId, number> = {
   // unlinked.
   specifiers: 603,
   therapy: 205,
-  // 100 unverified candidate records appear in acquisitionReviewQueue().
-  // 2026-09-27: was 99. Added AIHW METEOR NOCC metadata registry candidate.
+  // 99 unverified candidate records appear in acquisitionReviewQueue().
   // 2026-09-26: was 94. PR #3067 admitted five dictionary sources on their
   // publishers' own "last updated" stamps; none is signed off.
   // 2026-09-26: was 88. PR #3067 recorded six new unverified candidates from
@@ -57,7 +56,7 @@ const EXPECTED: Record<SignOffFamilyId, number> = {
   // Psychiatrist standards, the clozapine guideline, two Language Services
   // documents, ScriptCheckWA and the Monitored Medicines Prescribing Code);
   // its five new rejected records are excluded from the queue by design.
-  sources: 100,
+  sources: 99,
 };
 
 describe("clinical sign-off queue", () => {
