@@ -12,7 +12,7 @@ import { adminRecordsSections, adminRecordsText, type AdminRecordsSection } from
 import { adminLoadState, selectAdminOwnEntries } from "@/lib/admin/own-entries";
 import { formatDateEcho } from "@/lib/admin/renewal-dates";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
@@ -81,7 +81,7 @@ export function AdminRecordsPage({ now: nowProp }: { now?: Date } = {}) {
       </div>
 
       {loadState === "failed" ? (
-        <OnCallLoadFailed reason={state.loadError} onRetry={state.retry} testId="admin-records-load-failed" />
+        <AdminLoadFailed reason={state.loadError} onRetry={state.retry} testId="admin-records-load-failed" />
       ) : loadState === "loading" ? (
         // Design point 11: skeletons while loading, never an empty-looking page.
         <ModeModuleSkeleton rows={4} twoLine eyebrow testId="admin-records-loading" />

@@ -32,7 +32,7 @@ export function TodayWindowBar({ start, end, today }: { start: string; end: stri
     <div className="grid gap-1.5" data-testid="admin-today-renew-next-window">
       <div className="relative pt-4">
         <span
-          className="absolute top-0 -translate-x-1/2 text-xs font-medium text-[color:var(--clinical-accent)]"
+          className="absolute top-0 -translate-x-1/2 text-xs font-medium text-[color:var(--text-heading)]"
           style={{ left: `${percent}%` }}
         >
           Today
@@ -45,7 +45,7 @@ export function TodayWindowBar({ start, end, today }: { start: string; end: stri
           />
           <span
             aria-hidden="true"
-            className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--clinical-accent)]"
+            className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--text-heading)]"
             style={{ left: `${percent}%` }}
           />
           <span

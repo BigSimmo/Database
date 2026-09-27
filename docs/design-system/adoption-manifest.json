@@ -291,6 +291,7 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/admin/admin-help-page.tsx",
+        "src/components/admin/admin-load-failed.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewals-page.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
@@ -354,6 +355,7 @@
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/admin/admin-help-page.tsx",
+        "src/components/admin/admin-load-failed.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewals-page.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",

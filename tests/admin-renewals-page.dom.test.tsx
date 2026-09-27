@@ -106,6 +106,17 @@ describe("AdminRenewalsPage — the checklist", () => {
     expect(document.body.innerHTML).not.toMatch(/--danger|--warning/);
   });
 
+  it("marks the timeline by shape, not shade: a diamond for a passed date, a triangle otherwise (M8)", () => {
+    renderPage();
+    const timeline = screen.getByTestId("admin-renewals-summary-timeline");
+    const marks = Array.from(timeline.querySelectorAll("[data-mark]")).map((mark) => mark.getAttribute("data-mark"));
+    // WWC's date passed on 3 Sep; the others are still ahead.
+    expect(marks).toContain("diamond");
+    expect(marks).toContain("triangle");
+    expect(timeline.querySelector("svg.lucide-diamond")).not.toBeNull();
+    expect(timeline.querySelector("svg.lucide-triangle")).not.toBeNull();
+  });
+
   it("filters the checklist to one kind", () => {
     renderPage();
     fireEvent.click(screen.getByTestId("admin-renewals-kind-checks"));

@@ -93,6 +93,23 @@ describe("AdminTodayPage", () => {
     expect(screen.queryByTestId("admin-today-needs-you")).toBeNull();
   });
 
+  it("keeps the lead-time drawing off the accent token, which the featured card remaps to Admin's brown (M1)", () => {
+    state.entries = [registration];
+    render(<AdminTodayPage now={NOW} />);
+    const window = screen.getByTestId("admin-today-renew-next-window");
+    expect(window.closest("[data-mode-identity]")).not.toBeNull();
+    expect(window.innerHTML).not.toContain("--clinical-accent");
+  });
+
+  it("words a failed load for Admin, not as 'On Call entries' (M3)", () => {
+    state.isOffline = true;
+    state.loadError = "offline";
+    render(<AdminTodayPage now={NOW} />);
+    const failed = screen.getByTestId("admin-today-load-failed");
+    expect(failed.textContent).toContain("Couldn't load your Admin records");
+    expect(failed.textContent).not.toMatch(/On Call/);
+  });
+
   it("offers sign-in and a way to Help when the reader is signed out, nothing else", () => {
     state.signedOut = true;
     render(<AdminTodayPage now={NOW} />);

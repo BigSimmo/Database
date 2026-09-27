@@ -14,12 +14,13 @@ import { AdminSavedUndoBar } from "@/components/admin/new-job/admin-saved-undo-b
 import { cardSurface } from "@/components/card-recipes";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
-import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { selectNewJobRows } from "@/lib/admin/help-items";
-import { setNewJobStart, setNewJobStepDone, selectNewJobProgress } from "@/lib/admin/new-job-progress";
+import { selectNewJobStart, setNewJobStart, setNewJobStepDone } from "@/lib/admin/new-job-progress";
 import { adminLoadState, selectAdminOwnEntries, selectAdminSharedEntries } from "@/lib/admin/own-entries";
 import { displayPhoneNumber } from "@/lib/admin/phone-display";
 import { formatUpdatedMonth } from "@/lib/admin/renewal-dates";
@@ -93,7 +94,9 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
   const shared = useMemo(() => selectAdminSharedEntries(state), [state]);
   const loadState = adminLoadState(state);
   const rows = useMemo(() => selectNewJobRows({ own, shared }), [own, shared]);
-  const progress = selectNewJobProgress({ own, shared }, now);
+  // The page's own start line: shown for as long as a date is stored (Today
+  // hides it a week in; this page does not), read from the row that holds it.
+  const start = selectNewJobStart({ own, shared });
   const ownLogins = rows.logins.filter((row) => row.source === "you");
   const doneCount = ownLogins.filter((row) => {
     const details = row.entry.details;
@@ -101,7 +104,8 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
   }).length;
   const totalCount = ownLogins.length;
   const leftCount = totalCount - doneCount;
-  const startEntry = ownLogins[0]?.entry ?? null;
+  // Write to the row the date is read from, so a new or cleared date is never ignored.
+  const startEntry = start?.entry ?? ownLogins[0]?.entry ?? null;
 
   function upsertCachedEntry(entry: OnCallEntry) {
     const next = entries.some((existing) => existing.id === entry.id)
@@ -171,7 +175,7 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
         <h1 className="sr-only">New job</h1>
 
         <AdminNewJobStart
-          startsOn={progress?.startsOn ?? null}
+          startsOn={start?.startsOn ?? null}
           now={now}
           canEdit={isAuthenticated && Boolean(startEntry)}
           onSave={(date) => void handleSetStart(date)}
@@ -185,7 +189,10 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
         ) : null}
 
         {loadState === "failed" ? (
-          <OnCallLoadFailed reason={state.loadError} onRetry={retry} testId="admin-new-job-load-failed" />
+          <AdminLoadFailed reason={state.loadError} onRetry={retry} testId="admin-new-job-load-failed" />
+        ) : loadState === "loading" ? (
+          // Design point 11: skeletons while loading, never "Nothing here yet".
+          <ModeModuleSkeleton rows={5} twoLine eyebrow testId="admin-new-job-loading" />
         ) : (
           <>
             <section
@@ -269,7 +276,7 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
                 className={cn(cardSurface, "px-3 py-2 text-sm text-[color:var(--text)]")}
                 data-testid="admin-new-job-leaving-notice"
               >
-                Nothing is saved. Ticks clear when you close this page.
+                When you leave, your records go with you. Open Your Admin records to copy or print them.
               </p>
               <Link
                 href="/admin/new-job/records"

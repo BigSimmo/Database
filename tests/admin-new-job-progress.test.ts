@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { selectNewJobProgress, setNewJobStart, setNewJobStepDone } from "@/lib/admin/new-job-progress";
+import {
+  selectNewJobProgress,
+  selectNewJobStart,
+  setNewJobStart,
+  setNewJobStepDone,
+} from "@/lib/admin/new-job-progress";
 import { updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 import { onCallDetailsSchemaFor } from "@/lib/on-call/entry-model";
 import { onCallEntryFixture } from "./helpers/on-call-entry-fixture";
@@ -73,6 +78,31 @@ describe("selectNewJobProgress", () => {
     const own = [newJobStep("Email account", { jobStartsOn: "2026-10-01", done: true })];
     const result = selectNewJobProgress({ own, shared: [] }, new Date("2026-09-26T01:00:00Z"));
     expect(result).toMatchObject({ done: 1, total: 1, nextStep: null });
+  });
+});
+
+describe("selectNewJobStart (the New job page's own start line, M17)", () => {
+  it("keeps the stored date past Today's seven-day window", () => {
+    const own = [newJobStep("Email account", { jobStartsOn: "2026-09-01" })];
+    expect(selectNewJobProgress({ own, shared: [] }, new Date("2026-10-01T01:00:00Z"))).toBeNull();
+    expect(selectNewJobStart({ own, shared: [] })?.startsOn).toBe("2026-09-01");
+  });
+
+  it("names the row that holds the date, so a new date is written where it will be read", () => {
+    const first = newJobStep("Email account", {}, { lastVerifiedAt: "2026-09-25T00:00:00Z" });
+    const holder = newJobStep(
+      "Payroll setup",
+      { jobStartsOn: "2026-11-02" },
+      { lastVerifiedAt: "2026-09-01T00:00:00Z" },
+    );
+    const start = selectNewJobStart({ own: [first, holder], shared: [] });
+    expect(start?.entry).toBe(holder);
+    expect(start?.startsOn).toBe("2026-11-02");
+  });
+
+  it("is null when no own row carries a date, and never reads a shared row's", () => {
+    const shared = [newJobStep("Guide", { jobStartsOn: "2026-01-01" }, { isOwn: false })];
+    expect(selectNewJobStart({ own: [newJobStep("Email account")], shared })).toBeNull();
   });
 });
 

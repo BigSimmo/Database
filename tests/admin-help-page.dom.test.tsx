@@ -101,6 +101,22 @@ describe("AdminHelpPage", () => {
     expect(within(crisis).getAllByText(/^Updated [A-Z][a-z]{2} \d{4}$/).length).toBeGreaterThan(0);
   });
 
+  it("puts the crisis lines ahead of the Find in Help box and Add your own (M4)", () => {
+    render(<AdminHelpPage now={NOW} />);
+    const crisis = screen.getByTestId("admin-help-crisis");
+    for (const later of [screen.getByTestId("admin-help-filter"), screen.getByTestId("admin-help-add")]) {
+      expect(crisis.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it("shows a skeleton, not 'Nothing here yet', in a section still loading (M2)", () => {
+    Object.assign(entryState, { loading: true, entries: [] });
+    render(<AdminHelpPage now={NOW} />);
+    expect(screen.getByTestId("admin-help-guides-loading")).toBeTruthy();
+    expect(screen.queryByText(/^Nothing here yet/)).toBeNull();
+    expect(screen.getByTestId("admin-help-crisis")).toBeTruthy();
+  });
+
   it("files own and shared rows into On site and Guides, each with its entry anchor", () => {
     render(<AdminHelpPage now={NOW} />);
     const onSite = screen.getByRole("region", { name: "On site" });

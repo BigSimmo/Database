@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Renewals | Admin | PsychSift",
   // The same two halves the On Call page's description carried: what it is, and what it is not.
   description:
-    "The requirements you keep current — registration, indemnity, credentialing, training — grouped by what happens if they lapse. Your own recorded dates, never a check with the issuing body.",
+    "A checklist of the statewide requirements — registration, checks, health, training — with your own recorded dates, soonest first, plus your personal renewals. Your own recorded dates, never a check with the issuing body.",
 };
 
 export default function AdminRenewalsRoute() {

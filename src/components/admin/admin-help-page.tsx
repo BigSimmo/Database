@@ -12,8 +12,9 @@ import { ADMIN_HELP_SECTIONS } from "@/components/admin/admin-page-sections";
 import { AdminShowAll } from "@/components/admin/admin-show-all";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
-import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
@@ -35,7 +36,7 @@ const TAB_BY_SECTION_ID: Record<string, AdminHelpTab> = {
 };
 
 const EMPTY_MESSAGE: Record<AdminHelpTab, string> = {
-  support: "Crisis lines are above. Statewide support services appear here once each is checked against its source.",
+  support: "Crisis lines are above. Statewide support services will appear here, each with a link to its source.",
   guides: "Nothing here yet. Add your own, or your service's appear here once it is set up in Admin.",
   contacts: "Nothing here yet. Add your own, or your service's appear here once it is set up in Admin.",
   "on-site": "Nothing here yet. Add your own, or your service's appear here once it is set up in Admin.",
@@ -108,6 +109,9 @@ export function AdminHelpPage({ now: nowProp }: { now?: Date } = {}) {
       <InformationPageShell testId="admin-help-main">
         <h1 className="sr-only">Help</h1>
 
+        {/* Crisis lines first, above the filter and every tab (design; ui-lane-rules). */}
+        <AdminCrisisLines />
+
         <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
           <div data-testid="admin-help-filter" className="min-w-0">
             <TextField
@@ -131,10 +135,8 @@ export function AdminHelpPage({ now: nowProp }: { now?: Date } = {}) {
           ) : null}
         </div>
 
-        <AdminCrisisLines />
-
         {loadState === "failed" ? (
-          <OnCallLoadFailed reason={state.loadError} onRetry={retry} testId="admin-help-load-failed" />
+          <AdminLoadFailed reason={state.loadError} onRetry={retry} testId="admin-help-load-failed" />
         ) : (
           ADMIN_HELP_SECTIONS.map((section) => {
             const tab = TAB_BY_SECTION_ID[section.id];
@@ -152,7 +154,10 @@ export function AdminHelpPage({ now: nowProp }: { now?: Date } = {}) {
                     {AFTER_HOURS_LABEL}
                   </p>
                 ) : null}
-                {rows.length === 0 ? (
+                {rows.length === 0 && loadState === "loading" ? (
+                  // Design point 11: a loading section is a skeleton, never an empty-looking one.
+                  <ModeModuleSkeleton rows={3} testId={`admin-help-${tab}-loading`} />
+                ) : rows.length === 0 ? (
                   <p className={cn(textMuted, "text-sm")}>{EMPTY_MESSAGE[tab]}</p>
                 ) : (
                   <AdminShowAll

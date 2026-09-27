@@ -180,11 +180,11 @@ const routeDescriptions: Record<string, string> = {
   "/psychiatry":
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
   "/admin":
-    "Admin Today: renewals to start now (inside their lead time, blocking first), what is coming up in the next 90 days, things with no date recorded, and what is next, with a first-visit setup sheet for registration and indemnity dates. A dashboard, not a redirect to the shared search home — Admin has no search results surface.",
+    "Admin Today: the next renewal to act on, what needs you (passed dates and what is not recorded yet), how many statewide requirements you have recorded, and your new job's progress, with a first-visit setup sheet for registration and indemnity dates. A dashboard, not a redirect to the shared search home — Admin has no search results surface.",
   "/admin/renewals":
-    "The requirements a doctor keeps current for themselves, grouped by what lapsing costs, with a Renewed sheet, a one-off calendar file per renewal and a plain-text copy for medical workforce. Recorded dates only — never a check with the issuing body.",
+    "A checklist of the statewide requirements crossed with the doctor's own recorded dates (soonest first, no end date, not recorded yet, not for this job), a Personal tab for their own renewals, a Renewed sheet, calendar files and a plain-text copy for medical workforce. Recorded dates only — never a check with the issuing body.",
   "/admin/new-job":
-    "Starting and leaving a job: the service's before-start and leaving orientation items with your own ticks, logins and system access, workforce and payroll contacts, and a readable page of your own Admin records to copy or print.",
+    "Starting and leaving a job: your start date, logins and system access with your own ticks, workforce and payroll contacts, and a readable page of your own Admin records to copy or print.",
   // Admin update 1 retired these three paths. Each keeps a page that only redirects, as a
   // backstop behind the proxy's 307, which carries the query string.
   "/my-work": "Compatibility redirect to `/admin`: My Work became Admin; the query string is carried across.",

@@ -129,6 +129,21 @@ describe("AdminNewJobPage", () => {
     );
   });
 
+  it("keeps showing a stored start date a month after it (Today's week-long window does not apply here, M17)", () => {
+    const started = { ...loginOwn, details: { category: "Logins", jobStartsOn: "2026-08-26" } } as OnCallEntry;
+    Object.assign(entryState, { entries: [started, loginShared, jobContact] });
+    render(<AdminNewJobPage now={NOW} />);
+    expect(screen.getByTestId("admin-new-job-start-line").textContent).toContain("Starts Wed 26 Aug 2026");
+  });
+
+  it("shows a skeleton while loading, never 'Nothing here yet' (M2)", () => {
+    Object.assign(entryState, { loading: true, entries: [] });
+    render(<AdminNewJobPage now={NOW} />);
+    expect(screen.getByTestId("admin-new-job-loading")).toBeTruthy();
+    expect(screen.queryByText(/^Nothing here yet/)).toBeNull();
+    expect(screen.queryByText("Nothing recorded yet.")).toBeNull();
+  });
+
   it("shows the load-failed state, not empty rows, when entries failed to load", () => {
     Object.assign(entryState, { isOffline: true, loadError: "offline" });
     render(<AdminNewJobPage now={NOW} />);
@@ -136,11 +151,12 @@ describe("AdminNewJobPage", () => {
     expect(screen.queryByText(loginOwn.title)).toBeNull();
   });
 
-  it("says its Leaving list is not saved, and ends with a link to Your Admin records", () => {
+  it("says the reader's records go with them, and ends with a link to Your Admin records (M16)", () => {
     render(<AdminNewJobPage now={NOW} />);
-    expect(screen.getByTestId("admin-new-job-leaving-notice")).toHaveTextContent(
-      "Nothing is saved. Ticks clear when you close this page.",
-    );
+    // There is no Leaving list on this page, so it must not talk about ticks it does not show.
+    const notice = screen.getByTestId("admin-new-job-leaving-notice");
+    expect(notice).toHaveTextContent("When you leave, your records go with you.");
+    expect(notice.textContent).not.toMatch(/tick/i);
     const link = screen.getByTestId("admin-new-job-records-link");
     expect(link.getAttribute("href")).toBe("/admin/new-job/records");
   });

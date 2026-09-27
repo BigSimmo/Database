@@ -216,4 +216,14 @@ describe("AdminShowAll", () => {
     expect(document.getElementById("row-10")).toBeTruthy();
     window.history.replaceState(null, "", "#");
   });
+
+  it("still opens once the anchored row arrives after the first render (M5)", () => {
+    window.history.replaceState(null, "", "#row-10");
+    const props = { renderItem: renderRow, anchorIdOf: (row: string) => row, label: "Rows", testId: "rows" };
+    const { rerender } = render(<AdminShowAll items={[] as string[]} {...props} />);
+    expect(document.getElementById("row-10")).toBeNull();
+    rerender(<AdminShowAll items={rows} {...props} />);
+    expect(document.getElementById("row-10")).toBeTruthy();
+    window.history.replaceState(null, "", "#");
+  });
 });

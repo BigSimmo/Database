@@ -14,7 +14,7 @@ import { TodayRequirementsModule } from "@/components/admin/today/today-requirem
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
 import { Button } from "@/components/ui/button";
 import { adminLoadState, selectAdminOwnEntries, selectAdminSharedEntries } from "@/lib/admin/own-entries";
 import { formatDateEcho } from "@/lib/admin/renewal-dates";
@@ -79,7 +79,7 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
       ) : null}
 
       {load === "failed" ? (
-        <OnCallLoadFailed reason={state.loadError} onRetry={state.retry} testId="admin-today-load-failed" />
+        <AdminLoadFailed reason={state.loadError} onRetry={state.retry} testId="admin-today-load-failed" />
       ) : null}
 
       {load === "signed-out" ? (

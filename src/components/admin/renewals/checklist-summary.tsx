@@ -1,3 +1,5 @@
+import { Diamond, Triangle } from "lucide-react";
+
 import { modeModuleSurface } from "@/components/mode-kit/recipes";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
@@ -50,6 +52,7 @@ function ChecklistTimeline({
     >
       {items.map((row) => {
         const passed = row.expiresOn < today;
+        const Mark = passed ? Diamond : Triangle;
         const column = columnOf(row.expiresOn);
         return (
           <span key={row.item.id} className="contents">
@@ -60,12 +63,14 @@ function ChecklistTimeline({
                 className="absolute inset-y-0 left-0 w-px bg-[color:var(--clinical-accent)]"
                 style={{ left: "0%" }}
               />
-              <span
+              {/* Shape, not shade (M8): a triangle still open to renew, a
+                  diamond already passed — the same shapes the list's status
+                  words carry, so the mark never depends on colour alone. */}
+              <Mark
                 aria-hidden="true"
-                className={cn(
-                  "absolute top-1/2 size-1.5 -translate-y-1/2 rounded-full",
-                  passed ? "bg-[color:var(--text)]" : "bg-[color:var(--text-muted)]",
-                )}
+                data-mark={passed ? "diamond" : "triangle"}
+                strokeWidth={1.75}
+                className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 fill-current text-[color:var(--text-muted)]"
                 style={{ left: `${(column / 12) * 100}%` }}
               />
             </span>

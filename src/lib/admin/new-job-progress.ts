@@ -38,6 +38,36 @@ function ownNewJobSteps(entries: { own: readonly OnCallEntry[]; shared: readonly
     .map((row) => row.entry);
 }
 
+/**
+ * The owner's stored job start date and the own row that holds it, with no
+ * display window: the New job page shows it for as long as it is stored,
+ * while Today's `selectNewJobProgress` hides it a week after the start.
+ *
+ * The most recently *updated* own row that carries a start date, not the most
+ * recently listed one: `lastVerifiedAt` is the only per-row timestamp
+ * `OnCallEntry` carries. A row that was never verified sorts behind one that
+ * was, and among equally-unverified rows the earliest in listed order wins,
+ * so the result never depends on object identity or iteration quirks. A new
+ * date is written to `entry`, so the row written is the row read.
+ */
+export function selectNewJobStart(entries: {
+  own: readonly OnCallEntry[];
+  shared: readonly OnCallEntry[];
+}): { readonly startsOn: string; readonly entry: OnCallEntry } | null {
+  let found: { startsOn: string; entry: OnCallEntry } | null = null;
+  let latestVerifiedAt = Number.NEGATIVE_INFINITY;
+  for (const entry of ownNewJobSteps(entries)) {
+    const date = jobStartsOnOf(entry);
+    if (date === undefined) continue;
+    const verifiedAt = entry.lastVerifiedAt ? Date.parse(entry.lastVerifiedAt) : Number.NEGATIVE_INFINITY;
+    if (found === null || verifiedAt > latestVerifiedAt) {
+      found = { startsOn: date, entry };
+      latestVerifiedAt = verifiedAt;
+    }
+  }
+  return found;
+}
+
 export interface NewJobProgress {
   /** The start date, `YYYY-MM-DD`, exactly as the owner typed it. */
   readonly startsOn: string;
@@ -64,23 +94,9 @@ export function selectNewJobProgress(
 ): NewJobProgress | null {
   const steps = ownNewJobSteps(entries);
 
-  // The most recently *updated* own row that carries a start date, not the most
-  // recently listed one: `lastVerifiedAt` is the only per-row timestamp
-  // `OnCallEntry` carries. A row that was never verified sorts behind one that
-  // was, and among equally-unverified rows the earliest in listed order wins,
-  // so the result never depends on object identity or iteration quirks.
-  let startsOn: string | undefined;
-  let latestVerifiedAt = Number.NEGATIVE_INFINITY;
-  for (const entry of steps) {
-    const date = jobStartsOnOf(entry);
-    if (date === undefined) continue;
-    const verifiedAt = entry.lastVerifiedAt ? Date.parse(entry.lastVerifiedAt) : Number.NEGATIVE_INFINITY;
-    if (startsOn === undefined || verifiedAt > latestVerifiedAt) {
-      startsOn = date;
-      latestVerifiedAt = verifiedAt;
-    }
-  }
-  if (startsOn === undefined) return null;
+  const start = selectNewJobStart(entries);
+  if (!start) return null;
+  const { startsOn } = start;
 
   const startDay = utcDay(startsOn);
   const nowDay = utcDay(perthCalendarDate(now));
