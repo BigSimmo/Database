@@ -35,7 +35,7 @@ export default async function CmeNewEntryPageRoute({
   if (data.state !== "ready") {
     return (
       <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-        <CmeStateNotice state={data.state} year={data.year} />
+        <CmeStateNotice state={data.state} year={data.year} heading="Log an activity" />
       </main>
     );
   }

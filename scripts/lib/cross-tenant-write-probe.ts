@@ -137,10 +137,12 @@ export async function probeOnCallServiceWriteIsolation(args: {
   tokenA: string;
   tokenB: string;
   userIdB: string;
+  /** User B's email: invitations are bound to the invitee's email. */
+  emailB: string;
   marker: string;
   register: (created: WriteProbeCreated) => void;
 }) {
-  const { request, tokenA, tokenB, userIdB, marker, register } = args;
+  const { request, tokenA, tokenB, userIdB, emailB, marker, register } = args;
   const created = await request(
     tokenA,
     "/api/on-call/services",
@@ -156,7 +158,7 @@ export async function probeOnCallServiceWriteIsolation(args: {
   await request(tokenA, servicePath, {}, [200]);
   await request(tokenB, servicePath, {}, [403, 404]);
   for (const body of [
-    { action: "invitation.create", role: "admin", expiresInDays: 1 },
+    { action: "invitation.create", role: "admin", expiresInDays: 1, invitedEmail: emailB },
     { action: "site.create", name: "cross tenant site must fail" },
     { action: "member.update", memberId: userIdB, role: "admin", clinicalReviewer: false },
   ]) {
@@ -169,7 +171,7 @@ export async function probeOnCallServiceWriteIsolation(args: {
   const invitation = await request(
     tokenA,
     servicePath,
-    { method: "POST", body: { action: "invitation.create", role: "member", expiresInDays: 1 } },
+    { method: "POST", body: { action: "invitation.create", role: "member", expiresInDays: 1, invitedEmail: emailB } },
     [200],
   );
   const code = stringField(invitation, "code", "On Call invitation");
@@ -182,7 +184,7 @@ export async function probeOnCallServiceWriteIsolation(args: {
   await request(
     tokenB,
     servicePath,
-    { method: "POST", body: { action: "invitation.create", role: "admin", expiresInDays: 1 } },
+    { method: "POST", body: { action: "invitation.create", role: "admin", expiresInDays: 1, invitedEmail: emailB } },
     [403],
   );
   await request(

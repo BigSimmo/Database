@@ -146,6 +146,13 @@ describe("clinical hazard controls contract", () => {
       expect(errors).toContain("at most 45 days");
     });
 
+    it("rejects two exceptions for the same path, which the review-date scope could not tell apart", () => {
+      const { changed, firstCitedPath } = drifted();
+      changed.driftExceptions = [exceptionFor(firstCitedPath), exceptionFor(firstCitedPath)];
+      const errors = validateClinicalHazardControls(changed, { checkGit: true, now: NOW }).join("\n");
+      expect(errors).toContain(`driftExceptions[1] (${firstCitedPath}): duplicate drift exception path`);
+    });
+
     it("drops the exceptions when the register is re-sealed, since nothing has drifted any more", () => {
       const { changed, firstCitedPath } = drifted();
       changed.driftExceptions = [exceptionFor(firstCitedPath)];
@@ -315,7 +322,27 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
     expect(errors.join("\n")).not.toContain("CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT");
   });
 
-  it("still blocks every lapsed entry when the pull request touches the register itself", () => {
+  it("blocks on a register touch only for the lapsed entry the change edits (owner decision 2026-09-26)", () => {
+    const [edited, ...others] = manifest.hazards;
+    const head = { ...manifest, hazards: [{ ...edited, residualRisk: `${edited.residualRisk} (edited)` }, ...others] };
+    const copies: Record<string, string> = { base: JSON.stringify(manifest), head: JSON.stringify(head) };
+    const { errors, warnings } = evaluateClinicalHazardControls(manifest, {
+      checkGit,
+      now: AFTER_EVERY_EXPIRY,
+      reviewDateScope: {
+        ...prScope([UNRELATED, REGISTER]),
+        mergeBase: "base",
+        read: (revision: string) => copies[revision] ?? null,
+      },
+    });
+    expect(expired(errors)).toEqual([
+      `${edited.id}: review has expired (blocking: this change touches this entry in ${REGISTER})`,
+    ]);
+    expect(expired(warnings)).toHaveLength(lapsedCount - 1);
+    expect(warnings.some((warning) => warning.startsWith("manifest: review has expired. Not blocking"))).toBe(true);
+  });
+
+  it("still blocks every lapsed entry when the register is touched and the entries cannot be compared", () => {
     const { errors, warnings } = evaluateClinicalHazardControls(manifest, {
       checkGit,
       now: AFTER_EVERY_EXPIRY,
@@ -437,7 +464,14 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
   describe("the command-line check", () => {
     function run(env: Record<string, string>, now: Date, args: string[] = []) {
       const childEnv: NodeJS.ProcessEnv = { ...process.env };
-      for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_ACTIONS"]) {
+      for (const key of [
+        "REVIEW_DATE_MODE",
+        "BASE_SHA",
+        "HEAD_SHA",
+        "GITHUB_EVENT_NAME",
+        "GITHUB_REF",
+        "GITHUB_ACTIONS",
+      ]) {
         delete childEnv[key];
       }
       return spawnSync(
@@ -479,23 +513,20 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
       );
     });
 
-    it.skipIf(!checkGit)(
-      "refuses pull-request mode outside a pull request, or without a base, and stays strict",
-      () => {
-        for (const env of [
-          { ...PR_ENV, GITHUB_EVENT_NAME: "push" },
-          { ...PR_ENV, GITHUB_EVENT_NAME: "" },
-          { ...PR_ENV, BASE_SHA: "" },
-          { ...PR_ENV, BASE_SHA: "0".repeat(40) },
-          { ...PR_ENV, BASE_SHA: "--output=/dev/null" },
-          { ...PR_ENV, REVIEW_DATE_MODE: "PR" },
-        ]) {
-          const refused = run(env, AFTER_EVERY_EXPIRY);
-          expect(refused.status).toBe(1);
-          expect(refused.stderr).toContain("CLINICAL_HAZARD_CONTROLS_REVIEW_DATE_MODE: REVIEW_DATE_MODE=");
-          expect(refused.stderr).toContain("- manifest: review has expired\n");
-        }
-      },
-    );
+    it.skipIf(!checkGit)("refuses pull-request mode on a non-main push, or without a base, and stays strict", () => {
+      for (const env of [
+        { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/topic" },
+        { ...PR_ENV, GITHUB_EVENT_NAME: "" },
+        { ...PR_ENV, BASE_SHA: "" },
+        { ...PR_ENV, BASE_SHA: "0".repeat(40) },
+        { ...PR_ENV, BASE_SHA: "--output=/dev/null" },
+        { ...PR_ENV, REVIEW_DATE_MODE: "PR" },
+      ]) {
+        const refused = run(env, AFTER_EVERY_EXPIRY);
+        expect(refused.status).toBe(1);
+        expect(refused.stderr).toContain("CLINICAL_HAZARD_CONTROLS_REVIEW_DATE_MODE: REVIEW_DATE_MODE=");
+        expect(refused.stderr).toContain("- manifest: review has expired\n");
+      }
+    });
   });
 });

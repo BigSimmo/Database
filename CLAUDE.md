@@ -76,7 +76,7 @@ Production never silently falls back — missing config fails loudly.
 
 ## Repository layout and the two main flows
 
-The `src/` tree, the 19 app modes, and the two flows that matter — answer (read path) and
+The `src/` tree, the app modes, and the two flows that matter — answer (read path) and
 ingestion (write path) — are mapped in
 [`docs/codebase-index.md`](docs/codebase-index.md), under "Orientation summary" and the detailed
 sections that follow it. Start there for any real task.
@@ -144,7 +144,8 @@ Prefer these over improvising — they encode traps this repo has already hit:
   `gates` (pick and prove the right gate), `handoff` (commit → verify → push → PR → ledger),
   `prlanded` (verify a squash-merge actually landed), `issues` (`/issues` cross-session
   memory), `run-pr` (open-PR sweep), `sources` (find, capture, score and index a clinical
-  source — see `docs/source-acquisition-protocol.md`), `prompt`.
+  source — see `docs/source-acquisition-protocol.md`), `ledger` (extract this session's outstanding work into
+  the task ledger), `prompt`.
 - **Review subagents** (`.claude/agents/`): `rag-retrieval-reviewer`,
   `supabase-schema-guardian`, `ingestion-worker-reviewer`, `clinical-governance-reviewer`,
   `frontend-ui-reviewer`, `personal-practice-reviewer`, `verification-router`, `repo-auditor`,

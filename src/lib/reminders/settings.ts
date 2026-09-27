@@ -22,12 +22,19 @@ import {
 // account preferences that load on every page never pull in this alarm logic.
 export * from "@/lib/reminders/settings-model";
 
-const LEAD_MINUTES: Record<Exclude<ReminderLeadTime, "off">, number> = {
+const LEAD_MINUTES: Record<Exclude<ReminderLeadTime, "off" | "evening-before">, number> = {
   "at-time": 0,
   "1h": 60,
   "1d": 24 * 60,
   "1w": 7 * 24 * 60,
 };
+
+/** 20:00 (or any other Perth wall-clock time) on a Perth calendar date, as a UTC instant. */
+function perthWallMillis(dateKey: string, hours: number, minutes: number): number | null {
+  const day = dateKeyToUtcMillis(dateKey);
+  if (day === null) return null;
+  return day + (hours * 60 + minutes) * MINUTE_MS - OFFSET_MS;
+}
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
@@ -111,6 +118,10 @@ export function alarmFor(event: CalendarEvent, settings: ReminderSettings): Date
   if (!event.reminderType) return null;
   const lead = settings.types[event.reminderType].calendarAlert;
   if (lead === "off") return null;
+  if (lead === "evening-before") {
+    const base = perthWallMillis(addDays(event.date, -1), 20, 0);
+    return base === null ? null : new Date(applyQuietHours(base, settings.quietHours));
+  }
   const base = alertBaseMillis(event);
   if (base === null) return null;
   return new Date(applyQuietHours(base - LEAD_MINUTES[lead] * MINUTE_MS, settings.quietHours));

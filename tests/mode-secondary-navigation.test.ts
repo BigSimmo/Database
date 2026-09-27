@@ -5,11 +5,15 @@ import { isInformationPage } from "@/lib/information-pages";
 import {
   MODE_NAV_ADOPTED_MODES,
   activeModeSecondaryNavigationId,
+  groupModeSecondaryNavigationEntries,
   isModeSecondaryNavigationRoute,
+  modeSecondaryNavigationEntries,
   modeSecondaryNavigationHref,
   modeSecondaryNavigationRegistry,
   routedModeSecondaryNavigationCount,
+  visibleModeSecondaryNavigationEntries,
 } from "@/lib/mode-secondary-navigation";
+import { ON_CALL_WHOS_ON_ENABLED } from "@/lib/on-call/feature-flags";
 
 /** Nine modes intentionally register no destinations at all — see `emptyRegistryModes`. */
 const expectedLabels: Record<AppModeId, string[]> = {
@@ -29,27 +33,23 @@ const expectedLabels: Record<AppModeId, string[]> = {
   factsheets: ["Search", "Topics"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
   sources: ["Catalogue", "Topics", "Publishers", "Method"],
+  // Six shift pages, two tools, then the pages moving out to their own modes
+  // (kit 1.7). "Teaching" and "Admin" stay label-only: their ids, route
+  // segments and check constraints stay "education" and "logistics".
   "on-call": [
-    "Tonight",
-    "Contacts",
+    "Now",
+    "Who's on",
+    "Call",
     "Playbook",
-    "Referrals",
-    "Orientation",
-    // "Teaching" is the label; the id, route segment and check constraint all
-    // stay "education".
-    "Teaching",
-    // "Admin" is likewise label-only: the id, route segment and check
-    // constraint all stay "logistics". Compliance is not a section at all —
-    // it is a view over those same stored rows, discriminated by
-    // `details.kind`, so it costs no migration and appears here without one.
-    "Admin",
-    "Compliance",
-    "Who's who",
-    // The invited multi-clinician service handbook, not the private On Call
-    // entries above it — a separate store (`on_call_services` and friends),
-    // reached at `/on-call/service`.
-    "Service",
+    "Refer",
+    "Find",
     "Pocket card",
+    "Manage service",
+    "Compliance",
+    "Admin",
+    "Teaching",
+    "Who's who",
+    "Orientation checklists",
   ],
   cme: [
     "This year",
@@ -65,6 +65,18 @@ const expectedLabels: Record<AppModeId, string[]> = {
   ],
   psychiatry: [],
   "my-work": [],
+  roster: ["Today", "Shifts", "Settings"],
+  "first-nations": [
+    "Bedside",
+    "Contacts",
+    "Talking",
+    "Family",
+    "Mental health",
+    "On the ward",
+    "Common mistakes",
+    "Going home",
+    "End of life",
+  ],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -88,6 +100,8 @@ const cleanLandingPath: Record<AppModeId, string> = {
   cme: "/cme",
   psychiatry: "/psychiatry",
   "my-work": "/my-work",
+  roster: "/roster",
+  "first-nations": "/first-nations",
 };
 
 /**
@@ -121,9 +135,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 20 modes with the approved destinations and no Home item", () => {
+  it("covers all 22 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(20);
+    expect(appModeIds).toHaveLength(22);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -483,6 +497,70 @@ describe("mode secondary navigation registry", () => {
     expect(MODE_NAV_ADOPTED_MODES).not.toContain("on-call");
   });
 
+  it("groups On Call into six shift pages, two tools and the pages moving out", () => {
+    const { main, tools, more } = groupModeSecondaryNavigationEntries(modeSecondaryNavigationRegistry["on-call"]);
+    expect(main.map((entry) => entry.label)).toEqual(["Now", "Who's on", "Call", "Playbook", "Refer", "Find"]);
+    expect(tools.map((entry) => entry.label)).toEqual(["Pocket card", "Manage service"]);
+    expect(more.map((entry) => entry.label)).toEqual([
+      "Compliance",
+      "Admin",
+      "Teaching",
+      "Who's who",
+      "Orientation checklists",
+    ]);
+  });
+
+  it("leaves every other mode ungrouped", () => {
+    for (const modeId of appModeIds.filter((id) => id !== "on-call")) {
+      const { tools, more } = groupModeSecondaryNavigationEntries(modeSecondaryNavigationEntries(modeId));
+      expect([...tools, ...more], modeId).toEqual([]);
+    }
+  });
+
+  it("hides Who's on while its flag is off, and shows Manage service to editors only", () => {
+    const entries = modeSecondaryNavigationRegistry["on-call"];
+    const reader = visibleModeSecondaryNavigationEntries(entries, { isEditor: false }).map((entry) => entry.id);
+    const editor = visibleModeSecondaryNavigationEntries(entries, { isEditor: true }).map((entry) => entry.id);
+    expect(ON_CALL_WHOS_ON_ENABLED).toBe(false);
+    expect(reader).not.toContain("whoson");
+    expect(editor).not.toContain("whoson");
+    expect(reader).not.toContain("service");
+    expect(editor).toContain("service");
+    // Every other mode is untouched by the filter.
+    for (const modeId of appModeIds.filter((id) => id !== "on-call")) {
+      expect(
+        visibleModeSecondaryNavigationEntries(modeSecondaryNavigationEntries(modeId), { isEditor: false }),
+      ).toEqual(modeSecondaryNavigationEntries(modeId));
+    }
+  });
+
+  it("names the right On Call page in the pill, including the two editors and the picker", () => {
+    const cases: Record<string, string | null> = {
+      "/on-call": "now",
+      "/on-call/whos-on": "whoson",
+      "/on-call/call": "call",
+      "/on-call/contacts": "call",
+      "/on-call/playbook": "playbook",
+      "/on-call/now": "playbook",
+      "/on-call/refer": "refer",
+      "/on-call/referrals": "refer",
+      "/on-call/find": "find",
+      "/on-call/card": "card",
+      "/on-call/service": "service",
+      "/on-call/compliance": "compliance",
+      "/on-call/logistics": "logistics",
+      "/on-call/education": "teaching",
+      "/on-call/who-is-who": "whoswho",
+      "/on-call/orientation": "orientation",
+      "/on-call/check": null,
+      "/on-call/first-night": null,
+      "/on-call/whos-on/x": null,
+    };
+    for (const [path, id] of Object.entries(cases)) {
+      expect(activeModeSecondaryNavigationId("on-call", path), path).toBe(id);
+    }
+  });
+
   it("does not mark Find/Search current on record routes that match no destination", () => {
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/with-anxious-distress")).toBeNull();
     expect(activeModeSecondaryNavigationId("formulation", "/formulation/avoidance")).toBeNull();
@@ -626,5 +704,26 @@ describe("differentials mode secondary navigation active destinations", () => {
         hasSubmittedSearch: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe("Roster mode secondary navigation active destinations", () => {
+  it("marks Today, Shifts and Settings, and nothing else", () => {
+    expect(activeModeSecondaryNavigationId("roster", "/roster")).toBe("today");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/shifts")).toBe("shifts");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/settings")).toBe("settings");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/calendar")).toBeNull();
+  });
+
+  it("opens the mode bar on Shifts and Settings, but not on the Today home", () => {
+    expect(
+      isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster/shifts", hasSubmittedSearch: false }),
+    ).toBe(true);
+    expect(
+      isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster/settings", hasSubmittedSearch: false }),
+    ).toBe(true);
+    expect(isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster", hasSubmittedSearch: false })).toBe(
+      false,
+    );
   });
 });

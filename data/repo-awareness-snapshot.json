@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-26"
+    "committed_at": "2026-09-27"
   },
   "routes": {
     "modes": [
@@ -60,6 +60,12 @@
         "dev_only": false
       },
       {
+        "id": "first-nations",
+        "label": "First Nations",
+        "home": "/first-nations",
+        "dev_only": false
+      },
+      {
         "id": "forms",
         "label": "Forms",
         "home": "/?mode=forms",
@@ -93,6 +99,12 @@
         "id": "psychiatry",
         "label": "Psychiatry",
         "home": "/psychiatry",
+        "dev_only": false
+      },
+      {
+        "id": "roster",
+        "label": "Roster",
+        "home": "/roster",
         "dev_only": false
       },
       {
@@ -165,6 +177,11 @@
       {
         "path": "/my-work",
         "file": "src/app/(search-app)/my-work/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/shifts",
+        "file": "src/app/(search-app)/roster/shifts/page.tsx",
         "area": "product"
       },
       {
@@ -323,6 +340,11 @@
         "area": "product"
       },
       {
+        "path": "/mockups/development/settings",
+        "file": "src/app/mockups/development/settings/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/on-call/now",
         "file": "src/app/(search-app)/on-call/now/page.tsx",
         "area": "product"
@@ -413,9 +435,19 @@
         "area": "mockup"
       },
       {
+        "path": "/first-nations/mental-health",
+        "file": "src/app/(search-app)/first-nations/mental-health/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/therapy-scenario-popup-live",
         "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/roster/settings",
+        "file": "src/app/(search-app)/roster/settings/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/tools-workflow-board",
@@ -453,14 +485,14 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/development/review-state",
-        "file": "src/app/mockups/development/review-state/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/roster",
+        "file": "src/app/(search-app)/roster/page.tsx",
+        "area": "product"
       },
       {
         "path": "/cme/customise",
@@ -485,6 +517,11 @@
       {
         "path": "/dictionary/topics/[slug]",
         "file": "src/app/(search-app)/dictionary/topics/[slug]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/call",
+        "file": "src/app/(search-app)/on-call/call/page.tsx",
         "area": "product"
       },
       {
@@ -518,6 +555,16 @@
         "area": "mockup"
       },
       {
+        "path": "/first-nations/end-of-life",
+        "file": "src/app/(search-app)/first-nations/end-of-life/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/on-the-ward",
+        "file": "src/app/(search-app)/first-nations/on-the-ward/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/reference/colour-coding",
         "file": "src/app/reference/colour-coding/page.tsx",
         "area": "product"
@@ -530,11 +577,6 @@
       {
         "path": "/mockups/dictionary-browse-header",
         "file": "src/app/mockups/dictionary-browse-header/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/development/documentation",
-        "file": "src/app/mockups/development/documentation/page.tsx",
         "area": "mockup"
       },
       {
@@ -638,6 +680,11 @@
         "area": "product"
       },
       {
+        "path": "/first-nations",
+        "file": "src/app/(search-app)/first-nations/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/differentials/diagnoses",
         "file": "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "area": "product"
@@ -651,6 +698,16 @@
         "path": "/mockups/source-rail-desktop-scroll",
         "file": "src/app/mockups/source-rail-desktop-scroll/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/first-nations/card",
+        "file": "src/app/(search-app)/first-nations/card/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/talking",
+        "file": "src/app/(search-app)/first-nations/talking/page.tsx",
+        "area": "product"
       },
       {
         "path": "/therapy-compass/pathways",
@@ -711,6 +768,11 @@
         "path": "/mockups/care-plan/patients/[patientId]/safety-plan/print",
         "file": "src/app/mockups/care-plan/patients/[patientId]/safety-plan/print/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/first-nations/mistakes",
+        "file": "src/app/(search-app)/first-nations/mistakes/page.tsx",
+        "area": "product"
       },
       {
         "path": "/cme",
@@ -953,6 +1015,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/refer",
+        "file": "src/app/(search-app)/on-call/refer/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/psychiatry",
         "file": "src/app/(search-app)/psychiatry/page.tsx",
         "area": "product"
@@ -965,6 +1032,11 @@
       {
         "path": "/specifiers/[slug]",
         "file": "src/app/(search-app)/specifiers/[slug]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/family",
+        "file": "src/app/(search-app)/first-nations/family/page.tsx",
         "area": "product"
       },
       {
@@ -998,11 +1070,6 @@
         "area": "product"
       },
       {
-        "path": "/mockups/development/test-health",
-        "file": "src/app/mockups/development/test-health/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/development/clinical-trust",
         "file": "src/app/mockups/development/clinical-trust/page.tsx",
         "area": "mockup"
@@ -1023,6 +1090,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/whos-on",
+        "file": "src/app/(search-app)/on-call/whos-on/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/[sourceId]",
         "file": "src/app/(search-app)/sources/[sourceId]/page.tsx",
         "area": "product"
@@ -1036,11 +1108,6 @@
         "path": "/mockups/calculators-bedside-sheet",
         "file": "src/app/mockups/calculators-bedside-sheet/page.tsx",
         "area": "mockup"
-      },
-      {
-        "path": "/on-call/calendar",
-        "file": "src/app/(search-app)/on-call/calendar/page.tsx",
-        "area": "product"
       },
       {
         "path": "/mockups/tools-search-mode",
@@ -1063,14 +1130,24 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/shifts",
-        "file": "src/app/(search-app)/on-call/shifts/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/mockups/phone-mode-sheet-yes",
         "file": "src/app/mockups/phone-mode-sheet-yes/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/first-nations/going-home",
+        "file": "src/app/(search-app)/first-nations/going-home/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/calendar",
+        "file": "src/app/(search-app)/roster/calendar/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/find",
+        "file": "src/app/(search-app)/on-call/find/page.tsx",
+        "area": "product"
       },
       {
         "path": "/sources/topics",
@@ -1113,11 +1190,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/development/routes",
-        "file": "src/app/mockups/development/routes/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/sources/method",
         "file": "src/app/(search-app)/sources/method/page.tsx",
         "area": "product"
@@ -1140,6 +1212,11 @@
       {
         "path": "/on-call/logistics",
         "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/contacts",
+        "file": "src/app/(search-app)/first-nations/contacts/page.tsx",
         "area": "product"
       },
       {
@@ -1284,12 +1361,20 @@
         "file": "src/app/api/health/ready/route.ts"
       },
       {
+        "path": "/api/roster/links/refresh",
+        "file": "src/app/api/roster/links/refresh/route.ts"
+      },
+      {
         "path": "/api/differentials",
         "file": "src/app/api/differentials/route.ts"
       },
       {
         "path": "/api/on-call/demo-content",
         "file": "src/app/api/on-call/demo-content/route.ts"
+      },
+      {
+        "path": "/api/roster/extra-time",
+        "file": "src/app/api/roster/extra-time/route.ts"
       },
       {
         "path": "/api/health",
@@ -1306,6 +1391,10 @@
       {
         "path": "/api/eval-cases",
         "file": "src/app/api/eval-cases/route.ts"
+      },
+      {
+        "path": "/api/roster/shifts/imports/[id]",
+        "file": "src/app/api/roster/shifts/imports/[id]/route.ts"
       },
       {
         "path": "/api/cme/plan",
@@ -1384,6 +1473,14 @@
         "file": "src/app/api/registry/records/route.ts"
       },
       {
+        "path": "/api/roster/workplaces",
+        "file": "src/app/api/roster/workplaces/route.ts"
+      },
+      {
+        "path": "/api/roster/read-file",
+        "file": "src/app/api/roster/read-file/route.ts"
+      },
+      {
         "path": "/api/calendar/feed/[token]",
         "file": "src/app/api/calendar/feed/[token]/route.ts"
       },
@@ -1404,6 +1501,10 @@
         "file": "src/app/api/cme/export/route.ts"
       },
       {
+        "path": "/api/roster/settings",
+        "file": "src/app/api/roster/settings/route.ts"
+      },
+      {
         "path": "/api/account/preferences",
         "file": "src/app/api/account/preferences/route.ts"
       },
@@ -1418,6 +1519,10 @@
       {
         "path": "/api/documents/[id]/reindex",
         "file": "src/app/api/documents/[id]/reindex/route.ts"
+      },
+      {
+        "path": "/api/roster/links",
+        "file": "src/app/api/roster/links/route.ts"
       },
       {
         "path": "/api/cme/missed/[id]",
@@ -1524,6 +1629,10 @@
         "file": "src/app/api/search/route.ts"
       },
       {
+        "path": "/api/roster/shifts",
+        "file": "src/app/api/roster/shifts/route.ts"
+      },
+      {
         "path": "/api/on-call/entries/[id]",
         "file": "src/app/api/on-call/entries/[id]/route.ts"
       },
@@ -1544,6 +1653,10 @@
         "file": "src/app/api/on-call/services/route.ts"
       },
       {
+        "path": "/api/roster/shifts/manual",
+        "file": "src/app/api/roster/shifts/manual/route.ts"
+      },
+      {
         "path": "/api/documents/images/batch",
         "file": "src/app/api/documents/images/batch/route.ts"
       },
@@ -1562,6 +1675,10 @@
       {
         "path": "/api/cme/drafts/[id]",
         "file": "src/app/api/cme/drafts/[id]/route.ts"
+      },
+      {
+        "path": "/api/roster/shifts/manual/[seriesId]",
+        "file": "src/app/api/roster/shifts/manual/[seriesId]/route.ts"
       },
       {
         "path": "/api/ingestion/quality",
@@ -1659,7 +1776,7 @@
       {
         "path": "docs/prompts/sources-mode-extraction.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mode-aware-clinical-ask-local-handover.md",
@@ -1679,7 +1796,7 @@
       {
         "path": "docs/on-call/design/2026-09-19-review-and-proposals.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/corpus-health-panel-handover.md",
@@ -1764,6 +1881,11 @@
       {
         "path": "docs/archive/operator-decisions-2026-07-06.md",
         "section": "archive",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-overview.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -1874,7 +1996,7 @@
       {
         "path": "docs/product/2026-09-19-second-recommendations.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/source-review-priority-2026-07-02.md",
@@ -1889,7 +2011,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-25-wa-psychiatry-build.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-26-answer-page-direction-b.md",
@@ -1917,6 +2039,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.cloud.md",
         "section": "superpowers",
         "catalogued": true
@@ -1939,7 +2066,7 @@
       {
         "path": "docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
@@ -2022,6 +2149,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-lapsed-review-date-blocks-only-its-own-edit.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/archive/search-rag-phase-5-source-review-ux.md",
         "section": "archive",
         "catalogued": true
@@ -2034,7 +2166,7 @@
       {
         "path": "docs/design-system/sweep-fix-visible-live-regions.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/FIX-GUIDE.md",
@@ -2064,7 +2196,7 @@
       {
         "path": "docs/DOCS-SYSTEM.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/reindex-runbook.md",
@@ -2099,7 +2231,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-04-on-call-mode.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/bundle-budget-production-rebaseline-2026-08-18.md",
@@ -2119,7 +2251,7 @@
       {
         "path": "docs/on-call/design/mockup-conformance.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mockup-retirement-policy.md",
@@ -2244,7 +2376,7 @@
       {
         "path": "docs/site-content-sync-runbook.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
@@ -2270,6 +2402,11 @@
         "path": "docs/design-system/COMPONENTS.md",
         "section": "design-system",
         "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-first-nations-mode-completion.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/launch-operator-runbook.md",
@@ -2509,7 +2646,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-20-cme-mode-phase-1.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ci-operations.md",
@@ -2542,6 +2679,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/rag-improvement/231-diagnosis-2026-08-22.md",
         "section": "rag-improvement",
         "catalogued": true
@@ -2564,7 +2706,7 @@
       {
         "path": "docs/governance/privacy-completion-drafts-2026-09-13.md",
         "section": "governance",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-01-overdue-sources-inside-evidence-gaps.md",
@@ -2589,7 +2731,7 @@
       {
         "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/governance/privacy-closeout-2026-09-01.md",
@@ -2599,7 +2741,7 @@
       {
         "path": "docs/cme/design/cme-design-decisions.md",
         "section": "cme",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-25-safety-chip-urgent-words-and-drug-passages.md",
@@ -2659,7 +2801,7 @@
       {
         "path": "docs/governance/rag-adaptive-continuation-2026-09-13.md",
         "section": "governance",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/09-ui-primitives-recipes.md",
@@ -2679,7 +2821,7 @@
       {
         "path": "docs/on-call/design/on-call-hub-build-prompt.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/patient-facing-sheets/README.md",
@@ -2774,7 +2916,7 @@
       {
         "path": "docs/site-content-publication-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
@@ -2992,6 +3134,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-26-first-nations-mode.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
         "section": "evidence",
         "catalogued": true
@@ -3129,7 +3276,7 @@
       {
         "path": "docs/production-readiness.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-26-doppler-is-not-used.md",
@@ -3257,6 +3404,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-a-database.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/README.md",
         "section": "root",
         "catalogued": true
@@ -3324,7 +3476,7 @@
       {
         "path": "docs/design-system/drift-measurement-2026-09-02.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/governance-incident-runbooks.md",
@@ -3339,7 +3491,7 @@
       {
         "path": "docs/pr-batch-runner.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/branch-cleanup-guide.md",
@@ -3395,6 +3547,11 @@
         "path": "docs/agents/bug-hunter-shortcut.md",
         "section": "agents",
         "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-26-first-nations-mode-design.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/phone-chrome-physical-acceptance.md",
@@ -3490,6 +3647,11 @@
         "path": "docs/decisions/2026-08-25-answer-provenance-line.md",
         "section": "decisions",
         "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-build-brief.md",
+        "section": "superpowers",
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-09-26-register-wa-service-issuers.md",
@@ -3632,6 +3794,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-status.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/agents/pull-request-workflow.md",
         "section": "agents",
         "catalogued": true
@@ -3674,7 +3841,7 @@
       {
         "path": "docs/supabase-remediation-closeout-notes.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/clinical-governance.md",
@@ -3914,7 +4081,7 @@
       {
         "path": "docs/audit/2026-09-20-visual-ux-audit.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-25-care-plan-shorter-confidential-footer.md",
@@ -4022,6 +4189,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-db-agreement.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/decisions/2026-08-22-accept-24-hour-recovery-point.md",
         "section": "decisions",
         "catalogued": false
@@ -4069,7 +4241,7 @@
       {
         "path": "docs/decisions/README.md",
         "section": "decisions",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/database-remediation-coordination.md",

@@ -53,6 +53,11 @@ describe("warmCanonicalCatalogueSearchCaches", () => {
 
     expect(catalogueSearchWarmKinds).toEqual(["form", "service", "medication"]);
     expect(catalogueListWarmKinds).toEqual(["differential", "presentation"]);
+    expect(
+      readCanonicalSiteContentRecords.mock.calls.find(([input]) => input.kind === "medication")?.[0],
+    ).toMatchObject({
+      renderOnly: true,
+    });
     expect(order).toEqual([
       "start:form",
       "end:form",

@@ -4,17 +4,19 @@ import { ShieldAlert } from "lucide-react";
 
 import { DeveloperHubNavHeader } from "@/components/developer-area/developer-hub-nav-header";
 import { EnvironmentStrip } from "@/components/developer-area/hub/environment-strip";
+import { OwnerTodaySection } from "@/components/developer-area/hub/owner-today-section";
 import { PanelCard } from "@/components/developer-area/hub/panel-card";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { resolveClinicalAnswerFailures } from "@/lib/developer-area/clinical-answer-failures";
 import { resolveHubEnvironmentFacts } from "@/lib/developer-area/environment-facts";
 import { panelsInGroup, type HubPanelGroup } from "@/lib/developer-area/hub-panels";
 import { loadLedgerSnapshot } from "@/lib/developer-area/ledger-snapshot";
+import { resolveOwnerToday } from "@/lib/developer-area/owner-today";
 import { resolveDeploymentCommitSha } from "@/lib/observability/sentry-release";
 
 export const metadata: Metadata = {
-  title: "Developer · PsychSift",
-  description: "In-progress surfaces and repository state, reachable only to a signed-in administrator account.",
+  title: "Owner panel · PsychSift",
+  description: "The owner's tools: what is waiting on you, settings, uploads, sign-offs and the task list.",
 };
 
 /**
@@ -55,12 +57,13 @@ export default async function DeveloperHubPage() {
   const snapshot = loadLedgerSnapshot();
   const environment = await resolveHubEnvironmentFacts();
   const clinicalAnswerFailures = resolveClinicalAnswerFailures(snapshot);
+  const today = resolveOwnerToday(snapshot);
 
   return (
     <>
       <DeveloperHubNavHeader />
       <main className="mx-auto grid w-full max-w-[64rem] gap-6 px-4 py-8 sm:px-6" data-testid="development-index">
-        <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">Developer hub</h1>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Owner panel</h1>
 
         {/*
          * Carried over from the pre-hub index unchanged. This page links to
@@ -70,11 +73,16 @@ export default async function DeveloperHubPage() {
         <p className="flex items-start gap-2 rounded-xl border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-4 py-3 text-sm leading-6 text-[color:var(--text)]">
           <ShieldAlert aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--warning)]" />
           <span>
-            <strong className="font-extrabold text-[color:var(--text-heading)]">Synthetic data only.</strong> No
-            patient, message, schedule or team record on these surfaces is real, and nothing here is validated clinical
-            decision support.
+            <strong className="font-semibold text-[color:var(--text-heading)]">Synthetic data only.</strong> No patient,
+            message, schedule or team record on these surfaces is real, and nothing here is validated clinical decision
+            support.
           </span>
         </p>
+
+        <section id="developer-hub-today" className={inPageAnchor}>
+          <h2 className="mb-3 text-lg font-semibold text-[color:var(--text-heading)]">Today</h2>
+          <OwnerTodaySection today={today} />
+        </section>
 
         <section id="developer-hub-environment" className={inPageAnchor}>
           <h2 className="sr-only">Environment</h2>
@@ -151,7 +159,7 @@ export default async function DeveloperHubPage() {
 
           return (
             <section key={group.id} id={group.anchor} className={inPageAnchor}>
-              <h2 className="mb-3 text-lg font-extrabold text-[color:var(--text-heading)]">{group.label}</h2>
+              <h2 className="mb-3 text-lg font-semibold text-[color:var(--text-heading)]">{group.label}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {panels.map((panel) => (
                   <PanelCard key={panel.id} panel={panel} />

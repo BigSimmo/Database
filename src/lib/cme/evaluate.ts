@@ -29,8 +29,9 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function hoursWord(hours: number): string {
-  return `${round2(hours)} hour${round2(hours) === 1 ? "" : "s"} short`;
+/** "3 h to go": a plain status, never a verdict. The space before "h" is non-breaking. */
+function hoursToGo(hours: number): string {
+  return `${round2(hours)} h to go`;
 }
 
 export function totalAllocatedHours(entries: readonly CmeEntry[]): number {
@@ -66,7 +67,7 @@ export function evaluateRequirement(requirement: CmeRequirement, entries: readon
         requirementId: requirement.id,
         met,
         progress: { value, target: spec.minimumHours },
-        summary: met ? "Met" : hoursWord(spec.minimumHours - value),
+        summary: met ? "Reached" : hoursToGo(spec.minimumHours - value),
       };
     }
     case "hours-in-category": {
@@ -76,7 +77,7 @@ export function evaluateRequirement(requirement: CmeRequirement, entries: readon
         requirementId: requirement.id,
         met,
         progress: { value, target: spec.minimumHours },
-        summary: met ? "Met" : hoursWord(spec.minimumHours - value),
+        summary: met ? "Reached" : hoursToGo(spec.minimumHours - value),
       };
     }
     case "hours-across-categories": {
@@ -90,10 +91,10 @@ export function evaluateRequirement(requirement: CmeRequirement, entries: readon
       const met = combinedShort === 0 && floorShort.length === 0;
       // Report the bigger gap, because that is the one that decides what to do next.
       const summary = met
-        ? "Met"
+        ? "Reached"
         : combinedShort >= (floorShort[0]?.short ?? 0)
-          ? hoursWord(combinedShort)
-          : `${hoursWord(floorShort[0]!.short).replace(" short", "")} short in ${cmeCategoryLabels[floorShort[0]!.category].toLowerCase()}`;
+          ? hoursToGo(combinedShort)
+          : `${hoursToGo(floorShort[0]!.short)} in ${cmeCategoryLabels[floorShort[0]!.category].toLowerCase()}`;
       return { requirementId: requirement.id, met, progress: { value, target: spec.minimumHours }, summary };
     }
     case "activity-count": {
@@ -107,7 +108,7 @@ export function evaluateRequirement(requirement: CmeRequirement, entries: readon
         met,
         progress: { value: filled.length, target: spec.buckets.length },
         summary: met
-          ? "Met"
+          ? "Reached"
           : empty.length === 1
             ? `${empty[0]} has nothing against it yet`
             : `${empty.length} of ${spec.buckets.length} have nothing against them yet`,

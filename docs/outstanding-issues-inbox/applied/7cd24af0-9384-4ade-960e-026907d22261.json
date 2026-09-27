@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7cd24af0-9384-4ade-960e-026907d22261",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Playwright: one click uses force: true, bypassing actionability checks",
+    "detail": "tests/ui-care-plan-mockup.spec.ts:1867, inside the optional CARE_PLAN_CAPTURE_EVIDENCE evidence-capture test, so risk is low. force can hide a genuinely unclickable control. Next action: remove force and wait for the control to be actionable, or document why force is required.",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVVWFAHSHSY4T4XW2FB2K"
+  }
+}

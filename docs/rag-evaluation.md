@@ -114,7 +114,7 @@ The Clinical RAG Improvement Programme coordinates enhancements to answer qualit
   - **Track A (Answer Quality):** Sequenced strictly consecutively (A1 fallback diagnosis `#231` -> A2 composition menu + A3 moderate length -> A4 follow-up suggestions) due to shared files and evidence dependencies.
   - **Track B (Safety & Eval Infrastructure):** Executed in parallel work streams (B0 adversarial fixtures, B1 telemetry, B2 offline adversarial harness, B3–B4 Docling lab/shadow, B5 Ragas, B6 reranker, B7 DSPy).
 - **Single-Packet Session Boundary:** Each worker session implements exactly one packet from `docs/rag-improvement/HANDOVER.md`, opens a PR with the required evidence, updates its row in the status table, appends a review record to `docs/branch-review-ledger.md`, and stops at the open PR. Worker sessions never self-merge or dispatch unapproved provider-backed canaries.
-- **Canary Pair Protocol:** Any behavioral change on protected RAG ranking/answer surfaces requires a pre-merge baseline canary run on default `main` and a post-merge dispatch (`gh api repos/BigSimmo/Database/dispatches -f event_type=eval-canary`), compared via `npm run eval:retrieval:compare`. Regressions require immediate single-commit revert.
+- **Canary Pair Protocol:** Any behavioral change on protected RAG ranking/answer surfaces requires a pre-merge baseline canary run on default `main` and a post-merge dispatch (`gh api repos/BigSimmo/PsychSift/dispatches -f event_type=eval-canary`), compared via `npm run eval:retrieval:compare`. Regressions require immediate single-commit revert.
 
 ---
 

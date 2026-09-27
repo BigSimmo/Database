@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d0170877-f5a1-4994-95ff-f48e94bef6e9",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Most server-side Supabase calls have no deadline, so a stalled database request can hang for minutes on the single app replica",
+    "detail": "The service-role client (src/lib/supabase/admin.ts:16) is created without a global fetch timeout, and only 14 non-test files in src/ apply .abortSignal() to queries (the readiness probe in src/lib/supabase/health.ts does). Everything else relies on undici's default header/body timeouts (about 300 s). That includes the durable rate-limit RPCs every answer passes through (src/lib/api-rate-limit.ts:300, 360, 424). Search is bounded only by the client disconnecting at 45 s; other routes have no bound. Next action: add a default per-request deadline for server Supabase calls (for example a global fetch wrapper with AbortSignal.timeout, overridable for known long operations such as ingestion and exports), classify the expiry as unavailable, and cover it with a unit test. Check the ingestion worker's long jobs are exempt before rollout.",
+    "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+    "issueUlid": "01M3GND2TK1DYJJQ741HPX5VME"
+  }
+}

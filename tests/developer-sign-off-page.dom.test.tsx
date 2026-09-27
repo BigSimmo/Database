@@ -19,8 +19,7 @@ vi.mock("next/navigation", () => ({
 
 // Pagination and family selection are real ?family=…&page=N navigation, not
 // client state, so the assertions read the href a click would follow. A plain
-// <a> avoids requiring an App Router context jsdom cannot provide — the same
-// substitution tests/developer-review-state-page.dom.test.tsx makes.
+// <a> avoids requiring an App Router context jsdom cannot provide.
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
     <a href={href} {...rest}>
