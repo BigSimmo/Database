@@ -33,6 +33,7 @@ import { smartSearchContentTerms } from "@/lib/smart-search-intent";
  * to act on it is worse than one that never raised the symptom.
  */
 export const FACTSHEET_CRISIS_CONTACTS = [
+  { name: "13YARN", number: "13 92 76" },
   { name: "Beyond Blue", number: "1300 22 4636" },
   { name: "Lifeline", number: "13 11 14" },
 ] as const;
@@ -198,6 +199,7 @@ type TherapyContent = {
   intro: string;
   steps: Array<{ n: string; h: string; t: string }>;
   expect: Array<{ k: string; v: string }>;
+  support?: string;
 };
 
 type ProcedureContent = {

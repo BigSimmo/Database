@@ -413,3 +413,20 @@ describe("canonical records that must not merge into a legacy entry", () => {
     }
   });
 });
+
+describe("general crisis queries pin 000, MHERL, and Lifeline without demographic/location constraints", () => {
+  it.each(["crisis", "suicide", "suicidal", "mental health emergency", "self harm"])(
+    "pins Emergency services, MHERL, and Lifeline for %j",
+    (query) => {
+      const intents = detectServiceUrgentIntents(query);
+      expect(intents).toEqual(["emergency", "adult_metro_crisis"]);
+
+      const resultTitles = titles(query, 8);
+      expect(resultTitles.slice(0, 3)).toEqual([
+        "Emergency services",
+        "Mental Health Emergency Response Line (MHERL)",
+        "Lifeline WA",
+      ]);
+    },
+  );
+});
