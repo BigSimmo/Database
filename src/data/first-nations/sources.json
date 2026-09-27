@@ -15,7 +15,7 @@
       "publisher": "13YARN",
       "url": "https://www.13yarn.org.au/",
       "aboriginalLed": true,
-      "checkedAt": "2026-09-25"
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "mherl",
@@ -23,7 +23,7 @@
       "publisher": "East Metropolitan Health Service (WA Health)",
       "url": "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL",
       "aboriginalLed": false,
-      "checkedAt": "2026-08-20"
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "lifeline",
@@ -47,7 +47,7 @@
       "publisher": "Aboriginal Interpreting WA Aboriginal Corporation",
       "url": "https://aiwaac.org.au/",
       "aboriginalLed": true,
-      "checkedAt": "2026-09-26"
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "ahpra-cultural-safety",
@@ -71,7 +71,7 @@
       "publisher": "Australian Government Department of Health, Disability and Ageing (PBS)",
       "url": "https://www.pbs.gov.au/publication/factsheets/closing-the-gap-pbs-co-payment-measure",
       "aboriginalLed": false,
-      "checkedAt": "2026-09-26"
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "wa-pats",
@@ -79,7 +79,7 @@
       "publisher": "WA Country Health Service",
       "url": "https://www.wacountry.health.wa.gov.au/Our-patients/Patient-Assisted-Travel-Scheme-PATS",
       "aboriginalLed": false,
-      "checkedAt": "2026-09-26"
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "ahcwa",
@@ -111,7 +111,7 @@
       "publisher": "WA Health",
       "url": "https://www.health.wa.gov.au/~/media/Corp/Policy-Frameworks/System-governance-risk-and-assurance/Language-Services-Policy/Supporting/Language-Services-Guidelines.pdf",
       "aboriginalLed": false,
-      "checkedAt": "2026-09-25"
+      "checkedAt": "2026-09-27"
     },
     {
       "id": "rurallink",
@@ -119,7 +119,127 @@
       "publisher": "East Metropolitan Health Service (WA Health)",
       "url": "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink",
       "aboriginalLed": false,
-      "checkedAt": "2026-08-20"
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "clinical-yarning",
+      "title": "Yarn with me: applying clinical yarning (Lin, Green and Bessarab, 2016)",
+      "publisher": "CSIRO Publishing",
+      "url": "https://doi.org/10.1071/PY16051",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "wa-consent",
+      "title": "Consent to Treatment Policy MP 0175/22",
+      "publisher": "WA Health",
+      "url": "https://healthywa.health.wa.gov.au/sitecore/content/Corporate/Home/About-us/Policy-frameworks/Clinical-Governance-Safety-and-Quality/Mandatory-requirements/Consent-to-Treatment-Policy",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "wa-identity",
+      "title": "Are you Aboriginal or Torres Strait Islander?",
+      "publisher": "Child and Adolescent Health Service, WA Health",
+      "url": "https://cahs.health.wa.gov.au/For-families-and-carers/Are-you-Aboriginal-or-Torres-Strait-Islander",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "wa-coroner",
+      "title": "Information for next of kin",
+      "publisher": "Coroner's Court of Western Australia",
+      "url": "https://www.coronerscourt.wa.gov.au/I/information_for_next_of_kin.aspx",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "ahcwa-members",
+      "title": "AHCWA member services",
+      "publisher": "Aboriginal Health Council of Western Australia",
+      "url": "https://www.ahcwa.org.au/member-services/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "ahcwa-materials",
+      "title": "AHCWA publications",
+      "publisher": "Aboriginal Health Council of Western Australia",
+      "url": "https://www.ahcwa.org.au/publications/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "aiwa-languages",
+      "title": "Languages available through AIWA",
+      "publisher": "Aboriginal Interpreting WA",
+      "url": "https://aiwaac.org.au/languages/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "wachs-regions",
+      "title": "WA Country Health Service regional directories",
+      "publisher": "WA Country Health Service",
+      "url": "https://wacountry.health.wa.gov.au/Our-services",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "wa-family-safety",
+      "title": "Family and domestic violence resources for health staff",
+      "publisher": "WA Health",
+      "url": "https://www.health.wa.gov.au/en/Articles/F_I/Family-and-domestic-violence-guideline-reference-manual-policy-education-and-training",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "brams",
+      "title": "Broome Regional Aboriginal Medical Service",
+      "publisher": "Broome Regional Aboriginal Medical Service",
+      "url": "https://www.brams.org.au/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "wirraka-maya",
+      "title": "Wirraka Maya Health Service",
+      "publisher": "Wirraka Maya Health Service",
+      "url": "https://www.wmhsac.com/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "grams",
+      "title": "Geraldton Regional Aboriginal Medical Service",
+      "publisher": "Geraldton Regional Aboriginal Medical Service",
+      "url": "https://www.grams.asn.au/contact-us/contact-geraldton.aspx",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "bega",
+      "title": "Bega Garnbirringu Health Service",
+      "publisher": "Bega Garnbirringu Health Service",
+      "url": "https://bega.org.au/contact-us/contact-bega/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "derbarl",
+      "title": "Derbarl Yerrigan Health Service",
+      "publisher": "Derbarl Yerrigan Health Service",
+      "url": "https://www.dyhs.org.au/blog/east-perth-saturday-clinic/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
+    },
+    {
+      "id": "swams",
+      "title": "South West Aboriginal Medical Service",
+      "publisher": "South West Aboriginal Medical Service",
+      "url": "https://www.swams.com.au/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-27"
     }
   ]
 }

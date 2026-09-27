@@ -1,4 +1,5 @@
 // Server component: an inner First Nations page, one titled module after another under its tabs.
+import Link from "next/link";
 import { ExampleLine, type Training } from "@/components/first-nations/bedside-home";
 import { moduleHasContent, ModuleBody } from "@/components/first-nations/blocks";
 import { CrisisBlock, CrisisStrip } from "@/components/first-nations/crisis";
@@ -55,6 +56,14 @@ export function InnerPageView({
             {section.modules.map((m) => (
               <ModuleBody key={m.id} module={m} model={model} mapSource={mapSource} />
             ))}
+            {model.id === "contacts" && section.id === "contacts-community" ? (
+              <Link
+                className="inline-flex min-h-12 items-center px-3 text-sm-minus underline"
+                href="/services/search?specialist_groups=aboriginal_torres_strait_islander"
+              >
+                Find Aboriginal and Torres Strait Islander services
+              </Link>
+            ) : null}
           </section>
         ))}
         <CrisisBlock />
