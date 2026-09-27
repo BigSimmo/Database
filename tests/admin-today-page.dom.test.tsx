@@ -5,7 +5,7 @@
 // only once a start date is set, "New job progress". Nothing else renders
 // here: no timeline, no Pay, no Help block, no ask box.
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
@@ -73,6 +73,21 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("AdminTodayPage", () => {
+  it("refreshes the displayed date when left open overnight", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-09-26T15:59:00Z"));
+      state.entries = [registration];
+      render(<AdminTodayPage />);
+      const before = screen.getByTestId("admin-today-greeting").querySelector("p")?.textContent;
+      act(() => vi.advanceTimersByTime(9 * 60 * 60 * 1000));
+      expect(screen.getByTestId("admin-today-greeting").querySelector("p")?.textContent).not.toBe(before);
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
   it("opens with a greeting and the date, no summary number, and no tabs", () => {
     state.entries = [registration, indemnity];
     render(<AdminTodayPage now={NOW} />);

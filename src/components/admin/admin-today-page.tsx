@@ -2,7 +2,7 @@
 
 import { LogIn } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useAccountData } from "@/components/account-data-provider";
@@ -25,6 +25,7 @@ import { perthHour } from "@/lib/clock-time";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { cacheOnCallEntries, readCachedOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { msUntilNextOnCallLocalDay } from "@/lib/on-call/local-date";
 
 /**
  * Today (mode id `my-work`), the owner-approved order (plan-update-1): a
@@ -41,8 +42,13 @@ function greetingFor(now: Date): string {
 export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
   const state = useOnCallEntries();
   const { isAuthenticated } = useAccountData();
-  const mountedAt = useMemo(() => new Date(), []);
-  const now = nowProp ?? mountedAt;
+  const [tick, setTick] = useState(() => new Date());
+  const now = nowProp ?? tick;
+  useEffect(() => {
+    if (nowProp) return;
+    const timer = setTimeout(() => setTick(new Date()), msUntilNextOnCallLocalDay(now));
+    return () => clearTimeout(timer);
+  }, [nowProp, now]);
   const today = perthCalendarDate(now);
   const load = adminLoadState(state);
 
