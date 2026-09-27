@@ -1025,7 +1025,8 @@
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
-        "src/components/on-call/on-call-referrals-section.tsx"
+        "src/components/on-call/on-call-referrals-section.tsx",
+        "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-view.tsx",
