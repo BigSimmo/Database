@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5dc3dfcc-8892-4879-b08f-8c9ed29ea260",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Medication pages show the maximum dose three times because the same content renders in three sections",
+    "detail": "Found in the 2026-09-27 phone-first design review (PR #3145 session). The same max-dose text appears in three sections of a medication page, which lengthens the page on a phone and risks the copies drifting apart. Clinical content decision for the owner: which section should own the max dose, and whether the others link to it. Not changed by that PR.",
+    "source": "Claude Code session 2026-09-27 phone-first design review (PR #3145)",
+    "issueUlid": "01M3HJC054J7RV8Q35G7MVVB3Y"
+  }
+}
