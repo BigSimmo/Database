@@ -34,6 +34,10 @@ const srcRoot = path.join(repoRoot, "src");
 /** Intentionally-unlinked static page routes, each with the reason it is exempt. */
 const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
+    "/roster/calendar",
+    "Legacy /on-call/calendar redirect target for existing bookmarks; Roster Settings owns current calendar subscription, so no in-app navigation links this compatibility page.",
+  ],
+  [
     "/documents/source",
     "Legacy compatibility redirect target reached by external/legacy deep links, not in-app navigation (frontend-architecture.md).",
   ],
@@ -48,6 +52,18 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
     "/teaching/c/complete",
     "Sign-in return target for a doctor who scanned a check-in QR while signed out. Reached only through the emailed sign-in link's `next` (teaching-scan-landing.tsx), never from in-app navigation.",
+  ],
+  [
+    "/my-work",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
+  ],
+  [
+    "/on-call/compliance",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
+  ],
+  [
+    "/on-call/logistics",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
   ],
 ]);
 

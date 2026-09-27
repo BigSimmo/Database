@@ -1164,6 +1164,36 @@ body {
   }
 }
 
+/* Admin (mode id `my-work`): the existing forms brown as its identity.
+   The explicit values also let the design token contract check contrast. */
+[data-mode-identity="my-work"] {
+  --mode-identity: #7d5a2c;
+  --mode-identity-soft: #f8f4ec;
+  --mode-identity-border: #e8dbc4;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="my-work"] {
+  --mode-identity: #d6bd8a;
+  --mode-identity-soft: #2b2317;
+  --mode-identity-border: #4d4028;
+  --mode-identity-contrast: #1f1810;
+}
+
+@media (forced-colors: active) {
+  [data-mode-identity="my-work"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
 /* Roster: violet. The design record's identity colour (Roster Release 1 plan,
    Global Constraints). Light ~6.9:1 and dark ~7.2:1 against their own contrast
    token, both cleared as a FILL (the pill's circle) as well as text, which is

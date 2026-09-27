@@ -37,8 +37,8 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // Psychiatry is a landing page for the modes it gathers; each of those keeps
   // its own domains, so the hub contributes none of its own.
   psychiatry: [],
-  // My Work is a landing page over pages that keep their own addresses; it
-  // contributes no search domains either.
+  // Admin (formerly My Work) keeps the owner's own records and sends nothing to
+  // search; it contributes no search domains either.
   "my-work": [],
   // Roster reads the owner's own shifts, already in the browser, so it
   // contributes no cross-entity universal-search domain.

@@ -97,8 +97,8 @@ export function isInformationPage(pathname: string): boolean {
   // surface, so its home must not wear a composer. The sections it links to
   // keep their own routes and their own composers.
   if (pathname === "/psychiatry") return true;
-  // The My Work dashboard, for the same reason.
-  if (pathname === "/my-work") return true;
+  // Every Admin page owns its in-page navigation and has no search composer.
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
   // Every Roster route, the mode home included, for On Call's reason exactly:
   // the mode declares no search surface, so it has no composer on any page.
   // Its pages also own their in-page header (`InPageNavHeader`, the

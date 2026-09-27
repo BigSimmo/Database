@@ -90,5 +90,7 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // shape). Named exactly: the four top pages use the pages sheet, and the scan
   // landing mounts no header. Every Teaching route is `isInformationPage`.
   if (/^\/teaching\/session\/[^/]+(?:\/check-in)?$/.test(pathname)) return true;
+  // Admin subpages mount AdminNavHeader; Admin Today has no page-owned header.
+  if (pathname.startsWith("/admin/")) return true;
   return false;
 }

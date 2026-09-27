@@ -134,8 +134,8 @@ const expectedPresentations = [
   },
   {
     modeId: "my-work",
-    title: "My Work",
-    subtitle: "Paperwork, deadlines and checks, with what is due first.",
+    title: "Admin",
+    subtitle: "The paperwork around hospital work, with what to start first.",
     iconClass: "lucide-clipboard-list",
   },
   {

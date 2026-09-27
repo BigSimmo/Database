@@ -618,28 +618,25 @@ export const appModeDefinitions = [
   },
   {
     id: "my-work",
-    label: "My Work",
-    description: "Paperwork, deadlines and checks: admin, compliance, your shifts and reminders",
-    href: "/my-work",
+    label: "Admin",
+    description: "The paperwork around hospital work: renewals, starting and leaving a job, and where to get help",
+    href: "/admin",
     search: {
-      // My Work is a landing page that gathers pages which keep their own
-      // addresses (mostly On Call's admin pages); it has no catalogue of its
-      // own, so it borrows the benign "tools" command kind, as Psychiatry does.
+      // Admin has no catalogue of its own; it borrows the benign "tools" kind, as Psychiatry does.
       kind: "tools",
-      placeholder: "Open a My Work page...",
-      inputAriaLabel: "Open a My Work page",
-      submitIdleLabel: "My Work",
-      submitBusyLabel: "My Work",
-      submitAriaLabel: "Open a My Work page",
-      emptyTitle: "Choose a My Work page",
-      readyTitle: "Admin, compliance, checks and shifts",
+      placeholder: "Open an Admin page...",
+      inputAriaLabel: "Open an Admin page",
+      submitIdleLabel: "Admin",
+      submitBusyLabel: "Admin",
+      submitAriaLabel: "Open an Admin page",
+      emptyTitle: "Choose an Admin page",
+      readyTitle: "Today, renewals, new job and help",
       progressLabel: "Opening the page.",
       resultKind: "tools",
-      resultHeading: "My Work",
-      // No results page. `/my-work` is a dashboard: what is due next, then
-      // links to the pages it gathers.
+      resultHeading: "Admin",
+      // No results page. `/admin` is Today: what to start, what is coming up, what is next.
       resultsSurface: "none",
-      statusLabel: "My Work",
+      statusLabel: "Admin",
       nextStep: "Open a page",
       badgeLabel: null,
     },

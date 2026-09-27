@@ -58,6 +58,8 @@ export type CalendarEvent = {
    * updates it rather than keeping it: it is written with STATUS:CANCELLED and never with an alarm.
    */
   readonly status?: "cancelled";
+  /** Further absolute alarm instants (ISO, UTC), one VALARM each. Set only by Admin's one-off renewal file. */
+  readonly alarmsAt?: readonly string[];
 };
 
 /**

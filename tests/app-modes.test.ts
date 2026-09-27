@@ -478,8 +478,8 @@ describe("app mode search contract", () => {
       // Psychiatry, for the same reason: a dashboard of section links with no
       // search route, reached through `standaloneModeHomeHref`.
       psychiatry: "/psychiatry?q=clozapine&run=1",
-      // My Work, likewise: a dashboard with no search route.
-      "my-work": "/my-work?q=clozapine&run=1",
+      // Admin, likewise: Today has no search route.
+      "my-work": "/admin?q=clozapine&run=1",
       // Roster, for On Call's and CME's reason exactly: no search route, no
       // composer, `resultsSurface` is "none", and `standaloneModeHomeHref`
       // navigates the mode pill to `/roster` before a query can be typed.

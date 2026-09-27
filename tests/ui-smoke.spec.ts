@@ -4554,7 +4554,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "My Work" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Admin" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "First Nations" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "CPD and teaching", exact: true })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
@@ -4562,8 +4562,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Roster\b/ })).toBeAttached();
 
     await modeSearch.fill("d");
-    await expect(modeDialog.getByRole("status")).toHaveText("6 matches");
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(6);
+    await expect(modeDialog.getByRole("status")).toHaveText("7 matches");
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(7);
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeAttached();
@@ -4571,6 +4571,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     // "CPD" carries a "d" too (the mode's label was "CME" before the RANZCP rename).
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Admin\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
     await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(22);
 

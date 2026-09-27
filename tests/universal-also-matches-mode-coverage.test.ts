@@ -76,8 +76,8 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   teaching: { file: "src/components/teaching/teaching-today.tsx", mounts: false, because: NO_RESULTS_SURFACE },
   // Psychiatry, for the same reason: its home is a dashboard of links.
   psychiatry: { file: "src/components/psychiatry/psychiatry-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
-  // My Work, likewise: a dashboard of what is due and links.
-  "my-work": { file: "src/components/my-work/my-work-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // Admin (mode id `my-work`), likewise: Today is a dashboard of what is due and links.
+  "my-work": { file: "src/components/admin/admin-today-page.tsx", mounts: false, because: NO_RESULTS_SURFACE },
   // Roster, for On Call's reason exactly: no result list, resultsSurface "none".
   // The file named here is Today, the dashboard the reader lands on at `/roster`.
   roster: { file: "src/components/roster/roster-today-page.tsx", mounts: false, because: NO_RESULTS_SURFACE },
