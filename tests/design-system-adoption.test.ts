@@ -1483,7 +1483,10 @@ describe("design-system adoption manifest", () => {
     // 108 -> 113 on 2026-09-27: Teaching's session page and its check-in code, the scan landing and its
     // sign-in return (`/teaching/c/[token]`, `/teaching/c/complete`), and the chrome-free shared screen
     // `/teaching/display/[token]` in the `(display)` route group.
-    expect(manifest.routeCoverage.discovered).toHaveLength(113);
+    //
+    // 113 -> 115 on 2026-09-27: Teaching's Resources (`/teaching/resources`) and one collection
+    // (`/teaching/resources/[collectionId]`), on the catalogues surface.
+    expect(manifest.routeCoverage.discovered).toHaveLength(115);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

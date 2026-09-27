@@ -49,7 +49,15 @@ function serveSession(
   overrides = {},
   extra: (url: string, body: Record<string, unknown> | null) => Response | null = () => null,
 ) {
-  return serveFetch((url, body) => extra(url, body) ?? (url === SESSION_URL ? json(200, detail(overrides)) : null));
+  return serveFetch(
+    (url, body) =>
+      extra(url, body) ??
+      (url === SESSION_URL
+        ? json(200, detail(overrides))
+        : url.startsWith("/api/teaching/resources?")
+          ? json(200, { items: [] })
+          : null),
+  );
 }
 
 describe("the session page", () => {
