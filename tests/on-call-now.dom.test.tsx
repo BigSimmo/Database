@@ -150,6 +150,14 @@ describe("Now: the safety order", () => {
     }
   });
 
+  it("keeps the public crisis lines when the hospital's entries hold no number to call", () => {
+    handbook.state = readyHandbook(
+      handbookItems([{ id: "o", title: "Synthetic parking note", section: "orientation", phone: "" }]),
+    );
+    render(<OnCallHome now={IN_HOURS} />);
+    expect(within(screen.getByTestId("on-call-now-crisis")).getAllByRole("link")[0]).toHaveAttribute("href", "tel:000");
+  });
+
   it("keeps the space of the emergency row and your team while the hospital loads", () => {
     saveOnCallMyTeam("Medicine");
     handbook.state = readyHandbook([], { status: "loading", emergencyPinExpected: true });

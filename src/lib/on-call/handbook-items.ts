@@ -29,7 +29,12 @@ export type HandbookItem = {
   readonly sources: ServiceContent["sources"];
   readonly orientationPhase: ServiceContent["orientationPhase"];
   readonly siteId: string | null;
-  readonly updatedAt: string;
+  /**
+   * When the published text last changed. Null while a newer draft sits over
+   * it: the entry's own time then dates the draft, not what readers see, so no
+   * "Updated" date is shown rather than a false one.
+   */
+  readonly updatedAt: string | null;
 };
 
 export function publishedHandbookItems(detail: Pick<ServiceDetail, "entries">): HandbookItem[] {
@@ -53,7 +58,7 @@ export function publishedHandbookItems(detail: Pick<ServiceDetail, "entries">): 
       sources: content.sources,
       orientationPhase: content.orientationPhase,
       siteId: content.siteId,
-      updatedAt: entry.updatedAt,
+      updatedAt: entry.publishedRevision === entry.revision ? entry.updatedAt : null,
     });
   }
   return items.sort((a, b) => a.parsed.label.localeCompare(b.parsed.label) || a.id.localeCompare(b.id));

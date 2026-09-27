@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -123,6 +123,24 @@ describe("Call page", () => {
 
     await userEvent.click(screen.getByRole("switch", { name: "I'm on a hospital phone" }));
     expect(within(icu()).queryByRole("link", { name: /^call/i })).toBeNull();
+  });
+
+  it("moves an own number to its after-hours line when the page is left open across 17:00", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ["Date", "setTimeout", "clearTimeout"] });
+    try {
+      // A Tuesday, 30 seconds before the day period ends in the viewer's own zone.
+      vi.setSystemTime(new Date(2026, 8, 29, 16, 59, 30));
+      entries.list = [personalContact("p1", "My consultant", "0400 000 111", "0400 000 222")];
+      render(<OnCallCallPage />);
+      const row = () => screen.getByTestId("on-call-call-mine-p1");
+      expect(row()).toHaveTextContent("0400 000 111");
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(row()).toHaveTextContent("0400 000 222");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("never gives a long number or a free-text number a different dial through the switch", () => {

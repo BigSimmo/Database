@@ -107,8 +107,8 @@ function personalEntry(id: string, section: OnCallEntry["section"], title: strin
 }
 
 /** The reader's own contact, as the entries store returns it. */
-export function personalContact(id: string, title: string, phone: string): OnCallEntry {
-  return personalEntry(id, "contacts", title, { role: title, phone });
+export function personalContact(id: string, title: string, phone: string, afterHoursPhone?: string): OnCallEntry {
+  return personalEntry(id, "contacts", title, { role: title, phone, ...(afterHoursPhone ? { afterHoursPhone } : {}) });
 }
 
 /** The reader's own referral note. */

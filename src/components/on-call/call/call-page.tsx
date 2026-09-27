@@ -2,7 +2,7 @@
 
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
 import { useOnCallDidntConnectAt, useOnCallHospitalPhone } from "@/components/on-call/call/call-device-stores";
@@ -29,7 +29,7 @@ import { searchOnCallEntries } from "@/lib/on-call/entry-search";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { pinnedEmergencyEntries, type HandbookItem } from "@/lib/on-call/handbook-items";
 import { searchHandbookItems } from "@/lib/on-call/handbook-search";
-import { resolveOnCallNumber, type HandbookDial } from "@/lib/on-call/number-resolver";
+import { msUntilOnCallPeriodChange, resolveOnCallNumber, type HandbookDial } from "@/lib/on-call/number-resolver";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /** About eight or nine rows fit a phone before "Show all" (standard §4). */
@@ -148,10 +148,10 @@ function HospitalGroup({
   );
 }
 
-function contactNumber(entry: OnCallEntry) {
+function contactNumber(entry: OnCallEntry, now: Date) {
   const details = onCallDetailsSchemaFor("contacts").safeParse(entry.details);
   if (!details.success) return null;
-  return resolveOnCallNumber(details.data as Parameters<typeof resolveOnCallNumber>[0]);
+  return resolveOnCallNumber(details.data as Parameters<typeof resolveOnCallNumber>[0], now);
 }
 
 function MineCallRow({
@@ -159,14 +159,17 @@ function MineCallRow({
   hospitalPhone,
   fallback,
   name,
+  now,
 }: {
   readonly entry: OnCallEntry;
   readonly hospitalPhone: boolean;
   readonly fallback: Fallback;
   readonly name: string | null;
+  /** The page's clock, so a row swaps to its after-hours number at the boundary. */
+  readonly now: Date;
 }) {
   const didntConnectAt = useOnCallDidntConnectAt(entry.id);
-  const resolved = contactNumber(entry);
+  const resolved = contactNumber(entry, now);
   const dial = toHandbookDial(resolved);
   return (
     <OnCallDialRow
@@ -215,6 +218,14 @@ export function OnCallCallPage() {
   const entries = useOnCallEntries();
   const hospitalPhone = useOnCallHospitalPhone();
   const [query, setQuery] = useState("");
+  const [clock, setClock] = useState(() => new Date());
+
+  // Re-read the clock when the in-hours period starts or ends (holidays count),
+  // so a page left open shows your own numbers on the right daytime or after-hours line.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setClock(new Date()), msUntilOnCallPeriodChange(clock));
+    return () => window.clearTimeout(timer);
+  }, [clock]);
   const searching = query.trim().length > 0;
   const ready = handbook.status === "ready";
   const name = hospitalName(handbook);
@@ -374,6 +385,7 @@ export function OnCallCallPage() {
                   hospitalPhone={hospitalPhone}
                   fallback={fallback}
                   name={name}
+                  now={clock}
                 />
               ))}
           {signedOut ? (

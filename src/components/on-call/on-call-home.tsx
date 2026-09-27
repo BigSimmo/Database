@@ -204,7 +204,9 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // this file is a compliance surface and one status name is a banned word.
   const handbookAsksSignIn =
     !ready && !handbookLoading && handbook.status !== "no-service" && handbook.status !== "unavailable";
-  const numbersOnScreen = ready && handbookItems.length > 0;
+  // A callable hospital number, not just any entry: an orientation note or a
+  // row with no phone leaves the reader with nothing to ring.
+  const numbersOnScreen = ready && handbookItems.some((item) => item.dial.kind !== "none" && item.dial.kind !== "text");
   const showFirstRun = !loading && !hasEntries && !loadFailed && !(signedOut && handbookAsksSignIn);
 
   return (

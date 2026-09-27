@@ -119,6 +119,16 @@ describe("publishedHandbookItems", () => {
     ]);
   });
 
+  it("dates a row by its published text, and shows no date while a newer draft sits over it", () => {
+    const published = entry("p", "Published title");
+    const withNewerDraft = { ...entry("n", "Newer draft over it"), revision: 2, updatedAt: "2026-09-25T04:00:00.000Z" };
+    const byId = new Map(
+      publishedHandbookItems({ entries: [published, withNewerDraft] }).map((item) => [item.id, item.updatedAt]),
+    );
+    expect(byId.get("p")).toBe("2026-09-20T04:00:00.000Z");
+    expect(byId.get("n")).toBeNull();
+  });
+
   it("resolves the dial once, and the mobile route beside a desk-only number", () => {
     const [item] = publishedHandbookItems({
       entries: [
