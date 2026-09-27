@@ -436,7 +436,11 @@ describe("privacy readiness review dates: expiry and pull-request scope", () => 
     });
 
     it("refuses pull-request mode on a non-main push and stays strict", () => {
-      const pushRun = runCli([], AFTER_EVERY_EXPIRY, { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/topic" });
+      const pushRun = runCli([], AFTER_EVERY_EXPIRY, {
+        ...PR_ENV,
+        GITHUB_EVENT_NAME: "push",
+        GITHUB_REF: "refs/heads/topic",
+      });
       expect(pushRun.status).toBe(1);
       expect(pushRun.stderr).toContain("PRIVACY_READINESS_REVIEW_DATE_MODE: REVIEW_DATE_MODE=pr was not applied");
       expect(pushRun.stderr).toContain("- manifest review has expired\n");
