@@ -139,7 +139,9 @@ function sanitizeAttributeValue(value: unknown): string | number | boolean | und
     if (!trimmed || trimmed.length > MAX_STRING_ATTRIBUTE_LENGTH) return undefined;
     // Reject values that look like emails, URLs, or query strings.
     if (/@|[?]|=|https?:\/\//i.test(trimmed)) return undefined;
-    // Short operational tokens (bucket names, codes, rpc ids) are always safe.
+    // A clinical subject is never an operational label, even as a single word.
+    if (/\b(mrns?|patients?|suicid\w*)\b/i.test(trimmed)) return undefined;
+    // Short operational tokens (bucket names, codes, rpc ids) are otherwise safe.
     if (/^[a-zA-Z][a-zA-Z0-9._-]{0,63}$/.test(trimmed)) return trimmed;
     // Free-text values: reject clinical/PII-shaped content. Word forms are
     // spelled out: a bare stem inside `\b...\b` ("suicid") matches no real word.
