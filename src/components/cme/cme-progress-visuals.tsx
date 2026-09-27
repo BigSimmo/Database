@@ -93,7 +93,7 @@ export function CmeCategoryBar({ entries, targetHours }: { entries: readonly Cme
           <li key={category} className="flex items-center gap-1.5 text-xs text-[color:var(--text)]">
             <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", CATEGORY_FILL[category])} />
             <span title={cmeCategoryLabels[category]}>{CATEGORY_SHORT[category]}</span>
-            <span className="nums font-semibold">{formatHours(totals[category])} h</span>
+            <span className="nums font-normal">{`${formatHours(totals[category])} h`}</span>
           </li>
         ))}
       </ul>
@@ -203,11 +203,10 @@ export function CmePaceChart({
 
   const linePoints = steps.map((step) => `${x(step.day).toFixed(1)},${y(step.hours).toFixed(1)}`).join(" ");
   const evenPaceToday = (targetHours * (endIndex + 1)) / yearDays;
-  const ahead = running >= evenPaceToday;
   const description =
     todayIndex === null
       ? `${formatHours(running)} hours logged in ${year}, against a target of ${formatHours(targetHours)}.`
-      : `${formatHours(running)} hours logged so far. An even pace to ${formatHours(targetHours)} hours by 31 December would be about ${Math.round(evenPaceToday)} by today, so you are ${ahead ? "ahead of" : "behind"} that pace.`;
+      : `${formatHours(running)} hours logged so far. An even pace to ${formatHours(targetHours)} hours by 31 December would be about ${Math.round(evenPaceToday)} by today.`;
 
   return (
     <figure data-testid="cme-pace-chart" className="m-0">
@@ -247,11 +246,17 @@ export function CmePaceChart({
           strokeLinejoin="round"
           strokeLinecap="round"
         />
+        {/* Today is product blue (standard module 7); a whole past year ends in the line's own ink. */}
         <circle
+          data-testid="cme-pace-chart-end"
           cx={x(endIndex)}
           cy={y(running)}
           r={4}
-          className="fill-[color:var(--command)] forced-colors:fill-[CanvasText]"
+          className={
+            todayIndex === null
+              ? "fill-[color:var(--command)] forced-colors:fill-[CanvasText]"
+              : "fill-[color:var(--clinical-accent)] forced-colors:fill-[Highlight]"
+          }
         />
         {MONTH_TICKS.map((tick) => {
           const index = dayIndex(`${year}-${String(tick.month).padStart(2, "0")}-01`, year);

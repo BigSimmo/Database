@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, buttonFaceClass } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/choice";
 import { FormField } from "@/components/ui/form-field";
 import { InlineNotice, cn, eyebrowText, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import {
@@ -256,16 +257,12 @@ export function CmeEvidencePanel({
                   and identifying details, including filenames and metadata. The app does not automatically verify
                   anonymity.
                 </p>
-                <label className="flex min-h-tap items-start gap-3 py-3 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    disabled={!previewOpened || busy}
-                    checked={confirmed}
-                    onChange={(event) => setConfirmed(event.target.checked)}
-                  />
-                  I checked the preview and confirm this file contains no patient-identifying information.
-                </label>
+                <Checkbox
+                  label="I checked the preview and confirm this file contains no patient-identifying information."
+                  disabled={!previewOpened || busy}
+                  checked={confirmed}
+                  onChange={(event) => setConfirmed(event.target.checked)}
+                />
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
