@@ -64,7 +64,10 @@ function mockTeamWindow(from: string, to: string, dates: string[]) {
       teams: [{ serviceId: teamId, name: "General Medicine", enabled: true, role: "member", grade: "registrar" }],
     }),
   );
-  const url = `/api/roster/team/${teamId}?what=assignments&from=${from}&to=${to}`;
+  // The page fetches from the day before the visible range so an overnight shift that started
+  // then still draws its early-hours segment on the first visible day.
+  const dayBefore = new Date(Date.parse(`${from}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const url = `/api/roster/team/${teamId}?what=assignments&from=${dayBefore}&to=${to}`;
   routes.set(`GET ${url}`, () =>
     Response.json({
       assignments: dates.map((date, index) => ({
