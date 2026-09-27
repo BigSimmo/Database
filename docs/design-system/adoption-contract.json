@@ -181,6 +181,8 @@
         "src/app/(search-app)/sources/publishers/page.tsx",
         "src/app/(search-app)/sources/search/page.tsx",
         "src/app/(search-app)/sources/topics/page.tsx",
+        "src/app/(search-app)/teaching/logbook/page.tsx",
+        "src/app/(search-app)/teaching/organise/page.tsx",
         "src/app/(search-app)/teaching/page.tsx",
         "src/app/(search-app)/teaching/week/page.tsx"
       ],

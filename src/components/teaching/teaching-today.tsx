@@ -10,6 +10,7 @@ import { TeachingCalendarSheet } from "@/components/teaching/teaching-calendar-s
 import { addDays, perthDateKey } from "@/components/teaching/teaching-dates";
 import { TeachingHero } from "@/components/teaching/teaching-hero";
 import { TeachingContextBar } from "@/components/teaching/teaching-modules";
+import { NeedsYou } from "@/components/teaching/teaching-needs-you";
 import type { SessionSummaryRead } from "@/components/teaching/teaching-reads";
 import { TeachingSignInNotice } from "@/components/teaching/teaching-sign-in";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
@@ -156,7 +157,7 @@ function TodayBody({
       {bar}
       <TeachingHero {...hero} actions={actions} />
       {saveError ? <ModeNotice tone="warning">{saveError}</ModeNotice> : null}
-      {/* U5 Step 9 inserts the Needs you module here. */}
+      <NeedsYou live={live} />
       <ModeGroupedList testId="teaching-rest-of-week">
         <ModeRow
           href="/teaching/week"

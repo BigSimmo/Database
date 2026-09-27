@@ -1479,7 +1479,10 @@ describe("design-system adoption manifest", () => {
     //
     // 106 -> 108 on 2026-09-27: Teaching's `/teaching` (Today) and `/teaching/week`, declared in
     // `adoption-contract.json` on the catalogues surface.
-    expect(manifest.routeCoverage.discovered).toHaveLength(108);
+    //
+    // 108 -> 110 on 2026-09-27: Teaching's `/teaching/logbook` and `/teaching/organise`, on the same
+    // catalogues surface.
+    expect(manifest.routeCoverage.discovered).toHaveLength(110);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

@@ -325,6 +325,7 @@
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-actions.tsx",
         "src/components/teaching/teaching-week.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -381,6 +382,8 @@
         "src/components/on-call/service-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-actions.tsx",
         "src/components/teaching/teaching-week.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -443,6 +446,7 @@
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx"
       ],
       "productImportFiles": [
@@ -450,6 +454,7 @@
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx"
       ],
       "designSync": {
@@ -1919,7 +1924,9 @@
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-modules.tsx",
+        "src/components/teaching/teaching-organise.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -1929,7 +1936,9 @@
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-modules.tsx",
+        "src/components/teaching/teaching-organise.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -2001,6 +2010,7 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
         "src/components/teaching/teaching-states.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -2041,6 +2051,8 @@
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
         "src/components/teaching/teaching-states.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -2385,6 +2397,7 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -2402,6 +2415,8 @@
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -2771,6 +2786,8 @@
         "src/app/(search-app)/sources/publishers/page.tsx",
         "src/app/(search-app)/sources/search/page.tsx",
         "src/app/(search-app)/sources/topics/page.tsx",
+        "src/app/(search-app)/teaching/logbook/page.tsx",
+        "src/app/(search-app)/teaching/organise/page.tsx",
         "src/app/(search-app)/teaching/page.tsx",
         "src/app/(search-app)/teaching/week/page.tsx"
       ],
@@ -3434,6 +3451,26 @@
         },
         {
           "file": "src/app/(search-app)/sources/topics/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/logbook/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/organise/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4611,6 +4648,8 @@
       "src/app/(search-app)/specifiers/map/page.tsx",
       "src/app/(search-app)/specifiers/page.tsx",
       "src/app/(search-app)/specifiers/search/page.tsx",
+      "src/app/(search-app)/teaching/logbook/page.tsx",
+      "src/app/(search-app)/teaching/organise/page.tsx",
       "src/app/(search-app)/teaching/page.tsx",
       "src/app/(search-app)/teaching/week/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
@@ -4721,6 +4760,8 @@
       "src/app/(search-app)/specifiers/map/page.tsx",
       "src/app/(search-app)/specifiers/page.tsx",
       "src/app/(search-app)/specifiers/search/page.tsx",
+      "src/app/(search-app)/teaching/logbook/page.tsx",
+      "src/app/(search-app)/teaching/organise/page.tsx",
       "src/app/(search-app)/teaching/page.tsx",
       "src/app/(search-app)/teaching/week/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
@@ -4744,7 +4785,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 115,
+    "inheritedCkbV2RootCount": 117,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -4753,8 +4794,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 116,
-    "productionRouteCount": 108,
-    "nextUiEntryCount": 173
+    "rootCount": 118,
+    "productionRouteCount": 110,
+    "nextUiEntryCount": 175
   }
 }
