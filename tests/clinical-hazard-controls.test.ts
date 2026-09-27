@@ -514,20 +514,19 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
     });
 
     it.skipIf(!checkGit)("refuses pull-request mode on a non-main push, or without a base, and stays strict", () => {
-        for (const env of [
-          { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/topic" },
-          { ...PR_ENV, GITHUB_EVENT_NAME: "" },
-          { ...PR_ENV, BASE_SHA: "" },
-          { ...PR_ENV, BASE_SHA: "0".repeat(40) },
-          { ...PR_ENV, BASE_SHA: "--output=/dev/null" },
-          { ...PR_ENV, REVIEW_DATE_MODE: "PR" },
-        ]) {
-          const refused = run(env, AFTER_EVERY_EXPIRY);
-          expect(refused.status).toBe(1);
-          expect(refused.stderr).toContain("CLINICAL_HAZARD_CONTROLS_REVIEW_DATE_MODE: REVIEW_DATE_MODE=");
-          expect(refused.stderr).toContain("- manifest: review has expired\n");
-        }
-      },
-    );
+      for (const env of [
+        { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/topic" },
+        { ...PR_ENV, GITHUB_EVENT_NAME: "" },
+        { ...PR_ENV, BASE_SHA: "" },
+        { ...PR_ENV, BASE_SHA: "0".repeat(40) },
+        { ...PR_ENV, BASE_SHA: "--output=/dev/null" },
+        { ...PR_ENV, REVIEW_DATE_MODE: "PR" },
+      ]) {
+        const refused = run(env, AFTER_EVERY_EXPIRY);
+        expect(refused.status).toBe(1);
+        expect(refused.stderr).toContain("CLINICAL_HAZARD_CONTROLS_REVIEW_DATE_MODE: REVIEW_DATE_MODE=");
+        expect(refused.stderr).toContain("- manifest: review has expired\n");
+      }
+    });
   });
 });
