@@ -57,7 +57,7 @@ Lane 4 imports from lanes 3 and 5 by the exact names in each task's **Produces**
 ### Task 0: Branch set-up
 
 - [ ] **Step 1:** Branch from the latest `origin/main`. If mode-kit PR #3115 has merged it is already there; if not, `git merge origin/<#3115 head branch>` (the Roster PR then waits for #3115).
-- [ ] **Step 2:** Cherry-pick only Plan A's types commit (`src/lib/supabase/database.types.ts`): `git cherry-pick <Plan A Task 5 Step 4 commit>`. If Plan A has already merged, skip this. Never bring Plan A's `supabase/` files onto this branch: a PR that touches `supabase/migrations/` deploys to the live database when merged.
+- [ ] **Step 2:** Bring over only Plan A's types file, by file-level extraction from Plan A's Task 5 Step 6 commit (that commit also carries `supabase/` files, so do not cherry-pick it): `git checkout <Plan A Task 5 Step 6 commit> -- src/lib/supabase/database.types.ts && git commit -m "types: Roster database types from Plan A"`. If Plan A has already merged, skip this. Never bring Plan A's `supabase/` files onto this branch: a PR that touches `supabase/migrations/` deploys to the live database when merged.
 - [ ] **Step 3:** `npx tsc --noEmit -p tsconfig.json` exits 0.
 
 ---

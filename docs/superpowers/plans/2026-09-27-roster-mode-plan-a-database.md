@@ -417,6 +417,7 @@ Re-dating means `git mv` of the five files (same suffixes, new stamps no more th
 For each of the five files, in order, append to `supabase/schema.sql`:
 
 ```bash
+git checkout origin/main -- supabase/schema.sql   # drop any earlier projection blocks, so a rerun after re-dating replaces rather than duplicates them
 for f in roster_shared_services_hardening on_call_service_items roster_mode admin_mode teaching_mode; do
   file=$(ls supabase/migrations/*_"$f".sql)
   { printf '\n-- Projection: %s\n' "$(basename "$file")"; grep -v "^set local " "$file"; } >> supabase/schema.sql
