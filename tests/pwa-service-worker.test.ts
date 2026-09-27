@@ -208,6 +208,8 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
   const cacheStorage = new CacheStorageHarness(origin, WorkerRequest, networkFetch);
   const enableNavigationPreload = vi.fn(async () => undefined);
   const claimClients = vi.fn(async () => undefined);
+  const openWindow = vi.fn<(path: string) => Promise<undefined>>(async () => undefined);
+  const showNotification = vi.fn<(title: string, options: unknown) => Promise<undefined>>(async () => undefined);
   const skipWaiting = vi.fn(async () => undefined);
 
   const workerGlobal = {
@@ -216,9 +218,9 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
       registered.push(listener);
       listeners.set(type, registered);
     },
-    clients: { claim: claimClients },
+    clients: { claim: claimClients, openWindow },
     location: new URL(origin),
-    registration: { navigationPreload: { enable: enableNavigationPreload } },
+    registration: { navigationPreload: { enable: enableNavigationPreload }, showNotification },
     skipWaiting,
   };
 
@@ -245,6 +247,8 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
     Request: WorkerRequest,
     caches: cacheStorage,
     claimClients,
+    openWindow,
+    showNotification,
     enableNavigationPreload,
     networkFetch,
     skipWaiting,
@@ -274,6 +278,20 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
     message(data: unknown): void {
       dispatch("message", { data });
     },
+    async push(data?: unknown): Promise<void> {
+      const event = new ExtendableEventHarness() as ExtendableEventHarness & { data?: { json: () => unknown } };
+      if (data !== undefined) event.data = { json: () => data };
+      dispatch("push", event);
+      await event.settle();
+    },
+    async clickNotification(data: unknown): Promise<void> {
+      const event = new ExtendableEventHarness() as ExtendableEventHarness & {
+        notification?: { data: unknown; close: () => void };
+      };
+      event.notification = { data, close: vi.fn() };
+      dispatch("notificationclick", event);
+      await event.settle();
+    },
     setNetworkHandler(handler: NetworkHandler): void {
       networkHandler = handler;
     },
@@ -281,6 +299,28 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
 }
 
 describe("PWA service worker cache and lifecycle policy", () => {
+  it("shows fixed Roster words for a type code and never follows a payload URL", async () => {
+    const worker = createWorkerHarness();
+    await worker.push({ t: "offer", url: "https://elsewhere.example/steal" });
+    expect(worker.showNotification).toHaveBeenCalledWith("Roster", {
+      body: "A shift is open in your team. Open Roster to see it.",
+      data: { t: "offer" },
+    });
+    await worker.clickNotification({ t: "offer", url: "https://elsewhere.example/steal" });
+    expect(worker.openWindow).toHaveBeenCalledWith("/roster/requests");
+  });
+
+  it("uses generic Roster words when push data is missing or malformed", async () => {
+    const worker = createWorkerHarness();
+    await worker.push();
+    await worker.push({ t: "unknown", url: "https://elsewhere.example/steal" });
+    expect(worker.showNotification).toHaveBeenCalledTimes(2);
+    for (const [, options] of worker.showNotification.mock.calls) {
+      expect(options).toEqual({ body: "Your roster changed. Open Roster to see what moved.", data: { t: "changed" } });
+    }
+    await worker.clickNotification({ t: "unknown", url: "https://elsewhere.example/steal" });
+    expect(worker.openWindow).toHaveBeenCalledWith("/roster");
+  });
   it("precaches only the generic offline shell and public PWA identity assets during install", async () => {
     const worker = createWorkerHarness();
 

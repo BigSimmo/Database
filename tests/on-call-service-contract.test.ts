@@ -60,15 +60,24 @@ describe("invited service request boundary", () => {
   });
   it("restricts invitation lifespan and accepts only full random token codes", () => {
     expect(
-      serviceActionSchema.safeParse({ action: "invitation.create", role: "admin", expiresInDays: 8 }).success,
+      serviceActionSchema.safeParse({
+        action: "invitation.create",
+        role: "admin",
+        expiresInDays: 8,
+        invitedEmail: "sam@example.org",
+      }).success,
     ).toBe(false);
     expect(
       serviceActionSchema.safeParse({
         action: "invitation.create",
         role: "member",
         expiresInDays: 7,
+        invitedEmail: "sam@example.org",
         clinicalReviewer: true,
       }).success,
+    ).toBe(false);
+    expect(
+      serviceActionSchema.safeParse({ action: "invitation.create", role: "member", expiresInDays: 2 }).success,
     ).toBe(false);
     expect(serviceJoinSchema.safeParse({ code: "1234" }).success).toBe(false);
   });
@@ -98,6 +107,7 @@ describe("invited service request boundary", () => {
     );
     const sent = rpc.mock.calls[0][1].p_payload;
     expect(sent.tokenHash).toBe(hashServiceInvitation(parsed.code));
+    expect(sent.invitedEmail).toBe("sam@example.org");
     expect(sent).not.toHaveProperty("code");
     expect(JSON.stringify(sent)).not.toContain(parsed.code);
   });

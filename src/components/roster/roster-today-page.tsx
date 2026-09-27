@@ -20,11 +20,13 @@ import { modeDisplayNumberText, modeNumberText } from "@/components/mode-kit/typ
 import { Button } from "@/components/ui/button";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { summariseToday, type TodaySummary } from "@/lib/roster/today";
 
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
+import { RosterAskBox } from "./ask/roster-ask-box";
+import { RosterTodayTeam } from "./team/roster-today-team";
 import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from "./roster-format";
 import { RosterImportFlow } from "./roster-import-flow";
 import { RosterNightDial } from "./roster-night-dial";
@@ -160,7 +162,18 @@ function Hero({
       : (byId.get(lead.shift.id) ?? null);
 
   if (lead.state === "on_now" && lead.isNight && leadShift && Number(perthTimeOf(now).slice(0, 2)) < 6) {
-    return <RosterNightDial shift={leadShift} now={now} workplace={leadShift.workplace ?? leadShift.location} />;
+    return (
+      <RosterNightDial
+        shift={leadShift}
+        now={now}
+        workplace={leadShift.workplace ?? leadShift.location}
+        teamShift={
+          leadShift.serviceId && leadShift.assignmentId
+            ? { serviceId: leadShift.serviceId, assignmentId: leadShift.assignmentId }
+            : null
+        }
+      />
+    );
   }
 
   const eyebrow =
@@ -266,6 +279,10 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
   return (
     <InformationPageShell testId="roster-today-main" width="narrow">
       <h1 className="sr-only">Today</h1>
+      <RosterAskBox />
+      <p className="text-xs text-muted-foreground">
+        Your copy of the roster. Check official changes with your service.
+      </p>
 
       {importing ? (
         <RosterImportFlow
@@ -294,6 +311,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
               {saved ? <ModeNotice>{saved}</ModeNotice> : null}
+              {shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
               <Hero
                 summary={summary}
                 byId={byId}
@@ -302,6 +320,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onImport={() => setImporting(true)}
                 onAddShift={() => setAddView("shift")}
               />
+              <RosterTodayTeam now={now} myShifts={shifts.shifts} />
               {summary.lead.state !== "empty" ? (
                 <>
                   {shownNextNight ? (

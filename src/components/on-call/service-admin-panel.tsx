@@ -148,7 +148,8 @@ export function ServiceAdminPanel({
   }
 
   async function createInvitation() {
-    if (busy || !inviteEmail.trim()) return;
+    const invitedEmail = inviteEmail.trim().toLowerCase();
+    if (busy || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invitedEmail)) return;
     setBusy("invite");
     setError(null);
     setNewInvitation(null);
@@ -157,7 +158,7 @@ export function ServiceAdminPanel({
         action: "invitation.create",
         role: inviteRole,
         expiresInDays: Number(expiresInDays),
-        invitedEmail: inviteEmail.trim(),
+        invitedEmail,
       });
       if (typeof result.code !== "string" || typeof result.expiresAt !== "string") {
         throw new Error("The invitation was created but its one-time code was not returned.");
@@ -288,7 +289,7 @@ export function ServiceAdminPanel({
           variant="primary"
           busy={busy === "invite"}
           busyLabel="Creating…"
-          disabled={busy !== null || !inviteEmail.trim()}
+          disabled={busy !== null || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())}
           onClick={() => void createInvitation()}
         >
           Create invitation

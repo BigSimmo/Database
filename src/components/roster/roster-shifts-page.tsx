@@ -1,23 +1,30 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { focusRing } from "@/components/card-recipes";
 import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
+import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
 import { modeNumberText } from "@/components/mode-kit/type";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Sheet } from "@/components/ui/sheet";
 import { cn, primaryControl } from "@/components/ui-primitives";
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
+import { monthGridRange, monthKeyOf } from "@/lib/calendar/month-grid";
 import { isWorkedKind, SHIFT_KIND_LABEL, SHIFT_LETTER } from "@/lib/roster/shift-kind";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
+import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
+import { RosterAskBox } from "./ask/roster-ask-box";
 import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } from "./roster-format";
 import { RosterHoursPanel, type RosterExtraTime } from "./roster-hours-panel";
 import { RosterImportFlow } from "./roster-import-flow";
@@ -25,6 +32,7 @@ import { RosterLetter, RosterWeekChart } from "./roster-week-strip";
 import { useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
+import { useRosterRead, useRosterTeams } from "./use-roster-team";
 
 /**
  * Roster Shifts: Week (a 24-hour chart and every shift in words), Month
@@ -67,13 +75,18 @@ function toCalendarEvents(shifts: readonly OnCallShift[]): CalendarEvent[] {
 function WeekView({
   shifts,
   now,
+  monday,
+  onWeekChange,
   onRemoveSeries,
+  onTeamShift,
 }: {
   readonly shifts: readonly OnCallShift[];
   readonly now: Date;
+  readonly monday: string;
+  readonly onWeekChange: (monday: string) => void;
   readonly onRemoveSeries: (seriesId: string) => void;
+  readonly onTeamShift: (shift: OnCallShift) => void;
 }) {
-  const [monday, setMonday] = useState(() => mondayOf(perthDateOf(now)));
   const sunday = addDaysToDate(monday, 6);
   const inWeek = shifts
     .filter((shift) => {
@@ -89,12 +102,16 @@ function WeekView({
         <ModeActionButton
           icon={ChevronLeft}
           label="Previous week"
-          onClick={() => setMonday(addDaysToDate(monday, -7))}
+          onClick={() => onWeekChange(addDaysToDate(monday, -7))}
         />
         <h2 className={cn(modeNumberText, "text-base-minus text-[color:var(--text-heading)]")}>
           {formatDateSpan(monday, sunday)} · {formatHours(Math.round(total * 100) / 100)}
         </h2>
-        <ModeActionButton icon={ChevronRight} label="Next week" onClick={() => setMonday(addDaysToDate(monday, 7))} />
+        <ModeActionButton
+          icon={ChevronRight}
+          label="Next week"
+          onClick={() => onWeekChange(addDaysToDate(monday, 7))}
+        />
       </div>
       <RosterWeekChart monday={monday} shifts={shifts} now={now} testId="roster-shifts-week-chart" />
       <ModeGroupedList testId="roster-shifts-agenda">
@@ -104,6 +121,36 @@ function WeekView({
           inWeek.map((shift) => {
             const kind = kindOf(shift);
             const place = shift.workplace ?? shift.location;
+            if (shift.source === "team" && shift.assignmentId)
+              return (
+                <li key={shift.id} className={modeInsetHairline}>
+                  <button
+                    type="button"
+                    onClick={() => onTeamShift(shift)}
+                    data-testid="roster-shifts-row"
+                    className={cn(
+                      modeRowHeight.double,
+                      modePressable,
+                      focusRing,
+                      "flex w-full min-w-0 items-center justify-between gap-3 px-3 text-left",
+                    )}
+                  >
+                    <span className="grid min-w-0 gap-0.5 py-1">
+                      <span className="flex items-center gap-2 text-base-minus text-[color:var(--text-heading)]">
+                        <RosterLetter kind={kind} />
+                        {formatPerthDay(perthDateOf(shift.startsAt))}
+                      </span>
+                      <span className="text-sm text-[color:var(--text-muted)]">
+                        {SHIFT_KIND_LABEL[kind]}
+                        {place ? ` · ${place}` : ""}
+                      </span>
+                    </span>
+                    <span className={cn(modeNumberText, "shrink-0 text-base-minus text-[color:var(--text)]")}>
+                      {formatShiftRange(shift)}
+                    </span>
+                  </button>
+                </li>
+              );
             return (
               <ModeRow
                 key={shift.id}
@@ -139,19 +186,41 @@ function WeekView({
 }
 
 export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {}) {
+  const router = useRouter();
   const now = useRosterNow(pinnedNow);
-  const shifts = useRosterShifts();
+  const today = perthDateOf(now);
+  const [view, setView] = useState<View>("week");
+  const [monday, setMonday] = useState(() => mondayOf(today));
+  const [month, setMonth] = useState(() => monthKeyOf(today));
+  const monthRange = monthGridRange(month);
+  const teamRange =
+    view === "month"
+      ? { from: monthRange.start, to: monthRange.end }
+      : view === "week"
+        ? { from: monday, to: addDaysToDate(monday, 6) }
+        : { from: addDaysToDate(today, -21), to: addDaysToDate(today, 40) };
+  const shifts = useRosterShifts(teamRange);
+  const teams = useRosterTeams();
+  const enabledTeams = (Array.isArray(teams.data?.teams) ? teams.data.teams : []).filter((team) => team.enabled);
+  const oneTeamId = enabledTeams.length === 1 ? enabledTeams[0]!.serviceId : null;
+  const teamOverview = useRosterRead(oneTeamId, "overview");
   const links = useRosterLinks();
   const settings = useRosterSettings();
-  const [view, setView] = useState<View>("week");
   const [addView, setAddView] = useState<RosterAddView | null>(null);
   const [importing, setImporting] = useState(false);
   const [extras, setExtras] = useState<readonly RosterExtraTime[]>([]);
   const [notice, setNotice] = useState<{ tone: "neutral" | "warning"; text: string } | null>(null);
+  const [teamShift, setTeamShift] = useState<OnCallShift | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
 
-  const today = perthDateOf(now);
   const events = useMemo(() => toCalendarEvents(shifts.shifts), [shifts.shifts]);
+  const holidayEvents = useMemo<CalendarEvent[]>(
+    () =>
+      [...WA_PUBLIC_HOLIDAYS]
+        .filter((date) => date.slice(0, 4) >= today.slice(0, 4))
+        .map((date) => ({ id: `wa-holiday-${date}`, title: "WA public holiday", date, kind: "other" })),
+    [today],
+  );
   const workplaces = useMemo(
     () => [...new Set(shifts.shifts.flatMap((shift) => (shift.workplace ? [shift.workplace] : [])))],
     [shifts.shifts],
@@ -166,6 +235,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   return (
     <InformationPageShell testId="roster-shifts-main" width="narrow">
       <h1 className="sr-only">Shifts</h1>
+      <RosterAskBox />
       {importing ? (
         <RosterImportFlow
           shifts={shifts}
@@ -191,16 +261,48 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
               {notice ? <ModeNotice tone={notice.tone}>{notice.text}</ModeNotice> : null}
+              {shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
               {view === "week" ? (
-                <WeekView shifts={shifts.shifts} now={now} onRemoveSeries={(id) => void removeSeries(id)} />
+                shifts.teamLoading ? (
+                  <ModeModuleSkeleton rows={4} twoLine testId="roster-team-shifts-loading" />
+                ) : (
+                  <WeekView
+                    shifts={shifts.shifts}
+                    now={now}
+                    monday={monday}
+                    onWeekChange={setMonday}
+                    onRemoveSeries={(id) => void removeSeries(id)}
+                    onTeamShift={setTeamShift}
+                  />
+                )
               ) : view === "month" ? (
-                <CalendarView events={events} today={today} exportName="Roster" testId="roster-shifts-month" />
+                <div className="grid gap-2">
+                  {shifts.teamLoading ? (
+                    <ModeModuleSkeleton rows={4} twoLine testId="roster-team-shifts-loading" />
+                  ) : null}
+                  <div className={shifts.teamLoading ? "hidden" : undefined}>
+                    <CalendarView
+                      events={[...events, ...holidayEvents]}
+                      exportEvents={events}
+                      today={today}
+                      exportName="Roster"
+                      testId="roster-shifts-month"
+                      onMonthChange={setMonth}
+                    />
+                  </div>
+                  <p className="px-3 text-xs text-[color:var(--text-muted)]">
+                    WA public holidays, wa.gov.au, read 25 Sep 2026
+                  </p>
+                </div>
               ) : (
                 <RosterHoursPanel
                   shifts={shifts.shifts}
                   now={now}
                   extras={extras}
                   onExtra={(extra) => setExtras((current) => [...current, extra])}
+                  payFortnightAnchor={
+                    teamOverview.status === "ready" ? (teamOverview.data?.settings?.payFortnightAnchor ?? null) : null
+                  }
                 />
               )}
             </>
@@ -224,6 +326,34 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
         </button>
       ) : null}
 
+      <Sheet
+        open={Boolean(teamShift)}
+        onClose={() => setTeamShift(null)}
+        title="Team shift"
+        mobilePlacement="bottom"
+        testId="roster-team-shift-actions"
+      >
+        {teamShift?.assignmentId ? (
+          <ModeGroupedList
+            eyebrow={`${formatPerthDay(perthDateOf(teamShift.startsAt))} · ${SHIFT_KIND_LABEL[kindOf(teamShift)]}`}
+          >
+            {(
+              [
+                ["swap", "Swap"],
+                ["give_away", "Give away"],
+                ["cant_make", "I can't make it"],
+              ] as const
+            ).map(([start, title]) => (
+              <ModeRow
+                key={start}
+                title={title}
+                href={`/roster/requests?start=${start}&assignment=${encodeURIComponent(teamShift.assignmentId!)}${teamShift.serviceId ? `&team=${encodeURIComponent(teamShift.serviceId)}` : ""}`}
+              />
+            ))}
+          </ModeGroupedList>
+        ) : null}
+      </Sheet>
+
       <RosterAddSheet
         open={addView !== null}
         view={addView ?? "menu"}
@@ -231,6 +361,11 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
         onClose={() => setAddView(null)}
         today={today}
         workplaces={workplaces}
+        hasTeam={enabledTeams.length > 0}
+        onDates={() => {
+          setAddView(null);
+          router.push(`/roster/requests?start=dates${oneTeamId ? `&team=${encodeURIComponent(oneTeamId)}` : ""}`);
+        }}
         onImportFile={() => {
           setAddView(null);
           setImporting(true);
