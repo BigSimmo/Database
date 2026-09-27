@@ -352,7 +352,7 @@ and owner-private orientation completion. They never pool legacy entries or pers
 CME/compliance. `handbook-resources` holds linked official WA starting points.
 
 **My shifts moved to Roster.** The doctor's own roster now lives in **`src/lib/roster/`**
-(`src/lib/roster/shifts/`, moved from `src/lib/on-call/shifts/`, plus `shift-kind.ts` for the
+(`src/lib/roster/shifts/`, moved from the old On Call shifts folder, plus `shift-kind.ts` for the
 day/evening/night/on-call/leave/other kinds shown as letter squares) and its API at
 **`/api/roster/shifts`** (plus `imports/[id]` and `manual`, `manual/[seriesId]` for hand-added
 shifts). It reads an `.ics` or `.csv` export on the device (`parse-ics`, `parse-csv`), keeping only
