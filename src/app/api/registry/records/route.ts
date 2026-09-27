@@ -11,6 +11,7 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { logger } from "@/lib/logger";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import { deriveGovernanceColumns, type RegistryRecordKind } from "@/lib/registry-records";
@@ -295,6 +296,10 @@ export async function GET(request: Request) {
       return jsonError(error);
     }
     if (requestedKind) {
+      logger.error("Registry catalogue setup failed; serving bundled records", {
+        catalogue_kind: requestedKind,
+        failure: error instanceof Error ? error.name : typeof error,
+      });
       const seedRecords = requestedKind === "form" ? formRecords : serviceRecords;
       const governance = Object.fromEntries(
         seedRecords.map((record) => {

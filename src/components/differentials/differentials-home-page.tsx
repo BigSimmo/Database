@@ -25,7 +25,8 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamString = searchParams.toString();
-  const { authorizationHeader } = useAuthSession();
+  const { authorizationHeader, authEpoch, session } = useAuthSession();
+  const authIdentity = `${authEpoch}:${session?.user.id ?? "anonymous"}`;
   const routedSearchContext = useMemo(
     () => readSearchNavigationContext(new URLSearchParams(searchParamString)),
     [searchParamString],
@@ -40,8 +41,12 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
 
   const trimmedQuery = query.trim();
   const [loading, setLoading] = useState(false);
-  const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
-  const [evidenceQuery, setEvidenceQuery] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<{ identity: string; matches: DocumentMatch[]; query: string | null }>(
+    () => ({ identity: authIdentity, matches: [], query: null }),
+  );
+  // The previous owner's evidence is hidden on the very render that changes auth identity.
+  const documentMatches = evidence.identity === authIdentity ? evidence.matches : [];
+  const evidenceQuery = evidence.identity === authIdentity ? evidence.query : null;
   const searchRequestSeqRef = useRef(0);
   const searchAbortRef = useRef<AbortController | null>(null);
 
@@ -52,7 +57,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       const requestId = ++searchRequestSeqRef.current;
 
       setLoading(true);
-      setEvidenceQuery(null);
+      setEvidence({ identity: authIdentity, matches: [], query: null });
       // This page had only a bare AbortController, which fires on unmount or supersede and never
       // on a stuck request. `/api/search` has no server-side deadline, so a request that never
       // settled left `finally` unreached and this page spinning on "Searching…" indefinitely —
@@ -72,14 +77,13 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
 
         if (requestId !== searchRequestSeqRef.current) return;
         if (!response.ok) {
-          setDocumentMatches([]);
+          setEvidence({ identity: authIdentity, matches: [], query: null });
           return;
         }
 
         const payload = (await response.json()) as { documentMatches?: DocumentMatch[] };
         if (requestId !== searchRequestSeqRef.current) return;
-        setEvidenceQuery(normalized);
-        setDocumentMatches(payload.documentMatches ?? []);
+        setEvidence({ identity: authIdentity, matches: payload.documentMatches ?? [], query: normalized });
       } catch (error) {
         // A timeout is OUR abort, not the caller's, so it must not be swallowed as one: it clears
         // the spinner and empties the evidence list rather than leaving stale matches on screen.
@@ -88,13 +92,13 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         if (!deadline.timedOut && (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")))
           return;
         if (requestId !== searchRequestSeqRef.current) return;
-        setDocumentMatches([]);
+        setEvidence({ identity: authIdentity, matches: [], query: null });
       } finally {
         deadline.cancel();
         if (requestId === searchRequestSeqRef.current) setLoading(false);
       }
     },
-    [authorizationHeader, navigationParams],
+    [authIdentity, authorizationHeader, navigationParams],
   );
 
   useEffect(() => {
@@ -109,6 +113,8 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       if (searchAbortRef.current === controller) searchAbortRef.current = null;
     };
   }, [autoRunSearch, trimmedQuery, runSearch]);
+
+  useEffect(() => () => searchAbortRef.current?.abort(), []);
 
   const navigateToSearch = useCallback(
     (nextQuery: string) => {
