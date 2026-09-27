@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { BookOpenText, ClipboardList, Clock3, Languages, MapPin, Scale, UserRound } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
@@ -414,6 +415,14 @@ function CulturalNotesSection({ formCode }: { formCode: string | undefined }) {
           );
         })}
       </div>
+      {notes.some((note) => note.kind === "aboriginal-liaison") ? (
+        <Link
+          href="/first-nations/mental-health"
+          className="inline-flex min-h-12 items-center text-sm font-medium text-[color:var(--clinical-accent)] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          Open First Nations mental health
+        </Link>
+      ) : null}
     </section>
   );
 }

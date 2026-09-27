@@ -132,6 +132,12 @@ const expectedPresentations = [
     subtitle: "Paperwork, deadlines and checks, with what is due first.",
     iconClass: "lucide-clipboard-list",
   },
+  {
+    modeId: "first-nations",
+    title: "First Nations",
+    subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
+    iconClass: "lucide-users",
+  },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;

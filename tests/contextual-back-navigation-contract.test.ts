@@ -13,6 +13,9 @@ const internalArrowControls = new Set([
   "components/clinical-dashboard/settings-dialog.tsx",
   // Previous step in the formulation builder workflow.
   "components/formulation/formulation-builder-page.tsx",
+  // Steps to the previous situation card inside the First Nations Situation
+  // module; the page and route stay the same.
+  "components/first-nations/situation-module.tsx",
   // Returns from a mode's own section list to the full mode list inside the
   // same popover and the same sheet. Nothing has been navigated to, so there
   // is no history entry to go back through — routing it that way would leave

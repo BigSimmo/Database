@@ -16,7 +16,7 @@ export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
   modeId: Exclude<
     AppModeId,
-    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work"
+    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work" | "first-nations"
   >;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
@@ -304,6 +304,17 @@ export const siteContentModeExclusions = [
     // settings. It publishes nothing: the records are private user state.
     modeId: "my-work",
     reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // First Nations' content lives in `data/first-nations/pages.json`, governed
+    // like every other clinical content file, not through this producer
+    // pipeline: it is operational chrome (crisis numbers, contacts, guidance
+    // pages), not a retrieval corpus.
+    modeId: "first-nations",
+    reason: "operational_chrome",
     permanent: true,
     reviewed: true,
     reviewOwner: "clinical_content_governance",
