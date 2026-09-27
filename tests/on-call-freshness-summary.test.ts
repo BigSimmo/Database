@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { COMPLIANCE_KIND } from "@/lib/on-call/compliance";
 import { ON_CALL_REVIEW_INTERVAL_MONTHS, type OnCallEntry } from "@/lib/on-call/entry-model";
-import { summariseOnCallFreshness } from "@/lib/on-call/freshness-summary";
+import { summariseOnCallFreshness } from "@/lib/on-call/freshness";
 import { ROLE_EXPLAINER_KIND } from "@/lib/on-call/who-is-who";
 
 /**
@@ -137,7 +138,7 @@ describe("summariseOnCallFreshness — what it reports", () => {
     expect(summary.stale.map((row) => row.entry.title)).toEqual(["Zulu", "Alpha", "Beta"]);
   });
 
-  it("counts role explainers, because a wrong description of a role misleads like a wrong number", () => {
+  it("counts role explainers, keying them under who-is-who rather than contacts", () => {
     const explainer = entry({
       section: "contacts",
       title: "What the psych registrar covers",
@@ -146,7 +147,30 @@ describe("summariseOnCallFreshness — what it reports", () => {
     });
     const summary = summariseOnCallFreshness([explainer], NOW);
     expect(summary.staleCount).toBe(1);
-    expect(summary.bySection.get("contacts")).toBe(1);
+    expect(summary.bySection.get("who-is-who")).toBe(1);
+    expect(summary.bySection.has("contacts")).toBe(false);
+    expect(summary.sections).toEqual(["who-is-who"]);
+  });
+
+  it("keys compliance entries under compliance and logistics entries under logistics", () => {
+    const complianceItem = entry({
+      section: "logistics",
+      title: "Ahpra Medical Registration",
+      details: { kind: COMPLIANCE_KIND, category: "Registration" },
+      lastVerifiedAt: null,
+    });
+    const logisticsItem = entry({
+      section: "logistics",
+      title: "Annual Leave Form",
+      details: { category: "Leave" },
+      lastVerifiedAt: null,
+    });
+    const summary = summariseOnCallFreshness([complianceItem, logisticsItem], NOW);
+    expect(summary.staleCount).toBe(2);
+    expect(summary.bySection.get("compliance")).toBe(1);
+    expect(summary.bySection.get("logistics")).toBe(1);
+    // logistics appears before compliance in ON_CALL_VIEW_PAGES, breaking the tie
+    expect(summary.sections).toEqual(["logistics", "compliance"]);
   });
 
   it("defaults `now` to the present, so a caller that passes nothing still gets an answer", () => {
