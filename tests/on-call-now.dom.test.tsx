@@ -17,8 +17,8 @@ vi.mock("@/components/account-data-provider", () => ({
 }));
 vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "authenticated", authEpoch: 1 }) }));
 vi.mock("@/components/on-call/on-call-page-menu", () => ({ OnCallPageMenu: () => null }));
-vi.mock("@/components/on-call/use-on-call-shifts", () => ({
-  useOnCallShifts: () => ({ status: "ready", shifts: [], latestImport: null, demoMode: false }),
+vi.mock("@/components/roster/use-roster-shifts", () => ({
+  useRosterShifts: () => ({ status: "ready", shifts: [], latestImport: null, demoMode: false }),
 }));
 const store = vi.hoisted(() => ({ entries: [] as unknown[] }));
 vi.mock("@/lib/on-call/entry-store", () => ({

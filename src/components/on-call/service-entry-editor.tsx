@@ -148,6 +148,19 @@ export function ServiceEntryEditor({
     });
   }, [entry, defaultSiteId, dirty]);
 
+  // Switching entries already asks before discarding; closing the tab or
+  // refreshing did not (ledger #4NSKNS). Hold the browser's own confirm while a
+  // draft is unsaved, and drop it while a save is in flight.
+  useEffect(() => {
+    if (!dirty || busy !== null) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, busy]);
+
   async function submit(publish: boolean) {
     if (busy) return;
     const cleanSources = sources

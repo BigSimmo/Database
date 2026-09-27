@@ -6,7 +6,7 @@
     "name": "PsychSift maintainers",
     "url": "https://github.com/BigSimmo"
   },
-  "repository": "https://github.com/BigSimmo/Database",
+  "repository": "https://github.com/BigSimmo/PsychSift",
   "keywords": ["clinical-kb", "nextjs", "rag", "supabase", "clinical-safety", "local-development"],
   "skills": "./skills/",
   "interface": {
@@ -16,7 +16,7 @@
     "developerName": "PsychSift maintainers",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],
-    "websiteURL": "https://github.com/BigSimmo/Database",
+    "websiteURL": "https://github.com/BigSimmo/PsychSift",
     "defaultPrompt": [
       "Run the safe PsychSift local server.",
       "Verify my PsychSift change without API calls.",

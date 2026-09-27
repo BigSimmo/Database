@@ -370,7 +370,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
       ),
       check(
         "project",
-        "Clinical KB Database target",
+        "PsychSift Production target",
         projectSetupCheckStatus(supabaseProjectCheck.status),
         formatSupabaseProjectCheck(supabaseProjectCheck),
       ),
@@ -427,7 +427,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
     ),
     check(
       "project",
-      "Clinical KB Database target",
+      "PsychSift Production target",
       projectSetupCheckStatus(supabaseProjectCheck.status),
       formatSupabaseProjectCheck(supabaseProjectCheck),
     ),

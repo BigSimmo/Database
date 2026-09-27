@@ -1,6 +1,6 @@
 # RAG Injection Threat Model — Ingestion → Context → Answer
 
-**System:** Clinical KB Database. Users upload arbitrary PDF/DOCX; the worker OCRs, chunks, embeds, and enriches them; at query time an LLM composes cited clinical answers from the retrieved text.
+**System:** PsychSift Production. Users upload arbitrary PDF/DOCX; the worker OCRs, chunks, embeds, and enriches them; at query time an LLM composes cited clinical answers from the retrieved text.
 **Threat actor:** whoever controls the _content_ of an ingested document — the pixels of an embedded image, the body text, the file name, the title. Documents are **owner-scoped** ([`owner-scope.ts`](../src/lib/owner-scope.ts)), so this is not a cross-tenant attack; the realistic entry points are (a) a clinician/admin socially-engineered into uploading a tampered "official" guideline, (b) an org bulk-importing an untrusted/scraped source, and (c) non-malicious OCR corruption that mimics an attack. The blast radius is intra-org (everyone who queries that topic in that corpus).
 **Status:** Maintained threat model. The opening analysis records the original 2026-07-12 baseline;
 sections 6–8 record the mitigations subsequently implemented, the deliberately deferred architectural

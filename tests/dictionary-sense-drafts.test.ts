@@ -772,7 +772,7 @@ describe("an update stamp is recorded only as last updated", () => {
   // were broken: "Updated 14 Aug 2026" never equals "2026-08-14". The whole point
   // of the guard is to catch a stamp that HAS been normalised into a date field,
   // so the test has to normalise it the same way before comparing.
-  const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const MONTH_NAMES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
   /** Every ISO date a stamp could plausibly have been filed as, day and month precision alike. */
   function datesAStampCouldBecome(statement: string): string[] {
@@ -782,7 +782,7 @@ describe("an update stamp is recorded only as last updated", () => {
       const mm = numeric[2].padStart(2, "0");
       return [`${numeric[3]}-${mm}`, `${numeric[3]}-${mm}-${numeric[1].padStart(2, "0")}`];
     }
-    const month = MONTHS.findIndex((m) => new RegExp(`\\b${m}`, "i").test(statement));
+    const month = MONTH_NAMES.findIndex((m) => new RegExp(`\\b${m}`, "i").test(statement));
     const year = statement.match(/\b(\d{4})\b/);
     if (month < 0 || !year) return [];
     const mm = String(month + 1).padStart(2, "0");

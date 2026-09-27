@@ -24,13 +24,13 @@ case "$branch" in
     ;;
 esac
 git check-ref-format --branch "$branch" >/dev/null || fail "Invalid branch name."
-expected_origin="https://github.com/BigSimmo/Database.git"
+expected_origin="https://github.com/BigSimmo/PsychSift.git"
 [[ "$(git config --get remote.origin.url 2>/dev/null || true)" = "$expected_origin" ]] ||
-  fail "origin must be the credential-free BigSimmo/Database URL."
+  fail "origin must be the credential-free BigSimmo/PsychSift URL."
 push_urls="$(git remote get-url --push --all origin)" || fail "Could not read origin push URLs."
 [[ -n "$push_urls" ]] || fail "origin has no push URL."
 while IFS= read -r push_url; do
-  [[ "$push_url" = "$expected_origin" ]] || fail "origin push URL must be the credential-free BigSimmo/Database URL."
+  [[ "$push_url" = "$expected_origin" ]] || fail "origin push URL must be the credential-free BigSimmo/PsychSift URL."
 done <<< "$push_urls"
 
 askpass="$(mktemp)"

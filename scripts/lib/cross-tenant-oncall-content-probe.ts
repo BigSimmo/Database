@@ -53,6 +53,8 @@ export async function probeOnCallContentIsolation(args: {
   tokenA: string;
   tokenB: string;
   userIdB: string;
+  /** User B's email: invitations are bound to the invitee's email. */
+  emailB: string;
   /**
    * User A's service, with no entries of its own yet (such as the disposable one the write
    * probe creates). A must be its admin, and B must not be a member when this is called.
@@ -62,7 +64,7 @@ export async function probeOnCallContentIsolation(args: {
   siteId: string;
   marker: string;
 }): Promise<{ checkpoints: string[] }> {
-  const { request, tokenA, tokenB, userIdB, serviceId, siteId, marker } = args;
+  const { request, tokenA, tokenB, userIdB, emailB, serviceId, siteId, marker } = args;
   const checkpoints: string[] = [];
   const servicePath = `/api/on-call/services/${serviceId}`;
   const rotation = `tenancy-probe-${marker}`.slice(0, 100);
@@ -158,7 +160,11 @@ export async function probeOnCallContentIsolation(args: {
 
   // 2. Plain member: reads published content, is refused editor actions (service_role_denied;
   //    entry.review is service_review_denied because B is not a clinical reviewer).
-  const invitation = await post(tokenA, { action: "invitation.create", role: "member", expiresInDays: 1 }, [200]);
+  const invitation = await post(
+    tokenA,
+    { action: "invitation.create", role: "member", expiresInDays: 1, invitedEmail: emailB },
+    [200],
+  );
   const code = stringField(invitation, "code", "On Call invitation");
   const joined = await request(tokenB, "/api/on-call/services/join", { method: "POST", body: { code } }, [200]);
   if (stringField(joined, "serviceId", "On Call join") !== serviceId) {

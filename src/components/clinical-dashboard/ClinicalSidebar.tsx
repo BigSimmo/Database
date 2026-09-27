@@ -113,6 +113,7 @@ const sidebarMoreModeIds = [
   "cme",
   "psychiatry",
   "my-work",
+  "roster",
   "first-nations",
 ] as const satisfies readonly AppModeId[];
 
@@ -820,7 +821,7 @@ export function ClinicalSidebarContent({
         >
           <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-left">Search PsychSift</span>
-          <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+          <kbd className="hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-2xs pointer-fine:inline-block font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
             Ctrl K
           </kbd>
         </button>

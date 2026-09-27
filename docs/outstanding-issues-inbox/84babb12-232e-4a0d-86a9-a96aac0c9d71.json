@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "84babb12-232e-4a0d-86a9-a96aac0c9d71",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The worker's crash-alert webhook has no timeout, so a stalled alert endpoint delays the worker's exit and Railway restart by up to about five minutes",
+    "detail": "worker/main.ts:2141 awaits fetch(env.WORKER_FAILURE_WEBHOOK_URL, ...) in the fatal main().catch handler with no signal, before flushWorkerErrorTracking() and process.exit. If the webhook host accepts the connection but never answers, the process waits on undici's default timeouts (about 300 s) and Railway's ALWAYS restart policy cannot act. src/lib/webhooks/chat-notify.ts already uses AbortSignal.timeout(CHAT_POST_TIMEOUT_MS) for the same kind of call. Next action: add signal: AbortSignal.timeout(<a few seconds>) to this fetch.",
+    "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+    "issueUlid": "01M3GND2Z3J4RF41KYKV15D0KX"
+  }
+}

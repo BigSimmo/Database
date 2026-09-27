@@ -480,7 +480,7 @@ function CommandDropdown({
         ) : null}
         {!hasItems && !universalPending ? (
           <div className="px-3 py-4 text-sm font-semibold text-[color:var(--text-muted)]">
-            Press Enter to run the full {mode.label.toLowerCase()} search.
+            Press Enter or tap search to run the full {mode.label.toLowerCase()} search.
           </div>
         ) : null}
       </div>

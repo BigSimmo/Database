@@ -269,6 +269,7 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
                   kind: "medication",
                   slug: null,
                   cache: true,
+                  renderOnly: true,
                   seeds: defaultMedicationRecords(),
                   signal,
                 })

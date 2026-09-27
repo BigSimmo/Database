@@ -10,6 +10,7 @@
 @import "./ckb-v2-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant pointer-fine (@media (pointer: fine));
 
 /*
  * Motion variants are redefined so the in-app Motion preference is authoritative
@@ -1156,6 +1157,42 @@ body {
      `tests/design-token-contract.test.ts` reads that block by its exact selector
      text, and a grouped selector would stop matching it. */
   [data-mode-identity="cme"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* Roster: violet. The design record's identity colour (Roster Release 1 plan,
+   Global Constraints). Light ~6.9:1 and dark ~7.2:1 against their own contrast
+   token, both cleared as a FILL (the pill's circle) as well as text, which is
+   why the contrast partner is declared rather than assumed white. Same
+   delivery mechanism as On Call and CME above: the local `--clinical-accent`
+   remap, scoped to the elements carrying the attribute. */
+[data-mode-identity="roster"] {
+  --mode-identity: #634f8f;
+  --mode-identity-soft: #f2eef9;
+  --mode-identity-border: #ddd3ee;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="roster"] {
+  --mode-identity: #b0a0d8;
+  --mode-identity-soft: #241c3a;
+  --mode-identity-border: #3b3054;
+  --mode-identity-contrast: #170f26;
+}
+
+@media (forced-colors: active) {
+  /* Declared as its own rule, as On Call's and CME's are, so a grouped
+     selector cannot stop this from matching an exact-selector read. */
+  [data-mode-identity="roster"] {
     --mode-identity: LinkText;
     --mode-identity-soft: Canvas;
     --mode-identity-border: ButtonBorder;

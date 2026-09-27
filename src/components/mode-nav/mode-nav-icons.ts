@@ -4,8 +4,8 @@ import {
   BookOpenText,
   Brain,
   BookMarked,
-  BriefcaseMedical,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
@@ -26,6 +26,7 @@ import {
   Repeat,
   Printer,
   Search,
+  Settings,
   Sparkles,
   Stethoscope,
   Scale,
@@ -93,8 +94,6 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   refer: ON_CALL_HUB_PAGE_ICONS.refer,
   find: ON_CALL_HUB_PAGE_ICONS.find,
   orientation: ON_CALL_SECTION_ICONS.orientation,
-  // The My shifts page's own glyph. `calendar` below is shared with CME.
-  shifts: BriefcaseMedical,
   // The registry id and the stored section id genuinely differ here, and this
   // is the only place the two vocabularies meet: the rail slot is `teaching`
   // (what the reader is shown) and the section is `education` (route segment,
@@ -125,6 +124,13 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
+  // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
+  // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
+  // gear, matched to nothing else in this rail so it cannot be mistaken for a
+  // section.
+  today: CalendarClock,
+  shifts: CalendarRange,
+  settings: Settings,
   // First Nations. Prefixed ids, so On Call's "contacts" icon is not shared —
   // each mode's rail slots wear their own mark even where the idea overlaps.
   "first-nations-bedside": LayoutGrid,

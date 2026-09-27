@@ -102,6 +102,12 @@
         "dev_only": false
       },
       {
+        "id": "roster",
+        "label": "Roster",
+        "home": "/roster",
+        "dev_only": false
+      },
+      {
         "id": "services",
         "label": "Services",
         "home": "/?mode=services",
@@ -171,6 +177,11 @@
       {
         "path": "/my-work",
         "file": "src/app/(search-app)/my-work/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/shifts",
+        "file": "src/app/(search-app)/roster/shifts/page.tsx",
         "area": "product"
       },
       {
@@ -434,6 +445,11 @@
         "area": "mockup"
       },
       {
+        "path": "/roster/settings",
+        "file": "src/app/(search-app)/roster/settings/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/tools-workflow-board",
         "file": "src/app/mockups/tools-workflow-board/page.tsx",
         "area": "mockup"
@@ -472,6 +488,11 @@
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/roster",
+        "file": "src/app/(search-app)/roster/page.tsx",
+        "area": "product"
       },
       {
         "path": "/cme/customise",
@@ -1089,11 +1110,6 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/calendar",
-        "file": "src/app/(search-app)/on-call/calendar/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/mockups/tools-search-mode",
         "file": "src/app/mockups/tools-search-mode/page.tsx",
         "area": "mockup"
@@ -1114,11 +1130,6 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/shifts",
-        "file": "src/app/(search-app)/on-call/shifts/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/mockups/phone-mode-sheet-yes",
         "file": "src/app/mockups/phone-mode-sheet-yes/page.tsx",
         "area": "mockup"
@@ -1126,6 +1137,11 @@
       {
         "path": "/first-nations/going-home",
         "file": "src/app/(search-app)/first-nations/going-home/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/calendar",
+        "file": "src/app/(search-app)/roster/calendar/page.tsx",
         "area": "product"
       },
       {
@@ -1345,12 +1361,20 @@
         "file": "src/app/api/health/ready/route.ts"
       },
       {
+        "path": "/api/roster/links/refresh",
+        "file": "src/app/api/roster/links/refresh/route.ts"
+      },
+      {
         "path": "/api/differentials",
         "file": "src/app/api/differentials/route.ts"
       },
       {
         "path": "/api/on-call/demo-content",
         "file": "src/app/api/on-call/demo-content/route.ts"
+      },
+      {
+        "path": "/api/roster/extra-time",
+        "file": "src/app/api/roster/extra-time/route.ts"
       },
       {
         "path": "/api/health",
@@ -1367,6 +1391,10 @@
       {
         "path": "/api/eval-cases",
         "file": "src/app/api/eval-cases/route.ts"
+      },
+      {
+        "path": "/api/roster/shifts/imports/[id]",
+        "file": "src/app/api/roster/shifts/imports/[id]/route.ts"
       },
       {
         "path": "/api/cme/plan",
@@ -1445,6 +1473,14 @@
         "file": "src/app/api/registry/records/route.ts"
       },
       {
+        "path": "/api/roster/workplaces",
+        "file": "src/app/api/roster/workplaces/route.ts"
+      },
+      {
+        "path": "/api/roster/read-file",
+        "file": "src/app/api/roster/read-file/route.ts"
+      },
+      {
         "path": "/api/calendar/feed/[token]",
         "file": "src/app/api/calendar/feed/[token]/route.ts"
       },
@@ -1465,6 +1501,10 @@
         "file": "src/app/api/cme/export/route.ts"
       },
       {
+        "path": "/api/roster/settings",
+        "file": "src/app/api/roster/settings/route.ts"
+      },
+      {
         "path": "/api/account/preferences",
         "file": "src/app/api/account/preferences/route.ts"
       },
@@ -1479,6 +1519,10 @@
       {
         "path": "/api/documents/[id]/reindex",
         "file": "src/app/api/documents/[id]/reindex/route.ts"
+      },
+      {
+        "path": "/api/roster/links",
+        "file": "src/app/api/roster/links/route.ts"
       },
       {
         "path": "/api/cme/missed/[id]",
@@ -1585,6 +1629,10 @@
         "file": "src/app/api/search/route.ts"
       },
       {
+        "path": "/api/roster/shifts",
+        "file": "src/app/api/roster/shifts/route.ts"
+      },
+      {
         "path": "/api/on-call/entries/[id]",
         "file": "src/app/api/on-call/entries/[id]/route.ts"
       },
@@ -1605,6 +1653,10 @@
         "file": "src/app/api/on-call/services/route.ts"
       },
       {
+        "path": "/api/roster/shifts/manual",
+        "file": "src/app/api/roster/shifts/manual/route.ts"
+      },
+      {
         "path": "/api/documents/images/batch",
         "file": "src/app/api/documents/images/batch/route.ts"
       },
@@ -1623,6 +1675,10 @@
       {
         "path": "/api/cme/drafts/[id]",
         "file": "src/app/api/cme/drafts/[id]/route.ts"
+      },
+      {
+        "path": "/api/roster/shifts/manual/[seriesId]",
+        "file": "src/app/api/roster/shifts/manual/[seriesId]/route.ts"
       },
       {
         "path": "/api/ingestion/quality",
@@ -1823,6 +1879,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-overview.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/archive/phase-3-design-decision-log.md",
         "section": "archive",
         "catalogued": true
@@ -1969,6 +2030,11 @@
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-21-rag-repository-content-sync.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md",
         "section": "superpowers",
         "catalogued": true
       },
@@ -2605,6 +2671,11 @@
       {
         "path": "docs/governance/privacy-role-attestation-pack-2026-09-01.md",
         "section": "governance",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -3328,6 +3399,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-a-database.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/README.md",
         "section": "root",
         "catalogued": true
@@ -3568,6 +3644,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-build-brief.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/decisions/2026-09-26-register-wa-service-issuers.md",
         "section": "decisions",
         "catalogued": false
@@ -3705,6 +3786,11 @@
       {
         "path": "docs/wiring-conventions.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-status.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -4096,6 +4182,11 @@
         "path": "docs/decisions/2026-09-25-calculator-governance-reference-not-linked.md",
         "section": "decisions",
         "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-db-agreement.md",
+        "section": "superpowers",
+        "catalogued": true
       },
       {
         "path": "docs/decisions/2026-08-22-accept-24-hour-recovery-point.md",
