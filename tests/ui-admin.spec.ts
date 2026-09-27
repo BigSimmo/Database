@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "playwright/test";
 
+import { visibleByTestId } from "./playwright-settlement";
+
 /**
  * Admin's own short browser journey (Task 10, integration): the two retired
  * paths, the pill's identity, Help's phone layout, and the one-composer
