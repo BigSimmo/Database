@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "779c50d6-ffde-47fa-aa2e-4e2334e35828",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#Z9NS6H",
+    "detail": "UPDATE 2026-09-28 (PR #3142): DONE - the Differentials subtitle (ui-copy.ts) now describes differential diagnosis, and uncurated 'Do now' teaching observations render as unnumbered bullets. DONE - refusal framing on the source rail: owner approval 2026-09-28 set the most conservative refusal definition, the UNION of grounded === false, an answerState of 'ungrounded' or 'no_answer', and fallbackReasonCode coverage_gap/no_candidates/low_signal (answerIsRefusal in answer-copy-payload.ts). Both the live (answer-result-surface.tsx) and historical (answer-thread-turn.tsx) answer surfaces pass it to NaturalLanguageAnswer, which drops the in-prose source marks and has AnswerSourceRail title the rows 'Documents searched', show every card with the uncited badge and no Direct/Partial grade, and use the same wording on the compact chip. STILL OPEN: (4) 86 of 374 multi-item diagnosis sections (1,200 sections total) have a summary that is a space-join of their items with no punctuation - clinical wording for a human.",
+    "baseRowFingerprint": "e29453c5b46a453753f6d5c5d48e68e5f3bd137546f41427636ad117051c7937"
+  }
+}
