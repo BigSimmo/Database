@@ -187,9 +187,13 @@ export const modeSecondaryNavigationRegistry = {
   // Psychiatry's home is itself the list of sections it gathers, and each
   // section keeps its own navigation, so the hub registers no destinations.
   psychiatry: [],
-  // My Work's home is itself the list of pages it gathers, each of which keeps
-  // its own address and navigation, so the hub registers no destinations.
-  "my-work": [],
+  // Admin keeps the internal mode id for existing preferences and links.
+  "my-work": [
+    { id: "admin-today", label: "Today", href: "/admin" },
+    { id: "renewals", label: "Renewals", href: "/admin/renewals" },
+    { id: "new-job", label: "New job", href: "/admin/new-job" },
+    { id: "help", label: "Help", href: "/admin/help" },
+  ],
   // Roster's pages, registered so the mode pill's section sheet can open them.
   // Manage is deliberately absent: this registry is the same for everyone and
   // non-managers must not see it, so managers reach /roster/manage from a row
@@ -416,6 +420,13 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     // Exact match only, for the same reason On Call's home is: a prefix test
     // here would mark This year current on every CME route as well as its own.
     if (pathname === "/cme") return "year";
+    return null;
+  }
+  if (modeId === "my-work") {
+    if (pathname === "/admin/renewals") return "renewals";
+    if (pathname === "/admin/new-job" || pathname === "/admin/new-job/records") return "new-job";
+    if (pathname === "/admin/help") return "help";
+    if (pathname === "/admin") return "admin-today";
     return null;
   }
   if (modeId === "roster") {

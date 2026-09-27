@@ -11,8 +11,8 @@ import {
   ROW_CLASS,
   SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
-import { ON_CALL_VIEW_HREFS, ON_CALL_VIEW_TITLES } from "@/components/on-call/on-call-section-identity";
-import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
+import { ON_CALL_VIEW_TITLES } from "@/components/on-call/on-call-section-identity";
+import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { summariseOnCallFreshness, type OnCallFreshnessSummary } from "@/lib/on-call/freshness-summary";
 import { ON_CALL_REVIEW_INTERVAL_MONTHS, onCallEntrySchema } from "@/lib/on-call/entry-model";
 
@@ -195,10 +195,12 @@ export function OnCallFreshnessPanel() {
               // here labelled a registration "Admin" and linked to
               // `/on-call/logistics`, where the Admin page correctly refuses to
               // render it. That is a dead end on the single row this panel
-              // exists to send you to: the one nobody has confirmed.
+              // exists to send you to: the one nobody has confirmed. The link
+              // goes through `onCallEntryHref`, which also knows the rows Admin
+              // received (Help or New job) and lands on the row's own anchor.
               <li key={entry.id} data-testid={`developer-on-call-freshness-row-${entry.id}`} className={ROW_CLASS}>
                 <Link
-                  href={ON_CALL_VIEW_HREFS[onCallViewForEntry(entry)]}
+                  href={onCallEntryHref(entry)}
                   className="text-sm font-bold text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 >
                   {entry.title}

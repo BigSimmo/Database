@@ -1790,6 +1790,12 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
   // of the flag (the route never reaches the shared-read predicate), so the
   // page still fills for a visitor with no account.
   //
+  // Three rows carry a `requirementId`, linking them to their item on Admin's
+  // statewide Requirements catalogue (`src/lib/admin/requirements.ts`), so the
+  // demo Renewals checklist shows recorded rows under "Soonest first" rather
+  // than twenty "Not recorded yet" slots. The others match no catalogue item
+  // and show on Renewals' Personal tab.
+  //
   // Because the whole page is private by construction, the page states it once
   // in `ComplianceScopeNote` instead of hanging a "Private" pill off all eight
   // rows — see `on-call-compliance-section.tsx`. Unset the flag on any row
@@ -1805,6 +1811,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     details: {
       category: "Registration",
       kind: "compliance",
+      requirementId: "medical-registration-renewal",
       consequence: "stops-work",
       expiresOn: demoDateKey(52),
       leadTimeDays: 60,
@@ -1829,6 +1836,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     details: {
       category: "Indemnity",
       kind: "compliance",
+      requirementId: "professional-indemnity-insurance",
       consequence: "stops-work",
       expiresOn: demoDateKey(126),
       issuingBody: "Demo indemnity insurer",
@@ -1875,6 +1883,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     details: {
       category: "Clearances",
       kind: "compliance",
+      requirementId: "working-with-children-check",
       consequence: "stops-part",
       expiresOn: demoDateKey(310),
       leadTimeDays: 120,

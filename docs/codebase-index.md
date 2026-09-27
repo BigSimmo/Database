@@ -396,6 +396,29 @@ in `src/lib/roster/` (the import folder, `calendar-link-fetch`, `calendar-links`
 - Nothing about shifts is stored offline, and Roster uses no AI. The On Call home still shows the
   shift on now or the next one, linking to `/roster`.
 
+### Admin mode
+
+Admin (mode id `my-work`, relabelled from My Work on 2026-09-26) is the paperwork around hospital
+work: renewals, starting and leaving a job, and where to get help. It is an organiser, never an
+authority: it states the dates the owner recorded and renders no verdict. In update 1 it stores no
+data of its own — it reads the owner's On Call entries, and no stored section id changes. Nothing
+from Admin goes to search or a model provider.
+
+`src/lib/admin/`:
+
+| Module          | Role                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `own-entries`   | The reader's own rows (editable) versus other doctors' shared rows (read-only), and the load state |
+| `renewal-dates` | Lead time, renewal start date, and the date wording ("12 Mar 2027", "in 9 weeks"), in Perth days   |
+| `placement`     | Which Admin page an old On Call `logistics` row belongs on (Help guides, Help on site, or New job) |
+| `phone-display` | Short numbers inside the hospital's own list, `(08)` on outside lines; display only                |
+| `download-file` | Hands the viewer a file to save (the renewal calendar file); nothing is uploaded                   |
+
+Routes are `/admin` (Today), `/admin/renewals`, `/admin/new-job` and `/admin/help`; components are
+in `src/components/admin/`. `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to
+Admin pages (`staticRouteRedirects` in `src/proxy.ts`, with page backstops). Admin's clock times,
+and every mode's as each is rebuilt, come from the shared 24-hour helper `src/lib/clock-time.ts`.
+
 ---
 
 ### Continuing education (CME/CPD)

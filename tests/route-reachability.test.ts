@@ -42,6 +42,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "Manager surface reached via ModeRow rows on Roster Today and Alerts (manager-only), which this Link-only scan does not model.",
   ],
   [
+    "/roster/calendar",
+    "Legacy /on-call/calendar redirect target for existing bookmarks; Roster Settings owns current calendar subscription, so no in-app navigation links this compatibility page.",
+  ],
+  [
     "/documents/source",
     "Legacy compatibility redirect target reached by external/legacy deep links, not in-app navigation (frontend-architecture.md).",
   ],
@@ -52,6 +56,18 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
+  ],
+  [
+    "/my-work",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
+  ],
+  [
+    "/on-call/compliance",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
+  ],
+  [
+    "/on-call/logistics",
+    "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
   ],
 ]);
 

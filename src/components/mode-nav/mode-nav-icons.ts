@@ -5,6 +5,7 @@ import {
   BookOpenText,
   Brain,
   BookMarked,
+  BriefcaseBusiness,
   Building2,
   CalendarClock,
   CalendarDays,
@@ -19,6 +20,7 @@ import {
   LayoutGrid,
   LibraryBig,
   ListChecks,
+  LifeBuoy,
   MessageCircle,
   Network,
   NotebookPen,
@@ -30,6 +32,7 @@ import {
   Settings,
   Sparkles,
   Stethoscope,
+  Sunrise,
   Scale,
   Target,
   Users,
@@ -126,6 +129,11 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
+  // Admin's page destinations in the mode picker.
+  "admin-today": Sunrise,
+  renewals: ON_CALL_VIEW_ICONS.compliance,
+  "new-job": BriefcaseBusiness,
+  help: LifeBuoy,
   // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
   // own CalendarRange mark (`category-identity.ts`); Team is the people on the
   // roster; Requests is the swap arrows, since swaps are most of what it holds;

@@ -1487,9 +1487,10 @@ describe("design-system adoption manifest", () => {
     // 120 -> 122 on 2026-09-27: Roster's registration and Release 1 screens, merged in:
     // `/on-call/shifts` deleted (proxy redirect), `/on-call/calendar` moved to `/roster/calendar`,
     // and Roster's Today (`/roster`), `/roster/shifts` and `/roster/settings` added — net plus two.
-    // 122 -> 126 on 2026-09-27: Roster Team, Requests, Manage and Join.
+    // 122 -> 127: Admin Today, Renewals, New job, its Records page and Help.
+    // 127 -> 131 on 2026-09-27: Roster Team, Requests, Manage and Join.
     // The owner-only developer panel remains outside production route coverage.
-    expect(manifest.routeCoverage.discovered).toHaveLength(126);
+    expect(manifest.routeCoverage.discovered).toHaveLength(131);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

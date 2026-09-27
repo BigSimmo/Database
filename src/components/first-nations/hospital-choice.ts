@@ -1,11 +1,15 @@
 "use client";
-import { useState, useSyncExternalStore } from "react";
-import { FIRST_NATIONS_HOSPITAL_STORAGE_KEY } from "@/lib/account-scoped-browser-state";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { FIRST_NATIONS_HOSPITAL_STORAGE_KEY, subscribeAccountTransition } from "@/lib/account-scoped-browser-state";
 import type { HospitalView } from "@/lib/first-nations/view-model";
 
 function subscribe(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
-  return () => window.removeEventListener("storage", onChange);
+  const unsubscribe = subscribeAccountTransition(onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    unsubscribe();
+  };
 }
 
 function readStored(): string | null {
@@ -24,6 +28,7 @@ function readStored(): string | null {
 export function useChosenHospital(hospitals: readonly HospitalView[]): [HospitalView | null, (id: string) => void] {
   const stored = useSyncExternalStore(subscribe, readStored, () => null);
   const [chosen, setChosen] = useState<string | null>(null);
+  useEffect(() => subscribeAccountTransition(() => setChosen(null)), []);
   const id = chosen ?? stored;
   const choose = (next: string) => {
     setChosen(next);

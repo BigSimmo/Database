@@ -48,7 +48,7 @@ function PersonEditor({ person, team, refresh }: { person: RosterPerson; team: R
       <label className="grid gap-1 text-sm">
         Grade
         <select
-          className="min-h-12 rounded border bg-background p-2"
+          className="min-h-12 w-full min-w-0 rounded border bg-background p-2"
           value={grade}
           onChange={(event) => setGrade(event.target.value)}
         >
