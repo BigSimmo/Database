@@ -326,6 +326,8 @@
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/teaching-actions.tsx",
+        "src/components/teaching/teaching-scan-landing.tsx",
+        "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-week.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/pathway-step-stack.tsx",
@@ -381,7 +383,10 @@
         "src/components/on-call/service-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/teaching-actions.tsx",
+        "src/components/teaching/teaching-scan-landing.tsx",
+        "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-week.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/pathway-step-stack.tsx",
@@ -2001,6 +2006,7 @@
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
+        "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-states.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
@@ -2040,7 +2046,9 @@
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
+        "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-states.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
@@ -2384,6 +2392,8 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/teaching-scan-landing.tsx",
+        "src/components/teaching/teaching-session.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -2401,6 +2411,9 @@
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/teaching-scan-landing.tsx",
+        "src/components/teaching/teaching-session.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -2707,6 +2720,7 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": [
+        "src/app/(display)/teaching/display/[token]/page.tsx",
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
@@ -2770,7 +2784,11 @@
         "src/app/(search-app)/sources/publishers/page.tsx",
         "src/app/(search-app)/sources/search/page.tsx",
         "src/app/(search-app)/sources/topics/page.tsx",
+        "src/app/(search-app)/teaching/c/[token]/page.tsx",
+        "src/app/(search-app)/teaching/c/complete/page.tsx",
         "src/app/(search-app)/teaching/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/page.tsx",
         "src/app/(search-app)/teaching/week/page.tsx"
       ],
       "routeRoots": true,
@@ -2811,6 +2829,16 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["CmeDashboard", "CmePage", "DetailPage", "ModeHome", "SearchPage"],
       "roots": [
+        {
+          "file": "src/app/(display)/teaching/display/[token]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
         {
           "file": "src/app/(search-app)/cme/calendar/page.tsx",
           "exists": true,
@@ -3442,7 +3470,47 @@
           "sanctionedPatternsPresent": []
         },
         {
+          "file": "src/app/(search-app)/teaching/c/[token]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/c/complete/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
           "file": "src/app/(search-app)/teaching/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/session/[id]/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4518,6 +4586,7 @@
   ],
   "routeCoverage": {
     "discovered": [
+      "src/app/(display)/teaching/display/[token]/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/cme/calendar/page.tsx",
@@ -4610,7 +4679,11 @@
       "src/app/(search-app)/specifiers/map/page.tsx",
       "src/app/(search-app)/specifiers/page.tsx",
       "src/app/(search-app)/specifiers/search/page.tsx",
+      "src/app/(search-app)/teaching/c/[token]/page.tsx",
+      "src/app/(search-app)/teaching/c/complete/page.tsx",
       "src/app/(search-app)/teaching/page.tsx",
+      "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+      "src/app/(search-app)/teaching/session/[id]/page.tsx",
       "src/app/(search-app)/teaching/week/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
@@ -4628,6 +4701,7 @@
       "src/app/safety-plan/page.tsx"
     ],
     "declared": [
+      "src/app/(display)/teaching/display/[token]/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
       "src/app/(search-app)/calculators/search/page.tsx",
       "src/app/(search-app)/cme/calendar/page.tsx",
@@ -4720,7 +4794,11 @@
       "src/app/(search-app)/specifiers/map/page.tsx",
       "src/app/(search-app)/specifiers/page.tsx",
       "src/app/(search-app)/specifiers/search/page.tsx",
+      "src/app/(search-app)/teaching/c/[token]/page.tsx",
+      "src/app/(search-app)/teaching/c/complete/page.tsx",
       "src/app/(search-app)/teaching/page.tsx",
+      "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+      "src/app/(search-app)/teaching/session/[id]/page.tsx",
       "src/app/(search-app)/teaching/week/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
@@ -4743,7 +4821,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 115,
+    "inheritedCkbV2RootCount": 120,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -4752,8 +4830,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 116,
-    "productionRouteCount": 108,
-    "nextUiEntryCount": 173
+    "rootCount": 121,
+    "productionRouteCount": 113,
+    "nextUiEntryCount": 178
   }
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { TeachingWeekScreen } from "@/components/teaching/teaching-week";
+import { TeachingWeekWithPanel } from "@/components/teaching/teaching-week-panel";
 import { isDemoMode } from "@/lib/env";
 
 export const metadata: Metadata = {
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "This week's teaching, day by day, with the sessions you present and your On Call teaching list.",
 };
 
-/* Demo mode is read on the server. U4 Step 9 adds the wide-screen side panel here. */
+/* Demo mode is read on the server. On a wide screen a tapped session opens beside the list (U4 Step 9). */
 export default function TeachingWeekRoute() {
-  return <TeachingWeekScreen demoMode={isDemoMode()} />;
+  return <TeachingWeekWithPanel demoMode={isDemoMode()} />;
 }
