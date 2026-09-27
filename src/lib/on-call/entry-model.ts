@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ADMIN_REQUIREMENT_IDS } from "@/lib/admin/requirement-ids";
+
 export const ON_CALL_SECTIONS = ["contacts", "playbook", "referrals", "orientation", "education", "logistics"] as const;
 
 export type OnCallSection = (typeof ON_CALL_SECTIONS)[number];
@@ -330,6 +332,72 @@ const logisticsDetails = z
      * recorded and who recorded it, and leaves the judgement to the reader.
      */
     provenance: z.enum(ON_CALL_COMPLIANCE_PROVENANCE).optional(),
+    /**
+     * Earlier recorded expiry dates, newest first, written by Admin's Renewed
+     * sheet (spec: "The previous date is kept in history"). JSONB, so no
+     * migration. Each was typed by the holder; none was checked. At most ten.
+     */
+    expiryHistory: z
+      .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD."))
+      .max(10)
+      .optional(),
+    /** "Where's your proof": a note to self of up to 120 characters, never the proof itself. */
+    proofNote: trimmed.max(120).optional(),
+    /**
+     * Owner-only: this requirement does not apply to the doctor's current job
+     * (spec review 27/28, "Not for this job", approved by Josh 18:48Z). Storing
+     * it moves the row to a final section on Renewals and takes it out of the
+     * "X of Y recorded" count entirely — it is not counted as either recorded
+     * or unrecorded. Never a verdict about the requirement itself, only about
+     * whether it applies to this doctor. Absent (rather than `false`) is the
+     * ordinary case, so an entry written before this field existed is
+     * unaffected.
+     */
+    notForThisJob: z.boolean().optional(),
+    /**
+     * Links this compliance row to a statewide Requirements catalogue item
+     * (`src/lib/admin/requirements.ts`) by id, so a renamed or reworded entry
+     * still matches its catalogue slot. Optional: most rows match by title
+     * instead, and a row with no catalogue counterpart carries none.
+     *
+     * A short, fixed-charset slug — never free text, so it cannot be used to
+     * smuggle an unbounded or identifier-shaped string past `proofNote`'s own
+     * guard — and, when present, one of the catalogue's own ids. The id list
+     * lives in `@/lib/admin/requirement-ids`, a leaf module with no imports of
+     * its own, precisely so this schema can depend on it without closing a
+     * circular import back through `on-call/compliance.ts` into
+     * `admin/requirements.ts` (see that module's docblock).
+     */
+    requirementId: z
+      .string()
+      .regex(/^[a-z0-9-]{1,40}$/, "Use a short lowercase slug.")
+      .refine(
+        (value) => (ADMIN_REQUIREMENT_IDS as readonly string[]).includes(value),
+        "Not a Requirements catalogue id.",
+      )
+      .optional(),
+    /**
+     * New job's checklist tick for this step — owner-only, same as
+     * `contactName` on a `contacts` row (see `OWNER_ONLY_DETAIL_KEYS`,
+     * `src/lib/on-call/repository.ts`, which strips it from every shared
+     * read). A colleague's progress through their own setup is not this
+     * doctor's business, and the ticks New job shows are real saved toggles,
+     * never a guess. Set by `setNewJobStepDone`
+     * (`src/lib/admin/new-job-progress.ts`).
+     */
+    done: z.boolean().optional(),
+    /**
+     * The Perth calendar date (`YYYY-MM-DD`, matched rather than parsed, as
+     * `expiresOn` is) the owner's new job starts — owner-only, stripped from
+     * shared reads the same way `done` above is. `selectNewJobProgress`
+     * (`src/lib/admin/new-job-progress.ts`) reads it from the most recently
+     * updated own New job row that carries one; every other own row's copy,
+     * if any, is ignored.
+     */
+    jobStartsOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+      .optional(),
   })
   .strict();
 

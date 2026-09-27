@@ -440,16 +440,16 @@ describe("Care Plan contact actions", () => {
       },
     ]);
 
-    // The original four WA numbers keep their original verification date; the
-    // three added 2026-09-25 (Lifeline, Suicide Call Back Service, 13YARN)
-    // carry today's.
-    const originallyVerified = new Set(["Emergency services", "Rurallink"]);
+    // MHERL, Rurallink and 13YARN were rechecked on 2026-09-27.
+    const reverified = new Set(["Rurallink", "13YARN (for Aboriginal and Torres Strait Islander people)"]);
     for (const contact of publicCrisisContacts) {
       expect(contact.sourceUrl).toMatch(/^https:\/\//);
       if (contact.name.includes("MHERL")) {
         expect(contact.caveat).toMatch(/not an emergency service/i);
-        expect(contact.verifiedOn).toBe("2026-08-20");
-      } else if (originallyVerified.has(contact.name)) {
+        expect(contact.verifiedOn).toBe("2026-09-27");
+      } else if (reverified.has(contact.name)) {
+        expect(contact.verifiedOn).toBe("2026-09-27");
+      } else if (contact.name === "Emergency services") {
         expect(contact.verifiedOn).toBe("2026-08-20");
       } else {
         expect(contact.verifiedOn).toBe("2026-09-25");

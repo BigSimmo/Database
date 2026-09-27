@@ -1,4 +1,6 @@
-export const AWST_TIME_ZONE = "Australia/Perth";
+import { perthCalendarDate, PERTH_TIME_ZONE } from "@/lib/perth-time";
+
+export const AWST_TIME_ZONE = PERTH_TIME_ZONE;
 
 export type Clock = { now(): Date };
 
@@ -36,8 +38,7 @@ export function toAwstParts(instant: Date): AwstParts {
 }
 
 export function awstCalendarDay(instant: Date): string {
-  const { year, month, day } = toAwstParts(instant);
-  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return perthCalendarDate(instant);
 }
 
 /** AWST is UTC+8 year-round, so a local wall time maps to exactly one instant. */

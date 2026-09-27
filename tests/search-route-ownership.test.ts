@@ -34,6 +34,12 @@ describe("shared-search route ownership", () => {
       "therapy-compass",
       "tools",
       "calculators",
+      "on-call",
+      "cme",
+      "psychiatry",
+      "my-work",
+      "roster",
+      "first-nations",
     ] as const) {
       expect(shouldRenderDashboardSearch({ hasSubmittedSearch: true, mode, pathname: `/${mode}` })).toBe(false);
     }

@@ -11,7 +11,11 @@ export function shareText(name: string, number: string): string {
   return `${name}: ${number}`;
 }
 
-const escapeVcard = (value: string) => value.replace(/[\\,;]/g, (m) => `\\${m}`).replace(/\n/g, "\\n");
+const escapeVcard = (value: string) =>
+  value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\\,;]/g, (m) => `\\${m}`)
+    .replace(/\n/g, "\\n");
 
 export function vcardFor({ name, number }: { name: string; number: string }): string {
   const tel = (onCallTelHref(number) ?? "").replace(/^tel:/, "");
