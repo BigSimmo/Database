@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-  printf '[codex-cloud:maintenance] ERROR: Run this script from the Database repository.\n' >&2
+  printf '[codex-cloud:maintenance] ERROR: Run this script from the PsychSift repository.\n' >&2
   exit 1
 }
 cd "$repo_root"

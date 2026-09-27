@@ -126,9 +126,9 @@ const EXPECTED_MODE_TITLES: Record<
     subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
   },
   "my-work": {
-    sharedTitle: "My Work",
-    standaloneTitle: "My Work",
-    subtitle: "Paperwork, deadlines and checks, with what is due first.",
+    sharedTitle: "Admin",
+    standaloneTitle: "Admin",
+    subtitle: "The paperwork around hospital work, with what to start first.",
   },
   roster: {
     sharedTitle: "Roster",

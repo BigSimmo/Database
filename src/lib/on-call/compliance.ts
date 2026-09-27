@@ -145,6 +145,19 @@ export function recordedExpiryHasPassed(entry: OnCallEntry, now: Date): boolean 
 }
 
 /**
+ * Owner-only "Not for this job" (spec review 27/28): whether this requirement
+ * has been marked as not applying to the doctor's current job. Never a verdict
+ * about the requirement — only about whether it applies to this doctor. A row
+ * so marked moves to a final section on Renewals and leaves the "X of Y
+ * recorded" count entirely, rather than counting as unrecorded.
+ */
+export function entryNotForThisJob(entry: OnCallEntry): boolean {
+  const details = entry.details;
+  if (typeof details !== "object" || details === null) return false;
+  return (details as { notForThisJob?: unknown }).notForThisJob === true;
+}
+
+/**
  * The page's order: consequence band first, then soonest expiry, then title.
  *
  * Title last so the list is stable — two requirements with the same band and
@@ -176,6 +189,10 @@ export const COMPLIANCE_MARKER_KEYS = [
   "issuingBody",
   "evidenceUrl",
   "provenance",
+  "expiryHistory",
+  "proofNote",
+  "notForThisJob",
+  "requirementId",
 ] as const;
 export function mayContainOnCallCompliance(section: unknown, details: unknown): boolean {
   if (section !== "logistics") return false;
