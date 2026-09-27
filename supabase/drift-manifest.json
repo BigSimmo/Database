@@ -2,7 +2,7 @@
   "generated_at": "2026-09-27T16:02:30.320Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "a31d11a93ebf07ea6e0959f72fd7ae07059dba1983d75794286ad65fd1ad2c26",
+  "schema_sha256": "17c76db6b617199907bf625550623bddea2e52e0277b4e1b748823da60c4704c",
   "replay_seconds": 90,
   "snapshot": {
     "views": [
@@ -16936,6 +16936,11 @@
         "table": "roster_leave"
       },
       {
+        "def": "CREATE TRIGGER roster_team_settings_invalidate_rule_review BEFORE UPDATE ON public.roster_team_settings FOR EACH ROW EXECUTE FUNCTION public.roster_invalidate_rule_review()",
+        "name": "roster_team_settings_invalidate_rule_review",
+        "table": "roster_team_settings"
+      },
+      {
         "def": "CREATE TRIGGER roster_team_settings_updated_at BEFORE UPDATE ON public.roster_team_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "roster_team_settings_updated_at",
         "table": "roster_team_settings"
@@ -18279,6 +18284,13 @@
         ],
         "def_hash": "186c2c6f44163398a825964de1701cbd",
         "signature": "public.roster_grade_rank(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "9400a7c7c0be449fb4db37aad9603b82",
+        "signature": "public.roster_invalidate_rule_review()"
       },
       {
         "acl": [
