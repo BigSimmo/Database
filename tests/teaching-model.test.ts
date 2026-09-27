@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   attendanceLabels,
+  auditResultSchema,
   checkinOpenBodySchema,
   linkCarriesPasscode,
   memberLabel,
+  organiseResultSchema,
   seriesInputSchema,
   sessionDetailSchema,
+  sessionNextResultSchema,
+  supervisionPendingSchema,
+  teachingActions,
   teachingCpdBodySchema,
   teachingCpdEntryHref,
   teachingOverviewQuerySchema,
@@ -297,5 +302,113 @@ describe("labels", () => {
 
   it("links a saved CPD entry to its own page", () => {
     expect(teachingCpdEntryHref(id)).toBe(`/cme/log/${id}`);
+  });
+});
+
+describe("Reconciliation with part 1", () => {
+  it("pages the audit log by before and beforeId together, or neither", () => {
+    const base = { action: "audit.read" as const };
+    expect(teachingServiceQuerySchema.safeParse(base).success).toBe(true);
+    expect(teachingServiceQuerySchema.safeParse({ ...base, before: "2026-09-01T00:00:00Z", beforeId: 4 }).success).toBe(
+      true,
+    );
+    expect(teachingServiceQuerySchema.safeParse({ ...base, before: "2026-09-01T00:00:00Z" }).success).toBe(false);
+    expect(teachingServiceQuerySchema.safeParse({ ...base, beforeId: 4 }).success).toBe(false);
+  });
+
+  it("keeps an audit row's actor name instead of stripping it", () => {
+    const parsed = auditResultSchema.parse({
+      events: [
+        {
+          id: 1,
+          actorId: null,
+          actorName: null,
+          action: "team_settings.set_health_service",
+          subjectId: null,
+          at: "2026-09-01T00:00:00Z",
+        },
+      ],
+    });
+    expect(parsed.events[0]).toMatchObject({ actorName: null });
+  });
+
+  it("adds the four actions Josh's later answers gave part 1", () => {
+    for (const action of ["organise.read", "attendance.remove", "session.next", "supervision.pending"]) {
+      expect(teachingActions).toContain(action);
+    }
+    expect(teachingServiceQuerySchema.safeParse({ action: "organise.read" }).success).toBe(true);
+    expect(
+      teachingServiceActionSchema.safeParse({
+        action: "attendance.remove",
+        occurrenceId: "11111111-1111-4111-8111-111111111111",
+        userId: "22222222-2222-4222-8222-222222222222",
+      }).success,
+    ).toBe(true);
+    expect(teachingOverviewQuerySchema.parse({ view: "next-session" })).toEqual({ view: "next-session" });
+    expect(teachingOverviewQuerySchema.parse({ view: "supervision-pending" })).toEqual({
+      view: "supervision-pending",
+    });
+    expect(sessionNextResultSchema.parse({ session: null })).toEqual({ session: null });
+    expect(supervisionPendingSchema.parse({ count: 1 })).toEqual({ count: 1 });
+  });
+
+  it("reads the organiser's programme in one shape", () => {
+    const parsed = organiseResultSchema.parse({
+      series: [
+        {
+          seriesId: "11111111-1111-4111-8111-111111111111",
+          title: "t",
+          kind: "journal",
+          groupIds: [],
+          repeat: "weekly",
+          firstDate: "2026-10-01",
+          startTime: "12:30",
+          minutes: 60,
+          venue: null,
+          joinUrl: null,
+          skipDates: [],
+          endDate: "2026-12-17",
+          presenterId: null,
+          materials: [],
+          lastConfirmedAt: null,
+        },
+      ],
+      groups: [{ groupId: "22222222-2222-4222-8222-222222222222", name: "Registrars", userIds: [] }],
+      members: [],
+    });
+    expect(parsed.series[0].kind).toBe("journal");
+  });
+
+  // Master plan R3/R4: the database always sends these two; the client's audience picker and
+  // open-to control read them, and a caller that predates them still parses cleanly.
+  it("carries a series' audience and open-to setting when the database sends them", () => {
+    const base = {
+      seriesId: id,
+      title: "t",
+      kind: "journal",
+      groupIds: [],
+      repeat: "weekly",
+      firstDate: "2026-10-01",
+      startTime: "12:30",
+      minutes: 60,
+      venue: null,
+      joinUrl: null,
+      skipDates: [],
+      endDate: "2026-12-17",
+      presenterId: null,
+      materials: [],
+      lastConfirmedAt: null,
+    };
+    const parsed = organiseResultSchema.parse({
+      series: [{ ...base, audience: "registrars", openTo: "health_service" }],
+      groups: [],
+      members: [],
+    });
+    expect(parsed.series[0]).toMatchObject({ audience: "registrars", openTo: "health_service" });
+    expect(organiseResultSchema.safeParse({ series: [base], groups: [], members: [] }).success).toBe(true);
+  });
+
+  it("gives a session's counts a visitors field, and a register a visitors count", () => {
+    expect(sessionDetailSchema.shape.counts.unwrap().shape.visitors).toBeDefined();
   });
 });

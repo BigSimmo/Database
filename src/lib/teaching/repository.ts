@@ -9,19 +9,28 @@ import { teachingDisplayPath } from "@/lib/teaching/checkin-token";
 import {
   attendanceMarkSchema,
   auditResultSchema,
+  calendarSetSchema,
   checkinCodeSchema,
   checkinCompletedSchema,
   checkinOpenedSchema,
   displayCodeSchema,
   displayCreatedSchema,
   exportResultSchema,
+  groupDeletedSchema,
+  groupMembersSetSchema,
   groupSavedSchema,
   invitationCreatedSchema,
   logbookSchema,
   membersResultSchema,
+  noticeReadResultSchema,
+  occurrenceChangedSchema,
+  organiseResultSchema,
   registerResultSchema,
+  roleSetSchema,
   seriesSavedSchema,
   sessionDetailSchema,
+  sessionNextResultSchema,
+  supervisionPendingSchema,
   teachingWeekSchema,
   unloggedCountSchema,
   type AttendanceMark,
@@ -166,6 +175,25 @@ export async function fetchTeachingUnloggedCount(client: AdminClient, ownerId: s
   return parseTeachingResult(unloggedCountSchema, await teachingCommand(client, ownerId, null, "cpd.unlogged")).count;
 }
 
+/** The Organise page's editors: every series of the team, its groups, and its active members. */
+export async function readOrganise(client: AdminClient, actorId: string, serviceId: string) {
+  return parseTeachingResult(organiseResultSchema, await teachingCommand(client, actorId, serviceId, "organise.read"));
+}
+
+/** The quiet-day hero: the actor's next listed session across every active team, or none. No team named. */
+export async function readNextSession(client: AdminClient, actorId: string) {
+  return parseTeachingResult(sessionNextResultSchema, await teachingCommand(client, actorId, null, "session.next"))
+    .session;
+}
+
+/** A supervisor's pending confirmations across active teams, as a count only. */
+export async function readSupervisionPending(client: AdminClient, actorId: string): Promise<number> {
+  return parseTeachingResult(
+    supervisionPendingSchema,
+    await teachingCommand(client, actorId, null, "supervision.pending"),
+  ).count;
+}
+
 /** `serviceId` null: the database takes the service from the occurrence (a calendar link knows only the occurrence). */
 export async function readSession(
   client: AdminClient,
@@ -236,6 +264,8 @@ export async function teachingServiceRead(
       return parseTeachingResult(auditResultSchema, data);
     case "export.attendance":
       return parseTeachingResult(exportResultSchema, data);
+    case "organise.read":
+      return parseTeachingResult(organiseResultSchema, data);
   }
 }
 
@@ -282,6 +312,37 @@ export async function teachingServiceMutation(
     case "checkin.typed":
       return parseTeachingResult(
         attendanceMarkSchema,
+        await teachingCommand(client, actorId, serviceId, input.action, payloadOf(input)),
+      );
+    // Reconciliation with part 1 (master plan S10): these six were returned unchecked before.
+    case "notice.read":
+      return parseTeachingResult(
+        noticeReadResultSchema,
+        await teachingCommand(client, actorId, serviceId, input.action, payloadOf(input)),
+      );
+    case "calendar.set":
+      return parseTeachingResult(
+        calendarSetSchema,
+        await teachingCommand(client, actorId, serviceId, input.action, payloadOf(input)),
+      );
+    case "occurrence.change":
+      return parseTeachingResult(
+        occurrenceChangedSchema,
+        await teachingCommand(client, actorId, serviceId, input.action, payloadOf(input)),
+      );
+    case "group.delete":
+      return parseTeachingResult(
+        groupDeletedSchema,
+        await teachingCommand(client, actorId, serviceId, input.action, payloadOf(input)),
+      );
+    case "group.members.set":
+      return parseTeachingResult(
+        groupMembersSetSchema,
+        await teachingCommand(client, actorId, serviceId, input.action, payloadOf(input)),
+      );
+    case "role.set":
+      return parseTeachingResult(
+        roleSetSchema,
         await teachingCommand(client, actorId, serviceId, input.action, payloadOf(input)),
       );
     default:

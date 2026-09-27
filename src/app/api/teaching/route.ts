@@ -12,7 +12,14 @@ import {
   type TeachingWeekResponse,
 } from "@/lib/teaching/model";
 import { relocatedOnCallSessions } from "@/lib/teaching/relocated";
-import { fetchTeachingUnloggedCount, readLogbook, readSession, readWeek } from "@/lib/teaching/repository";
+import {
+  fetchTeachingUnloggedCount,
+  readLogbook,
+  readNextSession,
+  readSession,
+  readSupervisionPending,
+  readWeek,
+} from "@/lib/teaching/repository";
 import { perthToday } from "@/lib/teaching/time";
 import { parseRequestQuery } from "@/lib/validation/query";
 
@@ -69,6 +76,10 @@ async function live(client: AdminClient, ownerId: string, query: TeachingOvervie
     case "session":
       if (!query.occurrenceId) throw notInProgramme();
       return readSession(client, ownerId, null, query.occurrenceId);
+    case "next-session":
+      return { session: await readNextSession(client, ownerId) };
+    case "supervision-pending":
+      return { count: await readSupervisionPending(client, ownerId) };
   }
 }
 
@@ -90,6 +101,11 @@ function demo(query: TeachingOverviewQuery): unknown {
       if (!session) throw notInProgramme();
       return session;
     }
+    // The demo has no other team to be quiet on, and nobody to supervise.
+    case "next-session":
+      return { session: null };
+    case "supervision-pending":
+      return { count: 0 };
   }
 }
 

@@ -10,7 +10,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { TeachingServiceAction } from "@/lib/teaching/model";
 import {
   fetchTeachingUnloggedCount,
+  readNextSession,
+  readOrganise,
   readSession,
+  readSupervisionPending,
   readWeek,
   teachingCommand,
   teachingErrors,
@@ -164,6 +167,33 @@ describe("the Teaching command boundary", () => {
       p_payload: {},
     });
   });
+
+  it("reads the organiser's programme through teaching_command, not the whats-on function", async () => {
+    rpc.mockResolvedValue({ data: { series: [], groups: [], members: [] }, error: null });
+    await readOrganise(createAdminClient(), actor, serviceId);
+    expect(rpc).toHaveBeenCalledWith("teaching_command", {
+      p_actor_id: actor,
+      p_service_id: serviceId,
+      p_action: "organise.read",
+      p_payload: {},
+    });
+  });
+
+  it("gives the quiet-day hero the actor's next session with no team named", async () => {
+    rpc.mockResolvedValue({ data: { session: null }, error: null });
+    await expect(readNextSession(createAdminClient(), actor)).resolves.toBeNull();
+    expect(rpc).toHaveBeenCalledWith("teaching_command", {
+      p_actor_id: actor,
+      p_service_id: null,
+      p_action: "session.next",
+      p_payload: {},
+    });
+  });
+
+  it("counts a supervisor's pending confirmations across active teams", async () => {
+    rpc.mockResolvedValue({ data: { count: 2 }, error: null });
+    await expect(readSupervisionPending(createAdminClient(), actor)).resolves.toBe(2);
+  });
 });
 
 const seriesSave: TeachingServiceAction = {
@@ -247,6 +277,66 @@ describe("secrets made on the server", () => {
     const token = "e".repeat(64);
     await teachingServiceMutation(createAdminClient(), actor, serviceId, { action: "display.revoke", token });
     expect(rpc.mock.calls[0][1].p_payload).toEqual({ linkHash: sha256(token) });
+  });
+});
+
+describe("the six write actions S3 left unchecked (reconciliation with part 1)", () => {
+  it("parses notice.read's confirmation and drops anything else it might carry", async () => {
+    rpc.mockResolvedValue({ data: { leaked: "x" }, error: null });
+    const result = await teachingServiceMutation(createAdminClient(), actor, serviceId, {
+      action: "notice.read",
+      noticeId: occurrenceId,
+    });
+    expect(result).toEqual({});
+  });
+
+  it("parses calendar.set's confirmed value", async () => {
+    rpc.mockResolvedValue({ data: { enabled: true, leaked: "x" }, error: null });
+    const result = await teachingServiceMutation(createAdminClient(), actor, serviceId, {
+      action: "calendar.set",
+      enabled: true,
+    });
+    expect(result).toEqual({ enabled: true });
+  });
+
+  it("parses occurrence.change's confirmation and drops anything else it might carry", async () => {
+    rpc.mockResolvedValue({ data: { leaked: "x" }, error: null });
+    const result = await teachingServiceMutation(createAdminClient(), actor, serviceId, {
+      action: "occurrence.change",
+      occurrenceId,
+      status: "cancelled",
+      reason: "room_change",
+    });
+    expect(result).toEqual({});
+  });
+
+  it("parses group.delete's group id", async () => {
+    rpc.mockResolvedValue({ data: { groupId: occurrenceId, leaked: "x" }, error: null });
+    const result = await teachingServiceMutation(createAdminClient(), actor, serviceId, {
+      action: "group.delete",
+      groupId: occurrenceId,
+    });
+    expect(result).toEqual({ groupId: occurrenceId });
+  });
+
+  it("parses group.members.set's group id", async () => {
+    rpc.mockResolvedValue({ data: { groupId: occurrenceId, leaked: "x" }, error: null });
+    const result = await teachingServiceMutation(createAdminClient(), actor, serviceId, {
+      action: "group.members.set",
+      groupId: occurrenceId,
+      userIds: [],
+    });
+    expect(result).toEqual({ groupId: occurrenceId });
+  });
+
+  it("parses role.set's confirmation and drops anything else it might carry", async () => {
+    rpc.mockResolvedValue({ data: { leaked: "x" }, error: null });
+    const result = await teachingServiceMutation(createAdminClient(), actor, serviceId, {
+      action: "role.set",
+      userId: actor,
+      role: "doctor",
+    });
+    expect(result).toEqual({});
   });
 });
 

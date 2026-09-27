@@ -56,6 +56,12 @@ export const teachingActions = [
   "invitation.create",
   "role.set",
   "audit.read",
+  // Reconciliation with part 1 (master plan S10): four actions Josh's later answers gave part 1
+  // that S3/S4 predate.
+  "organise.read",
+  "attendance.remove",
+  "session.next",
+  "supervision.pending",
 ] as const;
 export type TeachingAction = (typeof teachingActions)[number];
 
@@ -130,7 +136,8 @@ export type RegisterRow = {
   method: AttendanceMethod;
   recordedAt: string;
 };
-export type RegisterResult = { rows: RegisterRow[] } | { counts: { code: number; self: number } };
+export type RegisterResult =
+  { rows: RegisterRow[]; visitors: number } | { counts: { code: number; self: number; visitors: number } };
 export type ExportRow = {
   occurrenceId: string;
   title: string;
@@ -141,7 +148,15 @@ export type ExportRow = {
   recordedAt: string;
 };
 export type MemberRow = { userId: string; name: string | null; role: TeachingRole; joinedAt: string };
-export type AuditRow = { id: number; actorId: string | null; action: string; subjectId: string | null; at: string };
+export type AuditRow = {
+  id: number;
+  actorId: string | null;
+  /** Master plan part 1: an actor's own display name at read time, never stripped for the admin viewing it. */
+  actorName: string | null;
+  action: string;
+  subjectId: string | null;
+  at: string;
+};
 
 export const attendanceLabels: Record<AttendanceMethod, string> = {
   code_room: "Checked in by code · shown in room",
@@ -284,7 +299,9 @@ export type SeriesInput = z.infer<typeof seriesInputSchema>;
  */
 export const teachingOverviewQuerySchema = z
   .object({
-    view: z.enum(["week", "logbook", "unlogged-count", "session"]).default("week"),
+    view: z
+      .enum(["week", "logbook", "unlogged-count", "session", "next-session", "supervision-pending"])
+      .default("week"),
     from: teachingDateSchema.optional(),
     to: teachingDateSchema.optional(),
     occurrenceId: uuid.optional(),
@@ -320,10 +337,24 @@ export const teachingServiceQuerySchema = z
     z.object({ action: z.literal("register.read"), occurrenceId: uuid }),
     z.object({ action: z.literal("checkin.code"), occurrenceId: uuid, stream: z.enum(checkinStreams) }),
     z.object({ action: z.literal("members.read") }),
-    z.object({ action: z.literal("audit.read"), before: instant.optional() }),
+    z.object({
+      action: z.literal("audit.read"),
+      before: instant.optional(),
+      // Keyset paging (part 1): before and beforeId page together, or neither is given.
+      beforeId: z.number().int().nonnegative().optional(),
+    }),
     z.object({ action: z.literal("export.attendance"), from: teachingDateSchema, to: teachingDateSchema }),
+    z.object({ action: z.literal("organise.read") }),
   ])
   .superRefine((value, ctx) => {
+    if (value.action === "audit.read" && Boolean(value.before) !== Boolean(value.beforeId)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Give both a before time and a before id, or neither.",
+        path: ["beforeId"],
+      });
+      return;
+    }
     if (value.action !== "export.attendance") return;
     const span = daysBetween(value.from, value.to);
     if (span < 0 || span > 366)
@@ -376,6 +407,8 @@ export const teachingServiceActionSchema = z
       })
       .strict(),
     z.object({ action: z.literal("role.set"), userId: uuid, role: z.enum(teachingRoles) }).strict(),
+    // Master plan S10: an organiser removing a member's own self-report (never a code check-in).
+    z.object({ action: z.literal("attendance.remove"), occurrenceId: uuid, userId: uuid }).strict(),
   ])
   .superRefine((value, ctx) => {
     if (value.action === "series.save") {
@@ -419,7 +452,11 @@ export type TeachingCpdBody = z.infer<typeof teachingCpdBodySchema>;
 
 // ---- Results ----------------------------------------------------------------------
 
-const counts = z.object({ code: z.number().int().nonnegative(), self: z.number().int().nonnegative() });
+const counts = z.object({
+  code: z.number().int().nonnegative(),
+  self: z.number().int().nonnegative(),
+  visitors: z.number().int().nonnegative(),
+});
 
 export const teamSummarySchema = z.object({
   id: uuid,
@@ -531,7 +568,7 @@ const registerRowSchema = z.object({
   recordedAt: instant,
 }) satisfies z.ZodType<RegisterRow>;
 export const registerResultSchema = z.union([
-  z.object({ rows: z.array(registerRowSchema) }),
+  z.object({ rows: z.array(registerRowSchema), visitors: z.number().int().nonnegative() }),
   z.object({ counts }),
 ]) satisfies z.ZodType<RegisterResult>;
 export const exportResultSchema = z.object({
@@ -562,6 +599,7 @@ export const auditResultSchema = z.object({
     z.object({
       id: z.number().int(),
       actorId: uuid.nullable(),
+      actorName: z.string().nullable(),
       action: z.string().regex(/^[a-z_.]{3,48}$/),
       subjectId: uuid.nullable(),
       at: instant,
@@ -577,3 +615,89 @@ export type SeriesSaved = z.infer<typeof seriesSavedSchema>;
 /** Master plan R6: `group.save` answers the group's id. */
 export const groupSavedSchema = z.object({ groupId: uuid });
 export type GroupSaved = z.infer<typeof groupSavedSchema>;
+
+// ---- Organise page, quiet-day hero and supervision count (reconciliation with part 1) ---------
+
+export type SeriesRow = {
+  seriesId: string;
+  title: string;
+  kind: string;
+  groupIds: string[];
+  repeat: string;
+  firstDate: string;
+  startTime: string;
+  minutes: number;
+  venue: string | null;
+  joinUrl: string | null;
+  skipDates: string[];
+  endDate: string;
+  presenterId: string | null;
+  materials: { label: string; url: string }[];
+  lastConfirmedAt: string | null;
+  /** Master plan R4: which level the series is for. Always set in the database; optional here so a
+   * caller that never asked for it (nothing in this build parses `organise.read` before now) is not
+   * forced to supply it. */
+  audience?: SeriesAudience;
+  /** Master plan R3/R5: a series a health service's visitors may open. Always set in the database. */
+  openTo?: "team" | "health_service";
+};
+export const seriesRowSchema = z.object({
+  seriesId: uuid,
+  title: z.string(),
+  kind: z.enum(seriesKinds),
+  groupIds: z.array(uuid),
+  repeat: z.enum(seriesRepeats),
+  firstDate: teachingDateSchema,
+  startTime: timeOfDay,
+  minutes: z.number().int(),
+  venue: z.string().nullable(),
+  joinUrl: z.string().nullable(),
+  skipDates: z.array(teachingDateSchema),
+  endDate: teachingDateSchema,
+  presenterId: uuid.nullable(),
+  materials: z.array(z.object({ label: z.string(), url: z.string() })),
+  lastConfirmedAt: instant.nullable(),
+  audience: z.enum(seriesAudiences).optional(),
+  openTo: z.enum(["team", "health_service"]).optional(),
+}) satisfies z.ZodType<SeriesRow>;
+
+export type GroupRow = { groupId: string; name: string; userIds: string[] };
+export const groupRowSchema = z.object({
+  groupId: uuid,
+  name: z.string(),
+  userIds: z.array(uuid),
+}) satisfies z.ZodType<GroupRow>;
+
+const organiseMemberRowSchema = z.object({
+  userId: uuid,
+  name: z.string().nullable(),
+  role: z.enum(teachingRoles),
+  joinedAt: instant,
+});
+
+/** `organise.read`: the Organise page's editors (part 1) — every series, the groups with their
+ * member ids, and the active members. */
+export const organiseResultSchema = z.object({
+  series: z.array(seriesRowSchema),
+  groups: z.array(groupRowSchema),
+  members: z.array(organiseMemberRowSchema),
+});
+
+/** `session.next`: the quiet-day hero's next listed session across every active team, or none. */
+export const sessionNextResultSchema = z.object({ session: sessionSummarySchema.nullable() });
+
+/** `supervision.pending`: a supervisor's pending confirmations across active teams, as a count only. */
+export const supervisionPendingSchema = z.object({ count: z.number().int().nonnegative() });
+
+// ---- Write actions with a result S3 left unchecked (reconciliation with part 1) -----------------
+
+/** `notice.read`, `occurrence.change` and `role.set` all confirm with nothing but `{}` — parsing
+ * against an empty shape is still worth doing, so a database change that started leaking a field
+ * (the check-in secret, say) would be dropped here rather than reach the browser. */
+export const emptyTeachingResultSchema = z.object({});
+export const noticeReadResultSchema = emptyTeachingResultSchema;
+export const occurrenceChangedSchema = emptyTeachingResultSchema;
+export const roleSetSchema = emptyTeachingResultSchema;
+export const calendarSetSchema = z.object({ enabled: z.boolean() });
+export const groupDeletedSchema = z.object({ groupId: uuid });
+export const groupMembersSetSchema = z.object({ groupId: uuid });

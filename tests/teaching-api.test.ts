@@ -176,6 +176,15 @@ describe("GET /api/teaching", () => {
     });
   });
 
+  it("serves the quiet-day hero and the supervision count from GET /api/teaching", async () => {
+    mocks.rpc.mockResolvedValue({ data: { session: null }, error: null });
+    let response = await overview(get("/api/teaching?view=next-session"));
+    expect(await response.json()).toEqual({ session: null });
+    mocks.rpc.mockResolvedValue({ data: { count: 3 }, error: null });
+    response = await overview(get("/api/teaching?view=supervision-pending"));
+    expect(await response.json()).toEqual({ count: 3 });
+  });
+
   it("serves the made-up programme in demo mode without signing in", async () => {
     mocks.demo.mockReturnValue(true);
     const response = await overview(get("/api/teaching?view=week"));
@@ -190,7 +199,7 @@ describe("GET /api/teaching", () => {
 
 describe("/api/teaching/services/[serviceId]", () => {
   it("passes a read with the session actor and no action name in the payload", async () => {
-    mocks.rpc.mockResolvedValue({ data: { rows: [] }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { rows: [], visitors: 0 }, error: null });
     const response = await serviceRead(
       get(`/api/teaching/services/${serviceId}?action=register.read&occurrenceId=${occurrenceId}`),
       context,
