@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   cmeRoutines: vi.fn(),
   onCall: vi.fn(),
   ownerShifts: vi.fn(),
+  teams: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -43,6 +44,7 @@ vi.mock("@/lib/cme/repository", () => ({
 }));
 vi.mock("@/lib/on-call/repository", () => ({ fetchVisibleOnCallEntries: mocks.onCall }));
 vi.mock("@/lib/roster/shifts/repository", () => ({ fetchOwnerShifts: mocks.ownerShifts }));
+vi.mock("@/lib/roster/team/repository", () => ({ rosterReadTeams: mocks.teams, rosterRead: vi.fn() }));
 
 import { calendarFeedEvents } from "@/lib/calendar/feed-repository";
 import { applyReminderAlarms, DEFAULT_REMINDER_SETTINGS, updateReminderType } from "@/lib/reminders/settings";
@@ -271,6 +273,7 @@ describe("GET/PUT /api/roster/settings", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       calendarShifts: true,
+      alerts: { changes: true, requests: true },
       rowName: "Dr Alex Example",
       codes: { "Example Hospital": { ADO: { kind: "off" } } },
     });

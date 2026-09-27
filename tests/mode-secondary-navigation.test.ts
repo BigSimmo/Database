@@ -65,7 +65,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   ],
   psychiatry: [],
   "my-work": [],
-  roster: ["Today", "Shifts", "Settings"],
+  roster: ["Today", "Shifts", "Team", "Requests", "Settings"],
   "first-nations": [
     "Bedside",
     "Contacts",

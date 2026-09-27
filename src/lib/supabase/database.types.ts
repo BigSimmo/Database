@@ -4774,6 +4774,18 @@ export type Database = {
         Args: { p_service_id: string; p_user_id: string; p_actor_id: string; p_manager: boolean };
         Returns: Json;
       };
+      roster_set_cutoff: {
+        Args: { p_actor_id: string; p_service_id: string; p_cutoff: string | null };
+        Returns: Json;
+      };
+      roster_publish_preview: {
+        Args: { p_actor_id: string; p_service_id: string; p_from: string; p_to: string };
+        Returns: Json;
+      };
+      roster_publish: {
+        Args: { p_actor_id: string; p_service_id: string; p_expected_token: string; p_payload: Json };
+        Returns: Json;
+      };
       on_call_service_set_verified: {
         Args: { p_service_id: string; p_actor_id: string; p_verified: boolean; p_is_demo: boolean };
         Returns: Json;

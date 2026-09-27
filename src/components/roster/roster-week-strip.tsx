@@ -1,5 +1,5 @@
 import { SHIFT_KIND_LABEL, SHIFT_LETTER, type ShiftKind } from "@/lib/roster/shift-kind";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { cn } from "@/components/ui-primitives";
 

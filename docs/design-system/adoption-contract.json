@@ -196,7 +196,11 @@
         "src/app/(search-app)/sources/topics/page.tsx",
         "src/app/(search-app)/roster/page.tsx",
         "src/app/(search-app)/roster/shifts/page.tsx",
-        "src/app/(search-app)/roster/settings/page.tsx"
+        "src/app/(search-app)/roster/settings/page.tsx",
+        "src/app/(search-app)/roster/team/page.tsx",
+        "src/app/(search-app)/roster/requests/page.tsx",
+        "src/app/(search-app)/roster/manage/page.tsx",
+        "src/app/(search-app)/roster/join/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
