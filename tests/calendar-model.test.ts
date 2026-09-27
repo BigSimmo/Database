@@ -49,6 +49,27 @@ describe("calendar dates", () => {
     expect(new Set(events.map((event) => event.occurrenceKey)).size).toBe(3);
   });
 
+  it("still shows a long-running series far from its first date", () => {
+    // Counting occurrences from the anchor gave up after 400, so a weekly series
+    // started ten years ago vanished from the calendar.
+    const weekly = expandEvents([{ ...TIMED, date: "2016-09-06", recurrence: "weekly" }], {
+      start: "2026-09-01",
+      end: "2026-09-30",
+    });
+    expect(weekly.map((event) => event.date)).toEqual([
+      "2026-09-01",
+      "2026-09-08",
+      "2026-09-15",
+      "2026-09-22",
+      "2026-09-29",
+    ]);
+    const monthly = expandEvents([{ ...TIMED, date: "1990-01-31", recurrence: "monthly" }], {
+      start: "2026-02-01",
+      end: "2026-04-30",
+    });
+    expect(monthly.map((event) => event.date)).toEqual(["2026-02-28", "2026-03-31", "2026-04-30"]);
+  });
+
   it("drops an event whose date does not exist", () => {
     expect(expandEvents([{ ...ALL_DAY, date: "2026-02-30" }], { start: "2026-01-01", end: "2026-12-31" })).toEqual([]);
   });

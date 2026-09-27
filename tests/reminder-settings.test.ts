@@ -183,6 +183,16 @@ describe("applyReminderAlarms", () => {
       new Date("2026-09-26T00:00:00Z"),
     );
     expect(result[0].alarmAt).toBe("2026-09-29T01:00:00.000Z");
+    // 09:00 Perth on an all-day date is 540 minutes after its start, on every repeat.
+    expect(result[0].alarmOffsetMinutes).toBe(540);
+  });
+
+  it("gives a repeating timed event its lead time as an offset, and a one-off none", () => {
+    const weekly: CalendarEvent = { ...TIMED, recurrence: "weekly" };
+    const [repeating, oneOff] = applyReminderAlarms([weekly, TIMED], withAlert("teaching", "1h"), EARLY);
+    expect(repeating.alarmOffsetMinutes).toBe(-60);
+    expect(oneOff.alarmAt).toBeDefined();
+    expect(oneOff.alarmOffsetMinutes).toBeUndefined();
   });
 });
 
@@ -260,6 +270,22 @@ describe("toIcs alarms", () => {
     expect(text).toContain(
       "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20261009T010000Z\r\nDESCRIPTION:End of the CPD year\r\nEND:VALARM\r\nEND:VEVENT\r\n",
     );
+  });
+
+  it("repeats the alarm on every occurrence of a repeating event", () => {
+    // An absolute trigger fires once, so a downloaded file alerted for the next
+    // session only. A relative one follows each repeat.
+    const weekly = toIcs(
+      [{ ...TIMED, recurrence: "weekly", alarmAt: "2026-10-10T03:30:00.000Z", alarmOffsetMinutes: -60 }],
+      { now },
+    );
+    expect(weekly).toContain("BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;RELATED=START:-PT60M\r\n");
+    expect(weekly).not.toContain("TRIGGER;VALUE=DATE-TIME");
+    const allDay = toIcs(
+      [{ ...ALL_DAY, recurrence: "monthly", alarmAt: "2026-10-10T01:00:00.000Z", alarmOffsetMinutes: 540 }],
+      { now },
+    );
+    expect(allDay).toContain("TRIGGER;RELATED=START:PT540M");
   });
 
   it("writes no alarm for an event without one, or with an unreadable one", () => {

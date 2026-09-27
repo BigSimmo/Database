@@ -181,6 +181,28 @@ export function applyReminderAlarms(
   }
   return events.map((event, index) => {
     const at = kept.get(index);
-    return at === undefined ? event : { ...event, alarmAt: new Date(at).toISOString() };
+    if (at === undefined) return event;
+    const offset = event.recurrence ? repeatingAlarmOffsetMinutes(event, settings) : null;
+    return {
+      ...event,
+      alarmAt: new Date(at).toISOString(),
+      ...(offset === null ? {} : { alarmOffsetMinutes: offset }),
+    };
   });
+}
+
+/**
+ * Minutes from an occurrence's start (a timed event's start, or midnight Perth
+ * on an all-day date) to its alarm. Lead time and quiet hours depend only on the
+ * time of day, which every occurrence of a series shares, so the first
+ * occurrence answers for all of them. The daily cap is applied to the next
+ * occurrence only; a calendar app repeating the alarm cannot apply it.
+ */
+function repeatingAlarmOffsetMinutes(event: CalendarEvent, settings: ReminderSettings): number | null {
+  const alarm = alarmFor(event, settings);
+  const range = eventUtcRange(event);
+  const day = dateKeyToUtcMillis(event.date);
+  const start = range ? range.start.getTime() : day === null ? null : day - OFFSET_MS;
+  if (alarm === null || start === null) return null;
+  return Math.round((alarm.getTime() - start) / MINUTE_MS);
 }

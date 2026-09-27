@@ -96,13 +96,14 @@ function alarmLines(event: CalendarEvent): string[] {
   if (!event.alarmAt) return [];
   const instant = new Date(event.alarmAt);
   if (Number.isNaN(instant.getTime())) return [];
-  return [
-    "BEGIN:VALARM",
-    "ACTION:DISPLAY",
-    `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
-    `DESCRIPTION:${escapeIcsText(event.title)}`,
-    "END:VALARM",
-  ];
+  // An absolute trigger fires once, so a repeating event carries its alarm as an
+  // offset from each occurrence's start (RFC 5545 §3.8.6.3) instead.
+  const offset = event.alarmOffsetMinutes;
+  const trigger =
+    event.recurrence && typeof offset === "number" && Number.isInteger(offset)
+      ? `TRIGGER;RELATED=START:${offset < 0 ? "-" : ""}PT${Math.abs(offset)}M`
+      : `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`;
+  return ["BEGIN:VALARM", "ACTION:DISPLAY", trigger, `DESCRIPTION:${escapeIcsText(event.title)}`, "END:VALARM"];
 }
 
 function eventLines(event: CalendarEvent, stamp: Date): string[] {

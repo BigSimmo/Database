@@ -53,6 +53,13 @@ export type CalendarEvent = {
   readonly reminderType?: ReminderType;
   /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
   readonly alarmAt?: string;
+  /**
+   * On a repeating event, minutes from each occurrence's start to its alarm
+   * (negative is before). Set beside `alarmAt` so a calendar file can repeat
+   * the alarm: an absolute one fires once. Perth has no daylight saving, so the
+   * offset is the same for every occurrence.
+   */
+  readonly alarmOffsetMinutes?: number;
 };
 
 /**
@@ -124,6 +131,33 @@ function occurrenceAfter(anchor: string, recurrence: CalendarRecurrence, index: 
   }
 }
 
+/**
+ * The index of the last occurrence at or before `rangeStart`, or 0. Solved
+ * rather than counted, so a series that began years ago still reaches the range
+ * inside the cap below. For months it steps back one period, because clamping
+ * can put an occurrence a few days earlier than the month count suggests.
+ */
+function firstIndexNear(anchor: string, recurrence: CalendarRecurrence, rangeStart: string): number {
+  const anchorMillis = dateKeyToUtcMillis(anchor);
+  const startMillis = dateKeyToUtcMillis(rangeStart);
+  if (anchorMillis === null || startMillis === null || startMillis <= anchorMillis) return 0;
+  switch (recurrence) {
+    case "weekly":
+    case "fortnightly": {
+      const step = recurrence === "weekly" ? 7 : 14;
+      return Math.floor((startMillis - anchorMillis) / (step * DAY_MS));
+    }
+    case "monthly":
+    case "quarterly": {
+      const a = new Date(anchorMillis);
+      const b = new Date(startMillis);
+      const months = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+      const step = recurrence === "monthly" ? 1 : 3;
+      return Math.max(0, Math.floor(months / step) - 1);
+    }
+  }
+}
+
 /** Safety cap: a weekly series over a year is 53; nothing a page shows needs more. */
 const MAX_OCCURRENCES_PER_EVENT = 400;
 
@@ -143,7 +177,8 @@ export function expandEvents(
       if (event.date >= range.start && event.date <= range.end) result.push({ ...event, occurrenceKey: event.id });
       continue;
     }
-    for (let index = 0; index < MAX_OCCURRENCES_PER_EVENT; index += 1) {
+    const first = firstIndexNear(event.date, event.recurrence, range.start);
+    for (let index = first; index < first + MAX_OCCURRENCES_PER_EVENT; index += 1) {
       const date = occurrenceAfter(event.date, event.recurrence, index);
       if (date > range.end) break;
       if (date >= range.start) result.push({ ...event, date, occurrenceKey: `${event.id}@${date}` });
