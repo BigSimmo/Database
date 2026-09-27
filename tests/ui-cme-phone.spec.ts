@@ -24,9 +24,10 @@ const FROZEN = new Date("2026-09-19T02:00:00Z");
  * The original visual reference routes. Setup and routines additionally have
  * responsive journey coverage below now that they are functional screens.
  */
-export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/programme"] as const;
+// `/cme/programme` is now only a redirect to Set up, so the baseline measures Set up itself.
+export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/setup"] as const;
 
-const CME_CORE_ROUTES = [...CME_BASELINE_ROUTES, "/cme/setup", "/cme/routines", "/cme/summary?year=2026"] as const;
+const CME_CORE_ROUTES = [...CME_BASELINE_ROUTES, "/cme/routines", "/cme/summary?year=2026"] as const;
 
 const CLINICAL_STATUS_CLASS =
   /\b(?:bg|text|border|ring|fill|stroke)-(?:red|amber|green|orange|rose|emerald|yellow)-[0-9]/;
@@ -133,9 +134,12 @@ test.describe("CME core screens at phone widths", () => {
     await page.getByRole("button", { name: "Log 1.0 h for Demo journal club", exact: true }).click();
     await expect(page).toHaveURL(/\/cme\/new\?routine=/);
     await expect(page.getByLabel("What was it", { exact: false })).toHaveValue("Demo journal club");
-    await expect(
-      page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    // The routine's usual hours are shown, not assumed: the doctor chooses the hours actually spent.
+    await expect(page.getByText("This routine usually takes 1 h.")).toBeVisible();
+    const oneHour = page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true });
+    await expect(oneHour).toHaveAttribute("aria-pressed", "false");
+    await oneHour.click();
+    await expect(oneHour).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Educational", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -209,7 +213,8 @@ test.describe("CME core screens at phone widths", () => {
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await page.goto("/cme/setup");
     await expect(page.locator("#main-content")).toBeVisible();
-    const control = page.locator("#main-content").getByRole("button").first();
+    // Set up opens on its read view, whose first control is a link (Edit), not a button.
+    const control = page.locator("#main-content").locator("a[href], button").first();
     await control.focus();
     await expect(control).toBeFocused();
     await expect(control).toBeInViewport();

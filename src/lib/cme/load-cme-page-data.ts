@@ -149,7 +149,8 @@ async function load(
       ...(options.allYears
         ? {
             allEntries: targetYear === DEMO_CME_YEAR.year ? DEMO_CME_ENTRIES : [],
-            availableYears: [DEMO_CME_YEAR.year],
+            // The demo also offers the empty year before, so year navigation can be exercised.
+            availableYears: [DEMO_CME_YEAR.year, DEMO_CME_YEAR.year - 1],
             allYearsFailed: false,
           }
         : {}),
