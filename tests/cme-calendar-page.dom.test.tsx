@@ -1,0 +1,33 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import { CmeCalendarPage } from "@/components/cme/cme-calendar-page";
+import { DEMO_CME_ENTRIES, DEMO_CME_INSTANT, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => "/cme/calendar",
+}));
+
+describe("the CPD calendar page", () => {
+  it("marks its dates with grey shapes and a legend in words", async () => {
+    // The phone-calendar link below the month asks the server whether a feed exists.
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ subscribed: false, available: false }), { status: 200 }));
+    render(
+      <CmeCalendarPage
+        set={DEMO_CME_YEAR}
+        entries={DEMO_CME_ENTRIES}
+        routines={[]}
+        nowIso={DEMO_CME_INSTANT.toISOString()}
+      />,
+    );
+    const legend = screen.getByRole("list", { name: "What the marks mean" });
+    expect(legend).toHaveTextContent("Logged");
+    expect(legend).toHaveTextContent("Deadline");
+    expect(screen.queryByRole("list", { name: "What the dots mean" })).toBeNull();
+    expect(screen.getByTestId("cme-calendar-view-grid").innerHTML).not.toContain("--tone-");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+});
