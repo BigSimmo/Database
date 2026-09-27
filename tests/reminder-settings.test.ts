@@ -221,6 +221,17 @@ describe("applyReminderAlarms", () => {
     expect(result.every((event) => !event.recurrence || event.alarmAt === undefined)).toBe(true);
   });
 
+  it("does not let a cancelled event take a real alarm's place under the daily cap", () => {
+    const cancelled: CalendarEvent = { ...ALL_DAY, id: "cancelled-1", status: "cancelled" };
+    const result = applyReminderAlarms(
+      [cancelled, ALL_DAY],
+      withAlert("cpd-year-end", "at-time", { maxAlertsPerDay: 1 }),
+      EARLY,
+    );
+    expect(result[0].alarmAt).toBeUndefined();
+    expect(result[1].alarmAt).toBeDefined();
+  });
+
   it("gives a one-off event a single alarm and no occurrence overrides", () => {
     const result = applyReminderAlarms([TIMED], withAlert("teaching", "1h"), EARLY);
     expect(result).toHaveLength(1);

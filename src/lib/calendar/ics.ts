@@ -132,9 +132,12 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
     lines.push(`RRULE:${recurrenceRule(event.recurrence, event.seriesStartDate ?? event.date)}`);
   }
   lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
+  if (event.status === "cancelled") lines.push("STATUS:CANCELLED");
   if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);
-  lines.push(...alarmLines(event));
+  // A cancelled event never rings, whatever reminder settings gave it: an alarm would send a
+  // doctor to an empty room.
+  if (event.status !== "cancelled") lines.push(...alarmLines(event));
   lines.push("END:VEVENT");
   return lines;
 }

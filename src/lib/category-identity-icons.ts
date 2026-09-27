@@ -18,6 +18,7 @@ import {
   MessagesSquare,
   Network,
   PhoneCall,
+  Presentation,
   Pill,
   Route,
   ScrollText,
@@ -72,6 +73,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   phoneCall: PhoneCall,
   graduationCap: GraduationCap,
   brain: Brain,
+  presentation: Presentation,
   calendarRange: CalendarRange,
 };
 

@@ -173,6 +173,8 @@ export function applyReminderAlarms(
   const candidates: AlarmCandidate[] = [];
   const today = perthDateKey(now);
   events.forEach((event, index) => {
+    // A cancelled event never rings (see ics.ts), so it must not take a real alarm's place under the cap.
+    if (event.status === "cancelled") return;
     if (!event.reminderType || settings.types[event.reminderType].calendarAlert === "off") return;
     const type = event.reminderType;
     if (!event.recurrence) {

@@ -62,6 +62,11 @@ export type CalendarEvent = {
    * against the daily cap. Set only by `applyReminderAlarms`.
    */
   readonly seriesOccurrence?: true;
+  /**
+   * A cancelled occurrence. It stays in exports and feeds so a calendar that already holds it
+   * updates it rather than keeping it: it is written with STATUS:CANCELLED and never with an alarm.
+   */
+  readonly status?: "cancelled";
   /** Further absolute alarm instants (ISO, UTC), one VALARM each. Set only by Admin's one-off renewal file. */
   readonly alarmsAt?: readonly string[];
 };
