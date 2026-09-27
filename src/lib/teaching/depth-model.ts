@@ -372,6 +372,20 @@ export type TeachSession = z.infer<typeof teachSessionSchema>;
 export const teachReadSchema = z.object({ upcoming: z.array(teachSessionSchema), taught: z.array(sessionRefSchema) });
 export type TeachRead = z.infer<typeof teachReadSchema>;
 export const feedbackOpenSchema = z.object({ sessions: z.array(sessionRefSchema) });
+/**
+ * `supervision.left_services` (S11b): the actor's own services left within 90 days where they are
+ * the registrar on a pairing with supervision entries — found even with no attendance, unlike the
+ * logbook (master plan R28).
+ */
+export type LeftService = { serviceId: string; serviceName: string; leftAt: string; readableUntil: string };
+const leftServiceSchema = z.object({
+  serviceId: uuid,
+  serviceName: z.string(),
+  leftAt: instant,
+  readableUntil: instant,
+}) satisfies z.ZodType<LeftService>;
+export const leftServicesSchema = z.object({ services: z.array(leftServiceSchema) });
+export type LeftServicesResult = z.infer<typeof leftServicesSchema>;
 export const importCommittedSchema = z.object({ series: count, occurrences: count });
 export type ImportCommitted = z.infer<typeof importCommittedSchema>;
 export type ImportPreview = {

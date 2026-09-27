@@ -336,6 +336,8 @@ describe("Reconciliation with part 1", () => {
     for (const action of ["organise.read", "attendance.remove", "session.next", "supervision.pending"]) {
       expect(teachingActions).toContain(action);
     }
+    // S11b: the leaver-discovery read the supervision view now uses as its source of truth.
+    expect(teachingActions).toContain("supervision.left_services");
     expect(teachingServiceQuerySchema.safeParse({ action: "organise.read" }).success).toBe(true);
     expect(
       teachingServiceActionSchema.safeParse({

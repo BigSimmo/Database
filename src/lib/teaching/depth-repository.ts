@@ -7,6 +7,7 @@ import {
   feedbackOpenSchema,
   feedbackTotalsSchema,
   importCommittedSchema,
+  leftServicesSchema,
   pendingConfirmations,
   readinessSchema,
   supervisionReadSchema,
@@ -146,11 +147,20 @@ export async function teachingDepthMutation(
 
 type ServiceLabel = { serviceId: string; serviceName: string; readOnlyUntil: string | null };
 
+/** `supervision.left_services`, team-wide (master plan R28, S11b): the reader's own left services
+ * with supervision, found even with no attendance (the logbook only names a left service the reader
+ * attended a session in, which misses a registrar with supervision entries but no attendance). */
+export async function readLeftServices(client: AdminClient, actorId: string) {
+  return parseTeachingResult(
+    leftServicesSchema,
+    await teachingCommand(client, actorId, null, "supervision.left_services"),
+  );
+}
+
 /**
  * `supervision.read` needs a service, so read each of the reader's services (week.read's list) and
- * label the rows. With `includeLeft`, a service the reader left in the last 90 days is read too
+ * label the rows. With `includeLeft`, a service the reader left in the last 90 days is added too
  * (master plan R28): the database then returns only their own pairings as registrar, read-only.
- * Those services are found from the logbook, the only read that names them.
  */
 export async function readSupervisionViews(
   client: AdminClient,
@@ -159,19 +169,19 @@ export async function readSupervisionViews(
   options: { includeLeft?: boolean } = {},
 ): Promise<SupervisionPairingView[]> {
   const today = perthToday(now);
-  const [{ teams }, logbook] = await Promise.all([
+  const [{ teams }, left] = await Promise.all([
     readWeek(client, actorId, { from: today, to: today }),
-    options.includeLeft ? readLogbook(client, actorId) : Promise.resolve([]),
+    options.includeLeft ? readLeftServices(client, actorId) : Promise.resolve({ services: [] }),
   ]);
   const services = new Map<string, ServiceLabel>(
     teams.map((team) => [team.id, { serviceId: team.id, serviceName: team.name, readOnlyUntil: null }]),
   );
-  for (const row of logbook)
-    if (row.serviceId && row.readOnlyUntil && !services.has(row.serviceId))
-      services.set(row.serviceId, {
-        serviceId: row.serviceId,
-        serviceName: row.serviceName,
-        readOnlyUntil: row.readOnlyUntil,
+  for (const service of left.services)
+    if (!services.has(service.serviceId))
+      services.set(service.serviceId, {
+        serviceId: service.serviceId,
+        serviceName: service.serviceName,
+        readOnlyUntil: service.readableUntil,
       });
 
   const perService = await Promise.all(

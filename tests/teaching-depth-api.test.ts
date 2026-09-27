@@ -60,11 +60,12 @@ const logRow = {
   cpdEntryId: null,
 };
 
-function serveTeamsThen(pairings: unknown[], attendance: unknown[] = []) {
+function serveTeamsThen(pairings: unknown[], leftServices: unknown[] = []) {
   mocks.rpc.mockImplementation(async (fn: string, args: { p_action: string }) => {
     if (fn === "teaching_command" && args.p_action === "week.read")
       return ok({ teams: [team], sessions: [], notices: [], attendance: [] });
-    if (fn === "teaching_command" && args.p_action === "logbook.read") return ok({ attendance });
+    if (fn === "teaching_command" && args.p_action === "supervision.left_services")
+      return ok({ services: leftServices });
     return ok({ pairings });
   });
 }
@@ -136,19 +137,17 @@ describe("supervision", () => {
     expect(JSON.stringify(row)).not.toMatch(/case_review|psychotherapy/);
   });
 
-  // Master plan R28: a leaver reads their own supervision, read-only, for 90 days.
-  it("reads a service the reader left as read-only, from the logbook's list", async () => {
+  // Master plan R28 / S11b: a leaver reads their own supervision, read-only, for 90 days.
+  it("reads a service the reader left as read-only, from supervision.left_services", async () => {
     const until = "2026-12-01T00:00:00Z";
     serveTeamsThen(
       [pairing()],
       [
-        logRow,
         {
-          ...logRow,
-          occurrenceId: ENTRY,
           serviceId: LEFT_SERVICE,
           serviceName: "Demo former service",
-          readOnlyUntil: until,
+          leftAt: "2026-09-02T00:00:00Z",
+          readableUntil: until,
         },
       ],
     );
@@ -171,8 +170,17 @@ describe("supervision", () => {
   it("drops a left service whose 90 days ran out between the two reads", async () => {
     mocks.rpc.mockImplementation(async (fn: string, args: { p_action: string; p_service_id: string }) => {
       if (args.p_action === "week.read") return ok({ teams: [], sessions: [], notices: [], attendance: [] });
-      if (args.p_action === "logbook.read")
-        return ok({ attendance: [{ ...logRow, serviceId: LEFT_SERVICE, readOnlyUntil: "2026-09-30T00:00:00Z" }] });
+      if (args.p_action === "supervision.left_services")
+        return ok({
+          services: [
+            {
+              serviceId: LEFT_SERVICE,
+              serviceName: "Demo former service",
+              leftAt: "2026-07-02T00:00:00Z",
+              readableUntil: "2026-09-30T00:00:00Z",
+            },
+          ],
+        });
       return sqlError("teaching_access_denied");
     });
     const response = await depthViews(get("/api/teaching/depth?view=supervision"));
@@ -190,7 +198,7 @@ describe("supervision", () => {
     serveTeamsThen([pairing({ access: "supervisor", entries: [entry({ notes: [note] })] }), pairing()]);
     const { items } = await (await depthViews(get("/api/teaching/depth?view=pending"))).json();
     expect(items.map((item: { id: string }) => item.id)).toEqual([ENTRY, NOTE]);
-    expect(mocks.rpc.mock.calls.map(([, args]) => args.p_action)).not.toContain("logbook.read");
+    expect(mocks.rpc.mock.calls.map(([, args]) => args.p_action)).not.toContain("supervision.left_services");
   });
 });
 

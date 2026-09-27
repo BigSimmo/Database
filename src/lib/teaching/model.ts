@@ -65,6 +65,8 @@ export const teachingActions = [
   "attendance.remove",
   "session.next",
   "supervision.pending",
+  // S11b: the leaver's own left services with supervision, found even with no attendance.
+  "supervision.left_services",
 ] as const;
 export type TeachingAction = (typeof teachingActions)[number];
 
