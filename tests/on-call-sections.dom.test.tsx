@@ -502,6 +502,30 @@ describe("OnCallLogisticsSection", () => {
     expect(card).not.toHaveTextContent("Thursday 1pm");
   });
 
+  it("keeps schedule qualifiers beside the computed date", () => {
+    const session = entry("education", {
+      id: "55555555-5555-4555-8555-555555555557",
+      slug: "term-journal-club",
+      title: "Term journal club",
+      details: {
+        nextOccurrence: "Thursday 1pm, weeks 1–10",
+        nextOccurrenceDate: "2026-09-17",
+        topics: [],
+      },
+    });
+    const termSession = entry("education", {
+      id: "55555555-5555-4555-8555-555555555558",
+      slug: "term-cme-session",
+      title: "Term CME session",
+      details: { nextOccurrence: "Thursday noon during term", nextOccurrenceDate: "2026-09-17", topics: [] },
+    });
+    render(<OnCallEducationSection entries={[session, termSession]} now={new Date("2026-09-16T00:00:00.000Z")} />);
+    const card = screen.getByText("Term journal club").closest("article");
+    expect(card).toHaveTextContent("1pm, weeks 1–10");
+    expect(card).not.toHaveTextContent("Thursday 1pm");
+    expect(screen.getByText("Term CME session").closest("article")).toHaveTextContent("noon during term");
+  });
+
   it("strips stale relative phrases from the Next badge when a date is present", () => {
     const sessionWithRelative = {
       id: "55555555-5555-4555-8555-555555555556",

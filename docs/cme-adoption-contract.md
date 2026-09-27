@@ -2,7 +2,7 @@
 
 This document records the design system adoption contracts and dedicated automated verification proofs for the Continuing Medical Education (CME) mode surfaces in the Clinical Knowledge Base.
 
-The authoritative schema and proof registrations are declared in [`docs/design-system/adoption-contract.json`](file:///C:/Users/joshs/.gemini/antigravity/worktrees/Database/resolve_oncall_cme/docs/design-system/adoption-contract.json) under the `catalogues-forms-and-info` surface family.
+The authoritative schema and proof registrations are declared in [`docs/design-system/adoption-contract.json`](design-system/adoption-contract.json) under the `catalogues-forms-and-info` surface family.
 
 ---
 
@@ -26,7 +26,7 @@ All CME routes adhere to the design system v2 tokens, 48px interactive touch tar
 
 ## 2. Dedicated Accessibility and Environmental Proofs
 
-While general design system token resolution is verified repository-wide via `tests/ckb-v2-token-contract.test.ts` and `tests/ui-style-contract.spec.ts`, CME routes carry dedicated automated end-to-end proofs in [`tests/ui-cme-phone.spec.ts`](file:///C:/Users/joshs/.gemini/antigravity/worktrees/Database/resolve_oncall_cme/tests/ui-cme-phone.spec.ts).
+While general design system token resolution is verified repository-wide via `tests/ckb-v2-token-contract.test.ts` and `tests/ui-style-contract.spec.ts`, CME routes carry dedicated automated end-to-end proofs in [`tests/ui-cme-phone.spec.ts`](../tests/ui-cme-phone.spec.ts).
 
 ### 2.1 High Contrast and Forced Colours (`forcedColors: "active"`)
 

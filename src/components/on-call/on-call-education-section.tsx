@@ -57,8 +57,8 @@ export function occurrenceSortKey(): number {
 /**
  * Cleans the owner's free-text occurrence to remove stale relative phrases
  * ("next week", "in \d+ days", "tomorrow", "today", "yesterday", "later this month",
- * "this week") and redundant day names ("Thursday"), extracting only the time
- * (e.g. "1pm", "13:00", "12-1pm").
+ * "this week") and redundant day names ("Thursday"), preserving other owner
+ * qualifications (e.g. "1pm, weeks 1–10" or "noon during term").
  */
 export function cleanOccurrenceTime(owner: string | null): string | null {
   if (!owner) return null;
@@ -70,16 +70,11 @@ export function cleanOccurrenceTime(owner: string | null): string | null {
       /\b(?:mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/gi,
       "",
     )
-    .replace(/^[\s,·\-/–—@at]+|[\s,·\-/–—]+$/g, "")
+    .replace(/^[\s,·\-/–—@]+|[\s,·\-/–—]+$/g, "")
     .trim();
 
   if (!cleaned) return null;
-
-  const timeMatch = cleaned.match(
-    /\b(?:(?:[01]?\d|2[0-3]):[0-5]\d(?:\s*[ap]m)?|\d{1,2}(?::\d{2})?\s*[ap]m|\d{1,2}(?=\s*(?:-|–|—|to)\s*(?:(?:[01]?\d|2[0-3]):[0-5]\d|\d{1,2}(?::\d{2})?)\s*[ap]m))(?:\s*(?:-|–|—|to)\s*(?:(?:[01]?\d|2[0-3]):[0-5]\d(?:\s*[ap]m)?|\d{1,2}(?::\d{2})?\s*[ap]m))?\b/i,
-  );
-
-  return timeMatch ? timeMatch[0] : null;
+  return cleaned;
 }
 
 /**
@@ -90,9 +85,9 @@ export function cleanOccurrenceTime(owner: string | null): string | null {
  * the two screens cannot disagree about when journal club is.
  *
  * When `date` is present, `owner` is cleaned of stale relative phrases and
- * redundant day names to extract the time. If a time is present, it is joined
- * with the computed date label: `${onCallTeachingDateLabel(date)}, ${time}`.
- * If no time remains (or the owner text was only a relative phrase), show only
+ * redundant day names while preserving the owner's non-stale qualifications.
+ * If wording remains, it is joined with the computed date label.
+ * If nothing remains (or the owner text was only a relative phrase), show only
  * `onCallTeachingDateLabel(date)`.
  *
  * Sessions with no computable date sort safely after every dated entry with

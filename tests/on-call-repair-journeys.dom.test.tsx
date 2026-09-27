@@ -111,8 +111,9 @@ describe("On call repair journeys", () => {
           title: "Clinical Guideline",
           created_at: "2024-01-01T00:00:00Z",
           updated_at: "2026-09-20T00:00:00Z",
-          metadata: { review_date: "2025-06-30" },
+          // The public document route strips metadata before sending the response.
         },
+        publicReviewDate: "2025-06-30",
       }),
     );
     const { result } = renderHook(() => useOnCallLinkedDocuments([id]));

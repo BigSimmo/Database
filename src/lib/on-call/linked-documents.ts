@@ -6,6 +6,7 @@ import type { OnCallLinkedDocument } from "@/lib/on-call/entry-model";
 import { onCallEntryCacheChangedEvent, peekOnCallEntrySessionEpoch } from "@/lib/on-call/entry-cache-keys";
 
 const documentResponseSchema = z.object({
+  publicReviewDate: z.string().nullable().optional(),
   document: z.object({
     id: z.string().uuid(),
     title: z.string().nullish(),
@@ -65,6 +66,7 @@ export function useOnCallLinkedDocumentsState(ids: readonly string[] = []): {
           const title = row.title?.trim() || row.file_name?.trim();
           const metadata = row.metadata;
           const date =
+            parsed.data.publicReviewDate ||
             (typeof metadata?.review_date === "string" && metadata.review_date.trim()) ||
             (typeof metadata?.reviewDate === "string" && metadata.reviewDate.trim()) ||
             null;
