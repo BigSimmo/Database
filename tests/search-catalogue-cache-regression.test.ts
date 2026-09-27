@@ -22,7 +22,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * read reached the database more often than the search path intends, which is the defect.
  */
 
-type RpcCall = { name: string; args: Record<string, unknown> };
+type RpcCall = { name: string; args: Record<string, unknown>; columns?: string };
 
 /** One published form, in the row shape `read_site_content_public_records` returns. */
 function catalogueRow(kind: string) {
@@ -50,9 +50,23 @@ type SearchSupabase = Parameters<typeof import("../src/lib/universal-search").ru
 function fakeSupabase(calls: RpcCall[]): SearchSupabase {
   return {
     rpc: (name: string, args: Record<string, unknown>) => {
-      calls.push({ name, args });
+      const call: RpcCall = { name, args };
+      calls.push(call);
       const kind = typeof args?.p_kind === "string" ? args.p_kind : "form";
-      return Promise.resolve({ data: [catalogueRow(kind)], error: null });
+      const data = [catalogueRow(kind)];
+      return Object.assign(Promise.resolve({ data, error: null }), {
+        select: (columns: string) => {
+          call.columns = columns;
+          return Promise.resolve({
+            data: data.map((row) => ({
+              initialized: row.initialized,
+              render_payload: row.render_payload,
+              snapshot: row.snapshot,
+            })),
+            error: null,
+          });
+        },
+      });
     },
   } as unknown as SearchSupabase;
 }
@@ -92,6 +106,10 @@ describe("registry catalogue reads stay cached on the search path", () => {
     const reads = catalogueReads(calls);
     expect(reads).toHaveLength(registryDomains.length);
     expect(new Set(reads.map((read) => read.args.p_kind))).toEqual(new Set(["form", "service", "medication"]));
+    expect(reads.find((read) => read.args.p_kind === "medication")?.columns).toBe(
+      "initialized,render_payload,snapshot",
+    );
+    expect(reads.filter((read) => read.args.p_kind !== "medication").every((read) => !read.columns)).toBe(true);
     // A healthy catalogue is never marked degraded, so the flag stays a real signal.
     expect(response.groups.every((group) => group.degraded === undefined)).toBe(true);
   });
@@ -274,7 +292,10 @@ describe("the degraded flag is per request, not shared state", () => {
         if (name !== "read_site_content_public_records") return Promise.resolve({ data: [], error: null });
         if (args?.p_kind === "form") return Promise.reject(new Error("canonical read failed"));
         const kind = typeof args?.p_kind === "string" ? args.p_kind : "service";
-        return Promise.resolve({ data: [catalogueRow(kind)], error: null });
+        const row = catalogueRow(kind);
+        return Object.assign(Promise.resolve({ data: [row], error: null }), {
+          select: () => Promise.resolve({ data: [{ ...row, record: undefined }], error: null }),
+        });
       },
     } as unknown as SearchSupabase;
 
