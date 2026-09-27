@@ -1,0 +1,22 @@
+{
+  "name": "ward-flow-azure-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "function.mjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test backend.test.mjs",
+    "migrate": "node --env-file-if-exists=.env migrate.mjs --apply",
+    "check:connection": "node --env-file-if-exists=.env migrate.mjs --check"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.16.5",
+    "@azure/identity": "^4.13.3",
+    "jose": "^6.2.12",
+    "pg": "^8.23.0"
+  }
+}
