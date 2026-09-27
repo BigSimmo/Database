@@ -213,6 +213,8 @@ const durableApiRateLimitDenyCache = ((
   globalThis as GlobalWithRateLimitFallback
 ).__clinicalKbDurableApiRateLimitDenyCache ??= new Map<string, DurableRateLimitDenyCacheEntry>());
 
+const DURABLE_DENY_CACHE_MAX_ENTRIES = 2000;
+
 function durableDenyCacheKey(identity: string, bucket: string) {
   return `${identity}:${bucket}`;
 }
@@ -252,8 +254,23 @@ function rememberDurableRateLimitDenyCache(identity: string, bucket: string, res
     durableApiRateLimitDenyCache.delete(key);
     return;
   }
+  const now = Date.now();
   const resetAtMs = Date.parse(result.resetAt);
-  if (!Number.isFinite(resetAtMs) || resetAtMs <= Date.now()) return;
+  if (!Number.isFinite(resetAtMs) || resetAtMs <= now) return;
+  // Entries were only ever removed when the same subject came back, so every
+  // limited subject that never returned stayed for the life of the process.
+  // Same ceiling as the in-memory limiter: sweep expired entries, then drop
+  // the oldest. Dropping one is safe: the next request asks the durable limiter.
+  if (durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
+    for (const [cachedKey, cached] of durableApiRateLimitDenyCache) {
+      if (now >= cached.resetAtMs) durableApiRateLimitDenyCache.delete(cachedKey);
+    }
+    while (durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
+      const oldest = durableApiRateLimitDenyCache.keys().next().value;
+      if (oldest === undefined) break;
+      durableApiRateLimitDenyCache.delete(oldest);
+    }
+  }
   durableApiRateLimitDenyCache.set(key, {
     limit: result.limit,
     remaining: result.remaining,
@@ -265,6 +282,11 @@ function rememberDurableRateLimitDenyCache(identity: string, bucket: string, res
 /** Test helper: clear durable deny-cache entries between cases. */
 export function resetDurableRateLimitDenyCacheForTests() {
   durableApiRateLimitDenyCache.clear();
+}
+
+/** Test helper: how many subjects the durable deny cache currently holds. */
+export function durableRateLimitDenyCacheSizeForTests() {
+  return durableApiRateLimitDenyCache.size;
 }
 
 /** @deprecated Use resetDurableRateLimitDenyCacheForTests — name kept for older test imports. */

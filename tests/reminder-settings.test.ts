@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CalendarEvent } from "@/lib/calendar/calendar-event";
+import { expandEvents, type CalendarEvent } from "@/lib/calendar/calendar-event";
 import { toIcs } from "@/lib/calendar/ics";
 import { cmeDeadlineEvents, cmeLoggedEvents, cmeRoutineEvents } from "@/lib/cme/calendar-events";
 import { createAustralianRanzcpPreset } from "@/lib/cme/presets";
@@ -331,6 +331,37 @@ describe("which reminder governs each calendar event", () => {
       "2026-09-26",
     );
     expect(teaching.map((event) => event.reminderType)).toEqual(["teaching"]);
+
+    // A repeating session keeps the owner's own anchor as the series start, so
+    // a monthly session on the 31st is not re-anchored to the 28th after the
+    // roll-forward lands in February.
+    const monthly = onCallTeachingEvents(
+      [
+        {
+          id: "t2",
+          section: "education",
+          slug: "invented-monthly",
+          title: "Invented monthly",
+          subtitle: null,
+          body: null,
+          details: { nextOccurrenceDate: "2026-01-31", recurrenceRule: { frequency: "monthly" } },
+          linkedDocumentIds: [],
+          tags: [],
+          isPersonal: false,
+          includeOnCard: false,
+          sortOrder: 0,
+          lastVerifiedAt: null,
+        } as OnCallEntry,
+      ],
+      "2026-02-15",
+    );
+    expect(monthly.map((event) => event.date)).toEqual(["2026-01-31"]);
+    expect(expandEvents(monthly, { start: "2026-02-15", end: "2026-05-31" }).map((event) => event.date)).toEqual([
+      "2026-02-28",
+      "2026-03-31",
+      "2026-04-30",
+      "2026-05-31",
+    ]);
     const expiries = onCallExpiryEvents(DEMO_ON_CALL_ENTRIES);
     expect(expiries.length).toBeGreaterThan(0);
     expect(new Set(expiries.map((event) => event.reminderType))).toEqual(new Set(["compliance-dates"]));

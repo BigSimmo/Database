@@ -141,8 +141,9 @@ function sanitizeAttributeValue(value: unknown): string | number | boolean | und
     if (/@|[?]|=|https?:\/\//i.test(trimmed)) return undefined;
     // Short operational tokens (bucket names, codes, rpc ids) are always safe.
     if (/^[a-zA-Z][a-zA-Z0-9._-]{0,63}$/.test(trimmed)) return trimmed;
-    // Free-text values: reject clinical/PII-shaped content.
-    if (/\b(mrn|patient|suicid|prompt|answer|query)\b/i.test(trimmed)) return undefined;
+    // Free-text values: reject clinical/PII-shaped content. Word forms are
+    // spelled out: a bare stem inside `\b...\b` ("suicid") matches no real word.
+    if (/\b(mrns?|patients?|suicid\w*|prompts?|answers?|quer(?:y|ies))\b/i.test(trimmed)) return undefined;
     return trimmed;
   }
   return undefined;
