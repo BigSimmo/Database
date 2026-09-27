@@ -11,7 +11,9 @@
  * `en-CA` is not a locale choice: it is the one built-in locale whose short date
  * format is already `YYYY-MM-DD`, so no reassembly is needed.
  */
-export const CPD_TIME_ZONE = "Australia/Perth";
+import { addDaysToDate, PERTH_TIME_ZONE } from "@/lib/perth-time";
+
+export const CPD_TIME_ZONE = PERTH_TIME_ZONE;
 
 /**
  * Below this, a projection is arithmetic on noise: four weeks of a 52-week year
@@ -169,13 +171,8 @@ export function formatCmeRowDate(date: string, today: string): string {
   return date.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${date.slice(0, 4)}`;
 }
 
-/**
- * The calendar date `days` after `dateOnly` (negative for before). `Date.UTC`
- * on a date with no time of day, read back in UTC, so no zone can move it.
- */
 export function addCalendarDays(dateOnly: string, days: number): string {
-  const [year, month, day] = dateOnly.split("-").map((part) => Number.parseInt(part, 10));
-  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+  return addDaysToDate(dateOnly, days);
 }
 
 /** `YYYY-MM-DD` as the Australian "26/09/2026" the date box shows. Empty for anything else. */
