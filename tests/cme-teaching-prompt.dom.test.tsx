@@ -24,7 +24,7 @@ describe("Teaching handoff on CPD Today", () => {
     );
     const prompt = screen.getByTestId("cme-teaching-prompt");
     expect(prompt).toHaveTextContent("Next to log: Teaching");
-    expect(prompt).toHaveTextContent("2 teaching sessions ready to review");
+    expect(prompt).toHaveTextContent("2 teaching sessions to review in Teaching");
     expect(screen.getByRole("link", { name: "Open Teaching logbook" })).toHaveAttribute("href", "/teaching/logbook");
   });
 

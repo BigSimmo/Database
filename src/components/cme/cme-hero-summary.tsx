@@ -71,6 +71,15 @@ function paceLine({ year, today, loggedHours, targetHours, entries, closed }: Cm
   return `About ${pace.weeklyHours.toFixed(1)} h a week reaches ${formatHours(targetHours)} h by 31 Dec`;
 }
 
+// Literal classes (4 px steps up to 32 px) so bar heights need no inline style.
+const WEEK_BAR_HEIGHTS = ["h-[3px]", "h-1", "h-2", "h-3", "h-4", "h-5", "h-6", "h-7", "h-8"] as const;
+
+function weekBarHeightClass(hours: number, tallest: number): string {
+  if (!(hours > 0) || !(tallest > 0)) return WEEK_BAR_HEIGHTS[0];
+  const step = Math.round((Math.min(hours, tallest) / tallest) * 8);
+  return WEEK_BAR_HEIGHTS[Math.max(1, step)];
+}
+
 export function CmeHeroSummary(props: CmeHeroSummaryProps) {
   const { year, today, loggedHours, targetHours, onOpenDetail } = props;
   const weeks = buildCmeWeekBars(props.entries, year, today);
@@ -100,13 +109,13 @@ export function CmeHeroSummary(props: CmeHeroSummaryProps) {
             data-hours={hours}
             className={cn(
               "min-w-0 flex-1 rounded-t-sm forced-colors:bg-[CanvasText]",
+              weekBarHeightClass(state === "future" ? 0 : hours, tallest),
               state === "future"
                 ? "bg-[color:var(--surface-summary-line)]"
                 : state === "now"
                   ? "bg-[color:var(--clinical-accent)]"
                   : "bg-[color:var(--cme-hero-fill)]",
             )}
-            style={{ height: state === "future" || hours === 0 ? 3 : Math.max(3, Math.round((hours / tallest) * 32)) }}
           />
         ))}
       </span>

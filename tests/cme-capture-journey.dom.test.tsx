@@ -224,6 +224,8 @@ describe("CME capture routes", () => {
     const source = screen.getByLabelText(/source you checked/i);
     await user.clear(source);
     await user.type(source, "Owner-checked revised 2025 guide");
+    // A legacy free-text source reopens as "Other", which needs the CPD home named before saving.
+    await user.type(screen.getByLabelText(/cpd home name/i), "Owner programme");
     await user.click(screen.getByRole("button", { name: /re-confirm requirements/i }));
 
     expect(await screen.findByText("Confirmation is temporarily unavailable.")).toBeInTheDocument();
@@ -239,7 +241,7 @@ describe("CME capture routes", () => {
     expect(requestBody(fetchMock.mock.calls[1])).toEqual(first);
     expect(first).toEqual({
       ...requirementSet,
-      confirmedSource: "Owner-checked revised 2025 guide",
+      confirmedSource: "CPD home: Other — Owner programme\nSource checked: Owner-checked revised 2025 guide",
     });
   });
 });

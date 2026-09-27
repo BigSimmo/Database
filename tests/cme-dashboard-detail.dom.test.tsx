@@ -111,6 +111,6 @@ describe("Today figure details", () => {
     expect(within(sheet).getByTestId("cme-gap-scenarios")).toHaveTextContent(
       /3 × 2\s+h = 6\s+h by 31\s+Dec, short of the gap/,
     );
-    expect(within(sheet).getByText(/Only activities you actually complete and save count/)).toBeInTheDocument();
+    expect(within(sheet).getByText(/Only activities you actually do and save count/)).toBeInTheDocument();
   });
 });

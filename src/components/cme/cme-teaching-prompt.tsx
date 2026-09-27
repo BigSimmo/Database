@@ -49,7 +49,7 @@ export function CmeTeachingPrompt() {
     >
       <p className="text-sm font-semibold text-[color:var(--text)]">Next to log: Teaching</p>
       <p className={cn("mt-1 text-sm", textMuted)}>
-        {count} {count === 1 ? "teaching session" : "teaching sessions"} ready to review in Teaching.
+        {count} {count === 1 ? "teaching session" : "teaching sessions"} to review in Teaching.
       </p>
       <Link
         href="/teaching/logbook"
