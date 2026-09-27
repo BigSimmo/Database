@@ -12048,7 +12048,7 @@
                   },
                   "definitionStatus": "needs-manual-or-clinician-verification",
                   "review": {
-                    "rowKey": "specifier:icd:olfactory-reference-disorder:insight:with-absent-insight-delusional-beliefs",
+                    "rowKey": "specifier:icd:olfactory-reference-disorder:insight:with-absent-insight",
                     "contentHash": "1777f041",
                     "sourceVerificationStatus": "source-needs-formal-review",
                     "clinicianReviewStatus": "clinician-review-pending",
