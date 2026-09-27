@@ -17,27 +17,39 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const PERTH_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function perth(value: string | Date): Date | null {
-  const time = typeof value === "string" ? Date.parse(value) : value.getTime();
+function perth(value: string | number | Date | null | undefined): Date | null {
+  if (value == null) return null;
+  const time = typeof value === "string" ? Date.parse(value) : typeof value === "number" ? value : value.getTime();
   return Number.isFinite(time) ? new Date(time + PERTH_OFFSET_MS) : null;
 }
 
 const two = (value: number) => String(value).padStart(2, "0");
 
 /** `20 Sep 2026`, or an empty string for a date that cannot be read. */
-export function formatOnCallDate(value: string | Date): string {
+export function formatOnCallDate(value: string | number | Date | null | undefined): string {
   const date = perth(value);
   return date ? `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}` : "";
 }
 
+/** `20 Sep 2026, 4:14 pm`, or an empty string for a date that cannot be read. */
+export function formatOnCallDateTime(value: string | number | Date | null | undefined): string {
+  const date = perth(value);
+  if (!date) return "";
+  const hours = date.getUTCHours();
+  const minutes = two(date.getUTCMinutes());
+  const ampm = hours >= 12 ? "pm" : "am";
+  const hour12 = hours % 12 || 12;
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${hour12}:${minutes} ${ampm}`;
+}
+
 /** `Sat 26 Sep`. */
-export function formatOnCallShortDay(value: string | Date): string {
+export function formatOnCallShortDay(value: string | number | Date | null | undefined): string {
   const date = perth(value);
   return date ? `${WEEKDAYS[date.getUTCDay()]} ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}` : "";
 }
 
 /** `02:14`, 24-hour. */
-export function formatOnCallTime(value: string | Date): string {
+export function formatOnCallTime(value: string | number | Date | null | undefined): string {
   const date = perth(value);
   return date ? `${two(date.getUTCHours())}:${two(date.getUTCMinutes())}` : "";
 }

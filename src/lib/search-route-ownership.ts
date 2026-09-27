@@ -19,6 +19,12 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "sources",
   "tools",
   "calculators",
+  "on-call",
+  "cme",
+  "psychiatry",
+  "my-work",
+  "roster",
+  "first-nations",
 ]);
 
 /**
