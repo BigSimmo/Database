@@ -49,6 +49,16 @@ const OVERDUE_EXAM: TrainingMilestone = {
 };
 
 describe("CME training page", () => {
+  it("draws the timeline above the list of periods", () => {
+    render(<CmeTrainingPage nowIso={NOW_ISO} initialPeriods={PERIODS} initialMilestones={[]} demoMode={false} />);
+    const timeline = screen.getByTestId("cme-training-timeline");
+    const list = screen.getByTestId("cme-training-periods");
+    expect(timeline.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("cme-training-timeline-now")).toHaveTextContent(
+      "Now, Mon 28 Sep: Consultation liaison, rotation 2 of 2",
+    );
+  });
+
   it("explains that nothing is preloaded when the record is empty", () => {
     render(<CmeTrainingPage nowIso={NOW_ISO} initialPeriods={[]} initialMilestones={[]} demoMode={false} />);
     expect(screen.getByTestId("cme-training")).toBeInTheDocument();

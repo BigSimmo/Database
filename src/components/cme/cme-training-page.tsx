@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { CmeTrainingTimeline } from "@/components/cme/cme-training-timeline";
 import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -637,6 +638,11 @@ export function CmeTrainingPage({
                 Your timeline has a problem to fix: {storedProblems.map((problem) => problem.message).join(" ")}
               </span>
             </InlineNotice>
+          </div>
+        ) : null}
+        {orderedPeriods.length > 0 ? (
+          <div className={cn(cardSurface, "mt-3 p-3")}>
+            <CmeTrainingTimeline periods={periods} today={today} />
           </div>
         ) : null}
         {orderedPeriods.length > 0 ? (
