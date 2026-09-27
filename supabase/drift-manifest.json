@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-27T06:54:56.365Z",
+  "generated_at": "2026-09-27T16:02:30.320Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "ecbfe8a20a08eff0fc4631a4acdffb3d8167f8a1a61041cf2b9c96954244b4b1",
-  "replay_seconds": 25,
+  "schema_sha256": "a31d11a93ebf07ea6e0959f72fd7ae07059dba1983d75794286ad65fd1ad2c26",
+  "replay_seconds": 90,
   "snapshot": {
     "views": [
       {
@@ -8350,6 +8350,14 @@
             "generated": ""
           },
           {
+            "name": "baseline_rows",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "created_at",
             "type": "timestamp with time zone",
             "default": "now()",
@@ -8401,6 +8409,14 @@
             "name": "updated_at",
             "type": "timestamp with time zone",
             "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "version",
+            "type": "bigint",
+            "default": "1",
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -8485,6 +8501,246 @@
             "name": "updated_at",
             "type": "timestamp with time zone",
             "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "name": "roster_maker_consents",
+        "columns": [
+          {
+            "name": "after_rows",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "agreed_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "before_rows",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "proposal_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "name": "roster_maker_proposals",
+        "columns": [
+          {
+            "name": "after_rows",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "before_rows",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "blockers",
+            "type": "jsonb",
+            "default": "'[]'::jsonb",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "change_id",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_by",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "draft_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "draft_rows",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "draft_version",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "history_through",
+            "type": "bigint",
+            "default": "0",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "live_token",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "next_baseline",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "period_end",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "period_start",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "protected_changes",
+            "type": "jsonb",
+            "default": "'[]'::jsonb",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "publish_payload",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "published_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "receipt",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "request_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "scope",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "service_id",
+            "type": "uuid",
+            "default": null,
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -9235,6 +9491,14 @@
             "default": "'{}'::jsonb",
             "identity": "",
             "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "rules_reviewed_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
             "generated": ""
           },
           {
@@ -14615,6 +14879,36 @@
         "def_hash": "6f1ed4604c01b8a0a66758e049d127eb"
       },
       {
+        "def": "CREATE UNIQUE INDEX roster_maker_consents_pkey ON public.roster_maker_consents USING btree (proposal_id, user_id)",
+        "name": "roster_maker_consents_pkey",
+        "table": "roster_maker_consents",
+        "def_hash": "7833a0a4eec4267a780dba2b4545d466"
+      },
+      {
+        "def": "CREATE INDEX roster_maker_consents_user_idx ON public.roster_maker_consents USING btree (user_id, proposal_id)",
+        "name": "roster_maker_consents_user_idx",
+        "table": "roster_maker_consents",
+        "def_hash": "98f25586ab3c4fff47123b7c0ecc3854"
+      },
+      {
+        "def": "CREATE INDEX roster_maker_proposals_draft_idx ON public.roster_maker_proposals USING btree (draft_id, created_at DESC)",
+        "name": "roster_maker_proposals_draft_idx",
+        "table": "roster_maker_proposals",
+        "def_hash": "a4b9c98de2ca8ddfd7a29149a1cad209"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX roster_maker_proposals_pkey ON public.roster_maker_proposals USING btree (id)",
+        "name": "roster_maker_proposals_pkey",
+        "table": "roster_maker_proposals",
+        "def_hash": "744ea53e67b8fecbaae84ebe26a387b4"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX roster_maker_proposals_service_id_request_key_key ON public.roster_maker_proposals USING btree (service_id, request_key)",
+        "name": "roster_maker_proposals_service_id_request_key_key",
+        "table": "roster_maker_proposals",
+        "def_hash": "58273196beae768993f20e16be6ea5e5"
+      },
+      {
         "def": "CREATE UNIQUE INDEX roster_member_roles_pkey ON public.roster_member_roles USING btree (service_id, user_id)",
         "name": "roster_member_roles_pkey",
         "table": "roster_member_roles",
@@ -17975,7 +18269,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "439f7982b4a841ad6685fef4c2eb3764",
+        "def_hash": "3f4b4553dd061d3baed9497df62dc0cc",
         "signature": "public.roster_command(uuid,uuid,text,jsonb)"
       },
       {
@@ -17993,6 +18287,86 @@
         ],
         "def_hash": "31a11d15acae1b159d87658e58a06311",
         "signature": "public.roster_lock_manager(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "664d42bcec5094303a6ef55f63e2029f",
+        "signature": "public.roster_maker_assert_publication(uuid,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "991604283f2e97f0c2288bc2f877a044",
+        "signature": "public.roster_maker_command(uuid,uuid,text,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "b7edca70a5265615c5e55a9d854360b7",
+        "signature": "public.roster_maker_draft_rows(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "62454f2974d11adee7c6529831670d34",
+        "signature": "public.roster_maker_live_rows(uuid,date,date)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "7c25b9fe3ec5d603b99c9143631451d4",
+        "signature": "public.roster_maker_minus(jsonb,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "47449386e0a5bda895ee0c3fe591601a",
+        "signature": "public.roster_maker_proposal_json(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "5382a2bec73622e39f91e1505f6cc2ca",
+        "signature": "public.roster_maker_read(uuid,uuid,uuid,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "9281fd6b04003b0f07630209766b7a30",
+        "signature": "public.roster_maker_row(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "bcf649be491696998346829304f4cb15",
+        "signature": "public.roster_maker_settings_token(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "0c8214a01655b435c7eafb2f5366da20",
+        "signature": "public.roster_maker_sort(jsonb)"
       },
       {
         "acl": [
@@ -18062,7 +18436,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "fd0d25d8fb28707b24505eeaad4d8b58",
+        "def_hash": "ee1affb9fd8aec442834598dcf18eca5",
         "signature": "public.roster_read(uuid,uuid,text,jsonb)"
       },
       {
@@ -21253,6 +21627,11 @@
         "table": "roster_drafts"
       },
       {
+        "def": "CHECK (((baseline_rows IS NULL) OR (jsonb_typeof(baseline_rows) = 'array'::text)))",
+        "name": "roster_drafts_baseline_rows_check",
+        "table": "roster_drafts"
+      },
+      {
         "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL",
         "name": "roster_drafts_created_by_fkey",
         "table": "roster_drafts"
@@ -21275,6 +21654,11 @@
       {
         "def": "UNIQUE (service_id, period_start, period_end)",
         "name": "roster_drafts_service_id_period_start_period_end_key",
+        "table": "roster_drafts"
+      },
+      {
+        "def": "CHECK (((version >= 1) AND (version <= '9007199254740991'::bigint)))",
+        "name": "roster_drafts_version_check",
         "table": "roster_drafts"
       },
       {
@@ -21306,6 +21690,51 @@
         "def": "CHECK ((status = ANY (ARRAY['planned'::text, 'applied'::text, 'approved'::text])))",
         "name": "roster_leave_status_check",
         "table": "roster_leave"
+      },
+      {
+        "def": "PRIMARY KEY (proposal_id, user_id)",
+        "name": "roster_maker_consents_pkey",
+        "table": "roster_maker_consents"
+      },
+      {
+        "def": "FOREIGN KEY (proposal_id) REFERENCES public.roster_maker_proposals(id) ON DELETE CASCADE",
+        "name": "roster_maker_consents_proposal_id_fkey",
+        "table": "roster_maker_consents"
+      },
+      {
+        "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "roster_maker_consents_user_id_fkey",
+        "table": "roster_maker_consents"
+      },
+      {
+        "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "name": "roster_maker_proposals_created_by_fkey",
+        "table": "roster_maker_proposals"
+      },
+      {
+        "def": "FOREIGN KEY (draft_id) REFERENCES public.roster_drafts(id) ON DELETE CASCADE",
+        "name": "roster_maker_proposals_draft_id_fkey",
+        "table": "roster_maker_proposals"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "roster_maker_proposals_pkey",
+        "table": "roster_maker_proposals"
+      },
+      {
+        "def": "CHECK ((scope = ANY (ARRAY['full'::text, 'change'::text])))",
+        "name": "roster_maker_proposals_scope_check",
+        "table": "roster_maker_proposals"
+      },
+      {
+        "def": "FOREIGN KEY (service_id) REFERENCES public.on_call_services(id) ON DELETE CASCADE",
+        "name": "roster_maker_proposals_service_id_fkey",
+        "table": "roster_maker_proposals"
+      },
+      {
+        "def": "UNIQUE (service_id, request_key)",
+        "name": "roster_maker_proposals_service_id_request_key_key",
+        "table": "roster_maker_proposals"
       },
       {
         "def": "CHECK (((grade IS NULL) OR (grade = ANY (ARRAY['intern'::text, 'resident'::text, 'registrar'::text, 'fellow'::text, 'consultant'::text, 'other'::text]))))",

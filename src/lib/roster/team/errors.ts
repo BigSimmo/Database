@@ -13,6 +13,10 @@ export const ROSTER_ERRORS: Record<string, { status: number; message: string }> 
   roster_not_found: { status: 404, message: "That shift or request has changed. Refresh and try again." },
   roster_limit: { status: 409, message: "That's more than Roster allows for one team." },
   roster_conflict: { status: 409, message: "The roster changed while you were looking. Refresh and try again." },
+  roster_agreement_required: {
+    status: 409,
+    message: "Review the proposed duties and obtain every affected doctor's agreement before publishing.",
+  },
   roster_request_exists: { status: 409, message: "There's already a request for this shift." },
   roster_swap_not_eligible: { status: 409, message: "That no longer fits the team roster or grades." },
   roster_open_shift_taken: { status: 409, message: "Someone else took this shift first." },

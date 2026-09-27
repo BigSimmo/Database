@@ -246,13 +246,13 @@ begin
   d := (r ->> 'draftId')::uuid;
   if (select count(*) from public.roster_draft_assignments where draft_id = d) <> 1 then raise exception 'draft: not copied'; end if;
   select id into row_id from public.roster_draft_assignments where draft_id = d;
-  r := pg_temp.cmd('mgr', 'draft.change', jsonb_build_object('draftId', d, 'source', 'typed', 'ops', jsonb_build_array(
+  r := pg_temp.cmd('mgr', 'draft.change', jsonb_build_object('draftId', d, 'expectedVersion', 1, 'source', 'typed', 'ops', jsonb_build_array(
     jsonb_build_object('op', 'update', 'id', row_id, 'row', jsonb_build_object('shiftCode', 'E', 'kind', 'evening')),
     jsonb_build_object('op', 'add', 'row', jsonb_build_object('rosterName', 'Locum 2', 'startsAt', '2026-11-04T00:00:00Z',
       'endsAt', '2026-11-04T08:30:00Z', 'shiftCode', 'D', 'kind', 'day')))));
   c := (r ->> 'lastChangeId')::bigint;
-  perform pg_temp.cmd('mgr', 'draft.undo', jsonb_build_object('changeId', c));
-  perform pg_temp.cmd('mgr', 'draft.undo', jsonb_build_object('changeId', c - 1));
+  perform pg_temp.cmd('mgr', 'draft.undo', jsonb_build_object('draftId', d, 'expectedVersion', 2, 'changeId', c));
+  perform pg_temp.cmd('mgr', 'draft.undo', jsonb_build_object('draftId', d, 'expectedVersion', 3, 'changeId', c - 1));
   if (select shift_code from public.roster_draft_assignments where id = row_id) <> 'D'
      or (select count(*) from public.roster_draft_assignments where draft_id = d) <> 1 then
     raise exception 'draft undo failed';

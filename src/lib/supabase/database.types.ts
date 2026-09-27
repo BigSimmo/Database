@@ -4231,8 +4231,108 @@ export type Database = {
         };
         Relationships: [];
       };
+      roster_maker_proposals: {
+        Row: {
+          id: string;
+          service_id: string;
+          draft_id: string;
+          draft_version: number;
+          scope: string;
+          change_id: number | null;
+          history_through: number;
+          period_start: string;
+          period_end: string;
+          live_token: string;
+          request_key: string;
+          before_rows: Json;
+          after_rows: Json;
+          draft_rows: Json;
+          next_baseline: Json;
+          publish_payload: Json;
+          blockers: Json;
+          protected_changes: Json;
+          created_by: string | null;
+          created_at: string;
+          published_at: string | null;
+          receipt: Json | null;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          draft_id: string;
+          draft_version: number;
+          scope: string;
+          change_id?: number | null;
+          history_through?: number;
+          period_start: string;
+          period_end: string;
+          live_token: string;
+          request_key: string;
+          before_rows: Json;
+          after_rows: Json;
+          draft_rows: Json;
+          next_baseline: Json;
+          publish_payload: Json;
+          blockers?: Json;
+          protected_changes?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          published_at?: string | null;
+          receipt?: Json | null;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          draft_id?: string;
+          draft_version?: number;
+          scope?: string;
+          change_id?: number | null;
+          history_through?: number;
+          period_start?: string;
+          period_end?: string;
+          live_token?: string;
+          request_key?: string;
+          before_rows?: Json;
+          after_rows?: Json;
+          draft_rows?: Json;
+          next_baseline?: Json;
+          publish_payload?: Json;
+          blockers?: Json;
+          protected_changes?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          published_at?: string | null;
+          receipt?: Json | null;
+        };
+        Relationships: [];
+      };
+      roster_maker_consents: {
+        Row: {
+          proposal_id: string;
+          user_id: string;
+          before_rows: Json;
+          after_rows: Json;
+          agreed_at: string | null;
+        };
+        Insert: {
+          proposal_id: string;
+          user_id: string;
+          before_rows: Json;
+          after_rows: Json;
+          agreed_at?: string | null;
+        };
+        Update: {
+          proposal_id?: string;
+          user_id?: string;
+          before_rows?: Json;
+          after_rows?: Json;
+          agreed_at?: string | null;
+        };
+        Relationships: [];
+      };
       roster_drafts: {
         Row: {
+          baseline_rows: Json | null;
           based_on_publication_id: string | null;
           created_at: string;
           created_by: string | null;
@@ -4241,8 +4341,10 @@ export type Database = {
           period_start: string;
           service_id: string;
           updated_at: string;
+          version: number;
         };
         Insert: {
+          baseline_rows?: Json | null;
           based_on_publication_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -4251,8 +4353,10 @@ export type Database = {
           period_start: string;
           service_id: string;
           updated_at?: string;
+          version?: number;
         };
         Update: {
+          baseline_rows?: Json | null;
           based_on_publication_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -4261,6 +4365,7 @@ export type Database = {
           period_start?: string;
           service_id?: string;
           updated_at?: string;
+          version?: number;
         };
         Relationships: [];
       };
@@ -4599,6 +4704,7 @@ export type Database = {
       };
       roster_team_settings: {
         Row: {
+          rules_reviewed_on: string | null;
           ai_helper_consented_at: string | null;
           ai_helper_consented_by: string | null;
           next_cutoff_on: string | null;
@@ -4611,6 +4717,7 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          rules_reviewed_on?: string | null;
           ai_helper_consented_at?: string | null;
           ai_helper_consented_by?: string | null;
           next_cutoff_on?: string | null;
@@ -4623,6 +4730,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          rules_reviewed_on?: string | null;
           ai_helper_consented_at?: string | null;
           ai_helper_consented_by?: string | null;
           next_cutoff_on?: string | null;
@@ -4750,6 +4858,8 @@ export type Database = {
         };
         Returns: string;
       };
+      roster_maker_read: { Args: { p_actor_id: string; p_service_id: string; p_draft_id?: string | null; p_mine?: boolean }; Returns: Json };
+      roster_maker_command: { Args: { p_actor_id: string; p_service_id: string; p_action: string; p_payload: Json }; Returns: Json };
       roster_read: {
         Args: { p_actor_id: string; p_service_id: string | null; p_what: string; p_payload?: Json };
         Returns: Json;
@@ -4772,18 +4882,6 @@ export type Database = {
       };
       roster_set_manager: {
         Args: { p_service_id: string; p_user_id: string; p_actor_id: string; p_manager: boolean };
-        Returns: Json;
-      };
-      roster_set_cutoff: {
-        Args: { p_actor_id: string; p_service_id: string; p_cutoff: string | null };
-        Returns: Json;
-      };
-      roster_publish_preview: {
-        Args: { p_actor_id: string; p_service_id: string; p_from: string; p_to: string };
-        Returns: Json;
-      };
-      roster_publish: {
-        Args: { p_actor_id: string; p_service_id: string; p_expected_token: string; p_payload: Json };
         Returns: Json;
       };
       on_call_service_set_verified: {

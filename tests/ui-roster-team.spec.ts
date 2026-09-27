@@ -1,6 +1,194 @@
 import { expect, test, type Page } from "playwright/test";
 import { clickWhenHydrated } from "./playwright-settlement";
 
+for (const width of [390, 1280]) {
+  test(`Roster maker reviewed editing and conflict recovery at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.emulateMedia({ colorScheme: width === 390 ? "dark" : "light", reducedMotion: "reduce" });
+    await syntheticTeam(page);
+    const draftId = "5e000000-0000-4000-8000-000000000020";
+    let version = 1;
+    let shiftCode = "D";
+    let conflict = true;
+    let agreed = false;
+    let published = 0;
+    const proposalId = "5e000000-0000-4000-8000-000000000030";
+    const commands: Record<string, unknown>[] = [];
+    const snapshot = () => ({
+      draft: {
+        id: draftId,
+        periodStart: "2026-10-01",
+        periodEnd: "2026-10-02",
+        basedOnPublicationId: publicationId,
+        version,
+      },
+      assignments: [
+        {
+          id: "5e000000-0000-4000-8000-000000000010",
+          userId: actorId,
+          rosterName: "Alex Example",
+          siteId: null,
+          startsAt: shiftCode === "D" ? "2026-10-01T00:00:00Z" : "2026-10-01T13:30:00Z",
+          endsAt: shiftCode === "D" ? "2026-10-01T08:30:00Z" : "2026-10-02T00:00:00Z",
+          shiftCode,
+          kind: shiftCode === "D" ? "day" : "night",
+          grade: "registrar",
+        },
+      ],
+      changes: [],
+    });
+    const baseRows = snapshot().assignments;
+    const proposal = () => ({
+      id: proposalId,
+      draftId,
+      draftVersion: version,
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-02",
+      scope: "full",
+      changeId: null,
+      createdAt: "2026-09-27T00:00:00Z",
+      status: "pending",
+      before: baseRows,
+      after: snapshot().assignments,
+      affected: [
+        {
+          userId: actorId,
+          displayName: "Alex Example",
+          before: baseRows,
+          after: snapshot().assignments,
+          agreedAt: agreed ? "2026-09-27T01:00:00Z" : null,
+        },
+      ],
+      blockers: [],
+      protectedChanges: [],
+      canPublish: agreed,
+    });
+    const makerState = () => ({
+      settingsToken: "test-token",
+      needs: [],
+      rules: { minBreakHours: null, maxHours7d: null, source: null, reviewedOn: null },
+      proposals: [proposal()],
+      reconciliation: null,
+    });
+    await page.route("**/api/roster/team/**", async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname.endsWith("/maker")) {
+        if (route.request().method() !== "POST") return route.fulfill({ json: makerState() });
+        const body = route.request().postDataJSON();
+        if (body.action === "proposal.create") return route.fulfill({ json: { proposal: proposal() } });
+        if (body.action === "proposal.publish" && agreed && body.proposalId === proposalId) {
+          published++;
+          return route.fulfill({
+            json: {
+              publicationId,
+              version: 3,
+              draftVersion: version,
+              changedUserIds: [actorId],
+              swapsCancelled: [],
+              replayed: false,
+            },
+          });
+        }
+        return route.fulfill({ status: 409, json: { code: "roster_conflict" } });
+      }
+      if (url.pathname.endsWith("/agreements")) {
+        if (route.request().method() === "POST") {
+          expect(route.request().postDataJSON()).toEqual({ action: "agree", proposalId });
+          agreed = true;
+        }
+        return route.fulfill({
+          json: {
+            proposals: [
+              {
+                ...proposal(),
+                before: baseRows,
+                after: snapshot().assignments,
+                agreedAt: agreed ? "2026-09-27T01:00:00Z" : null,
+              },
+            ],
+          },
+        });
+      }
+      if (url.searchParams.get("what") === "maker")
+        return route.fulfill({
+          json: {
+            codes: [
+              { code: "D", kind: "day", starts: "08:00", ends: "16:30", label: "Day" },
+              { code: "N", kind: "night", starts: "21:30", ends: "08:00", label: "Night" },
+            ],
+            needs: [],
+            drafts: [],
+          },
+        });
+      if (!url.pathname.endsWith("/draft")) return route.fallback();
+      if (route.request().method() === "POST") {
+        const body = route.request().postDataJSON();
+        commands.push(body);
+        if (body.action === "draft.change") {
+          if (conflict) {
+            conflict = false;
+            version = 2;
+            return route.fulfill({ status: 409, json: { code: "roster_conflict", message: "Draft changed" } });
+          }
+          expect(body.expectedVersion).toBe(2);
+          expect(body.ops).toHaveLength(1);
+          shiftCode = body.ops[0].row.shiftCode;
+          version = 3;
+        }
+      }
+      return route.fulfill({ json: snapshot() });
+    });
+    await page.goto("/roster/manage");
+    await clickWhenHydrated(page.getByTestId("roster-manage-section-trigger"));
+    await clickWhenHydrated(page.getByRole("button", { name: "Maker", exact: true }));
+    await page.getByLabel("Period starts").fill("2026-10-01");
+    await page.getByLabel("Period ends").fill("2026-10-02");
+    await page.getByRole("button", { name: "Open draft", exact: true }).click();
+    await expect(page.getByText("Draft v1", { exact: false })).toBeVisible();
+    const cell = page.getByRole("button", { name: /Edit Alex Example.*1 Oct/ });
+    if (width === 1280) {
+      await cell.focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(page.getByRole("button", { name: /Edit Alex Example.*2 Oct/ })).toBeFocused();
+      await page.keyboard.press("ArrowLeft");
+      await page.keyboard.press("Enter");
+    } else await cell.click();
+    await page.getByLabel("Shift code", { exact: true }).selectOption("N");
+    await page.getByRole("button", { name: "Review change", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Review draft change" })).toBeVisible();
+    expect(commands).toHaveLength(1);
+    await page.getByRole("button", { name: "Apply to draft", exact: true }).click();
+    await expect(page.getByText(/Draft changed.*review/i)).toBeVisible();
+    expect(commands).toHaveLength(2);
+    await page.getByRole("button", { name: "Review against current draft" }).click();
+    await expect(page.getByRole("dialog", { name: "Review draft change" })).toBeVisible();
+    await page.getByRole("button", { name: "Apply to draft", exact: true }).click();
+    await expect(page.getByText("Draft v3", { exact: false })).toBeVisible();
+    expect(commands.map((command) => command.action)).toEqual(["draft.open", "draft.change", "draft.change"]);
+    await page.getByRole("button", { name: "Review whole draft", exact: true }).click();
+    await expect(page.getByText("Alex Example: Waiting for agreement in Requests")).toBeVisible();
+    await page.getByLabel("I reviewed the before and after duties, including removals.").check();
+    await expect(page.getByRole("button", { name: "Publish reviewed duties" })).toBeDisabled();
+    await page.goto("/roster/requests");
+    await page.getByLabel("Duty change to review").selectOption(proposalId);
+    await page.getByLabel("I have reviewed and agree to these changes to my duties.").check();
+    await page.getByRole("button", { name: "Record my agreement" }).click();
+    await expect(page.getByText(/Your agreement is recorded/)).toBeVisible();
+    expect(published).toBe(0);
+    await page.goto("/roster/manage");
+    await clickWhenHydrated(page.getByTestId("roster-manage-section-trigger"));
+    await clickWhenHydrated(page.getByRole("button", { name: "Maker", exact: true }));
+    await page.getByRole("button", { name: "Open draft", exact: true }).click();
+    await page.getByRole("button", { name: "Review whole draft", exact: true }).click();
+    await expect(page.getByText("Alex Example: Agreed to this review")).toBeVisible();
+    await page.getByLabel("I reviewed the before and after duties, including removals.").check();
+    await page.getByRole("button", { name: "Publish reviewed duties" }).click();
+    await expect.poll(() => published).toBe(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`roster-maker-${width}.png`), fullPage: true });
+  });
+}
+
 const teamId = "5e000000-0000-4000-8000-000000000001";
 const actorId = "5e000000-0000-4000-8000-000000000002";
 const peerId = "5e000000-0000-4000-8000-000000000003";
@@ -50,6 +238,17 @@ async function syntheticTeam(page: Page, manager = true) {
       return route.fulfill({
         status: 409,
         json: { code: "roster_publish_requires_update", message: "Publishing needs a database safety update first." },
+      });
+    if (url.pathname.endsWith("/agreements")) return route.fulfill({ json: { proposals: [] } });
+    if (url.pathname.endsWith("/maker"))
+      return route.fulfill({
+        json: {
+          settingsToken: "test-token",
+          needs: [],
+          rules: { minBreakHours: null, maxHours7d: null, source: null, reviewedOn: null },
+          proposals: [],
+          reconciliation: null,
+        },
       });
     if (request.method() === "POST") return route.fulfill({ json: { result: { ok: true } } });
     const what = url.searchParams.get("what");

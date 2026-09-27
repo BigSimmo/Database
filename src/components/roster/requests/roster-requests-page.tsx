@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { InformationPageShell } from "@/components/information-page-shell";
 import { modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { RosterAskBox } from "@/components/roster/ask/roster-ask-box";
+import { RosterDutyAgreements } from "@/components/roster/maker/roster-duty-agreements";
 import { kindOf, useRosterNow } from "@/components/roster/roster-format";
 import { useRosterShifts } from "@/components/roster/use-roster-shifts";
 import { useRosterRead, useRosterTeams, postRosterAction } from "@/components/roster/use-roster-team";
@@ -398,6 +399,13 @@ export function RosterRequestsPage() {
       ) : null}
       {error ? <p role="alert">{error}</p> : null}
       <RosterSentBar receipt={sent} clear={clearSent} />
+      {canTeamAct && serviceId ? (
+        <RosterDutyAgreements
+          key={serviceId}
+          serviceId={serviceId}
+          sites={Object.fromEntries((overview.data?.sites ?? []).map((site) => [site.id, site.name]))}
+        />
+      ) : null}
       {eligibleOpen.length ? (
         <section>
           <h2 className="mb-2 text-lg font-medium">Open shifts I can take</h2>

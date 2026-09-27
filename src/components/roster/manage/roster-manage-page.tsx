@@ -10,6 +10,7 @@ import { RosterCoverTab } from "./roster-cover-tab";
 import { RosterPeopleList } from "./roster-people-list";
 import { RosterTeamSettings } from "./roster-team-settings";
 import { RosterPublishTab } from "./publish/roster-publish-tab";
+import { RosterMakerTab } from "../maker/roster-maker-tab";
 
 function ManagerTeam({ serviceId }: { serviceId: string }) {
   const overview = useRosterRead(serviceId, "overview");
@@ -30,6 +31,8 @@ function ManagerTeam({ serviceId }: { serviceId: string }) {
         <RosterApproveTab serviceId={serviceId} />
       ) : section === "cover" ? (
         <RosterCoverTab serviceId={serviceId} overview={overview.data} />
+      ) : section === "maker" ? (
+        <RosterMakerTab serviceId={serviceId} overview={overview.data} />
       ) : (
         <>
           <RosterPublishTab serviceId={serviceId} overview={overview.data} />
