@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { cardSurface, focusRing } from "@/components/card-recipes";
 import { cn, textMuted } from "@/components/ui-primitives";
-import { describeRosterChangeCounts, type OnCallShiftsState } from "@/components/on-call/use-on-call-shifts";
+import { describeRosterChangeCounts, type RosterShiftsState } from "@/components/roster/use-roster-shifts";
 import { describeNextShift } from "@/lib/roster/shifts/next-shift";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
@@ -16,7 +16,7 @@ import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
  * nothing at all, so the home reads exactly as it did before rosters existed;
  * with no shifts it is one line inviting the import.
  */
-export function OnCallNextShift({ state, now }: { state: OnCallShiftsState; now: Date }) {
+export function OnCallNextShift({ state, now }: { state: RosterShiftsState; now: Date }) {
   if (state.status !== "ready") return null;
   const next = describeNextShift(state.shifts, now);
   const unseenChange =
