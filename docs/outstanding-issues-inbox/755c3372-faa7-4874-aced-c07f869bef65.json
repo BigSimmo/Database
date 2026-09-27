@@ -2,10 +2,10 @@
   "version": 2,
   "id": "755c3372-faa7-4874-aced-c07f869bef65",
   "createdOn": "2026-09-26",
-  "action": "done",
+  "action": "update",
   "payload": {
     "id": "#X1SPWB",
-    "outcome": "Added formal Hazard H8 covering services emergency crisis helpline routing with failure scenarios H8a and H8b, controls, tests, and ranked register integration to docs/clinical-hazard-analysis.md and refreshed snapshot",
+    "detail": "UPDATE 2026-09-28 (PR #3142): PARTLY DONE - docs/clinical-hazard-analysis.md now carries a proposed Hazard H8 (services crisis helpline routing: H8a a crisis query fails to pin or route the right crisis line; H8b a non-crisis record carries a crisis chip) with its controls, tests and gaps, and ranks H8a and H8b in the risk register. STILL OPEN: H8 is marked proposed and not clinically reviewed, and it is not yet in docs/clinical-hazard-controls.json, so data/hazard-register-snapshot.json and the developer-hub view still list only the registered hazards. NEXT: owner reviews H8, adds the H8 control entry to docs/clinical-hazard-controls.json, and refreshes the hazard snapshot per the register's own procedure.",
     "baseRowFingerprint": "a2aaba0a7c4b088ea70cbad4bb8e129e12e80223e1ab5676c898ca275b0dbef9"
   }
 }
