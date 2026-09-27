@@ -118,6 +118,7 @@
       "id": "catalogues-forms-and-info",
       "disposition": "owned",
       "routes": [
+        "src/app/(display)/teaching/display/[token]/page.tsx",
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
@@ -180,7 +181,11 @@
         "src/app/(search-app)/sources/page.tsx",
         "src/app/(search-app)/sources/publishers/page.tsx",
         "src/app/(search-app)/sources/search/page.tsx",
-        "src/app/(search-app)/sources/topics/page.tsx"
+        "src/app/(search-app)/sources/topics/page.tsx",
+        "src/app/(search-app)/teaching/c/[token]/page.tsx",
+        "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
