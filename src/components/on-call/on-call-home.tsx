@@ -23,7 +23,7 @@ import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
 import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
-import { useOnCallShifts } from "@/components/on-call/use-on-call-shifts";
+import { useRosterShifts } from "@/components/roster/use-roster-shifts";
 import {
   ON_CALL_HOME_ICON,
   ON_CALL_SECTION_HREFS,
@@ -316,7 +316,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // boundary that would change the answer, and never on a fixed interval.
   const [tick, setTick] = useState(() => new Date());
   const now = pinnedNow ?? tick;
-  const shifts = useOnCallShifts();
+  const shifts = useRosterShifts();
 
   useEffect(() => {
     // A pinned clock is the caller's to move. Scheduling against it would drag a
