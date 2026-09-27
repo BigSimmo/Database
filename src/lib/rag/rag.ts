@@ -22,8 +22,10 @@ import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-
 import { answerInstructions, adaptiveAnswerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
+  applyMemoryBoostArtifacts,
   callVersionedRetrievalRpc,
   createChunkLoadCache,
+  loadMemoryBoostArtifacts,
   memoryCardChunkScore,
   mergeSearchResults,
   recordHybridRpcError,
@@ -32,7 +34,6 @@ import {
   searchIndexUnitCandidates,
   searchTableFactCandidates,
   searchTextChunkCandidates,
-  withMemoryBoostedCandidates,
   type MemoryCardCache,
 } from "@/lib/rag/rag-candidate-sources";
 export {
@@ -1492,11 +1493,10 @@ async function searchChunksWithTiming(
     }
 
     startIndependentLanes();
-    const memoryBoost = await measureSearchPhase(searchTiming, "memory_hydration", () =>
-      withMemoryBoostedCandidates({
+    const memoryArtifacts = await measureSearchPhase(searchTiming, "memory_hydration", () =>
+      loadMemoryBoostArtifacts({
         supabase,
         query: retrievalQuery,
-        candidates: textCandidates,
         ownerId: args.ownerId,
         accessScope: args.accessScope,
         documentIds: documentFilterList,
@@ -1504,6 +1504,7 @@ async function searchChunksWithTiming(
         cardCache: memoryCardCache,
       }),
     );
+    const memoryBoost = applyMemoryBoostArtifacts(retrievalQuery, textCandidates, memoryArtifacts);
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
     telemetry.memory_top_score = Math.max(
       telemetry.memory_top_score ?? 0,
