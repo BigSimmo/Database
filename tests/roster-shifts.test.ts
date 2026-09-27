@@ -37,6 +37,7 @@ vi.mock("@/lib/api-rate-limit", () => ({
 }));
 
 import { DELETE, GET, POST } from "@/app/api/roster/shifts/route";
+import { DELETE as legacyDelete, POST as legacyPost } from "@/app/api/on-call/shifts/route";
 import { PATCH } from "@/app/api/roster/shifts/imports/[id]/route";
 import { DELETE as deleteManualShiftSeries } from "@/app/api/roster/shifts/manual/[seriesId]/route";
 import { POST as postManualShift } from "@/app/api/roster/shifts/manual/route";
@@ -534,6 +535,68 @@ describe("the My shifts API", () => {
     expect((await patch(importId)).status).toBe(404);
     expect(calls[0]?.eq).toContainEqual(["owner_id", ownerId]);
     expect((await patch("not-a-uuid")).status).toBe(404);
+  });
+});
+
+describe("the old My shifts path, for a page opened before the move to Roster", () => {
+  function legacyRequest(method: string, body?: unknown) {
+    return new Request("https://psychiatry.tools/api/on-call/shifts", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  }
+
+  const oldImportBody = {
+    format: validImportBody.format,
+    windowStart: validImportBody.windowStart,
+    windowEnd: validImportBody.windowEnd,
+    shifts: validImportBody.shifts,
+  };
+
+  it("saves the old request shape, with no workplace or file name", async () => {
+    fakeSupabase(storedRows);
+    const response = await legacyPost(legacyRequest("POST", oldImportBody));
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "roster_own_shifts_replace",
+      expect.objectContaining({ p_owner_id: ownerId, p_format: "csv", p_workplace: null, p_file_name: null }),
+    );
+  });
+
+  it("still saves the new request shape, and still refuses a body that names an owner", async () => {
+    fakeSupabase(storedRows);
+    const withWorkplace = { ...validImportBody, workplace: "Example Hospital", fileName: "oct.csv" };
+    expect((await legacyPost(legacyRequest("POST", withWorkplace))).status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "roster_own_shifts_replace",
+      expect.objectContaining({ p_workplace: "Example Hospital", p_file_name: "oct.csv" }),
+    );
+    mocks.rpc.mockClear();
+    expect((await legacyPost(legacyRequest("POST", { ...oldImportBody, ownerId: otherOwnerId }))).status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("deletes only shifts and import records, never calendar links or Roster settings", async () => {
+    const calls = fakeSupabase(storedRows);
+    const response = await legacyDelete(legacyRequest("DELETE"));
+    expect(response.status).toBe(200);
+    const writes = calls.filter((call) => call.op !== "select");
+    expect(writes.map((call) => `${call.op} ${call.table}`)).toEqual([
+      "delete on_call_shifts",
+      "delete on_call_shift_imports",
+    ]);
+    for (const call of writes) expect(call.eq).toContainEqual(["owner_id", ownerId]);
+  });
+
+  it("refuses a signed-out request and demo mode", async () => {
+    fakeSupabase(storedRows);
+    mocks.auth.mockRejectedValue(new AuthenticationError("no session"));
+    expect((await legacyPost(legacyRequest("POST", oldImportBody))).status).toBe(401);
+    expect((await legacyDelete(legacyRequest("DELETE"))).status).toBe(401);
+    mocks.demo.mockReturnValue(true);
+    expect((await legacyPost(legacyRequest("POST", oldImportBody))).status).toBe(400);
+    expect((await legacyDelete(legacyRequest("DELETE"))).status).toBe(400);
   });
 });
 
