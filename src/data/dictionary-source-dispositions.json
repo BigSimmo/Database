@@ -199,9 +199,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
-          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
+          "code": "host_now_governed_date_still_required",
+          "blocker": "meteor.aihw.gov.au is now in GOVERNED_SOURCE_HOSTS (PR #3142, owner approval 2026-09-28), so the host no longer blocks this record. What remains is that the METEOR page has not been read since, so no publication date has been established from the publisher. The candidate carries registration and effective dates inherited from the research master, which are not a publisher read.",
+          "nextAction": "Read the METEOR page and record the date it states, with its true precision and event type (registration, effective or superseded), before any admission decision. Admission to the acquisition ledger stays a separate decision."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -233,9 +233,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
-          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
+          "code": "host_now_governed_date_still_required",
+          "blocker": "meteor.aihw.gov.au is now in GOVERNED_SOURCE_HOSTS (PR #3142, owner approval 2026-09-28), so the host no longer blocks this record. What remains is that the METEOR page has not been read since, so no publication date has been established from the publisher.",
+          "nextAction": "Read the METEOR page and record the date it states, with its true precision and event type (registration, effective or superseded), before any admission decision. Admission to the acquisition ledger stays a separate decision."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -741,9 +741,14 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
-          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
+          "code": "host_now_governed_date_still_required",
+          "blocker": "meteor.aihw.gov.au is now in GOVERNED_SOURCE_HOSTS (PR #3142, owner approval 2026-09-28), so the host no longer blocks this record. What remains is that the METEOR page has not been read since, so no publication date has been established from the publisher.",
+          "nextAction": "Read the METEOR page and record the date it states, with its true precision and event type (registration, effective or superseded), before any admission decision. Admission to the acquisition ledger stays a separate decision."
+        },
+        {
+          "code": "jurisdiction_not_written_in_register_form",
+          "blocker": "The jurisdiction field holds \"Australia; historical collection\", a description rather than the register's form, so the catalogue cannot place the source in a jurisdiction and the gate raises unknown_jurisdiction.",
+          "nextAction": "Record the jurisdiction as \"Australia\" and keep the historical scope in the record's notes and lifecycle status."
         }
       ],
       "decisionOwner": "Source register owner",
