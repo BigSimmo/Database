@@ -309,8 +309,9 @@ export const siteContentModeExclusions = [
     reviewOwner: "clinical_content_governance",
   },
   {
-    // My Work is a landing page over the owner's own On Call records and
-    // settings. It publishes nothing: the records are private user state.
+    // Admin (mode id `my-work`, relabelled from My Work on 2026-09-26) holds the
+    // owner's own renewals and admin records. It publishes nothing: the records are
+    // private user state, and nothing from Admin goes to search or the AI (spec).
     modeId: "my-work",
     reason: "private_user_state",
     permanent: true,

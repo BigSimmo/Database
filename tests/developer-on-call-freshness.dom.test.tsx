@@ -11,7 +11,7 @@ import {
   ON_CALL_VIEW_TITLES,
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
-import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
+import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -183,7 +183,8 @@ const VIEW_ROWS = [DEMO_CLEARANCE, DEMO_LEAVE, DEMO_ROLE_EXPLAINER];
 
 async function expectOverdueRowFiledUnder(row: OnCallEntry, view: OnCallPageView) {
   const rendered = await screen.findByTestId(`developer-on-call-freshness-row-${row.id}`);
-  expect(within(rendered).getByRole("link", { name: row.title })).toHaveAttribute("href", ON_CALL_VIEW_HREFS[view]);
+  // Placement-aware: a row Admin received lands on its own anchor on Help or New job.
+  expect(within(rendered).getByRole("link", { name: row.title })).toHaveAttribute("href", onCallEntryHref(row));
   expect(rendered).toHaveTextContent(ON_CALL_VIEW_TITLES[view]);
 }
 

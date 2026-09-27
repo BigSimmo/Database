@@ -3,6 +3,8 @@ import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model"
 import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { ON_CALL_VIEW_HREFS, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
+import { ADMIN_PAGE_HREFS } from "@/components/admin/admin-page-sections";
+import { adminPlacementForEntry, isAdminWorkforceExplainer } from "@/lib/admin/placement";
 
 /**
  * The two functions that map between a stored section and the page a reader
@@ -59,5 +61,11 @@ export function onCallViewForEntry(entry: OnCallEntry): OnCallPageView {
 }
 
 export function onCallEntryHref(entry: OnCallEntry): string {
-  return `${ON_CALL_VIEW_HREFS[onCallViewForEntry(entry)]}#${onCallEntryAnchorId(entry.id)}`;
+  const anchor = `#${onCallEntryAnchorId(entry.id)}`;
+  // Admin received On Call's admin rows and its workforce explainers; send each to the page that renders it.
+  if (isAdminWorkforceExplainer(entry)) return `${ADMIN_PAGE_HREFS.help}${anchor}`;
+  const placement = adminPlacementForEntry(entry);
+  if (placement === "new-job") return `${ADMIN_PAGE_HREFS.newJob}${anchor}`;
+  if (placement) return `${ADMIN_PAGE_HREFS.help}${anchor}`;
+  return `${ON_CALL_VIEW_HREFS[onCallViewForEntry(entry)]}${anchor}`;
 }
