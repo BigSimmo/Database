@@ -56,7 +56,7 @@ const proposal = {
   status: "pending",
   before: [row],
   after: [],
-  affected: [{ userId: USER, displayName: "Alex Example", before: [row], after: [], agreedAt: null }],
+  affected: [{ userId: USER, displayName: "Alex Example", before: [row], after: [], agreedAt: null as string | null }],
   blockers: [],
   protectedChanges: [],
   canPublish: false,

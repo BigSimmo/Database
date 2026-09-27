@@ -45,7 +45,7 @@ const oldAssignment = {
   id: ASSIGNMENT,
   userId: ALEX,
   rosterName: null,
-  siteId: null,
+  siteId: null as string | null,
   startsAt: "2026-10-01T00:00:00Z",
   endsAt: "2026-10-01T08:30:00Z",
   shiftCode: "D",
