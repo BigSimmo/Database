@@ -16,7 +16,7 @@ export default async function CmeTrainingRoute() {
   if (data.state !== "ready") {
     return (
       <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-        <CmeStateNotice state={data.state} year={cpdYearOf(data.now)} />
+        <CmeStateNotice state={data.state} year={cpdYearOf(data.now)} heading="Training" />
       </main>
     );
   }

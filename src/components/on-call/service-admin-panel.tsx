@@ -127,6 +127,7 @@ export function ServiceAdminPanel({
 }) {
   const [siteName, setSiteName] = useState("");
   const [inviteRole, setInviteRole] = useState<ServiceRole>("member");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [expiresInDays, setExpiresInDays] = useState("3");
   const [newInvitation, setNewInvitation] = useState<{ code: string; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState<"site" | "invite" | string | null>(null);
@@ -148,7 +149,7 @@ export function ServiceAdminPanel({
   }
 
   async function createInvitation() {
-    if (busy) return;
+    if (busy || !inviteEmail.trim()) return;
     setBusy("invite");
     setError(null);
     setNewInvitation(null);
@@ -157,11 +158,13 @@ export function ServiceAdminPanel({
         action: "invitation.create",
         role: inviteRole,
         expiresInDays: Number(expiresInDays),
+        invitedEmail: inviteEmail.trim(),
       });
       if (typeof result.code !== "string" || typeof result.expiresAt !== "string") {
         throw new Error("The invitation was created but its one-time code was not returned.");
       }
       setNewInvitation({ code: result.code, expiresAt: result.expiresAt });
+      setInviteEmail("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The invitation could not be created.");
     } finally {
@@ -195,7 +198,7 @@ export function ServiceAdminPanel({
   return (
     <section aria-labelledby="service-admin-heading" className="grid gap-5" data-testid="service-admin">
       <div>
-        <h2 id="service-admin-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="service-admin-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           Service administration
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -205,7 +208,7 @@ export function ServiceAdminPanel({
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
       <section aria-labelledby="service-sites-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-        <h3 id="service-sites-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-sites-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Sites
         </h3>
         <ul className="grid gap-1 text-sm text-[color:var(--text)]">
@@ -236,9 +239,18 @@ export function ServiceAdminPanel({
       </section>
 
       <section aria-labelledby="service-invitations-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-        <h3 id="service-invitations-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-invitations-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Invitations
         </h3>
+        <TextField
+          label="Invitee's email"
+          id="service-invitation-email"
+          type="email"
+          autoComplete="off"
+          hint="Only the person signed in with this email can use the code."
+          value={inviteEmail}
+          onChange={(event) => setInviteEmail(event.target.value)}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Invitation role" id="service-invitation-role">
             {(field) => (
@@ -277,7 +289,7 @@ export function ServiceAdminPanel({
           variant="primary"
           busy={busy === "invite"}
           busyLabel="Creating…"
-          disabled={busy !== null}
+          disabled={busy !== null || !inviteEmail.trim()}
           onClick={() => void createInvitation()}
         >
           Create invitation
@@ -335,7 +347,7 @@ export function ServiceAdminPanel({
       </section>
 
       <section aria-labelledby="service-members-heading" className="grid gap-3">
-        <h3 id="service-members-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-members-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Members
         </h3>
         <div className="grid gap-3 lg:grid-cols-2">

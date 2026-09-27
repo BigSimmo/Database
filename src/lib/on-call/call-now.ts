@@ -1,6 +1,5 @@
 import { onCallDetailsSchemaFor, type OnCallEntry, type OnCallStepHours } from "@/lib/on-call/entry-model";
-import { isOnCallOutOfHours } from "@/lib/on-call/home-modules";
-import { isWaPublicHoliday } from "@/lib/on-call/wa-public-holidays";
+import { onCallPeriod, type OnCallPeriod } from "@/lib/on-call/number-resolver";
 
 /**
  * "Who do I call now?" — one playbook scenario's escalation ladder, arranged for
@@ -22,11 +21,11 @@ export type OnCallCallNowStep = {
   readonly appliesNow: boolean;
 };
 
-export type OnCallCallNowPeriod = "in-hours" | "after-hours";
+/** The one in-hours rule, `onCallPeriod`; kept under this name for existing callers. */
+export type OnCallCallNowPeriod = OnCallPeriod;
 
-export function onCallCallNowPeriod(now: Date): OnCallCallNowPeriod {
-  return isOnCallOutOfHours(now) || isWaPublicHoliday(now) ? "after-hours" : "in-hours";
-}
+/** Exactly `onCallPeriod`, so "Who do I call now?" and every number row agree. */
+export const onCallCallNowPeriod: (now: Date) => OnCallCallNowPeriod = onCallPeriod;
 
 export function onCallCallNowSteps(entry: OnCallEntry, now: Date): readonly OnCallCallNowStep[] {
   if (entry.section !== "playbook") return [];

@@ -763,6 +763,7 @@ async function main() {
       tokenA: sessionA.token,
       tokenB: sessionB.token,
       userIdB: sessionB.userId,
+      emailB: config.userBEmail,
       marker: fixtureA.marker,
       register,
     });
@@ -789,6 +790,7 @@ async function main() {
       tokenA: sessionA.token,
       tokenB: sessionB.token,
       userIdB: sessionB.userId,
+      emailB: config.userBEmail,
       serviceId: serviceWrites.serviceId,
       siteId: serviceWrites.siteId,
       marker: fixtureA.marker,

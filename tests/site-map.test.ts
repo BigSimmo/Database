@@ -103,6 +103,17 @@ describe("tracked sitemap", () => {
     expect(siteMap).toBe(await renderSiteMap());
   });
 
+  it("names the CPD mode CPD, never CME (the code id `cme` stays in routes and paths)", () => {
+    // Only CPD's own lines: another mode's wording is not this test's business.
+    const cpdLines = siteMap
+      .split("\n")
+      .filter((line) => line.includes("/cme") || line.startsWith("| CPD"))
+      .join("\n");
+    expect(cpdLines).toContain("`/cme` - CPD dashboard:");
+    expect(cpdLines).not.toMatch(/\bCME\b/);
+    expect(cpdLines).not.toMatch(/on track/i);
+  });
+
   it("documents every app page, public route handler, and API route", () => {
     const data = collectSiteMapData();
 

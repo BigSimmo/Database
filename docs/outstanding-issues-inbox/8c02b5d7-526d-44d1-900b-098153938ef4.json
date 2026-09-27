@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8c02b5d7-526d-44d1-900b-098153938ef4",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call dates are formatted without a time zone and may show the previous day near midnight (unconfirmed)",
+    "detail": "src/components/on-call/service-admin-panel.tsx:66 and 317, service-handbook.tsx:147 and service-governance-panel.tsx:186 call toLocaleDateString(\"en-AU\") with no timeZone. These client components still server-render, where the process runs in UTC, so a timestamp near Perth midnight can render as the prior day on the server and a different day in the browser (hydration mismatch). Unconfirmed. Next action: pass timeZone Australia/Perth as src/components/developer-area/hub/freshness-stamp.tsx:31 already does, or share one date formatter.",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVW145K17887E70P5VEM3"
+  }
+}

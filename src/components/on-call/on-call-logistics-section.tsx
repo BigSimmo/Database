@@ -229,7 +229,7 @@ export function OnCallLogisticsSection({
               <h3 id={headingId} className={eyebrowText}>
                 {group.category}
               </h3>
-              <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+              <span aria-hidden="true" className="nums text-2xs font-medium text-[color:var(--text-muted)]">
                 {group.entries.length}
               </span>
             </div>

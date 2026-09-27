@@ -1,11 +1,15 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CmeDashboard } from "@/components/cme/cme-dashboard";
 import { CmeEntryForm } from "@/components/cme/cme-entry-form";
 import { DEMO_CME_ENTRIES, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
 import { cmeDraftPayloadSchema } from "@/lib/cme/drafts";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("saving an activity as a draft", () => {
   it("offers Save as draft only when the page supports it", () => {
@@ -21,7 +25,7 @@ describe("saving an activity as a draft", () => {
     expect(screen.getByTestId("cme-entry-save-draft")).toBeDisabled();
     await user.type(screen.getByLabelText(/what was it/i), "Supervision with Dr A");
     // No category chosen, so the activity itself cannot save yet.
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).toHaveAttribute("aria-disabled", "true");
     await user.click(screen.getByTestId("cme-entry-save-draft"));
     await waitFor(() => expect(onSaveDraft).toHaveBeenCalledTimes(1));
     expect(onSubmit).not.toHaveBeenCalled();
@@ -42,6 +46,8 @@ describe("saving an activity as a draft", () => {
   });
 
   it("continues a saved draft with its own fields", async () => {
+    // Pin the clock so 4 March is never "today" or "yesterday", which would hide the typed day.
+    vi.useFakeTimers({ now: new Date("2026-09-26T01:41:00Z"), toFake: ["Date"] });
     const initialDraft = cmeDraftPayloadSchema.parse({
       title: "Balint group",
       date: "2026-03-04",
@@ -51,9 +57,10 @@ describe("saving an activity as a draft", () => {
     });
     render(<CmeEntryForm onSubmit={vi.fn()} onSaveDraft={vi.fn()} initialDraft={initialDraft} />);
     await waitFor(() => expect(screen.getByLabelText(/what was it/i)).toHaveValue("Balint group"));
-    expect(screen.getByLabelText(/^date/i)).toHaveValue("2026-03-04");
+    expect(screen.getByLabelText(/^date/i)).toHaveValue("04/03/2026");
+    expect(screen.getByTestId("cme-entry-date-other")).toHaveTextContent("Wed 4 Mar");
     expect(screen.getByLabelText(/reflection/i)).toHaveValue("Half written");
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).not.toHaveAttribute("aria-disabled");
     // The tab's "we kept your unsaved entry" notice is not shown for an account draft.
     expect(screen.queryByTestId("cme-entry-draft-restored")).toBeNull();
   });

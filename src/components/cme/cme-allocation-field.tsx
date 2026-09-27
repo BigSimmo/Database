@@ -131,8 +131,8 @@ export function CmeAllocationField({
           );
         })}
       </div>
-      {/* Position, weight and words carry the shortfall — never colour. */}
-      <p data-testid="cme-allocation-total" className="mt-3 text-sm font-semibold text-[color:var(--text)]">
+      {/* Position and words carry the shortfall — never colour, and never weight: a number stays at 400. */}
+      <p data-testid="cme-allocation-total" className="mt-3 text-sm font-normal nums text-[color:var(--text)]">
         {formatAllocationHours(total)} of {formatAllocationHours(statedHours)} allocated
       </p>
       <p className={cn("mt-1 text-xs", textMuted)}>

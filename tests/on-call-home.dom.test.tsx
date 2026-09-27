@@ -3,8 +3,10 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
 import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
+import { readyHandbook } from "./helpers/on-call-handbook-fixtures";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call",
@@ -34,6 +36,27 @@ vi.mock("@/components/on-call/on-call-page-menu", () => ({
   },
 }));
 
+// The Teaching page (the education view), where "Coming up" now lives, needs
+// the section page's own collaborators stubbed, as its wiring test does.
+vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
+  AccountSetupDialog: () => null,
+}));
+vi.mock("@/lib/on-call/linked-documents", () => ({
+  useOnCallLinkedDocuments: () => ({}),
+  useOnCallLinkedDocumentsState: () => ({ documents: {}, loading: false }),
+}));
+
+// Now reads the hospital handbook and the roster. Neither is this file's
+// subject, so both are a signed-in reader whose hospital has recorded nothing.
+const handbook = vi.hoisted(() => ({ state: null as unknown as HospitalHandbookState }));
+vi.mock("@/components/on-call/use-hospital-handbook", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/on-call/use-hospital-handbook")>()),
+  useHospitalHandbook: () => handbook.state,
+}));
+vi.mock("@/components/roster/use-roster-shifts", () => ({
+  useRosterShifts: () => ({ status: "ready", shifts: [], latestImport: null, demoMode: false }),
+}));
+
 const storeState = vi.hoisted(() => ({
   entries: [] as OnCallEntry[],
   loading: false,
@@ -45,28 +68,29 @@ const storeState = vi.hoisted(() => ({
   cachedAt: null as string | null,
 }));
 
-const recentState = vi.hoisted(() => ({ items: [] as { id: string; title: string; at: string }[] }));
-
 vi.mock("@/lib/on-call/entry-store", () => ({
   useOnCallEntries: () => storeState,
   cacheOnCallEntries: vi.fn(),
 }));
 
-vi.mock("@/lib/on-call/recent-storage", () => ({
-  useOnCallRecent: () => recentState.items,
-  recordOnCallRecent: vi.fn(),
-  clearOnCallRecent: vi.fn(),
-}));
-
 const { OnCallHome } = await import("@/components/on-call/on-call-home");
+const { OnCallSectionPage } = await import("@/components/on-call/on-call-section-page");
+const { modeSecondaryNavigationRegistry } = await import("@/lib/mode-secondary-navigation");
 
 const VERIFIED = new Date().toISOString();
 
+/** A contact with a daytime and an after-hours number (synthetic 9000 00xx placeholders). */
 function dualLineContact(): OnCallEntry {
   return {
-    ...contact("bed-manager", "Bed manager", ["call-first"], "9224 1111"),
-    details: { role: "Bed manager", phone: "9224 1111", afterHoursPhone: "9224 2222" },
+    ...contact("bed-manager", "Bed manager", ["call-first"], "9000 0011"),
+    details: { role: "Bed manager", phone: "9000 0011", afterHoursPhone: "9000 0012" },
   } as unknown as OnCallEntry;
+}
+
+/** The call link on a Your usual tile. */
+function usualCallHref(slug: string): string | null {
+  const tile = screen.getByTestId(`on-call-now-usual-${slug}`);
+  return within(tile).getByRole("link").getAttribute("href");
 }
 
 function recurringSession(): OnCallEntry {
@@ -97,7 +121,7 @@ function recurringSession(): OnCallEntry {
 }
 
 function staleContact(slug: string, title: string): OnCallEntry {
-  return { ...contact(slug, title, [], "9224 9999"), lastVerifiedAt: null } as unknown as OnCallEntry;
+  return { ...contact(slug, title, [], "9000 0099"), lastVerifiedAt: null } as unknown as OnCallEntry;
 }
 
 function contact(slug: string, title: string, tags: string[], phone: string): OnCallEntry {
@@ -119,44 +143,39 @@ function contact(slug: string, title: string, tags: string[], phone: string): On
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   authState.status = "loading";
+  handbook.state = readyHandbook([]);
   storeState.entries = [];
   storeState.loading = false;
   storeState.isOffline = false;
   storeState.loadError = null;
   storeState.signedOut = false;
   storeState.demoMode = false;
-  recentState.items = [];
 });
 
 afterEach(cleanup);
 
 describe("On Call home layout", () => {
-  it("puts Recent above the ward strip, because last shift predicts this shift", () => {
-    const ward = contact("ward-4b", "Ward 4B", ["ward"], "9224 1000");
-    const rung = contact("switch", "Switchboard", [], "9224 2000");
-    storeState.entries = [ward, rung];
-    recentState.items = [{ id: "switch", title: "Switchboard", at: new Date().toISOString() }];
+  it("puts Your usual above the footer group, because last shift predicts this shift", () => {
+    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9000 0030")];
 
     render(<OnCallHome />);
 
-    const recent = screen.getByTestId("on-call-home-recent");
-    const wards = screen.getByTestId("on-call-home-wards");
-    // Node.DOCUMENT_POSITION_FOLLOWING === 4: `wards` comes after `recent`.
-    expect(recent.compareDocumentPosition(wards) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const usual = screen.getByTestId("on-call-home-recent");
+    const footer = screen.getByTestId("on-call-now-footer");
+    // Node.DOCUMENT_POSITION_FOLLOWING === 4: `footer` comes after `usual`.
+    expect(usual.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("lets a ward chip grow and wrap its title instead of truncating it at a fixed width (#8RWKA0)", () => {
-    storeState.entries = [contact("demo-emergency", "Demo Emergency Department", ["ward"], "9224 1000")];
+  it("keeps ward chips off Now; wards live on Find (#8RWKA0 moves with them)", () => {
+    // Lane B's Find test carries the no-truncation check for ward rows.
+    storeState.entries = [contact("demo-emergency", "Demo Emergency Department", ["ward"], "9000 0010")];
 
-    render(<OnCallHome />);
+    const { container } = render(<OnCallHome />);
 
-    const chip = screen.getByTestId("on-call-home-ward-demo-emergency");
-    expect(chip.className).not.toMatch(/(^|\s)w-32(\s|$)/);
-    expect(chip.className).toMatch(/(^|\s)min-w-32(\s|$)/);
-    expect(chip.className).toMatch(/(^|\s)max-w-60(\s|$)/);
-    const title = within(chip).getByText("Demo Emergency Department");
-    expect(title.className).not.toMatch(/(^|\s)truncate(\s|$)/);
+    expect(screen.queryByTestId("on-call-home-wards")).toBeNull();
+    expect(container.querySelector('[data-testid^="on-call-home-ward-"]')).toBeNull();
   });
 
   it("gives an empty hub a first run block rather than a grid of zeroes", () => {
@@ -178,11 +197,13 @@ describe("On Call home layout", () => {
   });
 
   // Regression, 2026-09-24: "Nothing pinned to call first" showed during the
-  // first load, before any entry had arrived to be pinned or not.
-  it("does not claim nothing is pinned while the hub is still loading", () => {
+  // first load, before any entry had arrived to be pinned or not. Your usual
+  // inherits the rule: while the entries load it holds its space instead.
+  it("does not claim Your usual is empty while the hub is still loading", () => {
     storeState.loading = true;
     render(<OnCallHome />);
-    expect(screen.queryByTestId("on-call-home-call-first-empty")).toBeNull();
+    expect(screen.queryByTestId("on-call-now-usual-empty")).toBeNull();
+    expect(screen.getByTestId("on-call-now-usual-outlines")).toBeInTheDocument();
   });
 
   // Regression, 2026-09-24: a failed fetch with nothing saved on the device
@@ -199,79 +220,84 @@ describe("On Call home layout", () => {
     expect(storeState.retry).toHaveBeenCalled();
   });
 
-  it("names the remaining home tags once there are entries but nothing is tagged", () => {
-    storeState.entries = [contact("switch", "Switchboard", [], "9224 2000")];
+  it("tells a new reader how to start Your usual", () => {
+    storeState.entries = [contact("switch", "Switchboard", [], "9000 0000")];
 
     render(<OnCallHome />);
 
-    const empty = screen.getByTestId("on-call-home-call-first-empty");
-    // The call-first step is a tick box now, so the hint names it, not the tag.
+    const empty = screen.getByTestId("on-call-now-usual-empty");
+    // The call-first step is a tick box, so the hint names it, not the tag.
     expect(empty).toHaveTextContent('tick "Call first on the home"');
     expect(empty).not.toHaveTextContent('"call-first"');
-    expect(empty).toHaveTextContent(/switchboard/i);
-    expect(empty).toHaveTextContent(/ward/i);
-    expect(empty).toHaveTextContent(/pinned/i);
   });
 
-  it("keeps the tag hint out of the way once the home is set up", () => {
-    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9224 3000")];
+  it("hides that hint once an entry is ticked Call first", () => {
+    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9000 0030")];
 
     render(<OnCallHome />);
 
-    expect(screen.queryByTestId("on-call-home-call-first-empty")).toBeNull();
+    expect(screen.getByTestId("on-call-now-usual-reg")).toHaveTextContent("After-hours registrar");
+    expect(screen.queryByTestId("on-call-now-usual-empty")).toBeNull();
   });
 
-  it("offers the printable card from the home, not only from inside Contacts", () => {
-    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9224 3000")];
+  it("leaves the pocket card to the pages sheet, which lists it", () => {
+    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9000 0030")];
+
+    const { container } = render(<OnCallHome />);
+
+    expect(container.querySelector('a[href="/on-call/card"]')).toBeNull();
+    expect(modeSecondaryNavigationRegistry["on-call"].some((entry) => entry.href === "/on-call/card")).toBe(true);
+  });
+
+  it("carries no search box: Now is for ringing, and Find searches", () => {
+    // Amendment r6, Task 2: "no search box on Now". The box searched only this
+    // mode's own entries; Find now holds that job.
+    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9000 0030")];
 
     render(<OnCallHome />);
 
-    expect(screen.getByRole("link", { name: /Pocket card/i })).toHaveAttribute("href", "/on-call/card");
+    expect(screen.queryByTestId("on-call-search")).toBeNull();
+    expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
-  it("carries a search box, which stays out of the way until it is used", () => {
-    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9224 3000")];
-
-    render(<OnCallHome />);
-
-    expect(screen.getByTestId("on-call-search")).toBeInTheDocument();
-    // Nothing typed, so no results block pushes the shift modules down.
-    expect(screen.queryByTestId("on-call-search-results")).toBeNull();
-  });
-
-  it("offers the daytime number during the working day", () => {
+  it("dials the daytime number from Your usual during the working day", () => {
     storeState.entries = [dualLineContact()];
 
     // A Wednesday at 09:00 local.
     render(<OnCallHome now={new Date(2026, 8, 16, 9, 0, 0)} />);
 
-    expect(screen.getByTestId("on-call-home-call-bed-manager")).toHaveTextContent("9224 1111");
+    expect(usualCallHref("bed-manager")).toMatch(/90000011$/);
   });
 
-  it("offers the after-hours number at 22:00, which is when this page is read", () => {
+  it("dials the after-hours number at 22:00, which is when this page is read", () => {
     storeState.entries = [dualLineContact()];
 
     // The same Wednesday at 22:00 local.
     render(<OnCallHome now={new Date(2026, 8, 16, 22, 0, 0)} />);
 
-    const card = screen.getByTestId("on-call-home-call-bed-manager");
-    expect(card).toHaveTextContent("9224 2222");
+    expect(usualCallHref("bed-manager")).toMatch(/90000012$/);
     // Named for what it is, so the screen never shows a number under the wrong
     // label.
-    expect(card).toHaveTextContent(/after hours/i);
+    expect(screen.getByTestId("on-call-now-usual-bed-manager")).toHaveTextContent(/after hours/i);
   });
 
-  it("rolls a weekly session forward rather than going blank once its date passes", () => {
-    storeState.entries = [recurringSession()];
+  it("rolls a weekly session forward on the Teaching page rather than going blank once its date passes", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      // Months after the stored anchor of 8 January.
+      vi.setSystemTime(new Date(2026, 8, 16, 9, 0, 0));
+      storeState.entries = [recurringSession()];
 
-    // Months after the stored anchor of 8 January.
-    render(<OnCallHome now={new Date(2026, 8, 16, 9, 0, 0)} />);
+      render(<OnCallSectionPage view="education" />);
 
-    const strip = screen.getByTestId("on-call-home-teaching-strip");
-    expect(strip).toHaveTextContent("Journal club");
-    // A date, never a countdown: it has to be checkable against a roster.
-    expect(strip).toHaveTextContent(/Sep/);
-    expect(screen.getByTestId("on-call-home-teaching-next-badge")).toBeInTheDocument();
+      const strip = within(screen.getByTestId("on-call-home-upcoming")).getByTestId("on-call-home-teaching-strip");
+      expect(strip).toHaveTextContent("Journal club");
+      // A date, never a countdown: it has to be checkable against a roster.
+      expect(strip).toHaveTextContent(/Sep/);
+      expect(screen.getByTestId("on-call-home-teaching-next-badge")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("says nothing about overdue entries, which are the developer hub's business", () => {
@@ -299,16 +325,15 @@ describe("On Call home layout", () => {
       storeState.entries = [dualLineContact()];
 
       render(<OnCallHome />);
-      expect(screen.getByTestId("on-call-home-call-bed-manager")).toHaveTextContent("9224 1111");
+      expect(usualCallHref("bed-manager")).toMatch(/90000011$/);
 
       // Nothing is clicked, scrolled or typed. Only the clock moves.
       act(() => {
         vi.advanceTimersByTime(6 * 60 * 1000);
       });
 
-      const card = screen.getByTestId("on-call-home-call-bed-manager");
-      expect(card).toHaveTextContent("9224 2222");
-      expect(card).toHaveTextContent(/after hours/i);
+      expect(usualCallHref("bed-manager")).toMatch(/90000012$/);
+      expect(screen.getByTestId("on-call-now-usual-bed-manager")).toHaveTextContent(/after hours/i);
     } finally {
       vi.useRealTimers();
     }
@@ -325,21 +350,22 @@ describe("On Call home layout", () => {
         vi.advanceTimersByTime(24 * 60 * 60 * 1000);
       });
 
-      expect(screen.getByTestId("on-call-home-call-bed-manager")).toHaveTextContent("9224 1111");
+      expect(usualCallHref("bed-manager")).toMatch(/90000011$/);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("puts a dated teaching card inside the Coming up module, as the browser board test looks for", () => {
+  it("puts a dated teaching card inside Coming up on the Teaching page, as the browser board test looks for", () => {
     // A standing double for `tests/ui-on-call-boards.spec.ts` "dates the next
     // teaching session with a weekday". That spec went red on PR #2806 because
     // the card's test id moved from `on-call-home-upcoming-` to
     // `on-call-home-teaching-` when the row became a strip, and nothing offline
-    // covered it. Same corpus, same nesting, same weekday assertion, no browser.
+    // covered it. Same corpus, same nesting, same weekday assertion, no browser;
+    // the module now opens the Teaching page rather than the home (plan C25).
     storeState.entries = [...DEMO_ON_CALL_ENTRIES];
 
-    render(<OnCallHome />);
+    render(<OnCallSectionPage view="education" />);
 
     const comingUp = screen.getByTestId("on-call-home-upcoming");
     const cards = comingUp.querySelectorAll('[data-testid^="on-call-home-teaching-"]');
@@ -349,43 +375,37 @@ describe("On Call home layout", () => {
   });
 });
 
-describe("the home's tool row and tile grid after the My Work move", () => {
+describe("Now's links after the My Work move and the v6 rebuild", () => {
   // On 2026-09-26 the admin pages moved off this home to My Work (`/my-work`).
   // "Check these" and "Calendar" left the tool row, and Orientation, Teaching,
-  // Admin and Compliance left the tile grid. Their routes are unchanged; only
-  // the home stopped linking them. The review-count label that "Check these"
-  // carried ("Nothing to check", "None due", "N due", and the loading,
-  // unavailable, sign-in and empty states) went with it, and is now My Work's
-  // to cover, as is counting Admin and Compliance from
-  // `partitionLogisticsEntries` rather than by stored section, if it shows
-  // those counts.
+  // Admin and Compliance left the tile grid. The v6 rebuild then removed the
+  // tool row and the tile grid themselves: the pill's pages sheet lists every
+  // page and the mode switcher reaches My Work. First night keeps its one link
+  // here, in the footer group, because it is that page's only way in.
 
-  it("offers First night and My Work, and nothing else, under Who do I call now", () => {
+  it("keeps First night one tap away, and neither Check these nor Calendar", () => {
     storeState.entries = [...DEMO_ON_CALL_ENTRIES];
     render(<OnCallHome />);
 
-    const tools = screen.getByTestId("on-call-home-tools");
-    expect(within(tools).getByTestId("on-call-home-first-night")).toHaveAttribute("href", "/on-call/first-night");
-    const myWork = within(tools).getByTestId("on-call-home-my-work");
-    expect(myWork).toHaveAttribute("href", "/my-work");
-    expect(myWork).toHaveTextContent("My Work");
+    const footer = screen.getByTestId("on-call-now-footer");
+    expect(within(footer).getByTestId("on-call-home-first-night")).toHaveAttribute("href", "/on-call/first-night");
 
+    expect(screen.queryByTestId("on-call-home-tools")).toBeNull();
     expect(screen.queryByTestId("on-call-home-check")).toBeNull();
     expect(screen.queryByTestId("on-call-home-calendar")).toBeNull();
-    expect(within(tools).queryByText("Check these")).toBeNull();
+    expect(within(footer).queryByText("Check these")).toBeNull();
   });
 
-  it("draws only the shift-time section tiles, in order", () => {
+  it("draws no tile grid; the pill's pages sheet lists the pages", () => {
     storeState.entries = [...DEMO_ON_CALL_ENTRIES];
-    render(<OnCallHome />);
+    const { container } = render(<OnCallHome />);
 
-    const tiles = screen.getByTestId("on-call-home-sections").querySelectorAll('[data-testid^="on-call-home-tile-"]');
-    expect(Array.from(tiles, (tile) => tile.getAttribute("data-testid"))).toEqual([
-      "on-call-home-tile-contacts",
-      "on-call-home-tile-playbook",
-      "on-call-home-tile-referrals",
-      "on-call-home-tile-who-is-who",
-    ]);
+    expect(screen.queryByTestId("on-call-home-sections")).toBeNull();
+    expect(container.querySelector('[data-testid^="on-call-home-tile-"]')).toBeNull();
+    const pages = modeSecondaryNavigationRegistry["on-call"].map((entry) => entry.href);
+    for (const href of ["/on-call/call", "/on-call/playbook", "/on-call/refer", "/on-call/find"]) {
+      expect(pages).toContain(href);
+    }
   });
 });
 

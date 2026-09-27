@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "mha-2014-communication-and-cultural-provisions",
+      "title": "Mental Health Act 2014 (WA): communication and cultural provisions (ss 6, 9, 50, 80, 81, 189 and Charter Principle 7)",
+      "publisher": "Parliamentary Counsel's Office, WA",
+      "url": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-02%5D.html?OpenElement",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-25"
+    },
+    {
+      "id": "13yarn",
+      "title": "13YARN — national crisis support line for Aboriginal and Torres Strait Islander people",
+      "publisher": "13YARN",
+      "url": "https://www.13yarn.org.au/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-25"
+    },
+    {
+      "id": "mherl",
+      "title": "Mental Health Emergency Response Line (MHERL)",
+      "publisher": "East Metropolitan Health Service (WA Health)",
+      "url": "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL",
+      "aboriginalLed": false,
+      "checkedAt": "2026-08-20"
+    },
+    {
+      "id": "lifeline",
+      "title": "Lifeline — get help",
+      "publisher": "Lifeline Australia",
+      "url": "https://www.lifeline.org.au/get-help/",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-25"
+    },
+    {
+      "id": "suicide-callback",
+      "title": "Suicide Call Back Service",
+      "publisher": "Suicide Call Back Service",
+      "url": "https://www.suicidecallbackservice.org.au/",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-25"
+    },
+    {
+      "id": "aiwa",
+      "title": "Aboriginal Interpreting WA Aboriginal Corporation (AIWA)",
+      "publisher": "Aboriginal Interpreting WA Aboriginal Corporation",
+      "url": "https://aiwaac.org.au/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "ahpra-cultural-safety",
+      "title": "Aboriginal and Torres Strait Islander Health Strategy — Statement of intent (definition of cultural safety)",
+      "publisher": "Australian Health Practitioner Regulation Agency (Ahpra)",
+      "url": "https://www.ahpra.gov.au/About-Ahpra/Aboriginal-and-Torres-Strait-Islander-Health-Strategy/Statement-of-intent.aspx",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "sewb-national-framework",
+      "title": "National Strategic Framework for Aboriginal and Torres Strait Islander Peoples' Mental Health and Social and Emotional Wellbeing 2017-2023",
+      "publisher": "National Indigenous Australians Agency (Commonwealth of Australia)",
+      "url": "https://www.niaa.gov.au/sites/default/files/documents/publications/mhsewb-framework_0.pdf",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "close-the-gap-pbs",
+      "title": "Closing the Gap PBS Co-payment Measure",
+      "publisher": "Australian Government Department of Health, Disability and Ageing (PBS)",
+      "url": "https://www.pbs.gov.au/publication/factsheets/closing-the-gap-pbs-co-payment-measure",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "wa-pats",
+      "title": "Patient Assisted Travel Scheme (PATS)",
+      "publisher": "WA Country Health Service",
+      "url": "https://www.wacountry.health.wa.gov.au/Our-patients/Patient-Assisted-Travel-Scheme-PATS",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "ahcwa",
+      "title": "About AHCWA",
+      "publisher": "Aboriginal Health Council of Western Australia",
+      "url": "https://www.ahcwa.org.au/about-us/",
+      "aboriginalLed": true,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "wa-cultural-elearning",
+      "title": "Aboriginal Cultural eLearning",
+      "publisher": "WA Health (Department of Health WA)",
+      "url": "https://www.health.wa.gov.au/improving-wa-health/about-aboriginal-health/aboriginal-cultural-learning",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "wa-health-regions-dataset",
+      "title": "Health Regions (HEALTH-003)",
+      "publisher": "Department of Health, Western Australia (Data WA)",
+      "url": "https://catalogue.data.wa.gov.au/dataset/health-regions-health-003",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "id": "wa-health-language-services-guidelines-2025",
+      "title": "Language Services Guidelines",
+      "publisher": "WA Health",
+      "url": "https://www.health.wa.gov.au/~/media/Corp/Policy-Frameworks/System-governance-risk-and-assurance/Language-Services-Policy/Supporting/Language-Services-Guidelines.pdf",
+      "aboriginalLed": false,
+      "checkedAt": "2026-09-25"
+    },
+    {
+      "id": "rurallink",
+      "title": "Rurallink",
+      "publisher": "East Metropolitan Health Service (WA Health)",
+      "url": "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink",
+      "aboriginalLed": false,
+      "checkedAt": "2026-08-20"
+    }
+  ]
+}

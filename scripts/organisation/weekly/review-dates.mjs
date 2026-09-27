@@ -3,7 +3,7 @@
 //
 // Organisation framework suggestion 6, "defuse the date traps" (owner decision 2026-09-26). The
 // clinical hazard register and the privacy-readiness register record review dates. On a pull
-// request an expired date now only warns, unless the change touches the register or a path the
+// request an expired date now only warns, unless the change edits that entry or touches a path the
 // entry covers (scripts/organisation/review-date-scope.mjs), so this weekly section is where a
 // lapse is raised instead: every entry that has lapsed or falls due within 14 days, and what
 // re-reviewing it means. Report only: it never edits a register and never fails.
@@ -38,7 +38,7 @@ const MEANING = {
 
 const ENFORCEMENT =
   "A lapsed date still fails each register's own check in local runs, on other branches and in release checks. " +
-  "A pull request or push to main that touches neither the register nor the entry's files sees a warning instead.";
+  "A pull request or push to main that edits neither that entry nor its files sees a warning instead.";
 
 function perthIsoDate(date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
