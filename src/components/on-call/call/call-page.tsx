@@ -280,7 +280,7 @@ export function OnCallCallPage() {
       {ready ? null : <OnCallCrisisLines />}
 
       {ready ? (
-        <div className="grid min-w-0 gap-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
           <div data-testid="on-call-call-search">
             <SearchField
               label="Search Call"

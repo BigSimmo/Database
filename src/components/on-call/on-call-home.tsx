@@ -217,7 +217,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
         {loadFailed ? <OnCallLoadFailed reason={loadError} onRetry={retry} /> : null}
 
-        <div className="grid min-w-0 gap-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
           <OnCallHospitalLine handbook={handbook} testId="on-call-now-hospital" />
           {!ready && !handbookLoading ? <OnCallHandbookState handbook={handbook} page="now" /> : null}
           <NowEmergencyPin handbook={handbook} pins={pins} now={now} />
