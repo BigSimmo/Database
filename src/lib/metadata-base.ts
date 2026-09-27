@@ -22,6 +22,23 @@ function httpUrl(value: string | undefined) {
 }
 
 /**
+ * Determines whether a host string refers to a local development environment.
+ *
+ * Matches `localhost`, `127.0.0.1`, `::1`, `[::1]`, and subdomains ending in `.localhost`
+ * (with or without a port).
+ */
+export function isLocalHost(host: string): boolean {
+  const candidate = host.trim().toLowerCase();
+  const withoutPort = candidate.replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+  return (
+    withoutPort === "localhost" ||
+    withoutPort === "127.0.0.1" ||
+    withoutPort === "::1" ||
+    withoutPort.endsWith(".localhost")
+  );
+}
+
+/**
  * Resolves the base URL used for metadata generation.
  *
  * Sources are considered in order: configured site URL, trusted deployment domain,
@@ -46,6 +63,11 @@ export function resolveMetadataBase(requestHeaders: Headers, options: MetadataBa
   const host = forwardedHost || requestHeaders.get("host")?.trim();
   if (!host) return undefined;
   const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
-  const protocol = forwardedProtocol === "http" || forwardedProtocol === "https" ? forwardedProtocol : "https";
+  const protocol =
+    forwardedProtocol === "http" || forwardedProtocol === "https"
+      ? forwardedProtocol
+      : isLocalHost(host)
+        ? "http"
+        : "https";
   return httpUrl(`${protocol}://${host}`);
 }

@@ -1,5 +1,7 @@
 # First Nations Mode Implementation Plan
 
+> **SHIPPED (2026-09-26):** Merged to main in PR #3116 (commit b77828b150). First Nations mode is live.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:dispatching-parallel-agents to run the four lanes below on disjoint files, then superpowers:executing-plans for the integration task. Steps use checkbox (`- [ ]`) syntax for tracking. There is no per-task review: one adversarial review runs on the final diff (Task 9).
 
 **Goal:** Add a standalone `first-nations` mode for hospital doctors caring for Aboriginal and Torres Strait Islander patients: a Bedside home built around liaison, the situation and the words to use, eight inner pages built from titled modules, and checked, credited content whose approval is pinned to a content hash. No database change.
