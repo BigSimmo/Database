@@ -39,7 +39,7 @@ const AFTER_EVERY_EXPIRY = perthMidday(
 /** Spawn the CLI with its clock pinned and no review-date variables inherited from this process. */
 function runCli(args: string[], now: Date, env: Record<string, string> = {}) {
   const childEnv: NodeJS.ProcessEnv = { ...process.env };
-  for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_ACTIONS"]) {
+  for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_REF", "GITHUB_ACTIONS"]) {
     delete childEnv[key];
   }
   return spawnSync(
@@ -435,8 +435,8 @@ describe("privacy readiness review dates: expiry and pull-request scope", () => 
       expect(releaseRun.stderr).toContain("- manifest review has expired\n");
     });
 
-    it("refuses pull-request mode outside a pull request and stays strict", () => {
-      const pushRun = runCli([], AFTER_EVERY_EXPIRY, { ...PR_ENV, GITHUB_EVENT_NAME: "push" });
+    it("refuses pull-request mode on a non-main push and stays strict", () => {
+      const pushRun = runCli([], AFTER_EVERY_EXPIRY, { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/topic" });
       expect(pushRun.status).toBe(1);
       expect(pushRun.stderr).toContain("PRIVACY_READINESS_REVIEW_DATE_MODE: REVIEW_DATE_MODE=pr was not applied");
       expect(pushRun.stderr).toContain("- manifest review has expired\n");
