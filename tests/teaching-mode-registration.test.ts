@@ -34,7 +34,7 @@ afterEach(() => setTeachingRoles([]));
 
 describe("Teaching mode registration", () => {
   it("sits right after CPD with no results surface and titles-only search", () => {
-    expect(appModeIds).toHaveLength(22);
+    expect(appModeIds).toHaveLength(23);
     expect(appModeIds.indexOf("teaching")).toBe(appModeIds.indexOf("cme") + 1);
     expect(appModeDefinition("teaching")).toMatchObject({ label: "Teaching", href: "/teaching" });
     const search = appModeSearchConfig("teaching");
@@ -75,7 +75,7 @@ describe("Teaching mode registration", () => {
     expect(activeModeSecondaryNavigationId("teaching", `/teaching/session/${OCC}`)).toBeNull();
     expect(modeUsesHeaderModeNav("teaching")).toBe(false);
     expect(["today", "week", "logbook", "organise"].map((id) => modeSectionIcon(id)?.displayName)).toEqual([
-      "Sun",
+      "CalendarClock",
       "CalendarClock",
       "NotebookText",
       "SlidersHorizontal",

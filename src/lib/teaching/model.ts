@@ -94,6 +94,8 @@ export type SessionSummary = {
   source: "teaching" | "on_call_relocated";
   /** An On Call session with a date but no clock time. Never set on Teaching's own sessions. */
   allDay?: true;
+  /** A moved session's former start, also shown in week summaries. */
+  previousStartsAt?: string | null;
 };
 export type SessionDetail = SessionSummary & {
   joinUrl: string | null;
@@ -512,6 +514,7 @@ export const sessionSummarySchema = z.object({
   isPresenter: z.boolean(),
   source: z.enum(["teaching", "on_call_relocated"]),
   allDay: z.literal(true).optional(),
+  previousStartsAt: instant.nullable().optional(),
 }) satisfies z.ZodType<SessionSummary>;
 
 const sessionCounts = counts.extend({
@@ -790,6 +793,7 @@ export type WhatsOnRow = SessionSummary & {
   own: boolean;
   inMyWeek: boolean;
   audience: SeriesAudience;
+  forMyLevel?: boolean;
 };
 export const whatsOnRowSchema = sessionSummarySchema.extend({
   teamName: z.string(),
@@ -797,6 +801,7 @@ export const whatsOnRowSchema = sessionSummarySchema.extend({
   own: z.boolean(),
   inMyWeek: z.boolean(),
   audience: z.enum(seriesAudiences),
+  forMyLevel: z.boolean().optional(),
 }) satisfies z.ZodType<WhatsOnRow>;
 export const whatsOnReadResultSchema = z.object({
   healthServices: z.array(z.enum(healthServiceCodes)),

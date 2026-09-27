@@ -18,6 +18,7 @@ import {
   teachingServiceActionSchema,
   teachingServiceQuerySchema,
   teachingWeekSchema,
+  whatsOnReadResultSchema,
 } from "@/lib/teaching/model";
 
 const id = "11111111-1111-4111-8111-111111111111";
@@ -207,6 +208,40 @@ describe("Teaching request schemas", () => {
 });
 
 describe("Teaching result schemas", () => {
+  it("preserves calendar consent and the former start in week responses", () => {
+    const previousStartsAt = "2026-09-30T04:00:00+00:00";
+    const week = teachingWeekSchema.parse({
+      teams: [{ id, name: "Invented service", role: "doctor", acceptsRealData: true, isDemo: false, inCalendar: true }],
+      sessions: [{ ...session, status: "moved", previousStartsAt }],
+      notices: [],
+      attendance: [],
+    });
+    expect(week.teams[0].inCalendar).toBe(true);
+    expect(week.sessions[0].previousStartsAt).toBe(previousStartsAt);
+  });
+
+  it.each([true, false, undefined])("preserves optional My level value %s without inferring it", (forMyLevel) => {
+    const response = {
+      healthServices: [],
+      sessions: [
+        {
+          ...session,
+          teamName: "Invented service",
+          joinUrl: null,
+          own: true,
+          inMyWeek: false,
+          audience: "all_doctors",
+          forMyLevel,
+        },
+      ],
+    };
+    expect(whatsOnReadResultSchema.parse(response).sessions[0].forMyLevel).toBe(forMyLevel);
+    expect(
+      whatsOnReadResultSchema.safeParse({ ...response, sessions: [{ ...response.sessions[0], forMyLevel: "yes" }] })
+        .success,
+    ).toBe(false);
+  });
+
   it("drops any field a database function should never have returned", () => {
     const parsed = sessionDetailSchema.parse({
       ...session,

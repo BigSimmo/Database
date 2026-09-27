@@ -11,17 +11,15 @@ function fixture() {
   const owner = vi.fn(() => ({ in: bounded }));
   const select = vi.fn(() => ({ eq: owner }));
   const from = vi.fn(() => ({ select }));
-  const rpc = vi
-    .fn()
-    .mockResolvedValue({
-      data: {
-        teams: [{ id: service, name: "Synthetic service", role: "doctor", acceptsRealData: true, isDemo: false }],
-        sessions: [],
-        notices: [],
-        attendance: [],
-      },
-      error: null,
-    });
+  const rpc = vi.fn().mockResolvedValue({
+    data: {
+      teams: [{ id: service, name: "Synthetic service", role: "doctor", acceptsRealData: true, isDemo: false }],
+      sessions: [],
+      notices: [],
+      attendance: [],
+    },
+    error: null,
+  });
   const client = { rpc, from } as unknown as Parameters<typeof readWeek>[0];
   return { client, bounded, owner, select, from };
 }

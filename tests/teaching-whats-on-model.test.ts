@@ -77,8 +77,8 @@ describe("What's on and Resources request schemas", () => {
     expect(plainTeachingIssue(bare.error?.issues ?? [])).toBe("Slides belong to one session. Choose the session.");
     expect(parse({ seriesId: id }).success).toBe(false);
     expect(parse({ collectionId: id }).success).toBe(false);
-    // Other kinds may still sit in a collection or a series on their own.
-    expect(parse({ kind: "recording", seriesId: id }).success).toBe(true);
+    // Recording creation is deliberately deferred; ordinary reading resources remain supported.
+    expect(parse({ kind: "recording", seriesId: id }).success).toBe(false);
     expect(parse({ kind: "reading", collectionId: id }).success).toBe(true);
   });
 

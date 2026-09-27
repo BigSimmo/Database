@@ -32,7 +32,6 @@ import {
   SlidersHorizontal,
   Stethoscope,
   Scale,
-  Sun,
   Target,
   Users,
   Waypoints,
@@ -145,8 +144,7 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   "first-nations-mistakes": Ban,
   "first-nations-going-home": House,
   "first-nations-end-of-life": Feather,
-  // Teaching (v5.2 pages sheet).
-  today: Sun,
+  // Teaching shares the Today calendar icon with Roster.
   week: CalendarClock,
   logbook: NotebookText,
   organise: SlidersHorizontal,

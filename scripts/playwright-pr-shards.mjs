@@ -29,6 +29,8 @@ export const productionSpecFilePattern =
  * 35737796786. Group longest files first by their post-critical duration.
  * Regrouped 2026-09-26 by three moves (mode-nav-density, formulation, tools) after the retired
  * Caring Contacts specs left shard 3; no timing value was re-measured.
+ * Teaching's estimated spec was added to shard 3; move the 2.3s formulation-result-cards
+ * spec to shard 2 to keep both full and post-critical groups within their balance limits.
  * These measurements guide grouping, never test omission or passing status.
  */
 export const prUiSpecProfiles = Object.freeze([
@@ -241,7 +243,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-formulation-result-cards.spec.ts",
-    shard: 3,
+    shard: 2,
     fullSeconds: 2.3,
     criticalSeconds: 0,
   },

@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), auth: vi.fn(), demo: vi.fn(), rate: vi.fn() }));
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: mocks.rpc }) }));
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  from: vi.fn(),
+  select: vi.fn(),
+  eq: vi.fn(),
+  in: vi.fn(),
+  auth: vi.fn(),
+  demo: vi.fn(),
+  rate: vi.fn(),
+}));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: mocks.rpc, from: mocks.from }) }));
 vi.mock("@/lib/supabase/auth", () => {
   class AuthenticationError extends Error {}
   return {
@@ -75,6 +84,10 @@ beforeEach(() => {
   mocks.demo.mockReturnValue(false);
   mocks.auth.mockResolvedValue({ id: actor });
   mocks.rate.mockResolvedValue({ limited: false });
+  mocks.from.mockReturnValue({ select: mocks.select });
+  mocks.select.mockReturnValue({ eq: mocks.eq });
+  mocks.eq.mockReturnValue({ in: mocks.in });
+  mocks.in.mockResolvedValue(ok([]));
 });
 
 describe("supervision", () => {
@@ -135,6 +148,9 @@ describe("supervision", () => {
       readOnlyUntil: null,
     });
     expect(JSON.stringify(row)).not.toMatch(/case_review|psychotherapy/);
+    expect(mocks.from).toHaveBeenCalledWith("teaching_calendar_optins");
+    expect(mocks.eq).toHaveBeenCalledWith("user_id", actor);
+    expect(mocks.in).toHaveBeenCalledWith("service_id", [SERVICE]);
   });
 
   // Master plan R28 / S11b: a leaver reads their own supervision, read-only, for 90 days.

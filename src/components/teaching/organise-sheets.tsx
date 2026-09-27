@@ -223,6 +223,8 @@ export function SeriesSheet({
   }));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const savedId = useRef(series?.seriesId ?? null);
+  const [missingId, setMissingId] = useState(false);
   const set = (patch: Partial<SeriesForm>) => setForm((current) => ({ ...current, ...patch }));
 
   async function save() {
@@ -243,7 +245,7 @@ export function SeriesSheet({
       const sendAudience = !series || series.audience !== undefined || form.audience !== "all_doctors";
       const saved = await teachingPost<{ seriesId?: string }>(teachingServiceUrl(serviceId), {
         action: "series.save",
-        ...(series ? { seriesId: series.seriesId } : {}),
+        ...(savedId.current ? { seriesId: savedId.current } : {}),
         title: form.title.trim(),
         kind: form.kind,
         ...(sendAudience ? { audience: form.audience } : {}),
@@ -262,8 +264,16 @@ export function SeriesSheet({
       // R3/R5: open (or close) the series to the health service, only when the choice changed. A
       // refusal (`teaching_no_health_service`, 409) lands in `error` below; the series itself is
       // already saved, so that notice is the whole story.
-      const seriesId = series?.seriesId ?? saved.seriesId;
-      if (seriesId && form.openTo !== (series?.openTo ?? "team")) {
+      const seriesId = savedId.current ?? saved.seriesId;
+      if (!seriesId) {
+        setMissingId(true);
+        setError(
+          "The series may have saved, but its ID was missing. Close this sheet and refresh Organise before trying again.",
+        );
+        return;
+      }
+      savedId.current = seriesId;
+      if (form.openTo !== (series?.openTo ?? "team")) {
         await teachingPost(`/api/teaching/resources/services/${serviceId}`, {
           action: "series.set_open_to",
           seriesId,
@@ -365,7 +375,7 @@ export function SeriesSheet({
           </fieldset>
         ) : null}
         {error ? <ModeNotice tone="warning">{error}</ModeNotice> : null}
-        <Button variant="primary" block busy={busy} busyLabel="Saving" onClick={() => void save()}>
+        <Button variant="primary" block busy={busy} busyLabel="Saving" disabled={missingId} onClick={() => void save()}>
           Save series
         </Button>
       </div>
@@ -390,6 +400,8 @@ export function GroupSheet({
   const [userIds, setUserIds] = useState<string[]>(group?.userIds ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const savedId = useRef(group?.groupId ?? null);
+  const [missingId, setMissingId] = useState(false);
   async function save() {
     if (!name.trim()) {
       setError("Give the group a name.");
@@ -401,11 +413,19 @@ export function GroupSheet({
       const url = teachingServiceUrl(serviceId);
       const saved = await teachingPost<{ groupId?: string }>(url, {
         action: "group.save",
-        ...(group ? { groupId: group.groupId } : {}),
+        ...(savedId.current ? { groupId: savedId.current } : {}),
         name: name.trim(),
       });
-      const groupId = group?.groupId ?? saved.groupId;
-      if (groupId) await teachingPost(url, { action: "group.members.set", groupId, userIds });
+      const groupId = savedId.current ?? saved.groupId;
+      if (!groupId) {
+        setMissingId(true);
+        setError(
+          "The group may have saved, but its ID was missing. Close this sheet and refresh Organise before trying again.",
+        );
+        return;
+      }
+      savedId.current = groupId;
+      await teachingPost(url, { action: "group.members.set", groupId, userIds });
       onSaved();
     } catch (cause) {
       setError(teachingErrorMessage(cause));
@@ -433,7 +453,7 @@ export function GroupSheet({
           </fieldset>
         ) : null}
         {error ? <ModeNotice tone="warning">{error}</ModeNotice> : null}
-        <Button variant="primary" block busy={busy} busyLabel="Saving" onClick={() => void save()}>
+        <Button variant="primary" block busy={busy} busyLabel="Saving" disabled={missingId} onClick={() => void save()}>
           Save group
         </Button>
       </div>
