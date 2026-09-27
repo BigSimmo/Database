@@ -8,7 +8,12 @@ import { createSearchRequestDeadline } from "@/components/clinical-dashboard/sea
 import { ModeHomeMain } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsSearchRequestBody } from "@/lib/differentials-search-request";
-import { readSearchNavigationContext } from "@/lib/search-navigation-context";
+import {
+  appendSearchNavigationContext,
+  readSearchNavigationContext,
+  searchNavigationContextSignature,
+} from "@/lib/search-navigation-context";
+import { useAuthSession } from "@/lib/supabase/client";
 import type { DocumentMatch } from "@/lib/types";
 
 type DifferentialsHomePageProps = {
@@ -20,10 +25,19 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamString = searchParams.toString();
+  const { authorizationHeader } = useAuthSession();
   const routedSearchContext = useMemo(
     () => readSearchNavigationContext(new URLSearchParams(searchParamString)),
     [searchParamString],
   );
+  const { queryMode, scopeFilters } = routedSearchContext;
+  const contextSignature = useMemo(() => searchNavigationContextSignature(routedSearchContext), [routedSearchContext]);
+  const navigationParams = useMemo(
+    () => appendSearchNavigationContext(new URLSearchParams(), routedSearchContext),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contextSignature],
+  );
+
   const trimmedQuery = query.trim();
   const [loading, setLoading] = useState(false);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
@@ -48,8 +62,11 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       try {
         const response = await fetch("/api/search", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(differentialsSearchRequestBody(new URLSearchParams(searchParamString), normalized)),
+          headers: {
+            "Content-Type": "application/json",
+            ...authorizationHeader,
+          },
+          body: JSON.stringify(differentialsSearchRequestBody(navigationParams, normalized)),
           signal: deadline.signal,
         });
 
@@ -77,7 +94,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         if (requestId === searchRequestSeqRef.current) setLoading(false);
       }
     },
-    [searchParamString],
+    [authorizationHeader, navigationParams],
   );
 
   useEffect(() => {
@@ -95,17 +112,26 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
 
   const navigateToSearch = useCallback(
     (nextQuery: string) => {
+      const normalized = nextQuery.trim();
+      if (!normalized) return;
+      if (normalized.toLowerCase() === trimmedQuery.toLowerCase() && autoRunSearch) {
+        searchAbortRef.current?.abort();
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        void runSearch(normalized, controller.signal);
+        return;
+      }
       router.push(
         appModeHomeHref("differentials", {
-          query: nextQuery,
+          query: normalized,
           run: true,
           focus: true,
-          queryMode: routedSearchContext.queryMode,
-          scopeFilters: routedSearchContext.scopeFilters,
+          queryMode,
+          scopeFilters,
         }),
       );
     },
-    [router, routedSearchContext.queryMode, routedSearchContext.scopeFilters],
+    [autoRunSearch, queryMode, router, runSearch, scopeFilters, trimmedQuery],
   );
 
   // Submitted searches mount the tall SearchResultsView. Results must top-align

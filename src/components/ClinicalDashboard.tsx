@@ -1592,6 +1592,7 @@ function ClinicalDashboardContent({
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
       modeSearch.kind === "forms" ||
+      modeSearch.kind === "services" ||
       modeSearch.kind === "favourites" ||
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
@@ -1902,16 +1903,27 @@ function ClinicalDashboardContent({
     if (modeSearch.resultKind !== "answer") {
       setQuery(trimmedQuery);
     }
-    if (modeSearch.kind !== "tools") setModeSearchSubmitted(true, trimmedQuery);
+    if (targetMode !== "tools") setModeSearchSubmitted(true, trimmedQuery);
     if (isDifferentialsMode) clearModeResultState();
 
-    if (modeSearch.kind === "tools") {
+    if (targetMode === "tools") {
       setLoading(false);
       setAnswerProgress(null);
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Tools filtered from the composer." });
       return;
+    }
+    if (modeSearch.kind === "tools") {
+      const destination = appModeHomeHref(targetMode, { query: trimmedQuery, run: true });
+      if (!isDashboardModeHref(destination)) {
+        setLoading(false);
+        setAnswerProgress(null);
+        setError(null);
+        rememberRecentQuery(trimmedQuery);
+        router.push(destination);
+        return;
+      }
     }
     if (modeSearch.kind === "favourites") {
       setLoading(false);
@@ -3632,7 +3644,7 @@ function ClinicalDashboardContent({
                       router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
                     }}
                   />
-                ) : activeModeResultKind === "tools" ? (
+                ) : searchMode === "tools" ? (
                   <ToolsHub query={query} desktopComposerSlotId={desktopHomeComposerSlotId} />
                 ) : activeModeResultKind === "favourites" && favouritesAccessible ? (
                   <FavouritesHub
@@ -3647,7 +3659,9 @@ function ClinicalDashboardContent({
                   />
                 ) : activeModeResultKind === "favourites" ? (
                   <FavouritesGuestGate onOpenAccountSetup={() => openAccountSetup("favourites")} />
-                ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
+                ) : activeModeResultKind === "documents" ||
+                  activeModeResultKind === "services" ||
+                  activeModeResultKind === "forms" ? (
                   searchMode === "prescribing" ? (
                     <MedicationPrescribingWorkspace
                       query={query}

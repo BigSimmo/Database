@@ -1,7 +1,7 @@
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
-import { jsonError } from "@/lib/http";
+import { jsonError, PublicApiError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import { deriveGovernanceColumns, type RegistryRecordKind } from "@/lib/registry-records";
@@ -166,8 +166,17 @@ function publicRegistryPayload(kind: RegistryRecordKind, q: string | undefined, 
 }
 
 export async function GET(request: Request) {
+  let requestedKind: RegistryRecordKind | null = null;
+  let requestedQ: string | undefined;
+  let requestedLimit = 100;
+  let requestedView: RegistryListView = "full";
+
   try {
     const { kind, q, limit, view } = parseRequestQuery(request, registryListQuerySchema, "Invalid registry query.");
+    requestedKind = kind;
+    requestedQ = q;
+    requestedLimit = limit;
+    requestedView = view;
 
     if (isDemoMode() || isLocalNoAuthMode()) {
       return await registryResponse(
@@ -281,6 +290,29 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
+    }
+    if (error instanceof PublicApiError || error instanceof ZodError) {
+      return jsonError(error);
+    }
+    if (requestedKind) {
+      const seedRecords = requestedKind === "form" ? formRecords : serviceRecords;
+      const governance = Object.fromEntries(
+        seedRecords.map((record) => {
+          const derived = deriveGovernanceColumns(record);
+          return [record.slug, { sourceStatus: derived.source_status, validationStatus: derived.validation_status }];
+        }),
+      );
+      return await registryResponse(
+        {
+          ...registryListPayload(requestedKind, seedRecords, governance, requestedQ, requestedLimit, requestedView),
+          publicAccess: true,
+          degraded: true,
+        },
+        {
+          request,
+          fixture: false,
+        },
+      );
     }
     return jsonError(error);
   }
