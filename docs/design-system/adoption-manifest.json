@@ -325,6 +325,7 @@
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-actions.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
@@ -384,6 +385,7 @@
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-actions.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
@@ -448,6 +450,7 @@
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx"
       ],
       "productImportFiles": [
@@ -455,6 +458,7 @@
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx"
       ],
       "designSync": {
@@ -1923,7 +1927,9 @@
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-modules.tsx",
+        "src/components/teaching/teaching-organise.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -1933,7 +1939,9 @@
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-modules.tsx",
+        "src/components/teaching/teaching-organise.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -2005,6 +2013,7 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
         "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-states.tsx",
@@ -2047,6 +2056,7 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
         "src/components/teaching/teaching-session.tsx",
         "src/components/teaching/teaching-states.tsx",
@@ -2392,6 +2402,7 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
@@ -2412,6 +2423,7 @@
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
@@ -2786,6 +2798,8 @@
         "src/app/(search-app)/sources/topics/page.tsx",
         "src/app/(search-app)/teaching/c/[token]/page.tsx",
         "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "src/app/(search-app)/teaching/logbook/page.tsx",
+        "src/app/(search-app)/teaching/organise/page.tsx",
         "src/app/(search-app)/teaching/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/page.tsx",
@@ -3481,6 +3495,26 @@
         },
         {
           "file": "src/app/(search-app)/teaching/c/complete/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/logbook/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/organise/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4681,6 +4715,8 @@
       "src/app/(search-app)/specifiers/search/page.tsx",
       "src/app/(search-app)/teaching/c/[token]/page.tsx",
       "src/app/(search-app)/teaching/c/complete/page.tsx",
+      "src/app/(search-app)/teaching/logbook/page.tsx",
+      "src/app/(search-app)/teaching/organise/page.tsx",
       "src/app/(search-app)/teaching/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/page.tsx",
@@ -4796,6 +4832,8 @@
       "src/app/(search-app)/specifiers/search/page.tsx",
       "src/app/(search-app)/teaching/c/[token]/page.tsx",
       "src/app/(search-app)/teaching/c/complete/page.tsx",
+      "src/app/(search-app)/teaching/logbook/page.tsx",
+      "src/app/(search-app)/teaching/organise/page.tsx",
       "src/app/(search-app)/teaching/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/page.tsx",
@@ -4821,7 +4859,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 120,
+    "inheritedCkbV2RootCount": 122,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -4830,8 +4868,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 121,
-    "productionRouteCount": 113,
-    "nextUiEntryCount": 178
+    "rootCount": 123,
+    "productionRouteCount": 115,
+    "nextUiEntryCount": 180
   }
 }
