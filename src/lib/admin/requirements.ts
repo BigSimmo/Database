@@ -287,20 +287,41 @@ function entryRequirementId(entry: OnCallEntry): unknown {
 }
 
 /**
- * Whether `entry` is this catalogue item's requirement AT ALL — by a stored
- * `requirementId` or by title — regardless of whether it is flagged "not for
- * this job". This is the one predicate `matchingEntry` and
- * `requirementsRecordedCount` both build on, so the two can never disagree
- * about which entries correspond to an item: see the Important review issue
- * this fixes (two entries could both correspond to one catalogue item — a
- * flagged one and an unflagged one — and the count must follow the same
- * priority the checklist rows do, not re-derive its own answer).
+ * The one catalogue item a compliance entry is recorded against, if any: a
+ * stored `requirementId` that names a catalogue item wins outright, and only
+ * an entry without one falls back to its title. So an entry corresponds to at
+ * most ONE item — a row saved as "als-course-certification" but titled like
+ * another item never satisfies both. Rows from other sections, and logistics
+ * guides, never correspond to anything.
+ *
+ * This is the one matcher: `requirementChecklistRows`, the recorded count,
+ * the not-for-this-job list, Today's selectors and Renewals' Personal tab
+ * (`src/components/admin/renewals/catalogue-lookup.ts`) all build on it.
  */
-function isItemsEntry(entry: OnCallEntry, item: AdminRequirementCatalogueItem): boolean {
-  return (
-    isComplianceEntry(entry) &&
-    (entryRequirementId(entry) === item.id || normalizedTitle(entry.title) === normalizedTitle(item.title))
-  );
+export function catalogueItemForEntry(
+  entry: OnCallEntry,
+  catalogue: readonly AdminRequirementCatalogueItem[] = ADMIN_REQUIREMENTS_CATALOGUE,
+): AdminRequirementCatalogueItem | undefined {
+  if (!isComplianceEntry(entry)) return undefined;
+  const requirementId = entryRequirementId(entry);
+  const byId = catalogue.find((item) => item.id === requirementId);
+  if (byId) return byId;
+  const title = normalizedTitle(entry.title);
+  return catalogue.find((item) => normalizedTitle(item.title) === title);
+}
+
+/**
+ * Whether `entry` is this catalogue item's requirement AT ALL, regardless of
+ * whether it is flagged "not for this job". `matchingEntry`,
+ * `requirementsRecordedCount` and `requirementsNotForThisJob` all build on
+ * it, so they can never disagree about which entries correspond to an item.
+ */
+function isItemsEntry(
+  entry: OnCallEntry,
+  item: AdminRequirementCatalogueItem,
+  catalogue: readonly AdminRequirementCatalogueItem[],
+): boolean {
+  return catalogueItemForEntry(entry, catalogue)?.id === item.id;
 }
 
 /**
@@ -309,8 +330,12 @@ function isItemsEntry(entry: OnCallEntry, item: AdminRequirementCatalogueItem): 
  * "not for this job" (`entryNotForThisJob`) is never a match: that requirement
  * does not apply to this doctor, so it must not read as recorded.
  */
-function matchingEntry(item: AdminRequirementCatalogueItem, entries: readonly OnCallEntry[]): OnCallEntry | null {
-  const candidates = entries.filter((entry) => isItemsEntry(entry, item) && !entryNotForThisJob(entry));
+function matchingEntry(
+  item: AdminRequirementCatalogueItem,
+  entries: readonly OnCallEntry[],
+  catalogue: readonly AdminRequirementCatalogueItem[],
+): OnCallEntry | null {
+  const candidates = entries.filter((entry) => isItemsEntry(entry, item, catalogue) && !entryNotForThisJob(entry));
   const byId = candidates.find((entry) => entryRequirementId(entry) === item.id);
   return byId ?? candidates[0] ?? null;
 }
@@ -341,7 +366,7 @@ export function requirementChecklistRows(
   entries: readonly OnCallEntry[],
 ): RequirementChecklistRow[] {
   const rows = catalogue.map((item) => {
-    const entry = matchingEntry(item, entries);
+    const entry = matchingEntry(item, entries, catalogue);
     const expiresOn = entry ? complianceExpiresOn(entry) : undefined;
     return { item, entry, expiresOn, state: rowState(entry, expiresOn) };
   });
@@ -375,17 +400,42 @@ export function requirementsRecordedCount(
   let recorded = 0;
   let total = 0;
   for (const item of catalogue) {
-    const entry = matchingEntry(item, entries);
+    const entry = matchingEntry(item, entries, catalogue);
     if (entry) {
       total += 1;
       recorded += 1;
       continue;
     }
-    const flaggedMatch = entries.some((candidate) => isItemsEntry(candidate, item) && entryNotForThisJob(candidate));
-    if (flaggedMatch) continue;
+    if (flaggedEntryFor(item, entries, catalogue)) continue;
     total += 1;
   }
   return { recorded, total };
+}
+
+function flaggedEntryFor(
+  item: AdminRequirementCatalogueItem,
+  entries: readonly OnCallEntry[],
+  catalogue: readonly AdminRequirementCatalogueItem[],
+): OnCallEntry | undefined {
+  return entries.find((candidate) => isItemsEntry(candidate, item, catalogue) && entryNotForThisJob(candidate));
+}
+
+/**
+ * The catalogue items marked "not for this job", one entry each, in catalogue
+ * order: exactly the items `requirementsRecordedCount` leaves out of `total`
+ * (no unflagged entry matches, a flagged one does). Today's "1 not for this
+ * job" and Renewals' closing section both read this, so their counts agree
+ * even when one item has two flagged rows, or a flagged and an unflagged one.
+ */
+export function requirementsNotForThisJob(
+  catalogue: readonly AdminRequirementCatalogueItem[],
+  entries: readonly OnCallEntry[],
+): { readonly item: AdminRequirementCatalogueItem; readonly entry: OnCallEntry }[] {
+  return catalogue.flatMap((item) => {
+    if (matchingEntry(item, entries, catalogue)) return [];
+    const entry = flaggedEntryFor(item, entries, catalogue);
+    return entry ? [{ item, entry }] : [];
+  });
 }
 
 /**

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminFloatingAdd } from "@/components/admin/admin-floating-add";
 import { AdminQuickAddSheet } from "@/components/admin/admin-quick-add-sheet";
 import { AdminRenewedSheet } from "@/components/admin/admin-renewed-sheet";
-import { catalogueItemForEntry, isPersonalRenewal } from "@/components/admin/renewals/catalogue-lookup";
+import { isPersonalRenewal } from "@/components/admin/renewals/catalogue-lookup";
 import { ChecklistList } from "@/components/admin/renewals/checklist-list";
 import { ChecklistKindChips, type ChecklistKindFilter } from "@/components/admin/renewals/kind-chips";
 import { ChecklistItemDetailSheet, type ChecklistItemSubject } from "@/components/admin/renewals/item-detail-sheet";
@@ -23,13 +23,13 @@ import { downloadTextFile } from "@/lib/admin/download-file";
 import {
   buildNotForThisJobToggleBody,
   buildRestoreEntryBody,
-  groupComplianceEntries,
   renewalsCalendarFile,
   workforceCopyText,
 } from "@/lib/admin/renewals";
 import {
   ADMIN_REQUIREMENTS_CATALOGUE,
   requirementChecklistRows,
+  requirementsNotForThisJob,
   requirementsRecordedCount,
 } from "@/lib/admin/requirements";
 import { adminLoadState, selectAdminOwnEntries } from "@/lib/admin/own-entries";
@@ -86,8 +86,9 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
 
   const rows = useMemo(() => requirementChecklistRows(ADMIN_REQUIREMENTS_CATALOGUE, own), [own]);
   const counts = useMemo(() => requirementsRecordedCount(ADMIN_REQUIREMENTS_CATALOGUE, own), [own]);
+  // The same selector Today's "N not for this job" reads, so the two agree.
   const notForThisJob = useMemo(
-    () => groupComplianceEntries(own).notForThisJob.filter((entry) => catalogueItemForEntry(entry) !== undefined),
+    () => requirementsNotForThisJob(ADMIN_REQUIREMENTS_CATALOGUE, own).map(({ entry }) => entry),
     [own],
   );
   const personalEntries = useMemo(() => own.filter((entry) => isPersonalRenewal(entry)), [own]);

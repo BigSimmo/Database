@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ADMIN_REQUIREMENTS_CATALOGUE } from "@/lib/admin/requirements";
 import { selectNeedsYou, selectRenewNext, selectRequirementsSummary } from "@/lib/admin/today-selectors";
 import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
@@ -81,8 +82,12 @@ describe("selectRenewNext", () => {
   });
 });
 
+function catalogueOf(...ids: string[]) {
+  return ADMIN_REQUIREMENTS_CATALOGUE.filter((item) => ids.includes(item.id));
+}
+
 describe("selectNeedsYou", () => {
-  it("orders passed rows by consequence band, worst first, then groups every undated row into one", () => {
+  it("orders passed rows by consequence band, worst first, then groups everything not recorded into one", () => {
     // Worse consequence band, so it leads even though its date is later than training's.
     const wwc = complianceFixture("Working with Children card", {
       category: "Clearances",
@@ -94,19 +99,56 @@ describe("selectNeedsYou", () => {
       consequence: "chased",
       expiresOn: "2026-09-03",
     });
+    // A personal renewal with no date: Renewals' Personal tab calls it "Not recorded yet".
     const police = complianceFixture("Police check", { category: "Clearances" });
-    const flu = complianceFixture("Flu vaccine", { category: "Health" });
-    const immunisation = complianceFixture("Immunisation", { category: "Health" });
+    const catalogue = catalogueOf(
+      "criminal-record-screening",
+      "immunisation-requirements",
+      "annual-influenza-vaccination",
+    );
 
-    const needsYou = selectNeedsYou([wwc, training, police, flu, immunisation], NOW);
+    const needsYou = selectNeedsYou([wwc, training, police], NOW, { catalogue });
 
     expect(needsYou?.featured).toMatchObject({ kind: "passed", entry: wwc });
     expect(needsYou?.rows).toHaveLength(2);
     expect(needsYou?.rows[0]).toMatchObject({ kind: "passed", entry: training });
     expect(needsYou?.rows[1]).toMatchObject({
       kind: "not-recorded",
-      titles: ["Police check", "Flu vaccine", "Immunisation"],
+      titles: ["Police check", "Criminal record screening", "Immunisation requirements", "Annual flu vaccination"],
     });
+  });
+
+  it("calls a catalogue item not recorded exactly when Renewals does, never a row recorded with no end date", () => {
+    // Renewals shows this as "Recorded" under "No end date", so Today must not call it not recorded.
+    const noEndDate = complianceFixture("Criminal record screening", {
+      category: "checks",
+      requirementId: "criminal-record-screening",
+    });
+    const catalogue = catalogueOf("criminal-record-screening", "annual-influenza-vaccination");
+    const needsYou = selectNeedsYou([noEndDate], NOW, { catalogue });
+    expect(needsYou?.featured).toMatchObject({ kind: "not-recorded", titles: ["Annual flu vaccination"] });
+  });
+
+  it("marks a passed row 'check with your service' only for a catalogue item whose rule is unconfirmed", () => {
+    const indemnity = complianceFixture("Indemnity insurance declaration", {
+      category: "registration",
+      requirementId: "professional-indemnity-insurance",
+      expiresOn: "2026-09-10",
+    });
+    const wwc = complianceFixture("Working with Children Check", {
+      category: "checks",
+      requirementId: "working-with-children-check",
+      expiresOn: "2026-09-12",
+    });
+    const personal = complianceFixture("Car lease", { category: "Personal", expiresOn: "2026-09-14" });
+    const needsYou = selectNeedsYou([indemnity, wwc, personal], NOW, { catalogue: [] });
+    const passed = [needsYou?.featured, ...(needsYou?.rows ?? [])];
+    const byTitle = new Map(
+      passed.flatMap((row) => (row?.kind === "passed" ? [[row.entry.title, row.needsChecking] as const] : [])),
+    );
+    expect(byTitle.get("Indemnity insurance declaration")).toBe(true);
+    expect(byTitle.get("Working with Children Check")).toBe(false);
+    expect(byTitle.get("Car lease")).toBe(false);
   });
 
   it("drops entries flagged not for this job", () => {
@@ -115,17 +157,17 @@ describe("selectNeedsYou", () => {
       expiresOn: "2026-09-03",
       notForThisJob: true,
     });
-    expect(selectNeedsYou([flagged], NOW)).toBeNull();
+    expect(selectNeedsYou([flagged], NOW, { catalogue: [] })).toBeNull();
   });
 
   it("excludes the entry already shown on the Renew next card", () => {
     const wwc = complianceFixture("Working with Children card", { category: "Clearances", expiresOn: "2026-09-03" });
-    expect(selectNeedsYou([wwc], NOW, { excludeEntryId: wwc.id })).toBeNull();
+    expect(selectNeedsYou([wwc], NOW, { excludeEntryId: wwc.id, catalogue: [] })).toBeNull();
   });
 
   it("returns null once nothing needs the reader", () => {
     const future = complianceFixture("Indemnity", { category: "Indemnity", expiresOn: "2027-06-30" });
-    expect(selectNeedsYou([future], NOW)).toBeNull();
+    expect(selectNeedsYou([future], NOW, { catalogue: [] })).toBeNull();
   });
 });
 
@@ -147,6 +189,23 @@ describe("selectRequirementsSummary", () => {
     const withFlag = selectRequirementsSummary([registration]);
     expect(withFlag.total).toBe(withoutFlag.total - 1);
     expect(withFlag.notForThisJob).toBe(withoutFlag.notForThisJob + 1);
+  });
+
+  it("counts an item with two flagged rows once, and none while an unflagged row still records it", () => {
+    const flaggedTwice = [1, 2].map(() =>
+      complianceFixture("IMG visa requirements", {
+        category: "job",
+        requirementId: "img-visa-requirements",
+        notForThisJob: true,
+      }),
+    );
+    expect(selectRequirementsSummary(flaggedTwice).notForThisJob).toBe(1);
+    const alsoRecorded = complianceFixture("IMG visa requirements", {
+      category: "job",
+      requirementId: "img-visa-requirements",
+      expiresOn: "2027-01-01",
+    });
+    expect(selectRequirementsSummary([...flaggedTwice, alsoRecorded]).notForThisJob).toBe(0);
   });
 
   it("never counts an admin row that is not compliance at all", () => {

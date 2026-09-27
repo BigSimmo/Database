@@ -125,8 +125,15 @@ describe("AdminTodayPage", () => {
     expect(featured.textContent).toContain("Working with Children card");
     expect(featured.textContent).toContain("Date passed");
     const rows = screen.queryByTestId("admin-today-needs-you-rows");
-    expect(rows?.textContent).toContain("1 dates not recorded");
+    // Everything Renewals calls "Not recorded yet": the personal undated row
+    // first, then catalogue items with no row (registration is recorded, so it
+    // is not among them).
+    expect(rows?.textContent).toMatch(/\d+ dates not recorded/);
     expect(rows?.textContent).toContain("Police check");
+    expect(rows?.textContent).toMatch(/and \d+ more/);
+    expect(rows?.textContent).not.toContain("Medical registration renewal");
+    // A confirmed or personal passed row never carries the unconfirmed-rule marker.
+    expect(featured.textContent).not.toContain("Check with your service");
   });
 
   it("always shows Requirements in words, with no score bars", () => {

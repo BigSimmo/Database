@@ -1,6 +1,13 @@
 import { renewalStartOn } from "@/lib/admin/renewal-dates";
 import { groupComplianceEntries } from "@/lib/admin/renewals";
-import { ADMIN_REQUIREMENTS_CATALOGUE, requirementsRecordedCount } from "@/lib/admin/requirements";
+import {
+  ADMIN_REQUIREMENTS_CATALOGUE,
+  catalogueItemForEntry,
+  requirementChecklistRows,
+  requirementsNotForThisJob,
+  requirementsRecordedCount,
+  type AdminRequirementCatalogueItem,
+} from "@/lib/admin/requirements";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { complianceExpiresOn, sortComplianceEntries } from "@/lib/on-call/compliance";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
@@ -105,11 +112,17 @@ export function selectRenewNext(
 }
 
 export type NeedsYouRow =
-  | { readonly kind: "passed"; readonly key: string; readonly entry: OnCallEntry; readonly expiresOn: string }
+  | {
+      readonly kind: "passed";
+      readonly key: string;
+      readonly entry: OnCallEntry;
+      readonly expiresOn: string;
+      /** True only for a catalogue item whose rule this app has not confirmed ("Check with your service"). */
+      readonly needsChecking: boolean;
+    }
   | {
       readonly kind: "not-recorded";
       readonly key: "not-recorded";
-      readonly entries: readonly OnCallEntry[];
       readonly titles: readonly string[];
     };
 
@@ -123,9 +136,12 @@ export interface NeedsYou {
  * "Needs you" (owner-approved order): one featured row, then at most two more.
  * A requirement whose recorded date has already passed comes first, ordered
  * worst consequence band first exactly as `sortComplianceEntries` orders the
- * rest of Renewals; every requirement with no date recorded at all is then
+ * rest of Renewals; everything Renewals calls "Not recorded yet" is then
  * grouped into one closing row, so a doctor with many gaps does not see one
- * row per gap.
+ * row per gap. That is the reader's own personal renewals with no date,
+ * followed by the catalogue items with no matching row at all — and never a
+ * catalogue row recorded with no end date, which Renewals shows as
+ * "Recorded" (the same `requirementChecklistRows` decides both pages).
  *
  * `excludeEntryId` drops the entry already shown on the "Renew next" card
  * (when that card's winner is itself a passed date), so the same requirement
@@ -134,8 +150,12 @@ export interface NeedsYou {
 export function selectNeedsYou(
   entries: readonly OnCallEntry[],
   now: Date,
-  options: { readonly excludeEntryId?: string } = {},
+  options: {
+    readonly excludeEntryId?: string;
+    readonly catalogue?: readonly AdminRequirementCatalogueItem[];
+  } = {},
 ): NeedsYou | null {
+  const catalogue = options.catalogue ?? ADMIN_REQUIREMENTS_CATALOGUE;
   const today = perthCalendarDate(now);
   const counted = groupComplianceEntries(entries).counted.filter((entry) => entry.id !== options.excludeEntryId);
 
@@ -145,21 +165,31 @@ export function selectNeedsYou(
       return expiresOn !== undefined && expiresOn < today;
     }),
   );
-  const undated = counted.filter((entry) => complianceExpiresOn(entry) === undefined);
+  const personalUndated = counted.filter(
+    (entry) =>
+      complianceExpiresOn(entry) === undefined &&
+      catalogueItemForEntry(entry, ADMIN_REQUIREMENTS_CATALOGUE) === undefined,
+  );
+  const catalogueNotRecorded = requirementChecklistRows(catalogue, entries)
+    .filter((row) => row.state === "not-recorded")
+    .map((row) => row.item);
+  // Catalogue order, not the checklist's alphabetical tie-break, so the named
+  // items read in the order Renewals' own groups list them.
+  catalogueNotRecorded.sort((a, b) => catalogue.indexOf(a) - catalogue.indexOf(b));
+  const notRecordedTitles = [
+    ...personalUndated.map((entry) => entry.title),
+    ...catalogueNotRecorded.map((item) => item.title),
+  ];
 
   const rows: NeedsYouRow[] = passed.map((entry) => ({
     kind: "passed",
     key: entry.id,
     entry,
     expiresOn: complianceExpiresOn(entry) as string,
+    needsChecking: catalogueItemForEntry(entry, ADMIN_REQUIREMENTS_CATALOGUE)?.status === "needs-checking",
   }));
-  if (undated.length > 0) {
-    rows.push({
-      kind: "not-recorded",
-      key: "not-recorded",
-      entries: undated,
-      titles: undated.map((entry) => entry.title),
-    });
+  if (notRecordedTitles.length > 0) {
+    rows.push({ kind: "not-recorded", key: "not-recorded", titles: notRecordedTitles });
   }
 
   if (rows.length === 0) return null;
@@ -175,11 +205,14 @@ export interface RequirementsSummary {
 
 /**
  * "7 of 10 recorded · 1 not for this job" (owner-approved order). Built on
- * `requirementsRecordedCount`, whose `total` already excludes a catalogue item
- * matched only by a flagged "not for this job" row — so the not-for-this-job
- * count is the rest of the catalogue.
+ * `requirementsRecordedCount` and `requirementsNotForThisJob`, the same two
+ * selectors Renewals' summary and closing section read, so the pages agree.
  */
 export function selectRequirementsSummary(entries: readonly OnCallEntry[]): RequirementsSummary {
   const { recorded, total } = requirementsRecordedCount(ADMIN_REQUIREMENTS_CATALOGUE, entries);
-  return { recorded, total, notForThisJob: ADMIN_REQUIREMENTS_CATALOGUE.length - total };
+  return {
+    recorded,
+    total,
+    notForThisJob: requirementsNotForThisJob(ADMIN_REQUIREMENTS_CATALOGUE, entries).length,
+  };
 }

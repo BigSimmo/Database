@@ -17,7 +17,20 @@ function rowHref(row: NeedsYouRow): string {
     : ADMIN_PAGE_HREFS.renewals;
 }
 
-function PlainRow({ row }: { row: NeedsYouRow }) {
+const NAMED_TITLES = 3;
+
+function notRecordedHeading(titles: readonly string[]): string {
+  return `${titles.length} ${titles.length === 1 ? "date" : "dates"} not recorded`;
+}
+
+/** The first few names, then "and N more", so a long gap list stays one line or two. */
+function notRecordedNames(titles: readonly string[]): string {
+  const named = titles.slice(0, NAMED_TITLES).join(", ");
+  const more = titles.length - NAMED_TITLES;
+  return more > 0 ? `${named} and ${more} more` : named;
+}
+
+function PlainRow({ row, today }: { row: NeedsYouRow; today: string }) {
   return (
     <li className={cn(modeInsetHairline, modeRowHeight.double, "flex min-w-0 items-center pl-3 pr-1")}>
       <Link
@@ -30,11 +43,16 @@ function PlainRow({ row }: { row: NeedsYouRow }) {
       >
         <span className="grid min-w-0 flex-1 gap-0.5">
           <span className={cn(modeNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
-            {row.kind === "passed" ? row.entry.title : `${row.titles.length} dates not recorded`}
+            {row.kind === "passed" ? row.entry.title : notRecordedHeading(row.titles)}
           </span>
           <span className={cn(modeSecondaryText, "break-words")}>
-            {row.kind === "passed" ? "Check with your service" : row.titles.join(", ")}
+            {row.kind === "passed"
+              ? `${formatRecordedDate(row.expiresOn)} · ${formatRelativeDate(row.expiresOn, today)}`
+              : notRecordedNames(row.titles)}
           </span>
+          {row.kind === "passed" && row.needsChecking ? (
+            <span className={cn(modeSecondaryText, "break-words")}>Check with your service</span>
+          ) : null}
         </span>
         {row.kind === "passed" ? <TodayUrgencyMark state="passed" /> : null}
         <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
@@ -70,7 +88,7 @@ export function TodayNeedsYouModule({ needsYou, today }: { needsYou: NeedsYou; t
         >
           <span className="flex min-w-0 items-start justify-between gap-3">
             <span className="text-base-minus font-medium text-[color:var(--text-heading)]">
-              {featured.kind === "passed" ? featured.entry.title : `${featured.titles.length} dates not recorded`}
+              {featured.kind === "passed" ? featured.entry.title : notRecordedHeading(featured.titles)}
             </span>
             {featured.kind === "passed" ? <TodayUrgencyMark state="passed" /> : null}
           </span>
@@ -79,10 +97,12 @@ export function TodayNeedsYouModule({ needsYou, today }: { needsYou: NeedsYou; t
               <span className={cn(modeSecondaryText, "break-words")}>
                 {formatRecordedDate(featured.expiresOn)} · {formatRelativeDate(featured.expiresOn, today)}
               </span>
-              <span className={cn(modeSecondaryText, "break-words")}>Check with your service</span>
+              {featured.needsChecking ? (
+                <span className={cn(modeSecondaryText, "break-words")}>Check with your service</span>
+              ) : null}
             </>
           ) : (
-            <span className={cn(modeSecondaryText, "break-words")}>{featured.titles.join(", ")}</span>
+            <span className={cn(modeSecondaryText, "break-words")}>{notRecordedNames(featured.titles)}</span>
           )}
         </Link>
         {rows.length > 0 ? (
@@ -92,7 +112,7 @@ export function TodayNeedsYouModule({ needsYou, today }: { needsYou: NeedsYou; t
           // the divider that separator would otherwise have drawn.
           <ul role="list" className="border-t border-[color:var(--border)]" data-testid="admin-today-needs-you-rows">
             {rows.map((row) => (
-              <PlainRow key={row.key} row={row} />
+              <PlainRow key={row.key} row={row} today={today} />
             ))}
           </ul>
         ) : null}
