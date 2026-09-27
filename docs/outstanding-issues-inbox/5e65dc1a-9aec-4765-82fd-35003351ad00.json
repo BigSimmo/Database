@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5e65dc1a-9aec-4765-82fd-35003351ad00",
+  "createdOn": "2026-09-27",
+  "action": "update",
+  "payload": {
+    "id": "#HPPMXH",
+    "detail": "CORRECTED 2026-09-27 (Codex review on PR 3128; the first count missed multi-line expect calls and On Call lines had drifted): 11 assertions use expect(await locator.count()), which never retries, on main 7f8312f2c: tests/answer-progress-ui-smoke.spec.ts:631, tests/ui-accessibility.spec.ts:343, tests/ui-dictionary.spec.ts:377, tests/ui-formulation-result-cards.spec.ts:52, tests/ui-on-call-boards.spec.ts:535, 544, 662 and 743, tests/ui-smoke.spec.ts:2258, 3211 and 3212. Next action: switch each to expect.poll(() => locator.count()) with the same matcher, or toHaveCount where the count is exact. Re-derive locations before editing, since line numbers drift.",
+    "baseRowFingerprint": "bd4f16f1bda3474d99840015a40f6178739fb7224b76a2ec75eadafe16ee2e53"
+  }
+}
