@@ -15,6 +15,13 @@ describe("the confirmed source, as a person reads it", () => {
     );
   });
 
+  it("keeps anything the owner added after the preset, so the printed summary loses nothing of theirs", () => {
+    const stored = createAustralianRanzcpPreset(2026, "2026-01-05").confirmedSource;
+    expect(describeConfirmedSource(`${stored}; Demo hospital CPD policy, checked 5 Jan`)).toBe(
+      "RANZCP (Medical Board baseline plus RANZCP peer review); Demo hospital CPD policy, checked 5 Jan",
+    );
+  });
+
   it("keeps the owner's own words, trimmed", () => {
     expect(describeConfirmedSource("  Demo CPD home guide, 2026 edition  ")).toBe("Demo CPD home guide, 2026 edition");
   });

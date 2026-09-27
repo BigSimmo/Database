@@ -4,7 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
-import { CmeDateField } from "@/components/cme/cme-date-field";
+import { CmeDateField, useCmeDateChecks } from "@/components/cme/cme-date-field";
 import { CmeNavHeader } from "@/components/cme/cme-nav-header";
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -118,10 +118,15 @@ export function CmeSetupPage({
   const [saving, setSaving] = useState(false);
   const [savedFingerprint, setSavedFingerprint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const dateChecks = useCmeDateChecks();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!onConfirm || saving) return;
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -480,6 +485,7 @@ export function CmeSetupPage({
                   {requirement.spec.shape === "task" ? (
                     <CmeDateField
                       label="Completion date"
+                      onInvalidChange={dateChecks.report(`completed-${requirement.id}`)}
                       id={`cme-requirement-${requirement.id}-completed`}
                       chips={false}
                       allowFuture={false}

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { CmeTrainingTimeline } from "@/components/cme/cme-training-timeline";
-import { CmeDateField } from "@/components/cme/cme-date-field";
+import { CmeDateField, useCmeDateChecks } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
@@ -189,6 +189,7 @@ export function CmeTrainingPage({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dateChecks = useCmeDateChecks();
   const [pendingDelete, setPendingDelete] = useState<{ type: RecordType; id: string; label: string } | null>(null);
 
   const periodHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -241,6 +242,10 @@ export function CmeTrainingPage({
     event.preventDefault();
     if (!periodEditing || saving) return;
     setError(null);
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     const parsed = trainingPeriodInputSchema.safeParse(periodPayload(periodDraft));
     if (!parsed.success) {
       setPeriodErrors(fieldErrorsOf(parsed.error.issues));
@@ -282,6 +287,10 @@ export function CmeTrainingPage({
     event.preventDefault();
     if (!milestoneEditing || saving) return;
     setError(null);
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     const parsed = trainingMilestoneInputSchema.safeParse(milestonePayload(milestoneDraft));
     if (!parsed.success) {
       setMilestoneErrors(fieldErrorsOf(parsed.error.issues));
@@ -412,6 +421,7 @@ export function CmeTrainingPage({
       />
       <CmeDateField
         label="End date"
+        onInvalidChange={dateChecks.report("periodEnd")}
         id="cme-training-period-end"
         chips={false}
         today={today}
@@ -518,6 +528,7 @@ export function CmeTrainingPage({
       )}
       <CmeDateField
         label="Completed on"
+        onInvalidChange={dateChecks.report("milestoneCompleted")}
         id="cme-training-milestone-completed"
         chips={false}
         allowFuture={false}

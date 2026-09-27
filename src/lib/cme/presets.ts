@@ -29,7 +29,15 @@ const CME_PRESET_ID = /^au-ranzcp-\d{4}-v\d+\b/;
  */
 export function describeConfirmedSource(source: string): string {
   const trimmed = source.trim();
-  if (CME_PRESET_ID.test(trimmed)) return CME_PRESET_LABEL;
+  if (CME_PRESET_ID.test(trimmed)) {
+    // Name the preset in words and drop its bare links, but keep any words the owner added.
+    const added = trimmed
+      .replace(CME_PRESET_ID, "")
+      .split(";")
+      .map((part) => part.trim())
+      .filter((part) => part !== "" && !/^https?:\/\/\S+$/.test(part));
+    return [CME_PRESET_LABEL, ...added].join("; ");
+  }
   return trimmed || "Your own targets";
 }
 

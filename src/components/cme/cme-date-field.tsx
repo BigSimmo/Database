@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { CmeChoiceChip } from "@/components/cme/cme-choice-chip";
 import { FieldError, FieldHint, FormField } from "@/components/ui/form-field";
@@ -27,6 +27,11 @@ export type CmeDateFieldProps = {
   readonly chips?: boolean;
   readonly hint?: string;
   readonly disabled?: boolean;
+  /**
+   * Told whether the box holds a typed day that cannot be used. An optional field keeps its
+   * old value while that is so, so its form must refuse to save (see `useCmeDateChecks`).
+   */
+  readonly onInvalidChange?: (invalid: boolean) => void;
 };
 
 type Choice = "today" | "yesterday" | "other" | null;
@@ -58,6 +63,7 @@ export function CmeDateField({
   chips = true,
   hint,
   disabled = false,
+  onInvalidChange,
 }: CmeDateFieldProps) {
   const generatedId = useId();
   const fieldId = id ?? `cme-date-${generatedId.replace(/[^A-Za-z0-9_-]/g, "")}`;
@@ -86,6 +92,17 @@ export function CmeDateField({
   useEffect(() => {
     if (focusRequest > 0) inputRef.current?.focus();
   }, [focusRequest]);
+
+  // Anything typed that is not a usable day, told to the form so it can refuse to save rather
+  // than keep the date held before the typo. Cleared when the field goes away.
+  const typed = text.trim();
+  const typedDay = typed === "" ? null : parseCmeDayInput(typed);
+  const unusable = typed !== "" && (typedDay === null || (!allowFuture && typedDay > today));
+  useEffect(() => {
+    if (!onInvalidChange) return;
+    onInvalidChange(unusable);
+    return () => onInvalidChange(false);
+  }, [onInvalidChange, unusable]);
 
   function emit(next: string) {
     setSyncedValue(next);
@@ -231,4 +248,34 @@ export function CmeDateField({
       {hiddenInput}
     </fieldset>
   );
+}
+
+/**
+ * For a form with optional `CmeDateField`s: `report(key)` gives each field's `onInvalidChange`,
+ * and `anyInvalid` is true while any of them holds a typed day that cannot be used, so Save
+ * refuses instead of keeping the date held before the typo.
+ */
+export function useCmeDateChecks() {
+  const [invalid, setInvalid] = useState<ReadonlySet<string>>(() => new Set());
+  // One stable callback per key, so a field's effect does not re-run on every render.
+  const [callbacks] = useState(() => new Map<string, (isInvalid: boolean) => void>());
+  const report = useCallback(
+    (key: string) => {
+      let callback = callbacks.get(key);
+      if (!callback) {
+        callback = (isInvalid: boolean) =>
+          setInvalid((current) => {
+            if (current.has(key) === isInvalid) return current;
+            const next = new Set(current);
+            if (isInvalid) next.add(key);
+            else next.delete(key);
+            return next;
+          });
+        callbacks.set(key, callback);
+      }
+      return callback;
+    },
+    [callbacks],
+  );
+  return { anyInvalid: invalid.size > 0, report };
 }

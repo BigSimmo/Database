@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { CmeDateField } from "@/components/cme/cme-date-field";
+import { CmeDateField, useCmeDateChecks } from "@/components/cme/cme-date-field";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import { CmeRoutinesPage } from "@/components/cme/cme-routines-page";
 import { cardSurface } from "@/components/card-recipes";
@@ -51,6 +51,7 @@ export function CmeRoutinesRoute({
   const [draft, setDraft] = useState<RoutineDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dateChecks = useCmeDateChecks();
   // The form renders above the list, so on a phone tapping Edit on a routine
   // further down opened it out of sight and looked like nothing happened.
   // Bring it into view and move focus to its heading each time it opens.
@@ -77,6 +78,10 @@ export function CmeRoutinesRoute({
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingId || saving) return;
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     if (demoMode) {
       setError("Demo mode is read-only. Sign in to save routines to a private CPD record.");
       return;
@@ -192,6 +197,7 @@ export function CmeRoutinesRoute({
             />
             <CmeDateField
               label="Next due"
+              onInvalidChange={dateChecks.report("nextDue")}
               id="cme-routine-next-due"
               chips={false}
               today={perthCalendarDate(new Date(nowIso))}
