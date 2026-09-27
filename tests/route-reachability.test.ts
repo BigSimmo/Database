@@ -49,6 +49,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/teaching/c/complete",
     "Sign-in return target for a doctor who scanned a check-in QR while signed out. Reached only through the emailed sign-in link's `next` (teaching-scan-landing.tsx), never from in-app navigation.",
   ],
+  [
+    "/on-call/education",
+    "Retired On Call teaching page. It redirects to /teaching/week (proxy fast path plus a page backstop), so nothing links to it.",
+  ],
 ]);
 
 function isMockupPath(relPosix: string) {
