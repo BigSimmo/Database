@@ -617,6 +617,13 @@ function renderModePageIndex() {
         "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
     {
+      mode: "On Call",
+      home: appModeHomeHref("on-call"),
+      search: appModeHomeHref("on-call"),
+      detail:
+        'No results page — `resultsSurface: "none"`. `/on-call` is a shift dashboard; section pages include `/on-call/contacts`, `/on-call/escalation`, `/on-call/orientation`, `/on-call/teaching`, `/on-call/tasks`, `/on-call/compliance`, `/on-call/shifts`, and `/on-call/who-is-who`.',
+    },
+    {
       mode: "CME",
       home: appModeHomeHref("cme"),
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),

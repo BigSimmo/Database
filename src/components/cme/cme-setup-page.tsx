@@ -12,6 +12,7 @@ import { TextField } from "@/components/ui/text-field";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { CME_PRESET_SOURCES, CME_PRESET_VERSION, createAustralianRanzcpPreset } from "@/lib/cme/presets";
+import { perthCalendarDate } from "@/lib/perth-time";
 import {
   cmeCategories,
   cmeCategoryLabels,
@@ -102,9 +103,7 @@ export function CmeSetupPage({
 }) {
   const targetYear = year ?? set?.year ?? new Date().getFullYear();
   const [draft, setDraft] = useState<CmeRequirementSet>(
-    () =>
-      set ??
-      createAustralianRanzcpPreset(targetYear, new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" })),
+    () => set ?? createAustralianRanzcpPreset(targetYear, perthCalendarDate()),
   );
   const [saving, setSaving] = useState(false);
   const [savedFingerprint, setSavedFingerprint] = useState<string | null>(null);
@@ -195,12 +194,7 @@ export function CmeSetupPage({
                 type="button"
                 variant="secondary"
                 onClick={() =>
-                  setDraft(
-                    createAustralianRanzcpPreset(
-                      targetYear,
-                      draft.confirmedOn || new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" }),
-                    ),
-                  )
+                  setDraft(createAustralianRanzcpPreset(targetYear, draft.confirmedOn || perthCalendarDate()))
                 }
               >
                 Load the starting preset

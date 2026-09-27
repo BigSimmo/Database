@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
+import { perthCalendarDate as sharedPerthCalendarDate } from "@/lib/perth-time";
 import { sourceAuthorityForPublisherCode } from "@/lib/source-authority-registry";
 
 export const BMJ_THIRD_PARTY_ATTESTATION_POLICY_VERSION = "bmj-third-party-reference-attestation-v1" as const;
@@ -61,7 +62,7 @@ const PERTH_CALENDAR_DATE_FORMAT = new Intl.DateTimeFormat("en-CA", {
 });
 
 function perthCalendarDate(now = new Date()) {
-  return PERTH_CALENDAR_DATE_FORMAT.format(now);
+  return sharedPerthCalendarDate(now);
 }
 
 export function isValidReviewDate(value: string, now = new Date()) {
