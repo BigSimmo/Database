@@ -1327,6 +1327,13 @@ function ItemWorkspace({
   );
 }
 
+// Server snapshots must be referentially stable: a fresh object per call makes
+// React warn that getServerSnapshot is uncached and can loop during hydration.
+const EMPTY_LAST_OPENED_SNAPSHOT: Record<string, number> = {};
+const EMPTY_PINNED_SNAPSHOT: Set<string> = new Set<string>();
+const getEmptyLastOpenedSnapshot = () => EMPTY_LAST_OPENED_SNAPSHOT;
+const getEmptyPinnedSnapshot = () => EMPTY_PINNED_SNAPSHOT;
+
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
   const auth = useAuthSession();
@@ -1359,9 +1366,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const lastOpenedMap = useSyncExternalStore(
     subscribeFavouritesStorage,
     loadFavouriteLastOpened,
-    () => ({}) as Record<string, number>,
+    getEmptyLastOpenedSnapshot,
   );
-  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, () => new Set<string>());
+  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, getEmptyPinnedSnapshot);
   const favouriteMetadata = useMemo(
     () =>
       new Map(
@@ -1826,6 +1833,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 <button
                   type="button"
                   aria-pressed={viewMode === "recent"}
+                  aria-label="Recently used"
                   onClick={() => setViewMode((current) => (current === "recent" ? "all" : "recent"))}
                   className={cn(
                     "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold sm:min-h-10",
@@ -1836,7 +1844,12 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                   )}
                 >
                   <Clock className="h-3.5 w-3.5" aria-hidden />
-                  Recently used
+                  {/* The phone count line is shared with this toggle and the
+                      filter trigger; the full label squeezed the scope word to
+                      "Al…" at 320–390px (audit VUX-18). The accessible name
+                      stays "Recently used" at every width. */}
+                  <span className="sm:hidden">Recent</span>
+                  <span className="hidden sm:inline">Recently used</span>
                 </button>
               }
               appliedFilters={appliedFilters}

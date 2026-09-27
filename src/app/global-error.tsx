@@ -137,7 +137,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 gap: "0.5rem",
               }}
             >
-              {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
+              {copied ? "Copied diagnostics" : copyFailed ? "Copy failed — try again" : "Copy diagnostics"}
             </button>
           </div>
         </div>
