@@ -128,6 +128,7 @@ async function runBoth(leaks: Leaks = {}) {
     tokenA: "a",
     tokenB: "b",
     userIdB: userId.b!,
+    emailB: "user.b@example.org",
     marker: "probe-marker",
     register,
   });
