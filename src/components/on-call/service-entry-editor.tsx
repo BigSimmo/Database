@@ -54,7 +54,7 @@ type SourceDraft = { label: string; url: string };
 const DOTTED_WARNINGS = new Set(["number-length", "number-shared"]);
 
 const TITLE_HINT =
-  "Start with a team or place to group it: ICU: Registrar, Ward: 4B, Downtime: â€¦, Emergency: â€¦. Access, food, taxi and security belong in Admin.";
+  "Start with a team or place to group it: ICU: Registrar, Ward: 4B, Downtime: …, Emergency: …. Access, food, taxi and security belong in Admin.";
 const BODY_HINT =
   "Add Also known as: HDU, high dependency on its own line so people can search everyday words. For a number that only works from a hospital phone, add From a mobile: 5550 0000, 55 so readers can call from their own phone. No patient details.";
 const PHONE_HINT =
@@ -394,7 +394,7 @@ export function ServiceEntryEditor({
                 hideLabel
                 id={`service-entry-source-${index}-url`}
                 type="url"
-                placeholder="https://â€¦"
+                placeholder="https://…"
                 value={source.url}
                 onChange={(event) =>
                   setSources((current) =>
@@ -445,7 +445,7 @@ export function ServiceEntryEditor({
             type="submit"
             variant="secondary"
             busy={busy === "draft"}
-            busyLabel="Savingâ€¦"
+            busyLabel="Saving…"
             disabled={busy !== null}
           >
             Save draft
@@ -454,7 +454,7 @@ export function ServiceEntryEditor({
             type="button"
             variant="primary"
             busy={busy === "publish"}
-            busyLabel="Sendingâ€¦"
+            busyLabel="Sending…"
             disabled={busy !== null}
             onClick={() => void submit(true)}
           >

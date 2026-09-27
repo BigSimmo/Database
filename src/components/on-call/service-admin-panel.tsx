@@ -61,7 +61,7 @@ function MemberRow({ member, onAction }: { readonly member: ServiceMember; reado
     <article className={cn(cardSurface, "grid gap-3 p-4")}>
       <div className="min-w-0">
         <p className="break-all text-sm font-semibold text-[color:var(--text-heading)]">
-          {member.displayName || "Member"}
+          {member.displayName || `Member ${member.id.slice(-8)}`}
         </p>
         <p className={cn(textMuted, "mt-0.5 text-xs")}>Joined {formatOnCallDate(member.joinedAt)}</p>
       </div>

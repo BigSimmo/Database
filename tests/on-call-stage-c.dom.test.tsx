@@ -84,6 +84,13 @@ describe("Stage C editor controls", () => {
     );
     expect(screen.getByText(/This invite works only for synthetic@example.org/)).toBeInTheDocument();
   });
+  it("keeps unnamed members distinguishable by a short stable id", () => {
+    render(<ServiceAdminPanel detail={demoServiceDetail} onAction={vi.fn()} />);
+    const [first, second] = demoServiceDetail.members;
+    expect(screen.getByText(`Member ${first.id.slice(-8)}`)).toBeInTheDocument();
+    expect(screen.getByText(`Member ${second.id.slice(-8)}`)).toBeInTheDocument();
+  });
+
   it("confirms the visible published revision, while a non-reviewer cannot confirm cover", async () => {
     const entry = demoServiceDetail.entries.find((entry) => entry.content.section === "cover")!;
     const action = vi.fn().mockResolvedValue({ ok: true });
