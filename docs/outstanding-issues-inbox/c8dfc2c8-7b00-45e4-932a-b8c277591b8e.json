@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c8dfc2c8-7b00-45e4-932a-b8c277591b8e",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Live search's query embedding can wait 45 s and retry twice, the same 45 s the browser allows, so a slow OpenAI reply fails the search instead of falling back to keyword results",
+    "detail": "embedTextWithTelemetry (src/lib/openai.ts) uses requestOptions with no per-call timeout, so it takes OPENAI_REQUEST_TIMEOUT_MS (45000, src/lib/env.ts:172) and OPENAI_MAX_RETRIES (2) via defaultMaxRetries (openai.ts:189). Callers on the interactive path (src/lib/rag/rag.ts around 1364 and 1703, rag-governed-search.ts:120) pass only the request signal. The browser search budget is searchRequestTimeoutMs = 45_000 (src/components/clinical-dashboard/search-utils.ts:423), so one slow embedding call always exhausts the user's whole budget. Next action: give the interactive query embedding its own short deadline (a few seconds, no retry) and let search continue on the lexical/text path when it expires, with telemetry. The caller side is a RAG-protected surface: flag before editing; a fallback-path change may need a canary pair.",
+    "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+    "issueUlid": "01M3GND2NVFZP7VWK32ZS8QSZP"
+  }
+}
