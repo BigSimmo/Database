@@ -2,7 +2,7 @@ import { ExternalLink, Shield } from "lucide-react";
 import Link from "next/link";
 
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
-import { modeRaisedCard } from "@/components/mode-kit/recipes";
+import { ModeFeaturedModule } from "@/components/mode-kit/featured-module";
 import { TodayWindowBar } from "@/components/admin/today/today-window-bar";
 import { ADMIN_PAGE_HREFS } from "@/components/admin/admin-page-sections";
 import { buttonFaceClass } from "@/components/ui/button";
@@ -19,11 +19,11 @@ function howToRenewUrl(entry: OnCallEntry, ownEntries: readonly OnCallEntry[]): 
 }
 
 /**
- * "Renew next" (owner-approved order): the one featured module on Today. The
- * soft mode tint the design shows here is not available to this card — a
- * richer module than `ModeHeroLink` can tint, and an Admin file may not set
- * the mode identity marker itself (a design-contract guard enforces this) —
- * so it renders as a plain raised module. See the lane report's Integration ask.
+ * "Renew next" (owner-approved order): the one featured module on Today,
+ * carrying Admin's brown identity tint via `ModeFeaturedModule` (mode-kit),
+ * which sets its own identity marker from the `mode` prop below — this file
+ * names the mode but never writes that marker literally, as the
+ * design-contract guard requires.
  */
 export function TodayRenewNextCard({
   item,
@@ -52,7 +52,7 @@ export function TodayRenewNextCard({
   const howToRenewIsExternal = howToRenewHref.startsWith("http");
 
   return (
-    <section className={cn(modeRaisedCard, "grid min-w-0 gap-3 p-3")} data-testid="admin-today-renew-next">
+    <ModeFeaturedModule as="section" mode="my-work" className="grid min-w-0 gap-3 p-3" testId="admin-today-renew-next">
       <div className="flex min-w-0 items-center gap-2">
         <Shield aria-hidden="true" strokeWidth={1.5} className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
         <h2 className={eyebrowText}>Renew next</h2>
@@ -94,6 +94,6 @@ export function TodayRenewNextCard({
           Renewed
         </Link>
       </div>
-    </section>
+    </ModeFeaturedModule>
   );
 }
