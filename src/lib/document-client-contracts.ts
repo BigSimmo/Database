@@ -171,6 +171,11 @@ const chunkWindowSchema = z
 export const documentDetailResponseSchema = z
   .object({
     document: clinicalDocumentSchema,
+    publicReviewDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable()
+      .optional(),
     pages: z.array(detailPageSchema),
     images: z.array(detailImageSchema),
     tableFacts: z.array(detailTableFactSchema),

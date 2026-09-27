@@ -1738,6 +1738,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/cme-adoption-contract.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/decisions/2026-09-26-loose-around-pages-and-modes.md",
         "section": "decisions",
         "catalogued": false
