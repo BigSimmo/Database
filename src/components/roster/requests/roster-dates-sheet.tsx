@@ -151,7 +151,7 @@ function DatesSession({
                       className="min-h-12 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-xs hover:bg-[color:var(--surface-subtle)]"
                     >
                       <span className="block">{Number(date.slice(8))}</span>
-                      <span className="block text-[10px]">
+                      <span className="block text-3xs">
                         {selected[date] === "cant" ? "Can't" : selected[date] === "prefer_off" ? "Prefer" : ""}
                       </span>
                     </button>
