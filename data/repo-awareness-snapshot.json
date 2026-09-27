@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-27"
+    "committed_at": "2026-09-28"
   },
   "routes": {
     "modes": [
@@ -1672,6 +1672,10 @@
       {
         "path": "/api/local-project-id",
         "file": "src/app/api/local-project-id/route.ts"
+      },
+      {
+        "path": "/api/cme/plan/carry",
+        "file": "src/app/api/cme/plan/carry/route.ts"
       },
       {
         "path": "/api/on-call/services",
@@ -11982,6 +11986,14 @@
         "scope": "Production UI CI fix: differentials-home hydration strict-mode",
         "outcome": "FIXED. Hosted Production UI failed solely on `dashboard differentials mode param redirects…`: `getByTestId(differentials-home)` hit 2 nodes (server+client overlap). Applied `expectSingleSettledOwner` before the visibility assert. No product change.",
         "checks": "Focused production Playwright journey PASS 1/1 via `npm run test:e2e` (system Chrome); no provider-backed checks."
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "codex/chat-first-nations-completion-first-nations-completion",
+        "head": "5c5d181eb2c0b17e7de81268d7780ef60407b573",
+        "scope": "PR3155 CI and three existing review findings",
+        "outcome": "Validated all three existing findings; prepared account-transition reset, visible-destination search filtering, canonical crisis verification-date synchronization, and dial-sheet typography repair.",
+        "checks": "GitHub run 36321975569 failed Static PR checks: sameFileTextSmMinusMix at dial-sheet.tsx. Source inspection; regression assertions added. No local tests/build/lint/typecheck run by explicit owner request; follow-up validation delegated to GitHub."
       },
       {
         "date": "2026-07-29",
