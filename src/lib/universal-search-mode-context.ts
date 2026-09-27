@@ -30,6 +30,10 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // CME reads the owner's own continuing-education entries, already in the
   // browser, so it contributes no cross-entity universal-search domain.
   cme: [],
+  // Teaching holds each service's programme and each doctor's own attendance. It
+  // contributes no cross-entity domain, so no Teaching record is ever searched
+  // from the universal tray.
+  teaching: [],
   // Psychiatry is a landing page for the modes it gathers; each of those keeps
   // its own domains, so the hub contributes none of its own.
   psychiatry: [],

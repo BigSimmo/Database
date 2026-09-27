@@ -62,7 +62,7 @@ export const sharedHomePresentation = {
   },
   differentials: {
     title: "Differential Diagnosis",
-    subtitle: "Compare causes, distinguishing features, and clinical clues.",
+    subtitle: "Differential diagnosis, clinical presentations, and workups.",
     suggestions: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
   },
   dsm: {
@@ -129,6 +129,13 @@ export const sharedHomePresentation = {
     title: "CPD",
     subtitle: "What you have done this year, and what is still short.",
     suggestions: ["peer review group", "journal club", "audit"],
+  },
+  teaching: {
+    title: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+    // Session titles only: nothing personal is ever suggested into a search
+    // that leaves the app (plan contracts §8).
+    suggestions: ["grand round", "journal club", "case conference"],
   },
   psychiatry: {
     title: "Psychiatry",

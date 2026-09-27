@@ -6,9 +6,9 @@ Act version **02-b0-02**, as at **2025-09-25**.
 Source: <https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-02%5D.html?OpenElement>
 
 Each entry below pairs the verbatim statutory text with the drafted plain-English
-summary shown when a reader taps that section number on a form page. The clinical owner
-signs summaries off with `npm run clinical:review -- --kind section` (walk, pack or batch mode;
-see `docs/clinical-sign-off-how-to.md`). Never set those fields by hand.
+summary shown when a reader taps that section number on a form page. A reviewer
+signs off by confirming the summary against the Act text quoted here, then recording
+sign-off via `npm run clinical:review`.
 
 ---
 

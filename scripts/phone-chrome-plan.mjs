@@ -75,6 +75,9 @@ const patterns = {
   // `src/lib/cme/` falls into `unknownUi` and escalates a copy tweak to the
   // whole Chromium suite instead of narrowing to CME's own journeys.
   cme: [/^src\/components\/cme\//, /^src\/lib\/cme\//],
+  // Teaching owns phone chrome the way CME does: its session pages share one
+  // in-page header (`TeachingNavHeader`), and the mode is phone-first.
+  teaching: [/^src\/components\/teaching\//, /^src\/lib\/teaching\//],
   sharedFoundation: [
     /^src\/app\/globals\.css$/,
     /^src\/styles\//,
@@ -134,6 +137,7 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
     flags.differentials ||
     flags.onCall ||
     flags.cme ||
+    flags.teaching ||
     flags.sharedFoundation ||
     flags.phoneContract;
   const unknownUi = uiSourceChanged && !phoneRelevant;
@@ -152,6 +156,8 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
       // CME's screens share one in-page nav header of their own for the same
       // reason; see the `cme` pattern comment above.
       flags.cme ||
+      // Teaching's screens share one in-page nav header for the same reason.
+      flags.teaching ||
       flags.sharedFoundation ||
       flags.phoneContract);
   const runDashboardJourneys =

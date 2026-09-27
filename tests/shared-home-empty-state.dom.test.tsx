@@ -44,7 +44,7 @@ const expectedPresentations = [
   {
     modeId: "differentials",
     title: "Differential Diagnosis",
-    subtitle: "Compare causes, distinguishing features, and clinical clues.",
+    subtitle: "Differential diagnosis, clinical presentations, and workups.",
     iconClass: "lucide-brain-circuit",
   },
   {
@@ -119,6 +119,12 @@ const expectedPresentations = [
     title: "CPD",
     subtitle: "What you have done this year, and what is still short.",
     iconClass: "lucide-graduation-cap",
+  },
+  {
+    modeId: "teaching",
+    title: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+    iconClass: "lucide-presentation",
   },
   {
     modeId: "psychiatry",

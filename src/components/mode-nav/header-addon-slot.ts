@@ -85,6 +85,11 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // `isInformationPage`), so `PageSecondaryNavigation` returns null before the
   // mode branch and the shell could never draw a bar for it.
   if (pathname === "/first-nations" || isSlugDetail(pathname, "/first-nations")) return true;
+  // Teaching's session page and the presenter's check-in screen mount
+  // `TeachingNavHeader` (`teaching/teaching-nav-header.tsx`, the document-viewer
+  // shape). Named exactly: the four top pages use the pages sheet, and the scan
+  // landing mounts no header. Every Teaching route is `isInformationPage`.
+  if (/^\/teaching\/session\/[^/]+(?:\/check-in)?$/.test(pathname)) return true;
   // Admin subpages mount AdminNavHeader; Admin Today has no page-owned header.
   if (pathname.startsWith("/admin/")) return true;
   return false;

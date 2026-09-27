@@ -24,12 +24,14 @@ import {
   Network,
   NotebookPen,
   Phone,
+  NotebookText,
   Presentation,
   Repeat,
   Printer,
   Search,
   Settings,
   Sparkles,
+  SlidersHorizontal,
   Stethoscope,
   Sunrise,
   Scale,
@@ -150,6 +152,14 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   "first-nations-mistakes": Ban,
   "first-nations-going-home": House,
   "first-nations-end-of-life": Feather,
+  // Teaching shares the Today calendar icon with Roster.
+  week: CalendarClock,
+  logbook: NotebookText,
+  organise: SlidersHorizontal,
+  "whats-on": CalendarDays,
+  resources: LibraryBig,
+  teach: Presentation,
+  supervision: Users,
 };
 
 /**

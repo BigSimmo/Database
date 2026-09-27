@@ -337,6 +337,7 @@ describe("site content producer registry", () => {
         permanent: true,
         reviewed: true,
       }),
+      expect.objectContaining({ modeId: "teaching", reason: "private_user_state", permanent: true, reviewed: true }),
     ]);
     expect(siteContentModeCoverage([...appModeIds, "future-mode"])).toEqual({
       complete: false,
