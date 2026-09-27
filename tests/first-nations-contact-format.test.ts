@@ -18,4 +18,9 @@ describe("contact format", () => {
     expect(shareText("Aboriginal liaison team", "9000 0001")).toBe("Aboriginal liaison team: 9000 0001");
     expect(formatDayMonthYear("2026-09-26")).toBe("26 Sep 2026");
   });
+  it("escapes line breaks in a public name without adding vCard fields", () => {
+    const card = vcardFor({ name: "Team\r\nNOTE:unexpected", number: "(08) 9000 0012" });
+    expect(card).toContain("FN:Team\\nNOTE:unexpected");
+    expect(card).not.toContain("\r\nNOTE:");
+  });
 });

@@ -132,7 +132,7 @@ function contactView(c: ContactBlock, inputs: ModelInputs): ContactView {
     reportHref: mailto(
       reportEmail(inputs),
       `Wrong number: ${c.name}`,
-      `The number shown for ${c.name} is ${c.number}. The right number is: `,
+      `Public contact correction only. Do not include patient details, staff names or personal numbers.\n\nThe number shown for ${c.name} is ${c.number}.\nOfficial source: ${inputs.sources[c.sourceId]?.url ?? ""}\nCorrection and official source: `,
     ),
   };
 }
@@ -313,14 +313,8 @@ export function buildSearchIndex(inputs: ModelInputs): SearchEntry[] {
             ...(block.kind === "contact" ? { number: block.number } : {}),
           });
         }
-  for (const c of inputs.content.statewideContacts)
-    entries.push({
-      id: c.id,
-      title: c.name,
-      detail: c.detail ?? "",
-      href: firstNationsPageHref("contacts"),
-      number: c.number,
-    });
+  // Page contacts are indexed above with their visible section. Region-only
+  // contacts stay in Where is home until search can reveal that selection.
   for (const h of hospitalViews(inputs))
     for (const c of [h.liaison, h.switchboard])
       entries.push({
@@ -378,7 +372,11 @@ export function buildBedsideModel(inputs: ModelInputs): BedsideModel {
     map: inputs.map,
     acknowledgement: acknowledgementFor(inputs),
     topMistakes,
-    missingNumberHref: mailto(reportEmail(inputs), "Missing number", "The number that is missing is for: "),
+    missingNumberHref: mailto(
+      reportEmail(inputs),
+      "Missing number",
+      "Public contact correction only. Do not include patient details, staff names or personal numbers.\n\nMissing public service number and official source: ",
+    ),
     search: buildSearchIndex(inputs),
   };
 }
@@ -394,7 +392,11 @@ export function buildInnerPageModel(inputs: ModelInputs, id: Exclude<FirstNation
     regions: regionViews(inputs),
     interpreter: interpreterView(inputs),
     map: inputs.map,
-    missingNumberHref: mailto(reportEmail(inputs), "Missing number", "The number that is missing is for: "),
+    missingNumberHref: mailto(
+      reportEmail(inputs),
+      "Missing number",
+      "Public contact correction only. Do not include patient details, staff names or personal numbers.\n\nMissing public service number and official source: ",
+    ),
     search: buildSearchIndex(inputs),
   };
 }

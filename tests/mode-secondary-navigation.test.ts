@@ -53,7 +53,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   ],
   cme: ["Today", "Log", "Plan", "Learning", "Set up"],
   psychiatry: [],
-  "my-work": [],
+  "my-work": ["Today", "Renewals", "New job", "Help"],
   roster: ["Today", "Shifts", "Settings"],
   "first-nations": [
     "Bedside",
@@ -88,13 +88,13 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "on-call": "/on-call",
   cme: "/cme",
   psychiatry: "/psychiatry",
-  "my-work": "/my-work",
+  "my-work": "/admin",
   roster: "/roster",
   "first-nations": "/first-nations",
 };
 
 /**
- * The ten modes that register nothing. Psychiatry and My Work are the last two: each home is
+ * The modes that register nothing. Psychiatry's home is
  * itself the list of pages it gathers.
  *
  * Each used to carry one `action: "search"` entry rendering a lone <button>
@@ -120,7 +120,6 @@ const emptyRegistryModes = [
   "tools",
   "calculators",
   "psychiatry",
-  "my-work",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {

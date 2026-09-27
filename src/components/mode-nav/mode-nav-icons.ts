@@ -4,6 +4,7 @@ import {
   BookOpenText,
   Brain,
   BookMarked,
+  BriefcaseBusiness,
   Building2,
   CalendarClock,
   CalendarDays,
@@ -17,6 +18,7 @@ import {
   LayoutGrid,
   LibraryBig,
   ListChecks,
+  LifeBuoy,
   MessageCircle,
   Network,
   NotebookPen,
@@ -27,6 +29,7 @@ import {
   Settings,
   Sparkles,
   Stethoscope,
+  Sunrise,
   Scale,
   Target,
   Users,
@@ -117,6 +120,11 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   plan: Target,
   learning: Presentation,
   setup: ListChecks,
+  // Admin's page destinations in the mode picker.
+  "admin-today": Sunrise,
+  renewals: ON_CALL_VIEW_ICONS.compliance,
+  "new-job": BriefcaseBusiness,
+  help: LifeBuoy,
   // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
   // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
   // gear, matched to nothing else in this rail so it cannot be mistaken for a

@@ -79,8 +79,8 @@
       },
       {
         "id": "my-work",
-        "label": "My Work",
-        "home": "/my-work",
+        "label": "Admin",
+        "home": "/admin",
         "dev_only": false
       },
       {
@@ -173,11 +173,6 @@
         "path": "/mockups/care-plan/system-states",
         "file": "src/app/mockups/care-plan/system-states/page.tsx",
         "area": "mockup"
-      },
-      {
-        "path": "/my-work",
-        "file": "src/app/(search-app)/my-work/page.tsx",
-        "area": "product"
       },
       {
         "path": "/roster/shifts",
@@ -410,11 +405,6 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/compliance",
-        "file": "src/app/(search-app)/on-call/compliance/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/cme/log/[id]",
         "file": "src/app/(search-app)/cme/log/[id]/page.tsx",
         "area": "product"
@@ -485,6 +475,11 @@
         "area": "mockup"
       },
       {
+        "path": "/admin",
+        "file": "src/app/(search-app)/admin/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
@@ -513,6 +508,11 @@
         "path": "/mockups/answer-chat-perfected",
         "file": "src/app/mockups/answer-chat-perfected/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/admin/help",
+        "file": "src/app/(search-app)/admin/help/page.tsx",
+        "area": "product"
       },
       {
         "path": "/dictionary/topics/[slug]",
@@ -647,6 +647,11 @@
       {
         "path": "/on-call/playbook",
         "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/admin/renewals",
+        "file": "src/app/(search-app)/admin/renewals/page.tsx",
         "area": "product"
       },
       {
@@ -880,6 +885,11 @@
         "area": "product"
       },
       {
+        "path": "/admin/new-job/records",
+        "file": "src/app/(search-app)/admin/new-job/records/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/therapy-recommend-popup-workbench",
         "file": "src/app/mockups/therapy-recommend-popup-workbench/page.tsx",
         "area": "mockup"
@@ -1037,6 +1047,11 @@
       {
         "path": "/first-nations/family",
         "file": "src/app/(search-app)/first-nations/family/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/admin/new-job",
+        "file": "src/app/(search-app)/admin/new-job/page.tsx",
         "area": "product"
       },
       {
@@ -1210,11 +1225,6 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/logistics",
-        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/first-nations/contacts",
         "file": "src/app/(search-app)/first-nations/contacts/page.tsx",
         "area": "product"
@@ -1246,6 +1256,11 @@
       }
     ],
     "redirects": [
+      {
+        "path": "/my-work",
+        "file": "src/app/(search-app)/my-work/page.tsx",
+        "target": "/admin"
+      },
       {
         "path": "/calculators",
         "file": "src/app/(search-app)/calculators/page.tsx",
@@ -1280,6 +1295,11 @@
         "path": "/dictionary",
         "file": "src/app/(search-app)/dictionary/page.tsx",
         "target": "/?mode=dictionary"
+      },
+      {
+        "path": "/on-call/compliance",
+        "file": "src/app/(search-app)/on-call/compliance/page.tsx",
+        "target": "/admin/renewals"
       },
       {
         "path": "/medications",
@@ -1345,6 +1365,11 @@
         "path": "/dictionary/sources",
         "file": "src/app/(search-app)/dictionary/sources/page.tsx",
         "target": "/sources/search?usedBy=dictionary"
+      },
+      {
+        "path": "/on-call/logistics",
+        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "target": "/admin/help"
       }
     ],
     "api": [
@@ -16040,6 +16065,14 @@
         "scope": "stale-checkout P0 regression discovery",
         "outcome": "P0 regressions found in stale file checkouts",
         "checks": "Confirmed affected worker/main.ts and tests/reconciliation-preflight.test.ts; superseded by later remediation and current final review"
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "PR #3120",
+        "head": "88f448ea8514b48b5a51509abafa87a4e448f274",
+        "scope": "PR #3120 plans",
+        "outcome": "Changes recommended: publishing race, privacy wording and stale handoff",
+        "checks": "Reviewed exact PR diff and merged SQL; SAST and Secret Scan passed, CI in progress; no local tests"
       },
       {
         "date": "2026-08-16",

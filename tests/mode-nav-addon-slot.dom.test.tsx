@@ -68,8 +68,13 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/on-call/referrals")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/orientation")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/education")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/on-call/logistics")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/who-is-who")).toBe(true);
+    // On Call's Admin page moved to Admin > Help (Admin update 1). Admin's three
+    // sub-pages mount `AdminNavHeader`; its Today page mounts none.
+    expect(isHeaderAddonSlotOwnedRoute("/admin/help")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/admin/renewals")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/admin/new-job")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/admin")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/card")).toBe(true);
     // The mode home is a dashboard now, not a redirect stub, and it mounts the
     // rail like every other page in the mode.
@@ -171,7 +176,9 @@ describe("header addon slot ownership", () => {
       "/on-call/referrals",
       "/on-call/orientation",
       "/on-call/education",
-      "/on-call/logistics",
+      "/admin/renewals",
+      "/admin/new-job",
+      "/admin/help",
       "/cme/programme",
       "/cme/setup",
       "/cme",
@@ -337,6 +344,9 @@ describe("header addon slot ownership", () => {
     // hooks (`useInPageSectionNav`).
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
+      // Admin's Renewals, New job and Help pages share one `*-nav-header.tsx`
+      // sibling (Admin update 1), registered as the three `/admin/*` sub-routes.
+      "src/components/admin/admin-nav-header.tsx",
       "src/components/clinical-dashboard/medication-nav-header.tsx",
       // CME's Programme and Setup pages share one `*-nav-header.tsx` sibling
       // (`cmeSections` is a superset the header narrows per render), so the
