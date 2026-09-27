@@ -5,12 +5,12 @@
     "description": "Count of style={{ }} JSX attributes under tracked src/**/*.{ts,tsx}, excluding lines that are inside a comment (trimmed line starts with // or *).",
     "measuredAt": "2026-09-27T01:08:14.124Z",
     "baselineSource": "87e46a8865103b981daf939f29fa32a1dc43f9d3",
-    "$lastRaise": "232 -> 233, 2026-09-06, source-rail desktop-scroll study. One LEGITIMATE dynamic site: the option-C scrub thumb in src/components/source-rail-desktop-scroll-mockups.tsx sets width and marginLeft as percentages recomputed from live scrollLeft/scrollWidth, which is the data-driven-layout pattern drift-measurement-2026-09-02.md classifies LEGITIMATE (no token expresses how far the rail has been scrolled). The study's other new inline style, a column maxWidth chosen from a closed set of three, was converted to literal max-w-[...] classes in the same change rather than counted here."
+    "$lastRaise": "233 -> 238, 2026-09-27, Roster mode. LEGITIMATE data-driven layout per drift-measurement-2026-09-02.md: bar heights in roster-hours-panel, shift and now-line positions in roster-week-strip and roster-today-page are computed from each doctor's shift times; no token expresses them."
   },
   "unimportedRegisteredComponents": {
-    "ceiling": 9,
+    "ceiling": 16,
     "description": "docs/design-system/adoption-manifest.json summary.registeredComponentCount minus summary.productImportedComponentCount — registered components with zero productImportFiles.",
-    "measuredAt": "2026-09-27T01:08:14.124Z",
-    "baselineSource": "87e46a8865103b981daf939f29fa32a1dc43f9d3"
+    "measuredAt": "2026-09-02T07:40:18.000Z",
+    "baselineSource": "686ce37cf480145b359d5d4438e649a69b8fbd10"
   }
 }

@@ -6,7 +6,7 @@ import { loadLearningDirectory } from "@/lib/cme/learning-directory";
 
 export const metadata: Metadata = {
   title: "Learning | CPD | PsychSift",
-  description: "Upcoming Western Australian courses and events for psychiatrists, curated and checked monthly.",
+  description: "Upcoming Western Australian courses and events, curated and checked monthly.",
 };
 
 export default async function CmeLearningRoute() {

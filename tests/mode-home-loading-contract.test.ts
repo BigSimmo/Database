@@ -38,6 +38,15 @@ const MODE_HOME_LOADING_ROUTES = [
   "roster",
 ] as const;
 
+/**
+ * Mode homes whose loading boundary draws their own dashboard's shapes instead
+ * of the generic hero skeleton, so nothing jumps when the dashboard arrives.
+ * CPD: spec §6.2 and standard v13 §7 (static, the loaded layout's shapes).
+ */
+const OWN_SKELETON: Partial<Record<(typeof MODE_HOME_LOADING_ROUTES)[number], string>> = {
+  cme: "CmeLoadingSkeleton",
+};
+
 describe("mode-home loading contract", () => {
   it("keeps every named standalone mode home in the broader loading inventory", () => {
     for (const pathname of standaloneModeHomePaths) {
@@ -45,12 +54,12 @@ describe("mode-home loading contract", () => {
     }
   });
 
-  it("uses ModeHomeRouteLoading for every mode-home loading route", () => {
+  it("uses ModeHomeRouteLoading, or the home's own static skeleton, for every mode-home loading route", () => {
     for (const route of MODE_HOME_LOADING_ROUTES) {
       const loadingPath = join(SEARCH_APP_ROOT, route, "loading.tsx");
       expect(existsSync(loadingPath), `missing ${route}/loading.tsx`).toBe(true);
       const source = readFileSync(loadingPath, "utf8");
-      expect(source).toContain("ModeHomeRouteLoading");
+      expect(source).toContain(OWN_SKELETON[route] ?? "ModeHomeRouteLoading");
       expect(source).not.toMatch(/Loading services|Loading medication|Loading library/);
     }
   });

@@ -1,5 +1,5 @@
-import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
+import { CmeLoadingSkeleton } from "@/components/cme/cme-loading-skeleton";
 
 export default function Loading() {
-  return <ModeHomeRouteLoading />;
+  return <CmeLoadingSkeleton />;
 }

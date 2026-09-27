@@ -80,7 +80,7 @@ export type CmeRequirementStatus = {
   readonly met: boolean;
   /** Null for shapes with no single scalar, such as a per-bucket count. */
   readonly progress: { readonly value: number; readonly target: number } | null;
-  /** One plain sentence: "Met", "3 hours short", "Ethical practice has nothing against it yet". */
+  /** One plain status: "Reached", "3 h to go", "Ethical practice has nothing against it yet". */
   readonly summary: string;
 };
 

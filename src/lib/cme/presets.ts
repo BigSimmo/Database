@@ -17,6 +17,30 @@ export const CME_PRACTICE_DOMAINS = [
   "Professionalism",
   "Ethical practice",
 ] as const;
+/** The screen name of the starting preset. The stored source keeps the internal id and the source URLs. */
+const CME_PRESET_LABEL = "RANZCP (Medical Board baseline plus RANZCP peer review)";
+/** Any version of the preset id (`au-ranzcp-2026-v1`, and next year's `au-ranzcp-2027-v1`), so a new id never shows raw. */
+const CME_PRESET_ID = /^au-ranzcp-\d{4}-v\d+\b/;
+
+/**
+ * The confirmed source as a person reads it: the preset's plain name instead of its internal id
+ * (`au-ranzcp-2026-v1; https://…`), otherwise the owner's own words. Screens only — the CSV export
+ * keeps the stored text exactly as it was confirmed.
+ */
+export function describeConfirmedSource(source: string): string {
+  const trimmed = source.trim();
+  if (CME_PRESET_ID.test(trimmed)) {
+    // Name the preset in words and drop its bare links, but keep any words the owner added.
+    const added = trimmed
+      .replace(CME_PRESET_ID, "")
+      .split(";")
+      .map((part) => part.trim())
+      .filter((part) => part !== "" && !/^https?:\/\/\S+$/.test(part));
+    return [CME_PRESET_LABEL, ...added].join("; ");
+  }
+  return trimmed || "Your own targets";
+}
+
 /** Australian baseline + psychiatry peer review. Confirm additional CPD-home requirements. A starting draft only. The owner must review and explicitly confirm it before saving. */
 export function createAustralianRanzcpPreset(year: number, confirmedOn: string): CmeRequirementSet {
   return {
