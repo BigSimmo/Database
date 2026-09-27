@@ -1,7 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
 
-import { visibleByTestId } from "./playwright-settlement";
-
 /**
  * Admin's own short browser journey (Task 10, integration): the two retired
  * paths, the pill's identity, Help's phone layout, and the one-composer
@@ -27,26 +25,6 @@ const ADMIN_IDENTITY_LIGHT_RGB = "rgb(125, 90, 44)";
 async function gotoPhone(page: Page, path: string) {
   await page.setViewportSize({ width: PHONE_WIDTH, height: PHONE_HEIGHT });
   await page.goto(path);
-}
-
-/** Every visible `position: fixed` element's bounding box, for overlap checks. */
-async function fixedElementBoxes(page: Page) {
-  return page.evaluate(() => {
-    const boxes: { label: string; top: number; left: number; right: number; bottom: number }[] = [];
-    for (const element of document.querySelectorAll<HTMLElement>("body *")) {
-      if (getComputedStyle(element).position !== "fixed") continue;
-      const rect = element.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) continue;
-      boxes.push({
-        label: element.getAttribute("data-testid") ?? element.tagName,
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-      });
-    }
-    return boxes;
-  });
 }
 
 test.describe("Admin mode — redirects, pill identity and shared chrome", () => {
@@ -109,7 +87,7 @@ test.describe("Admin mode — redirects, pill identity and shared chrome", () =>
     expect(buttonBackgrounds).not.toContain(ADMIN_IDENTITY_LIGHT_RGB);
   });
 
-  test("at 390px, no Admin page renders the shared search composer or a microphone, and Renewals' floating Add sits clear of every other fixed control", async ({
+  test("at 390px, no Admin page renders the shared search composer or a microphone, and demo Renewals cannot add", async ({
     page,
   }) => {
     for (const path of ["/admin", "/admin/renewals", "/admin/new-job", "/admin/help"]) {
@@ -122,17 +100,9 @@ test.describe("Admin mode — redirects, pill identity and shared chrome", () =>
     }
 
     await gotoPhone(page, "/admin/renewals");
-    const add = visibleByTestId(page, "admin-renewals-add");
-    await expect(add).toBeVisible();
-    const addBox = await add.boundingBox();
-    expect(addBox).not.toBeNull();
-
-    const otherFixed = (await fixedElementBoxes(page)).filter((box) => box.label !== "admin-renewals-add");
-    for (const other of otherFixed) {
-      const xOverlap = Math.min(addBox!.x + addBox!.width, other.right) - Math.max(addBox!.x, other.left);
-      const yOverlap = Math.min(addBox!.y + addBox!.height, other.bottom) - Math.max(addBox!.y, other.top);
-      // 4px tolerance for subpixel rounding, matching tests/ui-overlap.spec.ts.
-      expect(xOverlap > 4 && yOverlap > 4, `"admin-renewals-add" overlaps fixed control "${other.label}"`).toBe(false);
-    }
+    // Production browser CI serves synthetic demo rows and refuses writes.
+    await expect(page.getByTestId("admin-renewals-add")).toHaveCount(0);
+    await page.getByRole("tab", { name: "Personal" }).click();
+    await expect(page.getByTestId("admin-renewals-personal-empty-add")).toHaveCount(0);
   });
 });
