@@ -1,11 +1,11 @@
 {
   "$comment": "Ratchet ceilings for two token-system drift metrics measured in docs/design-system/drift-measurement-2026-09-02.md. Both metrics may only go DOWN. `npm run check:design-drift-ratchet` fails the moment either current count exceeds its ceiling. `npm run check:design-drift-ratchet -- --update` refreshes a ceiling to the current measured count, but only ever lowers or matches it — it refuses to raise a ceiling. Raising one on purpose requires `--update --allow-increase`, which prints the old and new ceiling so the diff is visible in review; do this only with a stated reason (a newly-legitimate dynamic style, or a component whose adoption regressed) recorded in the commit message.",
   "inlineStyles": {
-    "ceiling": 238,
+    "ceiling": 240,
     "description": "Count of style={{ }} JSX attributes under tracked src/**/*.{ts,tsx}, excluding lines that are inside a comment (trimmed line starts with // or *).",
     "measuredAt": "2026-09-27T01:08:14.124Z",
     "baselineSource": "87e46a8865103b981daf939f29fa32a1dc43f9d3",
-    "$lastRaise": "233 -> 238, 2026-09-27, Roster mode. LEGITIMATE data-driven layout per drift-measurement-2026-09-02.md: bar heights in roster-hours-panel, shift and now-line positions in roster-week-strip and roster-today-page are computed from each doctor's shift times; no token expresses them."
+    "$lastRaise": "238 -> 240, 2026-09-27, merging main into Roster Release 1. LEGITIMATE data-driven layout per drift-measurement-2026-09-02.md: the two sites in src/components/on-call/now/right-now.tsx (from #3110) position the shift spans and the now-marker on the day track as percentages computed from the shift times; no token expresses them."
   },
   "unimportedRegisteredComponents": {
     "ceiling": 16,
