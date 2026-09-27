@@ -189,6 +189,8 @@ type SeriesForm = {
   venue: string;
   joinUrl: string;
   groupIds: string[];
+  /** Master plan R4/R5: a series a health service's visitors may open (F3). */
+  openTo: "team" | "health_service";
 };
 
 /** The series editor, with the Audience picker (R4). */
@@ -217,6 +219,7 @@ export function SeriesSheet({
     venue: series?.venue ?? "",
     joinUrl: series?.joinUrl ?? "",
     groupIds: series?.groupIds ?? [],
+    openTo: series?.openTo ?? "team",
   }));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -238,7 +241,7 @@ export function SeriesSheet({
       // A saved series read without its level keeps it: `series.save` leaves the level alone when
       // `audience` is left out, unless the organiser picked a different one here.
       const sendAudience = !series || series.audience !== undefined || form.audience !== "all_doctors";
-      await teachingPost(teachingServiceUrl(serviceId), {
+      const saved = await teachingPost<{ seriesId?: string }>(teachingServiceUrl(serviceId), {
         action: "series.save",
         ...(series ? { seriesId: series.seriesId } : {}),
         title: form.title.trim(),
@@ -256,6 +259,17 @@ export function SeriesSheet({
         presenterId: series?.presenterId ?? null,
         materials: series?.materials ?? [],
       });
+      // R3/R5: open (or close) the series to the health service, only when the choice changed. A
+      // refusal (`teaching_no_health_service`, 409) lands in `error` below; the series itself is
+      // already saved, so that notice is the whole story.
+      const seriesId = series?.seriesId ?? saved.seriesId;
+      if (seriesId && form.openTo !== (series?.openTo ?? "team")) {
+        await teachingPost(`/api/teaching/resources/services/${serviceId}`, {
+          action: "series.set_open_to",
+          seriesId,
+          openTo: form.openTo,
+        });
+      }
       onSaved();
     } catch (cause) {
       setError(teachingErrorMessage(cause));
@@ -319,6 +333,18 @@ export function SeriesSheet({
           value={form.joinUrl}
           onChange={(e) => set({ joinUrl: e.target.value })}
         />
+        <TeachingSwitch
+          label="Open to"
+          value={form.openTo}
+          onChange={(openTo) => set({ openTo })}
+          options={[
+            { value: "team", label: "Your service" },
+            { value: "health_service", label: "Health service" },
+          ]}
+        />
+        <p className={cn("text-sm", textMuted)}>
+          {"Open sessions show in What's on across your health service. Check-in codes stay with your service."}
+        </p>
         {organise.groups.length > 0 ? (
           <fieldset className="grid gap-1">
             <legend className={cn("text-sm", textMuted)}>For groups (none means the whole service)</legend>
