@@ -59,6 +59,9 @@ const OWNER_SCOPED_API_TABLES = new Set([
   "document_summaries",
   "document_table_facts",
   "documents",
+  // Roster's "stayed late" button writes the doctor's own extra-time row from
+  // src/app/api/roster/extra-time/route.ts; Admin reads the same table later.
+  "extra_time_records",
   "import_batches",
   "on_call_entries",
   "rag_answer_feedback",

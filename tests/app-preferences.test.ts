@@ -41,6 +41,7 @@ describe("app preference normalisation", () => {
           "on-call-checks": { showInApp: true, calendarAlert: "off", snoozedUntil: "2026-10-03" },
           "cpd-year-end": { showInApp: true, calendarAlert: "1w", snoozedUntil: null },
           "cpd-routines": { showInApp: true, calendarAlert: "at-time", snoozedUntil: null },
+          shifts: { showInApp: true, calendarAlert: "off", snoozedUntil: null },
           teaching: { showInApp: true, calendarAlert: "1h", snoozedUntil: null },
         },
         quietHours: { enabled: true, start: "22:00", end: "06:00" },

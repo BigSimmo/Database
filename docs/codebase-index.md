@@ -212,6 +212,7 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 | Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                                                                                                                                                                                                                   | `ingestion/`                                                    |
 | Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                                                                                                                                                                                                           | `registry/records/`                                             |
 | On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries); `/api/on-call/services`, `/api/on-call/services/[serviceId]`, `/api/on-call/services/join` (shared service handbooks, via `service-api.withServiceApi`); `/api/on-call/demo-content` | `on-call/`                                                      |
+| Roster           | `/api/roster/shifts`, `/api/roster/shifts/imports/[id]`, `/api/roster/shifts/manual`, `/api/roster/shifts/manual/[seriesId]` (owner-scoped roster shifts, moved from `/api/on-call/shifts`, whose old path now re-exports these)                                                                                                  | `roster/`                                                       |
 | CME              | `/api/cme/entries`, `/api/cme/entries/[id]`, `/api/cme/entries/[id]/evidence`, `/api/cme/entries/[id]/evidence/[evidenceId]`, `/api/cme/routines`, `/api/cme/routines/[id]`, `/api/cme/export`, `/api/cme/year` (owner-scoped continuing-education record; demo mode branches here, never in the repository)                      | `cme/`                                                          |
 | Calendar         | `/api/calendar/feed` (signed in: report, make or turn off the private link); `/api/calendar/feed/[token]` (no session; the private `.ics` subscription feed)                                                                                                                                                                      | `calendar/`                                                     |
 | Images           | `/api/images/[id]/signed-url`, `/api/images/signed-urls` (batch); `/api/documents/images/batch` re-exports the batch handler                                                                                                                                                                                                      | `images/`, `documents/images/batch/route.ts`                    |
@@ -360,14 +361,39 @@ publishing, independent clinical/legal review, revision conflicts, correction re
 and owner-private orientation completion. They never pool legacy entries or personal
 CME/compliance. `handbook-resources` holds linked official WA starting points.
 
-**My shifts.** `/on-call/shifts` is the doctor's own roster, and the On Call home shows the shift on
-now or the next one. `src/lib/on-call/shifts/` reads an `.ics` or `.csv` export on the device
-(`parse-ics`, `parse-csv`), keeping only start, end, title, site and calendar ID, so descriptions and
-attendees never leave the browser. `diff` works out what a new roster changed; `repository` saves it
-through the `on_call_shifts_replace` RPC, which replaces the owner's shifts inside the roster's Perth
-dates and records the import in one transaction. `on_call_shifts` and `on_call_shift_imports` are
-private to their owner: service-role only, every query filtered by `owner_id`, never shared the way
-non-personal On Call entries are. The API is `/api/on-call/shifts` and `imports/[id]`.
+**My shifts moved to Roster.** The doctor's own roster now lives in **`src/lib/roster/`**
+(`src/lib/roster/shifts/`, moved from the old On Call shifts folder, plus `shift-kind.ts` for the
+day/evening/night/on-call/leave/other kinds shown as letter squares) and its API at
+**`/api/roster/shifts`** (plus `imports/[id]` and `manual`, `manual/[seriesId]` for hand-added
+shifts). It reads an `.ics` or `.csv` export on the device (`parse-ics`, `parse-csv`), keeping only
+start, end, title, site and calendar ID, so descriptions and attendees never leave the browser.
+`diff` works out what a new roster changed; `repository` saves it through the
+`roster_own_shifts_replace` RPC, which replaces only the same workplace's imported shifts inside the
+roster's Perth dates (a hand-added shift, and another workplace's import, are untouched) and records
+the import in one transaction. `on_call_shifts` and `on_call_shift_imports` (widened with `kind`,
+`workplace`, `source`, `series_id`) are private to their owner: service-role only, every query
+filtered by `owner_id`, never shared the way non-personal On Call entries are. The old
+`/on-call/shifts` and `/on-call/calendar` URLs and the old API path keep working as redirects/re-exports.
+
+**Roster mode (Release 1).** `/roster` (Today), `/roster/shifts` (Week, Month, Hours),
+`/roster/calendar` and `/roster/settings`, with components in `src/components/roster/`. Other files
+in `src/lib/roster/` (the import folder, `calendar-link-fetch`, `calendar-links`, `hours`, `today`,
+`settings`) are covered below.
+
+- `import/` reads a PDF or Excel roster into a grid (`read-pdf`, `read-xlsx`, `table`), then `grid`
+  finds the doctor's row and turns their codes into shifts.
+- Uploaded files are read in memory by `/api/roster/read-file` and never stored or logged.
+- `calendar-links` keeps up to three calendar subscription links (`/api/roster/links`, refreshed
+  through the guarded `calendar-link-fetch`). Link addresses are never returned or logged.
+- `hours` and `today` summarise the fortnight and the day.
+- `settings` keeps the remembered row, code meanings and calendar switch under
+  `user_preferences.roster` (`/api/roster/settings`). They are never copied to the device.
+- `/api/roster/extra-time` records "stayed late" into Admin's `extra_time_records` without
+  overwriting a row Admin holds.
+- Shift reminders are the `shifts` reminder type (evening before, 20:00 Perth).
+- Roster shifts reach the calendar feed only when the doctor turns that on.
+- Nothing about shifts is stored offline, and Roster uses no AI. The On Call home still shows the
+  shift on now or the next one, linking to `/roster`.
 
 ---
 
