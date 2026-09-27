@@ -803,7 +803,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start">
                 <FormCodeBadge code={code} variant="hero" />
                 <div className="min-w-0">
-                  <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
+                  <h1 className="max-w-4xl text-2xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
                   </h1>
                   <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">
