@@ -12,6 +12,7 @@ import {
   readFlipCount,
   dragScrollBy,
 } from "./helpers/phone-scroll";
+import { visibleByTestId } from "./playwright-settlement";
 
 /**
  * Shared shell phone chrome: the universal collapse owner, per-mode top-edge
@@ -542,4 +543,54 @@ test.describe("phone PWA standalone mode bounded scroll shell (#71NT23)", () => 
       }
     });
   }
+});
+
+test("a cold phone load reserves the header nav row in the frame it leaves page flow (#CHPC5C)", async ({ page }) => {
+  // The mode nav row starts in page flow and a portal moves it into the fixed
+  // phone header. If the reserve that clears the header grows even a few
+  // frames later, every element on the page sits the row's height too high in
+  // between — long enough for a tap to press "Open comparison" and release on
+  // "Edit selection" (the recorded #CHPC5C failure, on exactly this route).
+  // So sample every animation frame from the first one, and require that in
+  // every frame where the row is in the header, the content's top reserve
+  // already equals the header stack's height.
+  await page.setViewportSize(phoneViewport);
+  await page.addInitScript(() => {
+    const samples: { occupied: boolean; stackPx: number; reservePx: number }[] = [];
+    (window as typeof window & { __addonReserveSamples?: typeof samples }).__addonReserveSamples = samples;
+    const sample = () => {
+      const slot = document.querySelector<HTMLElement>('[data-testid="header-collapse-addon"]');
+      const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
+      const pad = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]'),
+      ).find((node) => node.getBoundingClientRect().height > 0);
+      if (slot && stack && pad) {
+        samples.push({
+          occupied: slot.childElementCount > 0,
+          stackPx: stack.offsetHeight,
+          reservePx: Math.round(Number.parseFloat(getComputedStyle(pad).paddingTop)),
+        });
+      }
+      if (samples.length < 2000) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+
+  await page.goto("/differentials/compare?ids=wernicke-encephalopathy", { waitUntil: "load" });
+  await expect(visibleByTestId(page, "differential-compare-open")).toBeVisible({ timeout: 30_000 });
+  // Keep sampling well past the reserve hook's 80ms quiet window.
+  await page.waitForTimeout(1_500);
+
+  const samples = await page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          __addonReserveSamples?: { occupied: boolean; stackPx: number; reservePx: number }[];
+        }
+      ).__addonReserveSamples ?? [],
+  );
+  const occupied = samples.filter((entry) => entry.occupied && entry.stackPx > 0);
+  expect(occupied.length, "the nav row must reach the phone header").toBeGreaterThan(0);
+  const mismatched = occupied.filter((entry) => Math.abs(entry.reservePx - entry.stackPx) > 1);
+  expect(mismatched, "content reserve must match the header stack in every frame the row is in it").toEqual([]);
 });
