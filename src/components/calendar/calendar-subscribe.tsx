@@ -116,7 +116,7 @@ export function CalendarSubscribe({ testId = "calendar-subscribe" }: { testId?: 
         Keep your calendar up to date automatically
       </h2>
       <p className={cn(textMuted, "mt-1 text-sm")}>
-        One private link keeps Google, Outlook or Apple Calendar up to date with your CME deadlines, routines and
+        One private link keeps Google, Outlook or Apple Calendar up to date with your CPD deadlines, routines and
         teaching sessions. It never includes your logged activities, personal entries or anything about patients. Anyone
         with the link can see those dates, so keep it to yourself.
       </p>

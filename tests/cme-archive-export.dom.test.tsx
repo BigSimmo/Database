@@ -79,7 +79,7 @@ describe("Archive, annual record and learning journeys", () => {
         entries={[
           { ...entry, sourceUrl: "/learning", evidenceCount: 0 },
           { ...entry, id: "b", title: "With evidence", evidenceCount: 1 },
-          { ...entry, id: "c", title: "Archived record", archivedAt: "now" },
+          { ...entry, id: "c", title: "Archived record", archivedAt: "now", evidenceCount: 0 },
         ]}
       />,
     );
@@ -98,7 +98,7 @@ describe("Archive, annual record and learning journeys", () => {
     expect(screen.getByDisplayValue("Handbook learning")).toBeInTheDocument();
     expect(screen.getByDisplayValue("/on-call/handbook")).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /^save entry$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^save entry$/i })).toHaveAttribute("aria-disabled", "true");
   });
   it("prints the selected year only and invokes the browser print action", async () => {
     const user = userEvent.setup();

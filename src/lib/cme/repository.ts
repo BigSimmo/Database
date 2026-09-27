@@ -191,7 +191,7 @@ export async function fetchOwnerCmeEntries(
   if (error) throw cmeRepositoryError(error);
   if (count === null || count === undefined || count !== (data?.length ?? 0) || count > CME_MAX_ENTRIES)
     throw new PublicApiError(
-      "This year exceeds the supported entry limit. A complete record cannot be displayed or exported.",
+      "This year exceeds the supported entry limit. The whole record cannot be displayed or exported.",
       409,
     );
 
@@ -428,7 +428,7 @@ export async function markCmeEntryTranscribed(
     });
   }
   if (cmeYearConfigurationState(confirmedYear) !== "ready") {
-    throw new PublicApiError("Confirm your complete CPD targets before updating this entry.", 400, {
+    throw new PublicApiError("Confirm all of your CPD targets before updating this entry.", 400, {
       code: "cme_year_not_confirmed",
     });
   }

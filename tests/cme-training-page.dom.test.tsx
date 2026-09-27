@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -49,6 +49,16 @@ const OVERDUE_EXAM: TrainingMilestone = {
 };
 
 describe("CME training page", () => {
+  it("draws the timeline above the list of periods", () => {
+    render(<CmeTrainingPage nowIso={NOW_ISO} initialPeriods={PERIODS} initialMilestones={[]} demoMode={false} />);
+    const timeline = screen.getByTestId("cme-training-timeline");
+    const list = screen.getByTestId("cme-training-periods");
+    expect(timeline.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("cme-training-timeline-now")).toHaveTextContent(
+      "Now, Mon 28 Sep: Consultation liaison, rotation 2 of 2",
+    );
+  });
+
   it("explains that nothing is preloaded when the record is empty", () => {
     render(<CmeTrainingPage nowIso={NOW_ISO} initialPeriods={[]} initialMilestones={[]} demoMode={false} />);
     expect(screen.getByTestId("cme-training")).toBeInTheDocument();
@@ -115,7 +125,7 @@ describe("CME training page", () => {
 
     await user.click(screen.getByRole("button", { name: "Add stage, rotation or break" }));
     await user.type(screen.getByLabelText(/^Label/), "Child and adolescent");
-    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2027-02-01" } });
+    await user.type(screen.getByLabelText(/^Start date/), "01/02/2027");
     const fte = screen.getByLabelText(/^FTE/);
     await user.clear(fte);
     await user.type(fte, "0.8");
@@ -144,11 +154,50 @@ describe("CME training page", () => {
 
     await user.click(screen.getByRole("button", { name: "Add stage, rotation or break" }));
     await user.type(screen.getByLabelText(/^Label/), "Old age");
-    fireEvent.change(screen.getByLabelText(/^Start date/), { target: { value: "2026-09-01" } });
+    await user.type(screen.getByLabelText(/^Start date/), "01/09/2026");
     await user.click(screen.getByRole("button", { name: "Save period" }));
 
     expect(await screen.findByTestId("cme-training-period-problems")).toHaveTextContent(/overlap/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to save when an optional end date is mistyped, instead of keeping the old date", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    render(<CmeTrainingPage nowIso={NOW_ISO} initialPeriods={[]} initialMilestones={[]} demoMode={false} />);
+
+    await user.click(screen.getByRole("button", { name: "Add stage, rotation or break" }));
+    await user.type(screen.getByLabelText(/^Label/), "Demo rotation");
+    await user.type(screen.getByLabelText(/^Start date/), "01/02/2026");
+    await user.type(screen.getByLabelText(/^End date/), "31/06/2026");
+    await user.click(screen.getByRole("button", { name: "Save period" }));
+
+    expect(await screen.findByText("Fix the date before saving.")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save period" })).toBeInTheDocument();
+
+    // Once the day is readable, the same form saves.
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          period: {
+            id: "p1",
+            kind: "rotation",
+            label: "Demo rotation",
+            startsOn: "2026-02-01",
+            endsOn: "2026-06-30",
+            fte: 1,
+          },
+        }),
+        { status: 201 },
+      ),
+    );
+    const end = screen.getByLabelText(/^End date/);
+    await user.clear(end);
+    await user.type(end, "30/06/2026");
+    await user.click(screen.getByRole("button", { name: "Save period" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).endsOn).toBe("2026-06-30");
   });
 });
 
@@ -163,6 +212,7 @@ describe("CME training route", () => {
     });
     render(await CmeTrainingRoute());
     expect(screen.getByTestId("cme-signed-out")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
     expect(screen.queryByTestId("cme-training")).toBeNull();
   });
 
