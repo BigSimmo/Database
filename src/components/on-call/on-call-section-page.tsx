@@ -42,6 +42,7 @@ import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
+import { isAdminWorkforceExplainer } from "@/lib/admin/placement";
 
 /**
  * Generic, non-owner-specific framing for each view. Shown to every reader,
@@ -196,8 +197,13 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
   // Each list component filters `entries` itself — by section, and for the two
   // contacts-backed views by `details.kind` as well — so the page hands over the
-  // whole set rather than seven near-identical slices.
-  const sectionEntries = entries;
+  // whole set rather than seven near-identical slices. The one exception:
+  // medical-workforce role explainers moved to Admin > Help > Contacts (Admin
+  // update 1), so Who's who no longer lists them.
+  const sectionEntries = useMemo(
+    () => (view === "who-is-who" ? entries.filter((entry) => !isAdminWorkforceExplainer(entry)) : entries),
+    [view, entries],
+  );
   useEffect(() => {
     focusOnCallEntryFromHash();
     window.addEventListener("hashchange", focusOnCallEntryFromHash);
@@ -212,12 +218,13 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // entries the list below renders, then narrowed to whichever anchors actually
   // appear — so a flat page resolves to none and the header is just a title.
   const pageSections = useMemo(
-    () => onCallPageSections({ view, entries, linkedDocumentIds: new Set(Object.keys(linkedDocuments)) }),
-    [view, entries, linkedDocuments],
+    () =>
+      onCallPageSections({ view, entries: sectionEntries, linkedDocumentIds: new Set(Object.keys(linkedDocuments)) }),
+    [view, sectionEntries, linkedDocuments],
   );
   // What this page is actually showing — the menu's one-line summary counts
   // it, and "mark all as still correct" writes to it.
-  const visibleEntries = onCallVisibleEntries(view, entries);
+  const visibleEntries = onCallVisibleEntries(view, sectionEntries);
   const visibleCount = visibleEntries.length;
   // "Coming up", moved here from the mode home when Now dropped it (plan C25).
   // `selectUpcomingTeachingSessions` rolls a recurring session forward from its

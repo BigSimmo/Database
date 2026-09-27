@@ -173,8 +173,14 @@ function isPublicOnCallSection(section: unknown): boolean {
  * covering doctor needs; the name is the author's own note, and sent to every
  * visitor it was also cached on their device for a week. The owner still sees
  * it, because `fetchVisibleOnCallEntries` lets the owner's own copy win.
+ *
+ * `done` and `jobStartsOn` are New job's checklist tick and start date
+ * (`src/lib/admin/new-job-progress.ts`). A colleague's progress through their
+ * own setup, and the date their own job starts, are never this doctor's
+ * business — a shared New job row is read-only guidance, not a shared
+ * checklist.
  */
-const OWNER_ONLY_DETAIL_KEYS = ["contactName"] as const;
+const OWNER_ONLY_DETAIL_KEYS = ["contactName", "done", "jobStartsOn"] as const;
 
 function withoutOwnerOnlyDetails<T extends { details: unknown }>(entry: T): T {
   const details = entry.details;
@@ -275,8 +281,9 @@ export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boo
  *   it fails closed.
  * - A Teaching (`education`) entry, or any section not on `PUBLIC_ON_CALL_SECTIONS`. The
  *   section is checked again on the returned rows, so a request for one returns nothing.
- * - The detail keys in `OWNER_ONLY_DETAIL_KEYS` — a colleague's `contactName` — which are
- *   dropped from every row this read returns (owner decision, 2026-09-26).
+ * - The detail keys in `OWNER_ONLY_DETAIL_KEYS` — a colleague's `contactName`, and New job's
+ *   `done` tick and `jobStartsOn` date — which are dropped from every row this read returns
+ *   (owner decision, 2026-09-26; New job fields added for Admin update 1).
  *
  * Writes are unchanged: creating or editing still requires an account and still stamps owner_id.
  */

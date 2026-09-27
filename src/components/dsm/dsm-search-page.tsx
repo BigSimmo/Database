@@ -15,6 +15,7 @@ import {
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { mobileComposerVisibleReserve } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { usePhoneFooterLayerScrollHidden } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { cardPadding, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { cn, codeText, EmptyState, metadataPill, pageContainer } from "@/components/ui-primitives";
@@ -99,12 +100,14 @@ function DsmSearchResultCard({
 }
 
 function DsmMobileCompareStrip({ selected }: { selected: string[] }) {
+  const phoneChromeHidden = usePhoneFooterLayerScrollHidden();
   if (!selected.length) return null;
 
   return (
     <div
       aria-live="polite"
       className="dsm-mobile-compare-strip pointer-events-none fixed inset-x-0 z-[var(--z-chrome)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:hidden"
+      data-scroll-hidden={phoneChromeHidden ? "true" : undefined}
       style={{ bottom: mobileComposerVisibleReserve.shellDock }}
     >
       <Link

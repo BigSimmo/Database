@@ -1,6 +1,7 @@
 "use client";
 import { Clipboard, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import { useState } from "react";
+import { ContactActions } from "@/components/first-nations/number-button";
 import {
   FnButton,
   ModeActionButton,
@@ -55,6 +56,7 @@ function DialRow({ contact }: { contact: ContactView }) {
       source={{ label: contact.source.title, url: contact.source.url }}
       checkedAt={contact.checkedAt}
       testId={`fn-home-${contact.id}`}
+      sheetFooter={<ContactActions contact={contact} />}
     />
   );
 }

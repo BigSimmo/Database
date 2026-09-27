@@ -2,9 +2,10 @@
 import { ArrowUpRight, Ban, Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { CopyNoteWording } from "@/components/first-nations/copy-note-wording";
+import { ContactReviewLine } from "@/components/first-nations/review-line";
 import { ModeDialRow, ModeFactTile, ModeFactTiles, ModeUpdatedLine } from "@/components/first-nations/kit";
 import { FnModule } from "@/components/first-nations/module-header";
-import { NumberTile } from "@/components/first-nations/number-button";
+import { ContactActions, NumberTile } from "@/components/first-nations/number-button";
 import { dialNumber } from "@/lib/first-nations/contact-format";
 import { PhraseDeck } from "@/components/first-nations/phrase-deck";
 import { StateModule } from "@/components/first-nations/state-module";
@@ -29,8 +30,13 @@ const row =
 /** A contact the phone can ring. "See website" and other words are never handed to the dialler. */
 export const isDialable = (contact: ContactView): boolean => Boolean(telHref(contact.number));
 
-function Source({ source, checkedAt }: { source: SourceView; checkedAt: string }) {
-  return <ModeUpdatedLine updatedAt={checkedAt} verb="Checked" sources={[{ label: source.title, url: source.url }]} />;
+function Source({ source, checkedAt, days = 365 }: { source: SourceView; checkedAt: string; days?: number }) {
+  return (
+    <>
+      <ModeUpdatedLine updatedAt={checkedAt} verb="Checked" sources={[{ label: source.title, url: source.url }]} />
+      <ContactReviewLine checkedAt={checkedAt} days={days} />
+    </>
+  );
 }
 
 function ContactRow({ contact }: { contact: ContactView }) {
@@ -43,6 +49,7 @@ function ContactRow({ contact }: { contact: ContactView }) {
         source={{ label: contact.source.title, url: contact.source.url }}
         checkedAt={contact.checkedAt}
         testId={`fn-contact-${contact.id}`}
+        sheetFooter={<ContactActions contact={contact} />}
       />
     );
   }
@@ -54,7 +61,7 @@ function ContactRow({ contact }: { contact: ContactView }) {
         <span className="text-sm-minus text-[color:var(--text-muted)]">{contact.number}</span>
       </span>
       {contact.detail ? <span className={body}>{contact.detail}</span> : null}
-      <Source source={contact.source} checkedAt={contact.checkedAt} />
+      <Source source={contact.source} checkedAt={contact.checkedAt} days={90} />
     </li>
   );
 }
