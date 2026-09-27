@@ -106,10 +106,13 @@ describe("teaching leaves On Call", () => {
     expect(screen.getByText("The expiry dates you recorded on Compliance.")).toBeInTheDocument();
   });
 
-  it("removes the home strip and its component, and My Work's tile no longer mentions teaching", () => {
+  it("removes the home strip's usage, and My Work's tile no longer mentions teaching", () => {
     const home = readFileSync("src/components/on-call/on-call-home.tsx", "utf8");
     expect(home).not.toMatch(/on-call-home-upcoming|OnCallTeachingStrip|selectUpcomingTeachingSessions/);
-    expect(existsSync("src/components/on-call/on-call-teaching-strip.tsx")).toBe(false);
+    // R13: the component and its test are never deleted without Josh's typed
+    // sentence, so `OnCallTeachingStrip` stays on disk — just unused by the home
+    // above, which is the actual behaviour change (spec §8).
+    expect(existsSync("src/components/on-call/on-call-teaching-strip.tsx")).toBe(true);
     const myWork = readFileSync("src/components/my-work/my-work-home.tsx", "utf8");
     expect(myWork).toContain('description="Recorded expiry dates by month"');
     expect(myWork).not.toMatch(/Teaching and recorded expiry/);
