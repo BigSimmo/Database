@@ -179,14 +179,18 @@ export const modeSecondaryNavigationRegistry = {
   // My Work's home is itself the list of pages it gathers, each of which keeps
   // its own address and navigation, so the hub registers no destinations.
   "my-work": [],
-  // Roster's three Release 1 pages, registered so the mode pill's section
-  // sheet can open them. Like On Call and CME, Roster is absent from
+  // Roster's pages, registered so the mode pill's section sheet can open them.
+  // Manage is deliberately absent: this registry is the same for everyone and
+  // non-managers must not see it, so managers reach /roster/manage from a row
+  // on Today and on Settings. Like On Call and CME, Roster is absent from
   // `MODE_NAV_ADOPTED_MODES`, so no shared rail is mounted. Its pages carry no
   // in-page navigation header either: the mode pill's section sheet is how a
-  // reader moves between Today, Shifts and Settings.
+  // reader moves between its pages.
   roster: [
     { id: "today", label: "Today", href: "/roster" },
     { id: "shifts", label: "Shifts", href: "/roster/shifts" },
+    { id: "team", label: "Team", href: "/roster/team" },
+    { id: "requests", label: "Requests", href: "/roster/requests" },
     { id: "settings", label: "Settings", href: "/roster/settings" },
   ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
@@ -353,6 +357,8 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   }
   if (modeId === "roster") {
     if (pathname === "/roster/shifts") return "shifts";
+    if (pathname === "/roster/team") return "team";
+    if (pathname === "/roster/requests") return "requests";
     if (pathname === "/roster/settings") return "settings";
     // Exact match only, for the same reason On Call's and CME's homes are: a
     // prefix test here would mark Today current on every Roster route as well
@@ -418,7 +424,9 @@ export function isModeSecondaryNavigationRoute(params: {
   if (modeId === "sources") {
     return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
-  if (modeId === "roster") return pathname === "/roster/shifts" || pathname === "/roster/settings";
+  if (modeId === "roster") {
+    return ["/roster/shifts", "/roster/team", "/roster/requests", "/roster/settings"].includes(pathname);
+  }
   return false;
 }
 

@@ -65,7 +65,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   ],
   psychiatry: [],
   "my-work": [],
-  roster: ["Today", "Shifts", "Settings"],
+  roster: ["Today", "Shifts", "Team", "Requests", "Settings"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {

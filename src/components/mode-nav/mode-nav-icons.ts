@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   BookOpenText,
   BookMarked,
   Building2,
@@ -23,6 +24,7 @@ import {
   Stethoscope,
   Scale,
   Target,
+  UsersRound,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -110,11 +112,14 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   programme: ClipboardList,
   setup: ListChecks,
   // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
-  // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
-  // gear, matched to nothing else in this rail so it cannot be mistaken for a
-  // section.
+  // own CalendarRange mark (`category-identity.ts`); Team is the people on the
+  // roster; Requests is the swap arrows, since swaps are most of what it holds;
+  // Settings gets the generic gear, matched to nothing else in this rail so it
+  // cannot be mistaken for a section.
   today: CalendarClock,
   shifts: CalendarRange,
+  team: UsersRound,
+  requests: ArrowLeftRight,
   settings: Settings,
 };
 
