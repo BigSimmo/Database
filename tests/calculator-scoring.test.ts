@@ -363,3 +363,35 @@ describe("result summary text", () => {
     expect(progressLabel(state)).toBe("4 of 4 answered · 2 endorsed");
   });
 });
+
+describe("Y-BOCS control item scoring", () => {
+  const ybocs = fixture("ybocs");
+
+  it("uses inverted control anchors where 0 is complete control and 4 is no control", () => {
+    const controlItemIds = ["y4", "y5", "y9", "y10"];
+    for (const itemId of controlItemIds) {
+      const item = ybocs.items.find((i) => i.id === itemId);
+      expect(item).toBeDefined();
+      expect(item?.kind).toBe("options");
+      const options = item?.options ?? [];
+      expect(options).toHaveLength(5);
+      expect(options[0]).toEqual({ label: "Complete control", short: "0", points: 0 });
+      expect(options[1]).toEqual({ label: "Much control", short: "1", points: 1 });
+      expect(options[2]).toEqual({ label: "Moderate control", short: "2", points: 2 });
+      expect(options[3]).toEqual({ label: "Little control", short: "3", points: 3 });
+      expect(options[4]).toEqual({ label: "No control", short: "4", points: 4 });
+    }
+  });
+
+  it("scores 0 when all symptoms are absent and control is complete", () => {
+    const state = deriveCalculator(ybocs, baselineAnswers(ybocs));
+    expect(state.score).toBe(0);
+    expect(state.result.label).toBe("Subclinical");
+  });
+
+  it("scores 40 when all symptoms are extreme and control is absent", () => {
+    const state = deriveCalculator(ybocs, maximalAnswers(ybocs));
+    expect(state.score).toBe(40);
+    expect(state.result.label).toBe("Extreme");
+  });
+});

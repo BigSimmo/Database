@@ -7,13 +7,20 @@
     "sourceUrl": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-02%5D.html?OpenElement",
     "generatedAt": "2026-09-25T14:02:33.924Z",
     "counts": {
-      "sections": 109,
+      "sections": 110,
       "reviewed": 0,
-      "drafted": 109,
+      "drafted": 110,
       "pending": 0
     }
   },
   "sections": [
+    {
+      "section": "14",
+      "title": "Capacity of child to make decisions",
+      "summary": "A child (a person under 18 years of age) is presumed to not have capacity to make a treatment decision unless the child has sufficient maturity and understanding to make the decision having regard to the criteria in s 15.",
+      "status": "drafted",
+      "sourceTextSha256": "a8faee7535560b29ff6d4a67e23114d7b2354c4ff5aa3bcebafe4d8f58b0f49f"
+    },
     {
       "section": "25",
       "title": "Criteria for involuntary treatment order",

@@ -624,7 +624,6 @@ function UrgentDiagnosisLink({ candidate }: { candidate: CandidateView }) {
 
 function ReviewPanel({
   workflow,
-  diagnosisLinks,
 }: {
   workflow: DifferentialPresentationWorkflow;
   diagnosisLinks?: ResolveDiagnosisTermOptions;
@@ -640,9 +639,9 @@ function ReviewPanel({
           </li>
         ))}
       </ul>
-      {!diagnosisLinks || diagnosisLinks.routableSlugs?.has("delirium") ? (
+      {workflow.id !== AD_HOC_DIFFERENTIAL_COMPARE_ID ? (
         <Link
-          href="/differentials/diagnoses/delirium"
+          href={`/differentials/presentations/${workflow.id}`}
           className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
         >
           View handoff template
@@ -691,7 +690,6 @@ function ReviewPanels({
 
 function SourceStatusPanel({
   workflow,
-  diagnosisLinks,
 }: {
   workflow: DifferentialPresentationWorkflow;
   diagnosisLinks?: ResolveDiagnosisTermOptions;
@@ -706,9 +704,9 @@ function SourceStatusPanel({
       </p>
       <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">{status.version}</p>
       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">Last updated: {status.lastUpdated}</p>
-      {!diagnosisLinks || diagnosisLinks.routableSlugs?.has("delirium") ? (
+      {workflow.id !== AD_HOC_DIFFERENTIAL_COMPARE_ID ? (
         <Link
-          href="/differentials/diagnoses/delirium"
+          href={`/differentials/presentations/${workflow.id}`}
           className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
         >
           View details

@@ -30,8 +30,6 @@ const REGIONAL_WA =
 // `detectClockTimeUrgency` below — a bare "pm" match here previously misclassified
 // genuine business-hours times such as "2pm" as after-hours.
 const AFTER_HOURS_KEYWORDS = /\b(?:after[- ]?hours|tonight|overnight|weekend|public holiday)\b/i;
-const METRO_OR_PEEL = /\b(?:perth|metro(?:politan)?|peel|mandurah)\b/i;
-const ADULT = /\b(?:adult|18\s*[- ]?\s*(?:year|yr)s?[- ]?old|[2-9][0-9]\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
 const AFTERCARE =
   /(?:\baftercare\b.*\bsuicid\w*\b|\bsuicid\w*\b.*\baftercare\b|\bdischarg\w*\b.*\b(?:suicide attempt|suicidal crisis)\b|\b(?:suicide attempt|suicidal crisis)\b.*\bdischarg\w*\b)/i;
 const POSTVENTION =
@@ -176,8 +174,11 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
   const postvention = POSTVENTION.test(clean);
   const child = CHILD.test(clean);
   const youthAnyAge = !child && YOUTH.test(clean);
+  const acuteCrisis = crisis && !postvention && !AFTERCARE.test(clean);
 
-  if (immediateDanger) intents.push("emergency");
+  if (immediateDanger || (acuteCrisis && !child && !youthAnyAge && !REGIONAL_WA.test(clean))) {
+    intents.push("emergency");
+  }
   if (crisis && (child || youthAnyAge)) intents.push("camhs_crisis");
   if (ABORIGINAL.test(clean) && crisis) intents.push("aboriginal_crisis");
   if (FAMILY_VIOLENCE_NAMED.test(clean) || FAMILY_VIOLENCE_DESCRIBED.test(clean)) intents.push("family_violence");
@@ -195,7 +196,7 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
       intents.push("regional_after_hours");
     }
   }
-  if (crisis && !child && (youthAnyAge || ADULT.test(clean) || METRO_OR_PEEL.test(clean))) {
+  if (acuteCrisis && !child) {
     intents.push("adult_metro_crisis");
   }
   if (AOD_TERMS.test(clean) && AOD_URGENCY.test(clean)) intents.push("aod_urgent");
@@ -247,6 +248,7 @@ const TAG_MATCHERS: Record<ServiceUrgentIntent, RegExp[]> = {
 // one leads, or push 1800RESPECT out of the results.
 const PINNED_TITLE_SEQUENCES: Partial<Record<ServiceUrgentIntent, readonly RegExp[]>> = {
   family_violence: [/^Women[’']?s Domestic Violence Helpline$/i, /^1800RESPECT$/i],
+  adult_metro_crisis: [/Mental Health Emergency Response Line|\bMHERL\b/i, /^Lifeline WA$/i],
 };
 
 // Score step between successive pins of one intent. Every pin of an intent must stay above the

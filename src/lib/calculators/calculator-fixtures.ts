@@ -212,6 +212,14 @@ const ybocsSeverity: CalculatorOption[] = [
   { label: "Extreme", short: "4", points: 4 },
 ];
 
+const ybocsControl: CalculatorOption[] = [
+  { label: "Complete control", short: "0", points: 0 },
+  { label: "Much control", short: "1", points: 1 },
+  { label: "Moderate control", short: "2", points: 2 },
+  { label: "Little control", short: "3", points: 3 },
+  { label: "No control", short: "4", points: 4 },
+];
+
 const calculatorFixtures: RawCalculatorFixture[] = [
   {
     id: "phq9",
@@ -727,22 +735,22 @@ const calculatorFixtures: RawCalculatorFixture[] = [
       {
         id: "y4",
         kind: "options",
-        options: ybocsSeverity,
+        options: ybocsControl,
         text: "Resistance against obsessions",
         detail: "0 = always resists",
       },
-      { id: "y5", kind: "options", options: ybocsSeverity, text: "Degree of control over obsessive thoughts" },
+      { id: "y5", kind: "options", options: ybocsControl, text: "Degree of control over obsessive thoughts" },
       { id: "y6", kind: "options", options: ybocsSeverity, text: "Time spent performing compulsive behaviours" },
       { id: "y7", kind: "options", options: ybocsSeverity, text: "Interference from compulsive behaviours" },
       { id: "y8", kind: "options", options: ybocsSeverity, text: "Distress if compulsions are prevented" },
       {
         id: "y9",
         kind: "options",
-        options: ybocsSeverity,
+        options: ybocsControl,
         text: "Resistance against compulsions",
         detail: "0 = always resists",
       },
-      { id: "y10", kind: "options", options: ybocsSeverity, text: "Degree of control over compulsive behaviour" },
+      { id: "y10", kind: "options", options: ybocsControl, text: "Degree of control over compulsive behaviour" },
     ],
     bands: [
       {
@@ -794,7 +802,7 @@ const responseAnchorSetIds: Record<string, string> = {
   cage: "rax-a9efad27e70f3351",
   auditc: "rax-2542f10c0cd037e1",
   sadpersons: "rax-d3e9691eb7b40e58",
-  ybocs: "rax-127633983e754a29",
+  ybocs: "rax-bac06d27d2e8654b",
 };
 
 /**

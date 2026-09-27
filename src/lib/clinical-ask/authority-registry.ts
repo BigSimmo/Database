@@ -55,15 +55,6 @@ export const clinicalAskAuthorityRegistry: readonly ClinicalAskAuthority[] = [
     reviewNote: "Australian national safety and quality authority.",
   },
   {
-    id: "healthdirect",
-    domain: "healthdirect.gov.au",
-    publisher: "Healthdirect Australia",
-    jurisdiction: "Australia",
-    allowedModes: ["services", "differentials", "therapy-compass"],
-    profileAuthorityIds: ["official-service-directories", "clinical-guideline-publishers"],
-    reviewNote: "Australian government-funded health information service.",
-  },
-  {
     id: "tga",
     domain: "tga.gov.au",
     publisher: "Therapeutic Goods Administration",

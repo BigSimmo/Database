@@ -515,6 +515,13 @@ describe("lexicon hygiene", () => {
     expect(slugsFor("tcas")).toContain("dosulepin");
   });
 
+  it("covers Moclobemide under MAOI / RIMA lexicon term", () => {
+    const maoiSlugs = slugsFor("maois");
+    expect(maoiSlugs).toContain("moclobemide");
+    expect(maoiSlugs).toContain("phenelzine");
+    expect(maoiSlugs).toContain("tranylcypromine");
+  });
+
   it("never lets a source medication appear as its own counterparty", () => {
     for (const [slug, entry] of Object.entries(index.bySlug)) {
       for (const row of entry.rows) {

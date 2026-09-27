@@ -730,6 +730,36 @@ function FactsheetBody({
               ))}
             </div>
           </section>
+          <section
+            id="factsheet-support"
+            className={cn(inPageAnchor, "flex gap-3.5 rounded-2xl border p-5")}
+            style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
+          >
+            <span
+              className="grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--clinical-accent-contrast)]"
+              style={{ backgroundColor: theme.accent }}
+            >
+              <HeartHandshake className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-base font-bold text-[color:var(--text-heading)]">You’re not alone</p>
+              <p className="mt-1.5 max-w-[60ch] text-pretty text-sm leading-6 text-[color:var(--text)]">
+                {/* Numbers come from the shared constant, not a second copy:
+                    the printed handout builds its crisis line from the same
+                    source, so the two cannot drift into different advice. */}
+                {factsheet.support ? `${factsheet.support} ` : ""}In Australia you can call{" "}
+                {FACTSHEET_CRISIS_CONTACTS.map((contact, index) => (
+                  <span key={contact.number}>
+                    <strong className="font-bold">
+                      {contact.name} {contact.number}
+                    </strong>
+                    {index < FACTSHEET_CRISIS_CONTACTS.length - 1 ? ", " : ", or "}
+                  </span>
+                ))}
+                <strong className="font-mono">{FACTSHEET_EMERGENCY_NUMBER}</strong> in an emergency.
+              </p>
+            </div>
+          </section>
         </div>
       );
     case "procedure":
