@@ -92,7 +92,10 @@ async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
 
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
-  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
+  // A sheet can leave the page hundreds of pixels down after its trigger was
+  // scrolled into view. A 48px upward nudge does not bring the phone header
+  // back into the viewport under WebKit.
+  if (scrollTop > 0) await scrollPrimarySurface(page, 0);
   await expect(control).toBeInViewport();
 }
 
