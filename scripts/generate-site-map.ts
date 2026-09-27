@@ -189,6 +189,8 @@ const routeDescriptions: Record<string, string> = {
     "The doctor's attendance record: this term, hours, sessions not yet in CPD, a weekly chart, and a ledger by month with Log to CPD and a CSV download.",
   "/teaching/organise":
     "For a service's organisers: the next 48 hours with clashes named, counts, series, groups, members, invitations, posting a change with a 10-second undo, and the attendance export.",
+  "/teaching/whats-on":
+    "What's on across the doctor's health service: On now leads with Join, a day rail and an All / My level / Online switch, and a plus to add another service's open session to the doctor's own week.",
   "/teaching/session/[id]":
     "One session under the in-page header: when and where, a change line when it was moved or cancelled, the phase module (On now, check-in, Log to CPD after it ends), details and materials. A removed session says it is no longer in the programme.",
   "/teaching/session/[id]/check-in":

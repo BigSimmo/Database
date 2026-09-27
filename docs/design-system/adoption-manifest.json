@@ -2803,7 +2803,8 @@
         "src/app/(search-app)/teaching/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
         "src/app/(search-app)/teaching/session/[id]/page.tsx",
-        "src/app/(search-app)/teaching/week/page.tsx"
+        "src/app/(search-app)/teaching/week/page.tsx",
+        "src/app/(search-app)/teaching/whats-on/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -3555,6 +3556,16 @@
         },
         {
           "file": "src/app/(search-app)/teaching/week/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/teaching/whats-on/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4721,6 +4732,7 @@
       "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/page.tsx",
       "src/app/(search-app)/teaching/week/page.tsx",
+      "src/app/(search-app)/teaching/whats-on/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
@@ -4838,6 +4850,7 @@
       "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
       "src/app/(search-app)/teaching/session/[id]/page.tsx",
       "src/app/(search-app)/teaching/week/page.tsx",
+      "src/app/(search-app)/teaching/whats-on/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
       "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
@@ -4859,7 +4872,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 122,
+    "inheritedCkbV2RootCount": 123,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -4868,8 +4881,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 123,
-    "productionRouteCount": 115,
-    "nextUiEntryCount": 180
+    "rootCount": 124,
+    "productionRouteCount": 116,
+    "nextUiEntryCount": 181
   }
 }
