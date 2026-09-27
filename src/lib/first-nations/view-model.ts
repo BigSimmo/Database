@@ -313,14 +313,8 @@ export function buildSearchIndex(inputs: ModelInputs): SearchEntry[] {
             ...(block.kind === "contact" ? { number: block.number } : {}),
           });
         }
-  for (const c of inputs.content.statewideContacts)
-    entries.push({
-      id: c.id,
-      title: c.name,
-      detail: c.detail ?? "",
-      href: firstNationsPageHref("contacts"),
-      number: c.number,
-    });
+  // Page contacts are indexed above with their visible section. Region-only
+  // contacts stay in Where is home until search can reveal that selection.
   for (const h of hospitalViews(inputs))
     for (const c of [h.liaison, h.switchboard])
       entries.push({

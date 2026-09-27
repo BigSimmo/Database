@@ -168,7 +168,7 @@ export function ModeDialSheet({
                 )}
               >
                 <span className="grid min-w-0 gap-0.5 py-1">
-                  <span className="text-sm leading-5 text-[color:var(--text-muted)]">{route.label}</span>
+                  <span className="text-sm-minus leading-5 text-[color:var(--text-muted)]">{route.label}</span>
                   {route.number ? (
                     <span
                       className={cn(modeNumberText, "break-words text-base-minus leading-5 text-[color:var(--text)]")}

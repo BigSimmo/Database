@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WA_CRISIS_CONTACTS } from "@/lib/crisis-contacts";
 import { getContacts, getServiceProfile, loadModelInputs } from "@/lib/first-nations/content";
 import { firstNationsPageIds, situationIds } from "@/lib/first-nations/content-schema";
 import { buildBedsideModel, buildInnerPageModel, buildSearchIndex } from "@/lib/first-nations/view-model";
@@ -6,6 +7,35 @@ import { buildBedsideModel, buildInnerPageModel, buildSearchIndex } from "@/lib/
 const inputs = loadModelInputs();
 
 describe("First Nations content", () => {
+  it("keeps duplicated crisis numbers and verification dates aligned with the canonical registry", () => {
+    const contacts = [
+      ...inputs.content.statewideContacts,
+      ...inputs.content.pages.flatMap((p) => p.sections.flatMap((s) => s.modules.flatMap((m) => m.blocks))),
+    ].filter((b) => b.kind === "contact");
+    for (const canonical of WA_CRISIS_CONTACTS.filter((c) =>
+      ["SYN-CRISIS-CONTACT-002", "SYN-CRISIS-CONTACT-003", "SYN-CRISIS-CONTACT-004", "SYN-CRISIS-CONTACT-007"].includes(
+        c.id,
+      ),
+    )) {
+      const copies = contacts.filter((c) => c.number.replace(/\D/g, "") === canonical.telephoneUri);
+      expect(copies.length).toBeGreaterThan(0);
+      for (const copy of copies) expect(copy.checkedAt, copy.id).toBe(canonical.verifiedOn);
+    }
+  });
+  it("indexes only contacts with a visible page destination", () => {
+    const index = buildSearchIndex(inputs);
+    expect(index.some((entry) => entry.title === "Aboriginal Interpreting WA")).toBe(true);
+    for (const id of ["brams", "wirraka-maya", "grams", "bega", "derbarl", "swams"]) {
+      expect(
+        index.some((entry) => entry.id === id),
+        id,
+      ).toBe(false);
+      expect(
+        buildBedsideModel(inputs).regions.some((r) => r.services.some((c) => c.id === id)),
+        id,
+      ).toBe(true);
+    }
+  });
   it("has all nine pages and the six fixed situations", () => {
     expect(inputs.content.pages.map((p) => p.id).sort()).toEqual([...firstNationsPageIds].sort());
     expect(inputs.content.situations.map((s) => s.id)).toEqual([...situationIds]);

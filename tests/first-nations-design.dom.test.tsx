@@ -1,13 +1,16 @@
 /** @vitest-environment jsdom */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { BedsideHomeView } from "@/components/first-nations/bedside-home";
 import { InnerPageView } from "@/components/first-nations/inner-page";
 import { buildInnerPageModel } from "@/lib/first-nations/view-model";
 import { testInputs } from "./fixtures/first-nations-content";
-import { FIRST_NATIONS_HOSPITAL_STORAGE_KEY } from "@/lib/account-scoped-browser-state";
+import {
+  clearAccountScopedBrowserStorage,
+  FIRST_NATIONS_HOSPITAL_STORAGE_KEY,
+} from "@/lib/account-scoped-browser-state";
 import { bedsideFixture, resetAfterEach } from "./fixtures/first-nations-models";
 
 vi.mock("@/components/first-nations/kit", async () => await import("./fixtures/first-nations-kit-double"));
@@ -67,7 +70,15 @@ describe("First Nations design guard (standard v13.1)", () => {
     expect((screen.getByRole("combobox", { name: "Your workplace hospital" }) as HTMLSelectElement).value).toBe(
       "second",
     );
-    localStorage.removeItem(FIRST_NATIONS_HOSPITAL_STORAGE_KEY);
+    fireEvent.change(screen.getByRole("combobox", { name: "Your workplace hospital" }), {
+      target: { value: "second" },
+    });
+    act(() => clearAccountScopedBrowserStorage());
+    expect((screen.getByRole("combobox", { name: "Your workplace hospital" }) as HTMLSelectElement).value).toBe(
+      hospital.id,
+    );
+    expect(localStorage.getItem(FIRST_NATIONS_HOSPITAL_STORAGE_KEY)).toBeNull();
+    expect(screen.queryByText("(08) 9000 0099")).toBeNull();
   });
   it("uses nothing heavier than semibold", () => {
     for (const { f, text } of files)
