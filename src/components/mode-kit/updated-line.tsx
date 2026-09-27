@@ -38,7 +38,7 @@ export function ModeUpdatedLine({
   const safeSources = sources?.filter((source) => source.url.startsWith("https://")) ?? [];
   if (!date && !safeSources.length && !reviewedAt) return null;
   return (
-    <span className="grid min-w-0 gap-0.5 text-xs text-[color:var(--text)]" data-testid={testId}>
+    <span className="grid min-w-0 gap-0.5 text-xs text-[color:var(--text-muted)]" data-testid={testId}>
       {date ? (
         <span className={cn(modeNumberText, "break-words")}>
           {verb} {date}

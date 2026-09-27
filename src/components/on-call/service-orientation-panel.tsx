@@ -87,7 +87,7 @@ export function ServiceOrientationPanel({
   return (
     <section aria-labelledby="service-orientation-heading" className="grid gap-4" data-testid="service-orientation">
       <div>
-        <h2 id="service-orientation-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="service-orientation-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           Site orientation
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -107,7 +107,7 @@ export function ServiceOrientationPanel({
         );
         return (
           <section key={group} aria-labelledby={`orientation-${group}-heading`} className="grid gap-2">
-            <h3 id={`orientation-${group}-heading`} className="text-sm font-bold text-[color:var(--text-heading)]">
+            <h3 id={`orientation-${group}-heading`} className="text-sm font-semibold text-[color:var(--text-heading)]">
               {groupLabels[group]}
             </h3>
             {groupEntries.length === 0 ? (
@@ -123,7 +123,7 @@ export function ServiceOrientationPanel({
                       className={cn(cardSurface, "grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center")}
                     >
                       <div className="min-w-0">
-                        <h4 className="break-words text-sm font-bold text-[color:var(--text-heading)]">
+                        <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">
                           {visibleContent.title}
                         </h4>
                         {visibleContent.body ? (

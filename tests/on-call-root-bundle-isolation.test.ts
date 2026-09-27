@@ -67,6 +67,8 @@ describe("the On Call domain model stays out of every page's bundle", () => {
     "src/lib/on-call/entry-cache-keys.ts",
     "src/lib/on-call/recent-storage-keys.ts",
     "src/lib/on-call/checklist-storage-keys.ts",
+    "src/lib/on-call/device-state-keys.ts",
+    "src/lib/on-call/feature-flags.ts",
   ])("keeps %s free of imports, since it loads everywhere", (modulePath) => {
     const source = read(modulePath);
     const imports = source.match(/^\s*import\s/gm) ?? [];
@@ -188,12 +190,17 @@ describe("the On Call domain model stays out of every page's bundle", () => {
     expect(store).toContain("export { clearOnCallChecklists");
   });
 
-  it("wires all three On Call stores into the one sign-out path", () => {
+  it("wires every On Call store into the one sign-out path", () => {
     // A store added to the mode but not to `clearAccountScopedBrowserState`
     // survives an account switch on a shared ward computer, which is the whole
     // hazard this list exists for.
     const source = read(authProvider);
-    for (const call of ["clearOnCallEntryCache()", "clearOnCallRecent()", "clearOnCallChecklists()"]) {
+    for (const call of [
+      "clearOnCallEntryCache()",
+      "clearOnCallRecent()",
+      "clearOnCallChecklists()",
+      "clearOnCallDeviceState()",
+    ]) {
       expect(source, `sign-out must call ${call}`).toContain(call);
     }
   });

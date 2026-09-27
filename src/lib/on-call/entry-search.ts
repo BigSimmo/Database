@@ -82,8 +82,21 @@ export interface OnCallSearchResult {
 }
 
 /** Digits only, for comparing a stored number with a typed one. */
-function digitsOf(value: string): string {
+export function onCallDigitsOf(value: string): string {
   return value.replace(/\D/g, "");
+}
+const digitsOf = onCallDigitsOf;
+
+/**
+ * A query as the search reads it: lower-cased, split on whitespace, empties
+ * dropped. Exported so the hospital handbook search splits exactly as this one.
+ */
+export function onCallSearchTerms(query: string): string[] {
+  return query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((term) => term.length > 0);
 }
 
 /**
@@ -94,14 +107,14 @@ function digitsOf(value: string): string {
  * form — "2" finding "Ward 42" is fine, "2" finding "(08) 9224 1000" because the
  * brackets vanished is noise the reader cannot explain.
  */
-function fieldMatches(field: string, term: string, termDigits: string): boolean {
+export function onCallFieldMatches(field: string, term: string, termDigits: string): boolean {
   if (field.toLowerCase().includes(term)) return true;
   if (termDigits.length < 2) return false;
   return digitsOf(field).includes(termDigits);
 }
 
 function matchesAny(fields: readonly string[], term: string, termDigits: string): boolean {
-  return fields.some((field) => fieldMatches(field, term, termDigits));
+  return fields.some((field) => onCallFieldMatches(field, term, termDigits));
 }
 
 /**
@@ -179,7 +192,7 @@ function detailStrings(entry: OnCallEntry): string[] {
       //
       // - `expiresOn` is a bare `YYYY-MM-DD`, which nobody types to find a
       //   requirement — and indexing it would damage the mode's single most
-      //   likely query. `fieldMatches` also compares digits-only, so
+      //   likely query. `onCallFieldMatches` also compares digits-only, so
       //   "2027-03-12" indexes as "20270312" and a half-remembered number typed
       //   as "0312" would drag back every requirement expiring in March. The
       //   date is shown in the result summary below instead, which is where it
@@ -299,11 +312,7 @@ function rankEntry(entry: OnCallEntry, terms: readonly string[]): number | null 
  * in the wrong order.
  */
 export function searchOnCallEntries(entries: readonly OnCallEntry[], query: string): OnCallSearchResult[] {
-  const terms = query
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((term) => term.length > 0);
+  const terms = onCallSearchTerms(query);
   if (terms.length === 0) return [];
 
   const matches: Array<OnCallSearchResult & { index: number }> = [];

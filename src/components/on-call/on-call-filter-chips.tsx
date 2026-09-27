@@ -74,7 +74,7 @@ export function OnCallFilterChips({
             aria-pressed={isActive}
             data-testid={`${testId}-${option === ON_CALL_FILTER_ALL ? "all" : slugifyOption(option)}`}
             className={cn(
-              "inline-flex min-h-tap shrink-0 items-center rounded-full border px-3.5 text-xs font-bold",
+              "inline-flex min-h-tap shrink-0 items-center rounded-full border px-3.5 text-xs font-semibold",
               "transition-colors motion-reduce:transition-none",
               focusRing,
               isActive
