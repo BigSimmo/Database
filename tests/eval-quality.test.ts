@@ -8,6 +8,7 @@ import {
   evalQualityRunContext,
   parseEvalQualityArgs,
   qualityFailureCategory,
+  ragAnswerFailureDiagnostics,
   ragAnswerTimingDiagnostics,
   renderEvalQualityMarkdown,
   retrievalCasesForProviderMode,
@@ -197,6 +198,95 @@ function ragResult(overrides: Partial<RagQualityResult> = {}): RagQualityResult 
 describe("eval quality reporting", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("retains rejection reasons and actual citation identities without source or answer prose", () => {
+    const diagnostics = ragAnswerFailureDiagnostics({
+      latencyTimings: {
+        answer_retry_reasons: [
+          "strong_quality_retry",
+          "generation_quality_gate:numeric_faithfulness_gap",
+          "generation_quality_gate:numeric_faithfulness_gap",
+          "generation_quality_gate:provider_source_gap",
+          "generation_quality_gate:unsafe free text",
+        ],
+      },
+      citations: [
+        {
+          chunk_id: "review-chunk",
+          document_id: "review-document",
+          title: "Source title",
+          file_name: "clozapine.pdf",
+          page_number: 6,
+          chunk_index: 2,
+          provenance: "review_only",
+        },
+      ],
+    });
+    expect(diagnostics).toEqual({
+      generationQualityGateReasons: ["numeric_faithfulness_gap", "provider_source_gap"],
+      citedSources: [
+        {
+          chunkId: "review-chunk",
+          documentId: "review-document",
+          fileName: "clozapine.pdf",
+          pageNumber: 6,
+          provenance: "review_only",
+        },
+      ],
+    });
+  });
+
+  it("does not invent a rejection reason when only the generic fallback survived", () => {
+    expect(ragAnswerFailureDiagnostics({ citations: [] })).toEqual({
+      generationQualityGateReasons: [],
+      citedSources: [],
+    });
+  });
+
+  it("keeps the #2947 citation failure separate from two cited but ungrounded clozapine fallbacks", () => {
+    const comparison = ragResult({
+      id: "admission-discharge-comparison",
+      grounded: false,
+      citations: 0,
+      failures: ["expected grounded answer", "expected at least 1 citations"],
+    });
+    const clozapine = ["clozapine-anc-withhold-threshold", "clozapine-fbc-acronym-threshold"].map((id) =>
+      ragResult({
+        id,
+        grounded: false,
+        citations: 6,
+        failures: ["expected grounded answer"],
+        routingReason:
+          "clinical_risk_or_complex_query; generation_fallback:generation_quality_failed; source_backed_review_fallback; extractive_quality_gate:ungrounded_extractive_fallback",
+      }),
+    );
+    const ragResults = [
+      comparison,
+      ...clozapine,
+      ...Array.from({ length: 41 }, (_, i) => ragResult({ id: `ok-${i}` })),
+    ];
+    const baseline = buildEvalQualityReport({ retrievalResults: [], ragResults, skippedComponents: ["retrieval"] });
+    // The reason here is synthetic. The historical artifact did not retain it.
+    const diagnostics = { generationQualityGateReasons: ["numeric_faithfulness_gap"], citedSources: [] };
+    const report = buildEvalQualityReport({
+      retrievalResults: [],
+      ragResults: ragResults.map((result) => ({ ...result, ...diagnostics })),
+      skippedComponents: ["retrieval"],
+    });
+    expect(report.rag.summary.citation_failure_rate).toBe(0.0227);
+    expect(report.rag.summary.source_backed_review_fallback_count).toBe(2);
+    expect(report.blocking_threshold_failures).toEqual(baseline.blocking_threshold_failures);
+    expect(report.blocking_threshold_failures).toEqual(
+      expect.arrayContaining([
+        "RAG citation_failure_rate 0.0227 above 0",
+        expect.stringContaining("RAG source_backed_review_fallback unaccounted: clozapine-anc-withhold-threshold"),
+      ]),
+    );
+    const roundTrip = JSON.parse(JSON.stringify(report));
+    expect(roundTrip.rag.results[1].generationQualityGateReasons).toEqual(["numeric_faithfulness_gap"]);
+    expect(renderEvalQualityMarkdown(report)).toContain("generation gates=numeric_faithfulness_gap");
+    expect(renderEvalQualityMarkdown(baseline)).toContain("generation gates=not recorded");
   });
 
   it("categorizes common retrieval and answer failures", () => {

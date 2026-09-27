@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "@babel/parser";
-import { areasOf, git, headTime, isShallow, mapAtHead, mdEscape, readBlobs } from "../map-placement.mjs";
+import { areasOf, codeSpan, git, headTime, isShallow, mapAtHead, readBlobs } from "../map-placement.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const WINDOW_DAYS = 14;
@@ -255,7 +255,7 @@ export async function section({ root, now } = {}) {
     const counts = [...perArea.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     lines.push("", `By area: ${counts.map(([area, n]) => `${area} ${n}`).join(", ")}.`, "");
     const shown = [...result.untested].sort((a, b) => a.area.localeCompare(b.area) || a.file.localeCompare(b.file));
-    for (const { file, area } of shown.slice(0, LIST_CAP)) lines.push(`- \`${mdEscape(file)}\` (${area})`);
+    for (const { file, area } of shown.slice(0, LIST_CAP)) lines.push(`- ${codeSpan(file)} (${area})`);
     if (shown.length > LIST_CAP) lines.push(`- …and ${shown.length - LIST_CAP} more`);
   }
   if (result.unparsed.length) {
@@ -264,7 +264,7 @@ export async function section({ root, now } = {}) {
       `${result.unparsed.length} file${result.unparsed.length === 1 ? "" : "s"} could not be parsed, so their imports ` +
         `were not followed: ${result.unparsed
           .slice(0, 5)
-          .map((f) => `\`${mdEscape(f)}\``)
+          .map((f) => codeSpan(f))
           .join(", ")}${result.unparsed.length > 5 ? " and more" : ""}.`,
     );
   }

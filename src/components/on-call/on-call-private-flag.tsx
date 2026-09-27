@@ -21,7 +21,7 @@ export function OnCallPrivateFlag({ compact = false }: { compact?: boolean }) {
     <span
       data-testid="on-call-private-flag"
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-bold",
+        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-semibold",
         "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
         textMuted,
       )}

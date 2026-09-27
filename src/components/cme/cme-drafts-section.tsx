@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { TextField } from "@/components/ui/text-field";
 import { cn, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
-import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
+import { formatCalendarDateLong, perthCalendarDate } from "@/lib/cme/cpd-year";
 import {
   CME_DRAFT_WAITING_NOTE_MAX_LENGTH,
   draftTitle,
@@ -104,13 +105,14 @@ export function WaitingOnControls({
             onChange={(event) => onWaitingNoteChange(event.target.value)}
             onBlur={onWaitingNoteBlur}
           />
-          <TextField
+          <CmeDateField
             label="Follow up on"
             id={`${idPrefix}-follow-up`}
-            type="date"
+            chips={false}
+            today={perthCalendarDate(new Date())}
             value={value.followUpOn}
             disabled={disabled}
-            onChange={(event) => onFollowUpOnChange(event.target.value)}
+            onChange={onFollowUpOnChange}
           />
         </>
       ) : null}

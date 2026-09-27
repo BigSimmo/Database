@@ -31,11 +31,12 @@ const SAFE_REVISION = /^(?!-)[A-Za-z0-9._/~^@{}-]{1,200}$/;
 const OFFLINE_GIT_ENV = { GIT_NO_LAZY_FETCH: "1", GIT_TERMINAL_PROMPT: "0" };
 
 export const NOT_BLOCKING_NOTE =
-  "Not blocking this change, which touches neither the register nor a path this entry covers. It still " +
-  "blocks in local runs, on main and in release checks, and the weekly review-date report lists it.";
+  "Not blocking this change, which edits neither this entry in the register nor a path this entry covers. It still " +
+  "blocks in local runs, on other branches and in release checks, and the weekly review-date report lists it.";
 
 /**
  * @typedef {{ mode: "strict" | "pr", touched: string[] | null, base: string | null, head: string | null,
+ *   mergeBase?: string | null, read?: (revision: string, file: string) => string | null,
  *   notes: string[] }} ReviewDateScope
  */
 
@@ -65,14 +66,14 @@ function git(root, args) {
  * @param {string} root
  * @param {string} base
  * @param {string} head
- * @returns {{ ok: true, files: string[] } | { ok: false, reason: string }}
+ * @returns {{ ok: true, files: string[], mergeBase: string } | { ok: false, reason: string }}
  */
 export function gitTouchedFiles(root, base, head) {
   const mergeBase = git(root, ["merge-base", base, head])?.trim();
   if (!mergeBase) return { ok: false, reason: `the base ${base.slice(0, 12)} is not reachable from ${head}` };
   const out = git(root, ["diff", "--no-renames", "--name-only", "-z", `${mergeBase}...${head}`]);
   if (out === null) return { ok: false, reason: `git diff ${mergeBase.slice(0, 12)}...${head} failed` };
-  return { ok: true, files: out.split("\0").filter(Boolean) };
+  return { ok: true, files: out.split("\0").filter(Boolean), mergeBase };
 }
 
 /**
@@ -83,10 +84,16 @@ export function gitTouchedFiles(root, base, head) {
  *
  * @param {{ env?: Record<string, string | undefined>, root: string,
  *   listTouched?: (root: string, base: string, head: string) =>
- *     { ok: true, files: string[] } | { ok: false, reason: string } }} options
+ *     { ok: true, files: string[], mergeBase?: string } | { ok: false, reason: string },
+ *   readAt?: (root: string, revision: string, file: string) => string | null }} options
  * @returns {ReviewDateScope}
  */
-export function resolveReviewDateScope({ env = process.env, root, listTouched = gitTouchedFiles }) {
+export function resolveReviewDateScope({
+  env = process.env,
+  root,
+  listTouched = gitTouchedFiles,
+  readAt = (dir, revision, file) => git(dir, ["show", `${revision}:${file}`]),
+}) {
   const requested = (env[REVIEW_DATE_MODE_ENV] ?? "").trim();
   if (requested === "" || requested === "strict") return strict("");
   const refuse = (why) =>
@@ -118,7 +125,17 @@ export function resolveReviewDateScope({ env = process.env, root, listTouched = 
   if (!listed?.ok || !Array.isArray(listed.files)) {
     return refuse(`the changed files could not be listed: ${listed?.ok === false ? listed.reason : "no result"}`);
   }
-  return { mode: "pr", touched: [...listed.files], base, head, notes: [] };
+  const mergeBase =
+    typeof listed.mergeBase === "string" && SAFE_REVISION.test(listed.mergeBase) ? listed.mergeBase : null;
+  return {
+    mode: "pr",
+    touched: [...listed.files],
+    base,
+    head,
+    mergeBase,
+    read: (revision, file) => readAt(root, revision, file),
+    notes: [],
+  };
 }
 
 /**
@@ -145,19 +162,44 @@ function coveredTouch(touched, file) {
 }
 
 /**
+ * Did this change edit one entry of a register? `select` picks the entry out of the parsed
+ * register; the entry is compared at the merge base and at the head. Anything that cannot be read
+ * or parsed is "unknown", which blocks like an edit, so a failure to tell never weakens the check.
+ */
+function entryChange(scope, registerPath, select) {
+  if (typeof select !== "function" || typeof scope.read !== "function" || !scope.mergeBase) return "unknown";
+  try {
+    const at = (revision) => {
+      const text = scope.read(revision, registerPath);
+      if (typeof text !== "string") throw new Error(`no ${registerPath} at ${revision}`);
+      return JSON.stringify(select(JSON.parse(text.replace(/^\uFEFF/, ""))) ?? null);
+    };
+    return at(scope.mergeBase) === at(scope.head ?? "HEAD") ? "unchanged" : "edited";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
  * Does an expired review date block this run? Always in strict mode. In pr mode only when the
- * change touches the register file or one of the paths the expired entry covers; `because` names
- * the first such path so the failure says why it applies to this change.
+ * change edits the expired entry itself in the register, or touches one of the paths the entry
+ * covers (owner decision 2026-09-26: "Yes, block on a lapsed review date only when the change
+ * edits that item."). Touching the register elsewhere no longer blocks. Without a `select` for
+ * the entry, any touch of the register still blocks. `because` names what made it apply.
  *
  * @param {ReviewDateScope | null | undefined} scope
- * @param {{ registerPath: string, coveredPaths?: Iterable<unknown> }} entry
+ * @param {{ registerPath: string, coveredPaths?: Iterable<unknown>, select?: (register: any) => unknown }} entry
  * @returns {{ blocking: boolean, because: string | null }}
  */
-export function expiredReviewDateDisposition(scope, { registerPath, coveredPaths = [] }) {
+export function expiredReviewDateDisposition(scope, { registerPath, coveredPaths = [], select }) {
   // Anything that is not a well-formed pr scope is strict: never weaker than before.
   if (!scope || scope.mode !== "pr" || !Array.isArray(scope.touched)) return { blocking: true, because: null };
   const touched = new Set(scope.touched);
-  if (touched.has(registerPath)) return { blocking: true, because: registerPath };
+  if (touched.has(registerPath)) {
+    const change = entryChange(scope, registerPath, select);
+    if (change === "edited") return { blocking: true, because: `this entry in ${registerPath}` };
+    if (change === "unknown") return { blocking: true, because: registerPath };
+  }
   for (const covered of coveredPaths) {
     const file = referencePath(covered);
     const hit = file ? coveredTouch(touched, file) : null;
@@ -174,13 +216,22 @@ export function expiredReviewDateDisposition(scope, { registerPath, coveredPaths
  *   registerPath: string }} sink
  * @param {string} message
  * @param {Iterable<unknown>} coveredPaths
+ * @param {(register: any) => unknown} [select] picks the expired entry out of the parsed register
  * @returns {boolean} true when the finding blocks
  */
-export function reportExpiredReviewDate({ errors, warnings, scope, registerPath }, message, coveredPaths) {
-  const { blocking, because } = expiredReviewDateDisposition(scope, { registerPath, coveredPaths });
+export function reportExpiredReviewDate({ errors, warnings, scope, registerPath }, message, coveredPaths, select) {
+  const { blocking, because } = expiredReviewDateDisposition(scope, { registerPath, coveredPaths, select });
   if (blocking) errors.push(because ? `${message} (blocking: this change touches ${because})` : message);
   else warnings.push(`${message}${/[.!?]$/.test(message) ? "" : "."} ${NOT_BLOCKING_NOTE}`);
   return blocking;
+}
+
+/** A register's own top-level review fields: every scalar at its top level, none of its lists. */
+export function registerTopLevel(register) {
+  if (!register || typeof register !== "object") return null;
+  return Object.fromEntries(
+    Object.entries(register).filter(([, value]) => value === null || typeof value !== "object"),
+  );
 }
 
 /** One-line description of the scope for a check's PASS line and log. */

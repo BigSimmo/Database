@@ -110,7 +110,7 @@ describe("what the weekly section explains", () => {
     expect(markdown).toContain("`npm run governance:seal-hazard-controls`");
     expect(markdown).toContain("Recording a new exception without that review is not a re-review.");
     expect(markdown).toContain("the accountable role re-checks the evidence");
-    expect(markdown).toContain("A lapsed date still fails each register's own check in local runs, on main");
+    expect(markdown).toContain("A lapsed date still fails each register's own check in local runs, on other branches");
 
     const hazardOnly = tempRoot({
       [HAZARD]: hazardRegister({ driftExceptions: [] }),

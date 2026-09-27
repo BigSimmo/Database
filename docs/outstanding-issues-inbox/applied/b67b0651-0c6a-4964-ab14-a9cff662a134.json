@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b67b0651-0c6a-4964-ab14-a9cff662a134",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#C0CARS",
+    "outcome": "Closed 2026-09-26: the owner retired the Ward Flow and Caring Contacts features and they were deleted from the repository by PR #3098 (merged 2026-09-26), including tests/ward-referral-matching.test.ts and the referral matching code it protected, so there is no property left to back-stop.",
+    "baseRowFingerprint": "2794ef87061714b8241396707ad81cd07190740602105d528c1465e64830b875"
+  }
+}

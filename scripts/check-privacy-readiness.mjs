@@ -9,6 +9,7 @@ import {
   describeReviewDateScope,
   printReviewDateWarnings,
   referencePath,
+  registerTopLevel,
   reportExpiredReviewDate,
   resolveReviewDateScope,
 } from "./organisation/review-date-scope.mjs";
@@ -237,7 +238,12 @@ export function evaluatePrivacyReadiness(
   if (validDate(manifest?.reviewedAt) && manifest.reviewedAt > today)
     errors.push("manifest reviewedAt is in the future");
   if (validDate(manifest?.reviewExpiresAt) && manifest.reviewExpiresAt < today)
-    reportExpiredReviewDate(findings, "manifest review has expired", privacyRegisterCoveredPaths(manifest));
+    reportExpiredReviewDate(
+      findings,
+      "manifest review has expired",
+      privacyRegisterCoveredPaths(manifest),
+      registerTopLevel,
+    );
   if (!Array.isArray(manifest?.requirements)) errors.push("requirements must be an array");
   const requirements = Array.isArray(manifest?.requirements) ? manifest.requirements : [];
   const ids = new Set();
@@ -257,7 +263,12 @@ export function evaluatePrivacyReadiness(
     }
     if (validDate(item.reviewedAt) && item.reviewedAt > today) errors.push(`${label}: reviewedAt is in the future`);
     if (validDate(item.reviewExpiresAt) && item.reviewExpiresAt < today) {
-      reportExpiredReviewDate(findings, `${label}: review has expired`, privacyRequirementCoveredPaths(item));
+      reportExpiredReviewDate(
+        findings,
+        `${label}: review has expired`,
+        privacyRequirementCoveredPaths(item),
+        (register) => register?.requirements?.find?.((entry) => entry?.id === item?.id),
+      );
     }
     if (!Array.isArray(item.evidenceReferences) || item.evidenceReferences.length === 0) {
       errors.push(`${label}: evidenceReferences must be non-empty`);

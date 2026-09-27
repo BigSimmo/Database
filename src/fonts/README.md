@@ -11,3 +11,8 @@ dev asset, not a production font contract.
 
 License: SIL Open Font License 1.1 (`OFL.txt`). Copyright 2024 Vercel, Inc.
 Reserved Font Name: Geist.
+
+`newsreader-latin-400-italic.woff2` — the serif accent for First Nations (words to
+say aloud, quoted law, Acknowledgements), loaded by
+`src/app/(search-app)/first-nations/layout.tsx`, not preloaded. Licence: SIL Open
+Font License 1.1 (`OFL-newsreader.txt`), from `@fontsource/newsreader`.

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "548aebbf-d0ff-4127-be1b-c7b17dcb4e48",
+  "createdOn": "2026-09-27",
+  "action": "update",
+  "payload": {
+    "id": "#846DP9",
+    "detail": "LOCATIONS CORRECTED 2026-09-27 for main 7f8312f2c (lines drifted after the review). The plan is deliberately browser-tab only and never persisted (src/components/patient-safety-plan.tsx:548 isDirty). isDirty guards only the in-app header back control; there is no beforeunload guard anywhere in the Safety Plan route, so closing the tab, reloading, or an OS back gesture discards an in-progress plan silently, potentially mid-consultation. Next action: add a beforeunload warning while isDirty is true, copying the existing pattern in src/components/cme/cme-entry-form.tsx:342, plus a unit or Playwright assertion that the listener is registered only while dirty. Must not persist plan content anywhere (privacy contract, see archived #060).",
+    "baseRowFingerprint": "61a6555f64b94cfb59be4da248da66e08c3ba1c30238cada201fcefbd0540e45"
+  }
+}

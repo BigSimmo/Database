@@ -1,102 +1,65 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
+import { POST as rosterPost } from "@/app/api/roster/shifts/route";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
-import { demoOnCallShifts } from "@/lib/on-call/shifts/demo-shifts";
-import { shiftIsInWindow } from "@/lib/on-call/shifts/diff";
-import { onCallShiftImportRequestSchema } from "@/lib/on-call/shifts/model";
-import {
-  deleteOwnerShifts,
-  fetchLatestShiftImport,
-  fetchOwnerShifts,
-  replaceOwnerShifts,
-} from "@/lib/on-call/shifts/repository";
+import { deleteOwnerShifts } from "@/lib/roster/shifts/repository";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
 
-export const runtime = "nodejs";
-
 /**
- * My shifts: the signed-in doctor's own roster. List what is coming up and the
- * latest import (GET), save an imported roster (POST), or delete every shift
- * (DELETE). The owner comes from the validated session only, never the request,
- * and every query is filtered by it.
+ * My shifts moved to Roster. This path stays live so a page opened before the
+ * move keeps working, on the terms it was written for: a save without a
+ * workplace or file name, and a delete of shifts and import records only.
+ * Calendar links and Roster settings did not exist for that page, so its
+ * delete never touches them. Roster's own delete is `DELETE /api/roster/shifts`.
  */
+export { GET } from "@/app/api/roster/shifts/route";
+
+export const runtime = "nodejs";
 
 const noStore = { "Cache-Control": "no-store" };
 
-async function authorise(request: Request) {
-  const supabase = createAdminClient();
-  const user = await requireAuthenticatedUser(request, supabase);
-  const rateLimit = await consumeSubjectApiRateLimit({
-    supabase,
-    subject: { kind: "owner", ownerId: user.id },
-    bucket: "on_call",
-    allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
-  });
-  return { supabase, user, rateLimit };
-}
-
-function demoRefusal() {
-  return publicErrorResponse("Demo mode cannot save a roster. Sign in to add yours.", 400, {
-    code: "demo_mode_unavailable",
-  });
-}
-
-export async function GET(request: Request) {
-  try {
-    if (isDemoMode()) {
-      return NextResponse.json(
-        { shifts: demoOnCallShifts(new Date()), latestImport: null, demoMode: true },
-        { headers: noStore },
-      );
-    }
-    const { supabase, user, rateLimit } = await authorise(request);
-    if (rateLimit.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rateLimit);
-    const [shifts, latestImport] = await Promise.all([
-      fetchOwnerShifts(supabase, user.id, new Date()),
-      fetchLatestShiftImport(supabase, user.id),
-    ]);
-    return NextResponse.json({ shifts, latestImport }, { headers: noStore });
-  } catch (error) {
-    if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error);
-  }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    if (isDemoMode()) return demoRefusal();
-    const { supabase, user, rateLimit } = await authorise(request);
-    if (rateLimit.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rateLimit);
-    const body = await parseJsonBody(request, onCallShiftImportRequestSchema, "That roster could not be saved.");
-    const window = { start: body.windowStart, end: body.windowEnd };
-    const outOfWindow = body.shifts.some((shift) => !shiftIsInWindow(shift, window));
-    if (outOfWindow) {
-      return publicErrorResponse("A shift falls outside the roster's dates.", 400, { code: "invalid_body" });
-    }
-    await replaceOwnerShifts(supabase, user.id, body);
-    const [shifts, latestImport] = await Promise.all([
-      fetchOwnerShifts(supabase, user.id, new Date()),
-      fetchLatestShiftImport(supabase, user.id),
-    ]);
-    return NextResponse.json({ shifts, latestImport }, { headers: noStore });
+    body = await parseJsonBody(request, z.unknown(), "That roster could not be saved.");
   } catch (error) {
-    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
+  // An old page sends no workplace or file name: its roster belonged to no named workplace.
+  const adapted = isRecord(body) ? { workplace: null, fileName: null, ...body } : body;
+  const headers = new Headers(request.headers);
+  headers.delete("content-length");
+  return rosterPost(new Request(request.url, { method: "POST", headers, body: JSON.stringify(adapted) }));
 }
 
 export async function DELETE(request: Request) {
   try {
-    if (isDemoMode()) return demoRefusal();
-    const { supabase, user, rateLimit } = await authorise(request);
+    if (isDemoMode()) {
+      return publicErrorResponse("Demo mode cannot save a roster. Sign in to add yours.", 400, {
+        code: "demo_mode_unavailable",
+      });
+    }
+    const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(request, supabase);
+    const rateLimit = await consumeSubjectApiRateLimit({
+      supabase,
+      subject: { kind: "owner", ownerId: user.id },
+      bucket: "roster",
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+    });
     if (rateLimit.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rateLimit);
     await deleteOwnerShifts(supabase, user.id);
     return NextResponse.json({ shifts: [], latestImport: null }, { headers: noStore });

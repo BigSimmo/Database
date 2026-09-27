@@ -89,6 +89,13 @@ describe("Settings, Notifications, Reminders", () => {
     expect(screen.queryByText(/Snoozed until/)).toBeNull();
   });
 
+  it("calls the mode CPD, never CME", () => {
+    render(<StatefulBlock initial={DEFAULT_REMINDER_SETTINGS} />);
+    const block = screen.getByTestId("settings-reminders");
+    expect(block).toHaveTextContent(/which CPD and On Call reminders show in the app/);
+    expect(block.textContent).not.toMatch(/\bCME\b/);
+  });
+
   it("changes a type's alert, its in-app switch, quiet hours and the daily limit", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

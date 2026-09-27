@@ -1,6 +1,6 @@
 # Adaptive RAG reindex runbook
 
-Use this sequence when applying RAG indexing changes to the live `Clinical KB Database` Supabase project.
+Use this sequence when applying RAG indexing changes to the live `PsychSift Production` Supabase project.
 
 ## Consolidated pipeline command
 

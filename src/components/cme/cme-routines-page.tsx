@@ -2,7 +2,8 @@
 
 import { CalendarClock, Plus } from "lucide-react";
 
-import { cardSurface } from "@/components/card-recipes";
+import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
+import { modeSecondaryText } from "@/components/mode-kit/type";
 import { Button } from "@/components/ui/button";
 import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import {
@@ -80,28 +81,25 @@ export function CmeRoutinesPage({
       </p>
 
       {dueRoutines.length > 0 && (
-        <section aria-labelledby="cme-routines-due-heading" data-testid="cme-routines-due" className="mt-6 space-y-3">
-          <h2 id="cme-routines-due-heading" className={eyebrowText}>
-            Due now
-          </h2>
+        <ModeGroupedList eyebrow="Due now" testId="cme-routines-due" className="mt-6">
           {dueRoutines.map((routine) => (
-            <div key={routine.id} className={cn(cardSurface, "flex items-center justify-between gap-4 p-4")}>
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-[color:var(--text)]">{routine.title}</p>
-                <p className={cn(textMuted, "text-sm")}>
-                  {cmeRoutineCadenceLabels[routine.cadence]} · usually {formatRoutineHours(routine.usualHours)} h
-                </p>
-              </div>
-              <Button
-                variant="primary"
-                aria-label={`Log ${formatRoutineHours(routine.usualHours)} h for ${routine.title}`}
-                onClick={() => handleLog(routine)}
-              >
-                {`Log ${formatRoutineHours(routine.usualHours)} h`}
-              </Button>
-            </div>
+            <ModeRow
+              key={routine.id}
+              title={routine.title}
+              subtitle={`${cmeRoutineCadenceLabels[routine.cadence]} · usually ${formatRoutineHours(routine.usualHours)} h`}
+              trailing={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label={`Log ${formatRoutineHours(routine.usualHours)} h for ${routine.title}`}
+                  onClick={() => handleLog(routine)}
+                >
+                  {`Log ${formatRoutineHours(routine.usualHours)} h`}
+                </Button>
+              }
+            />
           ))}
-        </section>
+        </ModeGroupedList>
       )}
 
       {dueRoutines.length === 0 && activeRoutines.length > 0 && (
@@ -117,11 +115,11 @@ export function CmeRoutinesPage({
         </InlineNotice>
       </div>
 
-      <section aria-labelledby="cme-routines-list-heading" className="mt-6">
-        <h2 id="cme-routines-list-heading" className={eyebrowText}>
-          Your routines
-        </h2>
-        {activeRoutines.length === 0 ? (
+      {activeRoutines.length === 0 ? (
+        <section aria-labelledby="cme-routines-list-heading" className="mt-6">
+          <h2 id="cme-routines-list-heading" className={eyebrowText}>
+            Your routines
+          </h2>
           <div className="mt-3">
             <EmptyState
               testId="cme-routines-empty"
@@ -130,27 +128,28 @@ export function CmeRoutinesPage({
               body="A routine is a reminder to log something you do regularly. Nothing is scheduled or recorded until you add one."
             />
           </div>
-        ) : (
-          <ul data-testid="cme-routines-list" className="mt-3 space-y-3">
-            {activeRoutines.map((routine) => (
-              <li key={routine.id} className={cn(cardSurface, "flex items-center justify-between gap-4 p-4")}>
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-[color:var(--text)]">{routine.title}</p>
-                  <p className={cn(textMuted, "text-sm")}>
-                    {cmeRoutineCadenceLabels[routine.cadence]} · usually {formatRoutineHours(routine.usualHours)} h
-                  </p>
-                  <p className={cn(textMuted, "text-sm")}>
-                    {routine.nextDue ? `Next due ${formatRoutineDueDate(routine.nextDue)}` : "Not scheduled yet"}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+        </section>
+      ) : (
+        <ModeGroupedList eyebrow="Your routines" testId="cme-routines-list" className="mt-6">
+          {activeRoutines.map((routine) => (
+            <ModeRow
+              key={routine.id}
+              title={routine.title}
+              subtitle={`${cmeRoutineCadenceLabels[routine.cadence]} · usually ${formatRoutineHours(routine.usualHours)} h`}
+              meta={
+                <span className={cn(modeSecondaryText, "leading-5")}>
+                  {routine.nextDue ? `Next due ${formatRoutineDueDate(routine.nextDue)}` : "Not scheduled yet"}
+                </span>
+              }
+              trailing={
+                <>
                   <Button
                     variant="secondary"
                     size="sm"
-                    aria-label={`Log usual hours for ${routine.title}`}
+                    aria-label={`Log now for ${routine.title}`}
                     onClick={() => handleLog(routine)}
                   >
-                    Log
+                    Log now
                   </Button>
                   {onEditRoutine ? (
                     <Button
@@ -162,15 +161,15 @@ export function CmeRoutinesPage({
                       Edit
                     </Button>
                   ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                </>
+              }
+            />
+          ))}
+        </ModeGroupedList>
+      )}
 
       <div className="mt-6">
-        <Button variant="primary" icon={Plus} onClick={onNewRoutine}>
+        <Button variant="secondary" icon={Plus} onClick={onNewRoutine}>
           New routine
         </Button>
       </div>

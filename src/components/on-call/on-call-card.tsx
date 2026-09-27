@@ -178,7 +178,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
             actions={
               <Link
                 href="/on-call/contacts"
-                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
+                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-semibold text-[color:var(--clinical-accent)]"
               >
                 Go to contacts
               </Link>
@@ -200,7 +200,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                   testId={`on-call-card-group-${group.section}`}
                   className="break-inside-avoid border-b border-[color:var(--border)] pb-4 last:border-b-0"
                 >
-                  <h2 className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
+                  <h2 className="text-xs font-semibold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {ON_CALL_SECTION_TITLES[group.section]}
                   </h2>
                   <ul className="mt-2 grid gap-3">
@@ -208,7 +208,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                       const numbers = cardEntryNumbers(entry.details);
                       return (
                         <li key={entry.id} data-testid={`on-call-card-entry-${entry.slug}`}>
-                          <p className="text-sm font-bold text-[color:var(--text-heading)]">{entry.title}</p>
+                          <p className="text-sm font-medium text-[color:var(--text-heading)]">{entry.title}</p>
                           {entry.subtitle ? (
                             <p className="text-xs text-[color:var(--text-muted)]">{entry.subtitle}</p>
                           ) : null}

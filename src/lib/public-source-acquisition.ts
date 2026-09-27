@@ -292,7 +292,8 @@ const defaultRequest: AcquisitionRequest = async ({ url, hostname, address, fami
             "application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/plain, text/html",
         },
         servername: hostname,
-        lookup: (_hostname, _options, callback) => callback(null, address, family),
+        lookup: (_hostname, options, callback) =>
+          options?.all ? callback(null, [{ address, family }]) : callback(null, address, family),
         signal,
       },
       (response) => {

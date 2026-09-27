@@ -77,4 +77,58 @@ describe("Service handbook edit preserves intentional empty fields", () => {
     );
     expect(screen.getByRole("combobox", { name: "Site" })).toHaveValue(site.id);
   });
+  it("shows where the entry will appear and the pin line as the title is typed", async () => {
+    const user = userEvent.setup();
+    render(
+      <ServiceEntryEditor entry={null} sites={[site]} defaultSiteId={null} onSave={vi.fn()} onCancel={() => {}} />,
+    );
+    const title = screen.getByRole("textbox", { name: /^Title/ });
+    await user.type(title, "Emergency: Code");
+    expect(screen.getByTestId("service-entry-placement")).toHaveTextContent(
+      "Will appear in: Now (emergency) and Call › Hospital",
+    );
+    expect(screen.getByTestId("service-entry-warnings")).toHaveTextContent(
+      "An emergency number needs a site to be pinned on Now. Without one it shows on Call only.",
+    );
+    await user.selectOptions(screen.getByRole("combobox", { name: "Content type" }), "clinical");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Site" }), site.id);
+    expect(screen.getByTestId("service-entry-warnings")).toHaveTextContent(
+      "This will be pinned as the emergency number at Synthetic selected site.",
+    );
+    const describedBy = (title.getAttribute("aria-describedby") ?? "").split(" ");
+    expect(describedBy).toContain(screen.getByTestId("service-entry-placement").id);
+  });
+  it("marks only number warnings with the small amber dot", async () => {
+    const user = userEvent.setup();
+    const other: ServiceEntry = {
+      ...entry,
+      id: "33333333-3333-4333-8333-333333333333",
+      content: { ...entry.content, siteId: site.id, title: "ICU: Registrar", phone: "9000 0002" },
+    };
+    render(
+      <ServiceEntryEditor
+        entry={null}
+        sites={[site]}
+        defaultSiteId={site.id}
+        entries={[other]}
+        onSave={vi.fn()}
+        onCancel={() => {}}
+      />,
+    );
+    await user.type(screen.getByRole("textbox", { name: /^Title/ }), "Renal: Registrar");
+    await user.type(screen.getByRole("textbox", { name: /^Phone or extension/ }), "9000 0002");
+    const warnings = screen.getByTestId("service-entry-warnings");
+    expect(warnings).toHaveTextContent('New team "Renal": it gets its own group on Call.');
+    expect(warnings).toHaveTextContent('The same number is saved for "ICU: Registrar".');
+    const dotted = [...warnings.querySelectorAll("li")].filter((item) => item.querySelector("[data-warning-dot]"));
+    expect(dotted.map((item) => item.getAttribute("data-warning"))).toEqual(["number-shared"]);
+  });
+  it("tells the editor that saving sets the Updated date", () => {
+    render(
+      <ServiceEntryEditor entry={entry} sites={[site]} defaultSiteId={site.id} onSave={vi.fn()} onCancel={() => {}} />,
+    );
+    expect(screen.getByTestId("service-entry-save-note")).toHaveTextContent(
+      "Save only when something changed. Saving sets the Updated date readers see.",
+    );
+  });
 });

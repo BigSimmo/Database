@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "40ff5c53-5d85-4d0a-a67f-8237ff637bdf",
+  "createdOn": "2026-09-27",
+  "action": "update",
+  "payload": {
+    "id": "#22TMRM",
+    "detail": "LOCATIONS CORRECTED 2026-09-27 for main 7f8312f2c. Vercel Web Interface Guidelines: use the single ellipsis character, and loading states end with it. Instances: formulation/formulation-builder-page.tsx:357, 532, 594; ClinicalDashboard.tsx:2064, 2065, 3294; DocumentViewer.tsx:1682; applications-launcher-page.tsx:99; therapy-compass/screens/sheets-screen.tsx:358; tools/tool-local-search.tsx:55; clinical-dashboard/signed-image.tsx:240; clinical-dashboard/image-lightbox.tsx:363; clinical-dashboard/master-search-header.tsx:272; forms/form-detail-page.tsx:857 (all under src/components). Cosmetic. Next action: replace in one pass and update any tests that assert the old strings.",
+    "baseRowFingerprint": "3547312ec74dcf5ee40a7a9ab600a154fe97ab48062e2e8f3f9661b35f932aef"
+  }
+}

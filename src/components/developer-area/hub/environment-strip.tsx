@@ -16,19 +16,38 @@ export function EnvironmentStrip({
   buildSha: string | null;
   email: string | null;
 }) {
-  const facts = [
+  const before = [
     demoMode === null ? "environment unknown" : demoMode ? "Demo corpus" : "Live data",
     documentCount === null ? "document count unavailable" : `${documentCount.toLocaleString("en-AU")} documents`,
-    buildSha ? `build ${buildSha.slice(0, 7)}` : "build unknown",
-    email ?? "account unknown",
-  ];
+  ].join(" · ");
+  const after = email ?? "account unknown";
+
+  // The build is the one fact with somewhere to go: the commit's page on GitHub
+  // shows what it contains and whether its checks passed. A bare hex SHA is
+  // validated before it becomes part of a URL.
+  const sha = buildSha && /^[0-9a-f]{7,40}$/i.test(buildSha) ? buildSha : null;
 
   return (
     <p
       data-testid="developer-hub-environment-strip"
       className="rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs leading-6 text-[color:var(--text-muted)]"
     >
-      {facts.join(" · ")}
+      {before} ·{" "}
+      {sha ? (
+        <a
+          href={`https://github.com/BigSimmo/PsychSift/commit/${sha}`}
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2"
+          data-testid="developer-hub-build-link"
+        >
+          build {sha.slice(0, 7)}
+          <span className="sr-only"> (opens the commit on GitHub in a new tab)</span>
+        </a>
+      ) : (
+        "build unknown"
+      )}{" "}
+      · {after}
     </p>
   );
 }
