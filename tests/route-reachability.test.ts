@@ -33,8 +33,6 @@ const srcRoot = path.join(repoRoot, "src");
 
 /** Intentionally-unlinked static page routes, each with the reason it is exempt. */
 const REACHABILITY_ALLOWLIST = new Map<string, string>([
-  ["/on-call/shifts", "Legacy On Call bookmark forwards to Roster."],
-  ["/on-call/calendar", "Legacy On Call bookmark forwards to Roster."],
   [
     "/roster/calendar",
     "Legacy /on-call/calendar redirect target for existing bookmarks; Roster Settings owns current calendar subscription, so no in-app navigation links this compatibility page.",
