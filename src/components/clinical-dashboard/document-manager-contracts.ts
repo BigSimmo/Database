@@ -32,7 +32,7 @@ export const fallbackSetupChecks: SetupCheck[] = [
   { id: "env", label: ".env.local configured", status: "unknown", detail: "Setup status has not loaded yet." },
   {
     id: "project",
-    label: "Clinical KB Database target",
+    label: "PsychSift Production target",
     status: "unknown",
     detail: "Setup status has not loaded yet.",
   },

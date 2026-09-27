@@ -46,7 +46,7 @@ The command writes ignored local artifacts under `output/evals/`:
 
 The command requires the same live-eval environment as the existing RAG eval scripts:
 
-- Supabase server env values for `Clinical KB Database`
+- Supabase server env values for `PsychSift Production`
 - `OPENAI_API_KEY`
 - Owner is **optional** — see below.
 

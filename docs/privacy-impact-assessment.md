@@ -1,9 +1,9 @@
-﻿# Privacy Impact Assessment â€” Clinical KB Database
+﻿# Privacy Impact Assessment â€” PsychSift Production
 
 **Current status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This narrative explains the assessment; the versioned register separates code proof from provider configuration, legal approval, and clinical acceptance. Pending external items in that register are not completed by technical controls described here.
 
 **Status:** Draft for governance approval Â· **Date:** 2026-07-06 Â· **Revised:** 2026-09-01
-**Scope:** Clinical data flows through the PsychSift app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
+**Scope:** Clinical data flows through the PsychSift app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `PsychSift Production` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
 **Author:** Automated code-level assessment (multi-agent audit of `src/app/api/**`, `src/lib/*`, `supabase/schema.sql`, `supabase/migrations/**`), cross-checked against the live database.
 
 **Repository last verified:** `d3074946a917cac378de64284c67cbc1d4dc58fa` on 2026-09-01.
@@ -109,10 +109,33 @@ material.
 | Team membership audit (`on_call_service_member_events`): joins, removals and role changes                                                                                                                                                                                                                                                                                                                                                                                              | Supabase (Sydney), service role only                                                                                                                                                                                                                                         | Low-Med                                                                                                                                    | Platform only; 12 months.                                                                                                                                                                                                                                                                 |
 | Admin extra time, leave balances and settings (`extra_time_records`, `admin_leave_balances`, `admin_settings`) and Teaching tables (`teaching_*`)                                                                                                                                                                                                                                                                                                                                      | Supabase (Sydney), service role only                                                                                                                                                                                                                                         | Medium (staff personal information)                                                                                                        | As the Admin and Teaching plans describe.                                                                                                                                                                                                                                                 |
 
+**Planned Roster Release 2 leave access (approved by Josh 2026-09-27; not yet deployed):**
+the current table row above describes the count-only access in the merged SQL; live schema
+application is checked separately by the post-merge drift workflow. The follow-up migration's
+`roster_read('team_leave')` will let a roster manager of a confirmed team see an active team
+member's `userId`, name, leave kind (annual or professional development), start and end dates,
+and status (planned, applied or approved), for a requested window of at most 62 days. The
+purpose is to plan cover; this view does not approve leave. Ordinary members continue to see
+only the anonymous overlap count. The dates, kind and status stay in the existing owner-scoped
+`roster_leave` table in Supabase (Sydney); names come from the team's member record. No leave
+reason or patient information is collected, and the plan adds no phone storage. The merged purge
+is designed to delete leave 12 months after it ends; account deletion cascades to the leave row.
+Release 2's
+"Delete my data" flow will delete the doctor's own leave rows, and revoking team membership
+must remove named-read access immediately. Before real staff use this view, update the current
+inventory row when G4 ships, pass the manager/member/former-member staging isolation proof,
+obtain the health service's privacy approval, and resolve the Singapore app-server decision.
+
 **Roster, Admin and Teaching (added 2026-09-26):** these tables hold staff personal information,
 not patient data. The app servers run in Singapore and the database in Sydney; a health service may
 require Australian hosting, which is checked with them before real staff data goes in. P1 #F9HZEG
 (two-user isolation proof) must close first.
+
+**Admin update 1:** Today, Renewals, New job and Help read the owner's existing On Call
+`logistics` records; this interface adds no database table or browser cache. Other doctors'
+shared rows are read-only and are excluded from the owner's calendar, copy and print outputs.
+Optional proof notes are checked for patient-identifying shapes before saving. Admin records
+are not sent to search or a model provider.
 
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
 experienced psychiatrist in Perth"_ ([src/lib/rag/rag.ts](../src/lib/rag/rag.ts)) â€” i.e. a **WA psychiatry**
@@ -345,7 +368,7 @@ cache purge jobs onto the existing bounded hourly purge. The remaining retention
 
 **Schedule re-creation, 2026-09-01 (supersedes the job ids above).** Migration
 `20260901033250_enable_staging_privacy_retention_schedules.sql` ships in `supabase/migrations`, so
-merging it to `main` applied it to the live `Clinical KB Database` project as well as to staging: its
+merging it to `main` applied it to the live `PsychSift Production` project as well as to staging: its
 name says "staging" but its effect is environment-neutral. It unschedules the five named purge jobs and
 re-schedules four of them, so `purge-expired-rag-queries`, `purge-rag-retrieval-logs`,
 `purge-rag-query-misses` and `purge-rag-response-cache` now hold **new `cron.job` ids on production**.
@@ -357,7 +380,7 @@ not among those categories - so a failed or skipped apply of `20260901033250` wo
 green while the purge jobs sat in whatever prior state they had. That blind spot is recorded as finding
 **M23** in [docs/audit/full-repository-audit-2026-09-02.md](audit/full-repository-audit-2026-09-02.md).
 **Production configuration recheck, 2026-09-13.** An operator-authorised read-only `cron.job`
-comparison on Clinical KB Database confirmed exactly one active instance of all four jobs, with
+comparison on PsychSift Production confirmed exactly one active instance of all four jobs, with
 schedules and commands matching `20260901033250_enable_staging_privacy_retention_schedules.sql`.
 The obsolete `purge-expired-rag-response-cache` job was absent. Only job names, schedules and
 boolean comparisons were returned; no user records or raw commands were exported. This closes the

@@ -109,7 +109,8 @@ jobs:
           use_sticky_comment: true
           # A CI runner has no session for this repo's .mcp.json servers (the
           # `railway` entry has no auth in Actions), so auto-load stays off —
-          # same reasoning as the @claude workflow beside this one.
+          # aligned with .claude/settings.json ("enableAllProjectMcpServers": false)
+          # and the @claude workflow beside this one.
           settings: '{"enableAllProjectMcpServers": false}'
           prompt: |
             Review this pull request's diff. You are the only automated reviewer

@@ -88,7 +88,7 @@ export function DocumentOverviewLanding({
             </h2>
             <DocumentMetaRow
               className="mt-1"
-              items={[documentType, `${document.page_count ?? (pages.length || "?")} pages`]}
+              items={[documentType, pageCountLabel(document.page_count ?? (pages.length || null))]}
             />
             {/* Search relevance badges are rendered in document search results; the viewer has no ranking context. */}
           </div>
@@ -199,4 +199,9 @@ export function DocumentOverviewLanding({
       </article>
     </section>
   );
+}
+
+function pageCountLabel(count: number | null): string {
+  if (count === null) return "? pages";
+  return count === 1 ? "1 page" : `${count} pages`;
 }

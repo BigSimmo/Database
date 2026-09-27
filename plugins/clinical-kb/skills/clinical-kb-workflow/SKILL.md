@@ -13,7 +13,7 @@ Root `AGENTS.md` remains authoritative. If these notes drift, inspect the repo b
 - App: Next.js 16, React 19, npm 11, Node 24.
 - Package manager: npm with `package-lock.json`.
 - Main app routes live under `src/app`; shared RAG, OpenAI, Supabase, safety, and validation logic live under `src/lib`.
-- This project targets the live Supabase project `Clinical KB Database` with project ref `sjrfecxgysukkwxsowpy`.
+- This project targets the live Supabase project `PsychSift Production` with project ref `sjrfecxgysukkwxsowpy`.
 - Treat the older Supabase ref `qjgitjyhxrwxsrydablr` as stale.
 
 ## Local Server Safety

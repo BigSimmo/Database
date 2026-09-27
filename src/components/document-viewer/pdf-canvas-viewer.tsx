@@ -374,6 +374,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   onFitWidthChange,
   onZoomChange,
   onRotate,
+  onLoadFailedChange,
 }: {
   url: string;
   title: string;
@@ -400,6 +401,13 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
    * that does, which keeps one toolbar and one source of truth.
    */
   onRotate?: () => void;
+  /**
+   * Reports whether the document itself failed to open. DocumentFrame's
+   * toolbar stays enabled otherwise, so zoom, page and rotate buttons sat live
+   * over the "Could not load PDF preview" card and did nothing (audit VUX-07c).
+   * A single page failing to render is not reported: the rest still work.
+   */
+  onLoadFailedChange?: (failed: boolean) => void;
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
@@ -474,6 +482,16 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       eventId: `pdf-canvas-preview:${url}:${error}`,
     });
   }, [error, url]);
+
+  const loadFailed = Boolean(error) && !pdf;
+  const onLoadFailedChangeRef = useRef(onLoadFailedChange);
+  useEffect(() => {
+    onLoadFailedChangeRef.current = onLoadFailedChange;
+  }, [onLoadFailedChange]);
+  useEffect(() => {
+    onLoadFailedChangeRef.current?.(loadFailed);
+  }, [loadFailed]);
+  useEffect(() => () => onLoadFailedChangeRef.current?.(false), []);
 
   // Report an expired URL at most once per URL, so a load failure and a
   // subsequent render failure don't both fire a refresh for the same URL.

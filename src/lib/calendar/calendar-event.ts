@@ -56,12 +56,14 @@ export type CalendarEvent = {
   /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
   readonly alarmAt?: string;
   /**
-   * On a repeating event, minutes from each occurrence's start to its alarm
-   * (negative is before). Set beside `alarmAt` so a calendar file can repeat
-   * the alarm: an absolute one fires once. Perth has no daylight saving, so the
-   * offset is the same for every occurrence.
+   * Set on one occurrence of a repeating series that carries its own alarm. A
+   * calendar file writes it as an override of that occurrence (RFC 5545
+   * RECURRENCE-ID, same UID, no RRULE), so each alarm is absolute and counted
+   * against the daily cap. Set only by `applyReminderAlarms`.
    */
-  readonly alarmOffsetMinutes?: number;
+  readonly seriesOccurrence?: true;
+  /** Further absolute alarm instants (ISO, UTC), one VALARM each. Set only by Admin's one-off renewal file. */
+  readonly alarmsAt?: readonly string[];
 };
 
 /**

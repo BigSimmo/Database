@@ -6,7 +6,7 @@ describe("ledger inbox pre-flight remote reconciliation check", () => {
   it("fails open and returns empty list when offline or runner throws", () => {
     const result = findUnmergedRemoteReconciliations({
       runner: () => {
-        throw new Error("fatal: unable to access 'https://github.com/BigSimmo/Database.git/': Could not resolve host");
+        throw new Error("fatal: unable to access 'https://github.com/BigSimmo/PsychSift.git/': Could not resolve host");
       },
     });
     expect(result).toEqual([]);

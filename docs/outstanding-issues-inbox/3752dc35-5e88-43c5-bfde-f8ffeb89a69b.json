@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3752dc35-5e88-43c5-bfde-f8ffeb89a69b",
+  "createdOn": "2026-09-27",
+  "action": "update",
+  "payload": {
+    "id": "#PVVAPA",
+    "detail": "CORRECTED 2026-09-27 (Codex review on PR 3128): only one executable networkidle wait remains, tests/ui-hydration.spec.ts:61 await page.waitForLoadState(\"networkidle\"). The other four cited lines (ui-specifiers.spec.ts:24, ui-style-contract.spec.ts:165, 184, 227) are comments recording that networkidle was deliberately avoided, so they need no change. Next action: replace the one call with a wait on the specific hydrated element or state the test needs.",
+    "baseRowFingerprint": "0df61ff58fe177caad6a2af9dd40d9b16d754d3b53105d34c7cd283652f88b46"
+  }
+}

@@ -14,7 +14,7 @@ Before using any prompt, keep these project defaults in mind:
 - Do not assume ports `3000`, `3001`, or `3002`.
 - Do not attach to a local server unless `/api/local-project-id` confirms this
   project.
-- Treat the live Supabase project as `Clinical KB Database`
+- Treat the live Supabase project as `PsychSift Production`
   (`sjrfecxgysukkwxsowpy`). Do not use the stale `qjgitjyhxrwxsrydablr` ref.
 - Ask before running live provider/API work, OpenAI calls, Supabase mutations,
   production data operations, deploys, commits, pushes, or destructive cleanup.

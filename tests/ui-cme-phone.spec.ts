@@ -1,5 +1,7 @@
 import { expect, test } from "playwright/test";
 
+import { expectSingleSettledOwner } from "./playwright-settlement";
+
 /**
  * 19 September 2026, 10:00 Perth. Every figure the CME screens derive from
  * "now" — days remaining, the pace projection, which year an entry falls in —
@@ -215,7 +217,7 @@ test.describe("CME annual records and explicit learning handoff", () => {
   test("prints the whole selected year with black text and no controls or clipping ancestors", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
     await page.goto("/cme/summary?year=2026");
-    const summary = page.getByTestId("cme-annual-summary");
+    const summary = await expectSingleSettledOwner(page.getByTestId("cme-annual-summary"));
     await expect(summary.getByRole("heading", { level: 1 })).toContainText("2026");
     await expect(summary).toContainText("47 active activities");
     await page.emulateMedia({ media: "print" });
@@ -223,6 +225,17 @@ test.describe("CME annual records and explicit learning handoff", () => {
     const printControls = summary.locator(".cme-print-controls");
     await expect(printControls).toHaveCount(2);
     for (const control of await printControls.all()) await expect(control).toBeHidden();
+    // WebKit can hide print controls before its print color cascade has painted.
+    // Keep the all-black requirement, then inspect the settled print geometry.
+    await expect
+      .poll(() =>
+        summary.evaluate((root) => [
+          ...new Set(
+            [...root.querySelectorAll<HTMLElement>("h1,h2,h3,p,li")].map((node) => getComputedStyle(node).color),
+          ),
+        ]),
+      )
+      .toEqual(["rgb(0, 0, 0)"]);
     const printLayout = await summary.evaluate((root) => {
       const ancestors = [];
       for (let parent = root.parentElement; parent; parent = parent.parentElement) {

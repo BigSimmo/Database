@@ -88,22 +88,27 @@ function monthEndClamp(startDate: string | undefined): string {
 }
 
 /**
- * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant. Written only
- * when the owner's reminder settings gave the event an alarm, so an event
- * without one is byte-for-byte what it was before alarms existed.
+ * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant, one VALARM
+ * block per instant in `[alarmAt, ...alarmsAt]`. Written only when the event
+ * carries at least one alarm instant, so an event with neither field is
+ * byte-for-byte what it was before either existed.
  */
 function alarmLines(event: CalendarEvent): string[] {
-  if (!event.alarmAt) return [];
-  const instant = new Date(event.alarmAt);
-  if (Number.isNaN(instant.getTime())) return [];
-  // An absolute trigger fires once, so a repeating event carries its alarm as an
-  // offset from each occurrence's start (RFC 5545 §3.8.6.3) instead.
-  const offset = event.alarmOffsetMinutes;
-  const trigger =
-    event.recurrence && typeof offset === "number" && Number.isInteger(offset)
-      ? `TRIGGER;RELATED=START:${offset < 0 ? "-" : ""}PT${Math.abs(offset)}M`
-      : `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`;
-  return ["BEGIN:VALARM", "ACTION:DISPLAY", trigger, `DESCRIPTION:${escapeIcsText(event.title)}`, "END:VALARM"];
+  const instants = [event.alarmAt, ...(event.alarmsAt ?? [])];
+  const lines: string[] = [];
+  for (const value of instants) {
+    if (!value) continue;
+    const instant = new Date(value);
+    if (Number.isNaN(instant.getTime())) continue;
+    lines.push(
+      "BEGIN:VALARM",
+      "ACTION:DISPLAY",
+      `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
+      `DESCRIPTION:${escapeIcsText(event.title)}`,
+      "END:VALARM",
+    );
+  }
+  return lines;
 }
 
 function eventLines(event: CalendarEvent, stamp: Date): string[] {
@@ -118,7 +123,14 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
       `DTEND;VALUE=DATE:${compactDate(addDays(event.date, 1))}`,
     );
   }
-  if (event.recurrence) lines.push(`RRULE:${recurrenceRule(event.recurrence, event.seriesStartDate ?? event.date)}`);
+  if (event.seriesOccurrence) {
+    // Overrides the series occurrence that starts at this same moment (RFC 5545 §3.8.4.4).
+    lines.push(
+      range ? `RECURRENCE-ID:${compactUtc(range.start)}` : `RECURRENCE-ID;VALUE=DATE:${compactDate(event.date)}`,
+    );
+  } else if (event.recurrence) {
+    lines.push(`RRULE:${recurrenceRule(event.recurrence, event.seriesStartDate ?? event.date)}`);
+  }
   lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
   if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);

@@ -92,7 +92,21 @@ async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
 
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
-  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
+  // A sheet can leave the page hundreds of pixels down after its trigger was
+  // scrolled into view. WebKit may restore that offset after scrollTo returns;
+  // set the document scroll position directly and require the page to reach top.
+  if (scrollTop > 0) {
+    await expect
+      .poll(async () => {
+        await page.evaluate(() => {
+          const scroller = document.scrollingElement ?? document.documentElement;
+          scroller.scrollTop = 0;
+          window.dispatchEvent(new Event("scroll"));
+        });
+        return (await readPrimaryScrollGeometry(page)).scrollTop;
+      })
+      .toBeLessThanOrEqual(1);
+  }
   await expect(control).toBeInViewport();
 }
 
@@ -216,7 +230,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -1257,14 +1271,16 @@ test.describe("PsychSift UI smoke coverage", () => {
             inputShadow: inputStyle.boxShadow,
             pillBorder,
             pillShadow,
-            pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
+            pillBorderChanged: pillBorder !== resting.border,
+            pillShadowChanged: pillShadow !== resting.shadow && pillShadow !== "none",
           };
         }, restingPill);
       })
       .toMatchObject({
         inputOutline: "none",
         inputShadow: "none",
-        pillChanged: true,
+        pillBorderChanged: true,
+        pillShadowChanged: true,
       });
     const universalFocus = await universalInput.evaluate((element) => {
       const inputStyle = getComputedStyle(element);
@@ -1802,6 +1818,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupClose = setup.getByRole("button", { name: "Close account setup" });
     const workspaceMark = setup.getByTestId("account-workspace-mark");
+    const setupScrollPort = setup.locator(".polished-scroll");
+    // WebKit scrolls the dialog to the focused email field on open. Prove the
+    // autofocus first, then reset that scroll before checking top safe-area layout.
+    await setup.getByLabel("Email address").blur();
+    await setupScrollPort.evaluate((element) => {
+      element.scrollTop = 0;
+    });
     await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
@@ -1809,19 +1832,17 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
     await expectNoPageHorizontalOverflow(page);
 
-    const setupScrollPort = setup.locator(".polished-scroll");
-    // Autofocus on the email field is proven above. Release it before resizing: WebKit keeps a
-    // focused field in view through a resize by scrolling the dialog body (measured at 320x700:
-    // scrollTop 224, field 888px -> 664px), which Chromium does not, and that scroll moves the
-    // workspace mark above the fold. This loop is about where the layout starts relative to the
-    // notch, not about focus-follow scrolling.
-    await setup.getByLabel("Email address").blur();
+    // With focus released, resizing now checks layout instead of WebKit's
+    // focus-follow scrolling of the dialog body.
     for (const viewportSize of [
       { width: 320, height: 700 },
       { width: 430, height: 820 },
       { width: 639, height: 820 },
     ]) {
       await page.setViewportSize(viewportSize);
+      await setupScrollPort.evaluate((element) => {
+        element.scrollTop = 0;
+      });
       await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
       await expectNoPageHorizontalOverflow(page);
     }
@@ -3152,20 +3173,14 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.waitForTimeout(320);
       await expect(header).toHaveAttribute("data-scroll-hidden", "true");
       await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-      const settledHiddenGeometry = await page.evaluate(() => {
-        const headerNode = document.querySelector<HTMLElement>("header.universal-header");
-        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
-        if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
-        const headerRect = headerNode.getBoundingClientRect();
-        const dockRect = dockNode.getBoundingClientRect();
-        return {
-          headerBottom: headerRect.bottom,
-          dockTop: dockRect.top,
-          viewportHeight: window.innerHeight,
-        };
-      });
-      expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
-      expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
+      // Headless WebKit can render no frame during the wall-clock delay. Poll
+      // the actual painted geometry so the hidden transform must finish.
+      await expect
+        .poll(async () => header.evaluate((node) => node.getBoundingClientRect().bottom))
+        .toBeLessThanOrEqual(1);
+      await expect
+        .poll(async () => dock.evaluate((node) => node.getBoundingClientRect().top - window.innerHeight))
+        .toBeGreaterThanOrEqual(-1);
       await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
 
       await scrollPrimarySurface(page, 20);
@@ -4539,7 +4554,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "My Work" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Admin" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "First Nations" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
@@ -4547,8 +4562,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Roster\b/ })).toBeAttached();
 
     await modeSearch.fill("d");
-    await expect(modeDialog.getByRole("status")).toHaveText("6 matches");
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(6);
+    await expect(modeDialog.getByRole("status")).toHaveText("7 matches");
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(7);
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeAttached();
@@ -4556,6 +4571,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     // "CPD" carries a "d" too (the mode's label was "CME" before the RANZCP rename).
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Admin\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
     await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(22);
 
@@ -5789,7 +5805,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await summaryToggle.click();
     await expect(summaryToggle).toHaveAttribute("aria-expanded", "true");
     await expect(summaryToggle).toContainText("Show less");
-    await clinicalSummary.getByTestId("open-clinical-priorities").click();
+    await clickWhenSettled(clinicalSummary.getByTestId("open-clinical-priorities"));
     const prioritiesSheet = page.getByRole("dialog", { name: "Clinical priorities" });
     await expect(prioritiesSheet).toBeVisible();
     await page.keyboard.press("Escape");
@@ -6352,10 +6368,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
+    const recovery = page.locator("[data-route-recovery]");
+    await expect(recovery.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
     await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
-    await expect(page.getByRole("status")).not.toContainText("loading source");
-    await expect(page.getByRole("status")).not.toContainText("Loading source metadata");
+    await expect(recovery.getByRole("status")).not.toContainText("loading source");
+    await expect(recovery.getByRole("status")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });
