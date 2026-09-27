@@ -488,20 +488,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invalidateAuthRequests();
     let remoteSignOutFailed = false;
     try {
-      await client.auth.signOut();
+      const result = await client.auth.signOut();
+      if (result?.error) remoteSignOutFailed = true;
     } catch {
       remoteSignOutFailed = true;
-    } finally {
-      clearAccountScopedBrowserState();
-      publishedUserIdRef.current = null;
-      setSession(null);
-      setStatus("signed_out");
-      if (remoteSignOutFailed) {
-        setNotice("Signed out on this device. Reconnect to complete server sign-out.");
-      } else {
-        setError(null);
-        setNotice(null);
-      }
+    }
+    // A failed global sign-out can leave the persisted session in place; drop it locally so a reload is signed out.
+    if (remoteSignOutFailed) await client.auth.signOut({ scope: "local" }).catch(() => undefined);
+    clearAccountScopedBrowserState();
+    publishedUserIdRef.current = null;
+    setSession(null);
+    setStatus("signed_out");
+    if (remoteSignOutFailed) {
+      setNotice("Signed out on this device. Reconnect to complete server sign-out.");
+    } else {
+      setError(null);
+      setNotice(null);
     }
   }, [client, invalidateAuthRequests]);
 

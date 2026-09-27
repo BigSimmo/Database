@@ -1078,11 +1078,6 @@ export function OnCallEntryEditor({
       lastVerifiedAt: entry?.lastVerifiedAt ?? null,
     };
 
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setFormError("You are offline. Connect to save this entry.");
-      return;
-    }
-
     setBusy("saving");
     try {
       const response = await fetch(entry ? `/api/on-call/entries/${entry.id}` : "/api/on-call/entries", {
@@ -1113,11 +1108,6 @@ export function OnCallEntryEditor({
 
   async function handleDelete() {
     if (!entry) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setConfirmDeleteOpen(false);
-      setFormError("You are offline. Connect to delete this entry.");
-      return;
-    }
     setBusy("deleting");
     setFormError(null);
     try {
@@ -1398,10 +1388,6 @@ export function OnCallVerifyButton({ entry, onVerified, className }: OnCallVerif
 
   async function handleVerify() {
     if (busy) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Connect to verify this entry.");
-      return;
-    }
     setBusy(true);
     setError(null);
     try {

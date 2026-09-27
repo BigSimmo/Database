@@ -75,10 +75,6 @@ export function CmePlanPage({
   useDirtyStateGuard(isDirty && !readOnly);
 
   async function save() {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setMessage("You're offline. Reconnect and try saving your plan again.");
-      return;
-    }
     setSaving(true);
     setMessage(null);
     try {

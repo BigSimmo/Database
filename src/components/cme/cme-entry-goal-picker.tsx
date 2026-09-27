@@ -40,11 +40,6 @@ export function CmeEntryGoalPicker({
 
   async function choose(next: string | null) {
     const previous = goalId;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setGoalId(previous);
-      setStatus("You are offline. Connect to save this goal selection.");
-      return;
-    }
     setGoalId(next);
     setStatus("Saving…");
     try {

@@ -319,9 +319,6 @@ export function ServicePage({
     if (demoMode)
       throw new Error("Synthetic demo mode is read-only. Sign in outside demo mode to change a service handbook.");
     if (!selectedServiceId) throw new Error("Choose a service first.");
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      throw new Error("You are offline. Connect to update the service handbook.");
-    }
     const actionContextKey = contextKey;
     const actionAuthEpoch = auth.authEpoch;
     const actionServiceId = selectedServiceId;
@@ -358,10 +355,6 @@ export function ServicePage({
 
   async function createService() {
     if (!serviceName.trim() || !siteName.trim() || serviceBusy) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Connect to create a service.");
-      return;
-    }
     setServiceBusy("create");
     setError(null);
     try {
@@ -398,10 +391,6 @@ export function ServicePage({
 
   async function joinService() {
     if (!joinCode.trim() || serviceBusy) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Connect to join a service.");
-      return;
-    }
     setServiceBusy("join");
     setError(null);
     try {

@@ -37,6 +37,14 @@ async function apiError(response: Response): Promise<string> {
   return `Could not save this routine (${response.status}).`;
 }
 
+/** A 2xx reply must still carry the saved routine; otherwise the editor stays open with an error. */
+async function savedRoutine(response: Response, failure: string): Promise<CmeRoutine> {
+  const payload = (await response.json().catch(() => null)) as { routine?: CmeRoutine } | null;
+  const routine = payload?.routine;
+  if (!routine || typeof routine !== "object" || typeof routine.id !== "string") throw new Error(failure);
+  return routine;
+}
+
 export function CmeRoutinesRoute({
   nowIso,
   initialRoutines,
@@ -101,10 +109,6 @@ export function CmeRoutinesRoute({
       setError("Demo mode is read-only. Sign in to save routines to a private CPD record.");
       return;
     }
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You're offline. Reconnect and try saving your routine again.");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -115,14 +119,10 @@ export function CmeRoutinesRoute({
         body: JSON.stringify(draft),
       });
       if (!response.ok) throw new Error(await apiError(response));
-      const payload = (await response.json().catch(() => null)) as { routine?: CmeRoutine } | null;
-      if (payload?.routine) {
-        setRoutines((current) =>
-          creating
-            ? [...current, payload.routine!]
-            : current.map((item) => (item.id === payload.routine!.id ? payload.routine! : item)),
-        );
-      }
+      const routine = await savedRoutine(response, "Could not save this routine.");
+      setRoutines((current) =>
+        creating ? [...current, routine] : current.map((item) => (item.id === routine.id ? routine : item)),
+      );
       setEditingId(null);
       router.refresh();
     } catch (cause) {
@@ -148,10 +148,6 @@ export function CmeRoutinesRoute({
       setError("Demo mode is read-only. Sign in to archive a private routine.");
       return;
     }
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You're offline. Reconnect and try archiving your routine again.");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -162,10 +158,8 @@ export function CmeRoutinesRoute({
         body: JSON.stringify(archivedDraft),
       });
       if (!response.ok) throw new Error(await apiError(response));
-      const payload = (await response.json().catch(() => null)) as { routine?: CmeRoutine } | null;
-      if (payload?.routine) {
-        setRoutines((current) => current.map((item) => (item.id === payload.routine!.id ? payload.routine! : item)));
-      }
+      const routine = await savedRoutine(response, "Could not archive this routine.");
+      setRoutines((current) => current.map((item) => (item.id === routine.id ? routine : item)));
       setEditingId(null);
       router.refresh();
     } catch (cause) {

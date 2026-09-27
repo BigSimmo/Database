@@ -104,7 +104,7 @@ function DsmMobileCompareStrip({ selected }: { selected: string[] }) {
   return (
     <div
       aria-live="polite"
-      className="dsm-mobile-compare-strip pointer-events-none fixed inset-x-0 z-[var(--z-chrome)] px-4 pl-safe pr-safe lg:hidden"
+      className="dsm-mobile-compare-strip pointer-events-none fixed inset-x-0 z-[var(--z-chrome)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:hidden"
       style={{ bottom: mobileComposerVisibleReserve.shellDock }}
     >
       <Link

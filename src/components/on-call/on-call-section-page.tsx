@@ -294,10 +294,6 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
    * number look checked.
    */
   async function verifyAllStale() {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setVerifyAllState({ running: false, error: "You are offline. Connect to confirm entries." });
-      return;
-    }
     setVerifyAllState({ running: true, error: null });
     let working = [...entries];
     const commit = () => cacheOnCallEntries(working);

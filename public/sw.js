@@ -235,39 +235,27 @@ function emergencyOfflineResponse() {
 
 const NAVIGATION_TIMEOUT_MS = 3500;
 
-function fetchWithTimeout(request, timeoutMs) {
-  if (typeof setTimeout === "undefined") {
-    return fetch(request);
-  }
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error("Navigation network timeout"));
-    }, timeoutMs);
-
-    fetch(request)
-      .then((response) => {
-        if (typeof clearTimeout !== "undefined") clearTimeout(timer);
-        resolve(response);
-      })
-      .catch((error) => {
-        if (typeof clearTimeout !== "undefined") clearTimeout(timer);
-        reject(error);
-      });
+function withNavigationTimeout(promise) {
+  if (typeof setTimeout === "undefined") return promise;
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Navigation network timeout")), NAVIGATION_TIMEOUT_MS);
+  });
+  return Promise.race([promise, deadline]).finally(() => {
+    if (typeof clearTimeout !== "undefined") clearTimeout(timer);
   });
 }
 
 async function handleNavigation(event) {
   try {
-    const preloaded = event.preloadResponse ? await event.preloadResponse.catch(() => null) : null;
-    if (preloaded) return preloaded;
-    return await (typeof setTimeout !== "undefined"
-      ? Promise.race([
-          fetch(event.request),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Navigation network timeout")), NAVIGATION_TIMEOUT_MS),
-          ),
-        ])
-      : fetch(event.request));
+    // One deadline covers navigation preload as well as the network fetch: a preload that never
+    // settles on a dead or captive connection must still fall back to the offline page.
+    return await withNavigationTimeout(
+      (async () => {
+        const preloaded = event.preloadResponse ? await event.preloadResponse.catch(() => null) : null;
+        return preloaded ?? fetch(event.request);
+      })(),
+    );
   } catch {
     return (await safeCacheMatch(SHELL_CACHE, OFFLINE_URL)) ?? emergencyOfflineResponse();
   }

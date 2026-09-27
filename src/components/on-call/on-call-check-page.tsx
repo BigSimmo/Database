@@ -36,10 +36,6 @@ export function OnCallCheckPage({ now: nowProp }: { now?: Date } = {}) {
   const [error, setError] = useState<string | null>(null);
 
   async function confirm(entry: OnCallEntry) {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Connect to confirm this entry.");
-      return;
-    }
     setPending(entry.id);
     setError(null);
     try {

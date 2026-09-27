@@ -33,6 +33,7 @@ import {
   onCallEntryIsEditable,
 } from "@/lib/on-call/entry-model";
 import { onCallTeachingDateParts } from "@/lib/on-call/teaching-schedule";
+import { useOnlineStatus } from "@/lib/use-online-status";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -524,7 +525,7 @@ export function OnCallComplianceSection({
    * about what this page does not know.
    */
   const allPrivate = compliance.length > 0 && compliance.every((entry) => entry.isPersonal);
-  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  const isOffline = !useOnlineStatus();
 
   if (compliance.length === 0) {
     return (

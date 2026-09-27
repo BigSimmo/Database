@@ -66,10 +66,6 @@ function ServiceEntryCard({
 
   async function submitReport() {
     if (!reason.trim() || busy) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Connect to send a correction.");
-      return;
-    }
     setBusy(true);
     setError(null);
     try {

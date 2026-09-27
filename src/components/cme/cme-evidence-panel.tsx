@@ -110,10 +110,6 @@ export function CmeEvidencePanel({
 
   async function upload() {
     if (!file || !confirmed || !previewOpened || readOnly || demoMode || busy) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Connect to upload evidence.");
-      return;
-    }
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -337,10 +333,6 @@ function EvidenceFileRow({
   }
 
   async function remove() {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Connect to remove evidence.");
-      return;
-    }
     setBusy(true);
     setError(null);
     try {

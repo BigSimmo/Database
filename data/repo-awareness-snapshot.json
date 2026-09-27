@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-27"
+    "committed_at": "2026-09-28"
   },
   "routes": {
     "modes": [
@@ -16030,6 +16030,14 @@
         "scope": "stale-checkout P0 regression discovery",
         "outcome": "P0 regressions found in stale file checkouts",
         "checks": "Confirmed affected worker/main.ts and tests/reconciliation-preflight.test.ts; superseded by later remediation and current final review"
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "PR #3120",
+        "head": "88f448ea8514b48b5a51509abafa87a4e448f274",
+        "scope": "PR #3120 plans",
+        "outcome": "Changes recommended: publishing race, privacy wording and stale handoff",
+        "checks": "Reviewed exact PR diff and merged SQL; SAST and Secret Scan passed, CI in progress; no local tests"
       },
       {
         "date": "2026-08-16",
