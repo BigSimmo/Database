@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { CmeTrainingTimeline } from "@/components/cme/cme-training-timeline";
+import { CmeDateField, useCmeDateChecks } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
@@ -155,7 +157,7 @@ function nextDueDetail(next: NextMilestone, today: string): string {
     return projectedOn === today ? "Due today." : `Due ${date}.`;
   }
   const target = milestone.dueFteMonths === null ? "its target" : formatFteMonths(milestone.dueFteMonths);
-  if (overdue) return `Overdue: your training clock reached ${target} on ${date}, and it is not marked complete.`;
+  if (overdue) return `Overdue: your training clock reached ${target} on ${date}, and it is not marked done.`;
   if (projectedOn <= today) return `Due today: your training clock reaches ${target} today.`;
   return `Projected for ${date}, when your training clock reaches ${target} at your current FTE. This is an estimate, not a college date.`;
 }
@@ -187,6 +189,7 @@ export function CmeTrainingPage({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dateChecks = useCmeDateChecks();
   const [pendingDelete, setPendingDelete] = useState<{ type: RecordType; id: string; label: string } | null>(null);
 
   const periodHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -239,6 +242,10 @@ export function CmeTrainingPage({
     event.preventDefault();
     if (!periodEditing || saving) return;
     setError(null);
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     const parsed = trainingPeriodInputSchema.safeParse(periodPayload(periodDraft));
     if (!parsed.success) {
       setPeriodErrors(fieldErrorsOf(parsed.error.issues));
@@ -280,6 +287,10 @@ export function CmeTrainingPage({
     event.preventDefault();
     if (!milestoneEditing || saving) return;
     setError(null);
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     const parsed = trainingMilestoneInputSchema.safeParse(milestonePayload(milestoneDraft));
     if (!parsed.success) {
       setMilestoneErrors(fieldErrorsOf(parsed.error.issues));
@@ -398,23 +409,26 @@ export function CmeTrainingPage({
         error={periodErrors.label}
         onChange={(event) => setPeriodDraft((current) => ({ ...current, label: event.target.value }))}
       />
-      <TextField
+      <CmeDateField
         label="Start date"
         id="cme-training-period-start"
-        type="date"
+        chips={false}
         required
+        today={today}
         value={periodDraft.startsOn}
         error={periodErrors.startsOn}
-        onChange={(event) => setPeriodDraft((current) => ({ ...current, startsOn: event.target.value }))}
+        onChange={(startsOn) => setPeriodDraft((current) => ({ ...current, startsOn }))}
       />
-      <TextField
+      <CmeDateField
         label="End date"
+        onInvalidChange={dateChecks.report("periodEnd")}
         id="cme-training-period-end"
-        type="date"
+        chips={false}
+        today={today}
         value={periodDraft.endsOn}
         error={periodErrors.endsOn}
         hint="Leave empty if it is still going."
-        onChange={(event) => setPeriodDraft((current) => ({ ...current, endsOn: event.target.value }))}
+        onChange={(endsOn) => setPeriodDraft((current) => ({ ...current, endsOn }))}
       />
       {periodDraft.kind === "rotation" ? (
         <TextField
@@ -501,24 +515,28 @@ export function CmeTrainingPage({
           onChange={(event) => setMilestoneDraft((current) => ({ ...current, dueFteMonths: event.target.value }))}
         />
       ) : (
-        <TextField
+        <CmeDateField
           label="Due date"
           id="cme-training-milestone-due-on"
-          type="date"
+          chips={false}
           required
+          today={today}
           value={milestoneDraft.dueOn}
           error={milestoneErrors.dueOn}
-          onChange={(event) => setMilestoneDraft((current) => ({ ...current, dueOn: event.target.value }))}
+          onChange={(dueOn) => setMilestoneDraft((current) => ({ ...current, dueOn }))}
         />
       )}
-      <TextField
+      <CmeDateField
         label="Completed on"
+        onInvalidChange={dateChecks.report("milestoneCompleted")}
         id="cme-training-milestone-completed"
-        type="date"
+        chips={false}
+        allowFuture={false}
+        today={today}
         value={milestoneDraft.completedOn}
         error={milestoneErrors.completedOn}
         hint="Leave empty until it is done."
-        onChange={(event) => setMilestoneDraft((current) => ({ ...current, completedOn: event.target.value }))}
+        onChange={(completedOn) => setMilestoneDraft((current) => ({ ...current, completedOn }))}
       />
       <div className="flex flex-wrap gap-2">
         <Button type="submit" variant="primary" busy={saving} busyLabel="Saving…">
@@ -583,7 +601,7 @@ export function CmeTrainingPage({
               <p className={cn(textMuted, "mt-1 text-sm")}>No rotation covers today.</p>
             )}
             <p className="mt-3 text-sm text-[color:var(--text)]" data-testid="cme-training-clock">
-              Training time so far: <span className="font-semibold">{formatFteMonths(clock)}</span>
+              Training time so far: <span className="nums font-normal">{formatFteMonths(clock)}</span>
             </p>
             <p className={cn(textMuted, "mt-1 text-xs")}>
               Only rotations count. Half-time counts half, and breaks pause the clock.
@@ -613,7 +631,7 @@ export function CmeTrainingPage({
               </>
             ) : (
               <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-training-next-detail">
-                {milestones.length === 0 ? "No milestones yet." : "Every milestone is marked complete."}
+                {milestones.length === 0 ? "No milestones yet." : "Every milestone is marked done."}
               </p>
             )}
           </section>
@@ -631,6 +649,11 @@ export function CmeTrainingPage({
                 Your timeline has a problem to fix: {storedProblems.map((problem) => problem.message).join(" ")}
               </span>
             </InlineNotice>
+          </div>
+        ) : null}
+        {orderedPeriods.length > 0 ? (
+          <div className={cn(cardSurface, "mt-3 p-3")}>
+            <CmeTrainingTimeline periods={periods} today={today} />
           </div>
         ) : null}
         {orderedPeriods.length > 0 ? (
@@ -701,7 +724,7 @@ export function CmeTrainingPage({
                   <p className="font-semibold text-[color:var(--text)]">{milestone.label}</p>
                   <p className={cn(textMuted, "text-sm")}>
                     {milestone.completedOn
-                      ? `Completed ${formatCalendarDateLong(milestone.completedOn)}`
+                      ? `Done ${formatCalendarDateLong(milestone.completedOn)}`
                       : milestoneDueText(milestone)}
                   </p>
                 </div>
@@ -710,19 +733,19 @@ export function CmeTrainingPage({
                     <Button
                       variant="toolbar"
                       size="sm"
-                      aria-label={`Mark ${milestone.label} not complete`}
+                      aria-label={`Mark ${milestone.label} not done`}
                       onClick={() => void setCompleted(milestone, null)}
                     >
-                      Not complete
+                      Not done
                     </Button>
                   ) : (
                     <Button
                       variant="secondary"
                       size="sm"
-                      aria-label={`Mark ${milestone.label} complete`}
+                      aria-label={`Mark ${milestone.label} done`}
                       onClick={() => void setCompleted(milestone, today)}
                     >
-                      Mark complete
+                      Mark done
                     </Button>
                   )}
                   <Button

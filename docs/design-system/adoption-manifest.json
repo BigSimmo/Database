@@ -423,6 +423,7 @@
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
         "tests/applied-filters.dom.test.tsx",
+        "tests/cme-type-weight.test.ts",
         "tests/cme-visual-contract.dom.test.tsx",
         "tests/copy-button.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
@@ -454,6 +455,9 @@
       "directImportFiles": [
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-evidence-panel.tsx",
+        "src/components/cme/cme-setup-page.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/teaching/organise-sheets.tsx",
@@ -463,6 +467,9 @@
       "productImportFiles": [
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-evidence-panel.tsx",
+        "src/components/cme/cme-setup-page.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/teaching/organise-sheets.tsx",
@@ -475,7 +482,11 @@
         "preview": ".design-sync/previews/Checkbox.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/cme-checkbox-consistency.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -499,7 +510,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/cme/cme-entry-page.tsx",
-        "src/components/cme/cme-log-page.tsx",
         "src/components/sources/sources-catalogue-client.tsx",
         "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
@@ -511,7 +521,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/cme/cme-entry-page.tsx",
-        "src/components/cme/cme-log-page.tsx",
         "src/components/sources/sources-catalogue-client.tsx",
         "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
@@ -909,7 +918,6 @@
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-routines-page.tsx",
-        "src/components/cme/cme-state-notice.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
@@ -934,7 +942,6 @@
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-routines-page.tsx",
-        "src/components/cme/cme-state-notice.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
@@ -1083,8 +1090,8 @@
       "source": "src/components/ui/form-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/choice.tsx"],
-      "productImportFiles": ["src/components/ui/choice.tsx"],
+      "directImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
+      "productImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1111,8 +1118,8 @@
       "source": "src/components/ui/form-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/choice.tsx"],
-      "productImportFiles": ["src/components/ui/choice.tsx"],
+      "directImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
+      "productImportFiles": ["src/components/cme/cme-date-field.tsx", "src/components/ui/choice.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1140,6 +1147,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/cme/cme-date-field.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
@@ -1154,6 +1162,7 @@
         "src/components/ui/text-field.tsx"
       ],
       "productImportFiles": [
+        "src/components/cme/cme-date-field.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
@@ -1645,8 +1654,8 @@
       "source": "src/components/ui/progress.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/cme/cme-dashboard.tsx"],
-      "productImportFiles": ["src/components/cme/cme-dashboard.tsx"],
+      "directImportFiles": [],
+      "productImportFiles": [],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1667,8 +1676,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": true,
-      "v2MountMode": "inherited-global-root",
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -4928,9 +4937,9 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 46,
+    "productImportedComponentCount": 45,
     "rootCount": 126,
     "productionRouteCount": 118,
-    "nextUiEntryCount": 183
+    "nextUiEntryCount": 185
   }
 }

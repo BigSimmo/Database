@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -14,10 +14,10 @@ describe("New entry", () => {
     await user.click(screen.getByRole("button", { name: "Split hours" }));
     await user.type(screen.getByLabelText(/reviewing performance/i), "1");
     expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("1.0 of 1.5 allocated");
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).toHaveAttribute("aria-disabled", "true");
     await user.type(screen.getByLabelText(/measuring outcomes/i), "0.5");
     expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("1.5 of 1.5 allocated");
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).not.toHaveAttribute("aria-disabled");
   });
 
   // Regression, 2026-09-24: Save sat disabled with nothing saying why.
@@ -32,7 +32,7 @@ describe("New entry", () => {
     expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/split/i);
     await user.type(screen.getByLabelText(/reviewing performance/i), "1.5");
     expect(screen.queryByTestId("cme-entry-save-blocked")).toBeNull();
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).not.toHaveAttribute("aria-disabled");
   });
 
   it("labels the reflection without asking a question", () => {
@@ -54,12 +54,13 @@ describe("New entry", () => {
     render(<CmeEntryForm onSubmit={vi.fn()} />);
     await user.type(screen.getByLabelText(/what it cost/i), "1e10");
     expect(screen.getByText("Numbers only, like 45 or 45.50.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("rejects exponent notation in an allocation field instead of counting it as hours", async () => {
     const user = userEvent.setup();
     render(<CmeEntryForm onSubmit={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "1" }));
     await user.click(screen.getByRole("button", { name: "Split hours" }));
     await user.type(screen.getByLabelText(/reviewing performance/i), "1e10");
     expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("0.0 of 1.0 allocated");
@@ -70,7 +71,7 @@ describe("New entry", () => {
     render(<CmeEntryForm onSubmit={vi.fn()} />);
     await user.type(screen.getByLabelText(/formal peer-review credit/i), "-1");
     expect(screen.getByText(/positive plain number/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("submits domain and peer-review credit inside the allocated reviewing hours", async () => {
@@ -78,6 +79,7 @@ describe("New entry", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<CmeEntryForm onSubmit={onSubmit} availableDomains={["Professionalism"]} />);
     await user.type(screen.getByLabelText(/what was it/i), "Peer review meeting");
+    await user.click(screen.getByRole("button", { name: "1" }));
     await user.click(screen.getByRole("button", { name: "Reviewing" }));
     await user.click(screen.getByText("More details"));
     await user.type(screen.getByLabelText(/formal peer-review credit/i), "1");
@@ -206,5 +208,124 @@ describe("allocation hours display", () => {
     expect(formatAllocationHours(1.5)).toBe("1.5");
     expect(formatAllocationHours(1.1)).toBe("1.1");
     expect(formatAllocationHours(0.1 + 0.2)).toBe("0.3");
+  });
+});
+
+describe("hours chips and an honest Save", () => {
+  function hoursGroup() {
+    return screen.getByRole("group", { name: "Hours" });
+  }
+
+  it("offers 0.5, 1, 1.5, 2, 3 and Other, with nothing chosen for a new entry", () => {
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    const chips = within(hoursGroup()).getAllByRole("button");
+    expect(chips.map((chip) => chip.textContent)).toEqual(["0.5", "1", "1.5", "2", "3", "Other"]);
+    for (const chip of chips) expect(chip).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByLabelText("Hours for this activity")).toBeNull();
+    const categories = within(screen.getByTestId("cme-entry-category")).getAllByRole("button");
+    for (const chip of categories) expect(chip).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps Save grey until there is a title and hours, and never saves while grey", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<CmeEntryForm onSubmit={onSubmit} />);
+    const save = screen.getByRole("button", { name: "Save entry" });
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    expect(save).not.toBeDisabled();
+    await user.type(screen.getByLabelText(/what was it/i), "Demo journal club");
+    await user.click(screen.getByRole("button", { name: "Educational" }));
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    await user.click(save);
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.click(within(hoursGroup()).getByRole("button", { name: "1" }));
+    expect(save).not.toHaveAttribute("aria-disabled");
+    await user.click(save);
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Demo journal club", allocations: [{ category: "educational", hours: 1 }] }),
+    );
+    // After a save the next entry starts blank again: no hours chosen.
+    for (const chip of within(hoursGroup()).getAllByRole("button")) {
+      expect(chip).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  it("opens the hours box from Other, which takes 1,5 and 90 min", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<CmeEntryForm onSubmit={onSubmit} />);
+    await user.type(screen.getByLabelText(/what was it/i), "Demo reading");
+    await user.click(screen.getByTestId("cme-entry-hours-other"));
+    const box = screen.getByLabelText("Hours for this activity");
+    expect(box).toHaveFocus();
+    await user.type(box, "1,5");
+    expect(screen.getByTestId("cme-entry-hours-other")).toHaveAttribute("aria-pressed", "true");
+    expect(within(hoursGroup()).getByRole("button", { name: "1.5" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: "Educational" }));
+    await user.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(onSubmit).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allocations: [{ category: "educational", hours: 1.5 }] }),
+    );
+
+    await user.type(screen.getByLabelText(/what was it/i), "Demo webinar");
+    await user.click(screen.getByTestId("cme-entry-hours-other"));
+    await user.type(screen.getByLabelText("Hours for this activity"), "90 min");
+    await user.click(screen.getByRole("button", { name: "Educational" }));
+    await user.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(onSubmit).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allocations: [{ category: "educational", hours: 1.5 }] }),
+    );
+  });
+
+  it("still fills hours from a prefill: a chip when it matches, the box when it does not", () => {
+    const base = {
+      date: "2026-03-01",
+      title: "Demo peer review",
+      reflection: "",
+      costCents: null,
+      routineId: null,
+      documentId: null,
+      sourceUrl: null,
+      buckets: [],
+      formalPeerReviewHours: 0,
+    };
+    const { unmount } = render(
+      <CmeEntryForm onSubmit={vi.fn()} initialEntry={{ ...base, allocations: [] }} initialStatedHours={1.5} />,
+    );
+    expect(within(hoursGroup()).getByRole("button", { name: "1.5" })).toHaveAttribute("aria-pressed", "true");
+    unmount();
+    render(
+      <CmeEntryForm
+        onSubmit={vi.fn()}
+        initialEntry={{ ...base, allocations: [{ category: "reviewing", hours: 4 }] }}
+      />,
+    );
+    expect(screen.getByTestId("cme-entry-hours-other")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Hours for this activity")).toHaveValue("4");
+    expect(screen.getByRole("button", { name: "Save entry" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("reads the privacy line exactly", () => {
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    expect(screen.getByTestId("cme-entry-privacy")).toHaveTextContent(
+      /^Keep it free of patient names, initials, dates of birth, record numbers and other identifiers\.$/,
+    );
+  });
+
+  it("keeps the order: title, date, hours, counts toward, reflection, privacy, More details, Save", () => {
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    const order = [
+      screen.getByLabelText(/what was it/i),
+      screen.getByRole("group", { name: "Date" }),
+      hoursGroup(),
+      screen.getByTestId("cme-entry-category"),
+      screen.getByLabelText("Reflection"),
+      screen.getByTestId("cme-entry-privacy"),
+      screen.getByTestId("cme-entry-more-details"),
+      screen.getByRole("button", { name: "Save entry" }),
+    ];
+    for (let index = 1; index < order.length; index += 1) {
+      expect(order[index - 1].compareDocumentPosition(order[index]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
   });
 });

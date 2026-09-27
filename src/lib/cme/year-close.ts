@@ -58,6 +58,19 @@ export function buildCmeCloseEvaluation(set: CmeRequirementSet, entries: readonl
   };
 }
 
+/**
+ * A closed year's requirement summary, worded for the screen.
+ *
+ * The snapshot keeps the words the app used on the day the year was closed, and it is never
+ * rewritten. Years closed before 2026-09 hold "Met" and "5 hours short"; this maps those two
+ * old shapes to today's plain status ("Reached", "5 h to go") when they are shown, and passes
+ * every other summary through unchanged.
+ */
+export function closedRequirementSummaryText(summary: string): string {
+  if (summary === "Met") return "Reached";
+  return summary.replace(/(\d+(?:\.\d+)?) hours? short/, "$1 h to go");
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }

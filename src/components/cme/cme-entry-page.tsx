@@ -171,8 +171,8 @@ export function CmeEntryPage({
           {entry.allocations.map((allocation) => (
             <li key={allocation.category} className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}>
               <Chip appearance={{ kind: "category", tone: "indigo" }}>{cmeCategoryLabels[allocation.category]}</Chip>
-              <span className="text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
-                {allocation.hours} h
+              <span className="text-sm font-normal tabular-nums text-[color:var(--text-heading)]">
+                {`${allocation.hours} h`}
               </span>
             </li>
           ))}

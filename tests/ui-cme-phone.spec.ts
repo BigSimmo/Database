@@ -44,13 +44,13 @@ test.describe("CME on a phone", () => {
   test("the dashboard leads with position, pace and one action", async ({ page }) => {
     await page.goto("/cme");
     await expect(page.locator("#main-content")).toBeVisible();
-    // `toContainText`, not `toHaveText`: the testid sits on the wrapping <p>,
-    // whose full text is "32.5of 50 hours logged" — the figure plus its own
-    // muted "of N hours logged" sibling span, with no space between them in
-    // markup. An exact-text match would pin that whole sentence instead of
-    // the one figure this assertion is actually about.
+    // `toContainText`, not `toHaveText`: the testid now sits on a hero span
+    // whose text is "32.5 of 50 h" — the figure plus its own muted "of N h"
+    // sibling text. An exact-text match would pin that whole sentence instead
+    // of the one figure this assertion is actually about.
     await expect(page.getByTestId("cme-total-hours")).toContainText("32.5");
-    await expect(page.getByTestId("cme-pace-sentence")).toContainText("by 31 December");
+    await expect(page.getByTestId("cme-pace-sentence")).toContainText("About 1.2 h a week reaches 50 h by 31 Dec");
+    await expect(page.getByTestId("cme-hero-season")).toHaveText("Year ends 31 Dec 2026, in 15 weeks");
     await expect(page.getByTestId("cme-next-action")).toBeVisible();
   });
 
@@ -131,12 +131,17 @@ test.describe("CME core screens at phone widths", () => {
     await page.getByRole("button", { name: "Log 1.0 h for Demo journal club", exact: true }).click();
     await expect(page).toHaveURL(/\/cme\/new\?routine=/);
     await expect(page.getByLabel("What was it", { exact: false })).toHaveValue("Demo journal club");
-    await expect(page.getByLabel("Hours for this activity", { exact: true })).toHaveValue("1");
+    await expect(
+      page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Educational", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Save entry", exact: true })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     await expect(page.getByTestId("cme-entry-demo-notice")).toContainText("Saving is available only");
   });
 
@@ -267,6 +272,13 @@ test.describe("CME annual records and explicit learning handoff", () => {
     await expect(page.getByTestId("cme-annual-summary")).toHaveCount(0);
   });
 
+  test("opens the current year's summary when no year is given", async ({ page }) => {
+    await page.goto("/cme/summary");
+    const summary = page.getByTestId("cme-annual-summary");
+    await expect(summary.getByRole("heading", { level: 1 })).toContainText("2026");
+    await expect(page.getByText("Choose a valid year from your CPD log.")).toHaveCount(0);
+  });
+
   test("teaching handoff prefills only title and source until duration and categories are confirmed", async ({
     page,
   }) => {
@@ -284,11 +296,17 @@ test.describe("CME annual records and explicit learning handoff", () => {
       "https://example.org/synthetic-teaching",
     );
     await expect(page.getByText("Opening this form does not record an activity.", { exact: false })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(writes).toEqual([]);
-    await page.getByLabel("Hours for this activity", { exact: true }).fill("1");
+    await page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true }).click();
     await page.getByRole("button", { name: "Educational", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Save entry", exact: true })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(writes).toEqual([]);
   });
 });
@@ -301,13 +319,17 @@ test.describe("CME phone design", () => {
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/cme");
-    await expect(page.getByTestId("cme-category-bar").filter({ visible: true })).toBeVisible();
+    await expect(page.getByTestId("cme-hero-summary").filter({ visible: true })).toBeVisible();
     await page.getByTestId("cme-quick-log-button").click();
     const sheet = page.getByTestId("cme-quick-log-sheet");
     await expect(sheet.getByLabel("What was it", { exact: false })).toBeVisible();
     await sheet.getByLabel("What was it", { exact: false }).fill("Synthetic grand round");
+    await sheet.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true }).click();
     await sheet.getByRole("button", { name: "Educational", exact: true }).click();
-    await expect(sheet.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
+    await expect(sheet.getByRole("button", { name: "Save entry", exact: true })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(writes).toEqual([]);
   });
 
@@ -326,8 +348,9 @@ test.describe("CME phone design", () => {
     await page.getByTestId("cme-year-check-link").filter({ visible: true }).click();
     await expect(page).toHaveURL(/\/cme\/check\?year=2026/);
     const check = page.getByTestId("cme-year-check");
-    await expect(check.getByRole("heading", { level: 1 })).toHaveText(/\d+ of \d+ ready/);
+    await expect(check.getByRole("heading", { level: 1 })).toHaveText(/\d+ of \d+ done/);
     await expect(check.getByTestId("cme-check-row-total")).toBeVisible();
+    await expect(check.getByTestId("cme-check-row-evidence")).toContainText("Not checked");
     await expect(check.getByTestId("cme-check-row-copied")).toBeVisible();
   });
 
@@ -336,6 +359,7 @@ test.describe("CME phone design", () => {
     await page.goto("/cme/calendar");
     const calendar = page.getByTestId("cme-calendar-view");
     await expect(calendar.getByRole("heading", { level: 2 })).toHaveText("September 2026");
+    await expect(calendar.getByRole("list", { name: "What the marks mean" })).toBeVisible();
     await calendar.getByRole("button", { name: "Next month" }).click();
     await expect(calendar.getByRole("heading", { level: 2 })).toHaveText("October 2026");
     const width = await page.evaluate(() => document.documentElement.scrollWidth);
