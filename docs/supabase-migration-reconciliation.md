@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-07-07
 
-Target project: Clinical KB Database (`sjrfecxgysukkwxsowpy`)
+Target project: PsychSift Production (`sjrfecxgysukkwxsowpy`)
 
 ## Policy
 

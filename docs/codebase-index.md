@@ -5,7 +5,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 _Updated 2026-09-26 — added the generated Areas section from the organisation map._
 
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
-**Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
+**Live Supabase:** `PsychSift Production` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
 
 ---
 

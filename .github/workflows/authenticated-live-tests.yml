@@ -63,7 +63,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
-          SUPABASE_PROJECT_NAME: Clinical KB Database
+          SUPABASE_PROJECT_NAME: PsychSift Production
         run: npm run check:supabase-project
 
       - name: Run explicitly enabled authenticated tests
@@ -74,7 +74,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
-          SUPABASE_PROJECT_NAME: Clinical KB Database
+          SUPABASE_PROJECT_NAME: PsychSift Production
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
         run: npm run test:live
