@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { CmeLearningPage } from "@/components/cme/cme-learning-page";
 import type { LearningDirectoryItem } from "@/lib/cme/learning-directory";
@@ -52,7 +53,7 @@ describe("CME learning directory page", () => {
     expect(screen.queryByTestId("cme-learning-unconfirmed")).toBeNull();
   });
 
-  it("opens the organiser's page in a new tab and logs with only a title and source link", () => {
+  it("opens the organiser's page and offers a 48 px calendar control before the event", () => {
     render(<CmeLearningPage items={[item({ title: "A & B" })]} lastCheckedOn="2026-09-26" nowIso={NOW_ISO} />);
     const card = screen.getByTestId("cme-learning-item");
     const details = within(card).getByRole("link", { name: /details/i });
@@ -60,12 +61,47 @@ describe("CME learning directory page", () => {
     expect(details).toHaveAttribute("target", "_blank");
     expect(details).toHaveAttribute("rel", "noopener noreferrer");
 
+    const add = within(card).getByRole("button", { name: "Add to calendar" });
+    expect(add.className).toContain("min-h-12");
+    expect(add.className).toContain("min-w-12");
+    expect(within(card).queryByRole("link", { name: "Log as CPD" })).toBeNull();
+  });
+
+  it("offers Log as CPD only in Past, carrying the public event title and source", () => {
+    render(
+      <CmeLearningPage
+        items={[item({ title: "A & B", startsOn: "2026-09-01" })]}
+        lastCheckedOn="2026-09-26"
+        nowIso={NOW_ISO}
+        view="past"
+      />,
+    );
+    const card = screen.getByTestId("cme-learning-item");
     const log = within(card).getByRole("link", { name: "Log as CPD" });
     const url = new URL(log.getAttribute("href") ?? "", "https://psychiatry.tools");
     expect(url.pathname).toBe("/cme/new");
     expect([...url.searchParams.keys()]).toEqual(["title", "sourceUrl"]);
     expect(url.searchParams.get("title")).toBe("A & B");
     expect(url.searchParams.get("sourceUrl")).toBe("https://example.org/event?ref=list");
+  });
+
+  it("downloads the single-event ICS in the browser without fetching a server", async () => {
+    const user = userEvent.setup();
+    const createObjectURL = vi.fn(() => "blob:learning-calendar");
+    const revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
+    try {
+      render(<CmeLearningPage items={[item()]} lastCheckedOn="2026-09-26" nowIso={NOW_ISO} />);
+      await user.click(screen.getByRole("button", { name: "Add to calendar" }));
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(click.mock.instances[0]).toHaveProperty("download", "synthetic-workshop.ics");
+      expect(document.querySelector('a[href="blob:learning-calendar"]')).toBeNull();
+    } finally {
+      click.mockRestore();
+    }
   });
 
   it("shows the empty state when nothing is upcoming", () => {
@@ -77,6 +113,56 @@ describe("CME learning directory page", () => {
   it("warns that the list may be out of date after 45 days", () => {
     render(<CmeLearningPage items={[]} lastCheckedOn="2026-08-11" nowIso={NOW_ISO} />);
     expect(screen.getByTestId("cme-learning-stale")).toHaveTextContent(/may be out of date/i);
+  });
+
+  it("starts RANZCP at psychiatry, includes unspecialised events, and offers one-tap All", async () => {
+    const user = userEvent.setup();
+    render(
+      <CmeLearningPage
+        items={[
+          item({ id: "all", title: "Every specialty" }),
+          item({ id: "psychiatry", title: "Psychiatry event", specialties: ["psychiatry"] }),
+          item({ id: "surgery", title: "Surgery event", specialties: ["surgery"] }),
+        ]}
+        lastCheckedOn="2026-09-26"
+        nowIso={NOW_ISO}
+        homeSource="au-ranzcp-2026-v1; https://example.org"
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Specialty" })).toHaveValue("psychiatry");
+    expect(screen.getAllByTestId("cme-learning-item")).toHaveLength(2);
+    expect(screen.getByText("Every specialty")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "All specialties" }));
+    expect(screen.getByRole("combobox", { name: "Specialty" })).toHaveValue("all");
+    expect(screen.getAllByTestId("cme-learning-item")).toHaveLength(3);
+  });
+
+  it("filters format and groups visible events by month", async () => {
+    const user = userEvent.setup();
+    render(
+      <CmeLearningPage
+        items={[
+          item({ id: "october", title: "October online", mode: "online", startsOn: "2026-10-01" }),
+          item({ id: "november", title: "November in person", mode: "in-person", startsOn: "2026-11-01" }),
+        ]}
+        lastCheckedOn="2026-09-26"
+        nowIso={NOW_ISO}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "October 2026" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "November 2026" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Format" }), "online");
+    expect(screen.getAllByTestId("cme-learning-item")).toHaveLength(1);
+    expect(screen.queryByText("November in person")).toBeNull();
+  });
+
+  it("shows hospital teaching only when a destination is supplied", () => {
+    const { rerender } = render(<CmeLearningPage items={[]} lastCheckedOn="2026-09-26" nowIso={NOW_ISO} />);
+    expect(screen.queryByRole("link", { name: "Your hospital's teaching" })).toBeNull();
+    rerender(
+      <CmeLearningPage items={[]} lastCheckedOn="2026-09-26" nowIso={NOW_ISO} hospitalTeachingHref="/teaching" />,
+    );
+    expect(screen.getByRole("link", { name: "Your hospital's teaching" })).toHaveAttribute("href", "/teaching");
   });
 
   it("does not warn at exactly 45 days", () => {

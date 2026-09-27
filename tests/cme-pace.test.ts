@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import { cmeSeasonLine, cmeTargetReachedOn, cmeWeeklyPace } from "@/lib/cme/pace";
+import {
+  buildCmeWeekBars,
+  cmeRoutineGapScenarios,
+  cmeSeasonLine,
+  cmeTargetReachedOn,
+  cmeWeeklyPace,
+} from "@/lib/cme/pace";
+import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry } from "@/lib/cme/types";
 
 function entry(id: string, date: string, hours: number, archivedAt: string | null = null): CmeEntry {
@@ -19,6 +26,61 @@ function entry(id: string, date: string, hours: number, archivedAt: string | nul
     archivedAt,
   };
 }
+
+describe("cmeRoutineGapScenarios", () => {
+  const routines: CmeRoutine[] = [
+    {
+      id: "active",
+      title: "Journal club",
+      cadence: "monthly",
+      usualHours: 2,
+      usualAllocations: [{ category: "educational", hours: 1 }],
+      nextDue: null,
+      archivedAt: null,
+    },
+    {
+      id: "archived",
+      title: "Old round",
+      cadence: "weekly",
+      usualHours: 10,
+      usualAllocations: [{ category: "educational", hours: 10 }],
+      nextDue: null,
+      archivedAt: "2026-02-01T00:00:00Z",
+    },
+  ];
+
+  it("uses active templates for illustrative total and category scenarios", () => {
+    expect(cmeRoutineGapScenarios(routines, 5)).toEqual([
+      { routineId: "active", title: "Journal club", hoursPerOccurrence: 2, occurrences: 3, projectedHours: 6 },
+    ]);
+    expect(cmeRoutineGapScenarios(routines, 5, "educational")[0]?.occurrences).toBe(5);
+    expect(cmeRoutineGapScenarios(routines, 0)).toEqual([]);
+  });
+});
+
+describe("buildCmeWeekBars", () => {
+  it("uses 53 spans from 1 January and counts the last day and leap day once", () => {
+    const entries = [entry("first", "2024-01-01", 1), entry("leap", "2024-02-29", 2), entry("last", "2024-12-31", 3)];
+    const bars = buildCmeWeekBars(entries, 2024, "2024-03-01");
+    expect(bars).toHaveLength(53);
+    expect(bars[0].hours).toBe(1);
+    expect(bars[8].hours).toBe(2);
+    expect(bars[52].hours).toBe(3);
+    expect(bars.reduce((sum, bar) => sum + bar.hours, 0)).toBe(6);
+    expect(bars[8].state).toBe("now");
+    expect(bars[52].state).toBe("future");
+  });
+
+  it("leaves archived and other-year activities out", () => {
+    const bars = buildCmeWeekBars(
+      [entry("old", "2025-12-31", 5), entry("archived", "2026-01-01", 7, "2026-01-02T00:00:00Z")],
+      2026,
+      "2026-12-31",
+    );
+    expect(bars.reduce((sum, bar) => sum + bar.hours, 0)).toBe(0);
+    expect(bars[52].state).toBe("now");
+  });
+});
 
 describe("cmeWeeklyPace", () => {
   it("spreads the hours still to go over the weeks left to 31 December", () => {

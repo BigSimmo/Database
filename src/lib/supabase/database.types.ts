@@ -2836,6 +2836,27 @@ export type Database = {
           referencedColumns: ["id", "owner_id"];
         }];
       };
+      cme_plan_goal_carries: {
+        Row: { created_at: string; owner_id: string; source_goal_id: string; target_goal_id: string | null };
+        Insert: { created_at?: string; owner_id: string; source_goal_id: string; target_goal_id?: string | null };
+        Update: { created_at?: string; owner_id?: string; source_goal_id?: string; target_goal_id?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "cme_plan_goal_carries_source_owner_fk";
+            columns: ["source_goal_id", "owner_id"];
+            isOneToOne: true;
+            referencedRelation: "cme_plan_goals";
+            referencedColumns: ["id", "owner_id"];
+          },
+          {
+            foreignKeyName: "cme_plan_goal_carries_target_owner_fk";
+            columns: ["target_goal_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "cme_plan_goals";
+            referencedColumns: ["id", "owner_id"];
+          },
+        ];
+      };
       cme_entry_goals: {
         Row: {
           created_at: string;
@@ -4734,6 +4755,14 @@ export type Database = {
       roster_can_invite: { Args: { p_service_id: string; p_user_id: string }; Returns: boolean };
       cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
       cme_save_plan_goals: { Args: { p_owner_id: string; p_year_id: string; p_goals: Json }; Returns: Json };
+      cme_save_plan_goals_checked: {
+        Args: { p_owner_id: string; p_year_id: string; p_goals: Json; p_expected_goals: Json };
+        Returns: Json;
+      };
+      cme_carry_plan_goal: {
+        Args: { p_owner_id: string; p_source_year: number; p_goal_id: string };
+        Returns: Json;
+      };
       cme_set_entry_goal: { Args: { p_owner_id: string; p_entry_id: string; p_goal_id: string | null }; Returns: Json };
       cme_set_entry_archived: { Args: { p_owner_id: string; p_entry_id: string; p_archived: boolean }; Returns: Json };
       cme_evidence_counts: { Args: { p_owner_id: string; p_year: number }; Returns: Json };

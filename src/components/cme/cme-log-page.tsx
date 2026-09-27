@@ -1,8 +1,8 @@
 "use client";
 
-import { Check, Plus } from "lucide-react";
+import { Check, Copy, ListFilter, Plus } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CmeDraftsSection } from "@/components/cme/cme-drafts-section";
 import { CmeMissedSessionsSection } from "@/components/cme/cme-missed-sessions-section";
@@ -12,13 +12,16 @@ import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { modeNumberText } from "@/components/mode-kit/type";
 import { buttonFaceClass } from "@/components/ui/button";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { Sheet } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { formatCalendarMonthLabel, formatCmeRowDate, perthCalendarDate } from "@/lib/cme/cpd-year";
+import { formatEntryForCpdHome } from "@/lib/cme/clipboard";
 import type { CmeDraft } from "@/lib/cme/drafts";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
 import type { CmeMissedSession } from "@/lib/cme/missed-sessions";
+import type { CmeRoutine } from "@/lib/cme/routines";
 import {
   cmeCategories,
   cmeCategoryLabels,
@@ -41,6 +44,10 @@ export type CmeLogPageProps = {
   readonly demoMode?: boolean;
   /** Opens the log already narrowed to activities needing one kind of attention (from the year check). */
   readonly initialAttention?: CmeLogAttention | null;
+  readonly initialCategory?: CmeCategory | null;
+  /** Owner-scoped entries across years, when the route has loaded them. */
+  readonly allYearsEntries?: readonly CmeEntry[];
+  readonly allYearsFailed?: boolean;
   /** Saved drafts. Listed apart from the log and never counted toward hours. */
   readonly drafts?: readonly CmeDraft[];
   /** Missed teaching and supervision. Never counted toward hours. */
@@ -49,6 +56,9 @@ export type CmeLogPageProps = {
   readonly recordsFailed?: boolean;
   /** Today in Perth (`YYYY-MM-DD`), so a row adds the year only to another year's date. The route passes the loader's clock. */
   readonly today?: string;
+  /** The To finish address shows unfinished records without the activity filters. */
+  readonly initialTab?: "activities" | "finish";
+  readonly routines?: readonly CmeRoutine[];
 };
 
 /** The three things an audit asks for per activity, as log filters. */
@@ -169,33 +179,61 @@ export function CmeLogPage({
   missedLinkFailed = false,
   demoMode = false,
   initialAttention = null,
+  initialCategory = null,
+  allYearsEntries,
+  allYearsFailed = false,
   drafts = [],
   missedSessions = [],
   recordsFailed = false,
   today = perthCalendarDate(new Date()),
+  initialTab = "activities",
+  routines = [],
 }: CmeLogPageProps) {
+  const showFinish = initialTab === "finish";
   const availableYears = useMemo(() => {
-    const years = new Set<number>(entries.map((entry) => Number(entry.date.slice(0, 4))));
+    const years = new Set<number>((allYearsEntries ?? entries).map((entry) => Number(entry.date.slice(0, 4))));
+    for (const year of navigationYears ?? []) years.add(year);
     years.add(set.year);
     return [...years].sort((a, b) => b - a);
-  }, [entries, set.year]);
+  }, [entries, allYearsEntries, navigationYears, set.year]);
 
   const [selectedYear, setSelectedYear] = useState<number>(() =>
     availableYears.includes(set.year) ? set.year : (availableYears[0] ?? set.year),
   );
   const effectiveYear = navigationYears ? set.year : selectedYear;
+  const [allYears, setAllYears] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
   const [attention, setAttention] = useState<CmeLogAttention | null>(initialAttention);
   const attentionFilter = ATTENTION_FILTERS.find((filter) => filter.value === attention) ?? null;
   const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(initialCategory ?? "all");
+  const [copiedOverride, setCopiedOverride] = useState<Record<string, boolean>>({});
+  const [lastCopiedId, setLastCopiedId] = useState<string | null>(null);
+  const [copyBusy, setCopyBusy] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const visibleEntries = useMemo(
+    () =>
+      (allYearsEntries ?? entries).map((entry) =>
+        Object.hasOwn(copiedOverride, entry.id) ? { ...entry, transcribed: copiedOverride[entry.id]! } : entry,
+      ),
+    [allYearsEntries, entries, copiedOverride],
+  );
+
+  useEffect(() => {
+    if (!lastCopiedId) return;
+    const timer = window.setTimeout(() => setLastCopiedId(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [lastCopiedId]);
 
   const yearEntries = useMemo(
     () =>
-      entries.filter(
-        (entry) => entry.date.startsWith(`${effectiveYear}-`) && Boolean(entry.archivedAt) === showArchived,
+      visibleEntries.filter(
+        (entry) =>
+          (allYears || entry.date.startsWith(`${effectiveYear}-`)) && Boolean(entry.archivedAt) === showArchived,
       ),
-    [entries, effectiveYear, showArchived],
+    [visibleEntries, effectiveYear, allYears, showArchived],
   );
 
   const trimmedQuery = query.trim().toLowerCase();
@@ -223,6 +261,59 @@ export function CmeLogPage({
     ...cmeCategories.map((category) => ({ value: category, label: cmeCategoryLabels[category] })),
   ];
 
+  async function copyNext() {
+    const next = sorted.find((entry) => !entry.transcribed && !entry.archivedAt);
+    if (!next || copyBusy) return;
+    if (demoMode) {
+      setCopyError("Sign in to copy and track activities in your private CPD record.");
+      return;
+    }
+    setCopyBusy(true);
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(formatEntryForCpdHome(next, { ...set, year: Number(next.date.slice(0, 4)) }));
+    } catch {
+      setCopyError("Could not copy. Check clipboard permission and try again.");
+      setCopyBusy(false);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/cme/entries/${next.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcribed: true }),
+      });
+      if (!response.ok) throw new Error("Could not mark this activity as copied.");
+      setCopiedOverride((current) => ({ ...current, [next.id]: true }));
+      setLastCopiedId(next.id);
+    } catch {
+      setCopyError("Copied to your clipboard, but this record could not be marked as copied. Try again.");
+    } finally {
+      setCopyBusy(false);
+    }
+  }
+
+  async function undoCopy() {
+    if (!lastCopiedId || copyBusy) return;
+    const copiedId = lastCopiedId;
+    setCopyBusy(true);
+    setCopyError(null);
+    try {
+      const response = await fetch(`/api/cme/entries/${copiedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcribed: false }),
+      });
+      if (!response.ok) throw new Error("Could not undo the copied status.");
+      setCopiedOverride((current) => ({ ...current, [copiedId]: false }));
+      setLastCopiedId(null);
+    } catch {
+      setCopyError("Could not undo the copied status. Try again.");
+    } finally {
+      setCopyBusy(false);
+    }
+  }
+
   return (
     <main
       data-testid="cme-log-page"
@@ -246,223 +337,434 @@ export function CmeLogPage({
           </div>
         ) : null}
       </div>
-
-      <div id="cme-drafts">
-        <CmeDraftsSection drafts={drafts} demoMode={demoMode} loadFailed={recordsFailed} />
-      </div>
-
-      {navigationYears && navigationYears.length > 1 ? (
-        <nav aria-label="Select year" data-testid="cme-log-year-tabs" className="mt-4 flex flex-wrap gap-2">
-          {[...new Set(navigationYears)]
-            .sort((a, b) => b - a)
-            .map((year) => (
-              <Link
-                key={year}
-                href={`/cme/log?year=${year}`}
-                aria-current={year === set.year ? "page" : undefined}
-                className={cn(
-                  "inline-flex min-h-tap items-center rounded-lg border px-4 text-sm font-semibold",
-                  year === set.year
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] text-[color:var(--text)]",
-                )}
-              >
-                {year}
-              </Link>
-            ))}
-        </nav>
-      ) : availableYears.length > 1 ? (
-        <div data-testid="cme-log-year-tabs" className="mt-4">
-          <Tabs
-            label="Select year"
-            items={availableYears.map((year) => ({ id: String(year), label: String(year) }))}
-            value={String(selectedYear)}
-            onChange={(id) => setSelectedYear(Number(id))}
-          />
-        </div>
-      ) : null}
-
-      {navigationYears ? (
-        <form
-          action="/cme/log"
-          method="get"
-          className="mt-3 flex flex-wrap items-end gap-2"
-          data-testid="cme-log-year-jump"
-        >
-          <label className="text-sm font-medium text-[color:var(--text)]" htmlFor="cme-log-year-input">
-            Open another year
-            <input
-              key={set.year}
-              id="cme-log-year-input"
-              name="year"
-              type="number"
-              min="2000"
-              max="2100"
-              defaultValue={set.year}
-              className="mt-1 block min-h-tap w-32 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
-            />
-          </label>
-          <button
-            type="submit"
-            className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] px-4 text-sm font-semibold text-[color:var(--text)]"
-          >
-            Open year
-          </button>
-        </form>
-      ) : null}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-        <button
-          type="button"
-          className="min-h-tap rounded-lg border border-[color:var(--border)] px-3"
-          aria-pressed={showArchived}
-          onClick={() => setShowArchived(!showArchived)}
-        >
-          {showArchived ? "Show active entries" : "Show archived entries"}
-        </button>
-        <a
-          href={`/api/cme/export?year=${effectiveYear}`}
-          download
-          className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
-        >
-          Download CSV
-        </a>
-        <Link
-          href={`/cme/summary?year=${effectiveYear}`}
-          className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
-        >
-          Annual summary
-        </Link>
-      </div>
-      {!showArchived ? (
-        <div
-          role="group"
-          aria-label="Needs attention"
-          data-testid="cme-log-attention"
-          className="mt-3 flex flex-wrap gap-2"
-        >
-          {ATTENTION_FILTERS.map((filter) => {
-            const count = yearEntries.filter(filter.matches).length;
-            const pressed = attention === filter.value;
-            return (
-              <button
-                key={filter.value}
-                type="button"
-                aria-pressed={pressed}
-                data-testid={`cme-log-attention-${filter.value}`}
-                onClick={() => setAttention(pressed ? null : filter.value)}
-                className={cn(
-                  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-sm font-semibold",
-                  pressed
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] text-[color:var(--text)]",
-                )}
-              >
-                {filter.label}
-                <span className="nums text-xs font-normal opacity-80">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      {attention === "copy" ? (
-        <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-log-copy-help">
-          Open each one and tap <span className="font-semibold">Copy for your CPD home</span>, then paste it into your
-          CPD home&rsquo;s own record. Each is ticked off here as you copy it.
+      {allYearsFailed ? (
+        <p role="status" className={cn(textMuted, "mt-2 text-sm")}>
+          All years could not be loaded. This year is still available.
         </p>
       ) : null}
-      {showArchived ? (
-        <p className={cn(textMuted, "mt-2 text-sm")}>
-          Archived entries retain their records and evidence. They contribute zero to totals, downloads and annual
-          summaries. Open an entry to restore it.
-        </p>
-      ) : null}
-      <div data-testid="cme-log-search" className="mt-4">
-        <SearchField
-          label="Search your log"
-          placeholder="Search titles and reflections"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onClear={() => setQuery("")}
-          clearLabel="Clear the log search"
-        />
-      </div>
 
-      {yearEntries.length > 0 ? (
-        <div data-testid="cme-log-filter" className="mt-3">
-          <SegmentedControl
-            label="Filter by category"
-            options={categoryOptions}
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-          />
-        </div>
-      ) : null}
-
-      <div className="mt-5 flex flex-col gap-5">
-        {groups.length === 0 ? (
-          <EmptyState
-            testId="cme-log-empty"
-            title={
-              yearEntries.length === 0
-                ? `Nothing logged for ${effectiveYear} yet.`
-                : "Nothing matched your search and filter."
-            }
-            body={
-              yearEntries.length === 0
-                ? "Log your first activity for this year to see it here."
-                : "Try a shorter word, or clear the category filter."
-            }
-          />
-        ) : (
-          groups.map((group) => (
-            <section
-              key={group.key}
-              data-testid={`cme-log-month-${group.key}`}
-              aria-labelledby={`${group.key}-heading`}
-              className="grid gap-2"
+      {!showFinish ? (
+        <Sheet
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          title="Filter your log"
+          placement="responsive-right"
+          mobilePlacement="bottom"
+          returnFocusRef={filterButtonRef}
+          testId="cme-log-filter-sheet"
+          footer={
+            <button
+              type="button"
+              onClick={() => setFilterOpen(false)}
+              className={cn(buttonFaceClass({ variant: "primary", block: true }))}
             >
-              <div className="flex items-baseline justify-between gap-3 px-3">
-                <h2 id={`${group.key}-heading`} className={eyebrowText}>
-                  {group.label}
-                </h2>
-                <span
-                  className={cn(modeNumberText, "nums font-normal text-2xs normal-case text-[color:var(--text-muted)]")}
-                >
-                  {`${formatLogHours(group.hours)} h`}
-                </span>
-              </div>
-              <ModeGroupedList>
-                {group.entries.map((entry) => (
-                  <EntryRow key={entry.id} entry={entry} today={today} />
-                ))}
-              </ModeGroupedList>
-            </section>
-          ))
-        )}
-      </div>
-
-      <div className="mt-6 flex justify-center">
-        <Link
-          href={`/cme/new?year=${set.year}`}
-          data-testid="cme-log-new-entry"
-          className={cn(buttonFaceClass({ variant: "secondary" }))}
+              Show {filtered.length} {filtered.length === 1 ? "activity" : "activities"}
+            </button>
+          }
         >
-          <Plus aria-hidden="true" className="size-icon-md shrink-0" />
-          <span>New entry</span>
-        </Link>
-      </div>
-      <div className="mt-8">
-        <CmeMissedSessionsSection
-          sessions={missedSessions}
-          entries={entries
-            .filter((entry) => !entry.archivedAt)
-            .map((entry) => ({ id: entry.id, title: entry.title, date: entry.date }))}
-          state={recordsFailed ? "load-failed" : "ready"}
-          demoMode={demoMode}
-        />
-      </div>
-      {set.totalHours > 0 ? <CmeQuickLog set={set} demoMode={demoMode} /> : null}
+          <div className="grid gap-5 text-sm">
+            <fieldset className="grid gap-2">
+              <legend className={eyebrowText}>Year</legend>
+              {allYearsEntries ? (
+                <button
+                  type="button"
+                  aria-pressed={allYears}
+                  onClick={() => setAllYears(true)}
+                  className="min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-left"
+                >
+                  All years · {visibleEntries.filter((entry) => Boolean(entry.archivedAt) === showArchived).length}
+                </button>
+              ) : null}
+              {availableYears.map((year) => {
+                const count = visibleEntries.filter(
+                  (entry) => entry.date.startsWith(`${year}-`) && Boolean(entry.archivedAt) === showArchived,
+                ).length;
+                return navigationYears && year !== effectiveYear ? (
+                  <Link
+                    key={year}
+                    href={`/cme/log?year=${year}${categoryFilter !== "all" ? `&category=${categoryFilter}` : ""}`}
+                    className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3"
+                  >
+                    <span>{year}</span>
+                    <span>{count || "Open"}</span>
+                  </Link>
+                ) : (
+                  <button
+                    key={year}
+                    type="button"
+                    aria-pressed={!allYears && effectiveYear === year}
+                    onClick={() => {
+                      setAllYears(false);
+                      if (!navigationYears) setSelectedYear(year);
+                    }}
+                    className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3"
+                  >
+                    <span>{year}</span>
+                    <span>{count}</span>
+                  </button>
+                );
+              })}
+            </fieldset>
+            <fieldset className="grid gap-2">
+              <legend className={eyebrowText}>Category</legend>
+              {categoryOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={categoryFilter === option.value}
+                  onClick={() => setCategoryFilter(option.value)}
+                  className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3 text-left"
+                >
+                  <span>{option.label}</span>
+                  <span>
+                    {option.value === "all"
+                      ? yearEntries.length
+                      : yearEntries.filter((entry) =>
+                          entry.allocations.some((allocation) => allocation.category === option.value),
+                        ).length}
+                  </span>
+                </button>
+              ))}
+            </fieldset>
+            <fieldset className="grid gap-2">
+              <legend className={eyebrowText}>Needs attention</legend>
+              <button
+                type="button"
+                aria-pressed={attention === null}
+                onClick={() => setAttention(null)}
+                className="min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-left"
+              >
+                All activities · {yearEntries.length}
+              </button>
+              {ATTENTION_FILTERS.map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  aria-pressed={attention === filter.value}
+                  onClick={() => setAttention(filter.value)}
+                  className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3 text-left"
+                >
+                  <span>{filter.label}</span>
+                  <span>{yearEntries.filter(filter.matches).length}</span>
+                </button>
+              ))}
+            </fieldset>
+            <button
+              type="button"
+              aria-pressed={showArchived}
+              onClick={() => setShowArchived((value) => !value)}
+              className="min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-left"
+            >
+              {showArchived ? "Showing archived activities" : "Show archived activities"}
+            </button>
+          </div>
+        </Sheet>
+      ) : null}
+
+      {showFinish ? (
+        <>
+          <section className="mt-5" aria-labelledby="cme-attention-heading">
+            <h2 id="cme-attention-heading" className={eyebrowText}>
+              Activities needing attention
+            </h2>
+            <ul className="mt-2 divide-y divide-[color:var(--border)] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4">
+              {ATTENTION_FILTERS.map((filter) => {
+                const count = yearEntries.filter(filter.matches).length;
+                if (!count) return null;
+                const href =
+                  filter.value === "copy"
+                    ? `/cme/log?year=${effectiveYear}&copy=todo`
+                    : `/cme/log?year=${effectiveYear}&fix=${filter.value}`;
+                return (
+                  <li key={filter.value}>
+                    <Link
+                      href={href}
+                      className="flex min-h-tap items-center justify-between gap-3 py-2 text-sm text-[color:var(--text)]"
+                    >
+                      <span>{filter.label}</span>
+                      <span className={textMuted}>{count}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+          <div id="cme-drafts" className="mt-5">
+            <CmeDraftsSection drafts={drafts} demoMode={demoMode} loadFailed={recordsFailed} />
+          </div>
+        </>
+      ) : null}
+
+      {!showFinish ? (
+        <>
+          {navigationYears && navigationYears.length > 1 ? (
+            <nav aria-label="Select year" data-testid="cme-log-year-tabs" className="mt-4 flex flex-wrap gap-2">
+              {[...new Set(navigationYears)]
+                .sort((a, b) => b - a)
+                .map((year) => (
+                  <Link
+                    key={year}
+                    href={`/cme/log?year=${year}${categoryFilter !== "all" ? `&category=${categoryFilter}` : ""}`}
+                    aria-current={!allYears && year === effectiveYear ? "page" : undefined}
+                    className={cn(
+                      "inline-flex min-h-tap items-center rounded-lg border px-4 text-sm font-semibold",
+                      !allYears && year === effectiveYear
+                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                        : "border-[color:var(--border)] text-[color:var(--text)]",
+                    )}
+                  >
+                    {year}
+                  </Link>
+                ))}
+            </nav>
+          ) : availableYears.length > 1 ? (
+            <div data-testid="cme-log-year-tabs" className="mt-4">
+              <Tabs
+                label="Select year"
+                items={availableYears.map((year) => ({ id: String(year), label: String(year) }))}
+                value={String(selectedYear)}
+                onChange={(id) => setSelectedYear(Number(id))}
+              />
+            </div>
+          ) : null}
+
+          {navigationYears ? (
+            <form
+              action="/cme/log"
+              method="get"
+              className="mt-3 flex flex-wrap items-end gap-2"
+              data-testid="cme-log-year-jump"
+            >
+              <label className="text-sm font-medium text-[color:var(--text)]" htmlFor="cme-log-year-input">
+                Open another year
+                <input
+                  key={set.year}
+                  id="cme-log-year-input"
+                  name="year"
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  defaultValue={set.year}
+                  className="mt-1 block min-h-tap w-32 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
+                />
+              </label>
+              <button
+                type="submit"
+                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] px-4 text-sm font-semibold text-[color:var(--text)]"
+              >
+                Open year
+              </button>
+            </form>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              ref={filterButtonRef}
+              type="button"
+              onClick={() => setFilterOpen(true)}
+              data-testid="cme-log-open-filters"
+              className={buttonFaceClass({ variant: "secondary" })}
+            >
+              <ListFilter aria-hidden="true" className="size-icon-sm" />
+              Filters
+            </button>
+            {attention === "copy" && !showArchived ? (
+              <button
+                type="button"
+                onClick={() => void copyNext()}
+                disabled={copyBusy || !sorted.some((entry) => !entry.transcribed)}
+                data-testid="cme-log-copy-next"
+                className={buttonFaceClass({ variant: "primary" })}
+              >
+                <Copy aria-hidden="true" className="size-icon-sm" />
+                {copyBusy ? "Copying…" : "Copy next"}
+              </button>
+            ) : null}
+          </div>
+          {attention === "copy" && lastCopiedId ? (
+            <div
+              role="status"
+              data-testid="cme-log-copy-done"
+              className="mt-2 flex flex-wrap items-center gap-2 text-sm"
+            >
+              <span>Copied to your clipboard and marked copied.</span>
+              <button
+                type="button"
+                disabled={copyBusy}
+                onClick={() => void undoCopy()}
+                className="min-h-tap font-semibold underline underline-offset-2"
+              >
+                Undo
+              </button>
+            </div>
+          ) : null}
+          {copyError ? (
+            <p role="alert" className="mt-2 text-sm">
+              {copyError}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <button
+              type="button"
+              className="min-h-tap rounded-lg border border-[color:var(--border)] px-3"
+              aria-pressed={showArchived}
+              onClick={() => setShowArchived(!showArchived)}
+            >
+              {showArchived ? "Show active entries" : "Show archived entries"}
+            </button>
+            <a
+              href={`/api/cme/export?year=${effectiveYear}`}
+              download
+              className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
+            >
+              Download CSV
+            </a>
+            <Link
+              href={`/cme/summary?year=${effectiveYear}`}
+              className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
+            >
+              Annual summary
+            </Link>
+          </div>
+          {!showArchived ? (
+            <div
+              role="group"
+              aria-label="Needs attention"
+              data-testid="cme-log-attention"
+              className="mt-3 flex flex-wrap gap-2"
+            >
+              {ATTENTION_FILTERS.map((filter) => {
+                const count = yearEntries.filter(filter.matches).length;
+                const pressed = attention === filter.value;
+                return (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    aria-pressed={pressed}
+                    data-testid={`cme-log-attention-${filter.value}`}
+                    onClick={() => setAttention(pressed ? null : filter.value)}
+                    className={cn(
+                      "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-sm font-semibold",
+                      pressed
+                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                        : "border-[color:var(--border)] text-[color:var(--text)]",
+                    )}
+                  >
+                    {filter.label}
+                    <span className="nums text-xs font-normal opacity-80">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          {attention === "copy" ? (
+            <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-log-copy-help">
+              Open each one and tap <span className="font-semibold">Copy for your CPD home</span>, then paste it into
+              your CPD home&rsquo;s own record. Each is ticked off here as you copy it.
+            </p>
+          ) : null}
+          {showArchived ? (
+            <p className={cn(textMuted, "mt-2 text-sm")}>
+              Archived entries retain their records and evidence. They contribute zero to totals, downloads and annual
+              summaries. Open an entry to restore it.
+            </p>
+          ) : null}
+          <div data-testid="cme-log-search" className="mt-4">
+            <SearchField
+              label="Search your log"
+              placeholder="Search titles and reflections"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onClear={() => setQuery("")}
+              clearLabel="Clear the log search"
+            />
+          </div>
+
+          {yearEntries.length > 0 ? (
+            <div data-testid="cme-log-filter" className="mt-3">
+              <SegmentedControl
+                label="Filter by category"
+                options={categoryOptions}
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+              />
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex flex-col gap-5">
+            {groups.length === 0 ? (
+              <EmptyState
+                testId="cme-log-empty"
+                title={
+                  yearEntries.length === 0
+                    ? `Nothing logged for ${effectiveYear} yet.`
+                    : "Nothing matched your search and filter."
+                }
+                body={
+                  yearEntries.length === 0
+                    ? "Log your first activity for this year to see it here."
+                    : "Try a shorter word, or clear the category filter."
+                }
+              />
+            ) : (
+              groups.map((group) => (
+                <section
+                  key={group.key}
+                  data-testid={`cme-log-month-${group.key}`}
+                  aria-labelledby={`${group.key}-heading`}
+                  className="grid gap-2"
+                >
+                  <div className="flex items-baseline justify-between gap-3 px-3">
+                    <h2 id={`${group.key}-heading`} className={eyebrowText}>
+                      {group.label}
+                    </h2>
+                    <span
+                      className={cn(
+                        modeNumberText,
+                        "nums font-normal text-2xs normal-case text-[color:var(--text-muted)]",
+                      )}
+                    >
+                      {`${formatLogHours(group.hours)} h`}
+                    </span>
+                  </div>
+                  <ModeGroupedList>
+                    {group.entries.map((entry) => (
+                      <EntryRow key={entry.id} entry={entry} today={today} />
+                    ))}
+                  </ModeGroupedList>
+                </section>
+              ))
+            )}
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <Link
+              href={`/cme/new?year=${set.year}`}
+              data-testid="cme-log-new-entry"
+              className={cn(buttonFaceClass({ variant: "secondary" }))}
+            >
+              <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+              <span>New entry</span>
+            </Link>
+          </div>
+        </>
+      ) : null}
+      {showFinish ? (
+        <div className="mt-8">
+          <CmeMissedSessionsSection
+            sessions={missedSessions}
+            entries={entries
+              .filter((entry) => !entry.archivedAt)
+              .map((entry) => ({ id: entry.id, title: entry.title, date: entry.date }))}
+            state={recordsFailed ? "load-failed" : "ready"}
+            demoMode={demoMode}
+          />
+        </div>
+      ) : null}
+      {!showFinish && set.totalHours > 0 && !set.closedAt ? (
+        <CmeQuickLog set={set} entries={entries} routines={routines} demoMode={demoMode} />
+      ) : null}
     </main>
   );
 }

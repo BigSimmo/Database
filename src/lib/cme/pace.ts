@@ -1,5 +1,7 @@
 import { CPD_PACE_MINIMUM_ELAPSED_DAYS } from "@/lib/cme/cpd-year";
 import type { CmeEntry } from "@/lib/cme/types";
+import type { CmeCategory } from "@/lib/cme/types";
+import type { CmeRoutine } from "@/lib/cme/routines";
 import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
 
 /**
@@ -103,6 +105,28 @@ export function cmeTargetReachedOn(entries: readonly CmeEntry[], targetHours: nu
   return null;
 }
 
+export type CmeWeekBar = { readonly index: number; readonly hours: number; readonly state: "past" | "now" | "future" };
+
+/** Seven-day spans from 1 January in Perth, including a short 53rd span. */
+export function buildCmeWeekBars(entries: readonly CmeEntry[], year: number, today: string): CmeWeekBar[] {
+  const start = dayNumber(`${year}-01-01`);
+  const end = dayNumber(`${year}-12-31`);
+  const current = dayNumber(today);
+  const bars = Array.from({ length: Math.ceil((end - start + 1) / 7) }, () => 0);
+  for (const entry of entries) {
+    if (entry.archivedAt || !entry.date.startsWith(`${year}-`)) continue;
+    const day = dayNumber(entry.date);
+    if (day < start || day > end) continue;
+    const index = Math.floor((day - start) / 7);
+    bars[index] = round2(bars[index] + entry.allocations.reduce((sum, allocation) => sum + allocation.hours, 0));
+  }
+  return bars.map((hours, index) => ({
+    index,
+    hours,
+    state: current < start + index * 7 ? "future" : current >= start + (index + 1) * 7 ? "past" : "now",
+  }));
+}
+
 /**
  * The hero's first line: the season, then the year's end, date first.
  *
@@ -128,4 +152,46 @@ export function cmeSeasonLine(args: { year: number; today: string }): string {
   if (today >= `${year}${LAST_QUARTER_STARTS}`) return `Last quarter · year ends ${yearEnd}, ${inWeeks}`;
   if (dayOfYear(year, today) < CPD_PACE_MINIMUM_ELAPSED_DAYS) return "Early in the year · write your plan";
   return `Year ends ${yearEnd}, ${inWeeks}`;
+}
+
+export type CmeRoutineGapScenario = {
+  readonly routineId: string;
+  readonly title: string;
+  readonly hoursPerOccurrence: number;
+  readonly occurrences: number;
+  readonly projectedHours: number;
+};
+
+/**
+ * Illustrative arithmetic from an owner's active routine template. A routine
+ * does not prove attendance, schedule future dates, or create CPD hours.
+ */
+export function cmeRoutineGapScenarios(
+  routines: readonly CmeRoutine[],
+  hoursToGo: number,
+  category?: CmeCategory,
+): CmeRoutineGapScenario[] {
+  if (!(hoursToGo > 0)) return [];
+  return routines
+    .filter((routine) => routine.archivedAt === null)
+    .map((routine) => {
+      const hoursPerOccurrence = category
+        ? round2(
+            routine.usualAllocations
+              .filter((allocation) => allocation.category === category)
+              .reduce((sum, allocation) => sum + allocation.hours, 0),
+          )
+        : routine.usualHours;
+      if (!(hoursPerOccurrence > 0)) return null;
+      const occurrences = Math.ceil((hoursToGo - 0.000001) / hoursPerOccurrence);
+      return {
+        routineId: routine.id,
+        title: routine.title,
+        hoursPerOccurrence,
+        occurrences,
+        projectedHours: round2(occurrences * hoursPerOccurrence),
+      };
+    })
+    .filter((scenario): scenario is CmeRoutineGapScenario => scenario !== null)
+    .sort((a, b) => a.occurrences - b.occurrences || a.title.localeCompare(b.title));
 }

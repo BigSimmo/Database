@@ -155,6 +155,11 @@ test.describe("CME core screens at phone widths", () => {
       .click();
     await expect(page).toHaveURL(/year=2025/);
     await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
+    await page.getByRole("navigation", { name: "Log tabs" }).getByRole("link", { name: "Routines" }).click();
+    await expect(page).toHaveURL(/\/cme\/routines\?year=2025/);
+    await page.getByRole("navigation", { name: "Log tabs" }).getByRole("link", { name: "Activities" }).click();
+    await expect(page).toHaveURL(/\/cme\/log\?year=2025/);
+    await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
     await page
       .getByRole("navigation", { name: "Select year" })
       .getByRole("link", { name: "2026", exact: true })
@@ -323,6 +328,24 @@ test.describe("CME annual records and explicit learning handoff", () => {
 });
 
 test.describe("CME phone design", () => {
+  test("opening a Today figure explains its source without shifting the page", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cme");
+    const main = page.locator("#main-content");
+    await expect(main).toBeVisible();
+    const before = await main.boundingBox();
+    await page.getByTestId("cme-hero-summary").getByRole("button").click();
+    const sheet = page.getByTestId("cme-today-detail-sheet");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByTestId("cme-today-detail-total")).toContainText("saved activities");
+    await expect(sheet.getByText(/This app does not independently certify it/)).toBeVisible();
+    const after = await main.boundingBox();
+    expect(after?.x).toBe(before?.x);
+    expect(after?.width).toBe(before?.width);
+    await page.keyboard.press("Escape");
+    await expect(sheet).not.toBeVisible();
+  });
+
   test("the Log button opens a quick panel over the dashboard without recording anything", async ({ page }) => {
     const writes: string[] = [];
     page.on("request", (request) => {

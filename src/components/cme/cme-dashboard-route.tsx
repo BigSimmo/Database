@@ -7,7 +7,9 @@ import { useAppPreferences } from "@/components/clinical-dashboard/use-app-prefe
 import { CmeDashboard, type CmeReportingReminder } from "@/components/cme/cme-dashboard";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
+import { CmeTeachingPrompt } from "@/components/cme/cme-teaching-prompt";
 import type { CmeRoutine } from "@/lib/cme/routines";
+import type { TrainingPosition } from "@/lib/cme/training-timeline";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { perthDateKey, snoozeReminder } from "@/lib/reminders/settings";
 
@@ -20,6 +22,7 @@ export type CmeDashboardRouteProps = {
   readonly demoMode?: boolean;
   readonly reportingReminder?: CmeReportingReminder | null;
   readonly draftsToFinish?: number;
+  readonly currentTrainingPosition?: TrainingPosition | null;
 };
 
 /**
@@ -42,6 +45,7 @@ export function CmeDashboardRoute({
   demoMode = false,
   reportingReminder = null,
   draftsToFinish = 0,
+  currentTrainingPosition = null,
 }: CmeDashboardRouteProps) {
   const router = useRouter();
   const { preferences, setPreference } = useAppPreferences();
@@ -62,7 +66,9 @@ export function CmeDashboardRoute({
           setPreference("reminders", snoozeReminder(preferences.reminders, type, perthDateKey(now)))
         }
         draftsToFinish={draftsToFinish}
+        currentTrainingPosition={currentTrainingPosition}
       />
+      {!demoMode ? <CmeTeachingPrompt /> : null}
       <CmeQuickLog set={set} demoMode={demoMode} />
     </>
   );

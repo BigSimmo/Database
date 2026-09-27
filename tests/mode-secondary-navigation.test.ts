@@ -51,18 +51,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Who's who",
     "Orientation checklists",
   ],
-  cme: [
-    "This year",
-    "Log",
-    "Year check",
-    "Training",
-    "Calendar",
-    "Routines",
-    "Plan",
-    "Learning",
-    "Programme",
-    "Set up",
-  ],
+  cme: ["Today", "Log", "Plan", "Learning", "Set up"],
   psychiatry: [],
   "my-work": [],
   roster: ["Today", "Shifts", "Settings"],
@@ -162,6 +151,32 @@ describe("mode secondary navigation registry", () => {
       label: "Search",
       href: dsmSearchHref,
     });
+  });
+
+  it("keeps every older CPD address under one of the five current pages", () => {
+    expect(modeSecondaryNavigationRegistry.cme.map(({ label }) => label)).toEqual([
+      "Today",
+      "Log",
+      "Plan",
+      "Learning",
+      "Set up",
+    ]);
+    for (const [pathname, page] of [
+      ["/cme", "year"],
+      ["/cme/check", "year"],
+      ["/cme/log", "log"],
+      ["/cme/log/example", "log"],
+      ["/cme/routines", "log"],
+      ["/cme/new", "log"],
+      ["/cme/plan", "plan"],
+      ["/cme/calendar", "plan"],
+      ["/cme/training", "plan"],
+      ["/cme/learning", "learning"],
+      ["/cme/setup", "setup"],
+      ["/cme/programme", "setup"],
+    ] as const) {
+      expect(activeModeSecondaryNavigationId("cme", pathname)).toBe(page);
+    }
   });
 
   it("suppresses clean landing pages, and still opens the bar after a submitted search", () => {

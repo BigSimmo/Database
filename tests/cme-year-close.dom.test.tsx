@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CmeAnnualSummary } from "@/components/cme/cme-annual-summary";
 import { CmeEntryRouteClient } from "@/components/cme/cme-entry-route-client";
+import { CmeYearEndActions } from "@/components/cme/cme-year-close-panel";
 import { createAustralianRanzcpPreset } from "@/lib/cme/presets";
 import type { CmeEntry, CmeYearClose } from "@/lib/cme/types";
 
@@ -58,6 +59,53 @@ afterEach(() => {
   vi.restoreAllMocks();
   nav.refresh.mockReset();
   nav.push.mockReset();
+});
+
+describe("year-end checklist", () => {
+  const goal = { id: "33333333-3333-4333-8333-333333333333", goal: "Document capacity well", sortOrder: 0 };
+  it("is offered from 17 December through an open-year January and disappears after closing", async () => {
+    const { rerender } = render(
+      <CmeYearEndActions set={set} entries={[entry]} goals={[goal]} now={new Date("2026-12-16T12:00:00+08:00")} />,
+    );
+    expect(screen.queryByTestId("cme-year-end-open")).toBeNull();
+    rerender(
+      <CmeYearEndActions set={set} entries={[entry]} goals={[goal]} now={new Date("2026-12-17T12:00:00+08:00")} />,
+    );
+    expect(screen.getByTestId("cme-year-end-open")).toBeInTheDocument();
+    rerender(
+      <CmeYearEndActions set={set} entries={[entry]} goals={[goal]} now={new Date("2027-01-10T12:00:00+08:00")} />,
+    );
+    expect(screen.getByTestId("cme-year-end-open")).toBeInTheDocument();
+    rerender(
+      <CmeYearEndActions
+        set={{ ...set, closedAt: close.closedAt }}
+        entries={[entry]}
+        goals={[goal]}
+        now={new Date("2027-01-10T12:00:00+08:00")}
+      />,
+    );
+    expect(screen.queryByTestId("cme-year-end-open")).toBeNull();
+  });
+
+  it("shows five tappable tasks with plain statuses from the supplied records", async () => {
+    const user = userEvent.setup();
+    render(
+      <CmeYearEndActions
+        set={set}
+        entries={[entry]}
+        goals={[goal]}
+        now={new Date("2026-12-20T12:00:00+08:00")}
+        nextYearConfirmed={false}
+      />,
+    );
+    await user.click(screen.getByTestId("cme-year-end-open"));
+    expect(screen.getByTestId("cme-year-end-actions").children).toHaveLength(5);
+    expect(screen.getByTestId("cme-year-end-copy")).toHaveTextContent("1 to copy");
+    expect(screen.getByTestId("cme-year-end-evaluation")).toHaveTextContent("Not recorded");
+    expect(screen.getByTestId("cme-year-end-goals")).toHaveTextContent("1 to consider");
+    expect(screen.getByTestId("cme-year-end-targets")).toHaveTextContent("Not confirmed");
+    expect(screen.getByTestId("cme-year-end-summary")).toHaveAttribute("href", "/cme/summary?year=2026");
+  });
 });
 
 describe("closing a year from the annual summary", () => {

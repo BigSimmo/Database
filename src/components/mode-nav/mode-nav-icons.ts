@@ -12,7 +12,6 @@ import {
   ClipboardList,
   Feather,
   GitCompareArrows,
-  GraduationCap,
   House,
   Landmark,
   LayoutGrid,
@@ -23,7 +22,6 @@ import {
   NotebookPen,
   Phone,
   Presentation,
-  Repeat,
   Printer,
   Search,
   Settings,
@@ -116,13 +114,8 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   // page it opens.
   year: CalendarDays,
   log: NotebookPen,
-  check: ClipboardCheck,
-  training: GraduationCap,
-  calendar: CalendarRange,
-  routines: Repeat,
   plan: Target,
   learning: Presentation,
-  programme: ClipboardList,
   setup: ListChecks,
   // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
   // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
