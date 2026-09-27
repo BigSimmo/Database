@@ -324,6 +324,8 @@
         "src/components/on-call/service-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/teaching-actions.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/pathway-step-stack.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
@@ -1852,6 +1854,7 @@
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/teaching/teaching-modules.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
@@ -1910,6 +1913,7 @@
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/teaching/teaching-modules.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -1989,6 +1993,8 @@
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
+        "src/components/teaching/teaching-states.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
@@ -2368,6 +2374,7 @@
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
