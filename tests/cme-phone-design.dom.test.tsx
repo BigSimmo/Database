@@ -133,6 +133,7 @@ describe("quick log", () => {
     await user.click(screen.getByTestId("cme-quick-log-button"));
     const sheet = await screen.findByTestId("cme-quick-log-sheet");
     await user.type(within(sheet).getByLabelText(/what was it/i), "Grand round");
+    await user.click(within(sheet).getByRole("button", { name: "1" }));
     await user.click(within(sheet).getByRole("button", { name: "Educational" }));
     await user.click(within(sheet).getByRole("button", { name: /save entry/i }));
 
@@ -154,6 +155,7 @@ describe("quick log", () => {
     await user.click(screen.getByTestId("cme-quick-log-button"));
     const sheet = await screen.findByTestId("cme-quick-log-sheet");
     await user.type(within(sheet).getByLabelText(/what was it/i), "Grand round");
+    await user.click(within(sheet).getByRole("button", { name: "1" }));
     await user.click(within(sheet).getByRole("button", { name: "Educational" }));
     await user.click(within(sheet).getByRole("button", { name: /save entry/i }));
     expect(await within(sheet).findByText("The record could not be saved yet.")).toBeInTheDocument();
@@ -182,7 +184,10 @@ describe("log it again", () => {
     render(<CmeNewEntryRoute repeatOf={original} set={SET} />);
     expect(screen.getByTestId("cme-entry-repeat-notice")).toBeInTheDocument();
     expect(screen.getByLabelText(/what was it/i)).toHaveValue("Monthly peer review");
-    expect(screen.getByLabelText("Hours for this activity")).toHaveValue("1.5");
+    expect(within(screen.getByRole("group", { name: "Hours" })).getByRole("button", { name: "1.5" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByRole("button", { name: "Reviewing" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Reflection")).toHaveValue("");
     expect(screen.getByLabelText(/what it cost/i)).toHaveValue("");

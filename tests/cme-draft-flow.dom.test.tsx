@@ -25,7 +25,7 @@ describe("saving an activity as a draft", () => {
     expect(screen.getByTestId("cme-entry-save-draft")).toBeDisabled();
     await user.type(screen.getByLabelText(/what was it/i), "Supervision with Dr A");
     // No category chosen, so the activity itself cannot save yet.
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).toHaveAttribute("aria-disabled", "true");
     await user.click(screen.getByTestId("cme-entry-save-draft"));
     await waitFor(() => expect(onSaveDraft).toHaveBeenCalledTimes(1));
     expect(onSubmit).not.toHaveBeenCalled();
@@ -60,7 +60,7 @@ describe("saving an activity as a draft", () => {
     expect(screen.getByLabelText(/^date/i)).toHaveValue("04/03/2026");
     expect(screen.getByTestId("cme-entry-date-other")).toHaveTextContent("Wed 4 Mar");
     expect(screen.getByLabelText(/reflection/i)).toHaveValue("Half written");
-    expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /save entry/i })).not.toHaveAttribute("aria-disabled");
     // The tab's "we kept your unsaved entry" notice is not shown for an account draft.
     expect(screen.queryByTestId("cme-entry-draft-restored")).toBeNull();
   });

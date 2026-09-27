@@ -4,13 +4,22 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { z } from "zod";
 
 import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/components/cme/cme-allocation-field";
+import { CmeChoiceChip } from "@/components/cme/cme-choice-chip";
 import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
-import { cn, fieldControlPlain, fieldControlWithIcon, InlineNotice, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  fieldControlPlain,
+  fieldControlWithIcon,
+  fieldLabel,
+  InlineNotice,
+  textMuted,
+} from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import type { CmeDraftPayload } from "@/lib/cme/drafts";
+import { parseCmeHours } from "@/lib/cme/hours-input";
 import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
 import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory, type CmeEntry } from "@/lib/cme/types";
 
@@ -31,8 +40,8 @@ import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory,
  * disabled until that sum matches what the owner said the activity took.
  */
 
-/** Common CME durations. Typing an exact figure into "Hours for this activity" always works too. */
-const HOUR_PRESETS = [0.5, 1, 1.5, 2, 3, 4, 6, 8] as const;
+/** Common CPD durations. "Other" opens a box that takes any figure, including "1,5" and "90 min". */
+const HOUR_PRESETS: readonly number[] = [0.5, 1, 1.5, 2, 3];
 
 /** Short chip names. Deliberately not the full category labels, which name the split fields. */
 const CATEGORY_CHIP_LABELS: Record<CmeCategory, string> = {
@@ -79,7 +88,7 @@ function readStoredDraft(key: string): StoredDraft | null {
     return {
       title: parsed.title,
       date: parsed.date,
-      statedHoursText: typeof parsed.statedHoursText === "string" ? parsed.statedHoursText : "1",
+      statedHoursText: typeof parsed.statedHoursText === "string" ? parsed.statedHoursText : "",
       mode:
         mode === "split" || (typeof mode === "string" && (cmeCategories as readonly string[]).includes(mode))
           ? (mode as CategoryMode)
@@ -196,14 +205,18 @@ export function CmeEntryForm({
   // otherwise has no way to clear its own typed-text state from outside.
   const [formKey, setFormKey] = useState(0);
   const today = perthCalendarDate(new Date());
-  // A brand-new entry (no hours carried in) starts at 1 hour, the commonest
-  // single activity, rather than 0, which could never be saved as it stands.
+  // Nothing is chosen for a brand-new entry (spec §6.1): hours start empty.
+  // Only a prefill — a routine, Log again, a draft, an edit — carries hours in.
   const carriedHours = initialEntry?.allocations.reduce((sum, allocation) => sum + allocation.hours, 0) ?? 0;
-  const initialHours = initialStatedHours ?? (carriedHours > 0 ? carriedHours : 1);
+  const initialHours = initialStatedHours ?? (carriedHours > 0 ? Math.round(carriedHours * 100) / 100 : null);
   const [date, setDate] = useState(() => initialEntry?.date ?? perthCalendarDate(new Date()));
   const [sourceUrl, setSourceUrl] = useState(initialEntry?.sourceUrl ?? "");
   const [title, setTitle] = useState(initialEntry?.title ?? "");
-  const [statedHoursText, setStatedHoursText] = useState(String(initialHours));
+  const [statedHoursText, setStatedHoursText] = useState(initialHours === null ? "" : String(initialHours));
+  // True once "Other" is tapped, so the box stays open even while its text matches a chip.
+  const [hoursOtherOpen, setHoursOtherOpen] = useState(false);
+  const [hoursFocusRequest, setHoursFocusRequest] = useState(0);
+  const hoursInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<CategoryMode>(() => initialCategoryMode(initialEntry?.allocations));
   // The split field's own figures. Used only in "split" mode; a single-category
   // choice derives its allocation from the stated hours instead.
@@ -235,7 +248,8 @@ export function CmeEntryForm({
   );
   const draftRestoreChecked = useRef(false);
 
-  const statedHours = parsePositiveHours(statedHoursText);
+  const statedHours = parseCmeHours(statedHoursText) ?? 0;
+  const otherHoursChosen = hoursOtherOpen || (statedHoursText.trim() !== "" && !HOUR_PRESETS.includes(statedHours));
   const allocations: CmeAllocation[] =
     mode === "split"
       ? splitAllocations
@@ -331,6 +345,10 @@ export function CmeEntryForm({
     };
   }, [dirty, draftStorageKey, onDirtyChange, saving]);
 
+  useEffect(() => {
+    if (hoursFocusRequest > 0) hoursInputRef.current?.focus();
+  }, [hoursFocusRequest]);
+
   // Restore once, after mount: session storage does not exist on the server,
   // and reading it during render would make the first client render disagree
   // with the server's. The read is scheduled as a callback, the way any other
@@ -405,7 +423,8 @@ export function CmeEntryForm({
     setDate(perthCalendarDate(new Date()));
     setTitle("");
     setSourceUrl("");
-    setStatedHoursText("1");
+    setStatedHoursText("");
+    setHoursOtherOpen(false);
     setMode(null);
     setSplitAllocations([]);
     setSplitTotal(0);
@@ -472,20 +491,15 @@ export function CmeEntryForm({
     }
   }
 
-  const chipClass = (selected: boolean) =>
-    cn(
-      "min-h-tap rounded-lg border px-3 text-sm font-semibold transition motion-reduce:transition-none",
-      selected
-        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-        : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-    );
-
   const saveControl = (
     <>
       <Button
         type="submit"
         variant="primary"
-        disabled={!canSave}
+        // aria-disabled rather than disabled: Save keeps its Tab stop, so the
+        // reason under it can be reached by keyboard (docs/wiring-conventions.md).
+        // handleSubmit refuses to save while !canSave.
+        aria-disabled={!canSave || undefined}
         busy={saving}
         busyLabel="Saving…"
         block
@@ -542,59 +556,68 @@ export function CmeEntryForm({
         onChange={setDate}
       />
 
-      <div>
-        <TextField
-          label="Hours for this activity"
-          id="cme-entry-stated-hours"
-          type="text"
-          inputMode="decimal"
-          value={statedHoursText}
-          onChange={(event) => setStatedHoursText(event.target.value)}
-        />
-        <div role="group" aria-label="Quick-pick hours" className="mt-2 flex flex-wrap gap-2">
-          {HOUR_PRESETS.map((preset) => {
-            const selected = parsePositiveHours(statedHoursText) === preset;
-            return (
-              <button
-                key={preset}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setStatedHoursText(String(preset))}
-                className={chipClass(selected)}
-              >
-                {String(preset)}
-              </button>
-            );
-          })}
+      <fieldset data-testid="cme-entry-hours" className="min-w-0">
+        <legend className={fieldLabel}>Hours</legend>
+        <div className="flex flex-wrap gap-x-2">
+          {HOUR_PRESETS.map((preset) => (
+            <CmeChoiceChip
+              key={preset}
+              pressed={!otherHoursChosen && statedHours === preset}
+              onPress={() => {
+                setHoursOtherOpen(false);
+                setStatedHoursText(String(preset));
+              }}
+            >
+              {String(preset)}
+            </CmeChoiceChip>
+          ))}
+          <CmeChoiceChip
+            pressed={otherHoursChosen}
+            onPress={() => {
+              setHoursOtherOpen(true);
+              setHoursFocusRequest((count) => count + 1);
+            }}
+            testId="cme-entry-hours-other"
+          >
+            Other
+          </CmeChoiceChip>
         </div>
-      </div>
+        {otherHoursChosen ? (
+          <TextField
+            ref={hoursInputRef}
+            label="Hours for this activity"
+            hideLabel
+            id="cme-entry-stated-hours"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="1.25 or 90 min"
+            value={statedHoursText}
+            onChange={(event) => setStatedHoursText(event.target.value)}
+            fieldClassName="mt-1"
+          />
+        ) : null}
+      </fieldset>
 
       <fieldset data-testid="cme-entry-category">
         <legend className="text-sm font-semibold text-[color:var(--text)]">Counts toward</legend>
         <p className={cn(textMuted, "mt-1 text-xs")}>
           One tap puts every hour in that category. Choose Split hours if it genuinely covered more than one.
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-1 flex flex-wrap gap-x-2">
           {cmeCategories.map((category) => (
-            <button
+            <CmeChoiceChip
               key={category}
-              type="button"
-              aria-pressed={mode === category}
+              pressed={mode === category}
               title={cmeCategoryLabels[category]}
-              onClick={() => setMode(category)}
-              className={chipClass(mode === category)}
+              onPress={() => setMode(category)}
             >
               {CATEGORY_CHIP_LABELS[category]}
-            </button>
+            </CmeChoiceChip>
           ))}
-          <button
-            type="button"
-            aria-pressed={mode === "split"}
-            onClick={() => setMode("split")}
-            className={chipClass(mode === "split")}
-          >
+          <CmeChoiceChip pressed={mode === "split"} onPress={() => setMode("split")}>
             Split hours
-          </button>
+          </CmeChoiceChip>
         </div>
       </fieldset>
 
@@ -625,10 +648,9 @@ export function CmeEntryForm({
         )}
       </FormField>
 
-      <InlineNotice tone="neutral">
-        Keep this professional record free of patient names, initials, dates of birth, record numbers, and other
-        identifiers.
-      </InlineNotice>
+      <p data-testid="cme-entry-privacy" className={cn(textMuted, "text-sm leading-5")}>
+        Keep it free of patient names, initials, dates of birth, record numbers and other identifiers.
+      </p>
 
       <details
         data-testid="cme-entry-more-details"
