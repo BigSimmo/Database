@@ -1094,7 +1094,7 @@ begin
   end if;
 
   -- Actions across all of the actor's own teams. The service id must be null.
-  if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending','teach.read','feedback.open') then
+  if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending','supervision.left_services','teach.read','feedback.open') then
     if p_service_id is not null then raise exception 'teaching_invalid_request'; end if;
 
     if p_action = 'week.read' then
@@ -1230,6 +1230,24 @@ begin
           where p.supervisor_id = p_actor_id and n.confirmed_at is null and public.service_member_active(p.service_id, p_actor_id))
       into v_count;
       return jsonb_build_object('count', v_count);
+
+    elsif p_action = 'supervision.left_services' then
+      -- The teams the actor left in the last 90 days where they are the registrar on a pairing with
+      -- supervision entries, so the app can offer supervision.read's leaver window there even with no
+      -- attendance (logbook.read finds teams only through attendance). The actor's own record, so no
+      -- audit; one read, so no lock. Team and dates only: no pairing details and no other people.
+      select jsonb_build_object('services', coalesce(jsonb_agg(jsonb_build_object(
+          'serviceId', s.id, 'serviceName', s.name, 'leftAt', m.revoked_at,
+          'readableUntil', m.revoked_at + interval '90 days') order by m.revoked_at desc, s.id), '[]'::jsonb))
+      into v_result
+      from public.on_call_service_members m
+      join public.on_call_services s on s.id = m.service_id
+      where m.user_id = p_actor_id
+        and m.revoked_at is not null and m.revoked_at > now() - interval '90 days'
+        and exists (select 1 from public.teaching_supervision_pairings p
+          where p.service_id = m.service_id and p.registrar_id = p_actor_id
+            and exists (select 1 from public.teaching_supervision_entries e where e.pairing_id = p.id));
+      return v_result;
 
     elsif p_action in ('teach.read','feedback.open') then
       perform 1 from public.on_call_services s

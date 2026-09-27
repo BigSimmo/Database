@@ -411,6 +411,7 @@ describe("teaching migration: teaching_command (D3)", () => {
     "attendance.remove",
     "session.next",
     "supervision.pending",
+    "supervision.left_services",
     "teach.read",
     "feedback.open",
   ];
@@ -425,7 +426,7 @@ describe("teaching migration: teaching_command (D3)", () => {
 
   it("takes a null team only for the actor's own cross-team actions, and for session.read from a calendar link", () => {
     expect(command).toContain(
-      "if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending','teach.read','feedback.open') then",
+      "if p_action in ('week.read','logbook.read','checkin.complete','cpd.unlogged','session.next','supervision.pending','supervision.left_services','teach.read','feedback.open') then",
     );
     expect(command).toContain("if p_service_id is not null then raise exception 'teaching_invalid_request'; end if;");
     // session.read takes the team from the occurrence, before the unchanged membership check.
@@ -891,5 +892,23 @@ describe("teaching migration: depth decisions (R23)", () => {
     expect(actionBranch(depth, "feedback.totals")).toContain(
       "if not (v_occ.presenter_id = p_actor_id or v_role = 'organiser')",
     );
+  });
+
+  it("lists the teams a leaver can still read supervision in, as registrar with entries, for 90 days and nothing more", () => {
+    const left = actionBranch(command, "supervision.left_services");
+    expect(left).not.toBe("");
+    // Keyed on the caller's own shared membership, left within supervision.read's leaver window.
+    expect(left).toContain(
+      "where m.user_id = p_actor_id\n        and m.revoked_at is not null and m.revoked_at > now() - interval '90 days'",
+    );
+    // Only where the caller is the registrar on a pairing that has entries (never as supervisor).
+    expect(left).toContain(
+      "where p.service_id = m.service_id and p.registrar_id = p_actor_id\n            and exists (select 1 from public.teaching_supervision_entries e where e.pairing_id = p.id));",
+    );
+    expect(left).toContain("'readableUntil', m.revoked_at + interval '90 days'");
+    // Team and dates only: exactly these keys, no pairing details, no other people, no audit, no lock.
+    const keys = [...left.matchAll(/'(\w+)', /g)].map((match) => match[1]).sort();
+    expect(keys).toEqual(["leftAt", "readableUntil", "serviceId", "serviceName", "services"]);
+    expect(left).not.toMatch(/supervisor_id|display_name|topics|minutes|teaching_audit|for share|pg_advisory/);
   });
 });
