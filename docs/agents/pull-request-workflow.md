@@ -271,7 +271,8 @@ already on `main` is never edited; ship a new migration with the newest timestam
 guard migration in the same change.
 
 Clinical-content and RAG-ranking PRs keep every other control — the clinical governance
-preflight, the `RAG impact:` body line, the canary-pair requirement, CODEOWNERS review, and
+preflight, the `RAG impact:` body line, the canary-pair requirement, the advisory
+CODEOWNERS ownership map (the live ruleset requires zero reviews), and
 exclusion from the unattended `Clear PRs` batch, where `scripts/pr-batch-core.mjs` carries
 `clinical-review-required` and `rag-evidence-required` (and excludes `supabase/` via
 `protectedPath`).
