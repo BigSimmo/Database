@@ -108,7 +108,9 @@ for (const colorScheme of ["light", "dark"] as const) {
   });
 }
 
-test("Who's on shows published role cover under the hospital's name", async ({ page }) => {
+test("Who's on shows published named cover under the hospital's name without storing the name", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ width: WIDTH, height: HEIGHT });
   await page.goto("/on-call/whos-on", { waitUntil: "domcontentloaded" });
   await expect(page.locator('div[hidden][id^="S:"]')).toHaveCount(0, { timeout: 20_000 });
@@ -116,6 +118,16 @@ test("Who's on shows published role cover under the hospital's name", async ({ p
     timeout: 20_000,
   });
   await expect(visibleByTestId(page, "on-call-whos-on-team-Medicine")).toContainText("Registrar");
+  const team = visibleByTestId(page, "on-call-whos-on-team-Medicine");
+  await expect(team).toContainText("Dr Alex Example");
+  await expect(team.getByRole("link", { name: /Dr Alex Example/ }).first()).toHaveAttribute("href", /^tel:/);
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: HEIGHT });
+    expect(await team.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    if (width !== 1280)
+      await page.screenshot({ path: testInfo.outputPath(`named-cover-${width}.png`), fullPage: true });
+  }
+  expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain("Dr Alex Example");
   await expect(page.getByText(/being built|being set up/i)).toHaveCount(0);
 });
 

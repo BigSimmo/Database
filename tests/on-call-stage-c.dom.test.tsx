@@ -9,7 +9,7 @@ import { demoServiceDetail, DEMO_SITE_ID } from "@/lib/on-call/service-demo";
 
 afterEach(cleanup);
 describe("Stage C editor controls", () => {
-  it("sends role-only cover for independent review and preserves its window", async () => {
+  it("sends an edited staff name for independent review and supports returning to role-only cover", async () => {
     const entry = demoServiceDetail.entries.find((entry) => entry.content.section === "cover")!;
     const save = vi.fn().mockResolvedValue(undefined);
     render(
@@ -22,10 +22,23 @@ describe("Stage C editor controls", () => {
       />,
     );
     expect(screen.queryByRole("option", { name: "Operational" })).toBeNull();
-    expect(screen.queryByRole("textbox", { name: /staff name/i })).toBeNull();
+    const name = screen.getByRole("textbox", { name: /staff name/i });
+    expect(name).toHaveValue("Dr Alex Example");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Dr Sam Example");
     await userEvent.click(screen.getByRole("button", { name: "Send for review" }));
     expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({ section: "cover", kind: "clinical", cover: entry.content.cover, publish: true }),
+      expect.objectContaining({
+        section: "cover",
+        kind: "clinical",
+        cover: { ...entry.content.cover, staffName: "Dr Sam Example" },
+        publish: true,
+      }),
+    );
+    await userEvent.clear(name);
+    await userEvent.click(screen.getByRole("button", { name: "Send for review" }));
+    expect(save).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cover: { ...entry.content.cover, staffName: undefined } }),
     );
   });
   it("preserves ordered ladder steps and rejects an out-of-range hospital wait", async () => {
@@ -116,6 +129,7 @@ it("shows the exact ladder and cover fields to the independent reviewer before a
   const previews = screen.getAllByTestId("service-structured-preview");
   expect(previews).toHaveLength(2);
   expect(previews[0]).toHaveTextContent("registrar · Medicine");
+  expect(previews[0]).toHaveTextContent("Staff: Dr Alex Example");
   expect(previews[0]).toHaveTextContent("00:00–23:59 (Perth)");
   expect(previews[1]).toHaveTextContent("Synthetic first role");
   expect(previews[1]).toHaveTextContent("Hospital-set wait: 10 min");

@@ -32,6 +32,7 @@ export const serviceStepSchema = z
   .strict();
 export const serviceCoverSchema = z
   .object({
+    staffName: z.string().trim().min(1).max(80).optional(),
     grade: z.enum(serviceCoverGrades),
     team: z.string().trim().min(1).max(80).optional(),
     window: z

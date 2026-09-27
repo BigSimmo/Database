@@ -23,6 +23,20 @@ const step = {
   waitMinutes: 10,
 };
 describe("Stage C local contracts", () => {
+  it("accepts and trims an optional staff name but rejects blank, non-string and overlong values", () => {
+    const cover = { grade: "registrar", window: { start: "20:00", end: "08:00" } };
+    const named = serviceActionSchema.parse({
+      ...base,
+      section: "cover",
+      cover: { ...cover, staffName: " Dr Alex Example " },
+    });
+    expect(named).toMatchObject({ cover: { staffName: "Dr Alex Example" } });
+    for (const staffName of ["", "   ", "\t", "\r\n", "\u00A0", null, 42, "A".repeat(81)]) {
+      expect(serviceActionSchema.safeParse({ ...base, section: "cover", cover: { ...cover, staffName } }).success).toBe(
+        false,
+      );
+    }
+  });
   it("accepts reviewed ladders and rejects operational, duplicate-order and invalid-wait ladders", () => {
     expect(serviceActionSchema.safeParse({ ...base, steps: [step] }).success).toBe(true);
     for (const patch of [
@@ -34,7 +48,7 @@ describe("Stage C local contracts", () => {
       expect(serviceActionSchema.safeParse({ ...base, steps: [step], ...patch }).success).toBe(false);
     }
   });
-  it("accepts role-only overnight cover and rejects names and equal endpoints", () => {
+  it("accepts role-only overnight cover and rejects unknown fields and equal endpoints", () => {
     const cover = { grade: "registrar", team: "Medicine", window: { start: "20:00", end: "08:00" } };
     expect(serviceActionSchema.safeParse({ ...base, section: "cover", cover }).success).toBe(true);
     expect(
@@ -93,6 +107,19 @@ import { currentCover, handbookLadders } from "@/lib/on-call/service-availabilit
 const night = new Date("2026-09-27T14:00:00Z");
 const daytime = new Date("2026-09-27T04:00:00Z");
 describe("hospital cover and ladder time rules", () => {
+  it("displays only the published explicit staff name, retaining role and time filtering", () => {
+    const raw = demoServiceDetail.entries.find((entry) => entry.content.section === "cover")!;
+    const published = {
+      ...raw.content,
+      cover: { ...raw.content.cover!, staffName: "Dr Alex Example", window: { start: "20:00", end: "08:00" } },
+    };
+    const draft = { ...published, cover: { ...published.cover, staffName: "Dr Draft Example" } };
+    const entry = { ...raw, content: draft, publishedContent: published };
+    const items = publishedHandbookItems({ entries: [entry] });
+    expect(currentCover(items, night)[0].parsed.label).toBe("Dr Alex Example · Registrar");
+    expect(currentCover(items, daytime)).toEqual([]);
+    expect(publishedHandbookItems({ entries: [{ ...entry, status: "withdrawn" }] })).toEqual([]);
+  });
   it("handles overnight cover and a 15-minute changeover overlap without publishing a name", () => {
     const raw = demoServiceDetail.entries.find((entry) => entry.content.section === "cover")!;
     const content = {

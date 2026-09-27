@@ -55,8 +55,9 @@ export function currentCover(items: readonly HandbookItem[], now: Date): Handboo
       end = minutes(cover.window.end);
     const active = start < end ? at >= start && at < end : at >= start || at < end;
     if (!active && distance(at, start) > 15 && distance(at, end) > 15) return [];
-    // A title or free text may contain a name. The cover reader uses only the constrained grade.
-    const label = cover.grade[0].toUpperCase() + cover.grade.slice(1);
+    // Names come only from the explicit, reviewed cover field, never a free-text title.
+    const grade = cover.grade[0].toUpperCase() + cover.grade.slice(1);
+    const label = cover.staffName ? `${cover.staffName} · ${grade}` : grade;
     return [
       { ...item, title: label, parsed: { ...item.parsed, prefix: null, label, team: cover.team ?? null }, cover },
     ];

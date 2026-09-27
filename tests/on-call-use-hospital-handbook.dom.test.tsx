@@ -143,6 +143,21 @@ describe("useHospitalHandbook", () => {
     await waitFor(() => expect(result.current.status).toBe("ready"));
   });
 
+  it("keeps published staff names in memory without saving them in device storage", async () => {
+    const named = content({
+      section: "cover",
+      kind: "clinical",
+      sources: [{ label: "Rota", url: "https://example.org/rota" }],
+      cover: { staffName: "Dr Alex Example", grade: "registrar", window: { start: "00:00", end: "23:59" } },
+    });
+    routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () => json(detail([entry("named-cover", named)]));
+    const { result } = renderHook(() => useHospitalHandbook());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(JSON.stringify(result.current)).toContain("Dr Alex Example");
+    expect(JSON.stringify(window.localStorage)).not.toContain("Dr Alex Example");
+    expect(JSON.stringify(window.sessionStorage)).not.toContain("Dr Alex Example");
+  });
+
   it("loads the first service and site and exposes only published content", async () => {
     routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () =>
       json(

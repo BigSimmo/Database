@@ -26,11 +26,22 @@ export function ServiceStructuredFields({
   if (section === "cover")
     return (
       <fieldset className="grid gap-3" data-testid="service-cover-editor">
-        <legend>Role and cover times</legend>
+        <legend>Staff, role and cover times</legend>
         <p className="text-sm text-[color:var(--text-muted)]">
-          Record roles only, without staff names. Times use the hospital’s Perth clock; an end before the start means
-          overnight.
+          Add a staff name only when approved for your service, or leave it blank for role-only cover. These times
+          repeat daily until the entry is changed or withdrawn. Times use the hospital’s Perth clock; an end before the
+          start means overnight.
         </p>
+        <TextField
+          id="service-cover-staff-name"
+          label="Staff name (optional)"
+          value={cover.staffName ?? ""}
+          autoComplete="off"
+          maxLength={80}
+          onChange={(event) =>
+            onCover({ ...cover, staffName: event.target.value.trim() ? event.target.value : undefined })
+          }
+        />
         <FormField label="Grade" id="service-cover-grade">
           {(field) => (
             <select

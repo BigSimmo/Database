@@ -1,3 +1,25 @@
+# Named staff extension — 27 September 2026
+
+Josh authorised optional named staff in Who’s on and publication to existing PR #3156. Workspace: `C:/Users/joshs/.codex/worktrees/on-call-publication/Database`, branch `codex/on-call-publication`.
+
+- Added optional, trimmed `cover.staffName` (1–80 characters when present), existing cover editor, exact reviewer/confirmation preview, and shared published-cover display. Role-only entries remain valid; names are never inferred from free-text titles.
+- Existing source, independent review, membership/site filtering, revision, withdrawal and clock-window rules remain. Cover times repeat daily until the entry is edited or withdrawn; the editor states this explicitly. Historical handbook revisions retain the name under existing retention; this feature adds no automatic name erasure.
+- Names remain in the private handbook content and in-memory reader state. Local/session storage retains existing IDs and timing metadata; the new regression checks that the name itself is absent. Demonstrations use only fictional names and reserved numbers.
+- New migration `20260927130000_on_call_named_cover.sql` adds the optional field to the existing server validation. Merge applies it to the live clinical database automatically; merge only inside an approved window. No live database call or merge was authorised or performed.
+- Fresh focused local verification: `node scripts/run-vitest.mjs run tests/on-call-stage-c.test.ts tests/on-call-stage-c.dom.test.tsx tests/on-call-service-api.test.ts tests/on-call-use-hospital-handbook.dom.test.tsx tests/on-call-now.dom.test.tsx tests/on-call-call.dom.test.tsx` — **5 files / 69 tests passed**. The final listed call DOM path does not exist and contributed no tests.
+- `node scripts/check-hosted-migration-role.mjs` passed. `npm run check:production-readiness` failed at the existing privacy release register: provider agreements, cross-border basis and notices pending; PHI minimisation partial. These records were not changed.
+- Independent scoped TS/UI/privacy review found no actionable P0–P2 issue. Requested routes: Sol/medium for the bounded SQL implementation and Sol/high for independent UI review; actual runtime model/cost telemetry unavailable. No hosted review or real-service acceptance claimed.
+- Browser verification attempted with `node scripts/run-playwright.mjs tests/ui-on-call-now.spec.ts tests/ui-on-call-service.spec.ts --project=chromium`; the isolated production build remained in compilation for the bounded local run, so browser tests and screenshots are unverified. The temporary dev server also failed readiness and was stopped. No application test failure is inferred from this incomplete build.
+- `node scripts/run-heavy.mjs --npm-script drift:manifest` passed: disposable Postgres replay completed in 127 seconds and generated the manifest. Its only differences are generation time, replay duration, schema checksum and the On Call command definition hash; grants are unchanged. Parent independently confirmed the checksum and four-field diff. No live drift check was run.
+- Independent SQL review confirmed full command/grant parity except optional name validation. Its whitespace-only-name finding was fixed with explicit ECMAScript whitespace trimming and the correction was reviewed.
+- Final added migration/whitespace check attempted: `node scripts/run-vitest.mjs run tests/on-call-named-cover-migration.test.ts tests/on-call-stage-c.test.ts` did not run: `DATABASE_HEAVY_RUN_ADMISSION_BUSY`, held by the separate `roster-followup` task’s locked offline dependency repair. No test assertion failure is inferred. The earlier 69-test result and successful corrected SQL replay remain the available evidence.
+- `npm run format` completed successfully across the repository (exit 0).
+- Publication target: existing PR #3156. Normal ownership, database, formatting and static push guards remain enabled; the PR records their eventual outcome. No merge or deployment is authorised.
+
+This section supersedes historical statements below that named staff is unbuilt or unapproved. Offline handbook storage, real-service two-user isolation, hosting/privacy approval and physical-device acceptance remain separate.
+
+---
+
 # Recovery and publication — 27 September 2026
 
 The previous checkout disappeared before publication. The complete recorded file inventory was restored from the saved edits at the same base commit into `C:/Users/joshs/.codex/worktrees/on-call-publication/Database`, branch `codex/on-call-publication`.

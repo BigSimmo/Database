@@ -115,6 +115,7 @@ test("reviewable cover and ladder details fit the phone handbook", async ({ page
   const handbook = page.getByTestId("service-handbook").filter({ visible: true });
   const cover = handbook.getByTestId("service-entry-61000000-0000-4000-8000-000000000019");
   await expect(cover.getByTestId("service-structured-preview")).toContainText("00:00–23:59 (Perth)");
+  await expect(cover.getByTestId("service-structured-preview")).toContainText("Staff: Dr Alex Example");
   await expect(cover.getByRole("button", { name: "Still correct" })).toBeVisible();
   const ladder = handbook.getByTestId("service-entry-61000000-0000-4000-8000-000000000020");
   await expect(ladder.getByTestId("service-structured-preview")).toContainText("Hospital-set wait: 10 min");

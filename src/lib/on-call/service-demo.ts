@@ -78,7 +78,12 @@ export const demoServiceDetail: ServiceDetail = {
         phone: "5550 0042",
         sources: [{ label: "Synthetic policy", url: "https://example.org/policy" }],
         orientationPhase: "first_shift",
-        cover: { grade: "registrar", team: "Medicine", window: { start: "00:00", end: "23:59" } },
+        cover: {
+          staffName: "Dr Alex Example",
+          grade: "registrar",
+          team: "Medicine",
+          window: { start: "00:00", end: "23:59" },
+        },
       },
       { reviewedBy: DEMO_REVIEWER_ID, reviewedAt: "2026-09-20T04:00:00.000Z" },
     ),

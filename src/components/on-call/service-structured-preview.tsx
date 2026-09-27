@@ -8,6 +8,12 @@ export function ServiceStructuredPreview({ content }: { content: ServiceContent 
       {content.phone ? <p className="nums font-normal">Phone or extension: {content.phone}</p> : null}
       {content.cover ? (
         <p>
+          {content.cover.staffName ? (
+            <>
+              <span>Staff: {content.cover.staffName}</span>
+              <br />
+            </>
+          ) : null}
           Role: {content.cover.grade}
           {content.cover.team ? ` · ${content.cover.team}` : ""}
           <br />
