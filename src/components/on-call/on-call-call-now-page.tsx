@@ -24,6 +24,7 @@ import {
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { ON_CALL_HOME_TAGS, onCallTelHref } from "@/lib/on-call/home-modules";
 import { msUntilOnCallPeriodChange } from "@/lib/on-call/number-resolver";
+import { ON_CALL_SERVER_ANCHOR } from "@/components/on-call/on-call-dates";
 
 /**
  * WHO DO I CALL NOW — pick the situation, get the ladder with call buttons.
@@ -35,19 +36,26 @@ import { msUntilOnCallPeriodChange } from "@/lib/on-call/number-resolver";
  * rule is wrong.
  */
 export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
+
   const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
-  const [clock, setClock] = useState(() => nowProp ?? new Date());
-  const now = nowProp ?? clock;
+  const [clock, setClock] = useState<Date | null>(() => nowProp ?? null);
+  const now = useMemo(
+    () => nowProp ?? (mounted ? (clock ?? new Date()) : ON_CALL_SERVER_ANCHOR),
+    [nowProp, mounted, clock],
+  );
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Re-read the clock when the in-hours period starts or ends (holidays count),
   // so a phone left open on this page does not keep offering the daytime order at night.
   useEffect(() => {
-    if (nowProp) return;
-    const timer = window.setTimeout(() => setClock(new Date()), msUntilOnCallPeriodChange(clock));
+    if (nowProp || !mounted) return;
+    const timer = window.setTimeout(() => setClock(new Date()), msUntilOnCallPeriodChange(now));
     return () => window.clearTimeout(timer);
-  }, [clock, nowProp]);
+  }, [now, nowProp, mounted]);
 
   const scenarios = useMemo(() => onCallCallNowScenarios(entries), [entries]);
   const trimmed = query.trim().toLowerCase();

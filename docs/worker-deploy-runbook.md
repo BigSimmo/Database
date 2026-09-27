@@ -254,6 +254,7 @@ the client publishable key (build-time, app bundle only) or
   annotated list.
 - `PYTHON_BIN=python` — do not set a Windows `TESSERACT_CMD` path; the container
   resolves both from the venv/PATH.
+- Automated pre-deploy migration gate (see §0.1): `DEPLOY_MIGRATION_GATE=enforce` (blocks deploy if migrations are pending; default `report` logs status without blocking; emergency bypass `off`; poll settings: `DEPLOY_MIGRATION_GATE_POLL_S=20`, `DEPLOY_MIGRATION_GATE_MAX_WAIT_S=600`).
 
 ### Shadow extraction mode (packet B4 — docling, default OFF)
 

@@ -13,6 +13,7 @@ const navigation = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: navigation.push }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
   redirect: navigation.redirect,
 }));
 
