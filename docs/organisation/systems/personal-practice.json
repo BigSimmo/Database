@@ -17,6 +17,7 @@
     "src/app/api/cme/**",
     "src/app/api/on-call/**",
     "src/app/api/roster/**",
+    "src/components/admin/**",
     "src/components/calendar/**",
     "src/components/clinical-dashboard/saved-registry-favourites-status.ts",
     "src/components/clinical-dashboard/use-saved-registry-favourites.ts",
@@ -25,6 +26,7 @@
     "src/components/on-call/**",
     "src/components/roster/**",
     "src/data/cme/**",
+    "src/lib/admin/**",
     "src/lib/calendar/**",
     "src/lib/cme/**",
     "src/lib/favourites-client-contract.ts",
@@ -34,6 +36,7 @@
     "src/lib/reminders/**",
     "src/lib/roster/**",
     "src/lib/saved-registry-storage.ts",
+    "tests/admin-*",
     "tests/calendar-*",
     "tests/cme-*",
     "tests/favourites-*",
@@ -44,6 +47,7 @@
     "tests/roster-*",
     "tests/saved-registry-favourites-status.test.ts",
     "tests/saved-registry-storage.test.ts",
+    "tests/ui-admin*",
     "tests/ui-cme-phone.spec.ts",
     "tests/ui-on-*"
   ]

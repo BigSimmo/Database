@@ -130,6 +130,9 @@ function fixtureRun(options: FixtureOptions = {}) {
     }
     if (key === "gh run rerun --help") return success("Usage: gh run rerun");
     if (key.startsWith("gh api graphql")) {
+      if (!key.includes('repository(owner: "BigSimmo", name: "PsychSift")')) {
+        return { status: 1, stdout: "", stderr: "unexpected repository in review-thread query" };
+      }
       const unresolvedReviewThreadCount = options.unresolvedReviewThreadCount ?? 0;
       return success(
         JSON.stringify({
