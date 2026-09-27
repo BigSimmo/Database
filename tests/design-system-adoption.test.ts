@@ -1480,7 +1480,10 @@ describe("design-system adoption manifest", () => {
     // 106 -> 110 on 2026-09-26: Admin update 1. /admin, /admin/renewals, /admin/new-job and
     // /admin/help arrived; /my-work, /on-call/compliance and /on-call/logistics stay as redirect
     // backstop pages.
-    expect(manifest.routeCoverage.discovered).toHaveLength(110);
+    //
+    // 110 -> 111 on 2026-09-26: /admin/new-job/records, "Your Admin records" — an on-screen page,
+    // never a download, reached from New job's Leaving tab.
+    expect(manifest.routeCoverage.discovered).toHaveLength(111);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

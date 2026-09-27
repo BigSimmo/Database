@@ -290,11 +290,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/admin/admin-help-page.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewals-page.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/admin-today-page.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/renewals/personal-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
@@ -351,11 +353,13 @@
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/admin/admin-help-page.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewals-page.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/admin-today-page.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/renewals/personal-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
@@ -1033,6 +1037,8 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-help-item-row.tsx",
+        "src/components/admin/new-job/admin-new-job-step-row.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
@@ -1041,6 +1047,8 @@
         "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-help-item-row.tsx",
+        "src/components/admin/new-job/admin-new-job-step-row.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
@@ -1190,11 +1198,13 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
@@ -1976,6 +1986,7 @@
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
@@ -2019,6 +2030,7 @@
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
@@ -2044,6 +2056,7 @@
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/mode-kit/dial-sheet.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
@@ -2375,9 +2388,11 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-help-page.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
@@ -2396,9 +2411,11 @@
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-help-page.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
+        "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
@@ -2721,6 +2738,7 @@
       "routes": [
         "src/app/(search-app)/admin/help/page.tsx",
         "src/app/(search-app)/admin/new-job/page.tsx",
+        "src/app/(search-app)/admin/new-job/records/page.tsx",
         "src/app/(search-app)/admin/page.tsx",
         "src/app/(search-app)/admin/renewals/page.tsx",
         "src/app/(search-app)/cme/calendar/page.tsx",
@@ -2837,6 +2855,16 @@
         },
         {
           "file": "src/app/(search-app)/admin/new-job/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/new-job/records/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4554,6 +4582,7 @@
     "discovered": [
       "src/app/(search-app)/admin/help/page.tsx",
       "src/app/(search-app)/admin/new-job/page.tsx",
+      "src/app/(search-app)/admin/new-job/records/page.tsx",
       "src/app/(search-app)/admin/page.tsx",
       "src/app/(search-app)/admin/renewals/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
@@ -4666,6 +4695,7 @@
     "declared": [
       "src/app/(search-app)/admin/help/page.tsx",
       "src/app/(search-app)/admin/new-job/page.tsx",
+      "src/app/(search-app)/admin/new-job/records/page.tsx",
       "src/app/(search-app)/admin/page.tsx",
       "src/app/(search-app)/admin/renewals/page.tsx",
       "src/app/(search-app)/calculators/page.tsx",
@@ -4781,7 +4811,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 117,
+    "inheritedCkbV2RootCount": 118,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -4790,8 +4820,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 118,
-    "productionRouteCount": 110,
-    "nextUiEntryCount": 174
+    "rootCount": 119,
+    "productionRouteCount": 111,
+    "nextUiEntryCount": 175
   }
 }

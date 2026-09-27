@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
+import { ON_CALL_IN_HOURS_END_HOUR, isOnCallOutOfHours } from "@/lib/on-call/home-modules";
 import { visibleByTestId } from "./playwright-settlement";
 
 /**
@@ -144,15 +145,25 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
  * moment two headers exist and a strict locator fails on the pair rather than
  * on anything being wrong.
  */
-async function sectionBar(page: Page) {
-  await expect(page.getByTestId("on-call-section-detail-header").first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId("on-call-section-detail-header")).toHaveCount(1, { timeout: 20_000 });
-  return page.getByTestId("on-call-section-section-rail");
+/**
+ * On Call's own section pages render `OnCallSectionNavHeader`, whose header
+ * testid prefix is `on-call-section`. Admin's Help and New job pages render
+ * the different `AdminNavHeader` instead (Admin update 1), whose rail is the
+ * same `InPageNavHeader` component but under its own `admin-section-header`
+ * prefix — a page borrowing Admin's identity must not read as an On Call page
+ * in a test id. Callers on an Admin route pass that prefix.
+ */
+const ADMIN_SECTION_HEADER_PREFIX = "admin-section-header";
+
+async function sectionBar(page: Page, prefix = "on-call-section") {
+  await expect(page.getByTestId(`${prefix}-detail-header`).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId(`${prefix}-detail-header`)).toHaveCount(1, { timeout: 20_000 });
+  return page.getByTestId(`${prefix}-section-rail`);
 }
 
 /** The words the bar is currently showing, in order, excluding More. */
-async function barWords(page: Page) {
-  const bar = await sectionBar(page);
+async function barWords(page: Page, prefix = "on-call-section") {
+  const bar = await sectionBar(page, prefix);
   return bar.evaluate((nav) =>
     Array.from(nav.querySelectorAll("li"))
       .filter((slot) => getComputedStyle(slot).display !== "none" && !slot.classList.contains("mode-nav__more"))
@@ -488,10 +499,11 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // clipped by it, and the bands that do reveal it are wider ones, with more
     // room per slot rather than less. Compliance shows all four at 390px.
     for (const route of [ROUTES.contacts, ROUTES.logistics, ROUTES.orientation, ROUTES.compliance]) {
+      const prefix = route === ROUTES.logistics ? ADMIN_SECTION_HEADER_PREFIX : undefined;
       for (const width of [NARROW, BOARD_WIDTH]) {
         await openBoard(page, route, width);
         const clipped = await (
-          await sectionBar(page)
+          await sectionBar(page, prefix)
         ).evaluate((nav) =>
           Array.from(nav.querySelectorAll("li"))
             .filter((slot) => getComputedStyle(slot).display !== "none")
@@ -576,21 +588,21 @@ test.describe("02 More — the second row is about the page you are on", () => {
   });
 
   test("declares no anchor the page does not render", async ({ page }) => {
-    // Admin, and deliberately only Admin. This re-derives the slug from the
-    // word in the bar, which holds wherever the bar's label and the page's
-    // heading are the same string — every page in the mode except Compliance,
-    // whose bar says "Blocking" over a group anchored at
-    // `stops-you-working`. Pointing this loop at that page would fail on the
-    // one design decision it is meant to protect.
+    // Admin, and deliberately only Admin. Admin's Help page (`/admin/help`)
+    // renders `AdminNavHeader`, whose rail words are `ADMIN_HELP_SECTIONS`'
+    // own labels, and whose anchors are that same list's ids
+    // (`admin-help-support`, `admin-help-guides`, ...) — this re-derives the
+    // slug from the word in the bar and checks it against that `admin-help-`
+    // prefix, which holds for every word this page's rail can show.
     await openBoard(page, ROUTES.logistics);
-    for (const label of await barWords(page)) {
+    for (const label of await barWords(page, ADMIN_SECTION_HEADER_PREFIX)) {
       const slug = label
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
       if (!slug) continue;
-      await expect(page.locator(`#on-call-group-${slug}`), `${label} is offered but absent`).toHaveCount(1);
+      await expect(page.locator(`#admin-help-${slug}`), `${label} is offered but absent`).toHaveCount(1);
     }
   });
 });
@@ -797,53 +809,105 @@ test.describe("10 Orientation", () => {
 });
 
 /**
- * Board 11 is drawn as "Logistics" and the drawing keeps that name. Only the
- * label moved: the page is Admin now, and what it holds moved with the word —
- * leave, rosters, pay, forms and access, with Facilities keeping the parking,
- * food and call-room notes the page was first built for. The section id, the
- * route segment and the database CHECK constraint all still read `logistics`,
- * which is why every testid below does too; renaming them would be a
- * migration against the live clinical database for no functional gain.
+ * Board 11 was drawn as "Logistics". Admin update 1 (2026-09-26) split that
+ * page in two: the rows that expire moved to Compliance
+ * (`test.describe("Compliance", ...)` below), and everything else moved to
+ * Admin's own Help page (boards 09/18/19/25) — crisis lines first, an
+ * in-page "Find in Help" filter, then Support/Guides/Contacts/On site, each
+ * an own or shared `on_call_entries` row placed by category and title rather
+ * than a stored "folder". The route segment (`/admin/help`), the underlying
+ * `logistics` section and its rows' `category` values are unchanged; only the
+ * page that reads them is new, so the assertions below check what that page
+ * actually renders instead of the folder headings it replaced.
  */
-test.describe("11 Admin", () => {
-  test("explains a wholly private group inside the card", async ({ page }) => {
-    await openBoard(page, ROUTES.logistics);
-    const note = page.getByTestId("on-call-logistics-private-note");
-    // Exactly one, because the rule is narrower than "somewhere on Admin": a
-    // note on a MIXED group would claim the visible rows beside it are
-    // withheld too, so only a folder with nothing visible in it gets one.
-    await expect(note).toHaveCount(1);
-    await expect(note).toBeVisible();
-    await expect(note).toContainText(/Only you can see this group/i);
+test.describe("11 Admin: Help", () => {
+  /** Clicks a tab's "Show all" if the demo corpus gave it one, so a row past
+   * the first eight is still found regardless of exactly where it falls. */
+  async function showAll(page: Page, listTestId: string) {
+    const button = page.getByTestId(`${listTestId}-show-all`);
+    if (await button.count()) await button.click();
+  }
 
-    // And Access is that folder — after-hours entry, locked wards, logins,
-    // every row of it personal. Located through the group rather than trusted
-    // to be the only note on the page, so a note that ends up over the wrong
-    // folder fails here instead of passing on a count of one.
-    const access = page.locator('section:has([data-testid="on-call-logistics-group-access"])');
-    await expect(access.getByTestId("on-call-logistics-private-note")).toBeVisible();
+  test("puts crisis lines first, with 000 the only filled emergency control and Lifeline its own number", async ({
+    page,
+  }) => {
+    await openBoard(page, ROUTES.logistics);
+    await expect(page.getByTestId("admin-help-crisis")).toBeVisible();
+    // Quiet red and filled is 000's alone; every other line is an outlined disc.
+    await expect(page.locator('[data-testid$="-emergency-dot"]')).toHaveCount(1);
+    await expect(page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-001-emergency-dot")).toBeVisible();
+    await expect(page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-001-call")).toHaveAttribute("href", "tel:000");
+    // Lifeline rings on its own number, never folded into 000's.
+    const lifeline = page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-005");
+    await expect(lifeline).toContainText("Lifeline");
+    await expect(lifeline).toContainText("13 11 14");
+    await expect(page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-005-call")).toHaveAttribute(
+      "href",
+      "tel:131114",
+    );
   });
 
-  test("groups the plain rows under their folder headings", async ({ page }) => {
+  test("finds a row by an everyday word, without hiding crisis lines", async ({ page }) => {
     await openBoard(page, ROUTES.logistics);
-    // ONE WORD PER CATEGORY, and this block is the record of the measurement
-    // that decided it. `category` is both the page's heading and a slot in a
-    // 48px bar of bare words that truncate rather than fold: "What you can
-    // authorise" measured 165px in that row against a 288px phone and was cut
-    // to "Authorise".
-    //
-    // The folders were then re-cut when Logistics became Admin, and the
-    // measurement is what survived — "Rosters and hours" is Rosters, "Pay and
-    // claims" is Pay, "IT and access" is Access, so "Authorise" itself is no
-    // longer one of them. A phrase reads fine in review and truncates on the
-    // phone this mode is opened on at 3am; if a folder seems to need one, the
-    // answer is a better word, not a wider bar.
-    for (const folder of ["leave", "rosters", "pay", "forms", "access", "facilities"]) {
-      await expect(
-        page.getByTestId(`on-call-logistics-group-${folder}`),
-        `the ${folder} folder has rows in the demo corpus but no heading on the page`,
-      ).toBeVisible();
+    // No microphone on this box: it is a filter over what is already on the
+    // page, never the shared search composer (spec).
+    const filter = page.getByRole("textbox", { name: "Find in Help" });
+    await filter.fill("payslip");
+    const guides = page.getByTestId("admin-help-guides-list");
+    await expect(guides.getByText("Demo payslips and pay queries")).toBeVisible();
+    await expect(guides.getByText("Demo sick leave, and who to tell first")).toHaveCount(0);
+    // Crisis lines are never filtered (spec): they render above this check.
+    await expect(page.getByTestId("admin-help-crisis")).toBeVisible();
+  });
+
+  test("shows the Guides tab's own rows, each with its own provenance line", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    const guides = page.getByTestId("admin-help-guides-list");
+    await showAll(page, "admin-help-guides-list");
+    const row = guides.locator("li", { hasText: "Demo payslips and pay queries" });
+    // The demo corpus has no other account, so every row here is the reader's
+    // own — "Shared by another doctor" only ever appears once a second
+    // account's guide exists, which board 30's long-name case exercises.
+    await expect(row).toContainText(/Yours · Updated/);
+  });
+
+  test("shows the On site tab's rows, and the after-hours line exactly when it applies", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    const onSite = page.getByTestId("admin-help-on-site-list");
+    await showAll(page, "admin-help-on-site-list");
+    await expect(onSite.locator("li", { hasText: "Demo security escort" })).toBeVisible();
+    await expect(onSite.locator("li", { hasText: "Demo after-hours entry" })).toBeVisible();
+    await expect(onSite.locator("li", { hasText: "Demo locked wards" })).toBeVisible();
+
+    // Read in the reader's own zone (spec), so this mirrors the app's own
+    // rule rather than pinning a time of day the suite happens to run at.
+    const afterHours = page.getByTestId("admin-help-on-site-after-hours");
+    if (isOnCallOutOfHours(new Date())) {
+      await expect(afterHours).toContainText(
+        `After hours now · from ${String(ON_CALL_IN_HOURS_END_HOUR).padStart(2, "0")}:00`,
+      );
+    } else {
+      await expect(afterHours).toHaveCount(0);
     }
+  });
+
+  test("keeps New job's login rows off Help entirely", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    // "Demo logins, paging and remote access" is category Access with a login
+    // title, so `adminPlacementForEntry` files it at New job, not here — Help
+    // must never show a row New job already owns.
+    await expect(page.getByText("Demo logins, paging and remote access")).toHaveCount(0);
+  });
+
+  test("shows a workforce role explainer in Contacts, not the desk number New job already shows", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    const contacts = page.getByTestId("admin-help-contacts-list");
+    await showAll(page, "admin-help-contacts-list");
+    const explainer = contacts.locator("li", { hasText: "What medical workforce does" });
+    await expect(explainer).toBeVisible();
+    await expect(explainer).toContainText("No date recorded");
+    // The workforce desk's own number is reused, not duplicated, on New job.
+    await expect(page.getByTestId("admin-help-contacts-list").getByText("Demo medical workforce unit")).toHaveCount(0);
   });
 });
 
