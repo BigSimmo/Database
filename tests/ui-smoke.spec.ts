@@ -4540,6 +4540,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "My Work" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "First Nations" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();

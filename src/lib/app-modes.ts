@@ -25,6 +25,7 @@ export const appModeIds = [
   "psychiatry",
   "my-work",
   "roster",
+  "first-nations",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -643,6 +644,34 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "first-nations",
+    label: "First Nations",
+    description: "Culturally safe care for Aboriginal and Torres Strait Islander patients",
+    href: "/first-nations",
+    search: {
+      // The mode owns its own in-page search box on every page (standard §13),
+      // so the shared composer must not query the remote index for it.
+      kind: "tools",
+      placeholder: "Search First Nations",
+      inputAriaLabel: "Search First Nations",
+      submitIdleLabel: "First Nations",
+      submitBusyLabel: "First Nations",
+      submitAriaLabel: "Search First Nations",
+      emptyTitle: "Choose a First Nations page",
+      readyTitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients",
+      progressLabel: "Opening the page.",
+      resultKind: "tools",
+      resultHeading: "First Nations",
+      // No results page. The mode home and every section keep their own
+      // in-page search box; a retargeted composer would accept a query and
+      // land the reader on a page that ignores it.
+      resultsSurface: "none",
+      statusLabel: "First Nations",
+      nextStep: "Open a page",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -686,6 +715,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "psychiatry",
   "my-work",
   "roster",
+  "first-nations",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

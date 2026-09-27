@@ -39,6 +39,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // Roster reads the owner's own shifts, already in the browser, so it
   // contributes no cross-entity universal-search domain.
   roster: [],
+  // First Nations owns its own in-page search box on every page (standard
+  // §13), not the cross-entity universal search, so it contributes no domains.
+  "first-nations": [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {

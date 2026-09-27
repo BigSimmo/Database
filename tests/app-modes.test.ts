@@ -220,7 +220,7 @@ describe("app mode search contract", () => {
     const config = appModeSearchConfig("sources");
     const mode = appModeDefinitions.find((definition) => definition.id === "sources");
 
-    expect(appModeIds).toHaveLength(21);
+    expect(appModeIds).toHaveLength(22);
     expect(mode).toMatchObject({
       label: "Sources",
       description: "Ranked clinical source catalogue and traceability",
@@ -484,6 +484,9 @@ describe("app mode search contract", () => {
       // composer, `resultsSurface` is "none", and `standaloneModeHomeHref`
       // navigates the mode pill to `/roster` before a query can be typed.
       roster: "/roster?q=clozapine&run=1",
+      // First Nations, likewise: every page keeps its own in-page search box and
+      // there is no search route.
+      "first-nations": "/first-nations?q=clozapine&run=1",
     });
   });
 

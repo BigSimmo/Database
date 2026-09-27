@@ -200,6 +200,20 @@ export const modeSecondaryNavigationRegistry = {
     { id: "shifts", label: "Shifts", href: "/roster/shifts" },
     { id: "settings", label: "Settings", href: "/roster/settings" },
   ],
+  // First Nations, spec §3 order. The pages sheet's group headings ("At the
+  // bedside", "During the stay", "Leaving hospital") wait for the shared pages
+  // sheet to support groups (On Call's rebuild).
+  "first-nations": [
+    { id: "first-nations-bedside", label: "Bedside", href: "/first-nations" },
+    { id: "first-nations-contacts", label: "Contacts", href: "/first-nations/contacts" },
+    { id: "first-nations-talking", label: "Talking", href: "/first-nations/talking" },
+    { id: "first-nations-family", label: "Family", href: "/first-nations/family" },
+    { id: "first-nations-mental-health", label: "Mental health", href: "/first-nations/mental-health" },
+    { id: "first-nations-on-the-ward", label: "On the ward", href: "/first-nations/on-the-ward" },
+    { id: "first-nations-mistakes", label: "Common mistakes", href: "/first-nations/mistakes" },
+    { id: "first-nations-going-home", label: "Going home", href: "/first-nations/going-home" },
+    { id: "first-nations-end-of-life", label: "End of life", href: "/first-nations/end-of-life" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];

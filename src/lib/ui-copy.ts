@@ -145,6 +145,11 @@ export const sharedHomePresentation = {
     subtitle: "Your own shifts: what's on today, this week and this month.",
     suggestions: ["night shift hours", "next weekend off", "import my roster"],
   },
+  "first-nations": {
+    title: "First Nations",
+    subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
+    suggestions: ["Call Aboriginal liaison", "Common mistakes", "Mental Health Act s 81"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */

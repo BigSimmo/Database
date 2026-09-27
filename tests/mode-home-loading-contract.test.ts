@@ -36,6 +36,9 @@ const MODE_HOME_LOADING_ROUTES = [
   "my-work",
   // Roster's dashboard, a standalone mode home for the same reason.
   "roster",
+  // First Nations' home: static skeleton plus the real crisis strip (spec §5),
+  // so it names its own loading component.
+  "first-nations",
 ] as const;
 
 /**
@@ -45,6 +48,8 @@ const MODE_HOME_LOADING_ROUTES = [
  */
 const OWN_SKELETON: Partial<Record<(typeof MODE_HOME_LOADING_ROUTES)[number], string>> = {
   cme: "CmeLoadingSkeleton",
+  // First Nations' home: static skeleton plus the real crisis strip (spec §5).
+  "first-nations": "FirstNationsLoading",
 };
 
 describe("mode-home loading contract", () => {

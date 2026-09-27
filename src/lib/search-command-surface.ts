@@ -271,6 +271,18 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["my-work", "on-call", "cme"],
     remoteSearchEnabled: false,
   },
+  "first-nations": {
+    // The mode owns its own in-page search box on every page (standard §13),
+    // so its command panel must not query the remote index either.
+    examples: [...sharedHomePresentation["first-nations"].suggestions],
+    suggestions: [
+      { text: "Call Aboriginal liaison", meta: "Bedside" },
+      { text: "Common mistakes", meta: "On the ward" },
+      { text: "Mental Health Act s 81", meta: "Talking" },
+    ],
+    crossModes: ["on-call", "services", "forms"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {

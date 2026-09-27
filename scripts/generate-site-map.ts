@@ -185,6 +185,19 @@ const routeDescriptions: Record<string, string> = {
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
   "/my-work":
     "My Work dashboard: what is due next (compliance items whose recorded date falls in the next 30 days or has passed, and On Call entries due their check), then one card each for Admin, Compliance, Check these, My shifts, Calendar, Orientation and reminder settings, linking to those pages at their own addresses. A dashboard, not a redirect to the shared search home — My Work has no search results surface.",
+  "/first-nations":
+    "First Nations Bedside page: the Aboriginal liaison figure for the chosen hospital, the crisis strip (000 and 13YARN), what to do first and links to the eight section pages. A dashboard, not a redirect to the shared search home — First Nations has no search results surface.",
+  "/first-nations/contacts":
+    "First Nations contacts: liaison, community-controlled health services and statewide lines, each with its source and checked date.",
+  "/first-nations/talking":
+    "First Nations Talking: how to open a conversation, words to say aloud and the Mental Health Act s 81 cultural-support provisions.",
+  "/first-nations/family": "First Nations Family: involving family, kin and community in care.",
+  "/first-nations/mental-health": "First Nations Mental health: culturally safe assessment and support.",
+  "/first-nations/on-the-ward": "First Nations On the ward: situation plans for the admission (nothing is saved).",
+  "/first-nations/mistakes": "First Nations Common mistakes: what to avoid and what to do instead.",
+  "/first-nations/going-home": "First Nations Going home: discharge planning, travel support and return to Country.",
+  "/first-nations/end-of-life": "First Nations End of life: Sorry Business and caring for the family.",
+  "/first-nations/card": "First Nations pocket card: the key numbers and prompts on one printable card.",
   "/cme":
     "CPD dashboard: total hours logged this year against the confirmed targets, a plain-words pace line for the year's end, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CPD has no search results surface.",
   "/cme/log":
@@ -302,6 +315,7 @@ const routeOwnershipRows = [
   ["CPD", "src/app/(search-app)/cme, src/components/cme"],
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
   ["My Work", "src/app/(search-app)/my-work, src/components/my-work"],
+  ["First Nations", "src/app/(search-app)/first-nations, src/components/first-nations, src/lib/first-nations"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -488,6 +502,7 @@ function renderModeRoutes() {
     psychiatry: appModeHomeHref("psychiatry"),
     "my-work": appModeHomeHref("my-work"),
     roster: appModeHomeHref("roster"),
+    "first-nations": appModeHomeHref("first-nations"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -641,6 +656,13 @@ function renderModePageIndex() {
       search: appModeHomeHref("my-work"),
       detail:
         'No results page — `resultsSurface: "none"`, like Psychiatry. `/my-work` is a dashboard of what is due and links; the pages it gathers keep their On Call routes.',
+    },
+    {
+      mode: "First Nations",
+      home: appModeHomeHref("first-nations"),
+      search: appModeHomeHref("first-nations"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like My Work. Every page keeps its own in-page search box. `/first-nations` Bedside, then `/contacts`, `/talking`, `/family`, `/mental-health`, `/on-the-ward`, `/mistakes`, `/going-home`, `/end-of-life`, and the `/card` pocket card.',
     },
   ]);
 }

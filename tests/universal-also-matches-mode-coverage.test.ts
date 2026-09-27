@@ -78,6 +78,13 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   // Roster, for On Call's reason exactly: no result list, resultsSurface "none".
   // The file named here is Today, the dashboard the reader lands on at `/roster`.
   roster: { file: "src/components/roster/roster-today-page.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // First Nations, likewise: every page keeps its own in-page search box and
+  // renders through one page renderer.
+  "first-nations": {
+    file: "src/components/first-nations/page-renderer.tsx",
+    mounts: false,
+    because: NO_RESULTS_SURFACE,
+  },
 };
 
 function hasNoResultsSurface(modeId: AppModeId) {
