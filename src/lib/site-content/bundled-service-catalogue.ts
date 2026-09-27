@@ -207,7 +207,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -302,7 +302,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       { label: "Non-urgent outpatient queries should contact local community mental health clinics", tone: "caution" },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -400,7 +400,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -491,7 +491,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -583,7 +583,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       { label: "Non-acute outpatient queries should contact City East Community Mental Health", tone: "caution" },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -672,7 +672,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -768,7 +768,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -863,7 +863,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -963,7 +963,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       { label: "Adult patients aged 18+ must be directed to adult public mental health services", tone: "caution" },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
@@ -1076,7 +1076,7 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       },
     ],
     verification: {
-      locallyVerified: true,
+      locallyVerified: false,
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",

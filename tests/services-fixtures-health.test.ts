@@ -92,7 +92,9 @@ describe("bundled services fixtures health", () => {
       expect(service.verification).toBeDefined();
       expect(service.verification?.confidence).toBe("High");
       expect(service.verification?.availabilityStatus).toBe("active");
-      expect(service.verification?.locallyVerified).toBe(true);
+      // No clinical-owner sign-off exists for these fixtures (serviceRecordSignOff returns null),
+      // so they must not claim local verification on the detail page.
+      expect(service.verification?.locallyVerified).toBe(false);
       expect(service.verification?.reviewer?.trim()).toBeTruthy();
       expect(service.verification?.lastVerifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
