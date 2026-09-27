@@ -811,8 +811,8 @@ export function CmeDashboard({
               <p>No active routine with usual hours is saved. You can still log individual activities.</p>
             )}
             <p className={textMuted}>
-              These are examples using your routine templates. Only activities you actually do and save count as
-              CPD; a routine never logs itself. Category and other requirements may still need attention.
+              These are examples using your routine templates. Only activities you actually do and save count as CPD; a
+              routine never logs itself. Category and other requirements may still need attention.
             </p>
             <Link
               href={`/cme/routines?year=${set.year}`}
