@@ -87,7 +87,7 @@ describe("atomic CPD goal carry", () => {
 });
 
 describe("atomic carry migration contract", () => {
-  const sql = readFileSync("supabase/migrations/20260927120000_cme_atomic_goal_carry.sql", "utf8");
+  const sql = readFileSync("supabase/migrations/20260927195000_cme_atomic_goal_carry.sql", "utf8");
 
   it("shares the owner lock, checks year and goal ownership, and appends without deletion", () => {
     expect(sql.match(/pg_advisory_xact_lock/g)).toHaveLength(2);

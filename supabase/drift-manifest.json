@@ -18429,7 +18429,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "0067fcf58f915903cea57f86357b06ff",
+        "def_hash": "4f64ab00fd052ba13cd7a7ec22f90fc1",
         "signature": "public.teaching_depth_command(uuid,uuid,text,jsonb)"
       },
       {
@@ -18629,7 +18629,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "cacaf33adaac34ceee62c9fc5b1c0763",
+        "def_hash": "bfbdf71c07c615aa38e52ffacec4966a",
         "signature": "public.teaching_whats_on_command(uuid,uuid,text,jsonb)"
       },
       {

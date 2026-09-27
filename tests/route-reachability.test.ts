@@ -54,6 +54,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
   ],
   [
+    "/teaching/c/complete",
+    "Sign-in return target for a doctor who scanned a check-in QR while signed out. Reached only through the emailed sign-in link's `next` (teaching-scan-landing.tsx), never from in-app navigation.",
+  ],
+  [
     "/my-work",
     "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
   ],

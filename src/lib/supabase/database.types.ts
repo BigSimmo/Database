@@ -47,6 +47,12 @@ export type Database = {
   };
   public: {
     Tables: {
+      teaching_calendar_optins: {
+        Row: { service_id: string; user_id: string; created_at: string };
+        Insert: { service_id: string; user_id: string; created_at?: string };
+        Update: { service_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
       on_call_services: {
         Row: {
           created_at: string;
@@ -4773,6 +4779,14 @@ export type Database = {
       cme_guard_evidence_insert: { Args: never; Returns: unknown };
       cme_guard_archived_entry: { Args: never; Returns: unknown };
       on_call_service_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_depth_command: { Args: { p_actor_id: string; p_service_id: string; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_whats_on_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_platform_command: { Args: { p_platform_actor_id: string; p_service_id: string; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_checkin_open: { Args: { p_token: string; p_claim_hash: string }; Returns: Json };
+      teaching_display_code: { Args: { p_link_hash: string }; Returns: Json };
+      teaching_feed_events: { Args: { p_owner_id: string; p_from: string; p_to: string }; Returns: Json };
+      cme_save_teaching_entry: { Args: { p_owner_id: string; p_occurrence_id: string; p_hours: number; p_request_id: string }; Returns: Json };
       cme_close_year: {
         Args: { p_owner_id: string; p_year_id: string; p_evaluation: Json; p_shortfall_note?: string | null };
         Returns: Json;

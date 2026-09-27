@@ -10,7 +10,11 @@ import {
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
-import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
+import {
+  answerIsRefusal,
+  answerStateForAnswer,
+  buildAnswerClipboardText,
+} from "@/components/clinical-dashboard/answer-copy-payload";
 import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
 import {
   buildAnswerSourceRows,
@@ -102,6 +106,16 @@ export function PriorAnswerTurnSurface({
     answerQualityTier: turn.answer.answerQualityTier,
     routingMode: turn.answer.routingMode,
   });
+  // Same refusal definition as the live answer surface, so a turn does not
+  // relabel its sources as cited once it scrolls into history.
+  const refusalAnswer = answerIsRefusal({
+    answer: turn.answer,
+    answerState: answerStateForAnswer({
+      answer: turn.answer,
+      sources: turn.sources,
+      weakEvidence: renderModel.trust === "low" || renderModel.trust === "unsupported",
+    }),
+  });
   const needsSourceReview =
     degradedAnswer ||
     turn.answer.grounded === false ||
@@ -148,6 +162,7 @@ export function PriorAnswerTurnSurface({
               sources={projectedAnswer.leadCitationSources}
               sourceLinks={leadSourceLinks}
               railRows={railSources}
+              isRefusal={refusalAnswer}
               copied={copied}
               onCopy={() =>
                 onCopy(

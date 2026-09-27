@@ -177,6 +177,20 @@ export const modeSecondaryNavigationRegistry = {
     { id: "learning", label: "Learning", href: "/cme/learning" },
     { id: "setup", label: "Set up", href: "/cme/setup" },
   ],
+  // Teaching's pages, for the mode pill's page list, like CME's. Teaching is
+  // absent from `MODE_NAV_ADOPTED_MODES`: the pill already opens these, so no
+  // page mounts the shared bar. Organise is hidden from the pill for anyone
+  // who is not an organiser or admin (`src/lib/teaching/page-visibility.ts`);
+  teaching: [
+    { id: "today", label: "Today", href: "/teaching" },
+    { id: "week", label: "Week", href: "/teaching/week" },
+    { id: "whats-on", label: "What's on", href: "/teaching/whats-on" },
+    { id: "resources", label: "Resources", href: "/teaching/resources" },
+    { id: "logbook", label: "Logbook", href: "/teaching/logbook" },
+    { id: "teach", label: "Teach", href: "/teaching/teach" },
+    { id: "supervision", label: "Supervision", href: "/teaching/supervision" },
+    { id: "organise", label: "Organise", href: "/teaching/organise" },
+  ],
   // Psychiatry's home is itself the list of sections it gathers, and each
   // section keeps its own navigation, so the hub registers no destinations.
   psychiatry: [],
@@ -411,6 +425,21 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     // Exact match only, for the same reason On Call's home is: a prefix test
     // here would mark Today current on every CPD route as well as its own.
     if (pathname === "/cme") return "year";
+    return null;
+  }
+  if (modeId === "teaching") {
+    // Exact match only, as for On Call and CME: a prefix test would mark
+    // Today current on every Teaching route as well as its own.
+    if (pathname === "/teaching") return "today";
+    if (pathname === "/teaching/week") return "week";
+    if (pathname === "/teaching/whats-on") return "whats-on";
+    if (pathname === "/teaching/resources" || pathname.startsWith("/teaching/resources/")) return "resources";
+    if (pathname === "/teaching/teach") return "teach";
+    if (pathname === "/teaching/supervision") return "supervision";
+    if (pathname === "/teaching/review" || pathname === "/teaching/feedback") return "logbook";
+    if (pathname === "/teaching/import") return "organise";
+    if (pathname === "/teaching/logbook") return "logbook";
+    if (pathname === "/teaching/organise") return "organise";
     return null;
   }
   if (modeId === "my-work") {

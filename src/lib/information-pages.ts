@@ -26,7 +26,8 @@ export type InformationPageMode =
   | "psychiatry"
   | "my-work"
   | "roster"
-  | "first-nations";
+  | "first-nations"
+  | "teaching";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -113,6 +114,12 @@ export function isInformationPage(pathname: string): boolean {
   // the shared kind on any route and this is what keeps the shell from
   // mounting one.
   if (pathname === "/first-nations" || pathname.startsWith("/first-nations/")) return true;
+  // Every Teaching route, the mode home included, for On Call's reason: the
+  // mode declares no search surface, so no route may wear a composer. Its
+  // child pages mount their own `InPageNavHeader`
+  // (`teaching/teaching-nav-header.tsx`), which being an information page
+  // also keeps the shell from drawing a second bar over.
+  if (pathname === "/teaching" || pathname.startsWith("/teaching/")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -158,4 +165,5 @@ export const informationPageShellModes = [
   "my-work",
   "roster",
   "first-nations",
+  "teaching",
 ] as const satisfies readonly InformationPageMode[];
