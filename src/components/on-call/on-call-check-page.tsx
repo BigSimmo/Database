@@ -2,7 +2,7 @@
 
 import { CalendarCheck } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -16,6 +16,7 @@ import { cn, eyebrowText, floatingControl, textMuted } from "@/components/ui-pri
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { msUntilNextOnCallLocalDay } from "@/lib/on-call/local-date";
 import { buildOnCallReviewQueue, type OnCallReviewItem } from "@/lib/on-call/review-queue";
 
 /**
@@ -29,8 +30,13 @@ import { buildOnCallReviewQueue, type OnCallReviewItem } from "@/lib/on-call/rev
  */
 export function OnCallCheckPage({ now: nowProp }: { now?: Date } = {}) {
   const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut, demoMode } = useOnCallEntries();
-  const mountedAt = useMemo(() => new Date(), []);
-  const now = nowProp ?? mountedAt;
+  const [tick, setTick] = useState(() => new Date());
+  const now = nowProp ?? tick;
+  useEffect(() => {
+    if (nowProp) return;
+    const timer = setTimeout(() => setTick(new Date()), msUntilNextOnCallLocalDay(now));
+    return () => clearTimeout(timer);
+  }, [nowProp, now]);
   const queue = useMemo(() => buildOnCallReviewQueue(entries, now), [entries, now]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -111,6 +111,24 @@ describe("who to call now", () => {
 });
 
 describe("check these", () => {
+  it("updates the review queue when left open overnight", () => {
+    vi.useFakeTimers();
+    try {
+      const justBeforeMidnight = new Date(2026, 8, 26, 23, 59);
+      const due = new Date(new Date(2026, 8, 27).getTime() + 30 * 86_400_000);
+      due.setUTCFullYear(due.getUTCFullYear() - 1);
+      vi.setSystemTime(justBeforeMidnight);
+      state.entries = [entry({ id: "due", section: "contacts", lastVerifiedAt: due.toISOString() })];
+      render(<OnCallCheckPage />);
+      expect(screen.getByTestId("on-call-check-empty")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(2 * 60 * 1000));
+      expect(screen.getByTestId("on-call-check-group-soon")).toHaveTextContent("Entry due");
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
   it("confirms an entry and writes the updated entry to the saved copy", async () => {
     const user = userEvent.setup();
     const never = entry({ id: "switch", section: "contacts", title: "Switchboard", details: { role: "Switch" } });
