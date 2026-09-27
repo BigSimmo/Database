@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { serviceActionSchema } from "@/lib/on-call/service-model";
 import { publishedHandbookItems } from "@/lib/on-call/handbook-items";
 import { demoServiceDetail } from "@/lib/on-call/service-demo";
+import { onCallLadderStepMarkId, selectNeedsYou } from "@/lib/on-call/now-rows";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const base = {
@@ -153,8 +154,15 @@ describe("hospital cover and ladder time rules", () => {
     ];
     const hours = { afterHoursFrom: "20:00", afterHoursUntil: "08:00" };
     expect(handbookLadders(items, null, night)[0].steps).toHaveLength(2);
-    expect(handbookLadders(items, hours, night)[0].steps.map((step) => step.order)).toEqual([2]);
+    expect(handbookLadders(items, hours, night)[0].steps.map((step) => step.appliesNow)).toEqual([false, true]);
     expect(handbookLadders(items, hours, new Date("2026-09-27T11:55:00Z"))[0].steps).toHaveLength(2);
-    expect(handbookLadders(items, hours, night)[0].steps[0].waitMinutes).toBeUndefined();
+    expect(handbookLadders(items, hours, night)[0].steps[1].waitMinutes).toBeUndefined();
+    expect(
+      selectNeedsYou({
+        ladders: handbookLadders(items, hours, night),
+        marks: [{ entryId: onCallLadderStepMarkId(item.id, 1), calledAt: "2026-09-27T11:59:00Z" }],
+        dialKeys: new Map(),
+      }),
+    ).toMatchObject({ waitingOn: step.whoToCall, waitMinutes: step.waitMinutes, next: { order: 2 } });
   });
 });

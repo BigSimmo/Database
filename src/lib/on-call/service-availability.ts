@@ -24,16 +24,12 @@ export function handbookLadders(
       const steps = item.steps?.map((step) => serviceStepSchema.safeParse(step));
       if (!steps?.length || steps.some((step) => !step.success)) return [];
       const ordered = steps.flatMap((step) => (step.success ? [step.data] : [])).sort((a, b) => a.order - b.order);
-      // Keep the hospital's order. Unknown times and changeover show both sets explicitly.
-      const visible =
-        !period || nearHospitalChangeover(hours, now)
-          ? ordered
-          : ordered.filter((step) => !step.hours || step.hours === "any" || step.hours === period);
+      // Retain every rung so a call made before changeover can still resolve afterwards.
       return [
         {
           id: item.id,
           title: item.title,
-          steps: visible.map((step) => ({
+          steps: ordered.map((step) => ({
             ...step,
             phone: step.phone ?? null,
             hours: step.hours ?? "any",

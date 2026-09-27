@@ -49,22 +49,24 @@ export function HospitalLadders({ now: pinned }: { now?: Date }) {
                 eyebrow={ladder.title}
                 testId={`hospital-ladder-${ladder.id}`}
               >
-                {ladder.steps.map((step) => (
-                  <OnCallDialRow
-                    key={step.order}
-                    id={onCallLadderStepMarkId(ladder.id, step.order)}
-                    source="handbook"
-                    title={step.whoToCall}
-                    subtitle={`${step.when}${step.hours !== "any" ? ` · ${step.hours}` : ""}${step.waitMinutes ? ` · Hospital-set wait: ${step.waitMinutes} min` : ""}`}
-                    dial={step.phone ? resolveHandbookPhone(step.phone) : null}
-                    now={now}
-                    hospitalName={handbook.siteName ?? handbook.serviceName}
-                    updatedAt={item.updatedAt}
-                    lastConfirmedAt={item.lastConfirmedAt}
-                    sources={item.sources}
-                    testId={`hospital-ladder-step-${ladder.id}-${step.order}`}
-                  />
-                ))}
+                {ladder.steps
+                  .filter((step) => step.appliesNow || nearHospitalChangeover(hours, now))
+                  .map((step) => (
+                    <OnCallDialRow
+                      key={step.order}
+                      id={onCallLadderStepMarkId(ladder.id, step.order)}
+                      source="handbook"
+                      title={step.whoToCall}
+                      subtitle={`${step.when}${step.hours !== "any" ? ` · ${step.hours}` : ""}${step.waitMinutes ? ` · Hospital-set wait: ${step.waitMinutes} min` : ""}`}
+                      dial={step.phone ? resolveHandbookPhone(step.phone) : null}
+                      now={now}
+                      hospitalName={handbook.siteName ?? handbook.serviceName}
+                      updatedAt={item.updatedAt}
+                      lastConfirmedAt={item.lastConfirmedAt}
+                      sources={item.sources}
+                      testId={`hospital-ladder-step-${ladder.id}-${step.order}`}
+                    />
+                  ))}
                 <li className="px-3">
                   <OnCallUpdatedLine
                     updatedAt={item.updatedAt}

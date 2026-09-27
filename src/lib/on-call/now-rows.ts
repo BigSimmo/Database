@@ -132,7 +132,7 @@ export function onCallDialKey(dial: HandbookDial | null): string | null {
 export type OnCallLadder = {
   readonly id: string;
   readonly title: string;
-  /** In the order "Who do I call now?" shows them: the steps for this hour first. */
+  /** Rungs retained for mark resolution; display may filter or reorder them. */
   readonly steps: readonly OnCallCallNowStep[];
 };
 
