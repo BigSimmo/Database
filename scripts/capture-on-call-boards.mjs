@@ -47,7 +47,8 @@ const SECTION_LISTS = {
   "/on-call/referrals": "on-call-referrals-section",
   "/on-call/orientation": "on-call-orientation-section",
   "/on-call/education": "on-call-education-section",
-  "/on-call/logistics": "on-call-logistics-section",
+  // Board 11: On Call's admin rows moved to Admin > Help (Admin update 1).
+  "/admin/help": "admin-help-main",
   "/on-call/who-is-who": "on-call-who-is-who-section",
 };
 
@@ -72,7 +73,7 @@ const BOARDS = [
   { no: "08", title: "Referrals", route: "/on-call/referrals" },
   { no: "09", title: "Forms", route: null, note: "Waiting on the database change" },
   { no: "10", title: "Orientation", route: "/on-call/orientation" },
-  { no: "11", title: "Logistics", route: "/on-call/logistics" },
+  { no: "11", title: "Logistics", route: "/admin/help" },
 ];
 
 function parseArgs(argv) {

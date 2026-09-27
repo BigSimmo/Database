@@ -71,21 +71,27 @@ export function recurrenceRule(recurrence: CalendarRecurrence): string {
 }
 
 /**
- * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant. Written only
- * when the owner's reminder settings gave the event an alarm, so an event
- * without one is byte-for-byte what it was before alarms existed.
+ * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant, one VALARM
+ * block per instant in `[alarmAt, ...alarmsAt]`. Written only when the event
+ * carries at least one alarm instant, so an event with neither field is
+ * byte-for-byte what it was before either existed.
  */
 function alarmLines(event: CalendarEvent): string[] {
-  if (!event.alarmAt) return [];
-  const instant = new Date(event.alarmAt);
-  if (Number.isNaN(instant.getTime())) return [];
-  return [
-    "BEGIN:VALARM",
-    "ACTION:DISPLAY",
-    `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
-    `DESCRIPTION:${escapeIcsText(event.title)}`,
-    "END:VALARM",
-  ];
+  const instants = [event.alarmAt, ...(event.alarmsAt ?? [])];
+  const lines: string[] = [];
+  for (const value of instants) {
+    if (!value) continue;
+    const instant = new Date(value);
+    if (Number.isNaN(instant.getTime())) continue;
+    lines.push(
+      "BEGIN:VALARM",
+      "ACTION:DISPLAY",
+      `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
+      `DESCRIPTION:${escapeIcsText(event.title)}`,
+      "END:VALARM",
+    );
+  }
+  return lines;
 }
 
 function eventLines(event: CalendarEvent, stamp: Date): string[] {
