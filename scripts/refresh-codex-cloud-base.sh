@@ -7,7 +7,7 @@ fail() {
   exit 1
 }
 
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "Run this script from the Database repository."
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "Run this script from the PsychSift repository."
 cd "$repo_root"
 
 git fetch --quiet --no-tags origin '+refs/heads/main:refs/remotes/origin/main' ||

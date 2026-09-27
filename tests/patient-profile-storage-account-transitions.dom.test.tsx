@@ -161,7 +161,7 @@ describe("account transitions clear the patient physiology profile (M4)", () => 
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {
@@ -209,7 +209,7 @@ describe("account transitions clear favourites pins and last-opened keys (L2)", 
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {
@@ -248,7 +248,7 @@ describe("account transitions clear the legacy Caring Contacts plan-draft key (L
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {
@@ -394,7 +394,7 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {

@@ -10,6 +10,7 @@
 @import "./ckb-v2-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant pointer-fine (@media (pointer: fine));
 
 /*
  * Motion variants are redefined so the in-app Motion preference is authoritative

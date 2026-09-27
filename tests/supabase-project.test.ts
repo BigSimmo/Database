@@ -20,7 +20,7 @@ describe("Supabase project guard", () => {
     expect(extractSupabaseProjectRef("https://example.com")).toBeNull();
   });
 
-  it("accepts the live Clinical KB Database project values", () => {
+  it("accepts the live PsychSift Production project values", () => {
     const check = checkSupabaseProjectConfig(
       {
         NEXT_PUBLIC_SUPABASE_URL: expectedSupabaseProject.url,
@@ -45,6 +45,16 @@ describe("Supabase project guard", () => {
     expect(check.status).toBe("warning");
     expect(check.warnings.join(" ")).toContain("SUPABASE_PROJECT_REF");
     expect(check.warnings.join(" ")).toContain("SUPABASE_PROJECT_NAME");
+  });
+
+  it("permits the old production display label while Railway is being renamed, with the same pinned ref", () => {
+    const check = checkSupabaseProjectConfig({
+      NEXT_PUBLIC_SUPABASE_URL: expectedSupabaseProject.url,
+      SUPABASE_PROJECT_REF: expectedSupabaseProject.ref,
+      SUPABASE_PROJECT_NAME: "Clinical KB Database",
+    });
+    expect(check.status).toBe("warning");
+    expect(check.warnings.join(" ")).toContain("PsychSift Production");
   });
 
   it("rejects the older unused Supabase project", () => {

@@ -92,7 +92,21 @@ async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
 
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
-  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
+  // A sheet can leave the page hundreds of pixels down after its trigger was
+  // scrolled into view. WebKit may restore that offset after scrollTo returns;
+  // set the document scroll position directly and require the page to reach top.
+  if (scrollTop > 0) {
+    await expect
+      .poll(async () => {
+        await page.evaluate(() => {
+          const scroller = document.scrollingElement ?? document.documentElement;
+          scroller.scrollTop = 0;
+          window.dispatchEvent(new Event("scroll"));
+        });
+        return (await readPrimaryScrollGeometry(page)).scrollTop;
+      })
+      .toBeLessThanOrEqual(1);
+  }
   await expect(control).toBeInViewport();
 }
 
@@ -216,7 +230,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -1257,14 +1271,16 @@ test.describe("PsychSift UI smoke coverage", () => {
             inputShadow: inputStyle.boxShadow,
             pillBorder,
             pillShadow,
-            pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
+            pillBorderChanged: pillBorder !== resting.border,
+            pillShadowChanged: pillShadow !== resting.shadow && pillShadow !== "none",
           };
         }, restingPill);
       })
       .toMatchObject({
         inputOutline: "none",
         inputShadow: "none",
-        pillChanged: true,
+        pillBorderChanged: true,
+        pillShadowChanged: true,
       });
     const universalFocus = await universalInput.evaluate((element) => {
       const inputStyle = getComputedStyle(element);
@@ -1824,6 +1840,9 @@ test.describe("PsychSift UI smoke coverage", () => {
       { width: 639, height: 820 },
     ]) {
       await page.setViewportSize(viewportSize);
+      await setupScrollPort.evaluate((element) => {
+        element.scrollTop = 0;
+      });
       await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
       await expectNoPageHorizontalOverflow(page);
     }
@@ -3154,20 +3173,14 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.waitForTimeout(320);
       await expect(header).toHaveAttribute("data-scroll-hidden", "true");
       await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-      const settledHiddenGeometry = await page.evaluate(() => {
-        const headerNode = document.querySelector<HTMLElement>("header.universal-header");
-        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
-        if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
-        const headerRect = headerNode.getBoundingClientRect();
-        const dockRect = dockNode.getBoundingClientRect();
-        return {
-          headerBottom: headerRect.bottom,
-          dockTop: dockRect.top,
-          viewportHeight: window.innerHeight,
-        };
-      });
-      expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
-      expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
+      // Headless WebKit can render no frame during the wall-clock delay. Poll
+      // the actual painted geometry so the hidden transform must finish.
+      await expect
+        .poll(async () => header.evaluate((node) => node.getBoundingClientRect().bottom))
+        .toBeLessThanOrEqual(1);
+      await expect
+        .poll(async () => dock.evaluate((node) => node.getBoundingClientRect().top - window.innerHeight))
+        .toBeGreaterThanOrEqual(-1);
       await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
 
       await scrollPrimarySurface(page, 20);
@@ -5791,7 +5804,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await summaryToggle.click();
     await expect(summaryToggle).toHaveAttribute("aria-expanded", "true");
     await expect(summaryToggle).toContainText("Show less");
-    await clinicalSummary.getByTestId("open-clinical-priorities").click();
+    await clickWhenSettled(clinicalSummary.getByTestId("open-clinical-priorities"));
     const prioritiesSheet = page.getByRole("dialog", { name: "Clinical priorities" });
     await expect(prioritiesSheet).toBeVisible();
     await page.keyboard.press("Escape");
@@ -6354,10 +6367,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
+    const recovery = page.locator("[data-route-recovery]");
+    await expect(recovery.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
     await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
-    await expect(page.getByRole("status")).not.toContainText("loading source");
-    await expect(page.getByRole("status")).not.toContainText("Loading source metadata");
+    await expect(recovery.getByRole("status")).not.toContainText("loading source");
+    await expect(recovery.getByRole("status")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });

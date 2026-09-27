@@ -114,7 +114,7 @@ or dispatched, always loads code from the default branch, so a canary can only e
    a prior dispatch).
 2. Change merges to `main`.
 3. Post: one repository dispatch **after the merge** —
-   `gh api repos/BigSimmo/Database/dispatches -f event_type=eval-canary` — then compare the
+   `gh api repos/BigSimmo/PsychSift/dispatches -f event_type=eval-canary` — then compare the
    pair's `--json-out` artifacts, both named `eval-canary-output`, one per run:
 
    ```bash

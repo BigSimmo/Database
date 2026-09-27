@@ -109,6 +109,9 @@ const SCOPED_ALLOWLIST = new Map([
     // point-in-time record of what was proposed, not a live task list.
     new Set([".github/workflows/notify-ci-failure.yml"]),
   ],
+  ["docs/care-plan/reports/task-3-brief.md", new Set(["src/components/care-plan/mockups/index.ts"])],
+  ["docs/care-plan/reports/task-3-report.md", new Set(["src/components/care-plan/mockups/index.ts"])],
+  ["docs/care-plan/sdd-ledger.md", new Set(["src/components/care-plan/mockups/index.ts"])],
 ]);
 
 /** True when `repoRelative` is allowed outright, or allowed for the document being scanned. */

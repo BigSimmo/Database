@@ -90,6 +90,14 @@ describe("production metadata origin", () => {
     expect(resolveMetadataBase(invalidProto, { allowRequestOrigin: true })?.href).toBe("https://clinical.example.org/");
   });
 
+  it.each(["localhost", "localhost:3000", "127.0.0.1:3000", "[::1]:3000", "sub.localhost:8080"])(
+    "defaults local development host to http when x-forwarded-proto is missing: %s",
+    (host) => {
+      const headers = new Headers({ host });
+      expect(resolveMetadataBase(headers, { allowRequestOrigin: true })?.href).toBe(`http://${host}/`);
+    },
+  );
+
   it("returns undefined when the dev fallback is allowed but no host header is present", () => {
     expect(resolveMetadataBase(new Headers(), { allowRequestOrigin: true })).toBeUndefined();
   });

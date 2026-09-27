@@ -124,16 +124,16 @@ describe("check-env-parity name parsing", () => {
 
   it("pins GitHub and Railway reads to the intended repository and production services", () => {
     expect(githubListArgs("secret")).toEqual(
-      expect.arrayContaining(["secret", "list", "--repo", "BigSimmo/Database", "--json", "name"]),
+      expect.arrayContaining(["secret", "list", "--repo", "BigSimmo/PsychSift", "--json", "name"]),
     );
-    expect(railwayVariableArgs("Database")).toEqual(
+    expect(railwayVariableArgs("PsychSift")).toEqual(
       expect.arrayContaining([
         "--project",
         "5deaad0b-675a-4c13-978e-5ca2b5b877f9",
         "--environment",
         "6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4",
         "--service",
-        "Database",
+        "PsychSift",
       ]),
     );
     expect(railwayVariableArgs("worker")).toContain("worker");

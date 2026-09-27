@@ -418,9 +418,9 @@ Every remaining tracked document in this category (dated records and the `eviden
 - [audit/gate-consolidation-audit-2026-09-02.md](audit/gate-consolidation-audit-2026-09-02.md) — Gate consolidation audit — 2026-09-02 — Status: proposal only.
 - [audit/live-design-interaction-audit-2026-08-06.md](audit/live-design-interaction-audit-2026-08-06.md) — Live design & interaction audit — master report — Date: 2026-08-06 App:
 - [audit/live-drift-forensics-2026-08.md](audit/live-drift-forensics-2026-08.md) — Live-drift forensics — 2026-08 — Evidence record for the phased database remediation plan and playbook.
-- [audit/performance-image-cwv-audit-2026-08-02.md](audit/performance-image-cwv-audit-2026-08-02.md) — Performance, Image & Core Web Vitals Audit — Clinical KB Database — Date: 2026-08-02 Scope:
+- [audit/performance-image-cwv-audit-2026-08-02.md](audit/performance-image-cwv-audit-2026-08-02.md) — Performance, Image & Core Web Vitals Audit — PsychSift Production — Date: 2026-08-02 Scope:
 - [audit/primary-checkout-reconciliation-2026-07-24.md](audit/primary-checkout-reconciliation-2026-07-24.md) — Primary checkout reconciliation — 2026-07-24 — This record covers the dirty primary checkout and the final cloud-chat salvage wave.
-- [audit/repo-audit-2026-07-01.md](audit/repo-audit-2026-07-01.md) — Repository Audit — Clinical KB Database — Date: 2026-07-01 Branch:
+- [audit/repo-audit-2026-07-01.md](audit/repo-audit-2026-07-01.md) — Repository Audit — PsychSift Production — Date: 2026-07-01 Branch:
 - [audit/repo-wide-review-remediation-plan-2026-07-23.md](audit/repo-wide-review-remediation-plan-2026-07-23.md) — Repository-wide review remediation completion plan — 2026-07-24 — Complete every outstanding finding from the 2026-07-19 repository-wide review sweep with the smallest safe patches, clear ownership boundari…
 - [audit/repo-wide-review-sweep-2026-07-19.md](audit/repo-wide-review-sweep-2026-07-19.md) — Repository-wide review sweep — 2026-07-19 — This was a broad static repository sweep of /workspace/Database on branch work, combining the repo workflow guidance, local static commands,…
 - [audit/ux-accessibility-review-2026-07-07.md](audit/ux-accessibility-review-2026-07-07.md) — UX & Accessibility Review — Date: 2026-07-07 Reviewer role:
