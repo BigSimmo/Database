@@ -354,6 +354,54 @@ describe("POST /api/roster/links/refresh", () => {
     expect(text).not.toContain("feed.ics");
   });
 
+  it("saves nothing when the link is removed while its feed is still being fetched", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-01T00:00:00.000Z"));
+    const links = [...storedLinks.roster_calendar_links];
+    const calls = fakeSupabase({ roster_calendar_links: links, on_call_shifts: [] });
+    mocks.fetchLink.mockImplementation(async () => {
+      links.splice(0, links.length); // Delete my data (or Remove link) returns while the fetch is in flight.
+      return icsFeedWithHistory(0);
+    });
+    const response = await refreshLinks(refreshRequest({ id: linkId }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ results: [{ id: linkId, ok: false, reason: "removed" }] });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(calls.some((call) => call.op !== "select")).toBe(false);
+  });
+
+  it("takes back what it saved when the link is removed while the save is running", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-01T00:00:00.000Z"));
+    const links = [...storedLinks.roster_calendar_links];
+    const calls = fakeSupabase({ roster_calendar_links: links, on_call_shifts: [] });
+    mocks.fetchLink.mockResolvedValue(icsFeedWithHistory(0));
+    mocks.rpc.mockImplementation(async () => {
+      links.splice(0, links.length); // The delete lands after the pre-save check but before the save commits.
+      return { data: "late-import-id", error: null };
+    });
+    const response = await refreshLinks(refreshRequest({ id: linkId }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ results: [{ id: linkId, ok: false, reason: "removed" }] });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    const deletes = calls.filter((call) => call.op === "delete");
+    expect(deletes.map((call) => call.table)).toEqual(["on_call_shifts", "on_call_shift_imports"]);
+    expect(deletes[0]?.eq).toEqual(
+      expect.arrayContaining([
+        ["owner_id", ownerId],
+        ["source", "import"],
+        ["workplace", "Example Hospital"],
+      ]),
+    );
+    expect(deletes[1]?.eq).toEqual(
+      expect.arrayContaining([
+        ["owner_id", ownerId],
+        ["id", "late-import-id"],
+      ]),
+    );
+    expect(calls.some((call) => call.op === "update")).toBe(false);
+  });
+
   it("404s a link id that isn't the caller's", async () => {
     fakeSupabase({ roster_calendar_links: storedLinks.roster_calendar_links, on_call_shifts: [] });
     const response = await refreshLinks(refreshRequest({ id: otherLinkId }));

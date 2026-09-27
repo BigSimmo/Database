@@ -19,7 +19,7 @@ import {
 import { inferShiftKind } from "@/lib/roster/shift-kind";
 import { parseRosterIcs } from "@/lib/roster/shifts/parse-ics";
 import { addDaysToDate, perthDateOf, perthWallToIso } from "@/lib/roster/shifts/perth-time";
-import { replaceOwnerShifts } from "@/lib/roster/shifts/repository";
+import { replaceOwnerShifts, undoShiftImport } from "@/lib/roster/shifts/repository";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -57,6 +57,16 @@ function hitShiftCap(notes: readonly string[]): boolean {
   return notes.some((note) => /were left out\.$/.test(note));
 }
 
+/** Whether the link is still the owner's, for the same workplace. */
+async function linkStillCurrent(
+  supabase: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+  link: RosterCalendarLinkForRefresh,
+): Promise<boolean> {
+  const current = await fetchCalendarLinkForRefresh(supabase, ownerId, link.id);
+  return current !== null && current.workplace === link.workplace;
+}
+
 type RefreshResult = { readonly id: string; readonly ok: boolean; readonly reason?: string };
 
 async function refreshOne(
@@ -80,7 +90,10 @@ async function refreshOne(
     await recordCalendarLinkRefresh(supabase, ownerId, link.id, { ok: false, reason: stored });
     return { id: link.id, ok: false, reason: stored };
   }
-  await replaceOwnerShifts(supabase, ownerId, {
+  // The fetch can take seconds. If the doctor removed this link, its workplace, or all their data
+  // meanwhile, save nothing: a delete that has returned must stay deleted.
+  if (!(await linkStillCurrent(supabase, ownerId, link))) return { id: link.id, ok: false, reason: "removed" };
+  const importId = await replaceOwnerShifts(supabase, ownerId, {
     format: "link",
     workplace: link.workplace,
     fileName: null,
@@ -89,6 +102,16 @@ async function refreshOne(
     // A calendar feed carries no kind, so each shift gets one here, the same way a file import does.
     shifts: parsed.shifts.map((shift) => ({ ...shift, kind: shift.kind ?? inferShiftKind(shift) })),
   });
+  // A delete that landed while the save ran may have missed the rows it wrote: take them back out.
+  if (!(await linkStillCurrent(supabase, ownerId, link))) {
+    await undoShiftImport(supabase, ownerId, {
+      importId,
+      workplace: link.workplace,
+      windowStart: window.startDate,
+      windowEnd: window.endDate,
+    });
+    return { id: link.id, ok: false, reason: "removed" };
+  }
   await recordCalendarLinkRefresh(supabase, ownerId, link.id, { ok: true });
   return { id: link.id, ok: true };
 }

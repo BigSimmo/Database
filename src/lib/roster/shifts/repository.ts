@@ -280,6 +280,34 @@ export async function deleteWorkplaceImportedShifts(
 }
 
 /**
+ * Undo one import that should not have happened: a calendar-link refresh whose
+ * link was removed (or Delete my data ran) while it was saving. Deletes the
+ * rows that import wrote, the workplace's imported shifts inside its dates,
+ * and its import record. Hand-added shifts are never touched.
+ */
+export async function undoShiftImport(
+  supabase: AdminClient,
+  ownerId: string,
+  undo: { importId: string; workplace: string | null; windowStart: string; windowEnd: string },
+): Promise<void> {
+  requireOwner(ownerId);
+  const from = perthWallToIso(undo.windowStart, "00:00");
+  const to = perthWallToIso(addDaysToDate(undo.windowEnd, 1), "00:00");
+  if (!from || !to) throw new Error("Invalid roster dates.");
+  const query = supabase
+    .from("on_call_shifts")
+    .delete()
+    .eq("owner_id", ownerId)
+    .eq("source", "import")
+    .gte("starts_at", from)
+    .lt("starts_at", to);
+  const shifts = await (undo.workplace === null ? query.is("workplace", null) : query.eq("workplace", undo.workplace));
+  if (shifts.error) throw shifts.error;
+  const record = await supabase.from("on_call_shift_imports").delete().eq("owner_id", ownerId).eq("id", undo.importId);
+  if (record.error) throw record.error;
+}
+
+/**
  * Delete every shift and import record the owner has. Delete my data calls
  * this last, after the owner's calendar links and Roster settings are gone
  * (see `DELETE /api/roster/shifts`).
