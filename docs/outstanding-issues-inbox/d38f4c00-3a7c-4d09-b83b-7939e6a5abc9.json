@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d38f4c00-3a7c-4d09-b83b-7939e6a5abc9",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Safety Plan: a half-written plan is lost without warning on tab close, refresh or phone swipe-back",
+    "detail": "The plan is deliberately browser-tab only and never persisted (src/components/patient-safety-plan.tsx:545 isDirty). isDirty guards only the in-app header back control; there is no beforeunload guard anywhere in the Safety Plan route, so closing the tab, reloading, or an OS back gesture discards an in-progress plan silently, potentially mid-consultation. Next action: add a beforeunload warning while isDirty is true, copying the existing pattern in src/components/cme/cme-entry-form.tsx:324, plus a unit or Playwright assertion that the listener is registered only while dirty. Must not persist plan content anywhere (privacy contract, see archived #060).",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVTXD846DP93PS1JVJYE5"
+  }
+}
