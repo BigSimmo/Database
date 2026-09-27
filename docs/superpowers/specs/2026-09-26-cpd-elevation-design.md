@@ -466,13 +466,13 @@ No screen offers to lower a target for part-time work. A doctor whose CPD home g
 
 CPD never writes another mode's data. No other mode reads CPD content. Every link is one-way into CPD, or a plain link out.
 
-| Mode             | Link                                                                                                                                                                                                                                                                                                                                                                                                               | Who builds it                                                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Teaching         | A To do row, "Teaching sessions to log (3)", opening Teaching's weekly review. The count comes from `GET /api/teaching?view=unlogged-count` (`{count}`). The row is hidden when the endpoint is missing, fails or returns 0. Teaching saves through its own `POST /api/teaching/cpd` (idempotent, `source_ref` `teaching:<uuid>`), so a session can't be logged twice. No CPD content enters Teaching's audit log. | CPD adds the row in Release 4, once Teaching's endpoint is on main. Teaching's PR A repoints the old "Teaching sessions" link from On Call to `/teaching`. |
-| Admin            | "Open CPD year check" on the registration row in Renewals. No figures; never in "Copy for workforce".                                                                                                                                                                                                                                                                                                              | Admin (already agreed). CPD changes nothing.                                                                                                               |
-| First Nations    | When the practice domain "culturally safe practice" has nothing logged, the season's Next step may point to `/first-nations/talking`. First Nations' "…" menu carries "Log as CPD" through `cmeLearningFromSourceHref`.                                                                                                                                                                                            | CPD adds the pointer in Release 4; First Nations adds its button.                                                                                          |
-| Roster           | "Plan leave for this" on a Learning event.                                                                                                                                                                                                                                                                                                                                                                         | Parked until Roster's leave feature exists.                                                                                                                |
-| Clinical answers | "Log as CPD" on an answer's sources stays as it is and carries the source, never the question.                                                                                                                                                                                                                                                                                                                     | No change.                                                                                                                                                 |
+| Mode             | Link                                                                                                                                                                                                                                                                                                                                                                                                               | Who builds it                                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Teaching         | A To do row, "Teaching sessions to log (3)", opening Teaching's weekly review. The count comes from `GET /api/teaching?view=unlogged-count` (`{count}`). The row is hidden when the endpoint is missing, fails or returns 0. Teaching saves through its own `POST /api/teaching/cpd` (idempotent, `source_ref` `teaching:<uuid>`), so a session can't be logged twice. No CPD content enters Teaching's audit log. | CPD adds the row in the combined Release 3, once Teaching's endpoint is on main. Teaching's PR A repoints the old "Teaching sessions" link from On Call to `/teaching`. |
+| Admin            | "Open CPD year check" on the registration row in Renewals. No figures; never in "Copy for workforce".                                                                                                                                                                                                                                                                                                              | Admin (already agreed). CPD changes nothing.                                                                                                                            |
+| First Nations    | When the practice domain "culturally safe practice" has nothing logged, the season's Next step may point to `/first-nations/talking`. First Nations' "…" menu carries "Log as CPD" through `cmeLearningFromSourceHref`.                                                                                                                                                                                            | CPD adds the pointer in the combined Release 3 after First Nations lands; First Nations adds its button.                                                                |
+| Roster           | "Plan leave for this" on a Learning event.                                                                                                                                                                                                                                                                                                                                                                         | Parked until Roster's leave feature exists.                                                                                                                             |
+| Clinical answers | "Log as CPD" on an answer's sources stays as it is and carries the source, never the question.                                                                                                                                                                                                                                                                                                                     | No change.                                                                                                                                                              |
 
 ## 11. Privacy
 
@@ -524,20 +524,17 @@ Each release is one PR that merges on its own, touches no `supabase/` path, and 
   - a route test that every old address still renders its tab.
 - Waits for On Call's pill and pages-sheet change to land first, because both touch shared menu files.
 
-**Release 3 — any doctor.**
+**Release 3 — any doctor and connected modes, one staged build.**
 
 - The CPD home choice, and "your CPD home" wording.
 - The training line on Today.
 - The Learning `specialties` field, filters, Add to calendar, and Past.
 - Carry goals forward.
-- Tests: presets, wording by home, `.ics` content, the goal carry-forward path.
-- Waits for: nothing.
-
-**Release 4 — connected.**
-
+- Close the year sheet.
 - The Teaching To do row.
 - The First Nations pointer.
-- Waits for: Teaching's count endpoint on main, and First Nations' build.
+- Tests: presets, wording by home, `.ics` content, the goal carry-forward path, the year-close sheet, and connected-mode missing/zero and conditional-pointer cases.
+- Starts after Release 2 merges. Independent items can be built while counterpart modes finish; the Teaching row waits for Teaching's count endpoint on main, and the First Nations pointer waits for that mode's build. All items share one final browser/gate pass and one PR decision; an unavailable dependency does not remove an item from this release.
 
 **Gates for every release:**
 
@@ -553,7 +550,7 @@ Each release is one PR that merges on its own, touches no `supabase/` path, and 
 - **Shared files:** `mode-secondary-navigation.ts`, `header-addon-slot.ts` and `mode-nav-icons.ts` (read only). Release 2 goes after On Call's pill change.
 - **Pill and pages sheet:** On Call's rebuild owns them, and CPD edits neither.
 - **Design standard:** CPD-only additions stay in this spec. A general addition goes to the coordinator.
-- **Teaching PR A** repoints the old teaching link. CPD's Release 4 depends on Teaching's count endpoint.
+- **Teaching PR A** repoints the old teaching link. CPD's combined Release 3 Teaching row depends on Teaching's count endpoint.
 - **Database:** none. If a later idea ever needs one, it goes into Roster's combined DB PR under `/mnt/project-files/roster-mode/shared-db-contract.md`, and Josh merges it.
 
 ## 14. Later ideas (not in this work)

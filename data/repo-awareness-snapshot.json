@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-26"
+    "committed_at": "2026-09-27"
   },
   "routes": {
     "modes": [
@@ -1577,6 +1577,11 @@
   "documentation": {
     "documents": [
       {
+        "path": "docs/superpowers/specs/2026-09-26-cpd-elevation-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/decisions/2026-09-16-withhold-unreliable-differential-bodies.md",
         "section": "decisions",
         "catalogued": false
@@ -1720,6 +1725,11 @@
         "path": "docs/prompts/codex-cloud-review/2-codex-full-stack-master-prompt-review-and-stress-test.md",
         "section": "prompts",
         "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-26-cpd-elevation.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-platform-contracts-readiness.md",

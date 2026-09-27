@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-26-cpd-elevation-design.md` (approved by Josh, 26 Sep 2026 18:43Z). Mockups: https://claude.ai/artifact/Ph4XmeMzciwkVRSY4Z5LJk (private design page).
 
-**Plan status:** written 26 Sep 2026 against `origin/main` 67d961107 and reviewed once. **Release 1 is built and merged (PR #3119, 27 Sep 2026).** Releases 2–4 below are what remains; each is written out step by step when it starts. Release 1's per-task step files stayed in the project folder and are not copied here.
+**Plan status:** written 26 Sep 2026 against `origin/main` 67d961107 and reviewed once. **Release 1 is built and merged (PR #3119, 27 Sep 2026).** Releases 2 and 3 below are what remains; each is written out step by step when it starts. Release 3 combines the former any-doctor and connected-mode releases in one staged build and one final PR. Release 1's per-task step files stayed in the project folder and are not copied here.
 
 ## Global Constraints
 
@@ -88,7 +88,7 @@ Those tasks were drafted before the kit existed, against assumed names. The real
 - **Pushes:** push the branch after every task commit, so a recycled cloud container never loses work (a branch push without a PR runs no CI). Open the PR once, in Task 17. Fixes after review go into the same PR.
 - **Review:** one adversarial review of this plan (done, see "What the review changed") and one review of the final diff by a fresh reviewer on the most capable model (the `personal-practice-reviewer` agent covers this area). No other review rounds.
 - **Stop points:** Step 0 of Tasks 10, 11, 12 and 15 checks the kit. Differences listed in the kit section above are expected and never a reason to stop. The kit and tokens are on main, so no stacking is needed.
-- **Efficiency:** what the plan cut or merged. It reuses On Call's `mode-kit` (grouped list, rows, action button, notice, skeleton) and its hero tokens instead of CPD copies; it adds no new visual test harness (the two source-scanning tests replace a screenshot suite); the Release 1 browser work is edits to the one existing CPD spec; Releases 2–4 are written out step by step only when each starts, against that day's main, so no detail goes stale; plan-writing ran as four parallel drafting lanes and one review.
+- **Efficiency:** what the plan cut or merged. It reuses On Call's `mode-kit` (grouped list, rows, action button, notice, skeleton) and its hero tokens instead of CPD copies; it adds no new visual test harness (the two source-scanning tests replace a screenshot suite); the Release 1 browser work is edits to the one existing CPD spec; Releases 2 and 3 are written out step by step only when each starts, against that day's main, so no detail goes stale; plan-writing ran as four parallel drafting lanes and one review.
 
 ## Decisions made while planning (defaults; change any by saying so)
 
@@ -114,9 +114,9 @@ One adversarial pass, two reviewers, each applying every Replace snippet in orde
 - A typed date now counts the moment it is complete, not only when the box loses focus, so Save never stores the wrong day. The iPhone keypad gains a "." key.
 - Added what the spec needed and no task delivered: the empty state, room under "+ Log", grouped routines, an honest offline save message with a form test, and error logging for support.
 - Dropped the parallel lane (the commit hook blocks it), pushed after every task, and cut per-task whole-project checks.
-- Releases 2–4: "Your year in weeks" uses 53 seven-day bars from 1 Jan (not ISO weeks); Close the gap tests the real cadences (weekly, monthly, quarterly); Close the year and goal carry-forward stay offered until the year is closed, not only to 31 Dec; spec items with no release (listed in Release 2 item 15) are now placed.
+- Releases 2 and 3: "Your year in weeks" uses 53 seven-day bars from 1 Jan (not ISO weeks); Close the gap tests the real cadences (weekly, monthly, quarterly); Close the year and goal carry-forward stay offered until the year is closed, not only to 31 Dec; spec items with no release (listed in Release 2 item 15) are now placed.
 
-## Releases 2 to 4: task lists
+## Releases 2 and 3: task lists
 
 These are concrete task lists, not yet step-by-step. Each release is written out in the Release 1 format (test first, exact code, commit per task) **on the day it starts**, against the `origin/main` of that day, because Release 1 and other modes' work will have moved the lines. Each release is its own PR on a fresh branch from `origin/main`, touches no `supabase/` path, and reverts as one commit. The written-out version goes to Josh only if it changes what the spec promised.
 
@@ -142,9 +142,9 @@ These are concrete task lists, not yet step-by-step. Each release is written out
 15. **Spec items still to place, all in this release:** "Keep as draft?" when leaving a half-filled form; dates that say how far away they are ("Tue 29 Sep · in 3 days") on every screen; "Saving…" then "Saved"; text at 200% with rows stacking from 135% and the tablet's centred sheet; the Year check restyle (Targets, College extras, Your records, inline Copy next); the full form as a "New activity" sheet with a fixed footer, "split the hours" link and labelled Reflection; Plan goal rows with the Self-evaluation row and "Not linked to a goal"; Calendar's "Coming up" list and new feed wording; Training's four key facts; the Set up read-view wording; hours and category remembered per title (§8.10); grouped lists on Year check, Plan and Training; loading shapes for Plan, Calendar, Training and Set up; the missed-session form's Save no longer beside "+ Log"; four sizes on Today; a layout-shift browser test; the offline save message ("You're offline, so nothing was saved", every field kept, via `cmeSaveErrorText`) on every other CPD save: routines, training periods and milestones, set up, plan goals, drafts, missed sessions, archive and year close (Release 1 did the activity form only).
 16. **Browser spec, gates, PR**, as Release 1 Task 17.
 
-### Release 3: any doctor
+### Release 3: any doctor and connected modes
 
-**Starts when:** Release 2 has merged. Nothing else.
+**Starts when:** Release 2 has merged. Build the independent any-doctor work while counterpart modes finish, then add the Teaching row once its count endpoint is on `main` and the First Nations pointer once that mode has landed. Keep all items in one staged build, with one browser/gate pass and one final PR decision. Do not mark the release complete by omitting a blocked connected-mode item.
 
 1. **CPD home choice.** Set up's Edit view starts with "Your CPD home for 2026": National baseline only, RANZCP (existing preset), Other (name and targets), and future presets hidden until each exists. Stored in the existing year record (`confirmedSource` and preset fields), no schema change. Test: each choice saves and reloads; a hidden preset is not rendered.
 2. **Wording by home.** "MyCPD" only when the year's home is RANZCP; otherwise "your CPD home". The 1 March reporting reminder shows only for RANZCP (as now). Test: both homes, every screen string that changes.
@@ -153,12 +153,6 @@ These are concrete task lists, not yet step-by-step. Each release is written out
 5. **Add to calendar.** A 48 px icon button ("Add to calendar" for screen readers) builds a single-event `.ics` in the browser: `UID` is the directory item id plus a fixed domain suffix, all-day or timed per the item, `VALARM` one day before, title, dates and place only. Test: exact `.ics` text for a fixture item, including the UID staying the same across two builds.
 6. **Carry goals forward.** From 17 Dec, each unfinished goal offers "Carry into 2027", one tap each, through the existing plan-goal save path. Offered from 17 Dec until the year is closed (`canCloseCmeYear(set.year, now) && !set.closedAt`), so it is still there in January while the college window is open. Test: not before 17 Dec; still offered on 10 Jan for an open year; gone once closed; never automatic.
 7. **Close the year** (Josh added it, 19:05Z): from 17 Dec Today offers one sheet: Copy next, Self-evaluation, Carry goals into next year, Confirm next year's targets, Annual summary. Rows end in a plain status and every action is a tap. Built from the existing year-close panel's data. Offered from 17 Dec until the year is closed (same rule as item 6). Test: not before 17 Dec; still offered on 10 Jan for an open year; gone once closed; each row's status from fixture data.
-8. **Browser spec, gates, PR**, as Release 1 Task 17.
-
-### Release 4: connected
-
-**Starts when:** Teaching's `GET /api/teaching?view=unlogged-count` is on main, and First Nations' build has landed.
-
-1. **Teaching row.** In Next to log: "Teaching sessions to log (N)", opening Teaching's weekly review. Hidden when the endpoint is missing, fails or returns 0. No CPD content goes to Teaching. Test: hidden on 404, on a network error and on `{count:0}`.
-2. **First Nations pointer.** When the practice domain "Culturally safe practice" has nothing logged, the season's next step may point to `/first-nations/talking`. Test: shown only in that case.
-3. **Browser spec, gates, PR**, as Release 1 Task 17.
+8. **Teaching row.** In Next to log: "Teaching sessions to log (N)", opening Teaching's weekly review. Hidden when the endpoint is missing, fails or returns 0. No CPD content goes to Teaching. Test: hidden on 404, on a network error and on `{count:0}`. Requires Teaching's `GET /api/teaching?view=unlogged-count` on `main`.
+9. **First Nations pointer.** When the practice domain "Culturally safe practice" has nothing logged, the season's next step may point to `/first-nations/talking`. Test: shown only in that case. Requires the First Nations build to have landed.
+10. **Browser spec, gates, PR**, as Release 1 Task 17, covering both the any-doctor and connected-mode work together.
