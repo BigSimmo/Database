@@ -464,7 +464,7 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
   describe("the command-line check", () => {
     function run(env: Record<string, string>, now: Date, args: string[] = []) {
       const childEnv: NodeJS.ProcessEnv = { ...process.env };
-      for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_ACTIONS"]) {
+      for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_REF", "GITHUB_ACTIONS"]) {
         delete childEnv[key];
       }
       return spawnSync(
@@ -507,10 +507,10 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
     });
 
     it.skipIf(!checkGit)(
-      "refuses pull-request mode outside a pull request, or without a base, and stays strict",
+      "refuses pull-request mode on a non-main push, or without a base, and stays strict",
       () => {
         for (const env of [
-          { ...PR_ENV, GITHUB_EVENT_NAME: "push" },
+          { ...PR_ENV, GITHUB_EVENT_NAME: "push", GITHUB_REF: "refs/heads/topic" },
           { ...PR_ENV, GITHUB_EVENT_NAME: "" },
           { ...PR_ENV, BASE_SHA: "" },
           { ...PR_ENV, BASE_SHA: "0".repeat(40) },
