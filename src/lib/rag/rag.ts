@@ -273,6 +273,7 @@ import {
   createSearchTiming,
   finishSearch,
   measureSearchPhase,
+  startRerankClock,
   type SearchTiming,
 } from "@/lib/rag/rag-search-timing";
 import { planGovernedCandidateSearch, routeGovernedSearch } from "@/lib/rag/rag-governed-search";
@@ -1450,7 +1451,7 @@ async function searchChunksWithTiming(
   });
 
   if (textData.length) {
-    const rerankStartedAt = Date.now();
+    const rerankElapsedMs = startRerankClock(searchTiming);
     const textCandidates = await measureSearchPhase(searchTiming, "metadata_hydration", () =>
       attachDocumentRankingMetadata(
         supabase,
@@ -1481,7 +1482,7 @@ async function searchChunksWithTiming(
         telemetry,
         topK: args.topK ?? 8,
       });
-      telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+      telemetry.rerank_latency_ms += rerankElapsedMs();
       markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       textFastResults = await applySemanticRerankOnce(textFastResults);
@@ -1528,7 +1529,7 @@ async function searchChunksWithTiming(
       telemetry,
       topK: args.topK ?? 8,
     });
-    telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+    telemetry.rerank_latency_ms += rerankElapsedMs();
 
     const boostedTextFastPath = decideTextFastPath(args.query, textFastResults, queryClassification.queryClass);
     if (!args.forceEmbedding && boostedTextFastPath.returnFastPath) {
@@ -1575,7 +1576,7 @@ async function searchChunksWithTiming(
     });
 
     if (documentLookupData.length > 0) {
-      const rerankStartedAt = Date.now();
+      const rerankElapsedMs = startRerankClock(searchTiming);
       const memoryBoost = await hydrateCandidatesWithMetadataAndMemory({
         supabase,
         query: args.query,
@@ -1625,7 +1626,7 @@ async function searchChunksWithTiming(
         telemetry,
         topK: args.topK ?? 8,
       });
-      telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+      telemetry.rerank_latency_ms += rerankElapsedMs();
 
       const documentLookupFastPath = decideTextFastPath(
         args.query,
@@ -1834,7 +1835,7 @@ async function searchChunksWithTiming(
   );
 
   if (!hybridError) {
-    const rerankStartedAt = Date.now();
+    const rerankElapsedMs = startRerankClock(searchTiming);
     const merged = args.forceEmbedding ? vectorCandidates : mergeSearchResults(vectorCandidates, textFastResults);
     const memoryBoost = await hydrateCandidatesWithMetadataAndMemory({
       supabase,
@@ -1876,7 +1877,7 @@ async function searchChunksWithTiming(
       telemetry,
       topK: args.topK ?? 8,
     });
-    telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+    telemetry.rerank_latency_ms += rerankElapsedMs();
     telemetry.retrieval_strategy = "hybrid";
     results = await applySemanticRerankOnce(results);
     recordSearchScoreTelemetry(telemetry, results);
@@ -1921,7 +1922,7 @@ async function searchChunksWithTiming(
     topScore: layerTopScore(resultSets.flat()),
   });
 
-  const rerankStartedAt = Date.now();
+  const rerankElapsedMs = startRerankClock(searchTiming);
   const fallbackVectorCandidates = mergeSearchResults(
     mergeSearchResults(resultSets.flat(), embeddingFieldCandidates),
     indexUnitCandidates,
@@ -1968,7 +1969,7 @@ async function searchChunksWithTiming(
     telemetry,
     topK: args.topK ?? 8,
   });
-  telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+  telemetry.rerank_latency_ms += rerankElapsedMs();
   telemetry.retrieval_strategy = "vector_fallback";
   results = await applySemanticRerankOnce(results);
   recordSearchScoreTelemetry(telemetry, results);
