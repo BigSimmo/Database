@@ -2,10 +2,10 @@
   "version": 2,
   "id": "779c50d6-ffde-47fa-aa2e-4e2334e35828",
   "createdOn": "2026-09-26",
-  "action": "done",
+  "action": "update",
   "payload": {
     "id": "#Z9NS6H",
-    "outcome": "Harmonised safety copy: updated Differentials subtitle, switched Refusal source heading to Documents searched when zero cited or refusal, and rendered uncurated Do now teaching observations as unnumbered bullet lists",
+    "detail": "UPDATE 2026-09-27 (PR #3142): DONE - the Differentials subtitle (ui-copy.ts) now describes differential diagnosis, and uncurated 'Do now' teaching observations render as unnumbered bullets. PARTLY DONE - answer-source-rail.tsx switches its heading to 'Documents searched' when zero documents are cited or when an isRefusal prop is set, but no production answer surface passes isRefusal yet, because which answers count as a refusal (grounded === false, answerState 'no_answer'/'ungrounded', or fallbackReasonCode coverage_gap/no_candidates/low_signal) still needs an owner decision. STILL OPEN: (1) that refusal definition and wiring isRefusal through the live and historical answer surfaces; (4) 86 of 374 multi-item diagnosis sections (1,200 sections total) have a summary that is a space-join of their items with no punctuation - clinical wording for a human.",
     "baseRowFingerprint": "e29453c5b46a453753f6d5c5d48e68e5f3bd137546f41427636ad117051c7937"
   }
 }
