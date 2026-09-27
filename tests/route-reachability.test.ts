@@ -45,6 +45,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
   ],
+  [
+    "/teaching/c/complete",
+    "Sign-in return target for a doctor who scanned a check-in QR while signed out. Reached only through the emailed sign-in link's `next` (teaching-scan-landing.tsx), never from in-app navigation.",
+  ],
 ]);
 
 function isMockupPath(relPosix: string) {

@@ -22,6 +22,7 @@ export const appModeIds = [
   "sources",
   "on-call",
   "cme",
+  "teaching",
   "psychiatry",
   "my-work",
 ] as const;
@@ -557,6 +558,35 @@ export const appModeDefinitions = [
     },
   },
   {
+    id: "teaching",
+    label: "Teaching",
+    description: "Your hospital's teaching: this week's sessions, check-in and your attendance record",
+    href: "/teaching",
+    search: {
+      // Teaching searches nothing personal. Text typed in the main search bar
+      // leaves the app (it is sent for answer generation), so this mode points
+      // the placeholder at session titles only, and no logbook, attendance,
+      // supervision or member data is ever part of a query (plan contracts §8).
+      // It borrows the benign "tools" command kind, as CPD and On Call do.
+      kind: "tools",
+      placeholder: "Find a session by title: grand round, journal club...",
+      inputAriaLabel: "Find a teaching session by title",
+      submitIdleLabel: "Teaching",
+      submitBusyLabel: "Teaching",
+      submitAriaLabel: "Find a teaching session by title",
+      emptyTitle: "Find a teaching session",
+      readyTitle: "Find a session by its title",
+      progressLabel: "Opening Teaching.",
+      resultKind: "tools",
+      resultHeading: "Teaching",
+      // No results page. `/teaching` is a dashboard, like `/cme`.
+      resultsSurface: "none",
+      statusLabel: "Teaching",
+      nextStep: "Open a session",
+      badgeLabel: null,
+    },
+  },
+  {
     id: "psychiatry",
     label: "Psychiatry",
     description: "Diagnosis, specifiers, formulation, therapy and Mental Health Act forms in one place",
@@ -652,6 +682,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "calculators",
   "on-call",
   "cme",
+  "teaching",
   "psychiatry",
   "my-work",
 ]);

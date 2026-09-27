@@ -20,6 +20,7 @@
     "src/components/clinical-dashboard/use-saved-registry-favourites.ts",
     "src/components/cme/**",
     "src/components/favourites/**",
+    "src/components/teaching/**",
     "src/components/on-call/**",
     "src/data/cme/**",
     "src/lib/calendar/**",

@@ -79,5 +79,10 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // other direction. Both named routes are `isInformationPage`, which is the
   // agreement `tests/mode-nav-addon-slot.dom.test.tsx` checks route for route.
   if (pathname === "/cme/programme" || pathname === "/cme/setup") return true;
+  // Teaching's session page and the presenter's check-in screen mount
+  // `TeachingNavHeader` (`teaching/teaching-nav-header.tsx`, the document-viewer
+  // shape). Named exactly: the four top pages use the pages sheet, and the scan
+  // landing mounts no header. Every Teaching route is `isInformationPage`.
+  if (/^\/teaching\/session\/[^/]+(?:\/check-in)?$/.test(pathname)) return true;
   return false;
 }

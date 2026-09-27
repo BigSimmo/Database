@@ -32,12 +32,12 @@ describe("phone mode groups", () => {
     expect(new Set(groupIds).size).toBe(groupIds.length);
   });
 
-  it("gives On Call, My Work and CPD areas of their own, after the clinical groups", () => {
+  it("gives On Call, My Work and CPD with Teaching areas of their own, after the clinical groups", () => {
     const groupOf = (modeId: AppModeId) =>
       phoneModeGroups.find((group) => (group.modeIds as readonly AppModeId[]).includes(modeId));
     expect(groupOf("on-call")).toMatchObject({ id: "on-call", label: "On Call", modeIds: ["on-call"] });
     expect(groupOf("my-work")).toMatchObject({ id: "my-work", label: "My Work", modeIds: ["my-work"] });
-    expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD", modeIds: ["cme"] });
+    expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD and teaching", modeIds: ["cme", "teaching"] });
     expect(phoneModeGroups.map((group) => group.id)).toEqual([
       "find",
       "psychiatry",

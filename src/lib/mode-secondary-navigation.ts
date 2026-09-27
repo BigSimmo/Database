@@ -134,11 +134,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "playbook", label: "Playbook", href: "/on-call/playbook" },
     { id: "referrals", label: "Referrals", href: "/on-call/referrals" },
     { id: "orientation", label: "Orientation", href: "/on-call/orientation" },
-    // Label only. The stored section id, the route segment and the database
-    // check constraint all stay `education`; renaming them is a migration for no
-    // functional gain (`ON_CALL_SECTION_TITLES` carries the same decision).
-    { id: "teaching", label: "Teaching", href: "/on-call/education" },
-    // Label only, as Teaching above: the stored section id, the route segment
+    // Label only, as Teaching once was: the stored section id, the route segment
     // and the database check constraint all stay `logistics`.
     { id: "logistics", label: "Admin", href: "/on-call/logistics" },
     // Compliance is a VIEW over the `logistics` section, discriminated by
@@ -172,6 +168,18 @@ export const modeSecondaryNavigationRegistry = {
     { id: "learning", label: "Learning", href: "/cme/learning" },
     { id: "programme", label: "Programme", href: "/cme/programme" },
     { id: "setup", label: "Set up", href: "/cme/setup" },
+  ],
+  // Teaching's pages, for the mode pill's page list, like CME's. Teaching is
+  // absent from `MODE_NAV_ADOPTED_MODES`: the pill already opens these, so no
+  // page mounts the shared bar. Organise is hidden from the pill for anyone
+  // who is not an organiser or admin (`src/lib/teaching/page-visibility.ts`);
+  // the server refuses organiser actions regardless. What's on and Resources
+  // join after Week in milestone 2 (U10).
+  teaching: [
+    { id: "today", label: "Today", href: "/teaching" },
+    { id: "week", label: "Week", href: "/teaching/week" },
+    { id: "logbook", label: "Logbook", href: "/teaching/logbook" },
+    { id: "organise", label: "Organise", href: "/teaching/organise" },
   ],
   // Psychiatry's home is itself the list of sections it gathers, and each
   // section keeps its own navigation, so the hub registers no destinations.
@@ -314,7 +322,6 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/on-call/playbook") return "playbook";
     if (pathname === "/on-call/referrals") return "referrals";
     if (pathname === "/on-call/orientation") return "orientation";
-    if (pathname === "/on-call/education") return "teaching";
     if (pathname === "/on-call/logistics") return "logistics";
     if (pathname === "/on-call/compliance") return "compliance";
     if (pathname === "/on-call/who-is-who") return "whoswho";
@@ -339,6 +346,15 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     // Exact match only, for the same reason On Call's home is: a prefix test
     // here would mark This year current on every CME route as well as its own.
     if (pathname === "/cme") return "year";
+    return null;
+  }
+  if (modeId === "teaching") {
+    // Exact match only, as for On Call and CME: a prefix test would mark
+    // Today current on every Teaching route as well as its own.
+    if (pathname === "/teaching") return "today";
+    if (pathname === "/teaching/week") return "week";
+    if (pathname === "/teaching/logbook") return "logbook";
+    if (pathname === "/teaching/organise") return "organise";
     return null;
   }
   // Every mode with destinations has a branch above; the rest register none, so
