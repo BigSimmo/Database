@@ -29,10 +29,11 @@ export function AdminNewJobStart({
   now: Date;
   /** False when there is no own row to attach the date to. */
   canEdit: boolean;
-  onSave: (date: string) => void;
+  onSave: (date: string) => Promise<boolean>;
   onClear: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
   const echo = DATE_KEY.test(draft) ? formatDateEcho(draft) : "";
   const today = perthCalendarDate(now);
 
@@ -63,10 +64,14 @@ export function AdminNewJobStart({
           <Button
             variant="secondary"
             size="sm"
-            disabled={!DATE_KEY.test(draft)}
-            onClick={() => {
-              onSave(draft);
-              setDraft("");
+            disabled={!DATE_KEY.test(draft) || saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                if (await onSave(draft)) setDraft("");
+              } finally {
+                setSaving(false);
+              }
             }}
             testId="admin-new-job-start-save"
           >

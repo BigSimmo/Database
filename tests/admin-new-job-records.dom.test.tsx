@@ -71,6 +71,7 @@ describe("AdminRecordsPage", () => {
   it("is an on-screen page, with a back link and no download", () => {
     render(<AdminRecordsPage now={NOW} />);
     expect(screen.getByTestId("admin-records-main")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Your Admin records" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /New job/ })).toBeTruthy();
   });
 
@@ -110,11 +111,13 @@ describe("AdminRecordsPage", () => {
     Object.assign(entryState, { loading: true });
     const { unmount } = render(<AdminRecordsPage now={NOW} />);
     expect(screen.getByTestId("admin-records-loading")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
     expect(screen.queryByTestId("admin-records-empty")).toBeNull();
     unmount();
     Object.assign(entryState, { loading: false, signedOut: true, entries: [] });
     render(<AdminRecordsPage now={NOW} />);
     expect(screen.getByTestId("admin-records-signed-out")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
     expect(screen.queryByTestId("admin-records-empty")).toBeNull();
   });
 

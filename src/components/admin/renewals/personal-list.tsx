@@ -23,12 +23,14 @@ function personalStatus(entry: OnCallEntry, now: Date) {
 export function PersonalRenewalsList({
   entries,
   now,
+  canEdit = true,
   onOpen,
   onAdd,
   testId = "admin-renewals-personal",
 }: {
   readonly entries: readonly OnCallEntry[];
   readonly now: Date;
+  readonly canEdit?: boolean;
   readonly onOpen: (entry: OnCallEntry) => void;
   readonly onAdd: () => void;
   readonly testId?: string;
@@ -37,12 +39,16 @@ export function PersonalRenewalsList({
     return (
       <div className={cn(modeModuleSurface, "grid gap-2 p-4")} data-testid={`${testId}-empty`}>
         <p className="text-base-minus font-medium text-[color:var(--text-heading)]">No personal renewals</p>
-        <p className={cn(textMuted, "text-sm")}>Add one that isn&rsquo;t on the checklist.</p>
-        <div>
-          <Button variant="primary" onClick={onAdd} testId={`${testId}-empty-add`}>
-            Add a renewal
-          </Button>
-        </div>
+        {canEdit ? (
+          <>
+            <p className={cn(textMuted, "text-sm")}>Add one that isn&rsquo;t on the checklist.</p>
+            <div>
+              <Button variant="primary" onClick={onAdd} testId={`${testId}-empty-add`}>
+                Add a renewal
+              </Button>
+            </div>
+          </>
+        ) : null}
       </div>
     );
   }

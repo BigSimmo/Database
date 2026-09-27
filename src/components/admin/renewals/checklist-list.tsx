@@ -40,6 +40,7 @@ export function ChecklistList({
   notForThisJob,
   filter,
   now,
+  canEdit = true,
   onOpen,
   onAddDate,
   onMoveBack,
@@ -49,6 +50,7 @@ export function ChecklistList({
   readonly notForThisJob: readonly OnCallEntry[];
   readonly filter: ChecklistKindFilter;
   readonly now: Date;
+  readonly canEdit?: boolean;
   readonly onOpen: (item: AdminRequirementCatalogueItem, entry: OnCallEntry | null) => void;
   readonly onAddDate: (item: AdminRequirementCatalogueItem) => void;
   readonly onMoveBack: (entry: OnCallEntry) => void;
@@ -80,7 +82,7 @@ export function ChecklistList({
                 }
                 statusTrailing={showAddDate ? undefined : <ChecklistStatus urgency={urgency} />}
                 actionTrailing={
-                  showAddDate ? (
+                  showAddDate && canEdit ? (
                     <ChecklistRowActionButton
                       label="Add date"
                       onClick={() => onAddDate(row.item)}
@@ -117,11 +119,13 @@ export function ChecklistList({
                     ) : null
                   }
                   actionTrailing={
-                    <ChecklistRowActionButton
-                      label="Move back"
-                      onClick={() => onMoveBack(entry)}
-                      testId={`${testId}-move-back-${entry.slug}`}
-                    />
+                    canEdit ? (
+                      <ChecklistRowActionButton
+                        label="Move back"
+                        onClick={() => onMoveBack(entry)}
+                        testId={`${testId}-move-back-${entry.slug}`}
+                      />
+                    ) : undefined
                   }
                   onOpen={() => (item ? onOpen(item, entry) : undefined)}
                   anchorId={onCallEntryAnchorId(entry.id)}

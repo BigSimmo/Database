@@ -97,4 +97,27 @@ describe("Your Admin records (I7): what the page and Copy both list", () => {
     expect(text).toContain("- Pager login\n  Ticked");
     expect(text).toMatch(/^Your Admin records\nAs you recorded them · Sat 26 Sep 2026\n/);
   });
+
+  it("keeps saved Admin instructions and contact details in the page and copied text", () => {
+    const access = onCallEntryFixture({
+      section: "logistics",
+      title: "Pager login",
+      subtitle: "Request an account",
+      body: "Bring your staff ID to workforce",
+      details: { category: "Logins", phone: "0891234567", location: "Ward office", url: "https://example.org/form" },
+    });
+    const rows = adminRecordsSections([access]);
+    const text = adminRecordsText(rows, NOW);
+    const savedLines = rows.find((section) => section.label === "New job")?.rows[0]?.lines;
+    for (const value of [
+      "Request an account",
+      "Bring your staff ID to workforce",
+      "Phone: 0891234567",
+      "Location: Ward office",
+      "Url: https://example.org/form",
+    ]) {
+      expect(text).toContain(value);
+      expect(savedLines).toContain(value);
+    }
+  });
 });

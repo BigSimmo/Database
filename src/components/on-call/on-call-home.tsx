@@ -617,14 +617,11 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                 const number = entry.isPersonal ? null : onCallPrimaryNumber(entry, now);
                 const href =
                   number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
-                // By view, not by `entry.section`. Compliance and Who's who are
-                // views over `logistics` and `contacts`, so a section lookup
-                // sent a compliance requirement to the Admin page — a page that
-                // does not list it — wearing the Admin name and glyph on the
-                // way. Recent's whole job is getting back to something you just
-                // had.
+                // Keep the view for its icon, and resolve the target from the
+                // entry's Admin placement: a login belongs on New job, while
+                // a guide belongs on Help. Both need their own row anchor.
                 const view = onCallViewForEntry(entry);
-                const target = href ?? ON_CALL_VIEW_HREFS[view];
+                const target = href ?? onCallEntryHref(entry);
                 const at = timeLabel(item.at);
                 const RecentIcon = ON_CALL_VIEW_ICONS[view];
                 // Internal targets go through the router (no full page reload);

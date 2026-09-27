@@ -73,11 +73,14 @@ export function AdminRecordsPage({ now: nowProp }: { now?: Date } = {}) {
             home={{ label: "New job", href: "/admin/new-job" }}
             current="Your Admin records"
           />
+          <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Your Admin records</h1>
           <p className={cn(textMuted, "text-sm")} data-testid="admin-records-subtitle">
             As you recorded them · {formatDateEcho(perthCalendarDate(now))}
           </p>
         </div>
-        <IconButton label="More actions" icon={Ellipsis} onClick={() => setMenuOpen(true)} className="shrink-0" />
+        {loadState === "ready" ? (
+          <IconButton label="More actions" icon={Ellipsis} onClick={() => setMenuOpen(true)} className="shrink-0" />
+        ) : null}
       </div>
 
       {loadState === "failed" ? (
@@ -105,7 +108,7 @@ export function AdminRecordsPage({ now: nowProp }: { now?: Date } = {}) {
         </>
       )}
 
-      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Your Admin records">
+      <Sheet open={loadState === "ready" && menuOpen} onClose={() => setMenuOpen(false)} title="Your Admin records">
         <div className="grid gap-2">
           <button
             type="button"

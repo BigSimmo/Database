@@ -5,7 +5,7 @@
 // only once a start date is set, "New job progress". Nothing else renders
 // here: no timeline, no Pay, no Help block, no ask box.
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
@@ -22,9 +22,14 @@ const state = {
   demoMode: false,
 };
 
+const saved = vi.hoisted(() => ({ entries: null as OnCallEntry[] | null, writes: [] as OnCallEntry[][] }));
 vi.mock("@/lib/on-call/entry-store", () => ({
   useOnCallEntries: () => state,
-  cacheOnCallEntries: vi.fn(),
+  cacheOnCallEntries: (entries: OnCallEntry[]) => {
+    saved.entries = entries;
+    saved.writes.push(entries);
+  },
+  readCachedOnCallEntries: () => (saved.entries ? { entries: saved.entries, savedAt: "2026-09-26T00:00:00Z" } : null),
 }));
 
 let isAuthenticated = true;
@@ -55,6 +60,8 @@ const police = complianceFixture("Police check", { category: "Clearances" }); //
 const indemnity = complianceFixture("Indemnity", { category: "Indemnity", expiresOn: "2027-06-30" });
 
 beforeEach(() => {
+  saved.entries = null;
+  saved.writes = [];
   state.entries = [];
   state.loading = false;
   state.isOffline = false;
@@ -190,6 +197,18 @@ describe("AdminTodayPage", () => {
     state.entries = [indemnity];
     render(<AdminTodayPage now={NOW} />);
     expect(screen.queryByRole("dialog", { name: "Set up Admin" })).toBeNull();
+  });
+
+  it("keeps both new setup rows in the immediate cache after consecutive saves", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entry: registration })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entry: indemnity })));
+    render(<AdminTodayPage now={NOW} />);
+    fireEvent.change(screen.getByLabelText("Registration expiry"), { target: { value: "2027-09-30" } });
+    fireEvent.change(screen.getByLabelText("Indemnity expiry"), { target: { value: "2027-12-31" } });
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Set up Admin" })).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(saved.writes).toHaveLength(2));
+    expect(saved.writes[1]?.map((entry) => entry.id)).toEqual([registration.id, indemnity.id]);
   });
 
   it("renders nothing from the rest of Admin: no Pay, no Help block, no ask box", () => {

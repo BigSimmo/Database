@@ -32,6 +32,7 @@ export type ChecklistItemSubject =
 export function ChecklistItemDetailSheet({
   subject,
   now,
+  canEdit = true,
   onClose,
   onRenew,
   onNotForThisJob,
@@ -39,6 +40,7 @@ export function ChecklistItemDetailSheet({
 }: {
   readonly subject: ChecklistItemSubject | null;
   readonly now: Date;
+  readonly canEdit?: boolean;
   readonly onClose: () => void;
   readonly onRenew: () => void;
   /** Catalogue items only; toggles "not for this job". `entry` is null for an
@@ -98,12 +100,14 @@ export function ChecklistItemDetailSheet({
       description="Recorded by you — not confirmed with the issuing body."
       testId={testId}
       footer={
-        <div className="grid gap-2">
-          {error ? <InlineNotice tone="neutral">{error}</InlineNotice> : null}
-          <Button variant="primary" block onClick={onRenew} testId={`${testId}-renew`}>
-            {entry ? "Renewed" : "Add date"}
-          </Button>
-        </div>
+        canEdit ? (
+          <div className="grid gap-2">
+            {error ? <InlineNotice tone="neutral">{error}</InlineNotice> : null}
+            <Button variant="primary" block onClick={onRenew} testId={`${testId}-renew`}>
+              {entry ? "Renewed" : "Add date"}
+            </Button>
+          </div>
+        ) : undefined
       }
     >
       {subject ? (

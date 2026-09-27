@@ -88,6 +88,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   const own = useMemo(() => selectAdminOwnEntries(state), [state, entryVersion]);
   const loadState = adminLoadState(state);
   const ready = loadState === "ready";
+  const canEdit = ready && !state.demoMode;
   const [signInOpen, setSignInOpen] = useState(false);
 
   const [tab, setTab] = useState<"checklist" | "personal">("checklist");
@@ -119,6 +120,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
     [own],
   );
   const personalEntries = useMemo(() => own.filter((entry) => isPersonalRenewal(entry)), [own]);
+  const calendarFile = useMemo(() => renewalsCalendarFile(own, now), [own, now]);
 
   function upsert(entry: OnCallEntry) {
     cacheOnCallEntries([...state.entries.filter((existing) => existing.id !== entry.id), entry]);
@@ -191,8 +193,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   }
 
   function downloadAll() {
-    const file = renewalsCalendarFile(own, now);
-    if (file) downloadTextFile(file, "renewals.ics", "text/calendar;charset=utf-8");
+    if (calendarFile) downloadTextFile(calendarFile, "renewals.ics", "text/calendar;charset=utf-8");
   }
 
   async function setNotForThisJob(entry: OnCallEntry, flag: boolean) {
@@ -259,7 +260,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
         <button
           type="button"
           onClick={downloadAll}
-          disabled={!ready}
+          disabled={!ready || !calendarFile}
           data-testid="admin-renewals-calendar-all"
           className={cn(floatingControl, "disabled:cursor-not-allowed disabled:opacity-60")}
         >
@@ -348,6 +349,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
                 filter={kindFilter}
                 now={now}
                 onOpen={(item, entry) => setDetailSubject({ kind: "catalogue", item, entry })}
+                canEdit={canEdit}
                 onAddDate={(item) => {
                   setRenewSubject({ entry: null, createItem: item });
                   setRenewOpen(true);
@@ -359,6 +361,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
             <PersonalRenewalsList
               entries={personalEntries}
               now={now}
+              canEdit={canEdit}
               onOpen={(entry) => setDetailSubject({ kind: "personal", entry })}
               onAdd={() => setQuickAddOpen(true)}
             />
@@ -399,13 +402,14 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
         </div>
       ) : null}
 
-      {ready ? (
+      {canEdit ? (
         <AdminFloatingAdd label="Add a renewal" onClick={() => setQuickAddOpen(true)} testId="admin-renewals-add" />
       ) : null}
 
       <ChecklistItemDetailSheet
         subject={detailSubject}
         now={now}
+        canEdit={canEdit}
         onClose={() => setDetailSubject(null)}
         onRenew={() => {
           if (!detailSubject) return;
@@ -419,7 +423,11 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
           }
           setRenewOpen(true);
         }}
-        onNotForThisJob={(item, entry, flag) => (entry ? setNotForThisJob(entry, flag) : markItemNotForThisJob(item))}
+        onNotForThisJob={
+          canEdit
+            ? (item, entry, flag) => (entry ? setNotForThisJob(entry, flag) : markItemNotForThisJob(item))
+            : undefined
+        }
       />
 
       <AdminRenewedSheet

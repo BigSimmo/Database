@@ -23,7 +23,7 @@ import { selectNewJobProgress } from "@/lib/admin/new-job-progress";
 import { selectNeedsYou, selectRenewNext, selectRequirementsSummary } from "@/lib/admin/today-selectors";
 import { perthHour } from "@/lib/clock-time";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
+import { cacheOnCallEntries, readCachedOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 
 /**
@@ -60,7 +60,8 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
   const setupOpen = isAuthenticated && load === "ready" && !state.demoMode && !setupDismissed && needsSetup(own);
 
   function upsert(entry: OnCallEntry) {
-    cacheOnCallEntries([...state.entries.filter((existing) => existing.id !== entry.id), entry]);
+    const latest = readCachedOnCallEntries()?.entries ?? state.entries;
+    cacheOnCallEntries([...latest.filter((existing) => existing.id !== entry.id), entry]);
   }
 
   return (

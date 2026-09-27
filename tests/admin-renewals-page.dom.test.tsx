@@ -87,6 +87,21 @@ function renderPage() {
 }
 
 describe("AdminRenewalsPage — the checklist", () => {
+  it("offers no write controls for demo entries", () => {
+    storeState.demoMode = true;
+    renderPage();
+    expect(screen.queryByTestId("admin-renewals-add")).toBeNull();
+    expect(screen.queryByTestId("admin-renewals-checklist-add-date-criminal-record-screening")).toBeNull();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-working-with-children-check"));
+    expect(screen.queryByTestId("admin-renewals-item-sheet-renew")).toBeNull();
+    expect(screen.queryByTestId("admin-renewals-item-sheet-not-for-this-job")).toBeNull();
+  });
+
+  it("disables calendar export when there are no dated events", () => {
+    storeState.entries = [];
+    renderPage();
+    expect(screen.getByTestId("admin-renewals-calendar-all")).toBeDisabled();
+  });
   it("groups by state under All: soonest first, then not recorded yet", () => {
     renderPage();
     const groups = screen.getByTestId("admin-renewals-checklist");

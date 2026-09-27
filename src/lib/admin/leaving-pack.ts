@@ -85,6 +85,19 @@ function renewalRow(entry: OnCallEntry): AdminRecordsRow {
   return { key: entry.id, title: entry.title, lines };
 }
 
+/** Keep the actual saved fields alongside each Admin row in both Print and Copy. */
+function adminEntryLines(entry: OnCallEntry): string[] {
+  const fields = [
+    ...(entry.subtitle ? [entry.subtitle] : []),
+    ...(entry.body ? [entry.body] : []),
+    ...(["location", "hours", "phone", "url"] as const).flatMap((key) => {
+      const value = detailText(entry, key);
+      return value ? [`${key[0].toUpperCase()}${key.slice(1)}: ${value}`] : [];
+    }),
+  ];
+  return fields;
+}
+
 /**
  * "Your Admin records" (spec item 26 and the design): every recorded renewal
  * with its date and earlier dates, what is not recorded yet, what is not for
@@ -111,18 +124,24 @@ export function adminRecordsSections(ownEntries: readonly OnCallEntry[]): AdminR
     .map((entry) => ({
       key: entry.id,
       title: entry.title,
-      lines: [(entry.details as { done?: unknown } | null)?.done === true ? "Ticked" : "Not ticked"],
+      lines: [
+        (entry.details as { done?: unknown } | null)?.done === true ? "Ticked" : "Not ticked",
+        ...adminEntryLines(entry),
+      ],
     }));
   const otherAdmin = admin
     .filter((entry) => adminPlacementForEntry(entry) !== "new-job")
     .map((entry) => ({
       key: entry.id,
       title: entry.title,
-      lines: entry.lastVerifiedAt ? [`Updated ${formatUpdatedMonth(entry.lastVerifiedAt)}`] : [],
+      lines: [
+        ...(entry.lastVerifiedAt ? [`Updated ${formatUpdatedMonth(entry.lastVerifiedAt)}`] : []),
+        ...adminEntryLines(entry),
+      ],
     }));
   const contacts = ownEntries.filter(isAdminWorkforceExplainer).map((entry) => {
     const role = detailText(entry, "role");
-    return { key: entry.id, title: entry.title, lines: role ? [role] : [] };
+    return { key: entry.id, title: entry.title, lines: [...(role ? [role] : []), ...adminEntryLines(entry)] };
   });
   const sections: AdminRecordsSection[] = [
     { label: "Renewals", rows: renewals },

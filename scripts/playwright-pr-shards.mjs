@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|admin|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Timings: mean of the successful post-critical production Chromium reports from
@@ -32,6 +32,13 @@ export const productionSpecFilePattern =
  * These measurements guide grouping, never test omission or passing status.
  */
 export const prUiSpecProfiles = Object.freeze([
+  {
+    // New spec: 30 seconds is an estimate until a successful PR run records its duration.
+    file: "tests/ui-admin.spec.ts",
+    shard: 1,
+    fullSeconds: 30,
+    criticalSeconds: 0,
+  },
   {
     file: "tests/adaptive-answer-ui.spec.ts",
     shard: 3,
@@ -82,7 +89,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-route-coverage.spec.ts",
-    shard: 1,
+    shard: 2,
     fullSeconds: 18,
     criticalSeconds: 0,
   },
@@ -118,7 +125,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-clinical-ask.spec.ts",
-    shard: 2,
+    shard: 1,
     fullSeconds: 16.5,
     criticalSeconds: 16.5,
   },
@@ -244,7 +251,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-forms-section-nav.spec.ts",
-    shard: 2,
+    shard: 3,
     fullSeconds: 9,
     criticalSeconds: 0,
   },

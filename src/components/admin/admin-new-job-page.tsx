@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight, Copy } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { AdminNavHeader } from "@/components/admin/admin-nav-header";
@@ -17,8 +17,10 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
 import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
+import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 import { selectNewJobRows } from "@/lib/admin/help-items";
 import { selectNewJobStart, setNewJobStart, setNewJobStepDone } from "@/lib/admin/new-job-progress";
 import { adminLoadState, selectAdminOwnEntries, selectAdminSharedEntries } from "@/lib/admin/own-entries";
@@ -29,7 +31,7 @@ import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store"
 import { onCallEntrySchema, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 import { onCallTelHref } from "@/lib/on-call/home-modules";
 
-type UndoState = { entryId: string; restore: unknown; label: string };
+type UndoState = { id: number; entryId: string; restore: unknown; label: string };
 
 async function patchEntry(id: string, body: unknown): Promise<OnCallEntry> {
   const response = await fetch(`/api/on-call/entries/${id}`, {
@@ -88,7 +90,9 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
     section: "logistics",
   });
   const [undo, setUndo] = useState<UndoState | null>(null);
+  const nextUndoId = useRef(0);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
 
   const own = useMemo(() => selectAdminOwnEntries(state), [state]);
   const shared = useMemo(() => selectAdminSharedEntries(state), [state]);
@@ -124,7 +128,7 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
     try {
       const saved = await patchEntry(entry.id, update.body);
       upsertCachedEntry(saved);
-      setUndo({ entryId: entry.id, restore: update.undo, label: "Saved" });
+      setUndo({ id: ++nextUndoId.current, entryId: entry.id, restore: update.undo, label: "Saved" });
     } catch (error) {
       setToggleError(error instanceof Error ? error.message : "Could not save this change.");
     }
@@ -142,16 +146,18 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
     }
   }
 
-  async function handleSetStart(date: string) {
-    if (!startEntry) return;
+  async function handleSetStart(date: string): Promise<boolean> {
+    if (!startEntry) return false;
     const result = setNewJobStart(startEntry, date);
-    if (!result.ok) return;
+    if (!result.ok) return false;
     try {
       const saved = await patchEntry(startEntry.id, result.body);
       upsertCachedEntry(saved);
-      setUndo({ entryId: startEntry.id, restore: result.undo, label: "Saved" });
+      setUndo({ id: ++nextUndoId.current, entryId: startEntry.id, restore: result.undo, label: "Saved" });
+      return true;
     } catch (error) {
       setToggleError(error instanceof Error ? error.message : "Could not save the start date.");
+      return false;
     }
   }
 
@@ -162,7 +168,7 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
     try {
       const saved = await patchEntry(startEntry.id, result.body);
       upsertCachedEntry(saved);
-      setUndo({ entryId: startEntry.id, restore: result.undo, label: "Saved" });
+      setUndo({ id: ++nextUndoId.current, entryId: startEntry.id, restore: result.undo, label: "Saved" });
     } catch (error) {
       setToggleError(error instanceof Error ? error.message : "Could not clear the start date.");
     }
@@ -177,8 +183,8 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
         <AdminNewJobStart
           startsOn={start?.startsOn ?? null}
           now={now}
-          canEdit={isAuthenticated && Boolean(startEntry)}
-          onSave={(date) => void handleSetStart(date)}
+          canEdit={loadState === "ready" && !state.demoMode && isAuthenticated && Boolean(startEntry)}
+          onSave={handleSetStart}
           onClear={() => void handleClearStart()}
         />
 
@@ -193,6 +199,14 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
         ) : loadState === "loading" ? (
           // Design point 11: skeletons while loading, never "Nothing here yet".
           <ModeModuleSkeleton rows={5} twoLine eyebrow testId="admin-new-job-loading" />
+        ) : loadState === "signed-out" ? (
+          <div data-testid="admin-new-job-signed-out">
+            <p>Sign in to see your New job records. They are kept for your signed-in account only.</p>
+            <Button variant="primary" onClick={() => setSignInOpen(true)}>
+              Sign in
+            </Button>
+            <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
+          </div>
         ) : (
           <>
             <section
@@ -238,9 +252,9 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
                         key={row.entry.id}
                         entry={row.entry}
                         source={row.source}
-                        onToggle={row.source === "you" && isAuthenticated ? handleToggle : undefined}
+                        onToggle={row.source === "you" && isAuthenticated && !state.demoMode ? handleToggle : undefined}
                         onEdit={
-                          row.source === "you" && isAuthenticated
+                          row.source === "you" && isAuthenticated && !state.demoMode
                             ? (entry) => setEditorState({ open: true, entry, section: entry.section })
                             : undefined
                         }
@@ -300,6 +314,7 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
 
       {undo ? (
         <AdminSavedUndoBar
+          key={undo.id}
           label={undo.label}
           onUndo={() => void handleUndo()}
           onDismiss={() => setUndo(null)}

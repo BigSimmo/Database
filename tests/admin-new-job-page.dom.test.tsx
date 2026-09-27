@@ -17,6 +17,10 @@ vi.mock("@/components/account-data-provider", () => ({
   useAccountData: () => ({ isAuthenticated: true, isSaved: () => false, setFavourite: vi.fn(async () => true) }),
 }));
 
+vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
+  AccountSetupDialog: () => null,
+}));
+
 vi.mock("@/components/on-call/on-call-entry-editor", () => ({
   OnCallEntryEditor: (props: { open: boolean; entry: OnCallEntry | null }) =>
     props.open ? <div data-testid="mock-entry-editor">{props.entry?.title ?? "new entry"}</div> : null,
@@ -82,6 +86,14 @@ afterEach(() => {
 const NOW = new Date("2026-09-26T01:00:00Z");
 
 describe("AdminNewJobPage", () => {
+  it("shows sign-in rather than empty New job records when signed out", () => {
+    Object.assign(entryState, { signedOut: true, entries: [] });
+    render(<AdminNewJobPage now={NOW} />);
+    expect(screen.getByTestId("admin-new-job-signed-out")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
+    expect(screen.queryByText("Nothing recorded yet.")).toBeNull();
+  });
+
   it("renders the own login row under Before with its entry anchor", () => {
     render(<AdminNewJobPage now={NOW} />);
     const row = document.getElementById(`on-call-entry-${loginOwn.id}`);
@@ -127,6 +139,17 @@ describe("AdminNewJobPage", () => {
       `/api/on-call/entries/${loginOwn.id}`,
       expect.objectContaining({ method: "PATCH" }),
     );
+  });
+
+  it("preserves a typed start date after a failed save so it can be retried", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Offline"));
+    render(<AdminNewJobPage now={NOW} />);
+    const input = screen.getByTestId("admin-new-job-start-input").querySelector("input")!;
+    fireEvent.change(input, { target: { value: "2026-11-02" } });
+    fireEvent.click(screen.getByTestId("admin-new-job-start-save"));
+    await waitFor(() => expect(screen.getByTestId("admin-new-job-error")).toHaveTextContent("Offline"));
+    expect(input).toHaveValue("2026-11-02");
+    expect(screen.getByTestId("admin-new-job-start-save")).not.toBeDisabled();
   });
 
   it("keeps showing a stored start date a month after it (Today's week-long window does not apply here, M17)", () => {

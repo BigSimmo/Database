@@ -60,7 +60,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!parsedDetails.success) {
       return publicErrorResponse("Invalid On Call entry details.", 400);
     }
-    const problem = adminFreeTextProblem(parsedDetails.data);
+    const problem = adminFreeTextProblem({ ...parsedEntry.data, details: parsedDetails.data });
     if (problem) return publicErrorResponse(problem, 400, { code: "free_text_identifier" });
 
     const entry = onCallEntrySchema.parse({ ...parsedEntry.data, id, details: parsedDetails.data });

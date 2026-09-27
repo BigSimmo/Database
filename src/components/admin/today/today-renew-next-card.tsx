@@ -55,7 +55,7 @@ export function TodayRenewNextCard({
     <ModeFeaturedModule as="section" mode="my-work" className="grid min-w-0 gap-3 p-3" testId="admin-today-renew-next">
       <div className="flex min-w-0 items-center gap-2">
         <Shield aria-hidden="true" strokeWidth={1.5} className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
-        <h2 className={eyebrowText}>Renew next</h2>
+        <h2 className={eyebrowText}>{item.kind === "new-job" ? "New job starts" : "Renew next"}</h2>
       </div>
       <div className="grid min-w-0 gap-1">
         <p className="text-lg-minus font-semibold text-[color:var(--text-heading)]">{item.title}</p>
@@ -65,34 +65,46 @@ export function TodayRenewNextCard({
         <TodayWindowBar start={item.windowStart} end={item.windowEnd} today={today} />
       ) : null}
       <div className="flex min-w-0 flex-wrap gap-2">
-        {howToRenewIsExternal ? (
-          <a
-            href={howToRenewHref}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={cn(buttonFaceClass({ variant: "secondary" }), "flex-1")}
-            data-testid="admin-today-renew-next-how"
-          >
-            <ExternalLink aria-hidden="true" className="size-icon-md shrink-0" />
-            <span>How to renew</span>
-          </a>
-        ) : (
+        {item.kind === "new-job" ? (
           <Link
-            href={howToRenewHref}
-            className={cn(buttonFaceClass({ variant: "secondary" }), "flex-1")}
-            data-testid="admin-today-renew-next-how"
+            href={ADMIN_PAGE_HREFS.newJob}
+            className={cn(buttonFaceClass({ variant: "primary" }), "flex-1")}
+            data-testid="admin-today-renew-next-new-job"
           >
-            <ExternalLink aria-hidden="true" className="size-icon-md shrink-0" />
-            <span>How to renew</span>
+            Open New job
           </Link>
+        ) : (
+          <>
+            {howToRenewIsExternal ? (
+              <a
+                href={howToRenewHref}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={cn(buttonFaceClass({ variant: "secondary" }), "flex-1")}
+                data-testid="admin-today-renew-next-how"
+              >
+                <ExternalLink aria-hidden="true" className="size-icon-md shrink-0" />
+                <span>How to renew</span>
+              </a>
+            ) : (
+              <Link
+                href={howToRenewHref}
+                className={cn(buttonFaceClass({ variant: "secondary" }), "flex-1")}
+                data-testid="admin-today-renew-next-how"
+              >
+                <ExternalLink aria-hidden="true" className="size-icon-md shrink-0" />
+                <span>How to renew</span>
+              </Link>
+            )}
+            <Link
+              href={renewedHref}
+              className={cn(buttonFaceClass({ variant: "primary" }), "flex-1")}
+              data-testid="admin-today-renew-next-renewed"
+            >
+              Renewed
+            </Link>
+          </>
         )}
-        <Link
-          href={renewedHref}
-          className={cn(buttonFaceClass({ variant: "primary" }), "flex-1")}
-          data-testid="admin-today-renew-next-renewed"
-        >
-          Renewed
-        </Link>
       </div>
     </ModeFeaturedModule>
   );
