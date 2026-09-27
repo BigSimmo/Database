@@ -131,6 +131,12 @@ not patient data. The app servers run in Singapore and the database in Sydney; a
 require Australian hosting, which is checked with them before real staff data goes in. P1 #F9HZEG
 (two-user isolation proof) must close first.
 
+**Admin update 1:** Today, Renewals, New job and Help read the owner's existing On Call
+`logistics` records; this interface adds no database table or browser cache. Other doctors'
+shared rows are read-only and are excluded from the owner's calendar, copy and print outputs.
+Optional proof notes are checked for patient-identifying shapes before saving. Admin records
+are not sent to search or a model provider.
+
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
 experienced psychiatrist in Perth"_ ([src/lib/rag/rag.ts](../src/lib/rag/rag.ts)) â€” i.e. a **WA psychiatry**
 use case. Psychiatric context raises the sensitivity ceiling: mental-health information is squarely
