@@ -1591,7 +1591,7 @@
   {
     "id": "mhc-wa-suicide-support-after-suicide-page",
     "title": "Where to go if feeling suicidal",
-    "publisher": "Mental Health Commission WA",
+    "publisher": "Mental Health Commission",
     "publisherCode": "MHCWA",
     "canonicalUrl": "https://www.mhc.wa.gov.au/getting-help/your-health-and-wellbeing/suicide",
     "jurisdiction": "Western Australia",
@@ -1671,7 +1671,7 @@
   {
     "id": "mhc-wa-soar-program-page",
     "title": "SOAR Program",
-    "publisher": "Mental Health Commission WA",
+    "publisher": "Mental Health Commission",
     "publisherCode": "MHCWA",
     "canonicalUrl": "https://www.mhc.wa.gov.au/getting-help/other-support-services/community-support-and-treatment-services/soar-program",
     "jurisdiction": "Western Australia",
@@ -1696,7 +1696,7 @@
   {
     "id": "mhc-wa-soar-plus-program-page",
     "title": "SOAR Plus Program",
-    "publisher": "Mental Health Commission WA",
+    "publisher": "Mental Health Commission",
     "publisherCode": "MHCWA",
     "canonicalUrl": "https://www.mhc.wa.gov.au/getting-help/other-support-services/community-support-and-treatment-services/soar-plus-program",
     "jurisdiction": "Western Australia",
@@ -1796,7 +1796,7 @@
   {
     "id": "mhc-wa-my-services-directory-page",
     "title": "My Services online directory",
-    "publisher": "Mental Health Commission WA",
+    "publisher": "Mental Health Commission",
     "publisherCode": "MHCWA",
     "canonicalUrl": "https://www.mhc.wa.gov.au/getting-help/my-services",
     "jurisdiction": "Western Australia",
@@ -2835,7 +2835,7 @@
   {
     "id": "dictionary-wa-mental-health-emergency-response-line",
     "title": "Mental Health Emergency Response Line",
-    "publisher": "Mental Health Commission WA",
+    "publisher": "Mental Health Commission",
     "publisherCode": "MHCWA",
     "canonicalUrl": "https://www.mhc.wa.gov.au/getting-help/helplines/mental-health-emergency-response-line",
     "jurisdiction": "Australia/WA",

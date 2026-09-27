@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "755c3372-faa7-4874-aced-c07f869bef65",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#X1SPWB",
+    "outcome": "Added formal Hazard H8 covering services emergency crisis helpline routing with failure scenarios H8a and H8b, controls, tests, and ranked register integration to docs/clinical-hazard-analysis.md and refreshed snapshot",
+    "baseRowFingerprint": "a2aaba0a7c4b088ea70cbad4bb8e129e12e80223e1ab5676c898ca275b0dbef9"
+  }
+}

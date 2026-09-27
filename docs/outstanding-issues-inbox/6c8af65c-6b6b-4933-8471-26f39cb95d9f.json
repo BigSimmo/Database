@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6c8af65c-6b6b-4933-8471-26f39cb95d9f",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#HEN4EX",
+    "outcome": "Clarified s 357 plain-English summary in data/mha-2014-sections.json to explicitly state paragraphs (g) through (j) apply to carers, close family members, and nominated persons as defined in the Act; refreshed review sheet and verified check:mha-act-sections",
+    "baseRowFingerprint": "14d531736ed7aedf1e40bf702104c0d8aa7894e0db5c9221001b1b5a350ac260"
+  }
+}

@@ -44,7 +44,7 @@ const expectedPresentations = [
   {
     modeId: "differentials",
     title: "Differential Diagnosis",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Differential diagnosis, clinical presentations, and workups.",
     iconClass: "lucide-brain-circuit",
   },
   {

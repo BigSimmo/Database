@@ -220,6 +220,7 @@ export const sourceAuthorityRegistry = [
     codes: ["MHCWA", "MHC WA"],
     publisher: "Mental Health Commission WA",
     publisherAliases: [
+      "Mental Health Commission",
       "Mental Health Commission Western Australia",
       "Western Australian Mental Health Commission",
       "Government of Western Australia Mental Health Commission",

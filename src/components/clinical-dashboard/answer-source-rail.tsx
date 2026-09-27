@@ -60,6 +60,7 @@ export function AnswerSourceRail({
   onOpenSource,
   activeIndex = null,
   compact = false,
+  isRefusal = false,
 }: {
   sources: AnswerSourceRow[];
   query?: string;
@@ -68,6 +69,7 @@ export function AnswerSourceRail({
   /** Card the drawer is currently showing. */
   activeIndex?: number | null;
   compact?: boolean;
+  isRefusal?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rowListId = useId();
@@ -96,6 +98,7 @@ export function AnswerSourceRail({
   // the same cards either way, so nothing is unreachable in compact mode.
   const collapsed = compact && !expanded;
   const citedCount = sources.filter((source) => source.cited !== false).length;
+  const isSearchOnly = isRefusal || citedCount === 0;
 
   return (
     <section data-testid="answer-source-rail" aria-label="Sources behind this answer" className="min-w-0">
@@ -130,11 +133,13 @@ export function AnswerSourceRail({
             textMuted,
           )}
         >
-          <span>Cited documents</span>
+          <span>{isSearchOnly ? "Documents searched" : "Cited documents"}</span>
           <span className="nums font-normal normal-case tracking-normal">
-            {citedCount === sources.length
-              ? `${sources.length} cited`
-              : `${citedCount} cited · ${sources.length - citedCount} also found`}
+            {isSearchOnly
+              ? `${sources.length} searched`
+              : citedCount === sources.length
+                ? `${sources.length} cited`
+                : `${citedCount} cited · ${sources.length - citedCount} also found`}
           </span>
         </p>
       )}
@@ -149,7 +154,7 @@ export function AnswerSourceRail({
             ref={scroller}
             id={rowListId}
             role="list"
-            aria-label="Cited documents"
+            aria-label={isSearchOnly ? "Documents searched" : "Cited documents"}
             // `snap-proximity`, not `snap-mandatory`. A card left half-scrolled reads as clipped
             // rather than as scrollable — the second card ends mid-word, which looks like a
             // layout fault instead of an invitation. Snapping settles each card to the left edge

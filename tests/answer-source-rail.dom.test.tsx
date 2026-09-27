@@ -782,4 +782,27 @@ describe("AnswerSourceRail wheel panning", () => {
     // Ctrl-wheel is the browser's zoom.
     expect(wheel(list, { deltaY: 120, ctrlKey: true }).defaultPrevented).toBe(false);
   });
+
+  it("switches heading and aria-label to 'Documents searched' on refusals or zero cited sources", () => {
+    const { rerender } = render(
+      <AnswerSourceRail
+        sources={[row({ id: "r1", title: "Searched protocol 1", cited: false })]}
+        onOpenSource={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("answer-source-rail-heading")).toHaveTextContent("Documents searched");
+    expect(screen.getByTestId("answer-source-rail-heading")).toHaveTextContent("1 searched");
+    expect(screen.getByRole("list", { name: "Documents searched" })).toBeInTheDocument();
+
+    rerender(
+      <AnswerSourceRail
+        sources={[row({ id: "c1", title: "Cited protocol 1", cited: true })]}
+        onOpenSource={vi.fn()}
+        isRefusal={true}
+      />,
+    );
+    expect(screen.getByTestId("answer-source-rail-heading")).toHaveTextContent("Documents searched");
+    expect(screen.getByTestId("answer-source-rail-heading")).toHaveTextContent("1 searched");
+    expect(screen.getByRole("list", { name: "Documents searched" })).toBeInTheDocument();
+  });
 });

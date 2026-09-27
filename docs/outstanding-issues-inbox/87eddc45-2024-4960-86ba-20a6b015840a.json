@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "87eddc45-2024-4960-86ba-20a6b015840a",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#F5GHS1",
+    "outcome": "Added Australian health metadata registry meteor.aihw.gov.au to GOVERNED_SOURCE_HOSTS in src/lib/sources/source-url-policy.ts and updated pinned host tests",
+    "baseRowFingerprint": "ba4624aef2ce08820d2dd05967316e0f570690402cabda82d454d23d591308be"
+  }
+}
