@@ -13,6 +13,7 @@ export type LeavingPack = {
   contacts: LeavingPackRecord[];
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `record`
 const strip = ({ isOwn: _isOwn, ...record }: OnCallEntry): LeavingPackRecord => record;
 
 /**

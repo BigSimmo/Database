@@ -64,6 +64,7 @@ export function buildRenewedEntryBody(
   if (previous === next) return { ok: false, reason: "unchanged" };
   const note = input.proofNote.trim();
   if (note.length > 120) return { ok: false, reason: "too-long" };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `rest`
   const { proofNote: _dropped, ...rest } = detailsOf(entry);
   const history = previous
     ? [previous, ...complianceExpiryHistory(entry)].slice(0, HISTORY_LIMIT)
@@ -108,6 +109,7 @@ export function renewalCalendarEvent(entry: OnCallEntry, now: Date): CalendarEve
     .map(perthNineAm)
     .filter((instant) => Date.parse(instant) > now.getTime());
   // `reminderType` is dropped: this file carries its own alerts, not the Settings-driven one.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `event`
   const { reminderType: _feedOnly, ...event } = base;
   return { ...event, alarmsAt: alarms };
 }
@@ -176,6 +178,7 @@ export function groupComplianceEntries(entries: readonly OnCallEntry[]): Complia
  * you started from" pattern the Renewed sheet uses.
  */
 export function buildNotForThisJobToggleBody(entry: OnCallEntry, notForThisJob: boolean): UpdateBody {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `rest`
   const { notForThisJob: _dropped, ...rest } = detailsOf(entry);
   return fullBody(entry, notForThisJob ? { ...rest, notForThisJob: true } : rest);
 }

@@ -112,6 +112,7 @@ export interface NewJobFieldUpdate {
  * ordinary, not-done case either way.
  */
 export function setNewJobStepDone(entry: OnCallEntry, done: boolean): NewJobFieldUpdate {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `rest`
   const { done: _dropped, ...rest } = detailsOf(entry);
   return {
     body: fullBody(entry, done ? { ...rest, done: true } : rest),
@@ -132,6 +133,7 @@ export function setNewJobStart(entry: OnCallEntry, date: string | null): SetNewJ
   if (date !== null && (!DATE_KEY.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)))) {
     return { ok: false, reason: "malformed" };
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `rest`
   const { jobStartsOn: _dropped, ...rest } = detailsOf(entry);
   return {
     ok: true,
