@@ -1481,7 +1481,10 @@ describe("design-system adoption manifest", () => {
     // (the proxy redirect covers the URL) and `/on-call/calendar` moves in place to
     // `/roster/calendar` — one route out, one moved, net minus one. Roster's own
     // Today/Shifts/Settings pages are not yet declared: they land with the Screens task.
-    expect(manifest.routeCoverage.discovered).toHaveLength(105);
+    //
+    // 105 -> 108 on 2026-09-26: Roster's Today (`/roster`), `/roster/shifts` and
+    // `/roster/settings`, each declared in `adoption-contract.json`.
+    expect(manifest.routeCoverage.discovered).toHaveLength(108);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

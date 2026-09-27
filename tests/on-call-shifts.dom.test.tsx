@@ -78,7 +78,7 @@ describe("the next-shift card", () => {
   it("invites a roster import when there are no shifts", () => {
     render(<OnCallNextShift state={state()} now={now} />);
     const link = screen.getByTestId("on-call-next-shift-empty");
-    expect(link).toHaveAttribute("href", "/on-call/shifts");
+    expect(link).toHaveAttribute("href", "/roster");
     expect(link).toHaveTextContent("Add your roster");
   });
 

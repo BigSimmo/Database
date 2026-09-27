@@ -29,7 +29,7 @@ export function OnCallNextShift({ state, now }: { state: RosterShiftsState; now:
   if (!next) {
     return (
       <Link
-        href="/on-call/shifts"
+        href="/roster"
         data-testid="on-call-next-shift-empty"
         className={cn(
           cardSurface,
@@ -49,7 +49,7 @@ export function OnCallNextShift({ state, now }: { state: RosterShiftsState; now:
   const { shift } = next;
   return (
     <Link
-      href="/on-call/shifts"
+      href="/roster"
       data-testid="on-call-next-shift"
       className={cn(cardSurface, focusRing, "grid min-h-tap gap-1 p-4 no-underline")}
     >

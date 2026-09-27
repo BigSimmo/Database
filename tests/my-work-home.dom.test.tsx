@@ -92,8 +92,8 @@ describe("MyWorkHome", () => {
       "/on-call/logistics",
       "/on-call/compliance",
       "/on-call/check",
-      "/on-call/shifts",
-      "/on-call/calendar",
+      "/roster",
+      "/roster/calendar",
       "/on-call/orientation",
       "/?settings=open",
     ]);

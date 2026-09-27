@@ -123,7 +123,7 @@ export function OnCallPageMenuActions({
       ) : null}
 
       <Link
-        href="/on-call/shifts"
+        href="/roster"
         onClick={() => onNavigate?.()}
         className={inPageActionRowClass}
         data-testid="on-call-page-menu-shifts"
