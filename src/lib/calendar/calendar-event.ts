@@ -124,7 +124,21 @@ function occurrenceAfter(anchor: string, recurrence: CalendarRecurrence, index: 
   }
 }
 
-/** Safety cap: a weekly series over a year is 53; nothing a page shows needs more. */
+/** Start expansion near the visible range, even when the series anchor is decades old. */
+function firstIndexNear(anchor: string, recurrence: CalendarRecurrence, rangeStart: string): number {
+  const anchorMillis = dateKeyToUtcMillis(anchor);
+  const startMillis = dateKeyToUtcMillis(rangeStart);
+  if (anchorMillis === null || startMillis === null || startMillis <= anchorMillis) return 0;
+  if (recurrence === "weekly" || recurrence === "fortnightly") {
+    return Math.floor((startMillis - anchorMillis) / ((recurrence === "weekly" ? 7 : 14) * DAY_MS));
+  }
+  const earlier = new Date(anchorMillis);
+  const later = new Date(startMillis);
+  const months = (later.getUTCFullYear() - earlier.getUTCFullYear()) * 12 + later.getUTCMonth() - earlier.getUTCMonth();
+  return Math.max(0, Math.floor(months / (recurrence === "monthly" ? 1 : 3)) - 1);
+}
+
+/** Safety cap applies to occurrences near the visible range, not the series' age. */
 const MAX_OCCURRENCES_PER_EVENT = 400;
 
 /**
@@ -143,7 +157,8 @@ export function expandEvents(
       if (event.date >= range.start && event.date <= range.end) result.push({ ...event, occurrenceKey: event.id });
       continue;
     }
-    for (let index = 0; index < MAX_OCCURRENCES_PER_EVENT; index += 1) {
+    const first = firstIndexNear(event.date, event.recurrence, range.start);
+    for (let index = first; index < first + MAX_OCCURRENCES_PER_EVENT; index += 1) {
       const date = occurrenceAfter(event.date, event.recurrence, index);
       if (date > range.end) break;
       if (date >= range.start) result.push({ ...event, date, occurrenceKey: `${event.id}@${date}` });

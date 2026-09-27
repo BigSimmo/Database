@@ -100,9 +100,25 @@ describe("calendar file", () => {
     );
   });
 
+  it("evaluates a before-08:00 monthly recurrence in Perth rather than on the previous UTC date", () => {
+    const exported = toIcs([{ ...TIMED, date: "2026-01-31", startTime: "07:30", recurrence: "monthly" }], { now: NOW });
+    expect(exported).toContain("BEGIN:VTIMEZONE\r\nTZID:Australia/Perth");
+    expect(exported).toContain("DTSTART;TZID=Australia/Perth:20260131T073000");
+    expect(exported).toContain("RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1");
+    expect(exported).not.toContain("DTSTART:20260130T233000Z");
+  });
+
   it("names the file safely", () => {
     expect(icsFileName("CME: 2026 deadlines!")).toBe("cme-2026-deadlines.ics");
     expect(icsFileName("***")).toBe("calendar.ics");
+  });
+
+  it("expands a monthly teaching anchor older than 400 periods into the current month", () => {
+    const occurrences = expandEvents([{ ...TIMED, date: "1987-01-31", recurrence: "monthly" }], {
+      start: "2026-02-01",
+      end: "2026-02-28",
+    });
+    expect(occurrences.map((event) => event.date)).toEqual(["2026-02-28"]);
   });
 });
 

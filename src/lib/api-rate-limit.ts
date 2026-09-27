@@ -261,7 +261,7 @@ function rememberDurableRateLimitDenyCache(identity: string, bucket: string, res
   // limited subject that never returned stayed for the life of the process.
   // Same ceiling as the in-memory limiter: sweep expired entries, then drop
   // the oldest. Dropping one is safe: the next request asks the durable limiter.
-  if (durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
+  if (!durableApiRateLimitDenyCache.has(key) && durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
     for (const [cachedKey, cached] of durableApiRateLimitDenyCache) {
       if (now >= cached.resetAtMs) durableApiRateLimitDenyCache.delete(cachedKey);
     }

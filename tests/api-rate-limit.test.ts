@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   consumeSubjectApiRateLimit,
+  ANONYMOUS_GENERATION_CEILING_BUCKET,
+  ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY,
   durableRateLimitDenyCacheSizeForTests,
   resetDurableRateLimitDenyCacheForTests,
   type RateLimitSubject,
@@ -81,6 +83,37 @@ describe("api rate limiter dual-bucket & deny cache batching", () => {
     }
 
     expect(durableRateLimitDenyCacheSizeForTests()).toBeLessThanOrEqual(2000);
+    const cache = (
+      globalThis as typeof globalThis & {
+        __clinicalKbDurableApiRateLimitDenyCache?: Map<string, unknown>;
+      }
+    ).__clinicalKbDurableApiRateLimitDenyCache!;
+    const [oldest, firstEntry] = cache.entries().next().value!;
+    const last = Array.from(cache.keys()).at(-1)!;
+    const sharedKey = `${ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY}:${ANONYMOUS_GENERATION_CEILING_BUCKET}`;
+    cache.delete(last);
+    cache.set(sharedKey, firstEntry);
+    expect(cache.size).toBe(2000);
+
+    const ceilingClient = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          scope: "ceiling",
+          limited: true,
+          limit_value: 300,
+          remaining: 0,
+          reset_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+        error: null,
+      }),
+    } as unknown as ReturnType<typeof createAdminClient>;
+    await consumeSubjectApiRateLimit({
+      supabase: ceilingClient,
+      subject: { kind: "anonymous", subjectKey: "anon:new-subject" },
+      bucket: "answer",
+    });
+    expect(cache.size).toBe(2000);
+    expect(cache.has(oldest)).toBe(true);
     resetDurableRateLimitDenyCacheForTests();
   });
 });
