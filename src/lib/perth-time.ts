@@ -13,6 +13,8 @@ export const PERTH_TIME_ZONE = "Australia/Perth";
 export const PERTH_UTC_OFFSET_MINUTES = CALENDAR_UTC_OFFSET_MINUTES; // 480
 export const PERTH_OFFSET_MS = PERTH_UTC_OFFSET_MINUTES * 60 * 1000;
 
+export const OFFSET_MS = PERTH_OFFSET_MS;
+
 /**
  * Derives the Perth calendar date `YYYY-MM-DD` for an instant (Date, ISO string, or epoch ms).
  * Defaults to current time when omitted.
@@ -26,7 +28,6 @@ export function perthCalendarDate(instant: Date | string | number = new Date()):
   return new Date(ms + PERTH_OFFSET_MS).toISOString().slice(0, 10);
 }
 
-/** Alias for perthCalendarDate for parity with on-call shifts API. */
 /** The Perth calendar date of an instant, `YYYY-MM-DD`. */
 export function perthDateOf(instant: string | Date | number = new Date()): string {
   return perthCalendarDate(instant);
@@ -62,8 +63,13 @@ export function addDaysToDate(date: string, days: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+/** Alias for addDaysToDate for parity with CME date arithmetic. */
+export function addCalendarDays(date: string, days: number): string {
+  return addDaysToDate(date, days);
+}
+
+export const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
 /** "Mon 3 Oct" for a Perth date. */
 export function formatPerthDay(date: string): string {

@@ -13,6 +13,7 @@ import type { CmeYearClose } from "@/lib/cme/types";
 import {
   amendedVersionHours,
   canCloseCmeYear,
+  closedRequirementSummaryText,
   cmeYearClosableFromLabel,
   CME_SHORTFALL_NOTE_MAX,
 } from "@/lib/cme/year-close";
@@ -48,7 +49,7 @@ function ClosedYearRecord({ year, close }: { year: number; close: CmeYearClose }
           {close.requirements.map((requirement) => (
             <li key={requirement.requirementId}>
               <span className={requirement.met ? undefined : "font-semibold"}>{requirement.label}</span>:{" "}
-              {requirement.summary}
+              {closedRequirementSummaryText(requirement.summary)}
             </li>
           ))}
         </ul>
@@ -174,7 +175,7 @@ export function CmeYearClosePanel({
             id="cme-year-close-note"
             hint={
               unmetCount > 0
-                ? `${unmetCount} ${unmetCount === 1 ? "requirement is" : "requirements are"} not met. A note — leave, illness, anything — goes on the record where an explanation belongs. It does not reduce the requirement.`
+                ? `${unmetCount} ${unmetCount === 1 ? "target is" : "targets are"} not reached yet. A note — leave, illness, anything — goes on the record where an explanation belongs. It does not reduce the requirement.`
                 : "A note goes on the record where an explanation belongs. It does not reduce any requirement."
             }
           >

@@ -376,6 +376,12 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run docs:check-links
 
+      # Owner decisions index (docs/decisions/README.md). A malformed entry is a docs-only change,
+      # so it runs in the docs lane too, not only inside the unit suite a docs change never reaches.
+      - name: Decisions index
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:decisions
+
       - name: Dependency and duplicate-export hygiene
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:knip
@@ -505,8 +511,8 @@ jobs:
       # fetch-depth 0 checkout above for the reviewedCommit ancestry checks; the
       # script says so and skips only those on a shallow clone. An expired
       # reviewExpiresAt is strict on manual, release-branch and local runs; on a PR,
-      # in the merge queue or on a push to main it warns unless the change touches
-      # the register or a path the expired entry covers, and the weekly
+      # in the merge queue or on a push to main it warns unless the change edits
+      # that expired entry or touches a path it covers, and the weekly
       # organisation report raises it (REVIEW_DATE_MODE, owner decisions 2026-09-26).
       - name: Clinical hazard-controls register
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
@@ -534,6 +540,7 @@ jobs:
       # can break the map. It blocks only map breakage this change introduced (never inherited
       # findings, never a date); files not yet placed are warnings in the job summary.
       - name: Organisation map
+        if: ${{ !cancelled() }}
         env:
           ORGANISATION_CHECK_MODE: ci
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
@@ -544,6 +551,7 @@ jobs:
       # instruction file, or AGENTS.md/CLAUDE.md growing past their size budget. Judges only
       # what this change adds, so it never blames a PR for main's own state or for the date.
       - name: Instruction guards
+        if: ${{ !cancelled() }}
         env:
           INSTRUCTIONS_CHECK_MODE: ci
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}

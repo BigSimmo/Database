@@ -244,7 +244,7 @@ For the rules on pasting the decisive gate line, stating verified versus assumed
 
 # Supabase project safety
 
-- This repo targets the live Supabase project `Clinical KB Database`.
+- This repo targets the live Supabase project `PsychSift Production`.
 - **MERGING TO `main` DEPLOYS TO PRODUCTION.** The Supabase GitHub integration has **"Deploy to
   production" ENABLED**, production branch **`main`** — confirmed by a dashboard read on 2026-08-21,
   after two earlier sessions inferred it wrongly in both directions. Any migration merged to `main` is
@@ -372,10 +372,10 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 
 # Railway project safety
 
-- This repo deploys to the live Railway project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) in workspace `bigsimmo's Projects`. Full topology: `docs/deployment-architecture.md` §1.
-- Production services `Database` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/Database` pushes to `main`; the `staging` environment runs the `app` service.
+- This repo deploys to the live Railway project `PsychSift` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) in workspace `bigsimmo's Projects`. Full topology: `docs/deployment-architecture.md` §1.
+- Production services `PsychSift` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/PsychSift` pushes to `main`; the `staging` environment runs the `app` service.
 - The older Railway project `clinical-kb` (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) is superseded with zero active deployments; treat it as stale — never `railway link` to it or deploy there.
-- The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
+- The similarly named Supabase project `PsychSift Production` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
 - Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects; Cloud runtime acceptance no longer installs or probes the CLI, so that substitution rule is documentation-enforced until an operator workflow reintroduces CLI checks. Desktop/CLI MCP uses the secret-free `railway` entry (enable in `$CODEX_HOME/config.toml` or via a never-committed local edit — never commit `enabled = true`) plus `codex mcp login railway`; neither repository MCP file activates a hosted ChatGPT/Codex app.
 - Railway deploys and mutations fall under the "API and provider confirmation boundary" below; verify target project/environment IDs before any mutation.
 - **Safe, fast iteration.** Keep automatic Railway PR Environments disabled. Iterate locally with focused checks, use an explicitly requested isolated app preview when useful, and keep production deployment from protected `main`. Never copy production database/provider credentials or an ingestion worker into a routine PR preview. Any future automatic previews require an isolated base and Focused PR Environments, using the existing service watch paths. Follow [the preview policy and verified settings](docs/deployment-architecture.md#selective-railway-pr-previews); keep required CI and Supabase controls intact.

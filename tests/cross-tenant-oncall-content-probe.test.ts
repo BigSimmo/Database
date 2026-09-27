@@ -208,6 +208,7 @@ async function runProbe(leaks: Leaks = {}) {
     tokenA: "a",
     tokenB: "b",
     userIdB: userId.b!,
+    emailB: "user.b@example.org",
     serviceId,
     siteId,
     marker: "probe-marker",

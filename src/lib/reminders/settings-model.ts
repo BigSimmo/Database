@@ -28,6 +28,7 @@ import { dateKeyToUtcMillis, isValidTime } from "@/lib/calendar/date-keys";
 export const REMINDER_TYPES = [
   "compliance-dates",
   "on-call-checks",
+  "shifts",
   "cpd-year-end",
   "cpd-routines",
   "teaching",
@@ -39,6 +40,7 @@ export const REMINDER_TYPE_DISPLAY_ORDER: readonly ReminderType[] = [
   "cpd-routines",
   "cpd-year-end",
   "on-call-checks",
+  "shifts",
   "compliance-dates",
   "teaching",
 ];
@@ -49,6 +51,7 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
   "on-call-checks": "On Call checks",
   "compliance-dates": "Compliance dates",
   teaching: "Teaching",
+  shifts: "Shifts",
 };
 
 /**
@@ -64,9 +67,17 @@ export const REMINDER_CALENDAR_REACH: Record<ReminderType, ReminderCalendarReach
   "on-call-checks": "none",
   "compliance-dates": "file-only",
   teaching: "link-and-file",
+  shifts: "link-and-file",
 };
 
-export const REMINDER_LEAD_TIMES = ["off", "at-time", "1h", "1d", "1w"] as const;
+/**
+ * `"evening-before"` is a fixed 20:00 Perth alarm the day before, not a
+ * duration before the shift's own start time (a night shift starting at
+ * 21:30 would otherwise alert mid-afternoon). It is offered only for the
+ * `"shifts"` type; every other type keeps its calendar alert off or picks
+ * one of the duration-based lead times.
+ */
+export const REMINDER_LEAD_TIMES = ["off", "at-time", "1h", "1d", "1w", "evening-before"] as const;
 export type ReminderLeadTime = (typeof REMINDER_LEAD_TIMES)[number];
 
 export const REMINDER_LEAD_TIME_LABELS: Record<ReminderLeadTime, string> = {
@@ -75,6 +86,7 @@ export const REMINDER_LEAD_TIME_LABELS: Record<ReminderLeadTime, string> = {
   "1h": "1 hour before",
   "1d": "1 day before",
   "1w": "1 week before",
+  "evening-before": "The evening before (20:00)",
 };
 
 export type ReminderTypeSettings = {
@@ -118,6 +130,7 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   types: {
     "compliance-dates": DEFAULT_TYPE_SETTINGS,
     "on-call-checks": DEFAULT_TYPE_SETTINGS,
+    shifts: DEFAULT_TYPE_SETTINGS,
     "cpd-year-end": DEFAULT_TYPE_SETTINGS,
     "cpd-routines": DEFAULT_TYPE_SETTINGS,
     teaching: DEFAULT_TYPE_SETTINGS,

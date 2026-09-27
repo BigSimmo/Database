@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -46,9 +46,8 @@ describe("CmeMissedSessionsSection", () => {
     render(<CmeMissedSessionsSection sessions={[]} entries={[]} />);
 
     await user.click(screen.getByTestId("cme-missed-add-open"));
-    // `fireEvent.change`, not `user.type`: a `type="date"` input sanitises every partial value to
-    // "" as it is typed, so it cannot be typed into character by character.
-    fireEvent.change(screen.getByLabelText(/^Date/), { target: { value: "2026-09-22" } });
+    await user.click(screen.getByTestId("cme-missed-add-date-other"));
+    await user.type(screen.getByLabelText(/^Date/), "22/09/2026");
     await user.type(screen.getByLabelText(/^What was missed/), "Fortnightly supervision");
     await user.clear(screen.getByLabelText(/^Minutes lost/));
     await user.type(screen.getByLabelText(/^Minutes lost/), "45");

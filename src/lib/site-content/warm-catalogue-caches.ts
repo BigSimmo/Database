@@ -53,6 +53,7 @@ export async function warmCanonicalCatalogueSearchCaches(
         kind,
         slug: null,
         cache: true,
+        renderOnly: kind === "medication",
         // Seeds are unused on a successful RPC; an empty list is enough for warm-only.
         seeds: [],
         signal: controller.signal,

@@ -73,6 +73,7 @@ export const serviceActionSchema = z
         action: z.literal("invitation.create"),
         role: z.enum(serviceRoles),
         expiresInDays: z.number().int().min(1).max(7),
+        invitedEmail: z.string().trim().toLowerCase().max(320).pipe(z.email()),
       })
       .strict(),
     z.object({ action: z.literal("invitation.revoke"), invitationId: uuid }).strict(),

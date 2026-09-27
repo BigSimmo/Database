@@ -13,7 +13,7 @@ const head = "a".repeat(40),
   now = "2026-09-09T00:00:00Z";
 const repo = {
   owner: "BigSimmo",
-  repo: "Database",
+  repo: "PsychSift",
   actor: "BigSimmo",
   runId: 42,
   now: () => now,

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { codeSpan } from "../scripts/organisation/map-placement.mjs";
 import { pinStatus } from "../scripts/organisation/pins.mjs";
 import {
   BASELINE_FILE,
@@ -98,6 +99,14 @@ function shallowClone(root: string) {
 
 afterEach(() => {
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+});
+
+describe("code spans in the report", () => {
+  it("keeps file names verbatim, with no backslashes, and fences around backticks", () => {
+    expect(codeSpan("src/app/[id]/page_view.tsx")).toBe("`src/app/[id]/page_view.tsx`");
+    expect(codeSpan("odd`name.md")).toBe("``odd`name.md``");
+    expect(codeSpan("`edge")).toBe("`` `edge ``");
+  });
 });
 
 describe("pins and stale key documents", () => {

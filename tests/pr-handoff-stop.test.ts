@@ -90,7 +90,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
         {
           tool_name: "create_pull_request_review",
           session_id: "sess-review",
-          tool_response: "https://github.com/BigSimmo/Database/pull/1649#pullrequestreview-1",
+          tool_response: "https://github.com/BigSimmo/PsychSift/pull/1649#pullrequestreview-1",
         },
         root,
       );
@@ -106,7 +106,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
         {
           tool_name: "create_pull_request",
           session_id: "sess-create",
-          tool_response: "Opened https://github.com/BigSimmo/Database/pull/1649",
+          tool_response: "Opened https://github.com/BigSimmo/PsychSift/pull/1649",
         },
         root,
       );
@@ -122,7 +122,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
         {
           tool_name: "create_pull_request",
           session_id: "sess-context",
-          tool_response: "Opened https://github.com/BigSimmo/Database/pull/1649",
+          tool_response: "Opened https://github.com/BigSimmo/PsychSift/pull/1649",
         },
         root,
       );
@@ -139,7 +139,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
         {
           tool_name: "create_pull_request",
           session_id: "../evil",
-          tool_response: "https://github.com/BigSimmo/Database/pull/1",
+          tool_response: "https://github.com/BigSimmo/PsychSift/pull/1",
         },
         root,
       );
@@ -186,7 +186,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
         {
           tool_name: "create_pull_request",
           session_id: "sess-readonly",
-          tool_response: "Opened https://github.com/BigSimmo/Database/pull/1649",
+          tool_response: "Opened https://github.com/BigSimmo/PsychSift/pull/1649",
         },
         root,
       );
@@ -203,7 +203,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
           tool_name: "Bash",
           session_id: "sess-create-quoted",
           tool_input: { command: 'git commit -m "open pr" && gh pr create --fill' },
-          tool_response: "https://github.com/BigSimmo/Database/pull/1649",
+          tool_response: "https://github.com/BigSimmo/PsychSift/pull/1649",
         },
         root,
         { pathWithoutJq: true },
@@ -222,7 +222,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
           session_id: "sess-print-docs",
           tool_input: { command: "cat AGENTS.md" },
           tool_response:
-            "Documented handoff: run gh pr create then open https://github.com/BigSimmo/Database/pull/1649",
+            "Documented handoff: run gh pr create then open https://github.com/BigSimmo/PsychSift/pull/1649",
         },
         root,
         { pathWithoutJq: true },
@@ -237,7 +237,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
       // Key order matters for the jq-less suffix extractor: response first, then
       // an input field that happens to mention a PR URL must not write a marker.
       const payload =
-        '{"tool_name":"Bash","session_id":"sess-order","tool_response":"create failed","tool_input":{"command":"gh pr create --fill","url":"https://github.com/BigSimmo/Database/pull/1649"}}';
+        '{"tool_name":"Bash","session_id":"sess-order","tool_response":"create failed","tool_input":{"command":"gh pr create --fill","url":"https://github.com/BigSimmo/PsychSift/pull/1649"}}';
       const out = runHook("post", payload, root, { pathWithoutJq: true });
       expect(out.status).toBe(0);
       expect(out.markerExists("sess-order")).toBe(false);
@@ -323,7 +323,7 @@ describe.skipIf(process.platform === "win32")("pr-handoff-stop hook — CronCrea
         input: JSON.stringify({
           tool_name: "create_pull_request",
           session_id: "sess-ceiling",
-          tool_response: "Opened https://github.com/BigSimmo/Database/pull/1649",
+          tool_response: "Opened https://github.com/BigSimmo/PsychSift/pull/1649",
         }),
         encoding: "utf8",
         env: { ...process.env, ...env },

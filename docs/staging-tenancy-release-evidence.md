@@ -21,7 +21,7 @@ The staging app used by this check must:
 
 - target the same dedicated staging Supabase project;
 - set `RAG_PROVIDER_MODE=offline`, which the harness proves by requiring the exact
-  `source_only_offline_mode` answer fallback;
+  `provider_offline` public answer fallback code;
 - use two distinct, non-human test accounts that are not used interactively; and
 - avoid running an ingestion worker during the short check, because full reindex is
   exercised last and the harness owns cleanup.

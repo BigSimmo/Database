@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "68b2f84b-0e00-4b5e-a1f6-2969c2e849a8",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Search header interface is very wide: MasterSearchHeader takes about 61 props and its two callers pass 56 and 40",
+    "detail": "src/components/clinical-dashboard/master-search-header.tsx:184 (about 3,140 lines) is fed by src/components/ClinicalDashboard.tsx:3216 (56 props) and src/components/clinical-dashboard/global-search-shell.tsx:942 (40 props), so any search behaviour change touches three large files. The ClinicalDashboard size itself (4,057 lines, 57 useState) is already tracked as a monolith in docs/maturity-backlog-workorders.md section X3; this row is only the header interface. Next action: design a deeper search-session module (codebase-design vocabulary) that owns query, mode and filter state behind a small interface. Protected surface: search chrome rules in AGENTS.md apply, needs docs/search-chrome-behaviour.md and npm run verify:phone-chrome. Planned work, not a quick fix.",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVV885NXQM4NM4D45PY7T"
+  }
+}

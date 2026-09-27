@@ -250,7 +250,7 @@ describe("PUT /api/account/preferences reminders", () => {
   });
 
   it.each([
-    ["an unknown reminder type", { types: { shifts: { showInApp: false } } }],
+    ["an unknown reminder type", { types: { "invented-type": { showInApp: false } } }],
     ["an unknown field", { types: { teaching: { volume: 11 } } }],
     ["an unknown lead time", { types: { teaching: { calendarAlert: "2d" } } }],
     ["a date that does not exist", { types: { teaching: { snoozedUntil: "2026-02-30" } } }],

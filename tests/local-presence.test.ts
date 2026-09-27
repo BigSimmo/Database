@@ -90,7 +90,7 @@ describe("check-local-presence", () => {
     const result = classifyProjectIdentity({
       NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
       SUPABASE_PROJECT_REF: "sjrfecxgysukkwxsowpy",
-      SUPABASE_PROJECT_NAME: "Clinical KB Database",
+      SUPABASE_PROJECT_NAME: "PsychSift Production",
     });
     expect(result.status).toBe("ready");
   });

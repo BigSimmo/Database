@@ -222,12 +222,12 @@ export function MyWorkHome({ now: nowProp }: { now?: Date } = {}) {
             </Link>
           </li>
           <li>
-            <Link href="/on-call/shifts" data-testid="my-work-page-shifts" className={pageCard}>
+            <Link href="/roster" data-testid="my-work-page-shifts" className={pageCard}>
               <PageCardBody icon={Clock} title="My shifts" description="Your own roster, private to your account" />
             </Link>
           </li>
           <li>
-            <Link href="/on-call/calendar" data-testid="my-work-page-calendar" className={pageCard}>
+            <Link href="/roster/calendar" data-testid="my-work-page-calendar" className={pageCard}>
               <PageCardBody
                 icon={CalendarDays}
                 title="Calendar"

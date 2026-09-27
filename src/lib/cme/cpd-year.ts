@@ -11,7 +11,8 @@
  * `en-CA` is not a locale choice: it is the one built-in locale whose short date
  * format is already `YYYY-MM-DD`, so no reassembly is needed.
  */
-import { perthCalendarDate as sharedPerthCalendarDate, PERTH_TIME_ZONE } from "@/lib/perth-time";
+import { addDaysToDate, perthCalendarDate as sharedPerthCalendarDate, PERTH_TIME_ZONE } from "@/lib/perth-time";
+
 
 export const CPD_TIME_ZONE = "Australia/Perth";
 
@@ -128,4 +129,84 @@ export function paceProjection(args: {
   if (elapsed < CPD_PACE_MINIMUM_ELAPSED_DAYS) return null;
   const projectedHours = roundHours((args.hoursSoFar / elapsed) * daysInCpdYear(args.year));
   return { projectedHours, shortfallHours: roundHours(Math.max(0, args.targetHours - projectedHours)) };
+}
+
+const SHORT_WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/** Sakamoto's month offsets for `weekdayOf`. */
+const WEEKDAY_MONTH_OFFSETS = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4] as const;
+
+/**
+ * Day of the week (0 = Sunday) of a calendar date, by Sakamoto's method:
+ * integer arithmetic only, so no `Date`, no runtime time zone and no chance
+ * of a Perth date being read as the day before.
+ */
+function weekdayOf(year: number, month: number, day: number): number {
+  const y = month < 3 ? year - 1 : year;
+  return (
+    (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) + WEEKDAY_MONTH_OFFSETS[month - 1] + day) % 7
+  );
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) return daysInCpdYear(year) === 366 ? 29 : 28;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+/**
+ * Renders a Perth calendar date (`YYYY-MM-DD`) as "Sat 26 Sep", adding the
+ * year ("Wed 31 Dec 2025") only when it is not `today`'s year. `today` is a
+ * Perth calendar date too, normally `perthCalendarDate(new Date())`. Plain
+ * arithmetic on the string, like `formatCalendarDateLong` above.
+ */
+export function formatCmeRowDate(date: string, today: string): string {
+  const [year, month, day] = date.split("-").map((part) => Number.parseInt(part, 10));
+  const label = `${SHORT_WEEKDAY_NAMES[weekdayOf(year, month, day)]} ${day} ${SHORT_MONTH_NAMES[month - 1]}`;
+  return date.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${date.slice(0, 4)}`;
+}
+
+export function addCalendarDays(dateOnly: string, days: number): string {
+  return addDaysToDate(dateOnly, days);
+}
+
+
+/** `YYYY-MM-DD` as the Australian "26/09/2026" the date box shows. Empty for anything else. */
+export function formatCmeDayInput(dateOnly: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) return "";
+  const [year, month, day] = dateOnly.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+const DAY_INPUT_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DAY_INPUT_NUMERIC = /^(\d{1,2})[/.\- ](\d{1,2})[/.\- ](\d{4})$/;
+/** Eight digits, day first: the iPhone number pad has no "/" key. */
+const DAY_INPUT_COMPACT = /^(\d{2})(\d{2})(\d{4})$/;
+const DAY_INPUT_WORDED = /^(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})$/;
+
+/**
+ * Reads a day typed the Australian way — "26/9/2026", "26/09/2026",
+ * "26-09-2026", "26.09.2026", "26092026", "26 Sep 2026", "26 September 2026" —
+ * or a pasted ISO "2026-09-26", as a Perth calendar date (`YYYY-MM-DD`).
+ * Day first, always: "9/26/2026" is refused, never read as the US order.
+ * Returns null for anything that is not a real day, such as 31/2/2026.
+ */
+export function parseCmeDayInput(text: string): string | null {
+  const trimmed = text.trim();
+  let parts: [number, number, number] | null = null;
+  const iso = DAY_INPUT_ISO.exec(trimmed);
+  const numeric = DAY_INPUT_NUMERIC.exec(trimmed) ?? DAY_INPUT_COMPACT.exec(trimmed);
+  const worded = DAY_INPUT_WORDED.exec(trimmed);
+  if (iso) {
+    parts = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  } else if (numeric) {
+    parts = [Number(numeric[3]), Number(numeric[2]), Number(numeric[1])];
+  } else if (worded) {
+    const word = worded[2].toLowerCase();
+    const monthIndex = FULL_MONTH_NAMES.findIndex((name) => name.toLowerCase().startsWith(word));
+    if (monthIndex >= 0) parts = [Number(worded[3]), monthIndex + 1, Number(worded[1])];
+  }
+  if (!parts) return null;
+  const [year, month, day] = parts;
+  if (year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }

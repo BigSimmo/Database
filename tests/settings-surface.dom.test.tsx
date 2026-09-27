@@ -76,7 +76,7 @@ describe("settings surface", () => {
       "Privacy & security",
       "Keyboard shortcuts",
       "Help & About",
-      "Developer",
+      "Owner panel",
     ]) {
       expect(screen.getByRole("heading", { name: heading })).toBeVisible();
     }
