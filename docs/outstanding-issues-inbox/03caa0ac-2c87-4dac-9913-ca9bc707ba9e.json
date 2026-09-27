@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "03caa0ac-2c87-4dac-9913-ca9bc707ba9e",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#N8REV9",
+    "outcome": "Extracted OnCallPageView to src/lib/on-call/view.ts and re-keyed freshness summary by clinical view so compliance entries track under compliance instead of logistics folder (#N8REV9).",
+    "baseRowFingerprint": "f1dd37f000f36e318698948e904419f599803b92de7ce4d525babb93172ea033"
+  }
+}
