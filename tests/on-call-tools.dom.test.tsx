@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -73,6 +74,14 @@ afterEach(() => {
 });
 
 describe("who to call now", () => {
+  it("does not present the historical anchor as the current working-hours period on the server", () => {
+    state.entries = [LADDER];
+    const markup = renderToString(<OnCallCallNowPage />);
+    expect(markup).toContain("Loading current on-call context");
+    expect(markup).not.toContain("Working hours: working-hours steps are listed first.");
+    expect(markup).not.toContain("tel:0890000001");
+  });
+
   it("puts the after-hours steps first at night, with a call button, and keeps the rest below", () => {
     state.entries = [LADDER];
     render(<OnCallCallNowPage now={new Date(2026, 8, 22, 23, 0)} />);

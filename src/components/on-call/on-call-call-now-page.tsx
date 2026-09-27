@@ -74,6 +74,17 @@ export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
   const laterSteps = steps.filter((step) => !step.appliesNow);
   const PeriodIcon = period === "after-hours" ? Moon : Sun;
 
+  if (!nowProp && !mounted) {
+    return (
+      <>
+        <OnCallToolNavHeader title="Who to call now" testIdPrefix="on-call-now" />
+        <InformationPageShell testId="on-call-now-main" width="narrow">
+          <p role="status">Loading current on-call context…</p>
+        </InformationPageShell>
+      </>
+    );
+  }
+
   return (
     <>
       <OnCallToolNavHeader title="Who to call now" testIdPrefix="on-call-now" />

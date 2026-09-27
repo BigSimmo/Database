@@ -217,6 +217,15 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   const numbersOnScreen = ready && handbookItems.some((item) => item.dial.kind !== "none" && item.dial.kind !== "text");
   const showFirstRun = !loading && !hasEntries && !loadFailed && !(signedOut && handbookAsksSignIn);
 
+  if (!pinnedNow && !mounted) {
+    return (
+      <InformationPageShell testId="on-call-home-main">
+        <h1 className="sr-only">Now</h1>
+        <p role="status">Loading current on-call context…</p>
+      </InformationPageShell>
+    );
+  }
+
   return (
     <>
       <OnCallPageMenu view="home" notifications={notifications} onSnoozeNotifications={snoozeNotifications} />

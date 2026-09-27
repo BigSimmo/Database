@@ -4,7 +4,7 @@
 export { formatOnCallDate, formatOnCallDateTime } from "@/lib/on-call/display-dates";
 
 /**
- * Stable server-safe anchor for initial two-pass rendering (Wednesday 10:00 AWST).
- * Guarantees zero hydration mismatch between UTC server rendering and AWST client time.
+ * Stable internal value while a time-dependent page shows its neutral hydration placeholder.
+ * The page must not render clinical periods, numbers or reminders from this historical instant.
  */
 export const ON_CALL_SERVER_ANCHOR = new Date("2026-09-23T02:00:00.000Z");
