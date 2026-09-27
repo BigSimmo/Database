@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-27"
+    "committed_at": "2026-09-28"
   },
   "routes": {
     "modes": [
@@ -3331,6 +3331,11 @@
       {
         "path": "docs/decisions/2026-09-19-escalation-and-monitoring-chip-words.md",
         "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-on-call-completion.md",
+        "section": "superpowers",
         "catalogued": false
       },
       {
