@@ -57,7 +57,14 @@ function fakeSupabase(calls: RpcCall[]): SearchSupabase {
       return Object.assign(Promise.resolve({ data, error: null }), {
         select: (columns: string) => {
           call.columns = columns;
-          return Promise.resolve({ data: data.map(({ record: _record, ...row }) => row), error: null });
+          return Promise.resolve({
+            data: data.map((row) => ({
+              initialized: row.initialized,
+              render_payload: row.render_payload,
+              snapshot: row.snapshot,
+            })),
+            error: null,
+          });
         },
       });
     },
