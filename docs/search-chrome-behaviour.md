@@ -751,10 +751,10 @@ was built for, a transient wide-stack measurement during hydration (#147).
 re-measuring the whole stack:
 
 - **Cold first load.** React runs layout effects children-first, so the portal claims before the
-  shell's reserve hook has settled anything. The claim writes the row's height to
-  `--phone-overlay-addon-h`, which the CSS seed for `--phone-overlay-chrome-h` adds, so seed + row is
-  exact in the commit that shortened the page. It takes no stack measurement, so the #147 transient
-  cannot leak in; the quiet window later settles the same total and nothing moves again.
+  shell's reserve hook has settled anything. The claim writes `--phone-overlay-chrome-h` inline as
+  `calc(<the value in force> + <row>px)` — the CSS seed, or an earlier claim — so seed + row is exact in
+  the commit that shortened the page. It takes no stack measurement, so the #147 transient cannot leak
+  in; the quiet window later settles the same total in pixels and nothing moves again.
 - **In-session navigation.** Once settled, the inline measured value is in force and ignores the addon
   property; the claim re-measures through `publishPhoneOverlayChromeReserveNow`, which is safe after
   settle.
@@ -763,10 +763,22 @@ re-measuring the whole stack:
   is still in the stack when it runs. A swap between two addon routes therefore subtracts, then
   re-measures, within one commit.
 
+**The pad that consumes the reserve must not transition `padding-top`.** The initial
+`transition-property` is `all`, and the reduced-motion rules give every element a 0.01ms duration, so a
+claim that changes the reserve started a padding-top transition on `mobile-composer-reserve-pad` that
+painted the old value for exactly one frame — the same 49px jump and back, ~16ms, for anyone with Reduce
+Motion on (and in every Playwright run, which emulates it). `globals.css` sets
+`transition-property: none` on the pad at phone width; the more specific reserve-transitioning rule still
+animates `padding-bottom` when it applies. A production-build trace showed the pad already inheriting
+the new variable value while its computed `padding-top` lagged, which is how to recognise this rather
+than a late write.
+
 The addon slot holds one page-owned row (see `ModeNavHeaderPortal`), which is why the host's own height
 is that row's height. `tests/phone-overlay-reserve-portal-wiring.dom.test.tsx` covers the wiring of both
 portals on all three paths; the cases in `tests/phone-overlay-chrome-reserve.dom.test.ts` call the
-publisher directly and prove nothing about who calls it.
+publisher directly and prove nothing about who calls it. In the browser, the `#CHPC5C` test in
+`tests/ui-phone-scroll.spec.ts` samples "Open comparison" every animation frame of a cold load and fails
+if it moves at all; it failed on every run before the fix.
 
 The settle assertion below is still required, because hydration timing is unchanged. A Playwright screenshot or `page.evaluate()` DOM measurement run immediately at `networkidle` can
 therefore read premature geometry before the stack settles (for example, reading `main` at `y=72` with

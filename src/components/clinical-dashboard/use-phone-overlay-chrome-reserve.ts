@@ -7,7 +7,6 @@ import { phoneMediaQuery } from "./use-hide-on-scroll";
 const headerStackSelector = ".phone-sticky-header-stack";
 const collapseSelector = '[data-testid="universal-header-collapse"]';
 const reserveProperty = "--phone-overlay-chrome-h";
-const addonProperty = "--phone-overlay-addon-h";
 
 /**
  * #147 recorded the provisional 200px stack correcting to 72px 15–60ms later.
@@ -59,8 +58,8 @@ export function readPhoneOverlayChromeReservePx(root: ParentNode = document): nu
  * reserve hook belongs to the shell, so on a cold first load a portal's effect
  * runs before the hook has settled anything and this returns early. Portals
  * therefore go through `claimPhoneOverlayAddonReserve`, which covers the cold
- * load by adding the row's own height to the CSS seed, and calls this for the
- * settled case.
+ * load by writing the seed plus the row's own height inline, and calls this for
+ * the settled case.
  */
 export function publishPhoneOverlayChromeReserveNow(): void {
   if (typeof window === "undefined") return;
@@ -92,15 +91,20 @@ export function publishPhoneOverlayChromeReserveNow(): void {
  * It publishes the row's own height as a delta rather than re-measuring the
  * stack, which is what makes it safe before the quiet window has settled:
  *
- * - Before settle, the CSS seed is in force and adds `--phone-overlay-addon-h`,
- *   so seed + row is correct at once. No stack measurement is taken, so the
- *   transient wide-stack reading (#147) the settle precondition guards against
- *   cannot leak in. The quiet window later settles the same total.
- * - After settle, the inline measured value is in force and ignores the addon
- *   property. Claiming then re-measures through the immediate publisher, which
- *   is safe post-settle; releasing subtracts the row's height from the inline
- *   value. Release cannot re-measure: React runs layout-effect destroys before
- *   it detaches portal children, so the row is still in the stack.
+ * - Before settle, it writes the reserve in force (the CSS seed, or an earlier
+ *   claim's value) plus the row's height as an inline `calc()`. No stack
+ *   measurement is taken, so the transient wide-stack reading (#147) the settle
+ *   precondition guards against cannot leak in; the quiet window later settles
+ *   the same total in pixels. It writes `--phone-overlay-chrome-h` itself rather
+ *   than a second property the seed depends on: a production Chromium build
+ *   painted one frame with the dependent value still stale (a 49px layout shift
+ *   and back, ~15ms), while a direct write is picked up in the same frame.
+ * - After settle, the inline measured value is in force. Claiming re-measures
+ *   through the immediate publisher, which is safe post-settle.
+ * - Releasing subtracts the row's height: before settle by restoring the value
+ *   it replaced, after settle arithmetically. It cannot re-measure, because
+ *   React runs layout-effect destroys before it detaches portal children, so the
+ *   row is still in the stack when the cleanup runs.
  *
  * The addon slot holds one page-owned row (see `ModeNavHeaderPortal`), so the
  * host's own height is that row's height.
@@ -111,17 +115,35 @@ export function claimPhoneOverlayAddonReserve(host: HTMLElement): () => void {
   const rowPx = Math.round(host.offsetHeight);
   if (rowPx <= 0) return () => {};
   const root = document.documentElement;
-  const claimed = `${rowPx}px`;
-  root.style.setProperty(addonProperty, claimed);
-  publishPhoneOverlayChromeReserveNow();
 
+  if (!hasSettledPhoneOverlayReserve) {
+    const previousInline = root.style.getPropertyValue(reserveProperty);
+    const base = previousInline || getComputedStyle(root).getPropertyValue(reserveProperty).trim();
+    if (!base) return () => {};
+    const claimed = `calc(${base} + ${rowPx}px)`;
+    root.style.setProperty(reserveProperty, claimed);
+    return () => {
+      if (hasSettledPhoneOverlayReserve) {
+        releaseSettledRow(rowPx);
+        return;
+      }
+      if (root.style.getPropertyValue(reserveProperty) !== claimed) return;
+      if (previousInline) root.style.setProperty(reserveProperty, previousInline);
+      else root.style.removeProperty(reserveProperty);
+    };
+  }
+
+  publishPhoneOverlayChromeReserveNow();
   return () => {
-    if (root.style.getPropertyValue(addonProperty) === claimed) root.style.removeProperty(addonProperty);
-    if (!hasSettledPhoneOverlayReserve) return;
-    const current = Number.parseFloat(root.style.getPropertyValue(reserveProperty));
-    if (!Number.isFinite(current) || current - rowPx <= 0) return;
-    root.style.setProperty(reserveProperty, `${current - rowPx}px`);
+    if (hasSettledPhoneOverlayReserve) releaseSettledRow(rowPx);
   };
+}
+
+function releaseSettledRow(rowPx: number): void {
+  const root = document.documentElement;
+  const current = Number.parseFloat(root.style.getPropertyValue(reserveProperty));
+  if (!Number.isFinite(current) || current - rowPx <= 0) return;
+  root.style.setProperty(reserveProperty, `${current - rowPx}px`);
 }
 
 /**

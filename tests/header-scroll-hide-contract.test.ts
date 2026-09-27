@@ -230,12 +230,15 @@ describe("shared header hide/reveal wiring", () => {
     // under-reserves by 8px wherever the phone reports no top inset, so the
     // layout effect corrects it after paint (Codex P1, 2026-07-30 — second
     // round). `--shell-header-h` already covers the inner min-h-14 bar + pb-2.
-    // The addon term lets a portal make the seed exact on a cold load, before
-    // the quiet window settles (#CHPC5C); it defaults to 0px with no row.
-    expect(globalsSource.replace(/\s+/g, " ")).toContain(
-      "--phone-overlay-chrome-h: calc( max(0.5rem, var(--safe-area-top)) + var(--shell-header-h) + var(--phone-overlay-addon-h, 0px) )",
+    expect(globalsSource).toContain(
+      "--phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h))",
     );
     expect(headerSource).toContain("pt-[max(0.5rem,var(--safe-area-top))]");
+    // The pad must never transition padding-top: under reduced motion every
+    // element gets a 0.01ms duration, and a claimed reserve then painted the
+    // stale value for one frame (#CHPC5C). The Playwright cold-load check pins
+    // the behaviour; this pins the rule it depends on.
+    expect(globalsSource).toMatch(/\[data-testid="mobile-composer-reserve-pad"\] \{\s*transition-property: none;\s*\}/);
     expect(reserveHookSource).toContain("useLayoutEffect");
     expect(shellSource).not.toContain("--phone-overlay-chrome-h,0px");
     // offsetHeight ignores transforms, so the measurement is the revealed

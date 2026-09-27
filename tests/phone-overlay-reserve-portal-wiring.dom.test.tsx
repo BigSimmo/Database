@@ -20,9 +20,9 @@
  * the immediate publish never fires and the quiet window alone corrects the
  * reserve, exactly as it did before PR #2929.
  *
- * That is why portals now go through `claimPhoneOverlayAddonReserve`: it adds
- * the row's own height to the CSS seed (`--phone-overlay-addon-h`) on a cold
- * load, re-measures once settled, and gives the height back on release. The
+ * That is why portals now go through `claimPhoneOverlayAddonReserve`: it writes
+ * the CSS seed plus the row's own height inline on a cold load, re-measures once
+ * settled, and gives the height back on release. The
  * cold and release cases below were pinned as known gaps until that landed.
  */
 import { act } from "react";
@@ -78,7 +78,11 @@ function installPhoneStubs() {
  * addon row exactly while the slot is occupied. That coupling is the whole
  * subject — the reserve has to change in the commit that changes occupancy.
  */
+// The production CSS seed, so a pre-settle claim has the reserve in force to add to.
+const seedExpression = "calc(max(0.5rem,var(--safe-area-top)) + var(--shell-header-h))";
+
 function mountChrome() {
+  document.head.innerHTML = `<style>:root { --phone-overlay-chrome-h: ${seedExpression}; }</style>`;
   document.body.innerHTML = `
     <div class="phone-sticky-header-stack">
       <div data-testid="universal-header-collapse">
@@ -107,7 +111,6 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 const reserve = () => document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h");
-const addonReserve = () => document.documentElement.style.getPropertyValue("--phone-overlay-addon-h");
 
 /** Runs whatever frames the hook has queued, at the timestamps given. */
 function flushFrames(timestamps: number[]) {
@@ -132,8 +135,8 @@ describe("portal wiring into the immediate reserve publisher", () => {
   afterEach(() => {
     __setPhoneOverlayReserveSettledForTests(false);
     document.documentElement.style.removeProperty("--phone-overlay-chrome-h");
-    document.documentElement.style.removeProperty("--phone-overlay-addon-h");
     document.body.innerHTML = "";
+    document.head.innerHTML = "";
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -231,7 +234,6 @@ describe("portal wiring into the immediate reserve publisher", () => {
     });
     expect(slot.childElementCount).toBe(0);
     expect(reserve()).toBe(`${baseStackPx}px`);
-    expect(addonReserve()).toBe("");
 
     act(() => {
       root.unmount();
@@ -273,14 +275,13 @@ describe("portal wiring into the immediate reserve publisher", () => {
     });
   });
 
-  it("covers a cold first mount in the same commit, through the CSS seed", () => {
+  it("covers a cold first mount in the same commit, on top of the CSS seed", () => {
     // The #CHPC5C path: a cold `page.goto` on a Differentials phone route.
     // Layout effects run children-first, so the portal claims before the shell's
-    // hook has settled anything. The inline reserve correctly stays unset (no
-    // stack measurement may be published before settle, #147), and the row's
-    // own height goes to `--phone-overlay-addon-h`, which the CSS seed adds —
-    // so the page clears the taller header from the very commit that shortened
-    // it. The seed arithmetic itself is pinned in header-scroll-hide-contract.
+    // hook has settled anything. No stack measurement may be published before
+    // settle (#147), so the claim writes the seed plus the row's own height as
+    // an inline calc() — the page clears the taller header from the very commit
+    // that shortened it.
     for (const Portal of [PhoneHeaderCollapsePortal, ModeNavHeaderPortal]) {
       const { slot, container } = mountChrome();
       const root = createRoot(container);
@@ -296,10 +297,9 @@ describe("portal wiring into the immediate reserve publisher", () => {
       });
 
       expect(slot.childElementCount).toBe(1);
-      expect(reserve()).toBe("");
-      expect(addonReserve()).toBe(`${addonRowPx}px`);
+      expect(reserve()).toBe(`calc(${seedExpression} + ${addonRowPx}px)`);
 
-      // The quiet window later settles the same total, so nothing moves again.
+      // The quiet window later settles the same total in pixels.
       flushFrames([0, phoneOverlayReserveGeometryQuietWindowMs + 1]);
       flushFrames([2 * (phoneOverlayReserveGeometryQuietWindowMs + 1)]);
       expect(reserve()).toBe(`${baseStackPx + addonRowPx}px`);
@@ -307,10 +307,35 @@ describe("portal wiring into the immediate reserve publisher", () => {
       act(() => {
         root.unmount();
       });
-      expect(addonReserve()).toBe("");
       pendingFrames.clear();
       __setPhoneOverlayReserveSettledForTests(false);
       document.documentElement.style.removeProperty("--phone-overlay-chrome-h");
     }
+  });
+
+  it("gives the seed back when the row leaves before the reserve has settled", () => {
+    const { slot, container } = mountChrome();
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <Shell>
+          <PhoneHeaderCollapsePortal>
+            <nav>nav</nav>
+          </PhoneHeaderCollapsePortal>
+        </Shell>,
+      );
+    });
+    expect(reserve()).toBe(`calc(${seedExpression} + ${addonRowPx}px)`);
+
+    act(() => {
+      root.render(<Shell>{null}</Shell>);
+    });
+    expect(slot.childElementCount).toBe(0);
+    expect(reserve()).toBe("");
+
+    act(() => {
+      root.unmount();
+    });
   });
 });

@@ -545,30 +545,29 @@ test.describe("phone PWA standalone mode bounded scroll shell (#71NT23)", () => 
   }
 });
 
-test("a cold phone load reserves the header nav row in the frame it leaves page flow (#CHPC5C)", async ({ page }) => {
+test("a cold phone load never moves Open comparison when the nav row joins the header (#CHPC5C)", async ({ page }) => {
   // The mode nav row starts in page flow and a portal moves it into the fixed
-  // phone header. If the reserve that clears the header grows even a few
-  // frames later, every element on the page sits the row's height too high in
-  // between — long enough for a tap to press "Open comparison" and release on
-  // "Edit selection" (the recorded #CHPC5C failure, on exactly this route).
-  // So sample every animation frame from the first one, and require that in
-  // every frame where the row is in the header, the content's top reserve
-  // already equals the header stack's height.
+  // phone header. If the reserve that clears the header grows even a few frames
+  // later, every element on the page jumps up by the row's height and back —
+  // long enough for a tap to press "Open comparison" and release on "Edit
+  // selection" (the recorded #CHPC5C failure, on exactly this route). Sample the
+  // link's position in every animation frame of a cold load and require that,
+  // once it exists, it never moves. Before the fix it rose 49px on every load.
+  // The suite runs with reduced motion, which also pins the one-frame variant:
+  // a 0.01ms padding-top transition that painted the stale reserve once.
   await page.setViewportSize(phoneViewport);
   await page.addInitScript(() => {
-    const samples: { occupied: boolean; stackPx: number; reservePx: number }[] = [];
-    (window as typeof window & { __addonReserveSamples?: typeof samples }).__addonReserveSamples = samples;
+    const samples: { top: number; occupied: boolean }[] = [];
+    (window as typeof window & { __compareOpenTops?: typeof samples }).__compareOpenTops = samples;
     const sample = () => {
+      const link = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="differential-compare-open"]')).find(
+        (node) => node.getBoundingClientRect().height > 0,
+      );
       const slot = document.querySelector<HTMLElement>('[data-testid="header-collapse-addon"]');
-      const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack");
-      const pad = Array.from(
-        document.querySelectorAll<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]'),
-      ).find((node) => node.getBoundingClientRect().height > 0);
-      if (slot && stack && pad) {
+      if (link) {
         samples.push({
-          occupied: slot.childElementCount > 0,
-          stackPx: stack.offsetHeight,
-          reservePx: Math.round(Number.parseFloat(getComputedStyle(pad).paddingTop)),
+          top: Math.round(link.getBoundingClientRect().top),
+          occupied: (slot?.childElementCount ?? 0) > 0,
         });
       }
       if (samples.length < 2000) requestAnimationFrame(sample);
@@ -583,14 +582,12 @@ test("a cold phone load reserves the header nav row in the frame it leaves page 
 
   const samples = await page.evaluate(
     () =>
-      (
-        window as typeof window & {
-          __addonReserveSamples?: { occupied: boolean; stackPx: number; reservePx: number }[];
-        }
-      ).__addonReserveSamples ?? [],
+      (window as typeof window & { __compareOpenTops?: { top: number; occupied: boolean }[] }).__compareOpenTops ?? [],
   );
-  const occupied = samples.filter((entry) => entry.occupied && entry.stackPx > 0);
-  expect(occupied.length, "the nav row must reach the phone header").toBeGreaterThan(0);
-  const mismatched = occupied.filter((entry) => Math.abs(entry.reservePx - entry.stackPx) > 1);
-  expect(mismatched, "content reserve must match the header stack in every frame the row is in it").toEqual([]);
+  expect(
+    samples.some((entry) => entry.occupied),
+    "the nav row must reach the phone header while the link is on screen",
+  ).toBe(true);
+  const tops = samples.map((entry) => entry.top);
+  expect(new Set(tops).size, `Open comparison moved during a cold load: ${[...new Set(tops)].join(" -> ")}px`).toBe(1);
 });
