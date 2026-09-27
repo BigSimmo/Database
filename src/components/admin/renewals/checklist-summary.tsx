@@ -77,10 +77,7 @@ function ChecklistTimeline({
           </span>
         );
       })}
-      <span
-        aria-hidden="true"
-        className="col-span-2 mt-1 flex justify-between text-[10px] text-[color:var(--text-muted)]"
-      >
+      <span aria-hidden="true" className="col-span-2 mt-1 flex justify-between text-3xs text-[color:var(--text-muted)]">
         {monthLabels.map((letter, index) => (
           <span key={index}>{letter}</span>
         ))}

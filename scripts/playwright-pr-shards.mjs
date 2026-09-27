@@ -100,7 +100,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-route-coverage.spec.ts",
-    shard: 1,
+    shard: 2,
     fullSeconds: 18,
     criticalSeconds: 0,
   },
@@ -262,7 +262,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-forms-section-nav.spec.ts",
-    shard: 2,
+    shard: 3,
     fullSeconds: 9,
     criticalSeconds: 0,
   },

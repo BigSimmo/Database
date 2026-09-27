@@ -85,7 +85,7 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // `isInformationPage`), so `PageSecondaryNavigation` returns null before the
   // mode branch and the shell could never draw a bar for it.
   if (pathname === "/first-nations" || isSlugDetail(pathname, "/first-nations")) return true;
-  // Admin pages mount AdminNavHeader in the same shared addon slot.
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
+  // Admin subpages mount AdminNavHeader; Admin Today has no page-owned header.
+  if (pathname.startsWith("/admin/")) return true;
   return false;
 }

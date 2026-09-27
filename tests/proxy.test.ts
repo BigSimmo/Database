@@ -515,8 +515,14 @@ describe("Admin mode redirects", () => {
   });
 
   it("leaves the pages On Call keeps where they are", async () => {
-    for (const path of ["/on-call/orientation", "/on-call/who-is-who", "/on-call/check", "/on-call/shifts"]) {
+    for (const path of ["/on-call/orientation", "/on-call/who-is-who", "/on-call/check"]) {
       expect((await proxy(requestFor(path))).headers.get("location")).toBeNull();
     }
+  });
+
+  it("sends legacy On Call shifts to Roster", async () => {
+    const response = await proxy(requestFor("/on-call/shifts"));
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/roster/shifts");
   });
 });
