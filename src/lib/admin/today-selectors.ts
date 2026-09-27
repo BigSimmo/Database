@@ -3,7 +3,7 @@ import { groupComplianceEntries } from "@/lib/admin/renewals";
 import {
   ADMIN_REQUIREMENTS_CATALOGUE,
   catalogueItemForEntry,
-  requirementChecklistRows,
+  requirementChecklistRowsForJob,
   requirementsNotForThisJob,
   requirementsRecordedCount,
   type AdminRequirementCatalogueItem,
@@ -170,7 +170,7 @@ export function selectNeedsYou(
       complianceExpiresOn(entry) === undefined &&
       catalogueItemForEntry(entry, ADMIN_REQUIREMENTS_CATALOGUE) === undefined,
   );
-  const catalogueNotRecorded = requirementChecklistRows(catalogue, entries)
+  const catalogueNotRecorded = requirementChecklistRowsForJob(catalogue, entries)
     .filter((row) => row.state === "not-recorded")
     .map((row) => row.item);
   // Catalogue order, not the checklist's alphabetical tie-break, so the named

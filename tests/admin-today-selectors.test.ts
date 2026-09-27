@@ -129,6 +129,19 @@ describe("selectNeedsYou", () => {
     expect(needsYou?.featured).toMatchObject({ kind: "not-recorded", titles: ["Annual flu vaccination"] });
   });
 
+  it("never names an item marked not for this job as not recorded", () => {
+    const flagged = complianceFixture("IMG visa requirements", {
+      category: "job",
+      requirementId: "img-visa-requirements",
+      notForThisJob: true,
+    });
+    const catalogue = catalogueOf("img-visa-requirements", "annual-influenza-vaccination");
+    expect(selectNeedsYou([flagged], NOW, { catalogue })?.featured).toMatchObject({
+      kind: "not-recorded",
+      titles: ["Annual flu vaccination"],
+    });
+  });
+
   it("marks a passed row 'check with your service' only for a catalogue item whose rule is unconfirmed", () => {
     const indemnity = complianceFixture("Indemnity insurance declaration", {
       category: "registration",

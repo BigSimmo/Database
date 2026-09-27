@@ -217,6 +217,8 @@ describe("AdminRenewalsPage — Not for this job", () => {
     );
     expect(screen.getByText(/not for this job/)).toBeInTheDocument();
     expect(screen.getByTestId("admin-renewals-undo-bar")).toBeInTheDocument();
+    // It shows once, in its own section — not also as "Not recorded yet" above.
+    expect(screen.queryByTestId("admin-renewals-checklist-row-professional-indemnity-insurance")).toBeNull();
 
     fireEvent.click(within(screen.getByTestId("admin-renewals-undo-bar")).getByText("Undo"));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));

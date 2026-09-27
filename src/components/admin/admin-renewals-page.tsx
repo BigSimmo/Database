@@ -30,7 +30,7 @@ import {
 } from "@/lib/admin/renewals";
 import {
   ADMIN_REQUIREMENTS_CATALOGUE,
-  requirementChecklistRows,
+  requirementChecklistRowsForJob,
   requirementsNotForThisJob,
   requirementsRecordedCount,
 } from "@/lib/admin/requirements";
@@ -110,7 +110,8 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
     return () => clearTimeout(timer);
   }, [undoBar]);
 
-  const rows = useMemo(() => requirementChecklistRows(ADMIN_REQUIREMENTS_CATALOGUE, own), [own]);
+  // Items marked not for this job are left out here: they show once, in their own closing section.
+  const rows = useMemo(() => requirementChecklistRowsForJob(ADMIN_REQUIREMENTS_CATALOGUE, own), [own]);
   const counts = useMemo(() => requirementsRecordedCount(ADMIN_REQUIREMENTS_CATALOGUE, own), [own]);
   // The same selector Today's "N not for this job" reads, so the two agree.
   const notForThisJob = useMemo(

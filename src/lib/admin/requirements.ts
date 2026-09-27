@@ -381,6 +381,21 @@ export function requirementChecklistRows(
 }
 
 /**
+ * The checklist a page shows: `requirementChecklistRows` minus the items
+ * marked "not for this job" (`requirementsNotForThisJob`), which live in their
+ * own closing section instead. Without this, a flagged item would appear twice
+ * — once as "Not recorded yet" and once under "Not for this job". Renewals,
+ * Today and "Your Admin records" all read this.
+ */
+export function requirementChecklistRowsForJob(
+  catalogue: readonly AdminRequirementCatalogueItem[],
+  entries: readonly OnCallEntry[],
+): RequirementChecklistRow[] {
+  const excluded = new Set(requirementsNotForThisJob(catalogue, entries).map(({ item }) => item.id));
+  return requirementChecklistRows(catalogue, entries).filter((row) => !excluded.has(row.item.id));
+}
+
+/**
  * The "X of Y recorded" count (spec review 27: "a small '7 of 11 recorded'
  * ring, never a verdict"). A catalogue item whose matching entry is marked
  * "not for this job" leaves the count entirely — it is neither recorded nor

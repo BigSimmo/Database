@@ -5,85 +5,48 @@ import { useMemo, useState } from "react";
 
 import { cardSurface, cardPadding } from "@/components/card-recipes";
 import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
+import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText, IconButton, textMuted } from "@/components/ui-primitives";
-import { buildLeavingPack, type LeavingPackRecord } from "@/lib/admin/leaving-pack";
+import { adminRecordsSections, adminRecordsText, type AdminRecordsSection } from "@/lib/admin/leaving-pack";
 import { adminLoadState, selectAdminOwnEntries } from "@/lib/admin/own-entries";
-import { formatDateEcho, formatRecordedDate, formatUpdatedMonth } from "@/lib/admin/renewal-dates";
+import { formatDateEcho } from "@/lib/admin/renewal-dates";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import { complianceExpiresOn } from "@/lib/on-call/compliance";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
-function detailString(record: LeavingPackRecord, key: string): string | null {
-  const details = record.details;
-  const value = typeof details === "object" && details !== null ? (details as Record<string, unknown>)[key] : undefined;
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function RecordRow({ record }: { record: LeavingPackRecord }) {
-  const expiresOn = complianceExpiresOn(record);
-  const issuer = detailString(record, "issuingBody") ?? detailString(record, "role");
-  const recordedLine = expiresOn
-    ? `Recorded as ${formatRecordedDate(expiresOn)}`
-    : record.lastVerifiedAt
-      ? `Updated ${formatUpdatedMonth(record.lastVerifiedAt)}`
-      : "Not recorded yet";
+function RecordGroup({ section }: { section: AdminRecordsSection }) {
   return (
-    <li
-      className="border-b border-[color:var(--border)] px-3 py-2 last:border-b-0"
-      data-testid={`admin-records-row-${record.id}`}
-    >
-      <span className="block break-words text-sm font-medium text-[color:var(--text-heading)]">{record.title}</span>
-      <span className={cn(textMuted, "block break-words text-sm")}>
-        {issuer ? `${issuer} · ` : ""}
-        {recordedLine}
-      </span>
-    </li>
-  );
-}
-
-function RecordGroup({ label, records }: { label: string; records: readonly LeavingPackRecord[] }) {
-  if (records.length === 0) return null;
-  return (
-    <section className="grid gap-2" aria-label={label}>
-      <div className="flex items-center justify-between px-1">
-        <h2 className={eyebrowText}>{label}</h2>
-        <span className={cn(textMuted, "nums text-xs")}>{records.length} recorded</span>
-      </div>
+    <section className="grid gap-2" aria-label={section.label}>
+      <h2 className={cn(eyebrowText, "px-1")}>{section.label}</h2>
       <ul className={cn(cardSurface, "overflow-hidden")}>
-        {records.map((record) => (
-          <RecordRow key={record.id} record={record} />
+        {section.rows.map((row) => (
+          <li
+            key={row.key}
+            className="border-b border-[color:var(--border)] px-3 py-2 last:border-b-0"
+            data-testid={`admin-records-row-${row.key}`}
+          >
+            <span className="block break-words text-sm font-medium text-[color:var(--text-heading)]">{row.title}</span>
+            {row.lines.map((line) => (
+              <span key={line} className={cn(textMuted, "block break-words text-sm")}>
+                {line}
+              </span>
+            ))}
+          </li>
         ))}
       </ul>
     </section>
   );
 }
 
-function plainTextSummary(pack: ReturnType<typeof buildLeavingPack>): string {
-  const lines = [
-    "Your Admin records",
-    pack.note,
-    "",
-    "Renewals",
-    ...pack.renewals.map((record) => `- ${record.title}`),
-    "",
-    "Admin",
-    ...pack.adminEntries.map((record) => `- ${record.title}`),
-    "",
-    "Contacts",
-    ...pack.contacts.map((record) => `- ${record.title}`),
-  ];
-  return lines.join("\n");
-}
-
 /**
  * "Your Admin records" (owner-approved behaviour): an on-screen page, never a
- * download. It reuses `buildLeavingPack`'s three groups — the same data a
- * downloaded pack would hold — so the reader always sees exactly what would
- * leave with them. Copy and Print sit behind the ••· menu; there is no
- * primary command on this page.
+ * download. It lists `adminRecordsSections`: every renewal with its date and
+ * earlier dates, what is not recorded yet, what is not for this job, the New
+ * job ticks, other Admin rows and contacts. Copy writes the same lines
+ * (`adminRecordsText`), dates included. Copy and Print sit behind the •••
+ * menu; there is no primary command on this page.
  */
 export function AdminRecordsPage({ now: nowProp }: { now?: Date } = {}) {
   const state = useOnCallEntries();
@@ -93,10 +56,10 @@ export function AdminRecordsPage({ now: nowProp }: { now?: Date } = {}) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const loadState = adminLoadState(state);
   const own = useMemo(() => selectAdminOwnEntries(state), [state]);
-  const pack = useMemo(() => buildLeavingPack({ ownEntries: own, now }), [own, now]);
+  const sections = useMemo(() => adminRecordsSections(own), [own]);
 
   function copy() {
-    void copyTextToClipboard(plainTextSummary(pack)).then(
+    void copyTextToClipboard(adminRecordsText(sections, now)).then(
       () => setCopyState("copied"),
       () => setCopyState("failed"),
     );
@@ -119,12 +82,22 @@ export function AdminRecordsPage({ now: nowProp }: { now?: Date } = {}) {
 
       {loadState === "failed" ? (
         <OnCallLoadFailed reason={state.loadError} onRetry={state.retry} testId="admin-records-load-failed" />
+      ) : loadState === "loading" ? (
+        // Design point 11: skeletons while loading, never an empty-looking page.
+        <ModeModuleSkeleton rows={4} twoLine eyebrow testId="admin-records-loading" />
+      ) : loadState === "signed-out" ? (
+        <p
+          className={cn(cardSurface, cardPadding.compact, textMuted, "text-sm")}
+          data-testid="admin-records-signed-out"
+        >
+          Sign in to see your Admin records. They are kept for your signed-in account only.
+        </p>
       ) : (
         <>
-          <RecordGroup label="Renewals" records={pack.renewals} />
-          <RecordGroup label="Admin" records={pack.adminEntries} />
-          <RecordGroup label="Contacts" records={pack.contacts} />
-          {pack.renewals.length + pack.adminEntries.length + pack.contacts.length === 0 ? (
+          {sections.map((section) => (
+            <RecordGroup key={section.label} section={section} />
+          ))}
+          {sections.length === 0 ? (
             <p className={cn(cardSurface, cardPadding.compact, textMuted, "text-sm")} data-testid="admin-records-empty">
               Nothing recorded yet.
             </p>

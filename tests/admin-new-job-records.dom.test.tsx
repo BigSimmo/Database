@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AdminRecordsPage } from "@/components/admin/new-job/admin-records-page";
@@ -88,6 +88,34 @@ describe("AdminRecordsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     expect(screen.getByTestId("admin-records-copy")).toBeTruthy();
     expect(screen.getByTestId("admin-records-print")).toBeTruthy();
+  });
+
+  it("shows each renewal's date, what is not recorded yet, and copies the dates too", async () => {
+    const writeText = vi.fn(async (text: string) => {
+      void text;
+    });
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<AdminRecordsPage now={NOW} />);
+    expect(screen.getByText("Recorded as expiring 30 Sep 2027")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Not recorded yet" })).toBeTruthy();
+    // An Admin guide is not a renewal: it never reads "Not recorded yet".
+    expect(screen.getByTestId(`admin-records-row-${payslipGuide.id}`).textContent).not.toContain("Not recorded");
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByTestId("admin-records-copy"));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(writeText.mock.calls[0]?.[0]).toContain("Recorded as expiring 30 Sep 2027");
+  });
+
+  it("shows a skeleton while loading and a sign-in line when signed out, never 'Nothing recorded yet' (M2)", () => {
+    Object.assign(entryState, { loading: true });
+    const { unmount } = render(<AdminRecordsPage now={NOW} />);
+    expect(screen.getByTestId("admin-records-loading")).toBeTruthy();
+    expect(screen.queryByTestId("admin-records-empty")).toBeNull();
+    unmount();
+    Object.assign(entryState, { loading: false, signedOut: true, entries: [] });
+    render(<AdminRecordsPage now={NOW} />);
+    expect(screen.getByTestId("admin-records-signed-out")).toBeTruthy();
+    expect(screen.queryByTestId("admin-records-empty")).toBeNull();
   });
 
   it("shows the load-failed state when entries failed to load", () => {
