@@ -294,6 +294,14 @@ function AboutPanel() {
   );
 }
 
+function useOptionalSearchParams() {
+  try {
+    return useSearchParams();
+  } catch {
+    return null;
+  }
+}
+
 export function CalculatorsSearchPage({
   initialQuery = "",
   initialCalculatorId,
@@ -302,7 +310,7 @@ export function CalculatorsSearchPage({
   initialCalculatorId?: string;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useOptionalSearchParams();
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
     subscribeNoop,
