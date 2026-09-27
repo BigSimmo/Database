@@ -18,6 +18,18 @@ import type {
  * `signed-out` is a resting state, not an error: a roster is personal, so a
  * signed-out reader simply has none to show.
  */
+/**
+ * One of my shifts as every Roster screen shows it: my own (imported or added
+ * by hand) or my shift on a confirmed team's roster (`source: "team"`, never
+ * copied into my own shifts table).
+ */
+export type MyShift = Pick<OnCallShift, "id" | "startsAt" | "endsAt" | "title" | "workplace" | "kind"> & {
+  readonly source: OnCallShift["source"] | "team";
+  readonly serviceId?: string;
+  readonly teamName?: string;
+  readonly assignmentId?: string;
+};
+
 export type RosterShiftsStatus = "loading" | "ready" | "signed-out" | "error";
 
 export type RosterShiftsState = {
