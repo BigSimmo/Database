@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { ServiceStructuredFields, emptyCover } from "@/components/on-call/service-structured-fields";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
@@ -10,6 +11,7 @@ import { onCallDot } from "@/components/on-call/kit/recipes";
 import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import { handbookEditorWarnings, handbookPlacementLine } from "@/lib/on-call/handbook-editor-checks";
 import {
+  serviceActionSchema,
   serviceContentKinds,
   serviceOrientationPhases,
   serviceSections,
@@ -28,6 +30,8 @@ const sectionLabels: Record<(typeof serviceSections)[number], string> = {
   orientation: "Orientation",
   teaching: "Teaching",
   admin: "Administration",
+  playbook: "Playbook ladder",
+  cover: "Role cover",
 };
 
 const kindLabels: Record<(typeof serviceContentKinds)[number], string> = {
@@ -46,15 +50,15 @@ const phaseLabels: Record<(typeof serviceOrientationPhases)[number], string> = {
 
 type SourceDraft = { label: string; url: string };
 
-/** Warnings about the number get the kit's small amber dot; the rest are plain muted lines (standard §3). */
+/** Warnings about the number get the kit's small amber dot; the rest are plain muted lines (standard Â§3). */
 const DOTTED_WARNINGS = new Set(["number-length", "number-shared"]);
 
 const TITLE_HINT =
-  "Start with a team or place to group it: ICU: Registrar, Ward: 4B, Downtime: …, Emergency: …. Access, food, taxi and security belong in Admin.";
+  "Start with a team or place to group it: ICU: Registrar, Ward: 4B, Downtime: â€¦, Emergency: â€¦. Access, food, taxi and security belong in Admin.";
 const BODY_HINT =
-  "Add Also known as: HDU, high dependency on its own line so people can search everyday words. For a number that only works from a hospital phone, add From a mobile: 9000 0000, 55 so readers can call from their own phone. No patient details.";
+  "Add Also known as: HDU, high dependency on its own line so people can search everyday words. For a number that only works from a hospital phone, add From a mobile: 5550 0000, 55 so readers can call from their own phone. No patient details.";
 const PHONE_HINT =
-  "For switchboard then extension, type the full number, a comma, then the extension: 9000 0000, 4455.";
+  "For switchboard then extension, type the full number, a comma, then the extension: 5550 0000, 4455.";
 
 function initialSources(entry: ServiceEntry | null): SourceDraft[] {
   const sources = entry?.content.sources ?? [];
@@ -71,6 +75,8 @@ function entryFingerprint(entry: ServiceEntry | null, defaultSiteId: string | nu
     phone: entry?.content.phone ?? "",
     orientationPhase: entry?.content.orientationPhase ?? "first_shift",
     sources: initialSources(entry),
+    steps: entry?.content.steps ?? [],
+    cover: entry?.content.cover ?? emptyCover,
   });
 }
 
@@ -103,6 +109,8 @@ export function ServiceEntryEditor({
     entry?.content.orientationPhase ?? "first_shift",
   );
   const [sources, setSources] = useState<SourceDraft[]>(() => initialSources(entry));
+  const [steps, setSteps] = useState(entry?.content.steps ?? []);
+  const [cover, setCover] = useState(entry?.content.cover ?? emptyCover);
   const [busy, setBusy] = useState<"draft" | "publish" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,7 +129,8 @@ export function ServiceEntryEditor({
     : [];
 
   const dirty =
-    JSON.stringify({ section, kind, siteId, title, body, phone, orientationPhase, sources }) !== initialFingerprint;
+    JSON.stringify({ section, kind, siteId, title, body, phone, orientationPhase, sources, steps, cover }) !==
+    initialFingerprint;
 
   useEffect(() => {
     const nextKey = `${entry?.id ?? "new"}:${entry?.revision ?? 0}`;
@@ -144,6 +153,8 @@ export function ServiceEntryEditor({
       setPhone(entry?.content.phone ?? "");
       setOrientationPhase(entry?.content.orientationPhase ?? "first_shift");
       setSources(initialSources(entry));
+      setSteps(entry?.content.steps ?? []);
+      setCover(entry?.content.cover ?? emptyCover);
       setError(null);
     });
   }, [entry, defaultSiteId, dirty]);
@@ -168,7 +179,7 @@ export function ServiceEntryEditor({
     setBusy(publish ? "publish" : "draft");
     setError(null);
     try {
-      await onSave({
+      const parsed = serviceActionSchema.safeParse({
         action: "entry.save",
         ...(loadedEntry ? { entryId: loadedEntry.id, expectedRevision: loadedEntry.revision } : {}),
         siteId: siteId || null,
@@ -180,7 +191,11 @@ export function ServiceEntryEditor({
         sources: cleanSources,
         orientationPhase,
         publish,
+        ...(section === "playbook" ? { steps } : {}),
+        ...(section === "cover" ? { cover } : {}),
       });
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Check the entry fields.");
+      await onSave(parsed.data as EntrySaveAction);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "This entry could not be saved.");
     } finally {
@@ -214,7 +229,11 @@ export function ServiceEntryEditor({
                 id={field.id}
                 aria-describedby={field.describedBy}
                 value={section}
-                onChange={(event) => setSection(event.target.value as EntrySaveAction["section"])}
+                onChange={(event) => {
+                  const next = event.target.value as EntrySaveAction["section"];
+                  setSection(next);
+                  if (next === "playbook" || next === "cover") setKind("clinical");
+                }}
                 className={fieldControlPlain}
               >
                 {serviceSections.map((value) => (
@@ -234,11 +253,13 @@ export function ServiceEntryEditor({
                 onChange={(event) => setKind(event.target.value as EntrySaveAction["kind"])}
                 className={fieldControlPlain}
               >
-                {serviceContentKinds.map((value) => (
-                  <option key={value} value={value}>
-                    {kindLabels[value]}
-                  </option>
-                ))}
+                {serviceContentKinds
+                  .filter((value) => value !== "operational" || (section !== "playbook" && section !== "cover"))
+                  .map((value) => (
+                    <option key={value} value={value}>
+                      {kindLabels[value]}
+                    </option>
+                  ))}
               </select>
             )}
           </FormField>
@@ -332,6 +353,8 @@ export function ServiceEntryEditor({
           hint={PHONE_HINT}
         />
 
+        <ServiceStructuredFields section={section} steps={steps} cover={cover} onSteps={setSteps} onCover={setCover} />
+
         <fieldset className="grid gap-3">
           <legend className="text-sm font-semibold text-[color:var(--text)]">Official sources</legend>
           <p className={cn(textMuted, "text-xs leading-5")}>
@@ -358,7 +381,7 @@ export function ServiceEntryEditor({
                 hideLabel
                 id={`service-entry-source-${index}-url`}
                 type="url"
-                placeholder="https://…"
+                placeholder="https://â€¦"
                 value={source.url}
                 onChange={(event) =>
                   setSources((current) =>
@@ -401,14 +424,15 @@ export function ServiceEntryEditor({
         )}
 
         <p className={cn(textMuted, "text-sm")} data-testid="service-entry-save-note">
-          Save only when something changed. Saving sets the Updated date readers see.
+          Draft saves do not change the published date. Publishing sets Updated; Still correct records a separate
+          confirmation.
         </p>
         <div className="grid gap-2 sm:grid-cols-3">
           <Button
             type="submit"
             variant="secondary"
             busy={busy === "draft"}
-            busyLabel="Saving…"
+            busyLabel="Savingâ€¦"
             disabled={busy !== null}
           >
             Save draft
@@ -417,7 +441,7 @@ export function ServiceEntryEditor({
             type="button"
             variant="primary"
             busy={busy === "publish"}
-            busyLabel="Sending…"
+            busyLabel="Sendingâ€¦"
             disabled={busy !== null}
             onClick={() => void submit(true)}
           >

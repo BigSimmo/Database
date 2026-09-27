@@ -1,5 +1,7 @@
 "use client";
 
+import { currentCover } from "@/lib/on-call/service-availability";
+import { useHospitalClock } from "@/components/on-call/use-hospital-clock";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -74,6 +76,7 @@ function HandbookCallRow({
       mobileDial={item.mobileDial}
       state={didntConnectAt ? { kind: "didnt-connect", at: didntConnectAt } : null}
       updatedAt={item.updatedAt}
+      lastConfirmedAt={item.lastConfirmedAt}
       sources={item.sources}
       tone={pinned ? "emergency" : "default"}
       hospitalName={name}
@@ -215,6 +218,7 @@ function MineCallRow({
  */
 export function OnCallCallPage() {
   const handbook = useHospitalHandbook();
+  const hospitalNow = useHospitalClock();
   const entries = useOnCallEntries();
   const hospitalPhone = useOnCallHospitalPhone();
   const [query, setQuery] = useState("");
@@ -278,6 +282,26 @@ export function OnCallCallPage() {
     <OnCallHubPageFrame page="call" sections={sections} lead={<OnCallHospitalLine handbook={handbook} />}>
       <OnCallHandbookState handbook={handbook} page="call" />
       {ready ? null : <OnCallCrisisLines />}
+      {ready && currentCover(handbook.items, hospitalNow).length > 0 ? (
+        <OnCallGroupedList eyebrow="Cover at this time" testId="on-call-call-cover">
+          {currentCover(handbook.items, hospitalNow).map((item) => (
+            <OnCallDialRow
+              key={item.id}
+              id={item.id}
+              source="handbook"
+              title={item.parsed.label}
+              subtitle={`${item.cover?.team ?? ""} · ${item.cover?.window.start}–${item.cover?.window.end}`}
+              dial={item.dial}
+              mobileDial={item.mobileDial}
+              updatedAt={item.updatedAt}
+              lastConfirmedAt={item.lastConfirmedAt}
+              sources={item.sources}
+              now={hospitalNow}
+              testId={`on-call-call-cover-${item.id}`}
+            />
+          ))}
+        </OnCallGroupedList>
+      ) : null}
 
       {ready ? (
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">

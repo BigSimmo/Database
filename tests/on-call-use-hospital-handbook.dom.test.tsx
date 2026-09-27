@@ -302,3 +302,17 @@ describe("useHospitalHandbook", () => {
     expect(result.current.items.some((item) => item.dial.display === "000")).toBe(false);
   });
 });
+
+describe("Stage C handbook scope", () => {
+  it("keeps another site's published content out even when its draft moved here", async () => {
+    routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () =>
+      json(
+        detail([
+          entry("other-site", content({ siteId: "30000000-0000-4000-8000-000000000099" }), content({ siteId: SITE_A })),
+        ]),
+      );
+    const { result } = renderHook(() => useHospitalHandbook());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.items).toEqual([]);
+  });
+});

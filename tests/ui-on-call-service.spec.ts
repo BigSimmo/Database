@@ -47,7 +47,7 @@ test.describe("Invited handbook phone experience", () => {
     await workspace.getByLabel("Choose a CSV file").setInputFiles({
       name: "synthetic-numbers.csv",
       mimeType: "text/csv",
-      buffer: Buffer.from("Team,Role,Phone\nMedicine,Synthetic registrar,9000 0042\nICU,Synthetic registrar,4456\n"),
+      buffer: Buffer.from("Team,Role,Phone\nMedicine,Synthetic registrar,5550 0042\nICU,Synthetic registrar,4456\n"),
     });
     const preview = workspace.getByTestId("service-import-preview");
     await expect(preview.getByRole("table")).toBeVisible();
@@ -107,4 +107,16 @@ test.describe("Invited handbook phone experience", () => {
     await expect(page).toHaveURL(/\/cme\/new\?title=/);
     await expect(page.getByRole("button", { name: /^Save/ })).toBeDisabled();
   });
+});
+
+test("reviewable cover and ladder details fit the phone handbook", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/on-call/service");
+  const handbook = page.getByTestId("service-handbook").filter({ visible: true });
+  const cover = handbook.getByTestId("service-entry-61000000-0000-4000-8000-000000000019");
+  await expect(cover.getByTestId("service-structured-preview")).toContainText("00:00–23:59 (Perth)");
+  await expect(cover.getByRole("button", { name: "Still correct" })).toBeVisible();
+  const ladder = handbook.getByTestId("service-entry-61000000-0000-4000-8000-000000000020");
+  await expect(ladder.getByTestId("service-structured-preview")).toContainText("Hospital-set wait: 10 min");
+  expect(await handbook.evaluate((el) => el.scrollWidth <= window.innerWidth)).toBe(true);
 });

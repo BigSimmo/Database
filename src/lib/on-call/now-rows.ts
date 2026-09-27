@@ -66,8 +66,7 @@ export function switchboardItem(items: readonly HandbookItem[]): HandbookItem | 
 
 /**
  * The hospital's own after-hours window (Stage B field, set by each hospital's
- * editors; owner card 19:06Z). It does not exist in the database yet, so Now
- * passes `null` today and does not adapt.
+ * editors; owner card 19:06Z). Now reads these from the selected site. Null means the hospital has not set its times.
  */
 export type OnCallHospitalHours = {
   /** Perth wall clock, `HH:MM`, e.g. `17:30`. */
@@ -143,6 +142,7 @@ export type OnCallNeedsYou = {
   /** The rung the reader rang last, e.g. "Registrar". */
   readonly waitingOn: string;
   readonly calledAt: string;
+  readonly waitMinutes?: number;
   /** The next rung with a number. */
   readonly next: { readonly order: number; readonly whoToCall: string; readonly dial: HandbookDial };
 };
@@ -155,9 +155,7 @@ export type OnCallNeedsYou = {
  * `ladder:<id>:<order>` mark) or from any number row that dials exactly the
  * number the step records. Only the newest such call is considered, so ringing
  * the next rung moves the row on; a call to the last rung shows nothing. The
- * marks already expire after 12 hours. There is no wait time: the hospital's
- * ladder waits are a Stage B field (owner 19:06Z), so the row says when the
- * call was made and never that it is overdue.
+ * marks already expire after 12 hours. Only a hospital-authored wait is carried through; the row never invents a deadline.
  */
 export function selectNeedsYou(input: {
   readonly ladders: readonly OnCallLadder[];
@@ -180,6 +178,7 @@ export function selectNeedsYou(input: {
       ladderTitle: ladder.title,
       waitingOn: waiting.whoToCall,
       calledAt: mark.calledAt,
+      waitMinutes: waiting.waitMinutes,
       next: { order: nextStep.order, whoToCall: nextStep.whoToCall, dial },
     };
   }

@@ -1,5 +1,7 @@
 "use client";
 
+import { currentCover } from "@/lib/on-call/service-availability";
+import { useHospitalClock } from "@/components/on-call/use-hospital-clock";
 import { Users } from "lucide-react";
 import { useMemo } from "react";
 
@@ -17,7 +19,7 @@ import { Select } from "@/components/ui/select";
 import type { HandbookItem } from "@/lib/on-call/handbook-items";
 import { compareOnCallTeams, ON_CALL_TEAMS, type OnCallTeam } from "@/lib/on-call/handbook-title";
 import { saveOnCallMyTeam, useOnCallMyTeam } from "@/lib/on-call/my-team-storage";
-import { ON_CALL_AFTER_HOURS_MANAGER, handbookTeams } from "@/lib/on-call/now-rows";
+import { ON_CALL_AFTER_HOURS_MANAGER } from "@/lib/on-call/now-rows";
 
 const NO_TEAM = "";
 
@@ -25,8 +27,8 @@ type TeamGroup = { readonly team: OnCallTeam; readonly rows: readonly HandbookIt
 
 /** The hospital's contacts that name a team, grouped by team: the reader's first, then the usual order. */
 function teamGroups(items: readonly HandbookItem[], myTeam: OnCallTeam | null): TeamGroup[] {
-  const contacts = items.filter((item) => item.section === "contacts");
-  return handbookTeams(items)
+  const contacts = items.filter((item) => item.section === "cover");
+  return [...new Set(contacts.flatMap((item) => (item.parsed.team ? [item.parsed.team] : [])))]
     .map((team) => ({ team, rows: contacts.filter((item) => item.parsed.team === team) }))
     .filter((group) => group.rows.length > 0)
     .sort((a, b) => Number(b.team === myTeam) - Number(a.team === myTeam) || compareOnCallTeams(a.team, b.team));
@@ -41,16 +43,17 @@ function teamGroups(items: readonly HandbookItem[], myTeam: OnCallTeam | null): 
  * there are any. A team with no rows is not drawn; when it is the reader's own,
  * the page says it is not set up for this hospital instead of an empty list.
  */
-export function OnCallWhosOnPage() {
+export function OnCallWhosOnPage({ now: pinned }: { now?: Date } = {}) {
+  const now = useHospitalClock(pinned);
   const handbook = useHospitalHandbook();
   const myTeam = useOnCallMyTeam();
   const ready = handbook.status === "ready";
-  const items = useMemo(() => (ready ? handbook.items : []), [ready, handbook.items]);
+  const items = useMemo(() => (ready ? currentCover(handbook.items, now) : []), [ready, handbook.items, now]);
   const hospitalName = handbook.siteName ?? handbook.serviceName;
 
   const groups = useMemo(() => teamGroups(items, myTeam), [items, myTeam]);
   const other = useMemo(
-    () => items.filter((item) => item.section === "contacts" && !item.parsed.team && !item.parsed.prefix),
+    () => items.filter((item) => item.section === "cover" && !item.parsed.team && !item.parsed.prefix),
     [items],
   );
   const sections = useMemo(
@@ -72,7 +75,10 @@ export function OnCallWhosOnPage() {
   }, [groups]);
 
   const teamOptions = useMemo(() => {
-    const names = new Set<OnCallTeam>([...ON_CALL_TEAMS, ...handbookTeams(items)]);
+    const names = new Set<OnCallTeam>([
+      ...ON_CALL_TEAMS,
+      ...items.flatMap((item) => (item.parsed.team ? [item.parsed.team] : [])),
+    ]);
     names.delete(ON_CALL_AFTER_HOURS_MANAGER);
     return [...names].sort(compareOnCallTeams);
   }, [items]);
@@ -88,6 +94,9 @@ export function OnCallWhosOnPage() {
       {ready ? null : <OnCallCrisisLines />}
       {ready ? (
         <>
+          {!items.length ? (
+            <p className="px-3 text-sm">No published cover for this time. Cover is unknown; check with switchboard.</p>
+          ) : null}
           <div className="px-3">
             <Select
               label="My team"
@@ -122,9 +131,15 @@ export function OnCallWhosOnPage() {
                   id={item.id}
                   source="handbook"
                   title={item.parsed.label}
+                  subtitle={
+                    item.cover
+                      ? `${item.cover.window.start}–${item.cover.window.end} · roles near changeover may overlap`
+                      : undefined
+                  }
                   dial={item.dial}
                   mobileDial={item.mobileDial}
                   updatedAt={item.updatedAt}
+                  lastConfirmedAt={item.lastConfirmedAt}
                   sources={item.sources}
                   hospitalName={hospitalName}
                   testId={`on-call-whos-on-row-${item.id}`}
@@ -140,9 +155,15 @@ export function OnCallWhosOnPage() {
                   id={item.id}
                   source="handbook"
                   title={item.parsed.label}
+                  subtitle={
+                    item.cover
+                      ? `${item.cover.window.start}–${item.cover.window.end} · roles near changeover may overlap`
+                      : undefined
+                  }
                   dial={item.dial}
                   mobileDial={item.mobileDial}
                   updatedAt={item.updatedAt}
+                  lastConfirmedAt={item.lastConfirmedAt}
                   sources={item.sources}
                   hospitalName={hospitalName}
                   testId={`on-call-whos-on-row-${item.id}`}

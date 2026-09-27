@@ -195,6 +195,8 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 | `/auth/reset-password`                                                                                                                                                                                  | `src/app/auth/reset-password/page.tsx`                                                                                          |
 | PWA and SEO (`/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml`, OG image, icons)                                                                                                                   | `src/app/manifest.ts`, `robots.ts`, `sitemap.ts`, `opengraph-image.tsx`, `apple-icon.tsx`, `icons/[variant]/route.tsx`          |
 
+Legacy On Call bookmarks `/on-call/shifts` and `/on-call/calendar` now redirect to `/roster/shifts` and `/roster/calendar`. Their compatibility pages remain under `src/app/(search-app)/on-call/`.
+
 ### API routes (`src/app/api/`)
 
 | Area             | Routes                                                                                                                                                                                                                                                                                                                            | Entry files                                                     |

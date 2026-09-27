@@ -114,3 +114,22 @@ describe("service routes", () => {
     expect(mocks.rpc.mock.calls.at(-1)?.[1].p_payload.invitedEmail).toBe("dr.ivy@example.org");
   });
 });
+
+describe("Stage C mocked API", () => {
+  it("passes the published revision to confirmation and preserves database permission refusals", async () => {
+    const payload = { action: "entry.confirm", entryId: actor, publishedRevision: 3 };
+    expect((await mutate(request(payload), context)).status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "on_call_service_command",
+      expect.objectContaining({ p_actor_id: actor, p_payload: payload }),
+    );
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "service_review_denied" } });
+    expect((await mutate(request(payload), context)).status).toBe(403);
+  });
+  it("rejects partial site times before any RPC", async () => {
+    expect(
+      (await mutate(request({ action: "site.update", siteId: actor, afterHoursStart: "17:00" }), context)).status,
+    ).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+});

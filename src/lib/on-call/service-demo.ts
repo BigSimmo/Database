@@ -6,7 +6,8 @@ import type { ServiceDetail, ServiceEntry, ServiceSummary } from "@/lib/on-call/
  * have content on every On Call page.
  *
  * Everything here is made up (plan Global Constraint 9): the service, the site,
- * every title and every number. Hospital lines use the form `9000 00xx`, and the
+ * every title and every number. Hospital lines use ACMA’s reserved fictitious range `08 5550 xxxx`
+ * (https://www.acma.gov.au/phone-numbers-use-tv-shows-films-and-creative-works). The
  * emergency row uses the made-up short code `55` — never 000, which is the
  * national emergency number, not a ward code. Each body says "Synthetic example
  * only". The one source link points at a reserved example domain, so no real
@@ -35,6 +36,8 @@ function demoEntry(
     reviewedAt: null,
     reviewComment: "",
     updatedAt: "2026-09-20T04:00:00.000Z",
+    publishedAt: "2026-09-20T04:00:00.000Z",
+    lastConfirmedAt: null,
     ...overrides,
   };
 }
@@ -64,6 +67,44 @@ export const demoServiceDetail: ServiceDetail = {
   membership: { role: "admin", clinicalReviewer: true },
   sites: [{ id: DEMO_SITE_ID, name: "Demonstration Hospital" }],
   entries: [
+    demoEntry(
+      "61000000-0000-4000-8000-000000000019",
+      {
+        siteId: DEMO_SITE_ID,
+        section: "cover",
+        kind: "clinical",
+        title: "Synthetic role cover",
+        body: "Synthetic example only.",
+        phone: "5550 0042",
+        sources: [{ label: "Synthetic policy", url: "https://example.org/policy" }],
+        orientationPhase: "first_shift",
+        cover: { grade: "registrar", team: "Medicine", window: { start: "00:00", end: "23:59" } },
+      },
+      { reviewedBy: DEMO_REVIEWER_ID, reviewedAt: "2026-09-20T04:00:00.000Z" },
+    ),
+    demoEntry(
+      "61000000-0000-4000-8000-000000000020",
+      {
+        siteId: DEMO_SITE_ID,
+        section: "playbook",
+        kind: "clinical",
+        title: "Synthetic contact ladder",
+        body: "Synthetic example only.",
+        phone: "",
+        sources: [{ label: "Synthetic policy", url: "https://example.org/policy" }],
+        orientationPhase: "first_shift",
+        steps: [
+          { order: 1, whoToCall: "Synthetic first role", when: "First contact", phone: "5550 0042", waitMinutes: 10 },
+          {
+            order: 2,
+            whoToCall: "Synthetic second role",
+            when: "When the first role cannot be reached",
+            phone: "5550 0043",
+          },
+        ],
+      },
+      { reviewedBy: DEMO_REVIEWER_ID, reviewedAt: "2026-09-20T04:00:00.000Z" },
+    ),
     demoEntry("61000000-0000-4000-8000-000000000001", {
       siteId: DEMO_SITE_ID,
       section: "contacts",
@@ -145,17 +186,17 @@ export const demoServiceDetail: ServiceDetail = {
         section: "contacts",
         kind: "clinical",
         title: "Emergency: Synthetic emergency line",
-        body: "Synthetic example only. Dial from a hospital phone.\nFrom a mobile: 9000 0000, 55",
+        body: "Synthetic example only. Dial from a hospital phone.\nFrom a mobile: 5550 0000, 55",
         phone: "55",
         sources: [{ label: "Synthetic hospital procedure", url: "https://example.org/synthetic-emergency-procedure" }],
         orientationPhase: "first_shift",
       },
       { reviewedBy: DEMO_REVIEWER_ID, reviewedAt: "2026-09-21T04:00:00.000Z" },
     ),
-    hospitalRow("61000000-0000-4000-8000-000000000008", "contacts", "Switchboard", "9000 0000"),
-    hospitalRow("61000000-0000-4000-8000-000000000009", "contacts", "Medicine: Registrar on call", "9000 0000, 4455"),
+    hospitalRow("61000000-0000-4000-8000-000000000008", "contacts", "Switchboard", "5550 0000"),
+    hospitalRow("61000000-0000-4000-8000-000000000009", "contacts", "Medicine: Registrar on call", "5550 0000, 4455"),
     hospitalRow("61000000-0000-4000-8000-000000000010", "contacts", "ICU: Registrar", "4456"),
-    hospitalRow("61000000-0000-4000-8000-000000000011", "contacts", "Ward: Synthetic ward 4B", "9000 0012"),
+    hospitalRow("61000000-0000-4000-8000-000000000011", "contacts", "Ward: Synthetic ward 4B", "5550 0012"),
     hospitalRow(
       "61000000-0000-4000-8000-000000000012",
       "resources",
