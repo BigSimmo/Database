@@ -24,7 +24,8 @@ export type InformationPageMode =
   | "on-call"
   | "cme"
   | "psychiatry"
-  | "my-work";
+  | "my-work"
+  | "first-nations";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -96,6 +97,11 @@ export function isInformationPage(pathname: string): boolean {
   if (pathname === "/psychiatry") return true;
   // The My Work dashboard, for the same reason.
   if (pathname === "/my-work") return true;
+  // Every First Nations route, the mode home included: the mode owns its own
+  // in-page search box on every page (standard §13), so it has no composer of
+  // the shared kind on any route and this is what keeps the shell from
+  // mounting one.
+  if (pathname === "/first-nations" || pathname.startsWith("/first-nations/")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -139,4 +145,5 @@ export const informationPageShellModes = [
   "cme",
   "psychiatry",
   "my-work",
+  "first-nations",
 ] as const satisfies readonly InformationPageMode[];
