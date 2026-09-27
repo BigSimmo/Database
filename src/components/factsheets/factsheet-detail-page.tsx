@@ -274,12 +274,14 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                   <Heading>More in {factsheet.category}</Heading>
                   <Link
                     href={`/factsheets/search?category=${encodeURIComponent(factsheet.category)}`}
-                    className="text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)]"
+                    className="inline-flex min-h-tap shrink-0 items-center text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)]"
                   >
                     See all
                   </Link>
                 </div>
-                <div className="grid gap-2.5">
+                {/* minmax(0,1fr): an auto grid track grew to the cards' min-content
+                    width and pushed them 33px past a 320px screen. */}
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
                   {moreInTopic.map((sheet) => {
                     const sheetTheme = categoryTheme(sheet.category);
                     return (
@@ -299,8 +301,13 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                             {sheet.title}
                           </span>
                           <span className="line-clamp-2 text-xs text-[color:var(--text-muted)]">{sheet.summary}</span>
+                          {/* On a phone the read time sits under the summary, so it
+                              does not take width from the title. */}
+                          <span className="mt-0.5 block text-2xs font-bold text-[color:var(--text-muted)] sm:hidden">
+                            {sheet.readTime}
+                          </span>
                         </span>
-                        <span className="shrink-0 text-xs font-bold text-[color:var(--text-muted)]">
+                        <span className="hidden shrink-0 text-xs font-bold text-[color:var(--text-muted)] sm:inline">
                           {sheet.readTime}
                         </span>
                         <ChevronRight
