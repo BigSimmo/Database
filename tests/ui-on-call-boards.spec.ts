@@ -547,7 +547,7 @@ test.describe("02 More — the second row is about the page you are on", () => {
     await openBoard(page, ROUTES.referrals);
     await expect(page.getByTestId("on-call-referrals-filters")).toHaveCount(0);
     const groups = page.locator('[data-testid^="on-call-referrals-group-"]');
-    expect(await groups.count()).toBeGreaterThan(1);
+    await expect.poll(() => groups.count()).toBeGreaterThan(1);
 
     // And the bar can now move between them, which the flat list could not.
     expect(await barWords(page)).toContain("Community");
@@ -556,7 +556,7 @@ test.describe("02 More — the second row is about the page you are on", () => {
   test("gives the orientation shelf its groups too", async ({ page }) => {
     await openBoard(page, ROUTES.orientation);
     await expect(page.getByTestId("on-call-orientation-filters")).toHaveCount(0);
-    expect(await page.locator('[data-testid^="on-call-orientation-group-"]').count()).toBeGreaterThan(1);
+    await expect.poll(() => page.locator('[data-testid^="on-call-orientation-group-"]').count()).toBeGreaterThan(1);
   });
 
   test("declares no anchor the page does not render", async ({ page }) => {
@@ -674,7 +674,7 @@ test.describe("07 Playbook", () => {
   test("numbers the escalation ladder and keeps the consultant sentence in full ink", async ({ page }) => {
     await openBoard(page, ROUTES.playbook);
     const steps = page.locator('[data-testid^="on-call-playbook-step-"]');
-    expect(await steps.count()).toBeGreaterThanOrEqual(3);
+    await expect.poll(() => steps.count()).toBeGreaterThanOrEqual(3);
     await expect(steps.first()).toContainText("1.");
     await expect(page.getByText("You are expected to make this call")).toBeVisible();
   });
@@ -755,7 +755,7 @@ test.describe("10 Orientation", () => {
   test("draws both checklists, and a tick greys the step it belongs to", async ({ page }) => {
     await openBoard(page, ROUTES.orientation);
     const checklists = page.locator('[data-testid^="on-call-orientation-checklist-"]');
-    expect(await checklists.count()).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => checklists.count()).toBeGreaterThanOrEqual(2);
 
     const step = page.getByRole("button", { name: /Collect the on-call phone/ });
     await expectTapFloor(step, "checklist step");

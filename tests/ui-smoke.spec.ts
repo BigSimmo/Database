@@ -2269,7 +2269,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const safetyFindingsSheet = page.getByRole("dialog", { name: "Key points" });
     await expect(safetyFindingsSheet).toBeVisible();
     await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
-    expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
+    await expect.poll(() => safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
     // Severity order inside the sheet: a stop-tier row never follows a know-tier
     // one, so the list always reads in the same direction.
     const sheetTones = await safetyFindingsSheet
@@ -3216,8 +3216,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
     const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
     const compactCrossModeActions = compactCrossModeRail.getByRole("button");
-    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
-    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
+    await expect.poll(() => compactCrossModeLinks.count()).toBeGreaterThan(0);
+    await expect.poll(() => compactCrossModeActions.count()).toBeGreaterThan(0);
     for (const control of await compactCrossModeLinks.all()) {
       await expectMinTouchTarget(control, 48);
     }
