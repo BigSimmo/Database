@@ -20,7 +20,8 @@ export function googleCalendarUrl(event: CalendarEvent): string {
   const params = new URLSearchParams({ action: "TEMPLATE", text: event.title, dates, ctz: CALENDAR_TIME_ZONE });
   if (event.notes) params.set("details", event.notes);
   if (event.location) params.set("location", event.location);
-  if (event.recurrence) params.set("recur", `RRULE:${recurrenceRule(event.recurrence, event.date)}`);
+  if (event.recurrence)
+    params.set("recur", `RRULE:${recurrenceRule(event.recurrence, event.seriesStartDate ?? event.date)}`);
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 

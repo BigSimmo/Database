@@ -42,6 +42,8 @@ export type CalendarEvent = {
   readonly kind: CalendarEventKind;
   /** Repeats from `date` onwards. */
   readonly recurrence?: CalendarRecurrence;
+  /** Original date of a repeated series, retained when this event is an expanded occurrence. */
+  readonly seriesStartDate?: string;
   readonly location?: string;
   readonly notes?: string;
   /** An in-app page about this event, if there is one. */
@@ -181,7 +183,13 @@ export function expandEvents(
     for (let index = first; index < first + MAX_OCCURRENCES_PER_EVENT; index += 1) {
       const date = occurrenceAfter(event.date, event.recurrence, index);
       if (date > range.end) break;
-      if (date >= range.start) result.push({ ...event, date, occurrenceKey: `${event.id}@${date}` });
+      if (date >= range.start)
+        result.push({
+          ...event,
+          date,
+          seriesStartDate: event.seriesStartDate ?? event.date,
+          occurrenceKey: `${event.id}@${date}`,
+        });
     }
   }
   return result.sort(compareEvents);

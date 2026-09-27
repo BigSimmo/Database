@@ -121,6 +121,19 @@ describe("calendar file", () => {
     );
   });
 
+  it("exports a February occurrence using the original January 31 series rule", () => {
+    const [february] = expandEvents([{ ...TIMED, date: "2026-01-31", recurrence: "monthly" }], {
+      start: "2026-02-28",
+      end: "2026-02-28",
+    });
+    expect(february.date).toBe("2026-02-28");
+    expect(february.seriesStartDate).toBe("2026-01-31");
+    expect(toIcs([february], { now: NOW })).toContain("RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1");
+    expect(new URL(googleCalendarUrl(february)).searchParams.get("recur")).toBe(
+      "RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1",
+    );
+  });
+
   it("names the file safely", () => {
     expect(icsFileName("CME: 2026 deadlines!")).toBe("cme-2026-deadlines.ics");
     expect(icsFileName("***")).toBe("calendar.ics");

@@ -118,7 +118,7 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
       `DTEND;VALUE=DATE:${compactDate(addDays(event.date, 1))}`,
     );
   }
-  if (event.recurrence) lines.push(`RRULE:${recurrenceRule(event.recurrence, event.date)}`);
+  if (event.recurrence) lines.push(`RRULE:${recurrenceRule(event.recurrence, event.seriesStartDate ?? event.date)}`);
   lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
   if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);
