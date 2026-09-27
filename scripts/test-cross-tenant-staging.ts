@@ -518,7 +518,7 @@ async function exerciseTenancyBoundary(args: {
   );
   assertCondition(answerA.answerQualityTier === "source_only", "Staging app is not returning a source-only answer.");
   assertCondition(
-    answerA.fallbackReason === "source_only_offline_mode",
+    answerA.fallbackReasonCode === "provider_offline",
     "Staging app must run with RAG_PROVIDER_MODE=offline for this harness.",
   );
   assertCondition(
