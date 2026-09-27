@@ -21,6 +21,7 @@ import {
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import type { CmeDraftPayload } from "@/lib/cme/drafts";
 import { parseCmeHours } from "@/lib/cme/hours-input";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
 import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory, type CmeEntry } from "@/lib/cme/types";
 
@@ -464,7 +465,7 @@ export function CmeEntryForm({
       });
       if (draftStorageKey) writeStoredDraft(draftStorageKey, null);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Could not save this draft.");
+      setSubmitError(cmeSaveErrorText(error, "Could not save this draft."));
     } finally {
       setSavingDraft(false);
     }
@@ -486,7 +487,7 @@ export function CmeEntryForm({
       setRestoredDraft(false);
       resetFields();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Could not save this entry.");
+      setSubmitError(cmeSaveErrorText(error, "Could not save this entry."));
     } finally {
       setSaving(false);
     }

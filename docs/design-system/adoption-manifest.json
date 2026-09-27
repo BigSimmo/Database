@@ -894,7 +894,6 @@
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-routines-page.tsx",
-        "src/components/cme/cme-state-notice.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
@@ -919,7 +918,6 @@
         "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-missed-sessions-section.tsx",
         "src/components/cme/cme-routines-page.tsx",
-        "src/components/cme/cme-state-notice.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
@@ -4723,6 +4721,6 @@
     "productImportedComponentCount": 45,
     "rootCount": 114,
     "productionRouteCount": 106,
-    "nextUiEntryCount": 170
+    "nextUiEntryCount": 172
   }
 }

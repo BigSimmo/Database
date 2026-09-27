@@ -120,6 +120,31 @@ describe("CME capture routes", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/cme/entries", expect.objectContaining({ method: "POST" }));
   });
 
+  it("says the doctor is offline when a save cannot reach the server, and keeps every field", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
+
+    render(<CmeNewEntryRoute routine={routine} set={requirementSet} demoMode={false} />);
+    const date = screen.getByLabelText(/^Date/);
+    await user.clear(date);
+    await user.type(date, "15/09/2025");
+    const credit = screen.getByLabelText(/formal peer-review credit/i);
+    await user.clear(credit);
+    await user.type(credit, "1");
+    await user.click(screen.getByRole("checkbox", { name: "Professionalism" }));
+    await user.type(screen.getByLabelText("Reflection"), "Compared documentation practice with peers.");
+    await user.click(screen.getByRole("button", { name: /save entry/i }));
+
+    expect(await screen.findByText(/offline, so nothing was saved/)).toBeInTheDocument();
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull();
+    expect(screen.getByLabelText(/what was it/i)).toHaveValue("Monthly peer-review group");
+    expect(screen.getByLabelText(/^Date/)).toHaveValue("15/09/2025");
+    expect(screen.getByLabelText(/formal peer-review credit/i)).toHaveValue("1");
+    expect(screen.getByRole("checkbox", { name: "Professionalism" })).toBeChecked();
+    expect(screen.getByLabelText("Reflection")).toHaveValue("Compared documentation practice with peers.");
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
   it("sends a complete edit payload and returns to the edited activity", async () => {
     const user = userEvent.setup();
     const entry: CmeEntry = {

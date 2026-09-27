@@ -173,6 +173,7 @@ describe("CME training route", () => {
     });
     render(await CmeTrainingRoute());
     expect(screen.getByTestId("cme-signed-out")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Training" })).toBeInTheDocument();
     expect(screen.queryByTestId("cme-training")).toBeNull();
   });
 
