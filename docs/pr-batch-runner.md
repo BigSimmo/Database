@@ -35,6 +35,13 @@ the existing merge method: squash when the repository allows it (owner decision
 2026-09-16), otherwise merge commits. It does not create a merge queue, change
 rules, approve reviews, or bypass protection.
 
+When the ruleset for `main` has a merge queue, the runner never syncs a PR branch
+with `update-branch`. A PR that is only behind `main` goes straight to the merge
+request (`gh pr merge --auto`, which adds it to the queue), because the queue
+tests every entry against the latest `main` itself. The adapter also refuses a
+sync outright while the queue is on. With no queue, the single late sync before
+merge is unchanged.
+
 1. From Actions, launch **PR batch runner** on `main` with `operation: dry-run`.
    This reads GitHub metadata and reports eligible/excluded candidates. It does
    not create the state branch, start Codex, update branches, or arm a merge.
@@ -99,6 +106,7 @@ unresolved threads, no CI in flight, just behind `main` — needs no repair and 
 person: it is the one sync this runner ever performs, issued for the single
 active PR right before merge, because the branch ruleset requires an
 up-to-date branch to merge. Every other blocker is parked, not synced past.
+Under a merge queue that sync is skipped too (see Activation above).
 
 Required checks and already-started non-provider advisory lanes settle before
 merge handoff. New review activity invalidates thread-resolution evidence. The

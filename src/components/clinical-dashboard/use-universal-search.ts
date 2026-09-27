@@ -30,6 +30,13 @@ export type UniversalSearchState = {
   answerAction?: UniversalSearchAnswerAction;
   contextMode?: AppModeId;
   preferredDomains?: UniversalSearchDomain[];
+  /**
+   * The query is longer than the search API accepts, so nothing was fetched. Distinct from an
+   * empty result: the reader needs to be told to shorten it, not shown "no matches".
+   */
+  tooLong?: boolean;
+  /** The request failed (non-OK response or network error). Never cached. */
+  error?: string;
 };
 
 type UniversalSearchResult = {
@@ -42,6 +49,7 @@ type UniversalSearchResult = {
   answerAction?: UniversalSearchAnswerAction;
   contextMode?: AppModeId;
   preferredDomains?: UniversalSearchDomain[];
+  error?: string;
 };
 
 type UniversalSearchCacheEntry = {
@@ -51,6 +59,10 @@ type UniversalSearchCacheEntry = {
 
 const debounceMs = 250;
 const minQueryLength = 2;
+// Mirrors the `q` bound in the universal search route (`z.string().trim().min(2).max(200)`).
+// A longer query would only earn a 400, so it is reported locally instead of fetched.
+export const universalSearchMaxQueryLength = 200;
+const requestFailedMessage = "Could not load matches from other areas. Edit the search to try again.";
 
 // Small client-side LRU so backspace/retype and revisited prefixes resolve instantly instead of
 // re-hitting the server. Module-scoped so the phone and tablet+ command surfaces share it. The
@@ -143,13 +155,23 @@ export function useUniversalSearch(args: {
   const requestSeqRef = useRef(0);
   const prevAuthRef = useRef(authorizationHeader);
   const trimmedQuery = args.query.trim();
-  const active = args.enabled && trimmedQuery.length >= minQueryLength;
+  const tooLong = args.enabled && trimmedQuery.length > universalSearchMaxQueryLength;
+  const active = args.enabled && !tooLong && trimmedQuery.length >= minQueryLength;
   const limitPerDomain = args.limitPerDomain ?? 3;
   const excludedDomainsKey = universalSearchDomains.filter((domain) => args.excludeDomains?.includes(domain)).join(",");
   const authSignature = JSON.stringify(authorizationHeader ?? {});
   const cacheKey = active
     ? cacheKeyFor(trimmedQuery, args.contextMode, excludedDomainsKey, limitPerDomain, authSignature)
     : null;
+
+  // A failure is not an answer: once the request identity moves on, drop the error so a later
+  // visit to the same query shows as loading while it refetches, never the old failure.
+  // (Adjusting state during render, not in an effect, per React's derived-state guidance.)
+  const [prevCacheKey, setPrevCacheKey] = useState(cacheKey);
+  if (cacheKey !== prevCacheKey) {
+    setPrevCacheKey(cacheKey);
+    if (result.error) setResult({ groups: [], query: "", complete: true });
+  }
 
   useEffect(() => {
     const authChanged = prevAuthRef.current !== authorizationHeader;
@@ -194,7 +216,14 @@ export function useUniversalSearch(args: {
         .then(async (response) => {
           if (requestId !== requestSeqRef.current) return;
           if (!response.ok) {
-            setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode, complete: true });
+            // Not written to the cache, so the next visit to this query fetches again.
+            setResult({
+              groups: [],
+              query: trimmedQuery,
+              contextMode: args.contextMode,
+              complete: true,
+              error: requestFailedMessage,
+            });
             return;
           }
           const payload = await consumeUniversalSearchNdjson(response, {
@@ -239,7 +268,13 @@ export function useUniversalSearch(args: {
           // An aborted fetch is a superseded keystroke, not a failure — leave state to the newer request.
           if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
           if (requestId !== requestSeqRef.current) return;
-          setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode, complete: true });
+          setResult({
+            groups: [],
+            query: trimmedQuery,
+            contextMode: args.contextMode,
+            complete: true,
+            error: requestFailedMessage,
+          });
         });
     }, debounceMs);
 
@@ -249,6 +284,7 @@ export function useUniversalSearch(args: {
     };
   }, [active, cacheKey, trimmedQuery, excludedDomainsKey, limitPerDomain, authorizationHeader, args.contextMode]);
 
+  if (tooLong) return { groups: [], loading: false, query: "", tooLong: true };
   if (!active) return { groups: [], loading: false, query: "" };
 
   // Prefer a cached snapshot for this exact query so backspace/retype is instant; otherwise fall
@@ -278,5 +314,6 @@ export function useUniversalSearch(args: {
     answerAction: fresh ? result.answerAction : undefined,
     contextMode: fresh ? result.contextMode : undefined,
     preferredDomains: fresh ? result.preferredDomains : undefined,
+    ...(fresh && result.error ? { error: result.error } : {}),
   };
 }

@@ -8,6 +8,7 @@ import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
 import { clearOnCallChecklists } from "@/lib/on-call/checklist-storage-keys";
+import { clearOnCallDeviceState } from "@/lib/on-call/device-state-keys";
 import { clearOnCallRecent } from "@/lib/on-call/recent-storage-keys";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
@@ -86,9 +87,11 @@ function clearAccountScopedBrowserState() {
   // third direction: a tick says "I have collected the on-call phone", which
   // is true of a person and not of the next one to sit down.
   clearOnCallChecklists();
+  // Hospital choice, report and call marks, team, shift pick, offline copy.
+  clearOnCallDeviceState();
   // Component-owned stores this lib module may not import (tests/lib-layering):
-  // the unscoped favourites pins / last-opened keys (audit L2) and the Caring
-  // Contacts plan draft, a patient's name and mobile from stage 3 on (audit L6).
+  // the unscoped favourites pins / last-opened keys (audit L2) and the legacy
+  // plan draft left by the retired Caring Contacts prototype (audit L6).
   // The raw keys are removed here, synchronously, whether or not those modules
   // are loaded in this page; the stores drop their caches on the event it fires.
   clearAccountScopedBrowserStorage();
@@ -350,7 +353,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // provider's own `getUser()` round-trip returns, so `publishedUserIdRef`
       // is still null and the event would read as null -> user. Clearing there
       // destroys exactly the stores whose contract is to survive a refresh (the
-      // Caring Contacts draft, the patient profile, the favourites keys), and
+      // patient profile, the favourites keys), and
       // whether it happened at all depended on when React registered this
       // listener, so the loss was intermittent. Wait until `initializeSession`
       // has published the initial state before treating a difference as a

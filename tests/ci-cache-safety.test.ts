@@ -47,7 +47,11 @@ describe("partitioned unit coverage verdict", () => {
 
   it("fails the required aggregate on unsuccessful or missing partitions", () => {
     expect(aggregate.needs).toContain("coverage-shards");
-    expect(aggregate.if).toContain("always()");
+    // Runs on a failed partition (to report it) but not on a cancelled run; the required
+    // aggregate keeps `always()` and fails an in-scope `skipped` coverage result.
+    expect(aggregate.if).toContain("!cancelled()");
+    expect(aggregate.if).not.toContain("always()");
+    expect(workflow.jobs["pr-required"].if).toBe("always()");
     expect(aggregate.steps[0].env.SHARD_RESULT).toBe("${{ needs.coverage-shards.result }}");
     expect(aggregate.steps[0].run).toBe('test "$SHARD_RESULT" = success');
     expect(aggregate.steps[0]["continue-on-error"]).toBeUndefined();
@@ -88,7 +92,7 @@ describe("CI cache safety", () => {
   });
 
   it("preserves successful production shard reports for measured rebalancing", () => {
-    const timingStep = sourceSegment(workflow, "name: Preserve production shard timings", "  ui-ward-journeys:");
+    const timingStep = sourceSegment(workflow, "name: Preserve production shard timings", "  ui-advisory:");
     expect(timingStep).toContain("if: always()");
     expect(timingStep).toContain("production-ui-timings-${{ github.run_id }}-${{ matrix.shard }}");
     expect(timingStep).toContain("path: test-results/playwright-results.json");
@@ -96,6 +100,63 @@ describe("CI cache safety", () => {
   });
   it("does not add a PR workflow that changes user-owned auto-merge state", () => {
     expect(existsSync(new URL("../.github/workflows/keep-pr-auto-merge.yml", import.meta.url))).toBe(false);
+  });
+
+  it("carries only ESLint and tsc incremental caches into static-pr, keyed so rule code cannot go stale", () => {
+    const staticJob = sourceSegment(workflow, "\n  static-pr:\n", "\n  safety:\n");
+    const restore = sourceSegment(
+      staticJob,
+      "name: Restore incremental lint and typecheck caches",
+      "- name: Runtime alignment",
+    );
+    expect(restore).toContain("node_modules/.cache/eslint");
+    expect(restore).toContain("${{ steps.static-cache.outputs.tsc }}");
+    // Never the gate-receipt store (node_modules/.cache/database-gate-receipts.json) or the
+    // whole .cache directory: a restored receipt could let a gate skip itself.
+    expect(restore).not.toMatch(/node_modules\/\.cache\s*$/m);
+    expect(restore).not.toContain("gate-receipts");
+    for (const input of ["eslint.config.mjs", "eslint-rules/**", "package-lock.json", "tsconfig.typecheck.json"]) {
+      expect(restore).toContain(`'${input}'`);
+    }
+    expect(staticJob).toMatch(/\n\s+run: npm run lint -- --concurrency=4\n/);
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect(packageJson.scripts["lint:internal"]).toContain("--cache-strategy content");
+  });
+
+  it("builds the shared Playwright app without installing a browser it never launches", () => {
+    const producer = /\n  ui-playwright-build:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(producer).toContain("uses: ./.github/actions/setup-node-cached");
+    expect(producer).not.toContain("uses: ./.github/actions/setup-ui-e2e");
+    expect(producer).toContain('PLAYWRIGHT_BUILD_ONLY: "true"');
+    // Every lane that launches a browser keeps the full UI setup.
+    for (const job of ["ui-critical-fast", "ui-critical"]) {
+      const segment = new RegExp(`\\n  ${job}:\\n([\\s\\S]*?)(?=\\n  [a-z][\\w-]*:\\n)`).exec(workflow)?.[1] ?? "";
+      expect(segment, job).toContain("uses: ./.github/actions/setup-ui-e2e");
+    }
+    const runner = readFileSync(new URL("../scripts/run-playwright.mjs", import.meta.url), "utf8");
+    expect(runner).toMatch(
+      /process\.env\.PLAYWRIGHT_BUILD_ONLY\?\.trim\(\) === "true"\s*\?\s*\{ checked: \[\] \}\s*:\s*assertPlaywrightBrowsersReady\(playwrightArgs\);/,
+    );
+  });
+
+  it("never lets a later main push cancel the secret scan of an earlier merged commit", () => {
+    const secretScan = readFileSync(new URL("../.github/workflows/secret-scan.yml", import.meta.url), "utf8");
+    expect(secretScan).toContain(
+      "group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.run_id || github.ref }}",
+    );
+    expect(secretScan).toContain("cancel-in-progress: ${{ github.event_name != 'push' }}");
+  });
+
+  it("skips Next's post-build type pass only for CI's isolated offline builds", () => {
+    const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+    expect(nextConfig).toContain(
+      'Boolean(requestedTsConfigPath) && process.env.PLAYWRIGHT_OFFLINE_MODE === "true" && process.env.CI === "true"',
+    );
+    expect(nextConfig).toContain("...(skipIsolatedCiTypecheck ? { ignoreBuildErrors: true } : {})");
+    expect(nextConfig.match(/ignoreBuildErrors/g)).toHaveLength(1);
+    // The type pass it skips is repeated by the required static job, which still runs it.
+    const staticJob = sourceSegment(workflow, "\n  static-pr:\n", "\n  safety:\n");
+    expect(staticJob).toMatch(/\n\s+run: npm run typecheck\n/);
   });
 
   it("uses npm's download cache but recreates node_modules on every job", () => {
@@ -135,9 +196,11 @@ describe("CI cache safety", () => {
   it("skips the browser lanes when static-pr fails, instead of running them on a head that must be re-pushed", () => {
     // static-pr and the Playwright build finish within seconds of each other on hosted runs,
     // so waiting on static-pr costs a green run nothing and saves ~30 runner-minutes on a red
-    // one. All three browser lanes must carry it, or a static failure still books that lane.
-    const ward = /\n  ui-ward-journeys:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
-    expect(ward).toContain("needs: [changes, static-pr, ui-playwright-build]");
+    // one. Both browser lanes must carry it, or a static failure still books that lane.
+    for (const lane of ["ui-critical", "ui-critical-fast"]) {
+      const job = new RegExp(`\\n  ${lane}:\\n([\\s\\S]*?)(?=\\n  [a-z][\\w-]*:\\n)`).exec(workflow)?.[1] ?? "";
+      expect(job, lane).toContain("needs: [changes, static-pr, ui-playwright-build]");
+    }
     // The producer must NOT wait on static-pr: that would serialise the build behind it and
     // add ~5 minutes to every green UI run.
     const producer = /\n  ui-playwright-build:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
@@ -213,27 +276,6 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("if: needs.changes.outputs.static_heavy_changed == 'true'");
     expect(workflow).toContain("run: npm run test:ci-workflows");
     expect(workflow).toContain("run: npm run check:verification-plan");
-  });
-
-  it("isolates Caring Contacts database tests from the Supabase migration emulator", () => {
-    const caringContactsJob = /\n  caring-contacts-db:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
-    const migrationReplayJob = /\n  db-reset-verify:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
-    const requiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
-
-    expect(caringContactsJob, "caring-contacts-db job not found in ci.yml").not.toBe("");
-    expect(caringContactsJob).toContain("needs: changes");
-    expect(caringContactsJob).toContain("needs.changes.outputs.db_changed == 'true'");
-    expect(caringContactsJob).toContain("needs.changes.outputs.static_heavy_changed == 'true'");
-    expect(caringContactsJob).toContain("services:\n      postgres:");
-    expect(caringContactsJob).toContain("POSTGRES_HOST_AUTH_METHOD: trust");
-    expect(caringContactsJob).not.toContain("POSTGRES_PASSWORD");
-    expect(caringContactsJob).toContain('--health-cmd "pg_isready -U postgres -d postgres"');
-    expect(caringContactsJob).toContain("CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres");
-    expect(caringContactsJob).toContain("run: npm run caring-contacts:db:test");
-    expect(migrationReplayJob).not.toContain("npm run caring-contacts:db:test");
-    expect(requiredNeeds).toContain("caring-contacts-db");
-    expect(workflow).toContain("CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}");
-    expect(workflow).toContain('require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"');
   });
 
   /**
@@ -545,9 +587,9 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     PERF_CHANGED: "false",
     /*
      * Read only by the draft report at the end of the script, which decides whether
-     * `lighthouse-budget` belongs in the list of jobs a draft did not run. Same rule as the
-     * Ward Flow entry below: added to `ci.yml` and to this fixture in one commit, because the
-     * script runs under `set -u` and an unbound variable exits 1.
+     * `lighthouse-budget` belongs in the list of jobs a draft did not run. Added to `ci.yml` and
+     * to this fixture in one commit, because the script runs under `set -u` and an unbound
+     * variable exits 1.
      *
      * When that red appears, fix it HERE, by binding the new variable in this fixture - not in
      * `ci.yml` by defaulting the read to `${VAR:-false}`. In the real workflow these variables
@@ -581,32 +623,6 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     UI_RESULT: "skipped",
     LIGHTHOUSE_RESULT: "skipped",
     DB_RESULT: "skipped",
-    CARING_CONTACTS_DB_RESULT: "success",
-    /*
-     * 🔴 **THIS ENTRY AND `ci.yml` MOVE TOGETHER, AND ITS ABSENCE ONCE TURNED ALL TWELVE OF THIS
-     * BLOCK'S CASES RED.** The `ui-ward-journeys` job was added to `ci.yml` without this fixture
-     * gaining the matching entry, so `WARD_JOURNEYS_RESULT` reached the extracted script as an
-     * EMPTY STRING. `record()` treats anything that is not `success`, `skipped` or `cancelled` as
-     * a failure, so every case — including "passes when every in-scope job succeeded" — recorded
-     * `ward-flow-journeys result was ` and exited 1.
-     *
-     * ⚠️ **AND NOTHING LOCAL COULD HAVE CAUGHT IT: this whole `describe` is `skipIf(win32)`.** It
-     * runs on Linux only, so on this project's development machine it reports as SKIPPED rather
-     * than as failing, and the first execution it ever gets is in CI. A fixture that must be
-     * edited alongside a workflow, guarded by a block that cannot run where the workflow is
-     * edited, is the shape to watch for here.
-     *
-     * `WARD_JOURNEYS_BLOCKING` was removed from both this fixture and `ci.yml` on 2026-09-06 when
-     * the lane was enabled; it no longer exists in the workflow, so binding it here would test a
-     * variable the script never reads.
-     *
-     * `"skipped"` is the faithful default for THIS fixture specifically, because it sets
-     * `UI_CHANGED: "false"` — the lane's `if:` is false, and GitHub reports a skipped job. It is
-     * NOT the default for a UI-changed pull request any more: there the lane runs and must
-     * succeed, which is why the `UI_CHANGED: "true"` cases below set it explicitly rather than
-     * inheriting this.
-     */
-    WARD_JOURNEYS_RESULT: "skipped",
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {
@@ -741,17 +757,6 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "false", SAFETY_RESULT: "success" }).status).toBe(0);
   });
 
-  it("requires the isolated Caring Contacts database job for database and static-heavy scopes", () => {
-    expect(
-      runAggregate({ DB_CHANGED: "true", DB_RESULT: "success", CARING_CONTACTS_DB_RESULT: "skipped" }).status,
-    ).not.toBe(0);
-    expect(
-      runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "success", CARING_CONTACTS_DB_RESULT: "skipped" })
-        .status,
-    ).not.toBe(0);
-    expect(runAggregate({ CARING_CONTACTS_DB_RESULT: "skipped" }).status).toBe(0);
-  });
-
   it("requires ingestion SAST only for its path-scoped surface", () => {
     expect(runAggregate({ INGESTION_SAST_CHANGED: "true", INGESTION_SAST_RESULT: "success" }).status).toBe(0);
     expect(runAggregate({ INGESTION_SAST_CHANGED: "true", INGESTION_SAST_RESULT: "skipped" }).status).not.toBe(0);
@@ -839,9 +844,6 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
         UI_BUILD_RESULT: "success",
         UI_FAST_RESULT: "success",
         UI_RESULT: "cancelled",
-        // The ward lane runs on every UI pull request now, so it must be green here or this
-        // case would go red for two reasons and stop isolating the cancellation it is about.
-        WARD_JOURNEYS_RESULT: "success",
       }).status,
     ).not.toBe(0);
     expect(
@@ -850,9 +852,6 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
         UI_BUILD_RESULT: "success",
         UI_FAST_RESULT: "cancelled",
         UI_RESULT: "success",
-        // The ward lane runs on every UI pull request now, so it must be green here or this
-        // case would go red for two reasons and stop isolating the cancellation it is about.
-        WARD_JOURNEYS_RESULT: "success",
       }).status,
     ).not.toBe(0);
   });
@@ -863,45 +862,9 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(workflow).toMatch(/pr-required:[\s\S]*?if: always\(\)/);
   });
 
-  it("requires the Ward Flow journeys on a UI pull request, and only there", () => {
-    /*
-     * ENABLED 2026-09-06. Until then `ui-ward-journeys` was gated behind
-     * `vars.WARD_JOURNEYS_BLOCKING`, a repository variable nobody ever set, so the lane always
-     * skipped and this aggregate always took its `require_skipped_or_success` branch. Nothing
-     * could go red because of a broken ward journey — and on 2026-09-05 several did, unnoticed
-     * for a day.
-     *
-     * These four cases are the proof the lane is genuinely blocking now, which no case asserted
-     * before: the first two are the states that must FAIL, the last two the out-of-scope states
-     * that must still pass. Without the first case in particular, removing the job's `if:` and
-     * this aggregate's condition would look identical to leaving them in.
-     */
-    // `UI_CHANGED: "true"` also puts `production-ui-critical` and `production-ui` in scope, and
-    // the fixture leaves both skipped — so every in-scope case below carries them green. Without
-    // that the ward result is not the variable under test and the "in scope and green" case fails
-    // for an unrelated reason, which is exactly what this test caught while being written.
-    const uiPr = {
-      UI_CHANGED: "true",
-      UI_BUILD_RESULT: "success",
-      UI_FAST_RESULT: "success",
-      UI_RESULT: "success",
-    } as const;
-
-    // In scope and red: the lane failed.
-    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "failure" }).status).not.toBe(0);
-    // In scope and absent: a lane that did not run verified nothing, so it cannot pass the PR.
-    // This is the exact case that passed before the gate was removed.
-    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "skipped" }).status).not.toBe(0);
-    // In scope and green — the ward result is the only thing that changed from the case above.
-    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "success" }).status).toBe(0);
-    // Out of scope: no UI change, and drafts. Skipped is correct and must not fail the aggregate.
-    expect(runAggregate({ UI_CHANGED: "false", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
-    expect(runAggregate({ ...uiPr, PR_DRAFT: "true", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
-  });
-
   it("stays red on a static failure and reports the browser lanes it skipped as deferred, not failed", () => {
     // The browser lanes need static-pr, so a static failure skips them. The aggregate must stay
-    // red on the static failure itself, and must not add three "result was skipped" lines that
+    // red on the static failure itself, and must not add two "result was skipped" lines that
     // say nothing about the diff.
     const staticRed = {
       UI_CHANGED: "true",
@@ -909,14 +872,12 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
       UI_BUILD_RESULT: "success",
       UI_FAST_RESULT: "skipped",
       UI_RESULT: "skipped",
-      WARD_JOURNEYS_RESULT: "skipped",
     } as const;
     const red = runAggregate(staticRed);
     expect(red.status).not.toBe(0);
     expect(red.output).toContain("static-pr result was failure");
     expect(red.output).not.toContain("production-ui result was skipped");
     expect(red.output).not.toContain("production-ui-critical result was skipped");
-    expect(red.output).not.toContain("ward-flow-journeys result was skipped");
     expect(red.output).toContain("Browser tests deferred");
     // A lane that somehow ran and failed is still reported as a failure.
     expect(runAggregate({ ...staticRed, UI_RESULT: "failure" }).output).toContain("production-ui result was failure");

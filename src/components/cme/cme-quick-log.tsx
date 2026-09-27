@@ -10,6 +10,7 @@ import { CME_NEW_ENTRY_DRAFT_KEY } from "@/components/cme/cme-new-entry-route";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, InlineNotice, primaryControl, textMuted } from "@/components/ui-primitives";
 import type { CmeRequirementSet } from "@/lib/cme/types";
+import { perthCalendarDate } from "@/lib/perth-time";
 
 /** How long "Saved to your log" stays on screen after a quick log. */
 const SAVED_NOTICE_MS = 5000;
@@ -51,7 +52,7 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
   const domains = set.requirements.flatMap((requirement) =>
     requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
   );
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" });
+  const today = perthCalendarDate();
   const initialDate = today.startsWith(`${set.year}-`) ? today : `${set.year}-01-01`;
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
   }, [savedNotice]);
 
   async function saveEntry(entry: CmeEntryDraft) {
-    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CPD record.");
     const response = await fetch("/api/cme/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

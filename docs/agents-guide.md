@@ -21,7 +21,7 @@ and acceptance evidence belong to their current task; historical reports are lea
 Whenever agents are used, apply [smart agent allocation](agents/smart-agent-allocation.md)
 for model/effort selection, ownership, independent review and Cloud capability limits.
 
-Also see [DOCS-SYSTEM.md](DOCS-SYSTEM.md) for the documentation operating system (pipeline, stamps, recheck triggers, PsychSift + Ward Flow registry).
+Also see [DOCS-SYSTEM.md](DOCS-SYSTEM.md) for the documentation operating system (pipeline, stamps, recheck triggers, PsychSift registry).
 
 | Task or concern                                              | Authoritative reference                                                                                                                                                                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -100,6 +100,10 @@ this navigator does not make every linked procedure a mandatory startup step.
   its gates remain product design authority. Cursor Cloud does not inherit Desktop
   OAuth. Use Chrome DevTools for relevant performance/debugging work without
   leaving redundant browser MCP servers active.
+- [The organisation map](organisation/README.md) records which area owns every
+  file and each area's canonical docs; `npm run check:organisation -- --files <path>`
+  answers "where does this belong and what do I read first". Placing a file never
+  grants clinical, ranking, privacy or database approval.
 - [The documentation index](README.md) distinguishes maintained instructions,
   generated views and historical evidence. Correct the maintained source and its
   necessary references; do not rewrite historical reports to make old results look

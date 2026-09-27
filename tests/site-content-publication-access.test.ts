@@ -6,11 +6,92 @@ import {
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
 import type { RecoveryReadinessEvidence } from "@/lib/recovery-readiness-evidence";
+import { clearSiteContentRecordCache } from "@/lib/site-content/site-content-record-cache";
 
 const seed = { slug: "seed", title: "Seed" };
 const canonical = { slug: "canonical", title: "Canonical", ownerId: "must-not-leak", publishedBy: "must-not-leak" };
 
 describe("canonical site-content publication reads", () => {
+  it("projects medication search without contaminating the full governance list", async () => {
+    clearSiteContentRecordCache();
+    const columns: string[] = [];
+    const snapshot = { state: "current", releaseId: "release-1" };
+    const rpc = vi.fn(() =>
+      Object.assign(
+        Promise.resolve({
+          data: [
+            {
+              initialized: true,
+              record: { sourceStatus: "approved" },
+              render_payload: { slug: "published" },
+              snapshot,
+            },
+          ],
+          error: null,
+        }),
+        {
+          select: (projection: string) => {
+            columns.push(projection);
+            return Promise.resolve({
+              data: [{ initialized: true, render_payload: { slug: "published" }, snapshot }],
+              error: null,
+            });
+          },
+        },
+      ),
+    );
+    const supabase = { rpc };
+
+    const search = await readCanonicalSiteContentRecords({
+      supabase,
+      kind: "medication",
+      slug: null,
+      seeds: [seed],
+      cache: true,
+      renderOnly: true,
+    });
+    const list = await readCanonicalSiteContentRecords({
+      supabase,
+      kind: "medication",
+      slug: null,
+      seeds: [],
+      cache: true,
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        slug: String(finalRenderPayload.slug),
+        sourceStatus: String(canonicalRecord.sourceStatus),
+      }),
+    });
+
+    expect(search.records).toEqual([{ slug: "published" }]);
+    expect(list.records).toEqual([{ slug: "published", sourceStatus: "approved" }]);
+    expect(columns).toEqual(["initialized,render_payload,snapshot"]);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    clearSiteContentRecordCache();
+  });
+
+  it("rejects a published medication with no projected render payload instead of omitting it", async () => {
+    clearSiteContentRecordCache();
+    const supabase = {
+      rpc: () => ({
+        select: () =>
+          Promise.resolve({
+            data: [{ initialized: true, render_payload: null, snapshot: { state: "current", releaseId: "release-1" } }],
+            error: null,
+          }),
+      }),
+    };
+    await expect(
+      readCanonicalSiteContentRecords({
+        supabase,
+        kind: "medication",
+        slug: null,
+        seeds: [seed],
+        cache: true,
+        renderOnly: true,
+      }),
+    ).rejects.toThrow("missing or invalid render payload");
+    clearSiteContentRecordCache();
+  });
   it("routes all seven public GET owners through the canonical publication reader", () => {
     const routes = [
       "src/app/api/registry/records/route.ts",

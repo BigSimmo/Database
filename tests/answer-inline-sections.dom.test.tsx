@@ -356,3 +356,66 @@ describe("adaptive answer inline sections", () => {
     ).toContainElement(screen.getByRole("button", { name: /WA clinical guideline, p\. 9/i }));
   });
 });
+
+// #WGMB4Z decision 17 (owner, 2026-09-25): the all-claims rule changes the support WORD only.
+// A high-trust answer whose claims are not all direct on approved or locally reviewed sources
+// reads "Supported", not "Strong support", with the same tone, sources and sections as before.
+describe("answer support label (#WGMB4Z)", () => {
+  function renderSurface(answer: ClientRagAnswerPayload) {
+    const renderModel = buildAnswerRenderModel(answer);
+    render(
+      <StagedAnswerResultSurface
+        answer={answer}
+        query="What does the plan require?"
+        bestSource={answer.bestSource ?? null}
+        renderModel={renderModel}
+        weakEvidence={false}
+        answerViewMode="standard"
+        answerEvidenceMapRows={[]}
+        onScopeDocument={() => {}}
+        answerGrounded
+        sources={answer.sources}
+        demoMode={false}
+        safetyFindings={[]}
+        copiedAnswer={false}
+        pendingFeedback={null}
+        onCopyAnswer={() => {}}
+        onSubmitFeedback={() => {}}
+      />,
+    );
+    return renderModel;
+  }
+
+  it.each([
+    [true, "Supported", "supported"],
+    [false, "Strong support", "strong"],
+    [undefined, "Strong support", "strong"],
+  ] as const)("strongSupportLabelCapped=%s reads %j on a high-trust answer", (capped, word, dataSupport) => {
+    const renderModel = renderSurface(
+      adaptiveAnswer({
+        strongSupportLabelCapped: capped,
+        relevance: {
+          verdict: "direct",
+          label: "Direct",
+          matchedTerms: [],
+          missingTerms: [],
+          directSourceCount: 1,
+          weakSourceCount: 0,
+          score: 1,
+          supportReason: "Direct support",
+          isSourceBacked: true,
+        },
+      }),
+    );
+    expect(renderModel.trust).toBe("high");
+    const chip = screen.getByTestId("answer-card-support");
+    expect(chip).toHaveTextContent(`Evidence support: ${word}`);
+    expect(chip).toHaveAttribute("data-support", dataSupport);
+    if (capped) expect(chip).not.toHaveTextContent("Strong support");
+    // Strong and supported share one tone: the label is the only thing that moves.
+    expect(chip.className).toContain("text-[color:var(--clinical-accent)]");
+    expect(within(screen.getByTestId("plain-answer-response")).getAllByTestId("answer-source-rail-row")).toHaveLength(
+      3,
+    );
+  });
+});

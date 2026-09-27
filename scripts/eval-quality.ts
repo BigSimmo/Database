@@ -88,6 +88,10 @@ export type RagQualityResult = {
   routingReason?: string;
   /** Opening sentence of the answer — the span the text-shape gates inspect. */
   answerOpeningSentence?: string | null;
+  /** Runtime rejection codes, not inferred from the generic fallback reason. */
+  generationQualityGateReasons?: string[];
+  /** Actual terminal citations, distinct from the top retrieved files. No source prose. */
+  citedSources?: ReturnType<typeof ragAnswerFailureDiagnostics>["citedSources"];
   /**
    * Full answer text, recorded only when a text-shape gate rejected it. This is the
    * pre-fallback candidate text the gate actually judged (RagAnswer.rejectedCandidateText),
@@ -180,6 +184,28 @@ export function deliveredGroundedAfterSourceGovernancePolicy(
 }
 
 const crossRegionRunnerLatencyContext = process.env.EVAL_LATENCY_CONTEXT === "cross-region-runner";
+
+export function ragAnswerFailureDiagnostics(answer: Pick<RagAnswer, "latencyTimings" | "citations">) {
+  // #2947: the runtime already records the precise rejection, but the weekly
+  // quality report dropped it. Retain only bounded machine codes, never retry
+  // prose or generated clinical claims. Missing historical diagnostics stay unknown.
+  const generationQualityGateReasons = Array.from(
+    new Set(
+      (answer.latencyTimings?.answer_retry_reasons ?? []).flatMap((reason) => {
+        const match = /^generation_quality_gate:([a-z][a-z0-9_]{0,199})$/.exec(reason);
+        return match ? [match[1]] : [];
+      }),
+    ),
+  );
+  const citedSources = answer.citations.map((citation) => ({
+    chunkId: citation.chunk_id,
+    documentId: citation.document_id,
+    fileName: citation.file_name,
+    pageNumber: citation.page_number,
+    provenance: citation.provenance ?? null,
+  }));
+  return { generationQualityGateReasons, citedSources };
+}
 
 export function ragAnswerTimingDiagnostics(
   answer: Pick<RagAnswer, "latencyTimings" | "routingMode">,
@@ -1001,8 +1027,9 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
           ["Reason", debtAcceptance.reason ?? "n/a"],
           ["Rejection reasons", debtAcceptance.rejection_reasons.join("; ") || "none"],
         ]);
+  // Every failed case, not the first ten: a truncated list is how an individually failing case
+  // hides behind the ones above it (audit F24).
   const failedRetrieval = report.retrieval.summary.failed_cases
-    .slice(0, 10)
     .map(
       (item) =>
         `- ${item.id}: ${item.failures.join("; ")}\n  Expected documents: ${
@@ -1018,7 +1045,6 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
     )
     .join("\n");
   const failedRag = report.rag.summary.failed_cases
-    .slice(0, 10)
     .map(
       (item) =>
         `- ${item.id}: ${item.failures.join("; ")}\n  Expected files: ${
@@ -1029,7 +1055,16 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
           item.unverifiedNumericTokenCount
         } faithfulnessWarning=${item.hasFaithfulnessWarning ? "yes" : "no"} sourceWarnings=${
           item.sourceWarningCount
-        }\n  reason=${item.routingReason ?? "none"}\n  timings retrieval=${
+        }\n  reason=${item.routingReason ?? "none"}\n  generation gates=${
+          item.generationQualityGateReasons?.join(", ") || "not recorded"
+        }\n  cited sources=${
+          item.citedSources
+            ?.map(
+              (source) =>
+                `${markdownCell(source.fileName)} p${source.pageNumber ?? "?"} [${markdownCell(source.chunkId)}; ${source.provenance ?? "unknown"}]`,
+            )
+            .join(" | ") || (item.citedSources ? "none" : "not recorded")
+        }\n  timings retrieval=${
           item.timings?.retrievalMs ?? "n/a"
         }ms routing=${item.timings?.routingMs ?? "n/a"}ms generation=${
           item.timings?.generationMs ?? "n/a"
@@ -1330,6 +1365,7 @@ async function runRagQualityCases(args: {
       unverifiedNumericTokenCount: answer.unverifiedNumericTokens?.length ?? 0,
       hasFaithfulnessWarning: Boolean(answer.faithfulnessWarning),
       routingReason: answer.routingReason,
+      ...ragAnswerFailureDiagnostics(answer),
       // The text-shape gates (guidance_wrapper_fragment, bare_document_title_list,
       // provider_source_gap) judge the ANSWER PROSE and then the harness discarded it, so a
       // blocked canary could not be investigated without paying for another live run. That is

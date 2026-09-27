@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f2f2024e-3e6c-4adf-9285-821aeade4f9f",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#WGMB4Z",
+    "outcome": "Fixed in 8d450bf44 and 9c8447c3f (owner decisions 3 and 10, 2026-09-25: the authority trust cap checks every claim by default, so trust 'high' / 'Strong support' needs every assessed claim to be direct with approved or locally reviewed authority on each of its supporting chunks, and an answer with no assessed claims is capped at 'Supported'; NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS=\"false\" still narrows the gate to high-risk claims, under which no claims means no cap; no Railway setting changed or read). Supersedes the 2026-07-30 #037 disposition to keep the flag off. Answers saved before this shipped keep their stored label (queued as a separate issue). Pinned by tests/answer-render-policy.test.ts and tests/answer-client-payload.test.ts.",
+    "baseRowFingerprint": "b88ddaf632c3464abc7023f8f99ee76aaf5f63b5dd3d85bd3f090913f70be76e"
+  }
+}

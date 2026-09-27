@@ -1,12 +1,11 @@
 # Developer area access
 
-How the four developer-gated subtrees under `/mockups` are protected, and how to
+How the two developer-gated subtrees under `/mockups` are protected, and how to
 open them without signing in.
 
 The subtrees are listed once, in `src/lib/developer-area/headers.ts`
-(`DEVELOPER_GATED_PATH_PREFIXES`): the Development hub, Care Plan, Caring
-Contacts and Ward Flow. Every other `/mockups/**` path 404s in production and is
-not covered here.
+(`DEVELOPER_GATED_PATH_PREFIXES`): the Development hub and Care Plan. Every other
+`/mockups/**` path 404s in production and is not covered here.
 
 ## Two credentials, either of which opens the area
 
@@ -37,7 +36,7 @@ the signed cookie and redirects the secret back out of the URL. There is no
 second verification path, deliberately — two would be two things to get wrong.
 
 **Setup, once per deployment.** Generate a secret and set it as the server-only
-Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `Database` service:
+Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `PsychSift` service:
 
 ```bash
 openssl rand -hex 32
@@ -105,8 +104,8 @@ forwarded in a message or copied off a screen; the corpus is the clinical
 library. Do not "simplify" those panels by having them trust the cookie.
 
 What a link holder _can_ read is the prototype content and the repository-derived
-panels: the task ledger, the hazard notes, review state, routes, documentation
-inventory, and the Ward Flow / Care Plan / Caring Contact prototypes. Treat the
+panels: the task ledger, the hazard notes, the clinical sign-off queue, and the
+Care Plan prototype. Treat the
 link accordingly — it is roughly as sensitive as the internal notes themselves.
 
 ## Revoking access

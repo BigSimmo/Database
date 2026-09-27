@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "sourceId": "wa-health-regions-dataset",
+  "checkedAt": "2026-09-26",
+  "note": "Schematic outline only. These shapes were drawn by hand to show roughly where each WA health region sits; they were not traced from the boundary dataset and must not be read as real borders. The region list follows the Health Regions (HEALTH-003) dataset. Replace with paths generated from that dataset.",
+  "viewBox": "0 0 700 920",
+  "regions": [
+    { "id": "kimberley", "path": "M360 20L520 0L700 60L700 260L430 260L330 150Z" },
+    { "id": "pilbara", "path": "M60 300L200 210L330 150L430 260L700 260L700 430L90 430Z" },
+    { "id": "midwest", "path": "M90 430L700 430L700 520L420 520L420 640L160 640L120 560Z" },
+    { "id": "goldfields", "path": "M420 520L700 520L700 860L560 860L470 760L420 700Z" },
+    { "id": "wheatbelt", "path": "M160 640L420 640L420 700L470 760L400 800L300 820L230 800L215 770L200 720Z" },
+    { "id": "perth", "path": "M160 650L200 720L215 770L180 780L165 740Z" },
+    { "id": "south-west", "path": "M165 780L215 770L230 800L300 820L280 900L180 900L150 850Z" },
+    { "id": "great-southern", "path": "M300 820L400 800L470 760L560 860L450 900L280 900Z" }
+  ]
+}

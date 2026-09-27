@@ -70,6 +70,24 @@ export function recurrenceRule(recurrence: CalendarRecurrence): string {
   }
 }
 
+/**
+ * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant. Written only
+ * when the owner's reminder settings gave the event an alarm, so an event
+ * without one is byte-for-byte what it was before alarms existed.
+ */
+function alarmLines(event: CalendarEvent): string[] {
+  if (!event.alarmAt) return [];
+  const instant = new Date(event.alarmAt);
+  if (Number.isNaN(instant.getTime())) return [];
+  return [
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
+    `DESCRIPTION:${escapeIcsText(event.title)}`,
+    "END:VALARM",
+  ];
+}
+
 function eventLines(event: CalendarEvent, stamp: Date): string[] {
   const lines = ["BEGIN:VEVENT", `UID:${event.id}@${UID_DOMAIN}`, `DTSTAMP:${compactUtc(stamp)}`];
   const range = eventUtcRange(event);
@@ -86,14 +104,26 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
   lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
   if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);
+  lines.push(...alarmLines(event));
   lines.push("END:VEVENT");
   return lines;
 }
 
-export function toIcs(events: readonly CalendarEvent[], options: { name?: string; now?: Date } = {}): string {
+export function toIcs(
+  events: readonly CalendarEvent[],
+  options: { name?: string; now?: Date; refreshHours?: number } = {},
+): string {
   const stamp = options.now ?? new Date();
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:${PRODUCT_ID}`, "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
   if (options.name) lines.push(`X-WR-CALNAME:${escapeIcsText(options.name)}`);
+  // A subscribed feed asks the calendar app to re-read it this often. Apple and
+  // Outlook honour it; Google keeps its own schedule (roughly daily).
+  if (options.refreshHours && Number.isInteger(options.refreshHours) && options.refreshHours > 0) {
+    lines.push(
+      `REFRESH-INTERVAL;VALUE=DURATION:PT${options.refreshHours}H`,
+      `X-PUBLISHED-TTL:PT${options.refreshHours}H`,
+    );
+  }
   for (const event of events) lines.push(...eventLines(event, stamp));
   lines.push("END:VCALENDAR");
   return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;

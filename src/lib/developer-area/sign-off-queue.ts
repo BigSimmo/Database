@@ -2,14 +2,19 @@ import { loadFormCatalogDetails } from "@/lib/form-catalog";
 import { formPageHref } from "@/lib/form-register";
 import formulationContent from "@/data/formulation-content.json";
 import { curatedDifferentials } from "@/lib/differential-curated";
+import { curatedReviewFor } from "@/lib/differential-curated-review";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
-import { dictionaryDefinitionReviews } from "@/lib/dictionary-editorial/definition-reviews";
+import {
+  dictionaryDefinitionReviews,
+  isDefinitionReviewClinicallyApproved,
+} from "@/lib/dictionary-editorial/definition-reviews";
 import { dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
-import { specifierCatalogItems, loadSpecifiersContent } from "@/lib/specifiers-content";
+import { isSpecifierClinicianReviewed, loadSpecifiersContent, specifierCatalogItems } from "@/lib/specifiers-content";
 import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
-import { isFormulationSignedOffStatus } from "@/lib/formulation-review-status";
+import { conceptReviewState, isFormulationSignedOffStatus } from "@/lib/formulation-review-status";
+import { formulationConcepts, formulationGuides } from "@/lib/formulation-concepts";
 
 /**
  * Every clinical record in this repository that is waiting for a person to sign
@@ -117,9 +122,18 @@ function formsFamily(): SignOffFamily {
 
 type FormulationMechanism = { id: string; name: string; reviewStatus: string };
 
+/**
+ * Formulation keeps its records in two files with two status fields: the 12
+ * mechanisms carry `reviewStatus` in `formulation-content.json`, and the 46
+ * contextual concepts and 6 guide modules carry `review.status` (plus a reviewer
+ * slot) in `formulation-concepts.json`. Reading only the first file hid 52 of
+ * the 64 unsigned records (ledger #33JDBW). Concepts and guides are filtered by
+ * `conceptReviewState`, the same fail-closed decision their pages render, so the
+ * queue and the badge cannot disagree about one record.
+ */
 function formulationFamily(): SignOffFamily {
   const mechanisms = (formulationContent as { mechanisms: FormulationMechanism[] }).mechanisms;
-  const rows = mechanisms
+  const mechanismRows = mechanisms
     .filter((mechanism) => !isFormulationSignedOffStatus(mechanism.reviewStatus))
     .map<SignOffRow>((mechanism) => ({
       family: "formulation",
@@ -132,14 +146,33 @@ function formulationFamily(): SignOffFamily {
         "A clinician confirms the mechanism description, its fit indicators and its treatment implications against the cited sources.",
       href: `/formulation/${mechanism.id}`,
     }));
+  const recordRows = [
+    ...formulationConcepts.map((record) => ({ record, kind: "concept" as const })),
+    ...formulationGuides.map((record) => ({ record, kind: "guide" as const })),
+  ]
+    .filter(({ record }) => !conceptReviewState(record).reviewed)
+    .map<SignOffRow>(({ record, kind }) => ({
+      family: "formulation",
+      key: `formulation-${kind}:${record.id}`,
+      id: record.id,
+      title: record.title,
+      nativeStatus: record.review.status,
+      statusLabel: "Clinical review required",
+      requires:
+        kind === "guide"
+          ? "A named clinician checks the guide module's instructions against the cited sources and records themselves as reviewer."
+          : "A named clinician checks the concept's summary, qualifications and warnings against the cited sources and records themselves as reviewer.",
+      // A held record 404s at /formulation/<id>, so it is listed unlinked.
+      href: record.release === "published" ? `/formulation/${record.id}` : null,
+    }));
   return {
     id: "formulation",
-    name: "Formulation mechanisms",
-    source: "src/data/formulation-content.json",
-    nativeField: "reviewStatus",
-    note: "Source metadata was reviewed; the clinical claims themselves are ungraded and carry no named confirmation.",
+    name: "Formulation mechanisms, concepts and guides",
+    source: "src/data/formulation-content.json, src/data/formulation-concepts.json",
+    nativeField: "reviewStatus (mechanisms); review.status + review.reviewer (concepts and guide modules)",
+    note: "Source metadata was reviewed; the clinical claims themselves are ungraded and carry no named confirmation. A concept or guide counts as signed off only with a named reviewer.",
     unrouted: false,
-    rows,
+    rows: [...mechanismRows, ...recordRows],
   };
 }
 
@@ -154,7 +187,11 @@ function differentialsFamily(): SignOffFamily {
     id: record.slug,
     title: record.title,
     nativeStatus: `validation_status: ${governance.validation_status} (source_status: ${governance.source_status})`,
-    statusLabel: authored.has(record.slug) ? "Unverified, with locally authored content" : "Unverified",
+    statusLabel: !authored.has(record.slug)
+      ? "Unverified"
+      : curatedReviewFor(record.slug)
+        ? "Unverified export; locally authored overlay signed off"
+        : "Unverified, with locally authored content",
     requires: authored.has(record.slug)
       ? "A clinician verifies the exported record and, separately, the locally authored overlay in src/lib/differential-curated.ts that is shown on top of it."
       : "A clinician verifies the exported record against a named source before its validation_status can move off unverified.",
@@ -200,27 +237,33 @@ function dictionaryFamily(): SignOffFamily {
     href: null,
   }));
 
-  const reviews = dictionaryDefinitionReviews.map<SignOffRow>((review) => ({
-    family: "dictionary",
-    key: `dictionary-definition:${review.id}`,
-    id: review.id,
-    title: `${review.title} — ${review.verdict}`,
-    // These records carry no `clinicalApproval` field of their own; the
-    // equivalent state is the pair the module's own contract pins, so both are
-    // reported rather than one being dressed up as the other.
-    nativeStatus: `publicationAllowed: ${review.publicationAllowed}, reviewer: ${review.reviewer === null ? "null" : "set"}`,
-    statusLabel: review.proposedWording ? "Proposed rewrite, unapplied" : "Verdict recorded, no rewrite proposed",
-    requires: review.proposedWording
-      ? "A clinician signs off the proposed wording after it is reconciled against the live definition by hash; nothing here applies automatically."
-      : `A clinician confirms the verdict and the recorded disposition: ${review.disposition}`,
-    href: `/dictionary/${review.entrySlug}`,
-  }));
+  // A definition review signed off by `npm run clinical:review` carries a complete
+  // `clinicalApproval` and leaves the queue. Approval does not apply the wording: that
+  // is a later, separate step, so an approved rewrite is simply no longer awaiting sign-off.
+  const reviews = dictionaryDefinitionReviews
+    .filter((review) => !isDefinitionReviewClinicallyApproved(review))
+    .map<SignOffRow>((review) => ({
+      family: "dictionary",
+      key: `dictionary-definition:${review.id}`,
+      id: review.id,
+      title: `${review.title} — ${review.verdict}`,
+      // An unsigned review carries no `clinicalApproval` field of its own; the
+      // equivalent state is the pair the module's own contract pins, so both are
+      // reported rather than one being dressed up as the other.
+      nativeStatus: `publicationAllowed: ${review.publicationAllowed}, reviewer: ${review.reviewer === null ? "null" : "set"}`,
+      statusLabel: review.proposedWording ? "Proposed rewrite, unapplied" : "Verdict recorded, no rewrite proposed",
+      requires: review.proposedWording
+        ? "A clinician signs off the proposed wording after it is reconciled against the live definition by hash; nothing here applies automatically."
+        : `A clinician confirms the verdict and the recorded disposition: ${review.disposition}`,
+      href: `/dictionary/${review.entrySlug}`,
+    }));
 
   return {
     id: "dictionary",
     name: "Dictionary editorial layer",
     source: "src/data/dictionary-sense-drafts.json, src/data/dictionary-definition-reviews.json",
-    nativeField: "clinicalApproval.status (senses), publicationAllowed + reviewer (definition reviews)",
+    nativeField:
+      "clinicalApproval.status (senses), publicationAllowed + reviewer, or clinicalApproval once signed (definition reviews)",
     // The reason this family is on the page at all: before this panel its only
     // importer was a contract test, so nothing in the running app ever showed
     // these records to the person who has to sign them off.
@@ -233,7 +276,7 @@ function dictionaryFamily(): SignOffFamily {
 function specifiersFamily(): SignOffFamily {
   const content = loadSpecifiersContent();
   const items = specifierCatalogItems()
-    .filter((item) => item.review.clinicianReviewStatus !== "clinician-reviewed")
+    .filter((item) => !isSpecifierClinicianReviewed(item.review))
     .map<SignOffRow>((item) => ({
       family: "specifiers",
       key: `specifier:${item.slug}`,
@@ -253,7 +296,7 @@ function specifiersFamily(): SignOffFamily {
   // built from curated records plus `specifierCatalogItems()`, and a universal is
   // in neither, so `/specifiers/<slug>` would not resolve for one.
   const universals = content.universalSpecifiers
-    .filter((specifier) => specifier.review.clinicianReviewStatus !== "clinician-reviewed")
+    .filter((specifier) => !isSpecifierClinicianReviewed(specifier.review))
     .map<SignOffRow>((specifier) => ({
       family: "specifiers",
       key: `specifier-universal:${specifier.review.rowKey}`,
@@ -270,7 +313,7 @@ function specifiersFamily(): SignOffFamily {
     name: "Specifiers",
     source: "data/specifiers-content.json",
     nativeField: "review.clinicianReviewStatus",
-    note: `The export's own stats record ${content.stats.itemsPendingClinicianReview} specifier items pending clinician review, and a further ${content.universalSpecifiers.length} universal specifiers carry the same pending status outside the per-disorder catalogue. Both are listed here; the universals are the rows with no link, because no route renders one. Specifiers is an aide-memoire reference surface, not automated clinical decision support.`,
+    note: `The export's own stats record ${content.stats.itemsPendingClinicianReview} specifier items pending clinician review, and a further ${universals.length} of the ${content.universalSpecifiers.length} universal specifiers carry the same pending status outside the per-disorder catalogue. Both are listed here; the universals are the rows with no link, because no route renders one. Specifiers is an aide-memoire reference surface, not automated clinical decision support.`,
     unrouted: true,
     rows: [...items, ...universals],
   };

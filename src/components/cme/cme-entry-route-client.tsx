@@ -73,7 +73,7 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
   const amendable = Boolean(set.closedAt) && !archived;
 
   async function patchEntry(payload: object) {
-    if (demoMode) throw new Error("Demo mode is read-only. Sign in to update a private CME record.");
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to update a private CPD record.");
     const response = await fetch(`/api/cme/entries/${loadedEntry.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

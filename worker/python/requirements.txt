@@ -571,9 +571,9 @@ murmurhash==1.0.15 \
     #   preshed
     #   spacy
     #   thinc
-nltk==3.10.1 \
-    --hash=sha256:55b8780b6b97732c1c3806d4ae02d46113204b11bfdc19dddb95729f627f8853 \
-    --hash=sha256:86a1b41d9ca0d35a2cb72fa60af4c9aaba9fe405b717161fd94cecd69f467007
+nltk==3.10.3 \
+    --hash=sha256:bb9327a461c3811c2fa4900e03840401f2126adfb30c0072827c433bd2444ea4 \
+    --hash=sha256:ff9598a8e20518ee0d557745890cc4435b9578489e2dcbc69c4f81fa060caf7c
     # via medspacy-quickumls
 numpy==1.26.4 \
     --hash=sha256:03a8c78d01d9781b28a6989f6fa1bb2c4f2d51201cf99d3dd875df6fbd96b23b \

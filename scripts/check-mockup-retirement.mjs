@@ -10,8 +10,8 @@
  *      nothing kept it in step with the tree. It was refuted in five places by a single
  *      afternoon of evidence-gathering (the answer family, both document families, the
  *      closed issue #162, and the calculators family promoted to production by PR #1227).
- *   2. A third of the surface is not design scratch at all. `/mockups/development`,
- *      `/mockups/caring-contacts`, `/mockups/care-plan` and `/mockups/ward-flow` are live in
+ *   2. A third of the surface is not design scratch at all. `/mockups/development` and
+ *      `/mockups/care-plan` (and, at the time, two since-retired prototypes) are live in
  *      production behind `DeveloperAreaGate` (src/proxy.ts) and linked from Settings. Any
  *      policy keyed on the path `src/app/mockups/**` hits them too.
  *   3. Filename supersession is systematically backwards. `example-round-two` IMPORTS
@@ -80,8 +80,8 @@ export function isRetirableRoutePath(route) {
 }
 
 // ⚠️ THE DOT IS ESCAPED, AND IT WAS NOT. An unescaped `.` matches ANY character, so this rejected
-// every route whose last segment merely ENDS in an extension-like suffix — `/mockups/caring-
-// contacts/reports` (the `.` taking `r`, then `ts`), and `charts` likewise. That is a FALSE
+// every route whose last segment merely ENDS in an extension-like suffix — a `.../reports`
+// route (the `.` taking `r`, then `ts`), and `charts` likewise. That is a FALSE
 // REFUSAL: it would have blocked a legitimate owner-approved retirement, which is the opposite of
 // the defect this predicate was added to fix. Found in review, not by my own six cases, because
 // every case I wrote was either an obvious file or an obvious route and none ended in `ts`.
@@ -380,8 +380,8 @@ export function auditIndex(root, fileSystem = NODE_FILE_SYSTEM) {
  * Files a diff deletes outright, in scope for the reference scan.
  *
  * Naming alone is not the scope. The survey behind this policy found 82 modules reachable only
- * from mockup routes with no "mockup" anywhere in their path (`src/components/ward-management/**`
- * is 58 of them), so a filename filter would drop exactly the support files a retirement is most
+ * from mockup routes with no "mockup" anywhere in their path (one since-retired prototype's
+ * component folder was 58 of them), so a filename filter would drop exactly the support files a retirement is most
  * likely to strand. When a diff retires anything from the mockup surface, every deletion under
  * `src`, `tests`, `scripts` and `worker` is scanned; when it retires nothing, the scan is empty
  * and the gate stays out of the way of unrelated changes.
@@ -852,13 +852,15 @@ function selfTest({ stdout = console.log, stderr = console.error } = {}) {
   // collapsed to its (possibly still-live) root.
   check(
     "moduleSpecifiersFor names a deep deleted route by its full path, not just its root",
-    moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/ward-flow/patients/[id]/page.tsx`).includes(
-      "/mockups/ward-flow/patients/[id]",
+    moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/example-gated/patients/[id]/page.tsx`).includes(
+      "/mockups/example-gated/patients/[id]",
     ),
   );
   check(
     "moduleSpecifiersFor does not also emit the bare root for a deep deleted route",
-    !moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/ward-flow/patients/[id]/page.tsx`).includes("/mockups/ward-flow"),
+    !moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/example-gated/patients/[id]/page.tsx`).includes(
+      "/mockups/example-gated",
+    ),
   );
   check(
     "moduleSpecifiersFor still emits the bare root when the root's own page is what was deleted",

@@ -26,7 +26,12 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
+import {
+  clickWhenHydrated,
+  clickWhenSettled,
+  expectSingleSettledOwner,
+  visibleByTestId,
+} from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { BRAND_NAME } from "../src/lib/brand";
@@ -87,7 +92,21 @@ async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
 
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
-  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
+  // A sheet can leave the page hundreds of pixels down after its trigger was
+  // scrolled into view. WebKit may restore that offset after scrollTo returns;
+  // set the document scroll position directly and require the page to reach top.
+  if (scrollTop > 0) {
+    await expect
+      .poll(async () => {
+        await page.evaluate(() => {
+          const scroller = document.scrollingElement ?? document.documentElement;
+          scroller.scrollTop = 0;
+          window.dispatchEvent(new Event("scroll"));
+        });
+        return (await readPrimaryScrollGeometry(page)).scrollTop;
+      })
+      .toBeLessThanOrEqual(1);
+  }
   await expect(control).toBeInViewport();
 }
 
@@ -211,7 +230,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -1252,14 +1271,16 @@ test.describe("PsychSift UI smoke coverage", () => {
             inputShadow: inputStyle.boxShadow,
             pillBorder,
             pillShadow,
-            pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
+            pillBorderChanged: pillBorder !== resting.border,
+            pillShadowChanged: pillShadow !== resting.shadow && pillShadow !== "none",
           };
         }, restingPill);
       })
       .toMatchObject({
         inputOutline: "none",
         inputShadow: "none",
-        pillChanged: true,
+        pillBorderChanged: true,
+        pillShadowChanged: true,
       });
     const universalFocus = await universalInput.evaluate((element) => {
       const inputStyle = getComputedStyle(element);
@@ -1797,6 +1818,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupClose = setup.getByRole("button", { name: "Close account setup" });
     const workspaceMark = setup.getByTestId("account-workspace-mark");
+    const setupScrollPort = setup.locator(".polished-scroll");
+    // WebKit scrolls the dialog to the focused email field on open. Prove the
+    // autofocus first, then reset that scroll before checking top safe-area layout.
+    await setup.getByLabel("Email address").blur();
+    await setupScrollPort.evaluate((element) => {
+      element.scrollTop = 0;
+    });
     await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
@@ -1804,25 +1832,32 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
     await expectNoPageHorizontalOverflow(page);
 
+    // With focus released, resizing now checks layout instead of WebKit's
+    // focus-follow scrolling of the dialog body.
     for (const viewportSize of [
       { width: 320, height: 700 },
       { width: 430, height: 820 },
       { width: 639, height: 820 },
     ]) {
       await page.setViewportSize(viewportSize);
+      await setupScrollPort.evaluate((element) => {
+        element.scrollTop = 0;
+      });
       await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
       await expectNoPageHorizontalOverflow(page);
     }
 
     await page.setViewportSize({ width: 320, height: 700 });
     const setupEmail = setup.getByLabel("Email address");
-    await setupEmail.scrollIntoViewIfNeeded();
+    const emailSubmit = setup.getByRole("button", { name: "Sign in with email" });
+    // Scroll to the lower of the pair. Scrolling to the field only worked where the engine centres
+    // it (Chromium); WebKit scrolls to the nearest edge and leaves the button just below the fold.
+    await emailSubmit.scrollIntoViewIfNeeded();
     await expect(setupEmail).toBeInViewport();
-    await expect(setup.getByRole("button", { name: "Sign in with email" })).toBeInViewport();
+    await expect(emailSubmit).toBeInViewport();
     await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
 
-    const setupScrollPort = setup.locator(".polished-scroll");
     await setupScrollPort.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
@@ -1961,13 +1996,16 @@ test.describe("PsychSift UI smoke coverage", () => {
     ]);
 
     // The full catalogue remains in one radio menu, but the phone presentation
-    // now groups it into the three clinical jobs clinicians scan for first.
+    // now groups it into the three clinical jobs clinicians scan for first, then
+    // On Call and CPD as areas of their own.
     const modeOptions = appModeMenu.getByRole("menuitemradio");
     const modeCount = await modeOptions.count();
     expect(modeCount).toBeGreaterThanOrEqual(10);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
     // Sources reached the desktop menu (built from `appModeDefinitions`) but not
@@ -3135,20 +3173,14 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.waitForTimeout(320);
       await expect(header).toHaveAttribute("data-scroll-hidden", "true");
       await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-      const settledHiddenGeometry = await page.evaluate(() => {
-        const headerNode = document.querySelector<HTMLElement>("header.universal-header");
-        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
-        if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
-        const headerRect = headerNode.getBoundingClientRect();
-        const dockRect = dockNode.getBoundingClientRect();
-        return {
-          headerBottom: headerRect.bottom,
-          dockTop: dockRect.top,
-          viewportHeight: window.innerHeight,
-        };
-      });
-      expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
-      expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
+      // Headless WebKit can render no frame during the wall-clock delay. Poll
+      // the actual painted geometry so the hidden transform must finish.
+      await expect
+        .poll(async () => header.evaluate((node) => node.getBoundingClientRect().bottom))
+        .toBeLessThanOrEqual(1);
+      await expect
+        .poll(async () => dock.evaluate((node) => node.getBoundingClientRect().top - window.innerHeight))
+        .toBeGreaterThanOrEqual(-1);
       await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
 
       await scrollPrimarySurface(page, 20);
@@ -4102,7 +4134,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     ]) {
       await page.setViewportSize(viewport);
       await gotoApp(page, "/factsheets/search?q=sertraline");
-      const factsheetsPage = page.getByTestId("factsheets-search-page");
+      // The visible owner only: a hidden streaming copy of the page root (#093)
+      // can linger after the second navigation.
+      const factsheetsPage = visibleByTestId(page, "factsheets-search-page");
       const queryRibbon = factsheetsPage.getByTestId("search-query-ribbon");
       const viewToolbar = factsheetsPage.getByTestId("factsheets-view-toolbar");
       await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();
@@ -4218,7 +4252,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     const firstResult = workspace.getByTestId("document-result-card").first();
     await expect(firstResult).toBeVisible({ timeout: 30_000 });
     const origin = new URL(page.url());
-    await firstResult.getByRole("link", { name: /^Open / }).click();
+    // The card is server-rendered, so it is visible before the client router owns its link. A
+    // Firefox release run clicked it in that gap and nothing navigated for 30 s.
+    const openLink = firstResult.getByRole("link", { name: /^Open / });
+    await waitForReactEventHandler(openLink, "onClick");
+    await openLink.click();
     await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
 
     await page.getByRole("link", { name: "Back to documents" }).click();
@@ -4511,48 +4549,61 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
     await expect(modeSearch).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(18);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(22);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "My Work" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "First Nations" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "CPD" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^CME\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Roster\b/ })).toBeAttached();
 
     await modeSearch.fill("d");
-    await expect(modeDialog.getByRole("status")).toHaveText("5 matches");
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(5);
+    await expect(modeDialog.getByRole("status")).toHaveText("6 matches");
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(6);
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
+    // "CPD" carries a "d" too (the mode's label was "CME" before the RANZCP rename).
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(18);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(22);
 
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();
     await expect(answerMode).toBeFocused();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Evidence\b/ })).toHaveCount(0);
+    // Arrow Down follows the drawn order, group by group: the end of Find
+    // steps into Psychiatry, and the end of Psychiatry steps into Care.
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Services\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Forms\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Favourites\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Sources\b/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Psychiatry\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Specifiers\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Formulation\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Therapy\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Forms\b/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(appModeMenu).toBeHidden();
     await expect(appModeButton).toBeFocused();
@@ -4942,7 +4993,10 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
     await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
+    // The mocked match carries no relevance verdict, so the first card is only the
+    // top result, not a "Best match" (owner decision 11, 2026-09-25).
+    await expect(documentResults).toContainText("Top result");
+    await expect(documentResults).not.toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
     // The three primary actions keep a symmetric 48px footer at every width.
@@ -5134,7 +5188,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
+    await expect(documentResults).toContainText("Top result");
   });
 
   test("dashboard defers source and administration requests until their surfaces open @critical", async ({ page }) => {
@@ -5303,7 +5357,11 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     // The fixed document composer is the single search owner; the indexed-text
     // disclosure must not duplicate a large search field inside its content.
-    await page.getByRole("button", { name: "Search document" }).click();
+    // The native <details> toggle above opens without React, so it does not prove
+    // hydration, and opening it scroll-hides the header under the pointer (release
+    // traces: "<h2> intercepts pointer events", then a click that missed).
+    // clickWhenSettled waits for hydration and for the button to stop moving.
+    await clickWhenSettled(page.getByRole("button", { name: "Search document" }));
     const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
     await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
     await waitForReactEventHandler(sourceSearch, "onChange");
@@ -5326,8 +5384,32 @@ test.describe("PsychSift UI smoke coverage", () => {
     // coalescing + exclusive-accordion open sync must keep a single click from
     // wrapping a two-hit search back to Hit 1 on Firefox. Keyboard coverage is
     // separate (activateFocusedControl elsewhere); do not substitute it here.
+    //
+    // A wrap-back and a lost click look identical from the counter ("Hit 1 of 2").
+    // The lost click is real: the viewer is still settling after the first hit
+    // opens, and on a slow runner the button moved ~70px between Playwright's
+    // press and release, so mouseup landed on a passage summary and the browser
+    // sent the click to their common ancestor (reproduced under 8x CPU throttle;
+    // failed on Firefox and desktop WebKit in runs 36214387379, 36210366372).
+    // Count the clicks the button itself receives and re-click only when it
+    // received none: an undelivered click is retried, while a delivered click
+    // that fails to advance still fails here and names its click count.
+    await nextHit.evaluate((button) => {
+      const counter = window as unknown as { __nextHitClicks: number };
+      counter.__nextHitClicks = 0;
+      button.addEventListener("click", () => {
+        counter.__nextHitClicks += 1;
+      });
+    });
+    const nextHitClicks = () => page.evaluate(() => (window as unknown as { __nextHitClicks: number }).__nextHitClicks);
     await nextHit.click();
-    await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
+    await expect(async () => {
+      if ((await nextHitClicks()) === 0) await nextHit.click();
+      await expect(
+        desktopTextPanel.getByText("Hit 2 of 2"),
+        `Next hit button received ${await nextHitClicks()} click(s)`,
+      ).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
     const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
     await expect(nextActiveHit).toHaveJSProperty("open", true);
     await expect(initialActiveDisclosure).toHaveJSProperty("open", false);
@@ -5689,12 +5771,13 @@ test.describe("PsychSift UI smoke coverage", () => {
         await expect(disclosure).toHaveJSProperty("open", false);
       }
 
-      await indexedText.locator("summary").first().click();
+      // The accordion sits below the fold; clicking it mid-scroll-hide misses (clickWhenSettled).
+      await clickWhenSettled(indexedText.locator("summary").first());
       await expect(indexedText).toHaveJSProperty("open", true);
-      await passages.nth(0).locator("summary").click();
+      await clickWhenSettled(passages.nth(0).locator("summary"));
       await expect(passages.nth(0)).toHaveJSProperty("open", true);
       await expect(passages.nth(1)).toHaveJSProperty("open", false);
-      await passages.nth(1).locator("summary").click();
+      await clickWhenSettled(passages.nth(1).locator("summary"));
       await expect(passages.nth(1)).toHaveJSProperty("open", true);
       await expect(passages.nth(0)).toHaveJSProperty("open", false);
       await expectNoPageHorizontalOverflow(page);
@@ -5721,7 +5804,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await summaryToggle.click();
     await expect(summaryToggle).toHaveAttribute("aria-expanded", "true");
     await expect(summaryToggle).toContainText("Show less");
-    await clinicalSummary.getByTestId("open-clinical-priorities").click();
+    await clickWhenSettled(clinicalSummary.getByTestId("open-clinical-priorities"));
     const prioritiesSheet = page.getByRole("dialog", { name: "Clinical priorities" });
     await expect(prioritiesSheet).toBeVisible();
     await page.keyboard.press("Escape");
@@ -6073,6 +6156,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await page.getByRole("button", { name: "Open document actions" }).click();
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible();
+    // Opening search moves focus into the input two animation frames later. Wait for that
+    // before blurring: headless WebKit runs frames only when something asks for one, so
+    // blurring early let the deferred focus land mid-scroll and pin the composer open.
+    await expect(composer.locator("input")).toBeFocused();
     await composer.locator("input").evaluate((element) => element.blur());
     // The chunk deep link intentionally scrolls the highlighted passage into
     // view, which can initially hide the phone composer. Returning to the top
@@ -6174,9 +6261,14 @@ test.describe("PsychSift UI smoke coverage", () => {
     );
 
     const composer = page.locator("form.document-viewer-composer");
-    await page.getByRole("button", { name: "Open document actions" }).click();
+    await clickWhenHydrated(page.getByRole("button", { name: "Open document actions" }));
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
-    await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
+    const documentSearchInput = composer.getByRole("textbox", { name: "Search within this document" });
+    // Opening focuses the input two animation frames later. Wait for that
+    // focus, or it can land after the submit button is focused below and take
+    // focus back from it (seen on the iPhone app-mode project).
+    await expect(documentSearchInput).toBeFocused();
+    await documentSearchInput.fill("safety plan include");
     await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
     await expect(page.getByTestId("source-chunk-indexed-text-panel").getByText("Hit 1 of 2").first()).toBeVisible();
     expect(answerRequests).toEqual([]);
@@ -6275,10 +6367,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
+    const recovery = page.locator("[data-route-recovery]");
+    await expect(recovery.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
     await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
-    await expect(page.getByRole("status")).not.toContainText("loading source");
-    await expect(page.getByRole("status")).not.toContainText("Loading source metadata");
+    await expect(recovery.getByRole("status")).not.toContainText("loading source");
+    await expect(recovery.getByRole("status")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -6376,6 +6469,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     const guideScrollBody = dialog.locator(".polished-scroll");
     const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
     const mobileHeader = dialog.locator('[data-sheet-header="true"]');
+    // Opening mounts the dock's scroll-hide reporter, which clears any hidden state on its
+    // first animation frame. WebKit on CI ran that frame after the scroll below, so the dock
+    // was hidden, then reset to visible before the focus probe. Let the opening frames run.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
     await guideScrollBody.evaluate((element) => {
       element.scrollTop = 140;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));

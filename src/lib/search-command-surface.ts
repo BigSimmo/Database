@@ -233,6 +233,56 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "sources", "on-call"],
     remoteSearchEnabled: false,
   },
+  psychiatry: {
+    // Psychiatry is a dashboard of links to the sections it gathers, each of
+    // which keeps its own search, so its command panel must not query the
+    // remote index; the cross-modes are those sections.
+    examples: [...sharedHomePresentation.psychiatry.suggestions],
+    suggestions: [
+      { text: "major depressive disorder", meta: "DSM-5 Diagnosis" },
+      { text: "behavioural activation", meta: "Therapy" },
+      { text: "Form 1A", meta: "Forms" },
+    ],
+    crossModes: ["dsm", "therapy-compass", "forms"],
+    remoteSearchEnabled: false,
+  },
+  "my-work": {
+    // My Work is a dashboard over the owner's own On Call admin pages, already
+    // in the browser, so its command panel must not query the remote index.
+    examples: [...sharedHomePresentation["my-work"].suggestions],
+    suggestions: [
+      { text: "leave", meta: "Admin" },
+      { text: "registration", meta: "Compliance" },
+      { text: "roster", meta: "My shifts" },
+    ],
+    crossModes: ["on-call", "cme", "documents"],
+    remoteSearchEnabled: false,
+  },
+  roster: {
+    // Roster reads the owner's own shifts, already in the browser — see the
+    // mode definition in src/lib/app-modes.ts — so its command panel must not
+    // query the remote index.
+    examples: [...sharedHomePresentation.roster.suggestions],
+    suggestions: [
+      { text: "night shift hours", meta: "Hours" },
+      { text: "next weekend off", meta: "Today" },
+      { text: "import my roster", meta: "Shifts" },
+    ],
+    crossModes: ["my-work", "on-call", "cme"],
+    remoteSearchEnabled: false,
+  },
+  "first-nations": {
+    // The mode owns its own in-page search box on every page (standard §13),
+    // so its command panel must not query the remote index either.
+    examples: [...sharedHomePresentation["first-nations"].suggestions],
+    suggestions: [
+      { text: "Call Aboriginal liaison", meta: "Bedside" },
+      { text: "Common mistakes", meta: "On the ward" },
+      { text: "Mental Health Act s 81", meta: "Talking" },
+    ],
+    crossModes: ["on-call", "services", "forms"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {

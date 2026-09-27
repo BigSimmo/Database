@@ -13,6 +13,25 @@ describe("the CME tables", () => {
     });
   }
 
+  // The CPD-records tables set RLS, the revoke and the grant in one loop, so the check is that
+  // each is created owner-scoped and named in that loop, and the loop does all three.
+  const cpdRecordsLoop = schema.match(
+    /foreach t in array array\['cme_training_periods'[^\]]*\]\s*loop([\s\S]*?)end loop;/,
+  );
+  for (const table of ["cme_training_periods", "cme_training_milestones", "cme_missed_sessions", "cme_entry_drafts"]) {
+    it(`${table} is owner-scoped, RLS-on and unreachable without the service role`, () => {
+      expect(schema).toMatch(new RegExp(`create table[^;]*public\\.${table}[^;]*owner_id uuid not null`, "s"));
+      expect(cpdRecordsLoop?.[0]).toContain(`'${table}'`);
+    });
+  }
+  it("the CPD-records tenancy loop enables RLS, revokes public access and grants only the service role", () => {
+    const body = cpdRecordsLoop?.[1] ?? "";
+    expect(body).toContain("enable row level security");
+    expect(body).toContain("revoke all on table public.%I from public, anon, authenticated");
+    expect(body).toContain("to service_role");
+    expect(body).not.toMatch(/grant[^;]*to (anon|authenticated)/);
+  });
+
   it("stores the activity date as a date, not a timestamp", () => {
     // A timestamptz would be read back in UTC and would move an entry logged on
     // the evening of 31 December in Perth into the following year.

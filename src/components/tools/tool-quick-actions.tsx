@@ -64,7 +64,7 @@ export function ToolQuickActions({
   return (
     <section
       aria-label="Quick tool shortcuts"
-      className={cn(mobile ? "grid grid-cols-4 gap-2" : "grid w-full grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6")}
+      className={cn(mobile ? "grid grid-cols-4 gap-2" : "grid w-full grid-cols-2 gap-3 md:grid-cols-3")}
     >
       {quickActions.slice(0, mobile ? 8 : 6).map((action) => {
         const tool = toolById(action.id, tools);

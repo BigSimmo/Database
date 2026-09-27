@@ -133,7 +133,7 @@ USER node
 # The runtime validator proves the bundle, Node, Python and module resolution
 # before the image is promoted. It never calls Supabase/OpenAI or claims jobs.
 RUN node dist/worker/validate-runtime.mjs
-LABEL org.opencontainers.image.source="https://github.com/BigSimmo/Database"
+LABEL org.opencontainers.image.source="https://github.com/BigSimmo/PsychSift"
 LABEL org.opencontainers.image.title="PsychSift ingestion worker"
 LABEL org.opencontainers.image.description="Node + Python OCR ingestion worker for the PsychSift medical guideline RAG knowledge base"
 LABEL org.opencontainers.image.licenses="UNLICENSED"

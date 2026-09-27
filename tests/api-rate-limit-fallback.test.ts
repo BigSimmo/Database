@@ -73,10 +73,15 @@ describe("paid anonymous answer limits", () => {
     });
 
     // Caller quota, the per-bucket all-anonymous quota, and the aggregate anonymous
-    // generation ceiling that bounds total unauthenticated provider spend.
-    expect(rpc).toHaveBeenCalledTimes(3);
-    expect(rpc.mock.calls.map(([, args]) => args.p_subject_key)).toEqual(
-      expect.arrayContaining(["anon:caller", "anon:answer:global", "anon:generation:aggregate"]),
+    // generation ceiling that bounds total unauthenticated provider spend, in one round trip.
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(
+      "consume_anonymous_rate_limits_atomic",
+      expect.objectContaining({
+        p_subject_key: "anon:caller",
+        p_global_key: "anon:answer:global",
+        p_ceiling_key: "anon:generation:aggregate",
+      }),
     );
   });
 
@@ -86,9 +91,10 @@ describe("paid anonymous answer limits", () => {
       isLocalNoAuthMode: () => false,
     }));
     const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
-    const rpc = vi.fn(async (_name: string, _args: Record<string, unknown>) => {
-      void _name;
+    // The one-round-trip function is unavailable here, so this pins the serial fallback's order.
+    const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) => {
       void _args;
+      if (name === "consume_anonymous_rate_limits_atomic") return { data: null, error: { code: "PGRST202" } };
       return {
         data: {
           limited: true,
@@ -108,8 +114,9 @@ describe("paid anonymous answer limits", () => {
     });
 
     expect(result.limited).toBe(true);
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
+    const serialCalls = rpc.mock.calls.filter(([name]) => name === "consume_api_subject_rate_limit");
+    expect(serialCalls).toHaveLength(1);
+    expect(serialCalls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
   });
   it("allows in-memory fallback for answer in development when the durable limiter is unavailable", async () => {
     vi.stubEnv("NODE_ENV", "development");
@@ -329,9 +336,15 @@ describe("document_upload fail-closed limiter", () => {
       bucket: "document_upload",
     });
 
-    expect(rpc).toHaveBeenCalledTimes(2);
-    expect(rpc.mock.calls.map(([, args]) => args.p_subject_key)).toEqual(
-      expect.arrayContaining(["anon:caller", "anon:document_upload:global"]),
+    expect(rpc).toHaveBeenCalledTimes(1);
+    // Upload is not provider-backed generation, so it carries no aggregate generation ceiling.
+    expect(rpc).toHaveBeenCalledWith(
+      "consume_anonymous_rate_limits_atomic",
+      expect.objectContaining({
+        p_subject_key: "anon:caller",
+        p_global_key: "anon:document_upload:global",
+        p_ceiling_key: null,
+      }),
     );
   });
 
@@ -358,10 +371,13 @@ describe("document_upload fail-closed limiter", () => {
       bucket: "document_upload",
     });
 
-    const globalCall = rpc.mock.calls.find(([, args]) => args.p_subject_key === "anon:document_upload:global");
     // document_upload's authenticated allowance (12/60s), not answer's (30/60s), bounds the
     // aggregate anonymous ceiling for this bucket.
-    expect(globalCall?.[1]).toMatchObject({ p_limit: 12, p_window_seconds: 60 });
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_global_key: "anon:document_upload:global",
+      p_global_limit: 12,
+      p_global_window_seconds: 60,
+    });
   });
 
   it("does not consume the global upload quota after the caller quota denies the request", async () => {
@@ -370,16 +386,21 @@ describe("document_upload fail-closed limiter", () => {
       isLocalNoAuthMode: () => false,
     }));
     const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
-    const rpc = vi.fn(async () => ({
-      data: {
-        limited: true,
-        limit_value: 3,
-        remaining: 0,
-        retry_after_seconds: 60,
-        reset_at: new Date(Date.now() + 60_000).toISOString(),
-      },
-      error: null,
-    }));
+    // The one-round-trip function is unavailable here, so this pins the serial fallback's order.
+    const rpc = vi.fn(async (name: string) =>
+      name === "consume_anonymous_rate_limits_atomic"
+        ? { data: null, error: { code: "PGRST202" } }
+        : {
+            data: {
+              limited: true,
+              limit_value: 3,
+              remaining: 0,
+              retry_after_seconds: 60,
+              reset_at: new Date(Date.now() + 60_000).toISOString(),
+            },
+            error: null,
+          },
+    );
 
     const result = await consumeSubjectApiRateLimit({
       supabase: { rpc } as never,
@@ -388,8 +409,10 @@ describe("document_upload fail-closed limiter", () => {
     });
 
     expect(result.limited).toBe(true);
-    expect(rpc).toHaveBeenCalledTimes(1);
-    const calls = rpc.mock.calls as unknown as Array<[string, Record<string, unknown>]>;
+    const calls = (rpc.mock.calls as unknown as Array<[string, Record<string, unknown>]>).filter(
+      ([name]) => name === "consume_api_subject_rate_limit",
+    );
+    expect(calls).toHaveLength(1);
     expect(calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
   });
 

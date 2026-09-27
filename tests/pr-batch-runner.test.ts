@@ -167,6 +167,19 @@ describe("PR batch decisions", () => {
     ).toMatchObject({ action: "park", reason: "needs-repair: failing-checks" });
     expect(decide(selected(), pr(1, { behind: true }), now).action).toBe("sync");
   });
+  it("never syncs when main has a merge queue: a behind PR goes straight to the merge request", () => {
+    expect(decide(selected(), pr(1, { behind: true, queue: true }), now)).toEqual({ action: "merge" });
+    expect(decide(selected(), pr(1, { behind: true, queue: false }), now)).toEqual({ action: "sync" });
+    // The queue changes only the sync step; every blocker before it still parks the PR.
+    expect(decide(selected(), pr(1, { behind: true, queue: true, conflicting: true }), now)).toMatchObject({
+      action: "park",
+      reason: "needs-repair: conflicting",
+    });
+    expect(decide(selected(), pr(1, { behind: true, queue: true, requiredGreen: false }), now)).toMatchObject({
+      action: "wait",
+      reason: "required-checks-missing-or-pending",
+    });
+  });
   it("preserves missing checks and approvals as blockers", () => {
     expect(decide(selected(), pr(1, { requiredGreen: false }), now)).toMatchObject({
       action: "wait",
@@ -215,6 +228,23 @@ describe("durable sequential runner", () => {
     ]);
     expect(api.read().pending?.base).toBe("c".repeat(40));
     expect(api.read().repairs).toBe(0);
+  });
+  it("with a merge queue, requests the next PR's merge without syncing it first", async () => {
+    const api = fakeApi();
+    api.protections = async () => ({ required: [], queue: true, mergeMethod: "merge" });
+    api.evidence.set(1, pr(1, { queue: true }));
+    await wake(api);
+    expect(api.effects).toEqual([{ kind: "merge", number: 1 }]);
+    api.evidence.set(1, pr(1, { enqueued: true, queue: true }));
+    await wake(api);
+    api.evidence.set(1, pr(1, { merged: true, mergeVerified: true, mergeCommit: base, queue: true }));
+    api.evidence.set(2, pr(2, { behind: true, base: "c".repeat(40), queue: true }));
+    await wake(api);
+    expect(api.effects).toEqual([
+      { kind: "merge", number: 1 },
+      { kind: "merge", number: 2 },
+    ]);
+    expect(api.effects.some((effect) => effect.kind === "sync")).toBe(false);
   });
   it("parks a PR with unresolved threads without ever dispatching a repair", async () => {
     const api = fakeApi(batch([pr(1)]));

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "262709aa-f536-4354-8e1f-97026eda2150",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#51975R",
+    "outcome": "Fixed in 0d72268b2 (owner decision 2026-09-25: answerSupportPriority and AnswerSupportSummaryCard deleted with their five pinning cases, reduction 9->4 recorded in diff-integrity.json; the handover, ADOPTION and SAFETY-CHIP-VOCABULARY now record the retirement; check:dead-code-candidate --diff and check:diff-integrity pass). keyClinicalItemsFromSections/keyClinicalItemsFromTable in answer-content.tsx now have no caller and were left for a separate dead-code review. Pinned by tests/answer-support-priority.dom.test.tsx.",
+    "baseRowFingerprint": "c229cc45ee6cec062367f0da04dbf18ddaa1677347259fbbc867204c5d3e0b03"
+  }
+}

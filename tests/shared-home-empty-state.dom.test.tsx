@@ -67,7 +67,7 @@ const expectedPresentations = [
   },
   {
     modeId: "prescribing",
-    title: "Medication Guidance",
+    title: "Medication Reference",
     subtitle: "Medication dosing and safety.",
     iconClass: "lucide-pill",
   },
@@ -116,9 +116,33 @@ const expectedPresentations = [
   },
   {
     modeId: "cme",
-    title: "CME",
+    title: "CPD",
     subtitle: "What you have done this year, and what is still short.",
     iconClass: "lucide-graduation-cap",
+  },
+  {
+    modeId: "psychiatry",
+    title: "Psychiatry",
+    subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+    iconClass: "lucide-brain",
+  },
+  {
+    modeId: "my-work",
+    title: "My Work",
+    subtitle: "Paperwork, deadlines and checks, with what is due first.",
+    iconClass: "lucide-clipboard-list",
+  },
+  {
+    modeId: "roster",
+    title: "Roster",
+    subtitle: "Your own shifts: what's on today, this week and this month.",
+    iconClass: "lucide-calendar-range",
+  },
+  {
+    modeId: "first-nations",
+    title: "First Nations",
+    subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
+    iconClass: "lucide-users",
   },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;

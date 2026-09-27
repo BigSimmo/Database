@@ -7,6 +7,7 @@ import { cardSurface, focusRing } from "@/components/card-recipes";
 import { ON_CALL_SECTION_HREFS } from "@/components/on-call/on-call-section-identity";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, textMuted } from "@/components/ui-primitives";
+import { isOnCallHttpUrl } from "@/lib/on-call/entry-model";
 import { onCallTeachingDateParts, type OnCallTeachingSession } from "@/lib/on-call/teaching-schedule";
 
 /**
@@ -96,7 +97,7 @@ function TeachingCard({ session, isNext }: { session: OnCallTeachingSession; isN
         </span>
       </Link>
 
-      {session.recordingUrl ? (
+      {isOnCallHttpUrl(session.recordingUrl) ? (
         <span className="border-t border-[color:var(--border)] px-3">
           <ExternalTextLink
             href={session.recordingUrl}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3feb4b48-183f-4ca5-b7b0-f951c6ae5e5a",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#T9MZ7V",
+    "outcome": "Resolved 2026-09-25 by the register fix PR from branch claude/clinical-content-gaps-ncl9bo-registry: the two american-psychiatric-association entries are merged into one that keeps the jurisdiction order that was winning every lookup (International first, so display is unchanged), adds USA and keeps both publishing aliases. tests/source-authority-registry-uniqueness.test.ts fails on any repeated key, code or publisher name across entries (verified red on the old register, green on the fix). No retrieval change: both entries were catalogueIdentityOnly.",
+    "baseRowFingerprint": "2a417858a46006a65e036a38cc74ff1b1af27cfeba6b6808152c07df5e6f7350"
+  }
+}

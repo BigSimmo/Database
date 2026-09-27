@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7313926f-c6dd-4d76-bae5-a35eb36e87cb",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "1,935 documents display Locally reviewed with no recorded reviewer, and nobody knows if a person marked them",
+    "detail": "MEASURED 2026-09-25 from the live audit-source-governance --json run (operator-run; this session had no credentials). The report carries clinical_validation_status_counts locally_reviewed 1935, unverified 130 across 2065 clinical governance documents. src/lib/document-filter-model.ts renders locally_reviewed to clinicians as 'Locally reviewed' and src/lib/answer-client-payload.ts treats it as an authority level beside approved, so this is a review claim shown to the people using the system. The same report said reviewer_attribution reviewed_record_count 0 over 3907 records with passed true, because isRecordMarkedReviewed read review_status only and required the exact string 'reviewed'. PR #3028 fixed the detector, so the next live run will examine those 1935 documents for the first time. WHAT THIS ROW IS FOR, and it is not the code fix: nobody has established whether those 1935 were marked locally_reviewed by a person or in bulk by an import. If by import, the badge overstates what happened and the honest repair is to the records rather than to any gate; fixing the detector only makes the question visible. NEXT ACTION, owner: run npm run audit:source-governance -- --json on a machine with credentials and read unattributed_reviewed_record_count; then decide person-vs-import, which is a governance judgement and not an agent decision. Offline code path verified; live consequence unmeasured.",
+    "source": "Nine-issue packet follow-through session, 2026-09-25; live audit output pasted by the owner",
+    "issueUlid": "01M3D03AE8JYH1FHEZKZNGGVDR"
+  }
+}

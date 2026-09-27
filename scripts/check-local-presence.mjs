@@ -55,7 +55,7 @@ export const REPORT_ONLY_KEYS = [
 ];
 
 const EXPECTED_PROD_REF = "sjrfecxgysukkwxsowpy";
-const EXPECTED_PROD_NAME = "Clinical KB Database";
+const EXPECTED_PROD_NAME = "PsychSift Production";
 const STALE_REF = "qjgitjyhxrwxsrydablr";
 
 const ENV_FILES = [".env", ".env.local", ".env.development.local"];

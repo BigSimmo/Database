@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { cookies, headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { AccountDataProvider } from "@/components/account-data-provider";
+import { PhoneFocusClearance } from "@/components/phone-focus-clearance";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
@@ -10,6 +11,7 @@ import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/l
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import { AppAnnouncements } from "@/components/app-announcements";
 import { OverlayRoot } from "@/components/ui/overlay-root";
+import { ToastProvider } from "@/components/ui/toast";
 import { PUBLIC_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
 import { BRAND_DESCRIPTION, BRAND_NAME } from "@/lib/brand";
 import "./globals.css";
@@ -163,11 +165,14 @@ export default async function RootLayout({
         </a>
         <WebVitalsReporter />
         <PwaLifecycle />
+        <PhoneFocusClearance />
         <AppAnnouncements />
         <OverlayRoot />
         <AuthProvider>
           <AccountDataProvider>
-            <MobileKeyboardProvider>{children}</MobileKeyboardProvider>
+            <MobileKeyboardProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </MobileKeyboardProvider>
           </AccountDataProvider>
         </AuthProvider>
       </body>

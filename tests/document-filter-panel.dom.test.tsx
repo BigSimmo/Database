@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -663,5 +663,45 @@ describe("filter sheet — density, exclusivity and reach", () => {
     expect(
       within(panel).getByRole("progressbar", { name: "Visible retrieved matches" }).parentElement,
     ).toHaveTextContent("1 of 3 retrieved matches visible");
+  });
+});
+
+// #M3XZV0 (documents half). The filter sheet was mounted only while open, so
+// closing it unmounted the Sheet, whose unmount guard skips focus restore:
+// focus fell to <body> although the trigger was still in the DOM (WCAG 2.4.3).
+describe("document filter sheet focus return (#M3XZV0)", () => {
+  it("returns focus to the trigger when closed with Escape", async () => {
+    const { user } = await openPanel();
+    const trigger = screen.getByTestId("document-filter-trigger-phone");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByTestId("document-filter-panel")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("returns focus to the trigger when closed with the close button", async () => {
+    const { user, panel } = await openPanel();
+    const trigger = screen.getByTestId("document-filter-trigger-phone");
+    await user.click(within(panel).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByTestId("document-filter-panel")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("returns focus to the trigger that opened it even when the click did not focus it", async () => {
+    // Safari does not focus a button on click, so the previously focused element
+    // is <body>; the sheet must still know which trigger opened it.
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+    const wideTrigger = screen.getByTestId("document-filter-trigger-wide");
+    fireEvent.click(wideTrigger);
+    const panel = screen.getByTestId("document-filter-panel");
+    expect(document.activeElement).not.toBe(wideTrigger);
+    fireEvent.click(within(panel).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByTestId("document-filter-panel")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(wideTrigger));
+  });
+
+  it("renders nothing for the sheet while closed", () => {
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+    expect(screen.queryByTestId("document-filter-panel")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

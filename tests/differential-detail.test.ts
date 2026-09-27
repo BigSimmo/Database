@@ -101,13 +101,37 @@ describe("visibleSectionItems", () => {
 });
 
 describe("sectionBadgeLabel", () => {
-  it("uses cleaned counts with the tone suffix", () => {
+  it("uses cleaned counts with the section noun", () => {
     const section = buildSection({
       tone: "warning",
       summary: "Sepsis summary",
       items: ["Sepsis", "sepsis", "Hypoxia"],
     });
-    expect(sectionBadgeLabel(section, buildRecord())).toBe("2 possible");
+    expect(sectionBadgeLabel(section, buildRecord())).toBe("2 causes");
+  });
+
+  // #KZDNNX (owner decision, Josh, 2026-09-25): the badge counts reference
+  // bullets, so it names what is counted. It must never read as a patient
+  // assessment state ("2 present", "8 possible", "1 positive", "5 pending").
+  it.each([
+    ["fit", ["Alpha", "Beta"], "2 features"],
+    ["fit", ["Alpha"], "1 feature"],
+    ["warning", ["Alpha"], "1 cause"],
+    ["question", ["Alpha"], "1 clue"],
+    ["question", ["Alpha", "Beta", "Gamma"], "3 clues"],
+    ["action", ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"], "5 steps"],
+    ["action", ["Alpha"], "1 step"],
+  ] as const)("labels a %s section with %j as %s", (tone, items, expected) => {
+    const section = buildSection({ tone, summary: "Unrelated summary", items: [...items] });
+    expect(sectionBadgeLabel(section, buildRecord())).toBe(expected);
+  });
+
+  it("never uses an assessment-state word", () => {
+    for (const tone of ["fit", "warning", "question", "action", "test", "overlap"] as const) {
+      const section = buildSection({ tone, summary: "Unrelated summary", items: ["Alpha", "Beta"] });
+      const record = buildRecord({ investigations: [] });
+      expect(sectionBadgeLabel(section, record) ?? "").not.toMatch(/present|possible|positive|pending/);
+    }
   });
 
   it("returns null when nothing remains after cleaning", () => {

@@ -575,6 +575,33 @@ describe("the one retry a cold read gets", () => {
     expect(read).toHaveBeenCalledTimes(1);
     expect(outcome).toEqual({ records: seeds, degraded: true });
   });
+
+  // #3037: the live monitor probes after hours of idle. The retry was spent on the process's first
+  // read, so services and medications missed the budget with no second attempt and served seeds.
+  it("offers the retry again once the scope+kind has been idle past the cache stale ceiling", async () => {
+    const time = clock();
+    await warm("service", undefined, time.now);
+
+    // Just inside the ceiling: still warm, so a failure degrades straight away as before.
+    time.advance(siteContentRecordCacheStaleMs - 1);
+    const stillWarm = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("slow"))
+      .mockResolvedValue(canonical);
+    const inside = await readCatalogueWithSeedFallback({ kind: "service", seeds, read: stillWarm, now: time.now });
+    expect(stillWarm).toHaveBeenCalledTimes(1);
+    expect(inside.degraded).toBe(true);
+
+    // Idle past the ceiling since the last success (and so past that failure's cooldown): cold again.
+    time.advance(siteContentRecordCacheStaleMs);
+    const afterIdle = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold after idle"))
+      .mockResolvedValue(canonical);
+    const outcome = await readCatalogueWithSeedFallback({ kind: "service", seeds, read: afterIdle, now: time.now });
+    expect(afterIdle).toHaveBeenCalledTimes(2);
+    expect(outcome).toEqual({ records: canonical, degraded: false });
+  });
 });
 
 /**

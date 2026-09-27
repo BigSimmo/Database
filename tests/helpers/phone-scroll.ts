@@ -90,6 +90,7 @@ export const appModeHeaderRoutes = [
   { mode: "CME log", route: "/cme/log" },
   { mode: "CME new entry", route: "/cme/new" },
   { mode: "CME routines", route: "/cme/routines" },
+  { mode: "CME training", route: "/cme/training" },
   { mode: "CME plan", route: "/cme/plan" },
   { mode: "CME programme", route: "/cme/programme" },
   { mode: "CME setup", route: "/cme/setup" },

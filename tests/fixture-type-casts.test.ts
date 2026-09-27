@@ -135,6 +135,9 @@ describe("fixture type cast discipline (#WRZJVR / #AQXXD8)", () => {
     const allViolations: DoubleCastFinding[] = [];
     for (const filePath of testFiles) {
       const code = readFileSync(filePath, "utf8");
+      // Parsing every test file took ~30 s under coverage, at the edge of the test timeout. A
+      // violation needs a forbidden type name in the text, so files without one skip the parse.
+      if (![...FORBIDDEN_DOMAIN_CAST_TARGETS].some((target) => code.includes(target))) continue;
       const relativePath = relative(process.cwd(), filePath).replace(/\\/g, "/");
       const violations = findDoubleCastViolations(code, relativePath);
       allViolations.push(...violations);
@@ -145,5 +148,7 @@ describe("fixture type cast discipline (#WRZJVR / #AQXXD8)", () => {
       `Found double-cast violations on domain models (bypassing shape checks):\n` +
         allViolations.map((v) => `  ${v.file}:${v.line} -> ${v.targetType}`).join("\n"),
     ).toEqual([]);
-  });
+    // A full parse of every file under tests/ grows with the suite; on CI runners it sat at the
+    // 30 s default and timed out, so this one whole-tree scan gets its own ceiling.
+  }, 120_000);
 });

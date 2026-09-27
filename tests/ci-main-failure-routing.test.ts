@@ -51,6 +51,20 @@ describe("main CI failure routing", () => {
   });
 
   /**
+   * Owner decision, 2026-09-26: main flips red and green often, and a fresh issue per red spell made
+   * 25 alerts in a day. A new red spell reopens the latest issue this job closed, matched by marker
+   * only (never by title), so a person's own issue is never reopened.
+   */
+  it("reopens its most recent closed issue instead of opening a new one", () => {
+    expect(routing).toContain('state: "closed",');
+    expect(routing).toMatch(
+      /const previous = closed\.find\(\(issue\) => !issue\.pull_request && String\(issue\.body \?\? ""\)\.includes\(MARKER\)\)/,
+    );
+    expect(routing).toContain('state: "open", title, body');
+    expect(routing.indexOf('state: "open", title, body')).toBeLessThan(routing.indexOf("issues.create("));
+  });
+
+  /**
    * Ownership is matched on this job's own marker first. `?? open[0]` was removed from live-drift's
    * equivalent for a reason worth not relearning: harmless when updating a body, but on the green
    * path it CLOSES whatever it matched, and closing someone else's issue is not recoverable by a

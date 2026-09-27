@@ -185,8 +185,11 @@ function authedRequest(path: string) {
   return request(path, { headers: { Authorization: `Bearer ${token}` } });
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks();
+  // The record cache lives on globalThis, so resetting modules no longer empties it.
+  const { clearSiteContentRecordCache } = await import("@/lib/site-content/site-content-record-cache");
+  clearSiteContentRecordCache();
   vi.resetModules();
 });
 
@@ -302,6 +305,21 @@ describe("medications API", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("searches a pasted vignette longer than 200 characters instead of rejecting it", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+    const vignette =
+      "patient on lithium 900 mg nocte for bipolar affective disorder, recently started sertraline 50 mg for depression and taking regular ibuprofen for back pain, now tremulous and confused with vomiting since yesterday";
+
+    const response = await GET(request(`/api/medications?q=${encodeURIComponent(vignette)}`));
+    const payload = (await response.json()) as { records: Array<{ slug: string }> };
+
+    expect(vignette.length).toBeGreaterThan(200);
+    expect(response.status).toBe(200);
+    expect(Array.isArray(payload.records)).toBe(true);
   });
 
   it("serves an identity-only slim catalog for fields=index", async () => {

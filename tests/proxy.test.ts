@@ -195,31 +195,15 @@ describe("production mockup boundary", () => {
     }
   });
 
-  it("lets the developer-gated hub and Caring Contact subtree through the blanket block, without opting in the flag", () => {
-    // These two subtrees carry their own signed-in-administrator gate
+  it("lets the developer-gated hub through the blanket block, without opting in the flag", () => {
+    // This subtree carries its own signed-in-administrator gate
     // (DeveloperAreaGate) instead of the flat 404 — no NEXT_PUBLIC_MOCKUPS_ENABLED
     // opt-in should be required, and no OTHER /mockups/** path should be affected.
-    for (const path of [
-      "/mockups/development",
-      "/mockups/caring-contacts",
-      "/mockups/caring-contacts/patients",
-      "/mockups/caring-contacts/patients/abc-123",
-    ]) {
+    for (const path of ["/mockups/development", "/mockups/development/ledger"]) {
       expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" })).toBe(false);
     }
     // A path that merely starts with the same characters is not a prefix match.
     expect(shouldBlockProductionMockups("/mockups/development-notes", { NODE_ENV: "production" })).toBe(true);
-    expect(shouldBlockProductionMockups("/mockups/caring-contacts-archive", { NODE_ENV: "production" })).toBe(true);
-  });
-
-  // #L69: ward-flow is the fourth entry in DEVELOPER_GATED_PATH_PREFIXES but had
-  // no coverage here at all (only development, caring-contacts and care-plan
-  // did) — a dropped prefix would fail closed (404), but nothing would catch it.
-  it("lets the Ward Flow subtree through the blanket block, and keeps a look-alike prefix blocked", () => {
-    for (const path of ["/mockups/ward-flow", "/mockups/ward-flow/constellation"]) {
-      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" }), path).toBe(false);
-    }
-    expect(shouldBlockProductionMockups("/mockups/ward-flow-archive", { NODE_ENV: "production" })).toBe(true);
   });
 });
 
@@ -249,52 +233,16 @@ describe("developer-area header (x-developer-area)", () => {
     expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area-path")).toBeNull();
   });
 
-  // #L69: the test above only ever exercised /mockups/development and
-  // /mockups/care-plan/**, so a regression that dropped /mockups/caring-contacts
-  // or /mockups/ward-flow from DEVELOPER_GATED_PATH_PREFIXES would fail closed
-  // (a bare 404 via the blanket production block) rather than open — safe, but
-  // silent, and a reviewer counting "two subtrees" from the test names alone
-  // would not know to look for the other two. Iterates the constant itself so
-  // this cannot silently narrow again the way the two prefixes above did.
+  // #L69: the test above names its subtrees by hand, so a regression that dropped
+  // a prefix from DEVELOPER_GATED_PATH_PREFIXES would fail closed (a bare 404 via
+  // the blanket production block) rather than open — safe, but silent. Iterates
+  // the constant itself so this cannot silently narrow.
   it("sets the header for every prefix in DEVELOPER_GATED_PATH_PREFIXES, not only the two the case above names", async () => {
     for (const prefix of DEVELOPER_GATED_PATH_PREFIXES) {
       const deepPath = `${prefix}/deep/path`;
       const response = await proxy(requestFor(deepPath));
       expect(response.headers.get("x-middleware-request-x-developer-area"), deepPath).toBe("1");
       expect(response.headers.get("x-middleware-request-x-developer-area-path"), deepPath).toBe(deepPath);
-    }
-  });
-});
-
-describe("static compatibility redirects", () => {
-  it("forwards retired constellation deep-links to the network destination", async () => {
-    const response = await proxy(requestFor("/mockups/ward-flow/constellation"));
-    expect(response.status).toBe(307);
-    const location = new URL(response.headers.get("location")!);
-    expect(location.pathname).toBe("/mockups/ward-flow/network");
-  });
-
-  it("exchanges a developer key before redirecting a retired gated path", async () => {
-    const key = "developer-area-test-key".padEnd(32, "-");
-    const previous = process.env.DEVELOPER_AREA_ACCESS_KEY;
-    process.env.DEVELOPER_AREA_ACCESS_KEY = key;
-    try {
-      const response = await proxy(
-        requestFor(`/mockups/ward-flow/constellation?${DEVELOPER_ACCESS_QUERY_PARAM}=${key}&view=network`),
-      );
-
-      const location = response.headers.get("location");
-      expect(location).toBeTruthy();
-      expect(location).toContain("/mockups/ward-flow/network");
-      expect(location).toContain("view=network");
-      expect(location).not.toContain(DEVELOPER_ACCESS_QUERY_PARAM);
-      expect(location).not.toContain(key);
-      expect(response.headers.getSetCookie().some((cookie) => cookie.startsWith(`${DEVELOPER_ACCESS_COOKIE}=`))).toBe(
-        true,
-      );
-    } finally {
-      if (previous === undefined) delete process.env.DEVELOPER_AREA_ACCESS_KEY;
-      else process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
     }
   });
 });

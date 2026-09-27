@@ -144,6 +144,42 @@ describe("answer thread storage", () => {
     expect(buildAnswerRenderModel(restored!).trust).toBe(trust);
   });
 
+  it("#WGMB4Z preserves the strong-support label cap through final SSE and restoration without touching trust", async () => {
+    const payload = buildGovernedAnswerClientResponse({
+      ...sampleAnswer,
+      confidence: "high",
+      supportedClaims: [],
+      relevance: {
+        verdict: "direct",
+        label: "Direct",
+        matchedTerms: [],
+        missingTerms: [],
+        directSourceCount: 1,
+        weakSourceCount: 0,
+        score: 1,
+        supportReason: "Direct support",
+        isSourceBacked: true,
+      },
+    }).payload;
+    expect(payload).toMatchObject({ authorityTrustCapRequired: false, strongSupportLabelCapped: true });
+    const streamed = await readAnswerStream(
+      new Response(`event: final\ndata: ${JSON.stringify(payload)}\n\n`),
+      () => {},
+    );
+    expect(streamed).toMatchObject({ strongSupportLabelCapped: true });
+    expect(
+      savePersistedAnswerThread(
+        "owner-1",
+        createSampleThread({ latestTurn: { query: "Question", answer: streamed, sources: [] } }),
+      ),
+    ).toBe(true);
+    const restored = loadPersistedAnswerThread("owner-1")?.latestTurn?.answer;
+    expect(restored).toMatchObject({ strongSupportLabelCapped: true });
+    const model = buildAnswerRenderModel(restored!);
+    expect(model.trust).toBe("high");
+    expect(model.supportLabelTrust).toBe("medium");
+  });
+
   it("R3 preserves a comparison and accessible visual table through final SSE and storage", async () => {
     const source = {
       id: "chunk-1",

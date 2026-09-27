@@ -10,6 +10,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cardInteractive, cardSurface } from "@/components/card-recipes";
+import { OnCallHeroLink } from "@/components/on-call/kit/hero-link";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
@@ -116,7 +117,7 @@ function LinkedGuidance({
           </p>
           <Link
             href="/documents/search"
-            className="inline-flex min-h-tap items-center text-sm font-bold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-tap items-center text-sm font-semibold text-[color:var(--clinical-accent)]"
           >
             Search documents
           </Link>
@@ -325,14 +326,25 @@ export function OnCallPlaybookSection({
 }: OnCallPlaybookSectionProps) {
   const playbookEntries = entries.filter((entry) => entry.section === "playbook");
 
+  // The question the Playbook exists to answer, first, whether or not any
+  // scenario is filed yet. A raised hairline card rather than the command fill,
+  // which inverts to a bright block in dark mode (standard §10); the tinted
+  // `featured` form is kept for Now alone.
+  const whoDoICall = (
+    <OnCallHeroLink href="/on-call/now" title="Who do I call now?" testId="on-call-playbook-who-do-i-call" />
+  );
+
   if (playbookEntries.length === 0) {
     return (
-      <EmptyState
-        icon={ListChecks}
-        title="No playbook scenarios yet"
-        body="Escalation scenarios you add will appear here as cards, each linking to your own guideline documents."
-        testId="on-call-playbook-empty"
-      />
+      <div className="grid gap-5">
+        {whoDoICall}
+        <EmptyState
+          icon={ListChecks}
+          title="No playbook scenarios yet"
+          body="Escalation scenarios you add will appear here as cards, each linking to your own guideline documents."
+          testId="on-call-playbook-empty"
+        />
+      </div>
     );
   }
 
@@ -363,6 +375,7 @@ export function OnCallPlaybookSection({
 
   return (
     <div data-testid={testId} className="grid gap-5">
+      {whoDoICall}
       {/* Two groups or one flat list, and the headings only exist in the first
           case. A single heading over the whole page is furniture — the same
           rule `onCallEntryGroups` applies everywhere else in this mode, and the
@@ -433,7 +446,7 @@ function PlaybookGroup({
           </h3>
           {/* Outside the heading and hidden: the count is a glance, not part
               of the group's name. */}
-          <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+          <span aria-hidden="true" className="nums text-2xs font-medium text-[color:var(--text-muted)]">
             {count}
           </span>
         </div>

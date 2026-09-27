@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui-primitives";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 
 export const metadata: Metadata = {
-  title: "Programme | CME | PsychSift",
+  title: "Programme | CPD | PsychSift",
   description: "The targets you confirmed for this year, and the document you confirmed them against.",
 };
 

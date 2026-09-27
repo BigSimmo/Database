@@ -5,7 +5,7 @@ import { CmeYearCheckPage } from "@/components/cme/cme-year-check-page";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 
 export const metadata: Metadata = {
-  title: "Year check | CME | PsychSift",
+  title: "Year check | CPD | PsychSift",
   description: "Your CPD year as an audit would read it: every target, evidence, reflections and what is copied.",
 };
 

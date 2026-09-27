@@ -221,7 +221,7 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
    * in the URL actually differs from the one the reducer holds, and it resets to
    * `normal` on leaving only when the current scenario was the one this address
    * put there. A scenario chosen by hand on the System states screen is left
-   * alone. Mirrors the same guarded sync in the sibling Caring Contacts
+   * alone. It mirrored the same guarded sync in the retired Caring Contacts
    * prototype.
    */
   const queryScenarioRef = useRef<PrototypeScenario | null>(null);

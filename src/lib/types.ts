@@ -456,6 +456,7 @@ export const SOURCE_GOVERNANCE_CODES = {
   WEAK_EVIDENCE: "weak_evidence",
   WEAK_TABLE_EXTRACTION: "weak_table_extraction",
   REGISTRY_RECORD: "registry_record_source",
+  DOCUMENT_CAUTION: "document_caution",
 } as const;
 
 export type SourceGovernanceCode = (typeof SOURCE_GOVERNANCE_CODES)[keyof typeof SOURCE_GOVERNANCE_CODES];
@@ -1315,6 +1316,11 @@ export type RagAnswer = {
   retrievalGateBlocked?: boolean;
   /** Server-derived browser-safe trust cap. Never carries claim, chunk, document, or assessment identities. */
   authorityTrustCapRequired?: boolean;
+  /**
+   * Server-derived, label-only cap on the words "Strong support" (#WGMB4Z). Never changes render
+   * trust or caps. Absent on payloads stored before it existed, which then keep the old label.
+   */
+  strongSupportLabelCapped?: boolean;
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;
@@ -1453,11 +1459,20 @@ export type ExtractedImage = {
   metadata?: Record<string, unknown>;
 };
 
+export type ExtractionProvenance = {
+  name: string;
+  version: string;
+  pymupdf?: string;
+  tableStrategy?: string;
+};
+
 export type ExtractedDocument = {
   pages: ExtractedPage[];
   images: ExtractedImage[];
   warnings?: string[];
   temporaryPaths?: string[];
+  /** Which reader produced this output (audit F04). Absent for extractors that do not report it. */
+  extractor?: ExtractionProvenance;
   budgetUsage?: {
     pages: number;
     artifacts: number;

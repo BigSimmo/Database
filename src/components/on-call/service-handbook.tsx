@@ -12,8 +12,9 @@ import { Button, buttonFaceClass } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
-import { onCallTelHref } from "@/lib/on-call/home-modules";
+import { resolveHandbookPhone, spokenOnCallNumber } from "@/lib/on-call/number-resolver";
 import type { ServiceAction, ServiceDetail, ServiceEntry } from "@/lib/on-call/service-model";
+import { formatOnCallDate } from "@/components/on-call/on-call-dates";
 
 type ReportAction = Extract<ServiceAction, { action: "report.create" }>;
 
@@ -34,9 +35,7 @@ function humanStatus(status: ServiceEntry["status"]): string {
 
 function updateLabel(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? "Review date unavailable"
-    : `Updated ${new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "short", year: "numeric" }).format(date)}`;
+  return Number.isNaN(date.getTime()) ? "Review date unavailable" : `Updated ${formatOnCallDate(date)}`;
 }
 
 function learningHref(entry: ServiceEntry): string | null {
@@ -63,7 +62,7 @@ function ServiceEntryCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const learning = learningHref(entry);
-  const callHref = onCallTelHref(entry.content.phone);
+  const dial = resolveHandbookPhone(entry.content.phone);
 
   async function submitReport() {
     if (!reason.trim() || busy) return;
@@ -90,7 +89,7 @@ function ServiceEntryCard({
       <div className="grid gap-3">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="break-words text-sm font-bold text-[color:var(--text-heading)]">
+            <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">
               <a
                 href={`#${onCallEntryAnchorId(entry.id)}`}
                 className={cn(focusRing, "inline-flex min-h-tap items-center break-words")}
@@ -119,39 +118,45 @@ function ServiceEntryCard({
             {entry.content.body}
           </p>
         ) : null}
-        {entry.content.phone ? (
-          <div className="flex min-h-tap min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)]">
-            {callHref ? (
+        {dial.kind !== "none" ? (
+          <div className="flex min-h-tap min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-[color:var(--text)]">
+            {dial.tel ? (
               <a
-                href={callHref}
+                href={dial.tel}
+                aria-label={`Call ${entry.content.title}, ${spokenOnCallNumber(dial.display)}`}
                 className={cn(buttonFaceClass({ variant: "primary", size: "sm" }), focusRing, "min-w-0 no-underline")}
               >
                 <Phone aria-hidden="true" className="size-icon-sm shrink-0" />
-                <span className="nums break-all">Call {entry.content.phone}</span>
+                <span className="nums break-all font-normal">Call {dial.display}</span>
               </a>
             ) : (
-              <>
-                <span className="nums min-w-0 flex-1 break-all">Extension {entry.content.phone}</span>
-                <OnCallCopyNumber
-                  value={entry.content.phone}
-                  label={`Copy extension for ${entry.content.title}`}
-                  testId={`service-entry-${entry.id}-copy-phone`}
-                />
-              </>
+              <span className="nums min-w-0 flex-1 break-all font-normal">
+                {dial.display}
+                {dial.route === "hospital-phone" ? (
+                  <span className={cn(textMuted, "ml-2 text-xs")}>From a hospital phone</span>
+                ) : null}
+              </span>
             )}
+            {dial.copy ? (
+              <OnCallCopyNumber
+                value={dial.copy}
+                label={`${dial.route === "hospital-phone" ? "Copy extension" : "Copy number"} for ${entry.content.title}`}
+                testId={`service-entry-${entry.id}-copy-phone`}
+              />
+            ) : null}
           </div>
         ) : null}
 
         {entry.content.kind !== "operational" && entry.reviewedAt && entry.publishedRevision === entry.revision ? (
           <p className={cn(textMuted, "break-words text-xs")}>
-            Reviewed {new Date(entry.reviewedAt).toLocaleDateString("en-AU")}
+            Reviewed {formatOnCallDate(entry.reviewedAt)}
             {entry.reviewedBy ? ` · reviewer ${entry.reviewedBy.slice(0, 8)}` : ""}
           </p>
         ) : null}
 
         {entry.content.sources.length > 0 ? (
           <div className="grid gap-1.5">
-            <p className={cn(textMuted, "text-2xs font-bold uppercase tracking-kicker")}>Source links</p>
+            <p className={cn(textMuted, "text-2xs font-semibold uppercase tracking-kicker")}>Source links</p>
             {entry.content.sources.map((source) => (
               <a
                 key={`${source.url}:${source.label}`}
@@ -201,6 +206,7 @@ function ServiceEntryCard({
               {(field) => (
                 <textarea
                   id={field.id}
+                  aria-describedby={field.describedBy}
                   rows={3}
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
@@ -306,7 +312,7 @@ export function ServiceHandbook({
     <section aria-labelledby="service-handbook-heading" className="grid gap-5" data-testid="service-handbook">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="service-handbook-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+          <h2 id="service-handbook-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
             Service handbook
           </h2>
           <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -332,6 +338,7 @@ export function ServiceHandbook({
           {(field) => (
             <input
               id={field.id}
+              aria-describedby={field.describedBy}
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -349,7 +356,7 @@ export function ServiceHandbook({
         const groupEntries = entries.filter((entry) => entry.content.section === group);
         return (
           <section key={group} aria-labelledby={`service-${group}-heading`} className="grid gap-2">
-            <h3 id={`service-${group}-heading`} className="text-sm font-bold text-[color:var(--text-heading)]">
+            <h3 id={`service-${group}-heading`} className="text-sm font-semibold text-[color:var(--text-heading)]">
               {groupLabels[group]}
             </h3>
             {groupEntries.length > 0 ? (
@@ -380,7 +387,7 @@ export function ServiceHandbook({
 
       <section aria-labelledby="blank-note-structures-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
         <div>
-          <h3 id="blank-note-structures-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+          <h3 id="blank-note-structures-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
             Blank documentation structures
           </h3>
           <p className={cn(textMuted, "mt-1 text-xs leading-5")}>

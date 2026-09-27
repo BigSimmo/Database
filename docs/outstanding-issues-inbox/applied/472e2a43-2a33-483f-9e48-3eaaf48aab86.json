@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "472e2a43-2a33-483f-9e48-3eaaf48aab86",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#T82ND3",
+    "outcome": "Closed 2026-09-26 on GitHub evidence (read via the GitHub MCP, no provider access): the red-main reporting has fired on real failures. 21 'CI on main is failing' issues carry the main-ci-failure label, from #3006 (2026-09-25 08:01Z) to #3045 (opened 2026-09-26 03:42Z, still open). Since PR #3017 each is assigned to BigSimmo, so GitHub notifies the owner, and the failures were acted on: #3006, #3014, #3020, #3027, #3029, #3034 and #3041 are all closed, and PR #3054 fixes the timeout named in the latest one (run 36214387379). Whether a notification reaches the owner's phone quickly enough is tracked on #TN512M, not here.",
+    "baseRowFingerprint": "31159b1c3e06aefdd578681b0cd18031c6ded0cfdba16165b4cc393caf809f0b"
+  }
+}

@@ -614,6 +614,11 @@ describe("clinical source catalogue", () => {
       filterAndSortSourceCatalogue(entries, noFilters({ q: "Local policy" })).map((entry) => entry.sourceId),
     ).toEqual(["governance"]);
     expect(filterAndSortSourceCatalogue(entries, noFilters({ q: "Mental state examination" }))).toEqual([]);
+    // Punctuation is ignored, and a query matches from the start of a word only.
+    expect(
+      filterAndSortSourceCatalogue(entries, noFilters({ q: "Local policy?" })).map((entry) => entry.sourceId),
+    ).toEqual(["governance"]);
+    expect(filterAndSortSourceCatalogue(entries, noFilters({ q: "ance" }))).toEqual([]);
     expect(deriveSourceCatalogueFacets(entries)).toEqual({
       total: 2,
       australian: 2,

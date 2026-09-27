@@ -58,3 +58,123 @@ jobs:
           path: artifacts/staging-tenancy-evidence.json
           if-no-files-found: error
           retention-days: 14
+
+  # The harness failed on every scheduled run from at least 2026-09-21 to 2026-09-25, each time on
+  # its deployment-identity check (staging was not running the checked-out commit), and nobody was
+  # told: a red scheduled run only sends an email, and the owner has confirmed those are not read
+  # (ledger #TN512M). So an unproven tenancy boundary looked the same as a proven one. This routes
+  # a failing main run to one pinned, assigned issue, the delivery path live-domain-monitor.yml
+  # and live-drift.yml already use, and closes it on the next green run.
+  #
+  # Split into its own job so `issues: write` never lands on the job that checks out and runs the
+  # harness with staging credentials. The issue body names no secret and quotes no log text: the
+  # repository is public, so it links the run instead.
+  tenancy-routing:
+    name: Route tenancy status to the pinned issue
+    needs: cross-tenant
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Open, update or close the pinned tenancy issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          HARNESS_RESULT: ${{ needs.cross-tenant.result }}
+        with:
+          script: |
+            // Route the alert to a person, not only a label (#TN512M): GitHub notifies an issue's
+            // assignee on their phone. Best-effort, so a refused assignment never costs the alert.
+            const alertAssignee = context.repo.owner;
+            async function assignAlert(issueNumber) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [alertAssignee],
+                });
+              } catch (error) {
+                core.warning(`Could not assign @${alertAssignee} to #${issueNumber}: ${error.message}`);
+              }
+            }
+
+            const title = "Staging tenancy isolation check failing";
+            const label = "staging-tenancy-failure";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const result = process.env.HARNESS_RESULT || "unknown";
+            const now = new Date().toISOString();
+
+            // One pinned issue, found by label so a retitle by a human does not start a second one.
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: "open",
+              labels: label,
+            });
+            const existing = open.find((issue) => issue.title === title) ?? open[0];
+
+            if (result === "success") {
+              if (!existing) {
+                core.info("Staging tenancy check is green and no failure issue is open.");
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Resolved — the staging tenancy check is green again as of ${now}.\n\nRun: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                state: "closed",
+                state_reason: "completed",
+              });
+              core.info(`Closed #${existing.number} after a green tenancy run.`);
+              return;
+            }
+
+            const body = [
+              "The two-user staging tenancy check did not pass. This issue is updated in place by",
+              "`.github/workflows/staging-tenancy.yml` and closes automatically on the next green run,",
+              "so while it is open, per-user isolation has **not** been proven on the staging app.",
+              "",
+              `- Latest failing run: ${runUrl}`,
+              `- Job result: \`${result}\``,
+              `- Trigger: \`${context.eventName}\``,
+              `- Last updated: ${now}`,
+              "",
+              "The most common cause is the deployment-identity check: the harness only runs when the",
+              "staging app reports the same commit it checked out, and staging is not redeployed on",
+              "every push to main. The run log says which check stopped it. See",
+              "`docs/staging-setup.md` (Validate staging) and `docs/staging-tenancy-release-evidence.md`.",
+            ].join("\n");
+
+            if (existing) {
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Still failing as of ${now} — ${runUrl}`,
+              });
+              await assignAlert(existing.number);
+              core.warning(`Staging tenancy check failing; updated #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                labels: [label],
+                body,
+              });
+              await assignAlert(created.data.number);
+              core.warning(`Staging tenancy check failing; opened #${created.data.number}.`);
+            }

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5c9b0bb2-7381-48a1-ac89-bd28bf8458bf",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Saved answers keep the trust label they were stored with, so the all-claims trust cap does not apply to answers cached before it shipped",
+    "detail": "Found in PR B review 2026-09-25 (#WGMB4Z, owner decisions 3 and 10). The display trust cap (authorityTrustCapRequired) is computed on the server when the answer is projected for the client, and the client payload carries only the boolean, not supportedClaims or evidenceAssessments, so the browser cannot recompute it. The restored answer thread (src/lib/answer-thread-storage.ts, sessionStorage, 12-hour TTL) replays the stored payload with its stored flag, so an answer saved before the all-claims cap shipped can still show 'Strong support' after deploy, in the same tab, for up to 12 hours. Server-side cached answers are re-projected on every response, so they pick up the new cap (read from the answer routes, not tested). Not checked: whether any other store (saved or exported answers) keeps a client payload. Likely fix: bump the stored-thread schema version when a trust rule changes so older threads are discarded, and pin it with a test in tests/answer-thread-storage.test.ts.",
+    "source": "PR B review 2026-09-25",
+    "issueUlid": "01M3CJYTSEG9EF0CZ8NPD19G22"
+  }
+}

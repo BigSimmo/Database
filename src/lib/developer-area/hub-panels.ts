@@ -1,5 +1,3 @@
-import { isCaringContactsWorkspaceEnabled } from "@/lib/caring-contacts-server/session";
-
 export type HubPanelGroup = "work" | "clinical" | "system" | "reference";
 
 export type HubPanel = {
@@ -24,19 +22,6 @@ export const HUB_PANELS: readonly HubPanel[] = [
     group: "work",
     phase: 1,
     href: "/mockups/development/ledger",
-  },
-  // The id stays `work-in-flight` on purpose (plan ruling R9): it is Phase 1's
-  // extension mechanism, and renaming it would be churn with a test to update
-  // and nothing gained. Only the name and summary changed, because the old
-  // ones promised live pull-request state (open changes, CI status) that this
-  // repository does not have on disk — only its own committed review records.
-  {
-    id: "work-in-flight",
-    name: "Review state",
-    summary: "Which branches were reviewed, at which head, with what outcome",
-    group: "work",
-    phase: 1,
-    href: "/mockups/development/review-state",
   },
   // `decision-log` (phase 4) was removed 2026-08-25, along with `errors`,
   // `budgets` and `commands` below, and `database-drift` (phase 3) for the
@@ -92,8 +77,7 @@ export const HUB_PANELS: readonly HubPanel[] = [
   // it restates no fact an existing green gate already guarantees. Do not
   // drop it in a later placeholder sweep; it is unbuilt, not unwanted.
   // Built 2026-09-08. The summary names what the page can actually show: the
-  // registers this repository holds and, for Ward Flow, the fact that it holds
-  // none. It deliberately does not say "every clinical risk" -- three of the
+  // registers this repository holds. It deliberately does not say "every clinical risk" -- three of the
   // four rows with no control are reviews nobody has convened, so a register
   // claiming completeness would be the first thing on the hub that is untrue.
   {
@@ -147,34 +131,21 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/corpus-health",
   },
+  // Live and administrator-only: it reads the running server's settings on each
+  // request and shows only Set/Missing/On/Off or an allow-listed mode name. The
+  // summary promises "never the values"; keep it that way.
   {
-    id: "test-health",
-    name: "Test health",
-    summary: "Unstable and quarantined tests",
+    id: "settings-check",
+    name: "Settings check",
+    summary: "Whether each production switch is on and each secret is in place — never the values",
     group: "system",
     phase: 1,
-    href: "/mockups/development/test-health",
+    href: "/mockups/development/settings",
   },
-
-  {
-    id: "documentation",
-    name: "Documentation",
-    summary: "Every document, its area, and whether the index lists it",
-    group: "reference",
-    phase: 1,
-    href: "/mockups/development/documentation",
-  },
-  {
-    id: "routes",
-    name: "Routes and modes",
-    // Audit L81: this summary used to state a mode count, which drifted every time
-    // a mode was added (the routes page below it renders the live count from the
-    // snapshot). Kept deliberately count-free — do not reintroduce a number here.
-    summary: "Every page and every app mode",
-    group: "reference",
-    phase: 1,
-    href: "/mockups/development/routes",
-  },
+  // `work-in-flight` (Review state), `test-health`, `documentation` and `routes`
+  // were retired 2026-09-26 on the owner's decision (see mockups/README.md,
+  // "Retired developer-gated routes"): engineering views the owner does not use.
+  // Their data still lives in data/repo-awareness-snapshot.json.
   // A static sheet, not a route: it is the generated brand preview, mirrored
   // from docs/brand/preview.html into public/ so the hub can link to it.
   // `tests/developer-hub-panels.test.ts` holds the two copies byte-identical,
@@ -189,19 +160,8 @@ export const HUB_PANELS: readonly HubPanel[] = [
     external: true,
   },
   // Real prototype cards, not one generic self-linking "Prototypes" card.
-  // This is also what preserves the Care Plan, Caring Contact, full Caring Contacts
-  // workspace, and Ward Flow entries the spec requires to survive the hub rewrite.
-  //
-  // This module is production space (`src/lib/**`), not `src/app/mockups/**`,
-  // so `eslint.config.mjs`'s `no-restricted-imports` boundary forbids importing
-  // `CARING_CONTACT_MOCKUP_ROUTES` from `@/components/caring-contacts/mockups/routes`
-  // here — that import path matches the `**/*mockup*` pattern the rule fences
-  // production code off from. The href below is therefore a pinned literal,
-  // not an import. Do not "helpfully" restore the import: the anti-drift
-  // guarantee that constant exists for is preserved instead by
-  // `tests/developer-hub-panels.test.ts`, which asserts this literal equals
-  // `CARING_CONTACT_MOCKUP_ROUTES.today` — if that route is ever renamed, the
-  // test goes red rather than this link silently rotting.
+  // This is also what preserves the Care Plan entry the spec requires to
+  // survive the hub rewrite.
   {
     id: "care-plan",
     name: "Care Plan",
@@ -215,44 +175,8 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/care-plan",
   },
-  {
-    id: "caring-contact",
-    name: "Caring contact",
-    summary: "Coordination prototype: 13 routes and its system states",
-    group: "reference",
-    phase: 1,
-    href: "/mockups/caring-contacts",
-  },
-  {
-    id: "caring-contacts-workspace",
-    name: "Caring Contacts workspace",
-    summary: "Full synthetic operational workspace: caseload, schedules, pathways, reports, and team views",
-    group: "reference",
-    phase: 1,
-    href: "/caring-contacts",
-  },
-  {
-    id: "ward-flow",
-    name: "Ward flow",
-    summary: "Synthetic prototype, not clinical decision support: queue, capacity, transport, movements",
-    group: "reference",
-    phase: 1,
-    href: "/mockups/ward-flow",
-  },
 ];
 
-export function panelsInGroup(
-  group: HubPanelGroup,
-  environment = process.env.NODE_ENV,
-  runtime: Record<string, string | undefined> = process.env,
-): HubPanel[] {
-  return HUB_PANELS.filter((panel) => {
-    if (panel.group !== group) return false;
-    // Production hubs must not advertise /caring-contacts when the workspace
-    // is locked off (every caring-contacts page calls notFound() then).
-    if (panel.id === "caring-contacts-workspace" && !isCaringContactsWorkspaceEnabled(environment, runtime)) {
-      return false;
-    }
-    return true;
-  });
+export function panelsInGroup(group: HubPanelGroup): HubPanel[] {
+  return HUB_PANELS.filter((panel) => panel.group === group);
 }

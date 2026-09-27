@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c5ed4fef-7469-467c-96f7-c563cd0fd960",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Playwright: five navigations wait on networkidle, which Playwright advises against",
+    "detail": "tests/ui-specifiers.spec.ts:24, tests/ui-hydration.spec.ts:61, tests/ui-style-contract.spec.ts:165, 184 and 227 use waitForLoadState or goto with networkidle, which is unreliable when a page keeps a connection open. Next action: wait for the specific element or state each test needs instead.",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVVQBPVVAPAPTE7RE4P06"
+  }
+}

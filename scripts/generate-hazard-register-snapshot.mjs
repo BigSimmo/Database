@@ -3,19 +3,20 @@
  * Build `data/hazard-register-snapshot.json` — the input to the developer hub's
  * hazard register panel.
  *
- * This repository holds THREE hazard records with three different authorities,
- * and the whole point of this generator is that they arrive at the page still
- * separated. Merging them into one list would manufacture a coverage claim
- * nobody has made:
+ * This repository holds ONE live hazard record, and the whole point of this
+ * generator is that it arrives at the page with its own authority intact rather
+ * than as a coverage claim nobody has made:
  *
  *   1. `docs/clinical-hazard-controls.json` — the PsychSift answer pipeline
  *      (H1-H6). Machine-checked by `check:clinical-hazard-controls`, and its
  *      own `authority` field says it establishes static evidence only.
- *   2. `docs/caring-contacts/hazard-log.md` — Caring Contacts. A DRAFT that no
- *      clinician has signed. Parsed from its markdown tables.
- *   3. Ward Flow — no register exists. Recorded as an absence, with the ledger
- *      rows that mention it offered as "the only writing there is", explicitly
- *      not as a register and explicitly not complete.
+ *
+ * Two further areas were retired on 2026-09-26 with the prototypes they
+ * covered: the Caring Contacts workspace (whose hazard log was a draft no
+ * clinician ever signed) and Ward Flow (which never had a register). They are
+ * kept as a short `retired` record so the page can say they once existed and
+ * why nothing is shown for them, without re-rendering a register that no
+ * longer has a source.
  *
  * Run: npm run snapshot:hazards
  */
@@ -30,8 +31,6 @@ export const REVIEW_TIME_ZONE = "Australia/Perth";
 
 const CONTROLS_JSON = "docs/clinical-hazard-controls.json";
 const ANALYSIS_MD = "docs/clinical-hazard-analysis.md";
-const CARING_CONTACTS_MD = "docs/caring-contacts/hazard-log.md";
-const LEDGER_SNAPSHOT = "data/outstanding-issues-snapshot.json";
 
 function read(relativePath) {
   return readFileSync(join(repoRoot, relativePath), "utf8");
@@ -92,8 +91,8 @@ export function parseHazardRows(markdown) {
 }
 
 /**
- * Normalise a Caring Contacts status cell to the three states its own "How to
- * read the columns" section defines. An unrecognised value is passed through
+ * Normalise a markdown hazard-log status cell to the three states such a log's
+ * "How to read the columns" section defines. An unrecognised value is passed through
  * rather than coerced: a status this parser has not seen is a change to the
  * document, and the page must show it rather than silently file it as controlled.
  */
@@ -184,99 +183,18 @@ function buildPsychSiftRegister(now) {
   };
 }
 
-/** The complete opening authority block, with Markdown presentation removed but no wording omitted. */
-export function caringContactsAuthority(markdown) {
-  const match = /^# Caring Contacts — hazard log\s*\n\n((?:>.*(?:\n|$))+)/m.exec(markdown);
-  if (!match) throw new Error("Caring Contacts hazard log has no opening authority block");
-  return plainCell(
-    match[1]
-      .split("\n")
-      .map((line) => line.replace(/^>\s?/, ""))
-      .join(" "),
-  );
-}
-
-// Takes no `now`: a draft nobody has signed has no review to expire, so there is
-// no date here to compare against one.
-function buildCaringContactsRegister() {
-  const markdown = read(CARING_CONTACTS_MD);
-  const rows = parseHazardRows(markdown);
-  const statusLine = /\*\*Status:\*\*\s*(.+)/.exec(markdown);
-
-  return {
-    id: "caring-contacts",
-    name: "Caring Contacts",
-    scope: "The Caring Contacts workspace only. It does not cover the answer pipeline.",
-    sourcePath: CARING_CONTACTS_MD,
-    exists: true,
-    authority: caringContactsAuthority(markdown),
-    signedOff: false,
-    gate: null,
-    reviewedAt: null,
-    // A draft nobody has signed has no review to expire; `signedOff: false` is
-    // the fact that matters, and inventing an expiry would imply a review happened.
-    reviewExpiresAt: null,
-    reviewExpired: false,
-    documentStatus: statusLine ? plainCell(statusLine[1]) : null,
-    hazards: rows.map((row) => ({
-      id: row.id,
-      title: row.hazard,
-      status: normaliseStatus(row.status),
-      owner: row.owner,
-      residualRisk: row.residualRisk,
-      harm: row.harm,
-      hasControl: !/^none$/i.test(row.control.trim()),
-      reviewExpiresAt: null,
-      reviewExpired: false,
-    })),
-    openAssuranceDecisions: [],
-  };
-}
-
 /**
- * Ward Flow has no hazard register. That absence is the finding, so it is
- * recorded as one rather than left as an empty section a reader would take for
- * "no hazards".
- *
- * The ledger rows below are offered as the only writing that exists, and are
- * labelled in the type as `ledgerMentions` — never `hazards` — because a text
- * match on a summary is not a register and cannot be complete.
- *
- * Restricted to P1 and matched on the summary alone. Both narrowings are
- * deliberate. Searching the detail text too, at every priority, returned rows
- * about a flaky demo-clock test and a missing print stylesheet: real work, but
- * listing them under a hazard heading trains the reader to skim the section,
- * which is the one thing a hazard surface must never do. P1 in this ledger is
- * "do next / blocking", which is the closest thing it has to a safety marker —
- * an approximation, and the page says so rather than implying the filter is a
- * classification.
+ * Registers retired with the prototypes they covered. Recorded, not rendered as
+ * registers: their source documents were deleted, so there is nothing left to
+ * parse, and dropping them silently would let a reader assume they never existed.
  */
-function buildWardFlowRegister() {
-  const ledger = JSON.parse(read(LEDGER_SNAPSHOT));
-  const mentions = (ledger.open ?? [])
-    .filter((item) => item.priority === "P1" && /ward flow/i.test(item.summary))
-    .map((item) => ({ id: item.id, priority: item.priority, summary: item.summary }));
-
-  return {
-    id: "ward-flow",
-    name: "Ward Flow",
-    scope: "Bed matching, placement, transport and movements.",
-    sourcePath: null,
-    exists: false,
-    authority: "No hazard register has been written. Nothing here has been reviewed against one.",
-    signedOff: false,
-    gate: null,
-    reviewedAt: null,
-    reviewExpiresAt: null,
-    reviewExpired: false,
-    hazards: [],
-    ledgerMentions: mentions,
-    openAssuranceDecisions: [],
-  };
-}
+export const RETIRED_REGISTERS = [
+  { name: "Caring Contacts", retiredAt: "2026-09-26", status: "draft never signed; retired" },
+  { name: "Ward Flow", retiredAt: "2026-09-26", status: "no register ever written; retired" },
+];
 
 export function buildHazardSnapshot(now = new Date()) {
-  const registers = [buildPsychSiftRegister(now), buildCaringContactsRegister(), buildWardFlowRegister()];
+  const registers = [buildPsychSiftRegister(now)];
 
   const allHazards = registers.flatMap((register) => register.hazards);
   return {
@@ -291,6 +209,7 @@ export function buildHazardSnapshot(now = new Date()) {
       reviewExpired: allHazards.filter((hazard) => hazard.reviewExpired).length,
     },
     registers,
+    retired: RETIRED_REGISTERS.map((entry) => ({ ...entry })),
   };
 }
 

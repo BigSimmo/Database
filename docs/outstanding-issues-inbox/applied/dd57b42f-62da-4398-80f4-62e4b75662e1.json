@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dd57b42f-62da-4398-80f4-62e4b75662e1",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#78MRNJ",
+    "outcome": "Already fixed on main: every recursive rmSync in tests/ward-flow-chat-control.test.ts now carries maxRetries/retryDelay (lines 50 and 1640). Closed as stale in the 2026-09-25 ledger sweep.",
+    "baseRowFingerprint": "bbaa0582b5f7691caefef03fa7ecb63662393d8d59c1fea994a0606f4e372211"
+  }
+}

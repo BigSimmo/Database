@@ -10,6 +10,7 @@
 @import "./ckb-v2-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant pointer-fine (@media (pointer: fine));
 
 /*
  * Motion variants are redefined so the in-app Motion preference is authoritative
@@ -130,8 +131,6 @@
      --row-compact is 36px row height and must not be reused as tap. */
   --spacing-compact-meta: 2.5rem;
   --spacing-phone-frame: 52.75rem;
-  /* Ward Flow's fixed phone navigation bar and the matching content reserve. */
-  --spacing-ward-phone-bar: 3.5rem;
 
   /* Shared reading measure, wide mockup study canvas, and Factsheets phone geometry. */
   --container-reading: 64rem;
@@ -257,6 +256,11 @@
      misreads the clamp() value as a font-family list. Call sites that set an
      explicit leading-* utility still win over this default. */
   --text-hero--line-height: 1.12;
+  /* The one display figure on a mode home (mode design standard module 8:
+     36–44px at weight 300, inside the hero summary only). CPD's Today uses it
+     for "32.5" in "32.5 of 50 h". Declared in CLINICAL_TWMERGE_THEME.text too. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
 
   /* Named leading steps for the two contexts the stepped scale could not
      express, so neither has to be spelled as an arbitrary value. Tailwind owns
@@ -1158,6 +1162,138 @@ body {
     --mode-identity-border: ButtonBorder;
     --mode-identity-contrast: ButtonText;
   }
+}
+
+/* Roster: violet. The design record's identity colour (Roster Release 1 plan,
+   Global Constraints). Light ~6.9:1 and dark ~7.2:1 against their own contrast
+   token, both cleared as a FILL (the pill's circle) as well as text, which is
+   why the contrast partner is declared rather than assumed white. Same
+   delivery mechanism as On Call and CME above: the local `--clinical-accent`
+   remap, scoped to the elements carrying the attribute. */
+[data-mode-identity="roster"] {
+  --mode-identity: #634f8f;
+  --mode-identity-soft: #f2eef9;
+  --mode-identity-border: #ddd3ee;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="roster"] {
+  --mode-identity: #b0a0d8;
+  --mode-identity-soft: #241c3a;
+  --mode-identity-border: #3b3054;
+  --mode-identity-contrast: #170f26;
+}
+
+@media (forced-colors: active) {
+  /* Declared as its own rule, as On Call's and CME's are, so a grouped
+     selector cannot stop this from matching an exact-selector read. */
+  [data-mode-identity="roster"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* Mode summary surface (mode design standard v13.3 §4).
+   ------------------------------------------------------------------
+   The dark "Right now" panel a mode home may build its hero from; every mode
+   reuses these rather than inventing its own dark card. Read through the
+   `modeSummary*` recipes in `src/components/mode-kit/recipes.ts`.
+   Light: the graphite command fill with its own light ink (16.5:1) and muted
+   ink (7.8:1). Dark: the raised lux surface with the ordinary dark text, so the
+   panel lifts instead of inverting. The aliases resolve on <html>, like the
+   mode identity block above. */
+:root {
+  --surface-summary: var(--command);
+  --surface-summary-ink: #f5f7f7;
+  --surface-summary-muted: #a4adb7;
+  --surface-summary-line: rgb(255 255 255 / 12%);
+}
+
+.dark {
+  --surface-summary: var(--surface-lux);
+  --surface-summary-ink: var(--text);
+  --surface-summary-muted: var(--text-muted);
+  --surface-summary-line: var(--border);
+}
+
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --surface-summary: Canvas;
+    --surface-summary-ink: CanvasText;
+    --surface-summary-muted: CanvasText;
+    --surface-summary-line: CanvasText;
+  }
+}
+
+/* First Nations: olive (mode design standard v13.1 §3). Light 6.1:1 on white,
+   dark 9.0:1 on a dark card, disc glyph 9.4:1. Used only on the pill, the
+   current tab, module icon tiles, the hero's day track and quotation accents.
+   Pinned by tests/first-nations-mode-colour.test.ts. */
+[data-mode-identity="first-nations"] {
+  --mode-identity: #4d6b2f;
+  --mode-identity-soft: #f2f5ee;
+  --mode-identity-border: #dce4d2;
+  --mode-identity-contrast: #ffffff;
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="first-nations"] {
+  --mode-identity: #b5c98c;
+  --mode-identity-soft: #232b1d;
+  --mode-identity-border: #3a4730;
+  --mode-identity-contrast: #172009;
+}
+
+/* On the hero summary panel the mode colour uses its dark value in both themes (v13.3). */
+[data-mode-identity="first-nations"].fn-on-summary {
+  --mode-identity: #b5c98c;
+}
+
+@media (forced-colors: active) {
+  [data-mode-identity="first-nations"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* The one display figure on the First Nations hero (standard §1: 36 px at 300). */
+.fn-display-36 {
+  font-size: 2.25rem;
+  line-height: var(--leading-display);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Serif accent: words to say aloud, quoted law, the Acknowledgement. */
+.fn-voice {
+  font-family: var(--font-fn-serif), ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* CPD's hero bar fill (Today's hero summary, the hero's one graphic).
+   The dashboard is not inside [data-mode-identity="cme"] (only the pill and
+   the rail carry it), so the fill cannot read --mode-identity. The summary panel is
+   dark in both themes, so both themes take CPD's dark-theme indigo, as the
+   standard says for the mode colour on a hero: 7.3:1 on the light panel and
+   6.7:1 on the dark one; 5.1:1 and 5.4:1 against the bar's track
+   (--surface-summary-line). */
+:root {
+  --cme-hero-fill: #97a3df;
 }
 
 @layer base {
@@ -5254,24 +5390,6 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   html.factsheets-printing .factsheet-print-portal,
   html.factsheets-printing .factsheet-print-sheet {
     display: block !important;
-  }
-}
-
-/* Caring Contacts workspace (/caring-contacts) print safeguard.
- * The transitional `header, nav, button { display: none }` rule above removes the
- * workspace header when printing, and the "fictional data only" marker lives in
- * it — so a printed page of invented patients would carry nothing saying they are
- * invented. That marker is a safeguard, not chrome. Restore it and only it,
- * scoped to its own attributes, the same way the safety-plan patient copy
- * restores its document header below. */
-@media print {
-  [data-synthetic-marker-host] {
-    display: block !important;
-    position: static !important;
-  }
-
-  [data-synthetic-marker] {
-    display: inline-flex !important;
   }
 }
 

@@ -2031,6 +2031,9 @@ async function processJob(job: JobRow) {
       // B4: aggregate numbers only; absent (not null) outside shadow mode / the cohort so a
       // legacy-mode run never touches an earlier shadow record on the row.
       ...(shadowExtraction ? { shadow_extraction: shadowExtraction } : {}),
+      // Audit F04: which reader produced these pages, so a parser defect can be traced to the
+      // documents it touched. A document without this key was extracted before it was recorded.
+      ...(extracted?.extractor ? { extraction_provenance: { ...extracted.extractor, recorded_at: indexedAt } } : {}),
     };
 
     await updateDocument(job.document_id, job.documents.owner_id, {

@@ -79,5 +79,11 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // other direction. Both named routes are `isInformationPage`, which is the
   // agreement `tests/mode-nav-addon-slot.dom.test.tsx` checks route for route.
   if (pathname === "/cme/programme" || pathname === "/cme/setup") return true;
+  // Every First Nations route mounts `FirstNationsNavHeader`
+  // (`first-nations/first-nations-nav-header.tsx`), an `InPageNavHeader`, for
+  // the mode's own reason: it is an information page on every route (see
+  // `isInformationPage`), so `PageSecondaryNavigation` returns null before the
+  // mode branch and the shell could never draw a bar for it.
+  if (pathname === "/first-nations" || isSlugDetail(pathname, "/first-nations")) return true;
   return false;
 }

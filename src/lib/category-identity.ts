@@ -75,7 +75,6 @@ export const CATEGORY_ICON_KEYS = [
   "route",
   "fileSignature",
   "heart",
-  "heartHandshake",
   "brainCircuit",
   "bookOpenCheck",
   "tags",
@@ -99,6 +98,8 @@ export const CATEGORY_ICON_KEYS = [
   "chat",
   "phoneCall",
   "graduationCap",
+  "brain",
+  "calendarRange",
 ] as const;
 
 export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number];
@@ -127,6 +128,10 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   sources: "libraryBig",
   "on-call": "phoneCall",
   cme: "graduationCap",
+  psychiatry: "brain",
+  "my-work": "clipboardList",
+  roster: "calendarRange",
+  "first-nations": "users",
 };
 
 /**
@@ -163,6 +168,13 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   answer: "clinical",
   "on-call": "purple",
   cme: "indigo",
+  psychiatry: "purple",
+  "my-work": "slate",
+  roster: "rose",
+  // Not `--mode-identity`'s olive: this is the within-surface accent channel
+  // (also-matches grids, library chips), which the mode's own chrome does not
+  // use. See the class doc comment above.
+  "first-nations": "slate",
 };
 
 /**
@@ -190,7 +202,6 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   "safety-plan": "clipboardList",
   calculators: "calculator",
   monitoring: "waves",
-  "caring-contacts": "heartHandshake",
   favourites: "star",
 };
 

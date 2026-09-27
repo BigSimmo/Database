@@ -19,6 +19,12 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "sources",
   "tools",
   "calculators",
+  "on-call",
+  "cme",
+  "psychiatry",
+  "my-work",
+  "roster",
+  "first-nations",
 ]);
 
 /**
@@ -50,6 +56,17 @@ export const standaloneModeHomePaths = [
   // a body, and the mode declares no search surface, so without it the mode pill
   // would retarget a composer CME has nowhere to send.
   "/cme",
+  // Psychiatry's dashboard of section links, for the same reason again.
+  "/psychiatry",
+  // My Work's dashboard, for the same reason again.
+  "/my-work",
+  // Roster's dashboard (Today), for the same reason: it declares no search
+  // surface, so without it the mode pill would retarget a composer Roster has
+  // nowhere to send.
+  "/roster",
+  // First Nations' home, for the same reason again: no results surface, so
+  // without it the mode pill would retarget a composer this mode never reads.
+  "/first-nations",
 ] as const;
 
 /**
@@ -101,6 +118,23 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // the reader on a page that ignores it.
     case "cme":
       return "/cme";
+    // The Psychiatry dashboard at `/psychiatry`, on the same reasoning: it is a
+    // page of links to the sections it gathers, with no results surface.
+    case "psychiatry":
+      return "/psychiatry";
+    // The My Work dashboard at `/my-work`, likewise a page of links.
+    case "my-work":
+      return "/my-work";
+    // The Roster dashboard (Today) at `/roster`, on the same reasoning as On
+    // Call above: no results surface, so a retargeted composer would accept a
+    // query and land the reader on a page that ignores it.
+    case "roster":
+      return "/roster";
+    // The First Nations dashboard at `/first-nations`, on the same reasoning:
+    // no results surface, so a retargeted composer would accept a query and
+    // land the reader on a page that ignores it.
+    case "first-nations":
+      return "/first-nations";
     default:
       return null;
   }
@@ -165,6 +199,10 @@ const alwaysStandaloneShellPathPrefixes = [
   "/tools",
   "/on-call",
   "/cme",
+  "/psychiatry",
+  "/my-work",
+  "/roster",
+  "/first-nations",
 ] as const;
 
 /**

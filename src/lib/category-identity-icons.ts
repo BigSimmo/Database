@@ -2,8 +2,10 @@ import {
   BookMarked,
   BookOpenCheck,
   BookOpenText,
+  Brain,
   BrainCircuit,
   Calculator,
+  CalendarRange,
   ClipboardCheck,
   ClipboardList,
   Compass,
@@ -12,7 +14,6 @@ import {
   FileText,
   GraduationCap,
   Heart,
-  HeartHandshake,
   LibraryBig,
   MessagesSquare,
   Network,
@@ -47,7 +48,6 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   route: Route,
   fileSignature: FileSignature,
   heart: Heart,
-  heartHandshake: HeartHandshake,
   brainCircuit: BrainCircuit,
   bookOpenCheck: BookOpenCheck,
   tags: Tags,
@@ -71,6 +71,8 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   chat: MessagesSquare,
   phoneCall: PhoneCall,
   graduationCap: GraduationCap,
+  brain: Brain,
+  calendarRange: CalendarRange,
 };
 
 /** Component form, for the call sites that still take a `LucideIcon` prop. */

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -120,7 +120,33 @@ describe("check these", () => {
   it("says so when nothing needs checking", () => {
     state.entries = [entry({ id: "ok", section: "contacts", lastVerifiedAt: "2026-06-01T00:00:00Z" })];
     render(<OnCallCheckPage now={new Date("2026-09-25T02:00:00Z")} />);
-    expect(screen.getByTestId("on-call-check-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-check-empty")).toHaveTextContent("Your one entry was checked");
+  });
+
+  it("never says entries were checked when there are none", () => {
+    state.entries = [];
+    render(<OnCallCheckPage now={new Date("2026-09-25T02:00:00Z")} />);
+    expect(screen.getByTestId("on-call-check-no-entries")).toHaveTextContent("No entries yet");
+    expect(screen.queryByTestId("on-call-check-empty")).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/checked in the last/i);
+  });
+
+  it("asks a signed-out reader to sign in rather than reporting checks", () => {
+    state.entries = [];
+    state.signedOut = true;
+    try {
+      render(<OnCallCheckPage now={new Date("2026-09-25T02:00:00Z")} />);
+      expect(screen.getByTestId("on-call-check-no-entries")).toHaveTextContent("Sign in to see your checks");
+    } finally {
+      state.signedOut = false;
+    }
+  });
+
+  it("does not claim a check when no entry is the reader's to confirm", () => {
+    state.entries = [entry({ id: "shared", section: "contacts", isOwn: false })];
+    render(<OnCallCheckPage now={new Date("2026-09-25T02:00:00Z")} />);
+    expect(screen.getByTestId("on-call-check-none-assessed")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/checked in the last/i);
   });
 });
 
@@ -157,5 +183,21 @@ describe("On Call calendar", () => {
     expect(day).toHaveTextContent("Registrar teaching");
     expect(day).toHaveTextContent("12:30 pm");
     expect(day).toHaveTextContent("Every week");
+  });
+
+  it("moves today at midnight on a page nobody is touching", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 8, 30, 23, 58));
+      state.entries = [];
+      render(<OnCallCalendarPage />);
+      expect(screen.getByTestId("on-call-calendar-view-day")).toHaveTextContent("Wednesday 30 September · Today");
+      act(() => {
+        vi.advanceTimersByTime(3 * 60 * 1000);
+      });
+      expect(screen.getByTestId("on-call-calendar-view-day")).toHaveTextContent("Thursday 1 October · Today");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

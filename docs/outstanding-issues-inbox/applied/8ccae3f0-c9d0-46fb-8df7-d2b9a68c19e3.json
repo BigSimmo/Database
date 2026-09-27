@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8ccae3f0-c9d0-46fb-8df7-d2b9a68c19e3",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Olfactory reference disorder is the one inconsistent entry in the specifier catalogue's DSM/ICD-11 pairing",
+    "detail": "MEASURED 2026-09-18, offline traversal of data/specifiers-content.json. All ten disorders in category '20. ICD-11 Specifics' also appear under their clinical category, accounting for all 19 of its items. This is NOT duplication and collapsing it would delete real content: catatonia's schizophrenia-spectrum entry carries the DSM three-way context (associated with another mental disorder / catatonic disorder due to another medical condition / unspecified catatonia) while the category-20 entry carries ICD-11's (associated with another mental disorder / induced by psychoactive substances including medications / secondary to a medical condition not classified elsewhere). Two manuals, two structures, one diagnosis — deliberate. The exception is olfactory reference disorder, which appears twice with the SAME icd11Context sentence verbatim and differs only in one insight label: 'With absent insight/delusional beliefs' under Obsessive-Compulsive against 'With absent insight' under category 20. Whether that is the DSM wording paired against the ICD-11 wording, or an artefact of how the file was assembled, is a clinical judgement and was deliberately not guessed. NEXT ACTION, clinician: decide whether the two insight labels are a real distinction; if not, align them. Low consequence — both entries are clinician-review-pending and neither is displayed as reviewed. Recorded in docs/specifier-definition-worklist-2026-09-18.md.",
+    "source": "Specifier worklist preparation, 2026-09-18",
+    "issueUlid": "01M3D03ZGFTN4PMR3DKVZN5SWE"
+  }
+}

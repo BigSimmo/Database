@@ -3,6 +3,7 @@ import {
   australianSourcePolicyVersion,
   type AustralianSourceDefinition,
 } from "@/lib/australian-source-catalogue";
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 export type AustralianSourceTier = "wa_validated" | "australian_national" | "australian_state" | "supplementary";
@@ -460,7 +461,10 @@ export const sourceAuthorityRegistry = [
     codes: ["APA"],
     publisher: "American Psychiatric Association",
     publisherAliases: ["APA Publishing", "American Psychiatric Association Publishing"],
-    jurisdictions: ["United States", "USA", "International", "Global"],
+    // One entry per publisher: a second entry under this key used to override
+    // this one silently by position (#T9MZ7V). The order below is the one that
+    // was winning every lookup, so the first-listed jurisdiction is unchanged.
+    jurisdictions: ["International", "Global", "United States", "USA"],
     scope: "international",
     tier: "supplementary",
     catalogueIdentityOnly: true,
@@ -653,15 +657,6 @@ export const sourceAuthorityRegistry = [
     catalogueIdentityOnly: true,
   }),
   authority({
-    key: "american-psychiatric-association",
-    codes: ["APA"],
-    publisher: "American Psychiatric Association",
-    jurisdictions: ["International", "Global", "United States"],
-    scope: "international",
-    tier: "supplementary",
-    catalogueIdentityOnly: true,
-  }),
-  authority({
     key: "columbia-lighthouse-project",
     codes: ["CSSRS"],
     publisher: "Columbia Lighthouse Project",
@@ -768,6 +763,110 @@ export const sourceAuthorityRegistry = [
     codes: ["VINCENT"],
     publisher: "City of Vincent",
     publisherAliases: ["The City of Vincent"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  /*
+   * Crisis and support lines the 2026-09-25 WA psychiatry build verified in
+   * `src/lib/crisis-contacts.ts` and the part-08 service records, registered on the
+   * owner's decision of 2026-09-26 (ledger #2TRAJA). Same safety setting as the
+   * block above: `catalogueIdentityOnly: true`, so each resolves a jurisdiction
+   * for the catalogue and the acquisition gate and never reaches the runtime
+   * classification that steers retrieval. Each is the issuer of its own service
+   * information and nothing wider. `tests/crisis-line-source-registration.test.ts`
+   * holds that boundary.
+   */
+  authority({
+    key: "lifeline-australia",
+    codes: ["LIFELINE"],
+    publisher: "Lifeline Australia",
+    publisherAliases: ["Lifeline"],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "suicide-call-back-service",
+    codes: ["SCBS"],
+    publisher: "Suicide Call Back Service",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "13yarn",
+    codes: ["13YARN"],
+    publisher: "13YARN",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "legal-aid-wa",
+    codes: ["LEGALAIDWA"],
+    publisher: "Legal Aid Western Australia",
+    publisherAliases: ["Legal Aid WA"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "tis-national",
+    codes: ["TISNATIONAL"],
+    publisher: "TIS National",
+    publisherAliases: ["Department of Home Affairs (TIS National)", "Translating and Interpreting Service"],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  /*
+   * WA service issuers read on 2026-09-26 and registered on the owner's decision of
+   * the same day (ledgers #6X06YS, #YDENFM, #JHT39N). Same safety setting as the two
+   * blocks above: catalogue identity only, never runtime retrieval classification.
+   * Each is the issuer of its own service information and nothing wider.
+   * `tests/wa-service-issuer-registration.test.ts` holds that boundary.
+   */
+  authority({
+    key: "ruah-community-services",
+    codes: ["RUAH"],
+    publisher: "Ruah Community Services",
+    publisherAliases: ["Ruah"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "st-vincent-de-paul-society-wa",
+    codes: ["SVDPWA"],
+    publisher: "St Vincent de Paul Society (WA) Inc",
+    publisherAliases: ["St Vincent de Paul Society (WA)", "Vinnies WA"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "youth-focus",
+    codes: ["YOUTHFOCUS"],
+    publisher: "Youth Focus",
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "mental-health-advocacy-service-wa",
+    codes: ["MHASWA"],
+    publisher: "Mental Health Advocacy Service",
+    publisherAliases: ["Mental Health Advocacy Service WA", "Mental Health Advocacy Service (WA)"],
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
@@ -929,9 +1028,20 @@ function isCurrentUsableDocument(
   );
 }
 
-function isLocallyValidated(metadata: Pick<ClinicalSourceMetadata, "clinical_validation_status">) {
+/**
+ * WA-tier eligibility. An `unverified` document whose evidence records the issuing WA service's
+ * own document-control endorsement keeps the tier it held as the backfill's `locally_reviewed`
+ * stamp (#JYH1FH): the tier was built on that endorsement, not on a review done here. Reads the
+ * raw metadata because the status alone cannot carry the basis.
+ */
+function isLocallyValidated(
+  metadata: Pick<ClinicalSourceMetadata, "clinical_validation_status">,
+  rawMetadata: unknown,
+) {
   return (
-    metadata.clinical_validation_status === "approved" || metadata.clinical_validation_status === "locally_reviewed"
+    metadata.clinical_validation_status === "approved" ||
+    metadata.clinical_validation_status === "locally_reviewed" ||
+    hasWaDocumentControlEndorsement(rawMetadata)
   );
 }
 
@@ -991,7 +1101,7 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
   }
   if (!isCurrentUsableDocument(metadata)) eligibilityReasons.push("source_not_current_usable_document");
   if (authorityEntry && authorityEntry.lifecycle !== "active") eligibilityReasons.push("catalogue_inactive");
-  if (authorityEntry?.tier === "wa_validated" && !isLocallyValidated(metadata)) {
+  if (authorityEntry?.tier === "wa_validated" && !isLocallyValidated(metadata, rawMetadata)) {
     eligibilityReasons.push("wa_source_not_locally_validated");
   }
 
@@ -1035,7 +1145,7 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     conflicts.length === 0 &&
     (Boolean(cataloguePolicy) || Boolean(codeAuthority) || Boolean(metadata.jurisdiction)) &&
     isCurrentUsableDocument(metadata) &&
-    (authorityEntry?.tier !== "wa_validated" || isLocallyValidated(metadata)) &&
+    (authorityEntry?.tier !== "wa_validated" || isLocallyValidated(metadata, rawMetadata)) &&
     (!cataloguePolicy || cataloguePolicyEligible);
 
   const australianAugmentationEligible =

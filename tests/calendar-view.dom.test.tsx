@@ -70,4 +70,107 @@ describe("calendar view", () => {
     expect(text).toContain("SUMMARY:End of the 2026 CPD year");
     expect(text).not.toContain("Journal club");
   });
+
+  it("says the downloaded file is a one-off copy", () => {
+    render(<CalendarView events={EVENTS} today="2026-09-25" exportName="CME 2026" />);
+    expect(screen.getByTestId("calendar-view-export-snapshot")).toHaveTextContent("one-off copy");
+  });
+
+  it("lets the owner leave a kind of date out, and hides what an expiry is for by default", async () => {
+    const user = userEvent.setup();
+    const createObjectURL = vi.fn(() => "blob:calendar");
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const events: CalendarEvent[] = [
+      { id: "teach", title: "Registrar teaching", date: "2026-09-29", kind: "teaching" },
+      {
+        id: "police",
+        title: "Police check expires",
+        date: "2026-10-10",
+        kind: "expiry",
+        notes: "National police certificate",
+      },
+    ];
+    render(<CalendarView events={events} today="2026-09-25" exportName="On Call" />);
+
+    await user.click(screen.getByTestId("calendar-view-export"));
+    const first = await (createObjectURL.mock.calls[0] as unknown as [Blob])[0].text();
+    expect(first).toContain("SUMMARY:Registrar teaching");
+    expect(first).toContain("SUMMARY:Expiry date");
+    expect(first).not.toContain("Police");
+
+    await user.click(screen.getByTestId("calendar-view-export-plain-expiry"));
+    await user.click(screen.getByTestId("calendar-view-export"));
+    const named = await (createObjectURL.mock.calls[1] as unknown as [Blob])[0].text();
+    expect(named).toContain("SUMMARY:Police check expires");
+
+    await user.click(screen.getByTestId("calendar-view-export-kind-expiry"));
+    expect(screen.queryByTestId("calendar-view-export-plain-expiry")).not.toBeInTheDocument();
+    await user.click(screen.getByTestId("calendar-view-export"));
+    const teachingOnly = await (createObjectURL.mock.calls[2] as unknown as [Blob])[0].text();
+    expect(teachingOnly).toContain("SUMMARY:Registrar teaching");
+    expect(teachingOnly).not.toContain("Expir");
+  });
+});
+
+describe("calendar marks", () => {
+  /** The class of each mark inside a day button, in grid order. */
+  function dayMarkClasses(name: string): string[] {
+    const marks = screen.getByRole("button", { name }).querySelector('span[aria-hidden="true"]')!;
+    return [...marks.children].map((mark) => mark.className);
+  }
+
+  it("keeps the default dot marks exactly as they were, so On Call's calendar does not change", () => {
+    const { container } = render(<CalendarView events={EVENTS} today="2026-09-25" exportName="On Call" />);
+    expect(dayMarkClasses("Friday 25 September, today, 1 event")).toEqual([
+      "size-1.5 rounded-full forced-colors:bg-[CanvasText] bg-[color:var(--tone-indigo)]",
+    ]);
+    expect(dayMarkClasses("Tuesday 15 September, 1 event")).toEqual([
+      "size-1.5 rounded-full forced-colors:bg-[CanvasText] bg-[color:var(--tone-purple)]",
+    ]);
+    const legend = screen.getByRole("list", { name: "What the dots mean" });
+    expect([...legend.querySelectorAll('li > span[aria-hidden="true"]')].map((mark) => mark.className)).toEqual([
+      "size-2 rounded-full bg-[color:var(--tone-indigo)]",
+      "size-2 rounded-full bg-[color:var(--tone-purple)]",
+      "size-2 rounded-full bg-[color:var(--tone-rose)]",
+    ]);
+    const row = screen
+      .getByTestId("calendar-view-day")
+      .querySelector('li[data-kind="logged"] > span[aria-hidden="true"]')!;
+    expect(row.className).toBe("mt-1.5 size-2.5 shrink-0 rounded-full bg-[color:var(--tone-indigo)]");
+    expect(container.querySelector("[data-mark]")).toBeNull();
+    expect(screen.queryByRole("list", { name: "What the marks mean" })).toBeNull();
+  });
+
+  it("draws grey shapes, with the kinds in words, when CPD asks for them", () => {
+    const events: CalendarEvent[] = [
+      { id: "logged", title: "Demo journal club", date: "2026-09-25", kind: "logged" },
+      { id: "due", title: "Demo peer review group", date: "2026-09-15", kind: "due", recurrence: "monthly" },
+      { id: "deadline", title: "Demo closing date", date: "2026-09-30", kind: "deadline" },
+    ];
+    render(<CalendarView events={events} today="2026-09-25" exportName="CPD 2026" markStyle="shape" />);
+
+    const today = screen.getByRole("button", { name: "Friday 25 September, today, 1 event: Logged" });
+    expect(today.className).toContain("min-h-12");
+    expect(today.className).toContain("ring-[color:var(--clinical-accent)]");
+    const marks = today.querySelector('span[aria-hidden="true"]')!;
+    expect(marks.className).toContain("text-[color:var(--text-muted)]");
+    expect(marks.querySelector('[data-mark="dot"]')!.className).toContain("bg-current");
+    const due = screen.getByRole("button", { name: "Tuesday 15 September, 1 event: Due" });
+    expect(due.querySelector('[data-mark="ring"]')!.className).toContain("border-current");
+    const deadline = screen.getByRole("button", { name: "Wednesday 30 September, 1 event: Deadline" });
+    expect(deadline.querySelector('[data-mark="diamond"]')!.className).toContain("rotate-45");
+
+    const legend = screen.getByRole("list", { name: "What the marks mean" });
+    expect([...legend.querySelectorAll("li")].map((item) => item.textContent)).toEqual(["Logged", "Due", "Deadline"]);
+    expect([...legend.querySelectorAll("[data-mark]")].map((mark) => mark.getAttribute("data-mark"))).toEqual([
+      "dot",
+      "ring",
+      "diamond",
+    ]);
+    expect(screen.queryByRole("list", { name: "What the dots mean" })).toBeNull();
+    expect(screen.getByTestId("calendar-view-later").querySelector('[data-mark="diamond"]')).not.toBeNull();
+    expect(screen.getByTestId("calendar-view-grid").innerHTML).not.toContain("--tone-");
+    expect(legend.innerHTML).not.toContain("--tone-");
+  });
 });

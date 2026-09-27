@@ -16,7 +16,7 @@ import { expect, test, type Browser } from "playwright/test";
  * so this pin covers the whole overlap and not just the disagreeing part of it.
  *
  * A screenshot cannot discharge that. Many of these roles never appear on the six
- * baseline screens — `--e3`/`--e4` live on Ward Management, Dictionary and Tools,
+ * baseline screens — `--e3`/`--e4` live on Dictionary and Tools,
  * `--overlay-backdrop` needs an open sheet, and `--clinical-chat-document` has no
  * consumer anywhere in `src/**`, so no picture of any screen can catch a mistake in it.
  * Reading the computed value covers all of them exactly.
@@ -167,7 +167,7 @@ test.describe("token layer resolution", () => {
    *
    * 1. Half the captured states need forced-colors emulation, which is Chromium-only in
    *    Playwright (this repo says so in a dozen places, e.g.
-   *    `tests/ui-caring-contacts-workspace.spec.ts:484`). On another engine the
+   *    `tests/ui-sources.spec.ts:152`). On another engine the
    *    `forced-colors` states would silently capture ordinary values and could never
    *    match a pin taken under forced colours.
    * 2. Engines serialise a substituted custom property differently. Chromium rewrites

@@ -2,6 +2,7 @@ import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { buildDiagnosisTitleSlugMap, buildTermLinkMap } from "@/lib/differential-diagnosis-links";
 import { curatedEntryFor } from "@/lib/differential-curated";
+import { curatedReviewFor } from "@/lib/differential-curated-review";
 import {
   cleanDifferentialItem,
   withholdGeneratedBody,
@@ -629,7 +630,7 @@ export function getDifferentialDetailContext(
     termLinks,
     overlapLinks,
     comparePresentation: presentation ? { slug: presentation.id, title: presentation.title } : null,
-    curated: curatedEntryFor(record.slug),
+    curated: withCuratedReview(record.slug),
     source: {
       version: snapshot.governance.version,
       exportedAt: snapshot.exportedAt,
@@ -876,4 +877,12 @@ export function searchPresentationWorkflows(query: string) {
   const presentations = differentialPresentations();
   if (!normalizeSearchText(query)) return presentations;
   return rankPresentationWorkflows(presentations, query, presentations.length).map((match) => match.workflow);
+}
+
+/** The record's authored overlay with its clinician sign-off attached, when there is one. */
+function withCuratedReview(slug: string) {
+  const entry = curatedEntryFor(slug);
+  if (!entry) return null;
+  const review = curatedReviewFor(slug);
+  return review ? { ...entry, review } : entry;
 }

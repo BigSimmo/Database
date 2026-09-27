@@ -13,7 +13,7 @@ import {
   readPageOwnedFooterGeometry,
 } from "./helpers/phone-scroll";
 import { readPrimaryScrollAndDomGeometry } from "./playwright-scroll";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 /**
  * Page-owned phone chrome: the document viewer's own composer, the standalone
@@ -120,6 +120,10 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await page.getByRole("button", { name: "Open document actions" }).click();
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible({ timeout: 20_000 });
+    // Opening search moves focus into its input two animation frames later. Headless WebKit
+    // runs frames only when something asks for one, so without this wait that deferred focus
+    // lands during the drag below and steals focus from the section trigger it is pinning.
+    await expect(composer.locator("input")).toBeFocused();
     await expect(content).toHaveAttribute("data-phone-scroll-owner", expectedOwner);
     await expect(content).toHaveAttribute("data-phone-footer-owner", "document-viewer");
     await expect(collapse).toHaveAttribute("data-phone-motion", "overlay");
@@ -920,7 +924,9 @@ test("calculator results stay usable across the responsive and accessibility mat
   ]) {
     await page.emulateMedia(media);
     await gotoPhoneSurface(page, "/calculators?q=depression&run=1", 112);
-    await expect(page.getByTestId("calculators-search-page")).toBeVisible();
-    await expect(page.getByTestId("calculators-filter-trigger-phone")).toBeVisible();
+    // Visible owner only: each loop pass re-navigates, and a hidden streaming
+    // copy of the page root (#093) can briefly remain.
+    await expect(visibleByTestId(page, "calculators-search-page")).toBeVisible();
+    await expect(visibleByTestId(page, "calculators-filter-trigger-phone")).toBeVisible();
   }
 });

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6eeefa42-836f-4f5d-87e5-cabc0456281c",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "CME: record missed teaching or supervision, with a linked replacement session",
+    "detail": "Review item D12. From a shift, record planned teaching or supervision lost to clinical work, the time lost and a brief non-patient reason, then link a replacement session. Missed teaching earns no CPD credit; the replacement is its own record. Nothing is sent to an employer without an explicit, permitted action. Not started.",
+    "source": "Master product review 2026-09-26 (thread: Review master review ideas); cross-checked against main 004ab6301",
+    "issueUlid": "01M3DZQ07NA9GC6S5PB9CQXTCX"
+  }
+}

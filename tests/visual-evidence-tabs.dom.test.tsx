@@ -19,6 +19,7 @@ const answer: RagAnswer = {
 const renderModel: AnswerRenderModel = {
   answerText: answer.answer,
   trust: "medium",
+  supportLabelTrust: "medium",
   allowedBlocks: ["evidenceMap", "quoteCards", "visualEvidence"],
   primarySources: [],
   reviewSources: [],

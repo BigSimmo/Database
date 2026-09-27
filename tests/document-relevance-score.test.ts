@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { documentRelevancePercent } from "../src/components/clinical-dashboard/relevance-score";
+import { documentRelevanceLabel, documentRelevancePercent } from "../src/components/clinical-dashboard/relevance-score";
 
 describe("document relevance score display", () => {
   it("does not inflate weak fractional scores into high relevance", () => {
@@ -17,5 +17,16 @@ describe("document relevance score display", () => {
     // A raw search score of 1.2 is a strong score on the unit scale, not 1.2%.
     expect(documentRelevancePercent({ score: 1.2 })).toBe(99);
     expect(documentRelevancePercent({ score: 1 })).toBe(99);
+  });
+});
+
+describe("document relevance label (#1M22X5)", () => {
+  it("names the verdict in words and ignores the raw score", () => {
+    expect(documentRelevanceLabel({ relevance: { verdict: "direct", score: 0.01 } as never })).toBe("Strong match");
+    expect(documentRelevanceLabel({ relevance: { verdict: "partial", score: 0.01 } as never })).toBe("Partial match");
+    // The defect: a nearby verdict used to read "Relevant" because its constant 78 cleared 75.
+    expect(documentRelevanceLabel({ relevance: { verdict: "nearby", score: 0.99 } as never })).toBe("Nearby only");
+    expect(documentRelevanceLabel({ relevance: { verdict: "none", score: 0.99 } as never })).toBe("No direct support");
+    expect(documentRelevanceLabel({})).toBe("No direct support");
   });
 });

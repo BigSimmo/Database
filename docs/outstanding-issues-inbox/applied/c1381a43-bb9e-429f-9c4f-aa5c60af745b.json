@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c1381a43-bb9e-429f-9c4f-aa5c60af745b",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "f2f2024e-3e6c-4adf-9285-821aeade4f9f",
+    "reason": "Owner decision 17 (2026-09-25): the all-claims rule governs the 'Strong support' label only; render trust caps stay as on main. Superseded by a fresh done request."
+  }
+}

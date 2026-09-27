@@ -48,7 +48,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<{
   { id: "privacy", navLabel: "Privacy", title: "Privacy & security", icon: ShieldCheck },
   { id: "keyboard", navLabel: "Shortcuts", title: "Keyboard shortcuts", icon: Keyboard },
   { id: "help", navLabel: "Help & About", title: "Help & About", icon: CircleHelp },
-  { id: "development", navLabel: "Developer", title: "Developer", icon: FlaskConical },
+  { id: "development", navLabel: "Owner panel", title: "Owner panel", icon: FlaskConical },
 ];
 
 export function sectionDomId(id: SettingsSectionId) {
@@ -169,6 +169,13 @@ export const SETTINGS_SEARCH_ENTRIES: ReadonlyArray<SettingsSearchEntry> = [
     keywords: "alerts notify email favourites updated",
   },
   {
+    id: "settings-row-reminders",
+    section: "notifications",
+    label: "Reminders",
+    keywords:
+      "snooze quiet hours calendar alarm phone alert cpd routines year-end claim on call checks compliance dates teaching daily limit show in the app",
+  },
+  {
     id: "settings-row-save-recent-searches",
     section: "privacy",
     label: "Save recent searches",
@@ -213,8 +220,8 @@ export const SETTINGS_SEARCH_ENTRIES: ReadonlyArray<SettingsSearchEntry> = [
   {
     id: "settings-row-development-page",
     section: "development",
-    label: "Developer",
-    keywords: "prototype mockups experimental in progress caring contacts",
+    label: "Owner panel",
+    keywords: "developer admin owner settings uploads sign-off prototype mockups experimental in progress",
   },
 ];
 
