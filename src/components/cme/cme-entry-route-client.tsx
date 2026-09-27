@@ -4,7 +4,7 @@ import { CmeEvidencePanel } from "@/components/cme/cme-evidence-panel";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
 import { CmeEntryGoalPicker } from "@/components/cme/cme-entry-goal-picker";
@@ -57,9 +57,15 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
   const [archivePending, setArchivePending] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [archiveOverride, setArchiveOverride] = useState<boolean | null>(null);
+  const [archiveUndoOpen, setArchiveUndoOpen] = useState(false);
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [amendmentReason, setAmendmentReason] = useState("");
+  useEffect(() => {
+    if (!archiveUndoOpen) return;
+    const timer = window.setTimeout(() => setArchiveUndoOpen(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [archiveUndoOpen]);
   const domains = set.requirements.flatMap((requirement) =>
     requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
   );
@@ -160,6 +166,7 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
     try {
       await patchEntry({ archived: next });
       setArchiveOverride(next);
+      setArchiveUndoOpen(next);
       router.refresh();
     } catch (error) {
       setArchiveError(error instanceof Error ? error.message : "Could not change archive status.");
@@ -204,6 +211,19 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
               >
                 {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
               </Button>
+              {archived && archiveUndoOpen ? (
+                <p role="status" className="mt-2 text-sm text-[color:var(--text)]">
+                  Activity archived.{" "}
+                  <button
+                    type="button"
+                    disabled={archivePending}
+                    onClick={() => void setArchived(false)}
+                    className="min-h-tap font-semibold underline underline-offset-2"
+                  >
+                    Undo archive
+                  </button>
+                </p>
+              ) : null}
               <ConfirmDialog
                 open={confirmArchiveOpen}
                 onCancel={() => setConfirmArchiveOpen(false)}

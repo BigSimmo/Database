@@ -94,7 +94,7 @@
           "title": "Services crisis and emergency routing fails to present or pins the wrong life-safety service (registered 2026-09-28, owner approval)",
           "status": "partial",
           "owner": "Clinical safety owner (owner approval 2026-09-28)",
-          "residualRisk": "Services crisis routing is keyword-based and partial: on this tip unqualified crisis wording (\"suicidal\", \"crisis\", \"self harm\", \"kill myself\") pins no crisis line, Lifeline has no pin, youth and regional crisis wording do not pin 000, nothing stops a non-crisis record carrying a crisis tag (#4WSEG4), and service-record phone numbers are not cross-checked against the pinned crisis-contact constant. See docs/clinical-hazard-analysis.md H8a-H8d.",
+          "residualRisk": "Services crisis routing is keyword-based and partial. After PR #3157 (re-reviewed 2026-09-28, owner approval), adult crisis wording pins 000, MHERL and Lifeline WA. Still open: \"kill myself\" wording matches no intent; regional WA and child/youth crisis wording does not pin 000 without an immediate-danger phrase; \"under 18\" is not read as a child; a query naming a service ranks it above 000; nothing stops a non-crisis record carrying a crisis tag (#4WSEG4); service-record phone numbers are not cross-checked against the pinned crisis-contact constant. See docs/clinical-hazard-analysis.md H8a-H8d.",
           "controlCount": 2,
           "testCount": 3,
           "reviewExpiresAt": "2026-12-28",

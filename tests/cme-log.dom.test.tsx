@@ -92,6 +92,13 @@ function noClinicalStatusColour(container: HTMLElement) {
 }
 
 describe("Log", () => {
+  it("shows unfinished records in the To finish address, apart from activities", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} initialTab="finish" />);
+    expect(screen.getByTestId("cme-log-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("cme-log-row-fx-1")).toBeNull();
+    expect(screen.queryByTestId("cme-log-search")).toBeNull();
+    expect(screen.queryByTestId("cme-quick-log-button")).toBeNull();
+  });
   it("says so when a saved activity could not be linked to its missed session", () => {
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} justSaved missedLinkFailed />);
     expect(screen.getByTestId("cme-log-missed-unlinked")).toHaveTextContent(
@@ -130,6 +137,60 @@ describe("Log", () => {
     expect(screen.getByText("Peer review group — September")).toBeInTheDocument();
     expect(screen.queryByText("Journal club — treatment-resistant depression")).toBeNull();
     expect(screen.queryByText("RANZCP WA Branch training day")).toBeNull();
+  });
+
+  it("starts a category deep link already filtered and exposes the same choice in the filter sheet", async () => {
+    const user = userEvent.setup();
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} initialCategory="measuring" />);
+    expect(screen.getByText("Peer review group — September")).toBeInTheDocument();
+    expect(screen.queryByText("Journal club — treatment-resistant depression")).toBeNull();
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    const sheet = screen.getByTestId("cme-log-filter-sheet");
+    expect(within(sheet).getByRole("button", { name: /measuring outcomes/i })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(sheet).getByRole("button", { name: /educational activities/i }));
+    expect(screen.getByText("Journal club — treatment-resistant depression")).toBeInTheDocument();
+  });
+
+  it("shows cross-year records only when the owner-scoped all-years read is available", async () => {
+    const user = userEvent.setup();
+    render(
+      <CmeLogPage
+        entries={fixtureEntries.filter((entry) => entry.date.startsWith("2026"))}
+        allYearsEntries={fixtureEntries}
+        set={fixtureSet}
+      />,
+    );
+    expect(screen.queryByText("Audit — discharge planning review")).toBeNull();
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    await user.click(screen.getByRole("button", { name: /all years · 4/i }));
+    expect(screen.getByText("Audit — discharge planning review")).toBeInTheDocument();
+  });
+
+  it("keeps the selected year available when the cross-year read fails", async () => {
+    const user = userEvent.setup();
+    render(<CmeLogPage entries={fixtureEntries.slice(0, 3)} set={fixtureSet} allYearsFailed />);
+    expect(screen.getByText("All years could not be loaded. This year is still available.")).toBeInTheDocument();
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    expect(within(screen.getByTestId("cme-log-filter-sheet")).queryByRole("button", { name: /all years/i })).toBeNull();
+  });
+
+  it("copies the next uncopied activity and can undo its copied status", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    stubClipboard(writeText);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ entry: { transcribed: true } }), { status: 200 }));
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} initialAttention="copy" />);
+    await user.click(screen.getByTestId("cme-log-copy-next"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("Journal club — treatment-resistant depression"));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ transcribed: true });
+    await user.click(within(screen.getByTestId("cme-log-copy-done")).getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ transcribed: false });
+    fetchMock.mockRestore();
+    removeClipboard();
   });
 
   it("keeps a row to what is known or missing: no routine chip, source link, copied tick or evidence count", () => {

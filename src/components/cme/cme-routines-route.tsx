@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
   cmeRoutineCadenceLabels,
   cmeRoutineCadences,
@@ -105,7 +106,7 @@ export function CmeRoutinesRoute({
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save this routine.");
+      setError(cmeSaveErrorText(cause, "Could not save this routine."));
     } finally {
       setSaving(false);
     }
@@ -132,7 +133,7 @@ export function CmeRoutinesRoute({
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not archive this routine.");
+      setError(cmeSaveErrorText(cause, "Could not archive this routine."));
     } finally {
       setSaving(false);
     }

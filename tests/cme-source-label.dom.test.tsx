@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CmeAnnualSummary } from "@/components/cme/cme-annual-summary";
@@ -41,6 +41,8 @@ describe("screens name the CPD home, never the internal preset id", () => {
 
   it("on the set-up screen's preset card", () => {
     render(<CmeSetupPage year={2026} set={null} />);
+    // The national baseline is the default home; the RANZCP preset card shows once RANZCP is chosen.
+    fireEvent.click(screen.getByRole("radio", { name: "RANZCP" }));
     const preset = screen.getByTestId("cme-setup-preset");
     expect(preset).toHaveTextContent(`Starting preset: ${LABEL}`);
     expect(preset).not.toHaveTextContent(CME_PRESET_VERSION);
