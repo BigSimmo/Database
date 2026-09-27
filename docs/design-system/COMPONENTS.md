@@ -1044,7 +1044,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 46
+Components with product imports: 45
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -1083,7 +1083,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              18 |
 | `Pagination`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PanelHeading`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Progress`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `Progress`               | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `Quantity`               | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `RadioGroup`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |

@@ -96,13 +96,25 @@ describe("the dashboard", () => {
     });
   });
 
-  it("leads with the figure, the pace mark and one action", () => {
+  it("leads with the hero summary and one action, with no pace tick and no category bar", () => {
     renderAt("2026-09-19T02:00:00Z");
-    expect(screen.getByTestId("cme-total-hours")).toHaveTextContent("32.5");
-    expect(screen.getByTestId("progress-mark")).toBeInTheDocument();
-    expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent(/about 45 h by 31 December/);
-    expect(screen.getByTestId("cme-pace-sentence")).not.toHaveTextContent(/on track/i);
+    const hero = screen.getByTestId("cme-hero-summary");
+    expect(within(hero).getByTestId("cme-hero-season")).toHaveTextContent("Year ends 31 Dec 2026, in 15 weeks");
+    expect(within(hero).getByTestId("cme-total-hours")).toHaveTextContent("32.5 of 50 h");
+    expect(within(hero).getByTestId("cme-pace-sentence")).toHaveTextContent(
+      "About 1.2 h a week reaches 50 h by 31 Dec",
+    );
+    expect(screen.queryByTestId("progress-mark")).toBeNull();
+    expect(screen.queryByTestId("cme-category-bar")).toBeNull();
     expect(screen.getByTestId("cme-next-action")).toBeInTheDocument();
+  });
+
+  it("keeps 48 px clear under the last module for the floating + Log (spec §5)", () => {
+    const { container } = renderAt("2026-09-19T02:00:00Z");
+    // The button sits max(16 px, the home indicator) off the bottom and is 48 px tall; 6rem more is those 48 px plus 48 px clear.
+    expect(container.querySelector("main")?.className).toContain(
+      "pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)]",
+    );
   });
 
   it("says nothing about pace in January and points at the plan instead", () => {

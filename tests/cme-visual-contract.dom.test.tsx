@@ -232,7 +232,7 @@ describe("CME visual contract", () => {
   describe("the pace projection", () => {
     it("is stated as a sentence tied to the year's end date, once the rate means something", () => {
       render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={DEMO_CME_INSTANT} />);
-      expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent(/At this rate, .* by 31 December/);
+      expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent(/About 1\.2 h a week reaches 50 h by 31 Dec/);
     });
 
     it("says nothing at all — no sentence, no mark — before 28 days have elapsed", () => {

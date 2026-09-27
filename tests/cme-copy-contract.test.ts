@@ -30,6 +30,7 @@ const CPD_FILES = [
   "src/lib/cme/year-check.ts",
   "src/lib/cme/year-close.ts",
   "src/lib/cme/calendar-events.ts",
+  "src/lib/cme/pace.ts",
 ].sort();
 
 /** Files outside the CPD screens that name the mode to a reader. Checked for "CME" only. */

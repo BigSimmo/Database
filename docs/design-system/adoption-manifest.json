@@ -1633,8 +1633,8 @@
       "source": "src/components/ui/progress.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/cme/cme-dashboard.tsx"],
-      "productImportFiles": ["src/components/cme/cme-dashboard.tsx"],
+      "directImportFiles": [],
+      "productImportFiles": [],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1655,8 +1655,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": true,
-      "v2MountMode": "inherited-global-root",
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -4720,7 +4720,7 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 46,
+    "productImportedComponentCount": 45,
     "rootCount": 114,
     "productionRouteCount": 106,
     "nextUiEntryCount": 170

@@ -6,7 +6,7 @@ import { CmeAnnualSummary } from "@/components/cme/cme-annual-summary";
 import { CmeDashboard } from "@/components/cme/cme-dashboard";
 import { CmeEntryPage } from "@/components/cme/cme-entry-page";
 import { CmeNewEntryRoute } from "@/components/cme/cme-new-entry-route";
-import { CmePaceChart, hoursByCategory } from "@/components/cme/cme-progress-visuals";
+import { CmeCategoryBar, CmePaceChart, hoursByCategory } from "@/components/cme/cme-progress-visuals";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
@@ -78,8 +78,13 @@ const ENTRIES: readonly CmeEntry[] = [
 ];
 
 describe("the dashboard's progress picture", () => {
-  it("says each category's hours in words beside the coloured bar, leaving archived entries out", () => {
+  it("keeps the coloured category bar off Today", () => {
     render(<CmeDashboard set={SET} entries={ENTRIES} now={new Date("2026-09-01T02:00:00Z")} />);
+    expect(screen.queryByTestId("cme-category-bar")).toBeNull();
+  });
+
+  it("says each category's hours in words beside the category bar, leaving archived entries out", () => {
+    render(<CmeCategoryBar entries={ENTRIES} targetHours={SET.totalHours} />);
     const legend = within(screen.getByTestId("cme-category-bar")).getByRole("list", { name: "Hours by category" });
     expect(legend).toHaveTextContent("Educational14 h");
     expect(legend).toHaveTextContent("Reviewing7 h");
@@ -100,9 +105,11 @@ describe("the dashboard's progress picture", () => {
   it("draws the pace chart as one described image, not a pile of points", () => {
     render(<CmeDashboard set={SET} entries={ENTRIES} now={new Date("2026-09-01T02:00:00Z")} />);
     const chart = within(screen.getByTestId("cme-pace-chart")).getByRole("img");
-    expect(chart).toHaveAccessibleName(/22\.5 hours logged so far/);
-    // A fact, never a grade: no "ahead" or "behind" (spec 2026-09-26, section 7.1).
-    expect(chart).not.toHaveAccessibleName(/ahead|behind/);
+    expect(chart).toHaveAccessibleName(
+      "22.5 hours logged so far. An even pace to 50 hours by 31 December would be about 33 by today.",
+    );
+    // Today's point is product blue (module 7); the line stays in the grey-to-ink ramp.
+    expect(screen.getByTestId("cme-pace-chart-end").getAttribute("class")).toContain("--clinical-accent");
   });
 });
 

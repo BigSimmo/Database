@@ -246,11 +246,17 @@ export function CmePaceChart({
           strokeLinejoin="round"
           strokeLinecap="round"
         />
+        {/* Today is product blue (standard module 7); a whole past year ends in the line's own ink. */}
         <circle
+          data-testid="cme-pace-chart-end"
           cx={x(endIndex)}
           cy={y(running)}
           r={4}
-          className="fill-[color:var(--command)] forced-colors:fill-[CanvasText]"
+          className={
+            todayIndex === null
+              ? "fill-[color:var(--command)] forced-colors:fill-[CanvasText]"
+              : "fill-[color:var(--clinical-accent)] forced-colors:fill-[Highlight]"
+          }
         />
         {MONTH_TICKS.map((tick) => {
           const index = dayIndex(`${year}-${String(tick.month).padStart(2, "0")}-01`, year);

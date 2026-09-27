@@ -20,15 +20,14 @@ import type { ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
-import { CmeCategoryBar, CmePaceChart, CmeRequirementMeter } from "@/components/cme/cme-progress-visuals";
-import { Progress } from "@/components/ui/progress";
+import { CmeHeroSummary } from "@/components/cme/cme-hero-summary";
+import { CmePaceChart, CmeRequirementMeter } from "@/components/cme/cme-progress-visuals";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import {
   CPD_PACE_MINIMUM_ELAPSED_DAYS,
   cpdYearBounds,
   cpdYearOf,
   daysElapsedInCpdYear,
-  daysInCpdYear,
   daysRemainingInCpdYear,
   paceProjection,
   perthCalendarDate,
@@ -61,10 +60,10 @@ import {
 /**
  * THE DASHBOARD — the screen the whole mode is judged by.
  *
- * Three things sit above the fold, unconditionally, in this order: the
- * total-hours figure with its progress bar and pace mark, the pace sentence
- * (silent whenever `paceProjection` cannot yet say anything useful), and one
- * computed next action. Everything below that line is a module the owner can
+ * Three things sit above the fold, unconditionally, in this order: the hero
+ * summary (`CmeHeroSummary`: the season, hours against the target, a plain bar
+ * and the weekly pace line, which is silent in the first four weeks), the pace
+ * chart, and one computed next action. Everything below that line is a module the owner can
  * reorder or hide — see `useCmeModuleOrder` and `CmeCustomisePage`.
  *
  * The screen has three seasons, driven entirely by `now` against the CPD
@@ -262,20 +261,6 @@ function computeNextAction(args: {
   return `Next: ${label} — ${next.summary}`;
 }
 
-function paceSentence(
-  pace: { projectedHours: number; shortfallHours: number },
-  targetHours: number,
-  endLabel: string,
-): string {
-  const projected = Math.round(pace.projectedHours);
-  const target = `${formatCmeHours(targetHours)} h`;
-  if (pace.shortfallHours <= 0) {
-    return `At this rate, about ${projected} h by ${endLabel}, which reaches your ${target} target.`;
-  }
-  const shortfall = Math.round(pace.shortfallHours);
-  return `At this rate, about ${projected} h by ${endLabel}, ${shortfall} h under your ${target} target.`;
-}
-
 export function CmeDashboard({
   set,
   entries,
@@ -295,16 +280,6 @@ export function CmeDashboard({
     ? paceProjection({ hoursSoFar: totalHours, targetHours: set.totalHours, instant: now, year: set.year })
     : null;
   const bounds = cpdYearBounds(set.year);
-  const endLabel = formatDayFullMonth(bounds.end);
-  const elapsedFraction = inRequestedYear ? daysElapsedInCpdYear(now, set.year) / daysInCpdYear(set.year) : 0;
-
-  const progressValue = set.totalHours > 0 ? Math.min(100, (totalHours / set.totalHours) * 100) : 0;
-  const mark = pace
-    ? {
-        value: Math.min(100, elapsedFraction * 100),
-        label: `On an even pace you would have logged about ${Math.round(set.totalHours * elapsedFraction)} hours by today.`,
-      }
-    : undefined;
 
   const today = perthCalendarDate(now);
   const loggedToday = entries.filter((entry) => entry.date === today);
@@ -472,7 +447,7 @@ export function CmeDashboard({
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-xl font-semibold text-[color:var(--text)]">CPD</h1>
         <Button variant="toolbar" size="sm" icon={Settings2} onClick={onOpenCustomise}>
@@ -501,19 +476,20 @@ export function CmeDashboard({
         </div>
       ) : null}
 
-      <section className={cn(cardSurface, "mt-4 p-4")}>
-        <p data-testid="cme-total-hours" className="flex flex-wrap items-baseline gap-1">
-          <span className="nums text-3xl font-normal text-[color:var(--text)]">{formatCmeHours(totalHours)}</span>
-          <span className={cn(textMuted, "text-sm")}>of {formatCmeHours(set.totalHours)} hours logged</span>
-        </p>
-        <div className="mt-3">
-          <Progress value={progressValue} label="Hours toward this year's target" mark={mark} />
-        </div>
-        <div className="mt-4">
-          <CmeCategoryBar entries={entries} targetHours={set.totalHours} />
-        </div>
+      <div className="mt-4">
+        <CmeHeroSummary
+          year={set.year}
+          today={today}
+          loggedHours={totalHours}
+          targetHours={set.totalHours}
+          entries={entries}
+          closed={Boolean(set.closedAt)}
+        />
+      </div>
+
+      <section className={cn(cardSurface, "mt-3 p-4")}>
         {pace && entries.length > 0 ? (
-          <div className="mt-4">
+          <div>
             <CmePaceChart
               entries={entries}
               year={set.year}
@@ -521,11 +497,6 @@ export function CmeDashboard({
               todayIndex={daysElapsedInCpdYear(now, set.year) - 1}
             />
           </div>
-        ) : null}
-        {pace ? (
-          <p data-testid="cme-pace-sentence" className={cn(textMuted, "mt-3 text-sm")}>
-            {paceSentence(pace, set.totalHours, endLabel)}
-          </p>
         ) : null}
         {draftsToFinish > 0 && !set.closedAt ? (
           <Link
