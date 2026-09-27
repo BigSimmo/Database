@@ -53,7 +53,7 @@ describe("SituationModule", () => {
     renderModule();
     fireEvent.click(screen.getByRole("button", { name: /Plan · 3 steps/ }));
     const sheet = screen.getByRole("dialog");
-    const filled = sheet.querySelectorAll("[data-fn-filled]");
+    const filled = sheet.querySelectorAll("[data-mode-filled]");
     expect(filled).toHaveLength(1);
     expect(filled[0].textContent).toBe("Call Aboriginal Interpreting WA");
     expect(filled[0].getAttribute("href")).toBe("tel:1800000012");

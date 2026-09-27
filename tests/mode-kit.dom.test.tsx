@@ -11,6 +11,7 @@ import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { formatModeDate, formatModeTime, modeAgo, spokenModeNumber } from "@/components/mode-kit/dates";
 import { ModeDialRow } from "@/components/mode-kit/dial-row";
 import { ModeFactTile, ModeFactTiles } from "@/components/mode-kit/fact-tile";
+import { ModeFeaturedModule } from "@/components/mode-kit/featured-module";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeHeroLink } from "@/components/mode-kit/hero-link";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
@@ -234,6 +235,32 @@ describe("list, tiles and small parts", () => {
   });
 });
 
+describe("ModeFeaturedModule", () => {
+  it("sets the mode identity itself and carries the featured surface, as any element", () => {
+    render(
+      <ModeFeaturedModule mode="my-work" as="section" className="gap-1" testId="featured">
+        <p>Renew next</p>
+      </ModeFeaturedModule>,
+    );
+    const featured = screen.getByTestId("featured");
+    expect(featured.tagName).toBe("SECTION");
+    expect(featured.getAttribute("data-mode-identity")).toBe("my-work");
+    // A 2px identity edge (not the hero link's hairline border), because a
+    // richer, taller module needs a stronger cue than a 1px line to still
+    // read as tinted rather than merely bordered.
+    expect(classesOf(featured)).toContain("border-2");
+    expect(classesOf(featured)).toContain("bg-[color:var(--mode-identity-soft)]");
+    expect(classesOf(featured)).toContain("border-[color:var(--mode-identity-border)]");
+    expect(classesOf(featured)).toContain("gap-1");
+    expect(within(featured).getByText("Renew next")).toBeInTheDocument();
+  });
+
+  it("defaults to a plain div when no element is named", () => {
+    render(<ModeFeaturedModule mode="on-call">Content</ModeFeaturedModule>);
+    expect(screen.getByText("Content").tagName).toBe("DIV");
+  });
+});
+
 describe("the kit stays neutral and light", () => {
   const kitDir = join(process.cwd(), "src", "components", "mode-kit");
   const files = [
@@ -242,6 +269,7 @@ describe("the kit stays neutral and light", () => {
     "dial-row.tsx",
     "dial-sheet.tsx",
     "fact-tile.tsx",
+    "featured-module.tsx",
     "grouped-list.tsx",
     "hero-link.tsx",
     "module-skeleton.tsx",

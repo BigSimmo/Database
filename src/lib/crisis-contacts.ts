@@ -29,6 +29,8 @@ export type PublicCrisisContact = {
   verifiedOn: string;
 };
 
+// MHERL, Rurallink and 13YARN rechecked 2026-09-27; evidence:
+// docs/superpowers/plans/2026-09-27-first-nations-mode-completion.md
 export const WA_CRISIS_CONTACTS = [
   {
     id: "SYN-CRISIS-CONTACT-001",
@@ -53,7 +55,7 @@ export const WA_CRISIS_CONTACTS = [
     caveat: "MHERL is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.",
     sourceUrl:
       "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL",
-    verifiedOn: "2026-08-20",
+    verifiedOn: "2026-09-27",
   },
   {
     id: "SYN-CRISIS-CONTACT-003",
@@ -66,7 +68,7 @@ export const WA_CRISIS_CONTACTS = [
     caveat: "MHERL is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.",
     sourceUrl:
       "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/MHERL",
-    verifiedOn: "2026-08-20",
+    verifiedOn: "2026-09-27",
   },
   {
     id: "SYN-CRISIS-CONTACT-004",
@@ -80,7 +82,7 @@ export const WA_CRISIS_CONTACTS = [
       "Rurallink is a telephone triage and support line. It is not an emergency service; call 000 in an emergency.",
     sourceUrl:
       "https://emhs.health.wa.gov.au/Hospitals-and-Services/Mental-Health-Alcohol-and-Other-Drugs/Inpatient-and-Other-Services/Rurallink",
-    verifiedOn: "2026-08-20",
+    verifiedOn: "2026-09-27",
   },
   {
     id: "SYN-CRISIS-CONTACT-005",
@@ -116,6 +118,6 @@ export const WA_CRISIS_CONTACTS = [
     isEmergencyService: false,
     caveat: null,
     sourceUrl: "https://www.13yarn.org.au/",
-    verifiedOn: "2026-09-25",
+    verifiedOn: "2026-09-27",
   },
 ] satisfies readonly PublicCrisisContact[];

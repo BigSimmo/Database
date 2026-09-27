@@ -43,7 +43,9 @@ export const NON_PROSE_ATTRIBUTES = new Set([
  * property of a recorded date) while banning "expired" (a verdict on the
  * holder).
  */
-export const FORBIDDEN_VERDICTS: readonly { pattern: RegExp; why: string }[] = [
+export type VerdictPattern = { pattern: RegExp; why: string };
+
+export const FORBIDDEN_VERDICTS: readonly VerdictPattern[] = [
   { pattern: /\bcompliant\b/i, why: "a verdict on the holder; nothing here is checked with the issuing body" },
   { pattern: /\bnoncompliant\b/i, why: "the same verdict, spelled shut" },
   { pattern: /\bvalid(ity)?\b/i, why: "a verdict on a credential this app has never seen" },
@@ -175,4 +177,15 @@ export function readerFacingStrings(file: string): ReaderFacingString[] {
   };
   visit(source);
   return found;
+}
+
+export function verdictsIn(
+  strings: readonly ReaderFacingString[],
+  patterns: readonly VerdictPattern[] = FORBIDDEN_VERDICTS,
+): string[] {
+  return strings.flatMap(({ file, line, text }) =>
+    patterns
+      .filter(({ pattern }) => pattern.test(text))
+      .map(({ pattern, why }) => `${file}:${line} matches ${pattern} (${why}) in ${JSON.stringify(text)}`),
+  );
 }
