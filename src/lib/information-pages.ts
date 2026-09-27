@@ -24,7 +24,8 @@ export type InformationPageMode =
   | "on-call"
   | "cme"
   | "psychiatry"
-  | "my-work";
+  | "my-work"
+  | "roster";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -96,6 +97,16 @@ export function isInformationPage(pathname: string): boolean {
   if (pathname === "/psychiatry") return true;
   // The My Work dashboard, for the same reason.
   if (pathname === "/my-work") return true;
+  // Every Roster route, the mode home included, for On Call's reason exactly:
+  // the mode declares no search surface, so it has no composer on any page.
+  // Its pages also own their in-page header (`InPageNavHeader`, the
+  // DocumentViewer template) rather than the shared mode-nav bar, so being an
+  // information page is also what stops the shell drawing a second bar over
+  // the top. `isSlugDetail` covers the single-segment children (`/roster/shifts`,
+  // `/roster/settings`, `/roster/calendar`) and `/roster` itself is the bare
+  // path rather than a slug detail, so it needs its own test.
+  if (isSlugDetail(pathname, "/roster")) return true;
+  if (pathname === "/roster") return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -139,4 +150,5 @@ export const informationPageShellModes = [
   "cme",
   "psychiatry",
   "my-work",
+  "roster",
 ] as const satisfies readonly InformationPageMode[];

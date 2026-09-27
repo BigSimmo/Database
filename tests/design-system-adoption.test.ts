@@ -1476,7 +1476,12 @@ describe("design-system adoption manifest", () => {
     // one template, Guidance, Reports, Team and the manual Referral Intake) out of the census.
     //
     // 105 -> 106 on 2026-09-26: `/my-work`, the My Work mode's dashboard.
-    expect(manifest.routeCoverage.discovered).toHaveLength(106);
+    //
+    // 106 -> 105 on 2026-09-26: Roster's registration. `/on-call/shifts` is deleted
+    // (the proxy redirect covers the URL) and `/on-call/calendar` moves in place to
+    // `/roster/calendar` — one route out, one moved, net minus one. Roster's own
+    // Today/Shifts/Settings pages are not yet declared: they land with the Screens task.
+    expect(manifest.routeCoverage.discovered).toHaveLength(105);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

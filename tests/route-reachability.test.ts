@@ -45,6 +45,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
   ],
+  [
+    "/roster/calendar",
+    "Roster Release 1 lane split: this route moved here from /on-call/calendar (Task 2, Registration), and the /on-call/calendar redirect (src/proxy.ts) covers the old URL. The one in-app link — My Work's Calendar card — is Task 6's file (src/components/my-work/my-work-home.tsx) and is repointed there before the whole-branch PR ships; remove this entry once that lands.",
+  ],
 ]);
 
 function isMockupPath(relPosix: string) {

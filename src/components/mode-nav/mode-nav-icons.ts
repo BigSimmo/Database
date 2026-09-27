@@ -2,6 +2,7 @@ import {
   BookOpenText,
   BookMarked,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
@@ -17,6 +18,7 @@ import {
   Repeat,
   Printer,
   Search,
+  Settings,
   Sparkles,
   Stethoscope,
   Scale,
@@ -107,6 +109,13 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
+  // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
+  // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
+  // gear, matched to nothing else in this rail so it cannot be mistaken for a
+  // section.
+  today: CalendarClock,
+  shifts: CalendarRange,
+  settings: Settings,
 };
 
 /**

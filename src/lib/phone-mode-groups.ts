@@ -47,6 +47,12 @@ export const phoneModeGroups = [
     modeIds: ["on-call"],
   },
   {
+    id: "roster",
+    label: "Roster",
+    hint: "Your own shifts",
+    modeIds: ["roster"],
+  },
+  {
     id: "my-work",
     label: "My Work",
     hint: "Paperwork, deadlines and checks",

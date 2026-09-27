@@ -2740,7 +2740,6 @@
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
         "src/app/(search-app)/my-work/page.tsx",
-        "src/app/(search-app)/on-call/calendar/page.tsx",
         "src/app/(search-app)/on-call/card/page.tsx",
         "src/app/(search-app)/on-call/check/page.tsx",
         "src/app/(search-app)/on-call/compliance/page.tsx",
@@ -2756,6 +2755,7 @@
         "src/app/(search-app)/on-call/service/page.tsx",
         "src/app/(search-app)/on-call/who-is-who/page.tsx",
         "src/app/(search-app)/psychiatry/page.tsx",
+        "src/app/(search-app)/roster/calendar/page.tsx",
         "src/app/(search-app)/roster/page.tsx",
         "src/app/(search-app)/roster/settings/page.tsx",
         "src/app/(search-app)/roster/shifts/page.tsx",
@@ -3178,16 +3178,6 @@
           "sanctionedPatternsPresent": []
         },
         {
-          "file": "src/app/(search-app)/on-call/calendar/page.tsx",
-          "exists": true,
-          "imports": [],
-          "importedFamilies": [],
-          "literalCkbV2": false,
-          "dynamicCkbV2": false,
-          "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
-        },
-        {
           "file": "src/app/(search-app)/on-call/card/page.tsx",
           "exists": true,
           "imports": [],
@@ -3329,6 +3319,16 @@
         },
         {
           "file": "src/app/(search-app)/psychiatry/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/roster/calendar/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4573,7 +4573,6 @@
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/my-work/page.tsx",
-      "src/app/(search-app)/on-call/calendar/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
       "src/app/(search-app)/on-call/check/page.tsx",
       "src/app/(search-app)/on-call/compliance/page.tsx",
@@ -4590,6 +4589,7 @@
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/psychiatry/page.tsx",
+      "src/app/(search-app)/roster/calendar/page.tsx",
       "src/app/(search-app)/roster/page.tsx",
       "src/app/(search-app)/roster/settings/page.tsx",
       "src/app/(search-app)/roster/shifts/page.tsx",
@@ -4683,7 +4683,6 @@
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/my-work/page.tsx",
-      "src/app/(search-app)/on-call/calendar/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
       "src/app/(search-app)/on-call/check/page.tsx",
       "src/app/(search-app)/on-call/compliance/page.tsx",
@@ -4700,6 +4699,7 @@
       "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/psychiatry/page.tsx",
+      "src/app/(search-app)/roster/calendar/page.tsx",
       "src/app/(search-app)/roster/page.tsx",
       "src/app/(search-app)/roster/settings/page.tsx",
       "src/app/(search-app)/roster/shifts/page.tsx",
@@ -4750,6 +4750,6 @@
     "productImportedComponentCount": 46,
     "rootCount": 116,
     "productionRouteCount": 108,
-    "nextUiEntryCount": 172
+    "nextUiEntryCount": 174
   }
 }

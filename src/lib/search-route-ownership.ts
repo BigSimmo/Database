@@ -54,6 +54,10 @@ export const standaloneModeHomePaths = [
   "/psychiatry",
   // My Work's dashboard, for the same reason again.
   "/my-work",
+  // Roster's dashboard (Today), for the same reason: it declares no search
+  // surface, so without it the mode pill would retarget a composer Roster has
+  // nowhere to send.
+  "/roster",
 ] as const;
 
 /**
@@ -112,6 +116,11 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // The My Work dashboard at `/my-work`, likewise a page of links.
     case "my-work":
       return "/my-work";
+    // The Roster dashboard (Today) at `/roster`, on the same reasoning as On
+    // Call above: no results surface, so a retargeted composer would accept a
+    // query and land the reader on a page that ignores it.
+    case "roster":
+      return "/roster";
     default:
       return null;
   }
@@ -178,6 +187,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/cme",
   "/psychiatry",
   "/my-work",
+  "/roster",
 ] as const;
 
 /**

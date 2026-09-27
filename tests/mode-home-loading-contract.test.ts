@@ -34,6 +34,8 @@ const MODE_HOME_LOADING_ROUTES = [
   "psychiatry",
   // My Work's dashboard, likewise.
   "my-work",
+  // Roster's dashboard, a standalone mode home for the same reason.
+  "roster",
 ] as const;
 
 describe("mode-home loading contract", () => {
