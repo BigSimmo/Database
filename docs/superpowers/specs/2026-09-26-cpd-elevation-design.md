@@ -68,13 +68,13 @@ These are not part of this work. Each one needs Josh to reopen it.
 
 ### 4.1 Five pages in the pill's pages sheet
 
-| Page (menu label) | Second line in the sheet       | Tabs (compact top tab row, standard §5) |
-| ----------------- | ------------------------------ | --------------------------------------- |
-| Today             | Hours, what's next, year check | Overview · Year check                   |
-| Log               | Activities, drafts, routines   | Activities · To finish · Routines       |
-| Plan              | Goals, calendar, training      | Goals · Calendar · Training             |
-| Learning          | Courses and events             | Upcoming · Past                         |
-| Set up            | Your requirements and CPD home | none (read view, then an Edit view)     |
+| Page (menu label) | Second line in the sheet       | Sections in the in-page navigation header |
+| ----------------- | ------------------------------ | ----------------------------------------- |
+| Today             | Hours, what's next, year check | Overview · Year check                     |
+| Log               | Activities, drafts, routines   | Activities · To finish · Routines         |
+| Plan              | Goals, calendar, training      | Goals · Calendar · Training               |
+| Learning          | Courses and events             | Upcoming · Past                           |
+| Set up            | Your requirements and CPD home | none (read view, then an Edit view)       |
 
 The "…" menu on CPD pages holds **Annual summary**, **Customise Today** and **Download CSV**.
 
@@ -82,24 +82,24 @@ The "…" menu on CPD pages holds **Annual summary**, **Customise Today** and **
 
 Every existing route stays a real page and becomes the address of a tab. Links already live in phone calendars through the calendar feed, so any redirect would have to last forever. The redirect table also cannot select a tab.
 
-| Address                                                   | Opens                                                                                 |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `/cme`                                                    | Today › Overview                                                                      |
-| `/cme/check`                                              | Today › Year check                                                                    |
-| `/cme/log`                                                | Log › Activities (existing query parameters such as `year`, `copy=todo` keep working) |
-| `/cme/log?tab=finish`                                     | Log › To finish (new query value; the tab row links here)                             |
-| `/cme/routines`                                           | Log › Routines                                                                        |
-| `/cme/plan`                                               | Plan › Goals                                                                          |
-| `/cme/calendar`                                           | Plan › Calendar                                                                       |
-| `/cme/training`                                           | Plan › Training                                                                       |
-| `/cme/learning`                                           | Learning › Upcoming (`?view=past` for Past)                                           |
-| `/cme/setup`                                              | Set up                                                                                |
-| `/cme/programme`                                          | Set up (the same read view; the Programme page's content merges into it)              |
-| `/cme/summary`, `/cme/customise`, `/cme/new`, `/cme/[id]` | unchanged, reached from "…", "+ Log" or a row                                         |
+| Address                                                       | Opens                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `/cme`                                                        | Today › Overview                                                                      |
+| `/cme/check`                                                  | Today › Year check                                                                    |
+| `/cme/log`                                                    | Log › Activities (existing query parameters such as `year`, `copy=todo` keep working) |
+| `/cme/log?tab=finish`                                         | Log › To finish (new query value; its header section links here)                      |
+| `/cme/routines`                                               | Log › Routines                                                                        |
+| `/cme/plan`                                                   | Plan › Goals                                                                          |
+| `/cme/calendar`                                               | Plan › Calendar                                                                       |
+| `/cme/training`                                               | Plan › Training                                                                       |
+| `/cme/learning`                                               | Learning › Upcoming (`?view=past` for Past)                                           |
+| `/cme/setup`                                                  | Set up                                                                                |
+| `/cme/programme`                                              | Set up (the same read view; the Programme page's content merges into it)              |
+| `/cme/summary`, `/cme/customise`, `/cme/new`, `/cme/log/[id]` | unchanged, reached from "…", "+ Log" or a row                                         |
 
 - `/cme/summary` without `?year=` opens the current year, instead of the dead end it shows today.
 - Each tab is a link to its address, so back and forward, bookmarks and sharing behave normally.
-- The tab row follows the standard's compact tab spec. It attaches under the universal header through `PhoneHeaderCollapsePortal` and adds no scroll-hide of its own.
+- The page's in-page navigation uses the shared `InPageNavHeader` / DocumentViewer template: back control, title and active-section subtitle with chevron section sheet, ellipsis actions, and weighted segment track. Its single `PhoneHeaderCollapsePortal` attaches beneath the universal phone header and shares that header's collapse owner. Each section selects its real address; there is no standalone sticky tab row or second scroll-hide hook. Pages without subsections keep their normal page header.
 
 ### 4.3 Registry changes
 
@@ -135,7 +135,7 @@ These rules make it feel premium, easy and adaptive. Each is checkable in review
 
 ### 6.1 Easy and intuitive
 
-- **Nothing is chosen for you.** Only "Log again" fills a form. Otherwise hours and category start empty, the day starts at Today, and Save stays grey until there is a title and hours.
+- **Nothing is chosen for you.** Only "Log again" fills a form. Otherwise hours and category start empty, the day starts at Today, and Save stays grey until there is a title, positive hours and at least one category allocation covering those hours. Test title + hours without a category: Save remains disabled and no request is sent; selecting a category enables Save.
 - **One obvious next thing.** Every page opens with what the doctor most likely wants: Today shows the year and the To do list, Log shows the newest activity, and the form puts the cursor in the title.
 - **Thumb reach.** The main action sits at the bottom on phones: "+ Log" floats, Save sits at the foot of the sheet, and filters open in a bottom sheet.
 - **Nothing hides behind jargon.** "Reviewing + outcomes", "your CPD home" and "Year check" each get one plain muted line the first time they appear on a page.
@@ -156,7 +156,7 @@ These rules make it feel premium, easy and adaptive. Each is checkable in review
 - **Copy is edited.** Every string is sentence case, has no exclamation marks, and is under about 70 characters where it sits on one line. Month totals read "9.5 h", never "9.5 H".
 - **Detail pass (Josh 18:32Z, standard v13).**
   - _Live status green:_ only where a state is live and current. In CPD that is the detail sheet's "Up to date" (the figure was counted from the loaded log): a 6 px `--success` dot with the word beside it in muted text, one 600 ms pulse when it turns fresh, none on first load or with reduced motion, never looping. "Reached" and every other status word stays grey.
-  - _No explanatory text:_ helper sentences, intros and instructions are cut. What stays is safety, privacy, source and freshness: the patient-details reminder, the signed-out and offline lines, "Confirmed 8 Jan 2026 against your recorded source", "Curated, not endorsed · checked 26 Sep 2026", "Part-time work never lowers your CPD targets".
+  - _No explanatory text:_ helper sentences, intros and instructions are cut. What stays is safety, privacy, source and freshness: the patient-details reminder, the signed-out and offline lines, "Confirmed 8 Jan 2026 against your recorded source", "Curated, not endorsed · checked [directory `lastCheckedOn`]", "Part-time work never lowers your CPD targets".
   - _Type:_ headings −0.01em tracking and 1.2 line height with balanced wrapping; eyebrows open tracking; body 1.4; tabular figures; real apostrophes; en dash for ranges; a non-breaking space between a number and its unit ("0.5 h", "0.8 FTE"). Hierarchy from size and tone, never bold.
   - _Surfaces:_ two elevations only, `--e1` for raised modules and `--e4` for sheets, the floating button and the Undo bar. 1 px low-contrast hairlines, inset to the text (past the leading icon on icon rows). Concentric corners: the segmented control's 10 px track with 3 px padding holds 7 px segments.
   - _Micro-detail:_ every control darkens one surface step when pressed (no scale) and keeps the app's focus border. Icons share one stroke at 16 or 20 px. Skeletons are static, with no shimmer (standard v13). Sheets and the floating button respect the safe areas and home bar.
@@ -170,7 +170,7 @@ These rules make it feel premium, easy and adaptive. Each is checkable in review
 | Tablet (768–1023 px)     | One column up to the live `max-w-3xl` reading width; the form opens as a centred sheet.                                                                                                                                                                                                                                                                                        |
 | Desktop (1024 px and up) | Today shows the year figure and To do side by side. Log opens an activity or the form in a side panel, so the list stays in view. The panel has previous and next arrows and a close button. The keyboard works throughout: Tab order follows the reading order, Ctrl or Cmd + Enter saves a form (plain Enter stays a new line in the reflection), and Escape closes a sheet. |
 
-- Text scales to **200%** with nothing clipped. From **135%**, rows stack: the hours move from the right-hand column into the second line under the title. Chips and toolbars wrap onto a second line, the month total stays, tabs scroll with an edge fade, and pages keep room under "+ Log".
+- Text scales to **200%** with nothing clipped. From **135%**, rows stack: the hours move from the right-hand column into the second line under the title. Chips and toolbars wrap onto a second line, the month total stays, the weighted section track scrolls with an edge fade, and pages keep room under "+ Log".
 - Landscape phones get the same layout as portrait, with sheets capped at 90% of the height.
 - Dark mode follows the phone. Forced colours keep the system colours (standard §11).
 - Every screen is tested at 360, 390 and 430 px wide, and at 1280 px.
@@ -239,21 +239,21 @@ No AI, no new stored data and nothing offline is added. Anything like that would
 
 **Pass/fail checks, reported with each release PR and on the plan page:**
 
-| Check                            | Pass means                                                                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contrast                         | Every text and control pair meets WCAG AA (4.5:1 for body, 3:1 for large text and icons), in light and in dark                              |
-| One primary action               | At most one dark command button visible per screen                                                                                          |
-| Main task in three taps or fewer | A routine that is due: one tap ("Log 1 h" in To do). Any routine or recent activity: three ("+ Log", a Log again row, Save)                 |
-| One state module                 | Loading, empty, signed out, offline and error use one shared component with the page's header and tabs kept                                 |
-| One demo dataset                 | Every drawing and every demo screen uses the same demo doctor, the same numbers and one time of day (09:41, Sat 26 Sep 2026)                |
-| Tap areas                        | Every control has a tap area of at least 48 px; small row buttons (34 px) and chips (36 px) carry an invisible 48 px hit area               |
-| No tab badges                    | Tabs carry no count badges; counts appear only in words inside a module ("15 to copy") (addendum C)                                         |
-| Stress frames                    | One frame at 200% text (rows stack, tabs scroll with an edge fade) and one real-length title that wraps and is never truncated (addendum H) |
-| Nothing bold                     | No weight above 600 anywhere, and none above 400 on numbers                                                                                 |
-| Four sizes at most               | The type floors above hold on every screen                                                                                                  |
-| Nothing truncated                | No time, date, hours figure, number or title ends in "…"                                                                                    |
-| Nothing jumps                    | The loading shapes match the loaded layout (layout shift under 0.1 in the browser tests)                                                    |
-| Side by side                     | Before and after screenshots next to live CPD and On Call, in both themes                                                                   |
+| Check                            | Pass means                                                                                                                                            |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contrast                         | Every text and control pair meets WCAG AA (4.5:1 for body, 3:1 for large text and icons), in light and in dark                                        |
+| One primary action               | At most one dark command button visible per screen                                                                                                    |
+| Main task in three taps or fewer | A routine that is due: one tap ("Log 1 h" in To do). Any routine or recent activity: three ("+ Log", a Log again row, Save)                           |
+| One state module                 | Loading, empty, signed out, offline and error use one shared component with the page's header and tabs kept                                           |
+| One demo dataset                 | Every drawing and every demo screen uses the same demo doctor, the same numbers and one time of day (09:41, Sat 26 Sep 2026)                          |
+| Tap areas                        | Every control has a tap area of at least 48 px; small row buttons (34 px) and chips (36 px) carry an invisible 48 px hit area                         |
+| No navigation badges             | Header sections carry no count badges; counts appear only in words inside a module ("15 to copy") (addendum C)                                        |
+| Stress frames                    | One frame at 200% text (rows stack, section track scrolls with an edge fade) and one real-length title that wraps and is never truncated (addendum H) |
+| Nothing bold                     | No weight above 600 anywhere, and none above 400 on numbers                                                                                           |
+| Four sizes at most               | The type floors above hold on every screen                                                                                                            |
+| Nothing truncated                | No time, date, hours figure, number or title ends in "…"                                                                                              |
+| Nothing jumps                    | The loading shapes match the loaded layout (layout shift under 0.1 in the browser tests)                                                              |
+| Side by side                     | Before and after screenshots next to live CPD and On Call, in both themes                                                                             |
 
 **Addendum A–I (coordinator, 18:23Z)** is met: honest forms and "Log again" never saves by itself (A, §6.1); recents first in "+ Log" (B, §8.1); status in words, no tab badges (C); no unsaved ticks anywhere in CPD (D); states keep the frame and exact privacy wording (E, §7); presets not yet available are hidden, not greyed (F, §9.1); every screen measured with Geist by script (G); stress frames (H); desktop panel arrows (I, §6.3). CPD shows no crisis numbers of its own; the app-wide crisis banner is untouched. **J–L (18:24Z)** are met too. J, home order: the hours panel is the answer card, readable in two seconds; the two tiles are part of that answer (the minimums); CPD has no ask box on Today (Log's own search stays on Log, with no mic); "Next to log" and "To finish" are CPD's tailored form of "Needs you", with no featured row on Today because the panel leads. K, shared data: nothing in CPD is seen by other people, so no preview-and-commit sheet applies; if that ever changes, K applies. L, safe thumbs: row actions ("Log 1 h", "Copy next", "Finish") are 34 px outlined shapes in 48 px tap areas at the row's right edge, and nothing destructive sits in thumb reach; archive and "Remove certificate" live in the activity's "…" menu, and removing a certificate still asks first.
 
@@ -270,7 +270,7 @@ Each page lists its content and data sources. All six states apply to every page
 - **Error:** "Nothing was changed. Try again, or come back in a few minutes." with Try again.
 - **Empty:** one line, plus where to start ("Choose your CPD home in Set up, then tap + Log").
 
-Every state keeps the page's header and tab row, and the loading shapes match the loaded layout, so nothing jumps.
+Every state keeps the page's header and section track, and the loading shapes match the loaded layout, so nothing jumps.
 
 ### 7.1 Today › Overview
 
@@ -329,7 +329,7 @@ One grouped list with three eyebrows:
 - **Waiting for someone:** a waiting note and a follow-up day.
 - **Missed teaching:** "Tue 22 Sep · 1.5 h · not attended", with "Log catch-up". Footnote: "Missed sessions don't add hours. Link what you did instead."
 
-The count shows on the tab. This moves the existing drafts and missed-sessions sections out from under the Log list. Their data and behaviour are unchanged.
+The count appears in the To finish module text, never on a tab or in the navigation header. This moves the existing drafts and missed-sessions sections out from under the Log list. Their data and behaviour are unchanged.
 
 ### 7.5 Log › Routines
 
@@ -345,7 +345,7 @@ The existing routines page, restyled. The two dark buttons become one outlined "
 4. **Hours chips:** 0.5, 1, 1.5, 2, 3 and Other. None is pre-selected.
 5. **Counts toward:** Educational, Reviewing, Outcomes. None is pre-selected.
 6. **"Add reflection and details"**, a row that opens the full form.
-7. **Save**, at the foot of the sheet, grey until there is a title and hours.
+7. **Save**, at the foot of the sheet, grey until there is a title, positive hours and at least one category allocation covering those hours.
 
 **Full form (`/cme/new`, and "Add reflection and details" in the sheet).** It is a full-height sheet titled "New activity" over Log, with a close button, so the header and pill never change. In this order:
 
@@ -367,11 +367,11 @@ The existing routines page, restyled. The two dark buttons become one outlined "
 
 - Two filters: "Specialty" and "Format: Any" (online or in person). Specialty starts at the doctor's own, derived from the chosen CPD home (RANZCP means psychiatry; national baseline or another home starts at All), so nothing new is stored. One tap changes it to All. (Josh, card 18:43Z.)
 - Items are grouped by month. Each shows its date range, place and mode, and a cost note if known.
-- **Before an event:** a 48 px calendar button labelled "Add to calendar" for screen readers. It builds a single-event `.ics` in the browser with a **stable event id** (the directory item's id, so adding it twice updates the same event rather than duplicating it) and a **real alert** one day before. Nothing is sent to a server. Dates read "Wed 14 – Fri 16 Oct · in 18 days".
+- **Before an event:** a 48 px calendar button labelled "Add to calendar" for screen readers. It builds a single-event `.ics` in the browser with a **stable event id** (the directory item's id, so adding it twice updates the same event rather than duplicating it) and a **real alert** one day before. For an all-day date range, the directory's `endsOn` is inclusive, while iCalendar `DTEND;VALUE=DATE` is exclusive: add one calendar day to `endsOn` (or to `startsOn` when there is no end). For example 14–16 Oct produces `DTSTART;VALUE=DATE:20261014` and `DTEND;VALUE=DATE:20261017`. Test exact text for that multi-day case. Nothing is sent to a server. Dates read "Wed 14 – Fri 16 Oct · in 18 days".
 - **After an event (Past):** "Log as CPD", using the existing `cmeLearningFromSourceHref`.
 - Items without confirmed dates sit under "Dates to confirm".
 - A "Your hospital's teaching" row opens Teaching.
-- Footer: "A curated list, not an endorsement. Checked 26 Sep 2026. Confirm dates, cost and CPD eligibility with the organiser."
+- Footer: "A curated list, not an endorsement. Checked [date from the directory's `lastCheckedOn`]. Confirm dates, cost and CPD eligibility with the organiser." Format the stored date for the doctor in Perth time. A changed metadata date must change both this text and the stale-data calculation; never hard-code the example date.
 - The directory JSON (`src/data/cme/wa-learning-directory.json`) gains an optional `specialties` array per item (a string list; missing means "all"). This is a data-file field, not a database change. New items are added only with a `sourceUrl` and a `lastCheckedOn`.
 
 ### 7.9 Set up
@@ -388,7 +388,7 @@ The existing routines page, restyled. The two dark buttons become one outlined "
 
 ## 8. Smart features
 
-All of these run on simple rules inside the app, over the doctor's own records that are already loaded. None uses AI. None sends anything anywhere new. Nothing is ever logged without the doctor's Save tap.
+All of these run on simple rules inside the app, over the doctor's own records that are already loaded. None uses AI. None sends anything anywhere new. Ordinary form and Log again actions require the doctor's Save tap. The explicitly labelled "Log 1 h" action on a due routine is the exception: that tap saves immediately and offers Undo for 6 seconds. Test that it persists on the first tap, while tapping Log again only fills the form.
 
 1. **Log again.**
    - Tapping a row fills in the form; Save is still the doctor's tap.
@@ -417,12 +417,12 @@ All of these run on simple rules inside the app, over the doctor's own records t
    - Saving with the reflection empty is allowed; there is one Save button.
    - The row then shows "Reflection to add". It appears in To do and in the Filter's "No reflection".
    - This is derived from the empty field, so no new column is needed.
-5. **Certificates never forgotten.** An activity without one says "No certificate" on its row, To do counts them, and "Add certificate" on the activity (and in the desktop panel) opens the existing evidence upload, with the file or camera picker and the existing de-identification tick. The Saved message carries Undo instead, so it has one action.
+5. **Certificates never forgotten.** An activity without an active `kind: "certificate"` file says "No certificate" on its row, To do counts them, and "Add certificate" on the activity (and in the desktop panel) opens the existing evidence upload, with the file or camera picker and the existing de-identification tick. The existing aggregate `evidenceCount` includes receipts, assessments and other files and cannot answer this question: load an owner-scoped certificate-specific count/list, excluding removed files, alongside entries. A receipt-only activity must still appear as "No certificate" in the row and To do. The Saved message carries Undo instead, so it has one action.
 6. **Copy next, for your CPD home.**
    - One button copies the next not-yet-copied activity (oldest first), using the existing `formatEntryForCpdHome`.
    - It then marks the activity copied through the existing `transcribed` flag, with Undo.
 7. **Same-day repeat check.** Saving an activity whose title matches one already logged on the same day (case-insensitive, trimmed) first asks "You logged this today already. Log it again?" with **Log again** and **Cancel**.
-8. **Carry goals forward.** From 17 Dec, Plan › Goals offers each unfinished goal with a "Carry into 2027" button, one tap per goal. It is never automatic. It uses the existing plan-goal save path.
+8. **Carry goals forward.** From 17 Dec, Plan › Goals offers "Carry into [next year]" beside every current-year goal; the doctor explicitly chooses which goals to carry because the existing goal record has no completion field and linked activities do not prove completion. It is never automatic. If next year's targets are unconfirmed, the action first takes the doctor to confirm that destination year and returns to the same carry choice; it cannot claim a one-tap save while `PUT /api/cme/plan` would return `cme_year_not_confirmed`. Once next year is confirmed, one tap uses the existing plan-goal save path, keeps existing destination goals intact and never duplicates the same source goal on repeat. Test absent and confirmed destination years, selectively carrying a completed-in-reality goal, preserving existing goals, and repeat taps. No goal-completion state is inferred or stored.
 9. **Summary with certificate links.**
    - The annual summary lists each activity with its hours, category and a "Certificate" link.
    - The link goes to the existing owner-checked, 60-second signed-URL route.
@@ -442,12 +442,12 @@ Josh asked for unique, high-yield, striking features. Each is rules-based over t
 
 ### 9.1 CPD home
 
-The Set up Edit view starts with "Your CPD home for 2026". The choice is stored per year in the existing year record (`cme_years.confirmed_source` / preset fields), so no schema change is needed.
+The Set up Edit view starts with "Your CPD home for 2026". The existing year record has `cme_years.confirmed_source` but no preset fields. Store a versioned, anchored exact home discriminator there (for example `au-cpd-home-2026-v1:other; [owner's source]` or `au-cpd-home-2026-v1:baseline; [source]`), preserving the owner's source text, source URLs and the 1000-character limit. Existing `au-ranzcp-YYYY-vN` prefixes remain recognised as legacy RANZCP. Parse only a valid marker at the beginning for the year being read; never infer home by `/ranzcp/i` anywhere in the free-text provenance. Unknown or unmarked historical sources require an explicit choice before home-specific wording, psychiatry filtering or the 1 March reminder is shown. Strip the internal marker from display copy while keeping the CSV source record intact. No schema change is needed. Test an Other source that contains "RANZCP", legacy RANZCP, a malformed marker, and a saved/reloaded choice.
 
 - **National baseline only.** The Medical Board's categories and totals. The doctor can add their own extras.
 - **RANZCP.** The existing preset, unchanged.
 - **Other CPD home.** The doctor types its name and enters targets.
-- **Another college (Soon).** Shown only as a disabled row until a preset exists. Each preset is added in its own small change, and only after that college's page is read from Josh's PC (the cloud cannot open college sites). Each carries a source link and a checked date.
+- **Further college presets.** Hidden until each preset exists. Each preset is added in its own small change, and only after that college's page is read from Josh's PC (the cloud cannot open college sites). Each carries a source link and a checked date.
 
 The line under the choice reads: "A preset is a starting draft, not a claim that it matches your CPD home's whole programme."
 
@@ -512,7 +512,7 @@ Each release is one PR that merges on its own, touches no `supabase/` path, and 
 
 **Release 2 — pages and feel.**
 
-- The five-page registry and tab rows (§4).
+- The five-page registry and shared in-page navigation headers (§4).
 - The Today dashboard: hours panel, two tiles, Next to log and To finish, and the tap-a-figure detail sheet.
 - The "+ Log" sheet with Log again, smart defaults, the repeat check and Save-reflect-later.
 - The Filter sheet with All years; To finish; Copy next; Undo.
@@ -521,7 +521,7 @@ Each release is one PR that merges on its own, touches no `supabase/` path, and 
 - Tests:
   - DOM tests for To do order, pace, the repeat check and Log again;
   - registry and active-page tests;
-  - a route test that every old address still renders its tab.
+  - a route test that every old address, including `/cme/log/[id]`, still renders its active section.
 - Waits for On Call's pill and pages-sheet change to land first, because both touch shared menu files.
 
 **Release 3 — any doctor and connected modes, one staged build.**
