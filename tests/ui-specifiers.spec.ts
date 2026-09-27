@@ -509,7 +509,7 @@ test("keeps the guide usable with reduced motion and forced colors", async ({ pa
   await expect.poll(() => page.evaluate(() => window.matchMedia("(forced-colors: active)").matches)).toBe(true);
   const continueToFeatures = page.getByRole("button", { name: "Continue to features" });
   await waitForReactEventHandler(continueToFeatures, "onClick");
-  await continueToFeatures.click();
+  await clickWhenSettled(continueToFeatures);
   await expect(page.getByRole("heading", { name: "Add episode features" })).toBeFocused();
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);

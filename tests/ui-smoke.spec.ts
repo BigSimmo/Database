@@ -1802,6 +1802,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupClose = setup.getByRole("button", { name: "Close account setup" });
     const workspaceMark = setup.getByTestId("account-workspace-mark");
+    const setupScrollPort = setup.locator(".polished-scroll");
+    // WebKit scrolls the dialog to the focused email field on open. Prove the
+    // autofocus first, then reset that scroll before checking top safe-area layout.
+    await setup.getByLabel("Email address").blur();
+    await setupScrollPort.evaluate((element) => {
+      element.scrollTop = 0;
+    });
     await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
@@ -1809,13 +1816,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
     await expectNoPageHorizontalOverflow(page);
 
-    const setupScrollPort = setup.locator(".polished-scroll");
-    // Autofocus on the email field is proven above. Release it before resizing: WebKit keeps a
-    // focused field in view through a resize by scrolling the dialog body (measured at 320x700:
-    // scrollTop 224, field 888px -> 664px), which Chromium does not, and that scroll moves the
-    // workspace mark above the fold. This loop is about where the layout starts relative to the
-    // notch, not about focus-follow scrolling.
-    await setup.getByLabel("Email address").blur();
+    // With focus released, resizing now checks layout instead of WebKit's
+    // focus-follow scrolling of the dialog body.
     for (const viewportSize of [
       { width: 320, height: 700 },
       { width: 430, height: 820 },
