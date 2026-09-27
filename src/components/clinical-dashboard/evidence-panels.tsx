@@ -482,7 +482,9 @@ function clinicalNotesRowsForTab(
       /\b(monitor|screen|level|fbc|anc|metabolic|renal|thyroid|function)\b/i.test(sectionText);
     const hasSafetyText =
       tab === "safety" &&
-      /\b(toxicity|toxic|urgent|caution|contraindication|red flag|escalat|warning|review due)\b/i.test(sectionText);
+      /\b(toxicity|toxic|urgent|caution|contraindication|red flag|escalat(?:e|es|ed|ing|ion|ions)|warning|review due)\b/i.test(
+        sectionText,
+      );
     if (!isVerifySourceReview && !meta.sectionIds.includes(section.id) && !hasMonitoringText) {
       if (!hasSafetyText) continue;
     }
