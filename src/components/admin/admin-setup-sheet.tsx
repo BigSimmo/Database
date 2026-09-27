@@ -7,23 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { formatDateEcho } from "@/lib/admin/renewal-dates";
-import { buildSetupComplianceEntry, setupRequirementsToCreate, type SetupRequirement } from "@/lib/admin/setup";
+import {
+  buildSetupComplianceEntry,
+  setupRequirementRecorded,
+  setupRequirementsToCreate,
+  type SetupRequirement,
+} from "@/lib/admin/setup";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
-import { isComplianceEntry } from "@/lib/on-call/compliance";
 import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 const LABELS: Record<SetupRequirement, string> = {
   registration: "Registration expiry",
   indemnity: "Indemnity expiry",
 };
-
-function recordedCategory(entries: readonly OnCallEntry[], category: string): boolean {
-  return entries.some((entry) => {
-    if (!isComplianceEntry(entry)) return false;
-    const value = (entry.details as { category?: unknown }).category;
-    return typeof value === "string" && value.trim().toLowerCase() === category.toLowerCase();
-  });
-}
 
 export interface AdminSetupSheetProps {
   readonly open: boolean;
@@ -48,8 +44,8 @@ export function AdminSetupSheet({ open, onClose, existingEntries, onCreated }: A
   const [error, setError] = useState<string | null>(null);
 
   const alreadyRecorded: Record<SetupRequirement, boolean> = {
-    registration: recordedCategory(existingEntries, "Registration"),
-    indemnity: recordedCategory(existingEntries, "Indemnity"),
+    registration: setupRequirementRecorded(existingEntries, "registration"),
+    indemnity: setupRequirementRecorded(existingEntries, "indemnity"),
   };
 
   async function save() {

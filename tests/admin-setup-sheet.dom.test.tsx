@@ -68,7 +68,10 @@ describe("AdminSetupSheet", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const posts = fetchMock.mock.calls.filter(([url]) => url === "/api/on-call/entries");
     expect(posts).toHaveLength(3);
-    expect(JSON.parse(String(posts[2][1]?.body))).toMatchObject({ title: "Professional indemnity" });
+    expect(JSON.parse(String(posts[2][1]?.body))).toMatchObject({
+      title: "Indemnity insurance declaration",
+      details: { requirementId: "professional-indemnity-insurance" },
+    });
   });
 
   it("'Later' closes without creating anything", () => {
