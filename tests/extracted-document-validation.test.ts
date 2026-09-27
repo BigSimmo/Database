@@ -48,3 +48,41 @@ describe("Python extracted-document payload validation", () => {
     expect(() => parseExtractedDocumentPayload(JSON.stringify(payload))).toThrow();
   });
 });
+
+describe("extraction provenance (audit F04)", () => {
+  const provenance = {
+    name: "extract_pdf_assets",
+    version: "2026-09-16.table-aware-v1",
+    pymupdf: "1.26.0",
+    tableStrategy: "table_aware_page_text",
+  };
+
+  it("keeps the reader's provenance so the worker can record it on the document", () => {
+    const parsed = parseExtractedDocumentPayload(JSON.stringify({ pages: [], images: [], extractor: provenance }));
+    expect(parsed.extractor).toEqual(provenance);
+  });
+
+  it("still accepts a payload from an extractor that reports no provenance", () => {
+    expect(parseExtractedDocumentPayload(JSON.stringify({ pages: [], images: [] })).extractor).toBeUndefined();
+  });
+
+  it("rejects a provenance block without a version, which could not be traced", () => {
+    expect(() =>
+      parseExtractedDocumentPayload(
+        JSON.stringify({ pages: [], images: [], extractor: { name: "extract_pdf_assets" } }),
+      ),
+    ).toThrow();
+  });
+
+  it("matches the version the Python reader declares", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("../worker/python/extract_pdf_assets.py", import.meta.url), "utf8");
+    expect(source).toContain(`EXTRACTOR_VERSION = "${provenance.version}"`);
+  });
+
+  it("is written onto documents.metadata by the worker", async () => {
+    const { readFileSync } = await import("node:fs");
+    const worker = readFileSync(new URL("../worker/main.ts", import.meta.url), "utf8");
+    expect(worker).toContain("extraction_provenance: { ...extracted.extractor, recorded_at: indexedAt }");
+  });
+});

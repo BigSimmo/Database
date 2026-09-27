@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cb41872c-e99e-4ff9-9220-1a874bf1fd88",
+  "createdOn": "2026-09-26",
+  "action": "cancel",
+  "payload": {
+    "requestId": "39e17e27-b045-4857-8a0a-352de03ee7a7",
+    "reason": "Not needed. The owner confirmed on 2026-09-26 that Doppler is not used and was added by mistake. The three DOPPLER_* variables were removed from the Database service in Railway production the same day. The rotated webhook secret stayed valid through every redeploy after the rotation (Railway HTTP logs, all 200)."
+  }
+}

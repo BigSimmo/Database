@@ -28,6 +28,8 @@ import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
+import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
+import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
 import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
@@ -35,7 +37,9 @@ import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocumentsState } from "@/lib/on-call/linked-documents";
 import { onCallEntryFreshness, type OnCallEntry, onCallEntryIsEditable } from "@/lib/on-call/entry-model";
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
+import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
@@ -163,12 +167,15 @@ const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
  * adds no second bar. Being an information page is also what keeps the search
  * composer off these routes, so the two facts are the same fact.
  *
- * Reading needs no account. `fetchSharedOnCallEntries` has served every
- * non-personal entry to anonymous callers since the 2026-09-04 owner decision,
- * so the page renders the same list for a visitor as for the owner, minus the
- * owner's own personal entries, which the shared read never returns. What an
- * account still buys is writing: the add, edit and verify controls below are the
- * only things gated on `isAuthenticated`, because their routes require one.
+ * Reading needs an account. The 2026-09-04 owner decision opened shared entries
+ * to anonymous callers; the 2026-09-26 decision reverses that, so the server
+ * answers a signed-out caller with no entries and this page shows
+ * `OnCallSignedOut` in place of the list — unless the reader is looking at the
+ * on-device example preview, which needs no account. A signed-in reader sees
+ * every account's shared entries, minus what the shared read never returns:
+ * another owner's personal entries, their Teaching entries, and the contact
+ * names on their contacts. The add, edit and verify controls below are gated on
+ * `isAuthenticated`, because their routes require one.
  */
 export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   const { isAuthenticated } = useAccountData();
@@ -186,7 +193,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   });
   const title = ON_CALL_VIEW_TITLES[view];
   const Icon = ON_CALL_VIEW_ICONS[view];
-  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
   // Each list component filters `entries` itself — by section, and for the two
   // contacts-backed views by `details.kind` as well — so the page hands over the
   // whole set rather than seven near-identical slices.
@@ -212,6 +219,13 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // it, and "mark all as still correct" writes to it.
   const visibleEntries = onCallVisibleEntries(view, entries);
   const visibleCount = visibleEntries.length;
+  // "Coming up", moved here from the mode home when Now dropped it (plan C25).
+  // `selectUpcomingTeachingSessions` rolls a recurring session forward from its
+  // anchor rather than letting it vanish the afternoon its date passes.
+  const upcomingTeaching = useMemo(
+    () => (view === "education" ? selectUpcomingTeachingSessions(entries, onCallLocalDateKey(new Date())) : []),
+    [view, entries],
+  );
 
   // Overdue entries in THIS view, which is what "mark all as still correct"
   // may stamp. Never the whole hub, and never the other half of a split
@@ -331,7 +345,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
     cacheOnCallEntries(entries.filter((existing) => existing.id !== id));
   }
 
-  // Reading is open to any visitor; writing is not. Each list component drops
+  // Writing needs an account, and so does reading anything but the preview. Each list component drops
   // its own edit and verify affordances when these are undefined, so a
   // signed-out reader is offered nothing the API would answer with a 401.
   const listProps = {
@@ -427,6 +441,12 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
             it simply is not painted. */}
         <h1 className="sr-only">{title}</h1>
 
+        {upcomingTeaching.length > 0 ? (
+          <section data-testid="on-call-home-upcoming" aria-label="Coming up">
+            <OnCallTeachingStrip sessions={upcomingTeaching} />
+          </section>
+        ) : null}
+
         <section
           id={`on-call-${view}-entries`}
           className={cn(inPageAnchor, "grid grid-cols-[minmax(0,1fr)] gap-3")}
@@ -476,6 +496,10 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
             />
           ) : isOffline && entries.length === 0 ? (
             <OnCallLoadFailed reason={loadError} onRetry={retry} />
+          ) : signedOut && entries.length === 0 ? (
+            // Nothing is served to a signed-out reader, so an empty list here
+            // is not an empty section. The example preview still fills it.
+            <OnCallSignedOut icon={Icon} testId={`on-call-${view}-signed-out`} />
           ) : (
             renderSectionList()
           )}

@@ -324,3 +324,18 @@ describe("both images still run the check in the same layer as the download", ()
     );
   });
 });
+
+describe("maintained docs do not restate a docling version (#XSZ4XV part 2)", () => {
+  // The lock moves; prose copies of it do not. Both docs below said 2.120.2 long
+  // after the hashed lock pinned 2.124.0. They now point at the lock instead, and
+  // this keeps any literal they grow honest. The Gate B decision record is
+  // historical and deliberately not in this list.
+  it.each(["eval/docling/README.md", "docs/worker-deploy-runbook.md"])("%s", (path) => {
+    const locked = readFileSync(join(repoRoot, "eval/docling/requirements.txt"), "utf8").match(/^docling==(\S+)/m);
+    expect(locked).not.toBeNull();
+    const text = readFileSync(join(repoRoot, path), "utf8");
+    const stated = Array.from(text.matchAll(/docling==(\d[\w.]*)/g), (match) => match[1]);
+    expect(stated.filter((version) => version !== locked![1])).toEqual([]);
+    expect(text).toContain("eval/docling/requirements.txt");
+  });
+});

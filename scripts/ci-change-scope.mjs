@@ -201,79 +201,6 @@ function isUiChangedPath(filePath) {
  * quarantined, the lane comes back on every UI PR without anyone remembering to
  * re-enable it.
  */
-/**
- * The advisory-project spec NAMES, read from `mockupSpecPattern` in playwright.config.ts — the one
- * place that decides which specs the advisory project runs.
- *
- * Parsed here rather than duplicated, and parsed ONCE rather than in two places:
- * `assertMockupSpecParity` below reads the same function, so the guard and the classifier can no
- * longer disagree about what the config says even if the config's shape changes.
- */
-function advisorySpecNames() {
-  const source = readFileSync("playwright.config.ts", "utf8");
-  const alternation = source.match(/const mockupSpecPattern\s*=\s*\/\.\*ui-\(([^)]+)\)\\.spec\\.ts\//u);
-  if (!alternation) {
-    throw new Error(
-      "mockup-spec-parity: could not read the `mockupSpecPattern` alternation from playwright.config.ts. " +
-        "If that constant moved or changed shape, update this reader — do not delete it. Guessing the " +
-        "advisory spec list is what produced three separate drifts already.",
-    );
-  }
-  const names = alternation[1]
-    .split("|")
-    .map((name) => name.trim())
-    .filter(Boolean);
-  if (names.length === 0) throw new Error("mockup-spec-parity: the `mockupSpecPattern` alternation is empty.");
-  return names;
-}
-
-/**
- * 🔴 **THE WARD ARM IS DERIVED, NOT RESTATED — because restating it drifted three times.**
- *
- * `ui-ward-*.spec.ts` journeys carry no "mockup" in the path, so every name-based rule in
- * `mockupPatterns` misses them and they needed an explicit alternation. That alternation was a
- * SECOND copy of a list whose first copy lives in playwright.config.ts, and the two fell out of step
- * on `morning` (Phase 6 Task 2), then on `forced-colors` (2026-09-04), then on THREE at once
- * (`ward-search`, `ward-statistics-compare`, `ward-table-thresholds`) — that last time because a
- * merge resolved the playwright config as a union while this list was not in the conflict at all,
- * so nothing marked the divergence. Each time the consequence was the same: a spec in one list and
- * not the other either never runs, or trips `check:ci-scope` on somebody else's branch.
- *
- * ⚠️ **THIS MAKES THE GUARD'S WARD ARM STRUCTURAL RATHER THAN CHECKED, AND THAT IS THE POINT — but
- * it must be said out loud.** `assertMockupSpecParity` can no longer fail on a ward spec, because a
- * ward spec that is in the config is in this list by construction. **The guard is NOT thereby
- * decorative:** every non-ward entry in `mockupSpecPattern` is still matched by a HAND-WRITTEN rule
- * above, so adding a spec the other rules do not cover still fails it by name. The self-test proves
- * that direction rather than assuming it.
- *
- * ⚠️ **AND IT FAILS LOUDLY RATHER THAN EMPTY.** An unreadable config or a ward-less alternation
- * throws, instead of yielding a regex that quietly matches nothing — which is the drift returning
- * wearing the shape of a pass.
- */
-const wardAdvisorySpecs = (() => {
-  const ward = advisorySpecNames().filter((name) => name.startsWith("ward-"));
-  if (ward.length === 0) {
-    throw new Error(
-      "mockup-spec-parity: `mockupSpecPattern` names no ward specs. Either the config changed shape " +
-        "or the ward journeys left the advisory project; an empty ward arm here matches nothing and " +
-        "would leave every ui-ward-*.spec.ts edit with advisory_ui_changed=false.",
-    );
-  }
-  // Validated rather than escaped. Every advisory spec name is a plain kebab identifier, so a name
-  // carrying a regex metacharacter means the config has changed shape — and building a pattern out
-  // of it would produce a regex that matches the wrong thing SILENTLY. Fail instead.
-  for (const name of ward) {
-    if (!/^[a-z0-9-]+$/u.test(name)) {
-      throw new Error(
-        `mockup-spec-parity: advisory spec name ${JSON.stringify(name)} is not a plain kebab identifier, ` +
-          "so it cannot be interpolated into a pattern safely. Read `mockupSpecPattern` in " +
-          "playwright.config.ts and update this reader deliberately.",
-      );
-    }
-  }
-  return new RegExp(String.raw`^tests/ui-(?:${ward.join("|")})\.spec\.ts$`, "u");
-})();
-
 const mockupPatterns = [
   "src/app/mockups",
   "tests/ui-mockups.spec.ts",
@@ -284,7 +211,7 @@ const mockupPatterns = [
   // from losing the only lane that runs its `@mockup` journey.
   /^src\/components\/[^/]+-mockups?\//,
   /^src\/components\/.*-mockups?\.tsx$/,
-  // ...and the NESTED form: `caring-contacts/mockups/` holds 12 components whose
+  // ...and the NESTED form: a `<area>/mockups/` directory can hold components whose
   // filenames carry no `-mockup` suffix, so neither rule above reaches them. The
   // two rules above cover a top-level `*-mockups/` directory and a `*-mockups.tsx`
   // file at any depth; a plain `mockups/` segment one level down fell between them
@@ -295,41 +222,6 @@ const mockupPatterns = [
   // below holds this list to `mockupSpecPattern` in playwright.config.ts.
   /^tests\/.*mockup.*\.spec\.ts$/,
   /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
-  // Ward Flow is a gated /mockups/ward-flow prototype. Its implementation tree
-  // and the ui-ward-*.spec.ts journeys carry no "mockup" in the path, so every
-  // rule above misses them. After those specs moved into chromium-mockups, a
-  // component-only or spec-only edit left advisory_ui_changed=false and the
-  // 46 journeys ran in neither lane.
-  //
-  // `morning` was added to playwright.config.ts's `mockupSpecPattern` by Phase 6
-  // Task 2 but never here, so `assertMockupSpecParity` below had been failing
-  // `check:ci-scope` on this branch — the exact drift that guard exists to name,
-  // caught by it and repaired here rather than by widening the guard. Keep this
-  // alternation and that one in step; a spec in one and not the other either
-  // never runs or trips this gate.
-  "src/components/ward-management",
-  // `forced-colors` added 2026-09-04, and by the same route as `morning` before it: the spec was
-  // added to `mockupSpecPattern` in playwright.config.ts on a ward branch and never here, so the
-  // union resolution that brought that branch onto the integration line tripped
-  // `assertMockupSpecParity` immediately. The guard named the file and the consequence
-  // ("editing that spec would leave advisory_ui_changed=false and the journey unrun") — repaired
-  // here rather than by widening the guard, which is the second time this exact drift has been
-  // caught by it and the second time the repair is one alternative in this list.
-  //
-  // ⚠️ **THE HAND-WRITTEN ALTERNATION IS GONE, AND THE THIRD OCCURRENCE IS WHY.** On 2026-09-06
-  // `search`, `statistics-compare` and `table-thresholds` were all missing at once, because the
-  // integration merge resolved `playwright.config.ts`'s `mockupSpecPattern` as a union of both
-  // sides while THIS list was not in that conflict at all — so nothing marked the divergence, and
-  // the first thing to notice was CI's `Static PR checks` going red on `ui-ward-search.spec.ts`.
-  // Three occurrences of one drift by one mechanism was the argument for deriving this from the
-  // config rather than restating it, and `wardAdvisorySpecs` below is that derivation.
-  //
-  // ⚠️ **IT DID NOT MAKE THE GUARD TAUTOLOGICAL, WHICH WAS THE CONDITION FOR DOING IT AT ALL.** A
-  // ward spec in the config is now in this list by construction, so `assertMockupSpecParity` can no
-  // longer fail on one — but every NON-ward entry in `mockupSpecPattern` is still matched by a
-  // hand-written rule above, so a spec the other rules miss still fails the parity check by name.
-  // That is what the control exercises: a brand-new non-ward surface added to the config goes red.
-  wardAdvisorySpecs,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {
@@ -446,10 +338,9 @@ const uiPatterns = [
   // measured miss: a change to `on-call/demo-entries.ts` alone reported
   // ui_changed=false, so `Production UI` skipped and `npm run plan:browser`
   // printed "nothing is being left unrun" — while that same change failed three
-  // assertions in ui-on-call-boards.spec.ts. Three sibling fixtures still had
+  // assertions in ui-on-call-boards.spec.ts. Two sibling fixtures still had
   // the gap, each of them named directly by a spec:
   //   demo-data                        ui-route-coverage, ui-smoke, ui-tools
-  //   caring-contacts-server/demo-seed ui-caring-contacts-{activation,populated,workspace}
   //   cme/demo-year                    ui-cme-phone
   // Matched by shape rather than by a hand-list, for the reason recorded above
   // for `tests/helpers/**`: a hand-list is what failed there. The cost of the
@@ -1045,10 +936,10 @@ function selfTest() {
   // A mockup component in a NESTED `mockups/` directory whose own filename gives
   // no hint — the case the suffix-based rules miss. Both directions are pinned so
   // the added pattern cannot quietly widen to ordinary component directories.
-  assertScope("advisory-on-for-nested-mockup-dir", ["src/components/caring-contacts/mockups/product-pages.tsx"], {
+  assertScope("advisory-on-for-nested-mockup-dir", ["src/components/care-plan/mockups/product-pages.tsx"], {
     advisory_ui_changed: true,
   });
-  assertScope("advisory-off-for-ordinary-nested-component", ["src/components/caring-contacts/contact-card.tsx"], {
+  assertScope("advisory-off-for-ordinary-nested-component", ["src/components/care-plan/care-plan-shell-frame.tsx"], {
     advisory_ui_changed: false,
   });
   // A mockup component edited without its `src/app/mockups` route wrapper. The
@@ -1076,23 +967,6 @@ function selfTest() {
   });
   assertScope("advisory-on-for-tools-task-directory-spec", ["tests/ui-tools-task-directory.spec.ts"], {
     advisory_ui_changed: true,
-  });
-  // Ward Flow: gated prototype whose specs and implementation tree have no
-  // "mockup" in the path. Both a spec-only edit and a component edit without
-  // the route wrapper must start the advisory lane; a vitest file must not.
-  assertScope("advisory-on-for-ward-spec", ["tests/ui-ward-management.spec.ts"], {
-    advisory_ui_changed: true,
-  });
-  assertScope(
-    "advisory-on-for-ward-management-component",
-    ["src/components/ward-management/coordinator/coordinator-screen.tsx"],
-    {
-      ui_changed: true,
-      advisory_ui_changed: true,
-    },
-  );
-  assertScope("advisory-off-for-ward-unit-test", ["tests/ward-management.test.ts"], {
-    advisory_ui_changed: false,
   });
   // The directory rule must not swallow ordinary component paths.
   assertScope("advisory-off-for-non-mockup-component-directory", ["src/components/clinical-dashboard/mode-nav.tsx"], {

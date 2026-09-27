@@ -206,14 +206,13 @@ can never again be defined without a reader being able to see its cadence (pinne
 `tests/playwright-project-cadence.test.ts`, which fails closed on any project named by no script
 and recorded in no line here).
 
-| Project                           | Runs on                                                                   |
-| --------------------------------- | ------------------------------------------------------------------------- |
-| `chromium`                        | Blocking PR gate (sharded production journeys) and the release matrix     |
-| `chromium-mockups`                | Advisory PR invocation and the release matrix                             |
-| `chromium-caring-contacts-seeded` | Blocking PR gate, against the seeded server                               |
-| `firefox`, `webkit`               | Release matrix only (`main`, release branches, dispatch, Sunday schedule) |
-| `mobile-webkit`                   | Release matrix **full-suite path only** — see the decision below          |
-| `mobile-pwa-standalone`           | Release matrix **full-suite path only** — see the decision below          |
+| Project                 | Runs on                                                                   |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `chromium`              | Blocking PR gate (sharded production journeys) and the release matrix     |
+| `chromium-mockups`      | Advisory PR invocation and the release matrix                             |
+| `firefox`, `webkit`     | Release matrix only (`main`, release branches, dispatch, Sunday schedule) |
+| `mobile-webkit`         | Release matrix **full-suite path only** — see the decision below          |
+| `mobile-pwa-standalone` | Release matrix **full-suite path only** — see the decision below          |
 
 **Decision (2026-09-04, L68): the two iPhone-14 projects stay release-only.** They execute when the
 release matrix runs the whole suite — that is, when UI did not change or in-run Chromium proof is

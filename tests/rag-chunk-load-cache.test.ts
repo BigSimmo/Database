@@ -94,9 +94,9 @@ function transientFailureClient(failOnResolution: number) {
 
 describe("request-scoped chunk hydration cache", () => {
   it.each([
+    // Two stages since the scope read also returns the full chunk rows, so there is no third read to fail.
     ["chunk scope", 1],
     ["document", 2],
-    ["full chunk", 3],
   ])("retries after a transient %s fetch failure", async (_stage, failOnResolution) => {
     const cache = createChunkLoadCache();
     const supabase = transientFailureClient(failOnResolution);

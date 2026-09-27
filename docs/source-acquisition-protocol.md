@@ -117,7 +117,11 @@ prints the outstanding queue, most local first.
 
 A record may also carry `attestedBy`, `attestedAt` and `attestedAgainstSha256`. All three are
 optional, and all three are the owner's to write; an agent never records a sign-off on the owner's
-behalf.
+behalf. The owner writes them with `npm run clinical:review -- --kind source` (one at a time with
+`--walk`, or a whole review pack with `--pack` then `--write --batch`), which sets
+`validationStatus` to `locally_reviewed` and computes the digest. Signing a source does not adopt
+it: `disposition` stays as it is until a separate adoption decision. Sources with Aboriginal,
+Torres Strait Islander or other Indigenous content are never offered (owner rule 2026-09-26).
 
 `attestedAgainstSha256` is a digest of everything in the record except the attestation fields, so
 it pins exactly what was signed off. Compute it with `acquisitionAttestedContentSha256` from

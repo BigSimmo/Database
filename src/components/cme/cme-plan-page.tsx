@@ -257,8 +257,8 @@ export function CmePlanPage({
                 <span className={cn("min-w-0 text-sm", row.goal ? "text-[color:var(--text)]" : textMuted)}>
                   {row.goal ? row.goal.goal : "Not linked to a goal"}
                 </span>
-                <span className="nums shrink-0 text-sm font-semibold text-[color:var(--text)]">
-                  {row.hours} h · {row.entryCount}
+                <span className="nums shrink-0 text-sm font-normal text-[color:var(--text)]">
+                  {`${row.hours} h`} · {row.entryCount}
                   <span className="sr-only"> {row.entryCount === 1 ? "activity" : "activities"}</span>
                 </span>
               </li>

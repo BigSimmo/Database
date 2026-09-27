@@ -30,10 +30,10 @@ const cmeEntryRouteParamsSchema = z.object({ id: z.string().uuid() });
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
-    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CME entry id.");
+    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CPD entry id.");
 
     if (isDemoMode()) {
-      return publicErrorResponse("CME entries cannot be edited in demo mode.", 400, {
+      return publicErrorResponse("CPD entries cannot be edited in demo mode.", 400, {
         code: "demo_mode_unavailable",
       });
     }
@@ -50,7 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     // Accepted bodies (plus `{ "archived": boolean }`, handled below):
@@ -61,7 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     try {
       rawBody = await request.json();
     } catch {
-      return publicErrorResponse("Invalid CME entry.", 400);
+      return publicErrorResponse("Invalid CPD entry.", 400);
     }
     const markTranscribed =
       rawBody !== null &&
@@ -87,7 +87,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (rawBody !== null && typeof rawBody === "object" && !Array.isArray(rawBody) && "amendmentReason" in rawBody) {
       const amendment = cmeEntryAmendSchema.safeParse(rawBody);
       if (!amendment.success) {
-        return publicErrorResponse("Invalid CME amendment. A reason of 3 to 1000 characters is required.", 400);
+        return publicErrorResponse("Invalid CPD amendment. A reason of 3 to 1000 characters is required.", 400);
       }
       const { amendmentReason, ...fields } = amendment.data;
       await assertValidCmeLinkedIds(supabase, user.id, {
@@ -118,7 +118,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const parsed = cmeEntryUpdateSchema.safeParse(rawBody);
-    if (!parsed.success) return publicErrorResponse("Invalid CME entry.", 400);
+    if (!parsed.success) return publicErrorResponse("Invalid CPD entry.", 400);
     const body = parsed.data;
 
     // `transcribed` is not part of a full replace — read it off the existing row and carry
@@ -130,7 +130,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .eq("owner_id", user.id)
       .maybeSingle();
     if (existingError) throw new Error(existingError.message);
-    if (!existingRow) return publicErrorResponse("CME entry not found.", 404, { code: "cme_entry_not_found" });
+    if (!existingRow) return publicErrorResponse("CPD entry not found.", 404, { code: "cme_entry_not_found" });
 
     const targetYear = Number(body.date.slice(0, 4));
     const yearRow = await fetchOwnerCmeYear(supabase, user.id, targetYear);
@@ -177,10 +177,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
-    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CME entry id.");
+    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CPD entry id.");
 
     if (isDemoMode()) {
-      return publicErrorResponse("CME entries cannot be deleted in demo mode.", 400, {
+      return publicErrorResponse("CPD entries cannot be deleted in demo mode.", 400, {
         code: "demo_mode_unavailable",
       });
     }
@@ -197,7 +197,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     // Retain records and evidence; the legacy DELETE endpoint now archives reversibly.

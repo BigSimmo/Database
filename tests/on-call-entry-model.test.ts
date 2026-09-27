@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ON_CALL_RECURRENCE_FREQUENCIES,
   ON_CALL_REVIEW_INTERVAL_MONTHS,
+  isOnCallHttpUrl,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
 } from "@/lib/on-call/entry-model";
@@ -148,5 +149,36 @@ describe("a date we cannot read", () => {
       },
     ];
     expect(selectCardEntries(entries, new Date("2026-09-04T00:00:00.000Z"))).toEqual([]);
+  });
+});
+
+/**
+ * Every stored URL is drawn as a link, so a `javascript:` value is script that
+ * runs on a tap. `z.string().url()` alone accepts it.
+ */
+describe("link fields accept http and https only", () => {
+  const cases = [
+    ["education", { recordingUrl: "" }, "recordingUrl"],
+    ["referrals", { referralFormUrl: "" }, "referralFormUrl"],
+    ["logistics", { category: "Facilities", url: "" }, "url"],
+    ["logistics", { category: "Registration", kind: "compliance", evidenceUrl: "" }, "evidenceUrl"],
+  ] as const;
+
+  it.each(cases)("%s rejects a javascript: %s", (section, base, key) => {
+    for (const bad of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<script>alert(1)</script>"]) {
+      expect(onCallDetailsSchemaFor(section).safeParse({ ...base, [key]: bad }).success, bad).toBe(false);
+    }
+  });
+
+  it.each(cases)("%s still accepts an https %s", (section, base, key) => {
+    expect(onCallDetailsSchemaFor(section).safeParse({ ...base, [key]: "https://example.org/x" }).success).toBe(true);
+    expect(onCallDetailsSchemaFor(section).safeParse({ ...base, [key]: "http://example.org/x" }).success).toBe(true);
+  });
+
+  it("isOnCallHttpUrl refuses anything that is not an http(s) URL", () => {
+    expect(isOnCallHttpUrl("https://example.org")).toBe(true);
+    expect(isOnCallHttpUrl("javascript:alert(1)")).toBe(false);
+    expect(isOnCallHttpUrl("not a url")).toBe(false);
+    expect(isOnCallHttpUrl(undefined)).toBe(false);
   });
 });

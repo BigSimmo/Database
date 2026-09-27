@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Safe orphan worktree pruning and reporting tool for the Database repository.
+ * Safe orphan worktree pruning and reporting tool for the PsychSift repository.
  *
  * Task: #6GW95D - Safe orphan worktree pruning and reporting tool.
  *

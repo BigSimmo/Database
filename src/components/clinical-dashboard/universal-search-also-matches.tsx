@@ -10,7 +10,7 @@ import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/u
 import { groupIsWorthShowing, useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { focusRing } from "@/components/card-recipes";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { catalogueDegradedNotice, withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
+import { catalogueDegradedNotice, withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-degraded-notice";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";

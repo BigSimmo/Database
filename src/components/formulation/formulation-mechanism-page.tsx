@@ -303,7 +303,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
                   {/* The citations the 2026-09-16 patch set attached to this
                       record's definition and candidate process, rendered where
                       the claim is rather than as Markdown inside a text field. */}
-                  <EvidenceList evidence={mechanism.evidence} label="Teaching" />
+                  <EvidenceList evidence={mechanism.evidence} label="Teaching" reviewed={reviewState.reviewed} />
                   <p className="mt-1 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
                     Teaching references only. Check current local guidance and clinical applicability.
                   </p>

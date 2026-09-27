@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f6555658-8199-432f-9cdf-da8d9562e531",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#W4E78P",
+    "detail": "UPDATE 2026-09-25 (PR #3021, offline): partial fix. js-yaml bumped to 4.3.2 in package-lock.json (dev-only advisory closed) and the Python worker's nltk pinned to 3.10.3 via pip-tools --upgrade-package. PYSEC-2026-3740 has no fixed release; the vulnerable code path is not reached by the worker (it does not call the affected function), so it is accepted until upstream ships a fix. Remaining: re-read the live Dependabot list after this merges and triage anything still open. PRIOR DETAIL: REVIEW 2026-09-25 (offline audit of current main; no provider access): npm audit needs the network, so not re-verified. Lockfiles changed since 2026-09-20 (sharp added c8e21b074; Python cloud lock regenerated dde0a3df4), so the 22 / 2 critical / 11 high counts may have moved; re-read the Dependabot list before triage. PRIOR DETAIL: Triage the Dependabot list and record, per advisory, whether it is reachable from the live site or confined to build/dev tooling. Why: 2 critical and 11 high are reported on the default branch and nobody has looked; npm audit alone does NOT see them — it found only one dev-only js-yaml advisory, so the earlier 'one low-priority issue' read was wrong. Dependabot also covers the Python worker, container images and Actions. Context: reported on every git push during the 2026-09-19 review. Owner: assistant to triage, user to approve any bump. Confidence: high — the counts come from GitHub's own push message. Depends on: nothing.",
+    "baseRowFingerprint": "b6ddf59f0af2f85b82574a1362afb367f4e1dbffcc4a23acbc66bfc8ba8f9897"
+  }
+}

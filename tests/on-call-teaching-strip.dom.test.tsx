@@ -94,6 +94,14 @@ describe("OnCallTeachingStrip", () => {
     ).toBeNull();
   });
 
+  it("never draws a recording link that is not http or https", () => {
+    const unsafe = { ...GRAND_ROUNDS, recordingUrl: "javascript:alert(1)" };
+    render(<OnCallTeachingStrip sessions={[unsafe]} />);
+    const card = screen.getByTestId("on-call-home-teaching-grand-rounds");
+    expect(within(card).queryByRole("link", { name: /recording/i })).toBeNull();
+    expect(card.innerHTML).not.toContain("javascript:");
+  });
+
   it("opens the Teaching page from the card itself", () => {
     render(<OnCallTeachingStrip sessions={[GRAND_ROUNDS]} />);
     const card = screen.getByTestId("on-call-home-teaching-grand-rounds");

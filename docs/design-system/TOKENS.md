@@ -169,7 +169,6 @@ they will diverge when the legacy notches retire. **Do not mix `text-sm` and
 | Density (`--spacing-tap`, `--tap-min`, `--spacing-compact-meta`, rows, cells) | Utilities from `@theme`; `--tap-min` as alias; compact-meta only on metadata/disclosure | Setting the pair independently; reducing any 48px **primary**; `--row-compact`/`min-h-9` as tap; `min-h-11` |
 | Space/type/radius                                                             | Semantic tokens in markup                                                               | Raw scale values or literals in components; `--measure` on non-prose                                        |
 | Quantity/spine/status-mark                                                    | Their named components only                                                             | Reuse as generic decoration                                                                                 |
-| Ward-scoped (`--ward-*`, `--net-*`, `--co-*`)                                 | Inside `src/components/ward-management/**`                                              | Any use outside that directory; adding a name without a §9 row                                              |
 | Mode identity (`--mode-identity*`)                                            | A mode's OWN chrome — its switcher pill, its in-page bar — via `data-mode-identity`     | Page content; clinical state; a semantic hue; a mode without a §7.1 row                                     |
 
 ### 7.1 · Mode identity — the owner decision, 2026-09-13
@@ -212,33 +211,8 @@ Rules, all enforced by `tests/design-token-contract.test.ts`:
 
 ## 9 · Component-scoped families the contract does not govern
 
-One family exists outside the layers above. It is recorded here because an unregistered
-token family is indistinguishable from drift, and §8 forbids a token without a usage rule —
-so leaving it undocumented made the rule unenforceable rather than satisfied.
-
-| Family                          | Where declared                                                                                                                               | Names | Rule                                                                                    |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------- |
-| `--ward-*`, `--net-*`, `--co-*` | `ward-management.module.css`, `ward-management-modes.module.css`, `ward-management-network.module.css`, `coordinator/coordinator.module.css` | 89    | Scoped to `src/components/ward-management/**`. No new name without a row in this table. |
-
-**What it is.** A private spacing, line-height and z-index vocabulary for the ward bed board,
-declared three times in near-duplicate across the four stylesheets. Colour is **not** part of
-it: every colour property in those files already aliases a real theme token
-(`--ward-blue: var(--clinical-accent)`), and the files carry zero hex literals.
-
-**Why it is a documented exception rather than a cleanup.** The ward surfaces are a dense
-clinical grid, and `--ward-space-*` is a 1px-granular scale — 8 of its 15 steps sit off the
-4px grid in §2. Mapping it onto `--gap-*`/`--pad-*` would reflow the bed board, which is a
-visual decision for the owner, not a token migration. Measured 2026-08-21: **307** spacing
-references in these files, **0** of them to the real semantic roles.
-
-**Known cost, accepted for now.** These names are invisible to the design-system contract
-(no lint rule inspects CSS-module custom-property declarations), so the family can grow
-without any gate noticing. The rule in §7 and this table are the only thing holding it.
-Two consequences already observed and fixed elsewhere: 44px tap targets survived the repo-wide
-44→48 sweep here because they were hand-rolled module heights, and `--ward-z-*` bypasses the
-named `--z-*` ladder entirely.
-
-**To retire it**, map the spacing scale onto `--gap-*`/`--pad-*`, route `--ward-z-*` onto local
-stacking contexts using the named rungs, and adopt `--leading-prose` (hero line-height where
-display type applies) in place of `--ward-leading-*`. Each is a visual change and wants its own
-review. Do not reintroduce per-step `--text-*-lh` orphans.
+None today. The one family this section recorded — `--ward-*`, `--net-*` and `--co-*`, the Ward
+Flow bed board's private spacing, line-height and z-index vocabulary — was retired with the Ward
+Flow prototype on 2026-09-26. A new component-scoped family needs a row here before it ships: an
+unregistered token family is indistinguishable from drift, and §8 forbids a token without a usage
+rule.

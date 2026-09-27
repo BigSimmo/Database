@@ -73,8 +73,8 @@ export type DictionarySourceDisposition = {
    * Kept apart from `establishedReviewDate` because an update is a third event.
    * A page can be updated without being reviewed — a data refresh, a broken link,
    * a typo — so recording one as the other would assert a check nobody performed.
-   * The register has no field for this event yet, which is why these records stay
-   * held even though the date is established.
+   * The register records it as `lastUpdatedDate` under the `last_updated` date
+   * model, never as a publication or review date.
    */
   establishedUpdateStatement?: string;
 };

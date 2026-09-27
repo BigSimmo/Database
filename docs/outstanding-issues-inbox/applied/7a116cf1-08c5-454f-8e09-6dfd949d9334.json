@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7a116cf1-08c5-454f-8e09-6dfd949d9334",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "probe-answer-timing.mjs silently does nothing on Windows",
+    "detail": "The script runs main() only when import.meta.url === `file://${process.argv[1]}`, which never matches on Windows (file:///D:/... vs D:\\...), so 'node scripts/probe-answer-timing.mjs --allow-provider' exits 0 with no output on the owner's PC. Found 2026-09-26; worked around by editing a temp copy. Fix: compare with pathToFileURL(process.argv[1]).href, and add a test.",
+    "source": "Owner-approved timing probe 2026-09-26",
+    "issueUlid": "01M3DV2WA17CJGY6NCFAPDF82A"
+  }
+}

@@ -65,7 +65,7 @@
 -- EXECUTION:
 -- Read-only. Every statement is a SELECT. Nothing writes, locks, or creates
 -- anything. Run in an approved operator window (Supabase SQL Editor or psql)
--- against project `Clinical KB Database` (sjrfecxgysukkwxsowpy).
+-- against project `PsychSift Production` (sjrfecxgysukkwxsowpy).
 --
 -- RUN IT IN THE SQL EDITOR, NOT FROM A CLIENT. Execute on
 -- match_document_chunks_text_v3 is revoked from public, anon, authenticated and

@@ -6,6 +6,7 @@ import canonicalPart05 from "@/lib/services-canonical-data/part-05";
 import canonicalPart06 from "@/lib/services-canonical-data/part-06";
 import canonicalPart07 from "@/lib/services-canonical-data/part-07";
 import canonicalPart08 from "@/lib/services-canonical-data/part-08";
+import canonicalPart09 from "@/lib/services-canonical-data/part-09";
 
 import type {
   CatalogService,
@@ -82,6 +83,7 @@ const canonicalRecords = [
   ...canonicalPart06,
   ...canonicalPart07,
   ...canonicalPart08,
+  ...canonicalPart09,
 ] as unknown as readonly CanonicalServiceInput[];
 
 const URL_PATTERN = /^https?:\/\/[^\s]+$/i;
@@ -326,7 +328,11 @@ function matchingCanonicalRecord(
   recordsByKey: ReadonlyMap<string, readonly CanonicalServiceInput[]>,
   usedIds: ReadonlySet<string>,
 ): CanonicalServiceInput | undefined {
-  const candidates = [...legacyKeys(legacy)].flatMap((key) => recordsByKey.get(key) ?? []);
+  // Exact name matches first: two legacy names can reduce to the same identity key (S211
+  // "Youth Hospital in the Home" and S212 "Youth Hospital in the Home (Youth-HITH)"), and
+  // which record claimed the shared key must not depend on the snapshot's array order.
+  const exactKeys = [slug(legacy.name), legacy.canonical_name_key].filter(Boolean);
+  const candidates = [...new Set([...exactKeys, ...legacyKeys(legacy)])].flatMap((key) => recordsByKey.get(key) ?? []);
   return candidates.find((record) => !usedIds.has(record.id));
 }
 

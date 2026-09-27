@@ -96,6 +96,7 @@ type TopicSeed = {
 };
 
 const ACCESSED_ON = "2026-08-18";
+const REPLACEMENT_ACCESSED_ON = "2026-09-26";
 const REVIEW = {
   status: "source-linked",
   checkedOn: ACCESSED_ON,
@@ -104,13 +105,63 @@ const REVIEW = {
 } as const;
 
 export const dictionarySources = [
+  // The eight assessment entries once cited WSLHD's "Getting Started in Psychiatry" handbook,
+  // which is no longer hosted anywhere. Each now cites the pages below, read 2026-09-26.
   {
-    id: "nsw-mse-handbook",
-    title: "Getting Started in Psychiatry",
-    organisation: "Western Sydney Local Health District",
-    url: "https://www.wslhd.health.nsw.gov.au/ArticleDocuments/2173/REG_HANDBOOK_Getting%20started%20in%20psychiatry_FINAL_VKumar.pdf.aspx",
+    id: "nsw-health-mh-documentation",
+    title: "Mental Health Clinical Documentation Guidelines (GL2014_002)",
+    organisation: "NSW Health",
+    url: "https://www1.health.nsw.gov.au/pds/ActivePDSDocuments/GL2014_002.pdf",
     region: "Australia",
-    accessedOn: ACCESSED_ON,
+    accessedOn: REPLACEMENT_ACCESSED_ON,
+  },
+  {
+    id: "rch-mental-state-examination",
+    title: "Clinical Practice Guidelines: Mental state examination",
+    organisation: "The Royal Children's Hospital Melbourne",
+    url: "https://www.rch.org.au/clinicalguide/guideline_index/mental_state_examination/",
+    region: "Australia",
+    accessedOn: REPLACEMENT_ACCESSED_ON,
+  },
+  {
+    id: "healthdirect-mmse",
+    title: "Mini-Mental State Examination (MMSE)",
+    organisation: "Healthdirect Australia",
+    url: "https://www.healthdirect.gov.au/mini-mental-state-examination-mmse",
+    region: "Australia",
+    accessedOn: REPLACEMENT_ACCESSED_ON,
+  },
+  {
+    id: "ranzcp-assessment",
+    title: "Assessment",
+    organisation: "Royal Australian and New Zealand College of Psychiatrists",
+    url: "https://www.ranzcp.org/education-library/medical-expert/assessment",
+    region: "Australia",
+    accessedOn: REPLACEMENT_ACCESSED_ON,
+  },
+  {
+    id: "aci-cognitive-screening",
+    title: "Undertake cognitive screening",
+    organisation: "NSW Agency for Clinical Innovation",
+    url: "https://aci.health.nsw.gov.au/chops/chops-key-principles/undertake-cognitive-screening",
+    region: "Australia",
+    accessedOn: REPLACEMENT_ACCESSED_ON,
+  },
+  {
+    id: "amhocn-nocc-measures",
+    title: "NOCC Measures",
+    organisation: "Australian Mental Health Outcomes and Classification Network",
+    url: "https://www.amhocn.org/nocc-collection/nocc-measures",
+    region: "Australia",
+    accessedOn: REPLACEMENT_ACCESSED_ON,
+  },
+  {
+    id: "columbia-scid",
+    title: "Structured Clinical Interview for DSM Disorders (SCID)",
+    organisation: "Columbia University Department of Psychiatry",
+    url: "https://www.columbiapsychiatry.org/research/research-areas/services-policy-and-law/structured-clinical-interview-dsm-disorders-scid",
+    region: "International",
+    accessedOn: REPLACEMENT_ACCESSED_ON,
   },
   {
     id: "nsw-mental-assessment",
@@ -217,7 +268,7 @@ const topicSeeds = [
     slug: "assessment-and-measurement",
     title: "Assessment and measurement",
     description: "Assessment concepts, interviews, screening and rating tools used across mental health care.",
-    sourceId: "nsw-mse-handbook",
+    sourceId: "nsw-health-mh-documentation",
     related: ["mental-state-examination-domains", "cognition-and-neuropsychiatry"],
     comparisons: [
       ["mental-state-examination", "mini-mental-state-examination"],
@@ -853,6 +904,21 @@ function purposeFor(kind: DictionaryEntryKind) {
   }[kind];
 }
 
+/**
+ * Entries whose own sources replace the topic's single source, because no one page supports
+ * every definition in the topic. Each was matched to the page's wording on 2026-09-26.
+ */
+const entrySourceIds: Readonly<Record<string, readonly string[]>> = {
+  "clinical-assessment": ["nsw-health-mh-documentation", "ranzcp-assessment"],
+  "mental-state-examination": ["rch-mental-state-examination", "nsw-health-mh-documentation"],
+  "mini-mental-state-examination": ["healthdirect-mmse"],
+  "psychiatric-history": ["ranzcp-assessment", "nsw-health-mh-documentation"],
+  "clinical-interview": ["ranzcp-assessment"],
+  "structured-clinical-interview": ["columbia-scid"],
+  "screening-instrument": ["aci-cognitive-screening", "healthdirect-mmse"],
+  "rating-scale": ["amhocn-nocc-measures", "nsw-health-mh-documentation"],
+};
+
 const topicEntrySlugs = new Map(
   topicSeeds.map((topic) => [topic.slug, topic.entries.map(([term]) => slugify(term))] as const),
 );
@@ -862,7 +928,7 @@ export const dictionaryEntries: readonly DictionaryEntry[] = topicSeeds.flatMap(
   return topic.entries.map(([term, definition, kind, aliases = []], index) => {
     const slug = slugify(term);
     const relatedSlugs = [1, 2, 3, 4].map((offset) => slugs[(index + offset) % slugs.length]);
-    const sourceIds = new Set<string>([topic.sourceId]);
+    const sourceIds = new Set<string>(entrySourceIds[slug] ?? [topic.sourceId]);
     if (["akathisia", "acute-dystonia", "drug-induced-parkinsonism", "tardive-dyskinesia"].includes(slug)) {
       sourceIds.add("australian-prescriber-movement");
     }
@@ -927,7 +993,8 @@ export const dictionaryComparisonPairs: readonly DictionaryComparisonPair[] = [
     slugs: ["mental-state-examination", "mini-mental-state-examination"],
     summary: "MSE describes current mental presentation; MMSE is a structured cognitive screening instrument.",
     sourceRefs: [
-      { sourceId: "nsw-mse-handbook", supports: ["comparison"] },
+      { sourceId: "rch-mental-state-examination", supports: ["comparison"] },
+      { sourceId: "healthdirect-mmse", supports: ["comparison"] },
       { sourceId: "nsw-mental-assessment", supports: ["comparison"] },
     ],
   },

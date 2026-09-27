@@ -164,10 +164,13 @@ function ServiceCard({
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+          {/* A fixed 150-character cut clipped short records mid-word at every
+              width ("Immedia…" on 13YARN, ledger #8RWKA0). Clamp by lines on a
+              phone instead and show the whole line where there is room. */}
+          <p className="mt-1 line-clamp-4 text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:line-clamp-none">
             {compactText(
               service.bestUse ?? service.subtitle,
-              150,
+              400,
               "Open the record to review service fit and referral details.",
             )}
           </p>
@@ -939,6 +942,17 @@ export function ServicesNavigatorPage() {
               below rather than here. */}
           {saveNotice ? (
             <p className="min-h-5 text-xs font-semibold text-[color:var(--text-muted)]">{saveNotice}</p>
+          ) : null}
+          {facetSelection.specialist_groups.has("aboriginal_torres_strait_islander") ? (
+            // With the Aboriginal and Torres Strait Islander pathway filter on, point to
+            // the First Nations mode's contacts page (liaison and community-controlled services).
+            <Link
+              href="/first-nations/contacts"
+              className="inline-flex min-h-12 items-center gap-1.5 self-start text-sm font-medium text-[color:var(--clinical-accent)] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              Open First Nations contacts
+              <ArrowRight className="size-icon-sm" aria-hidden="true" />
+            </Link>
           ) : null}
           <span role="status" aria-live="polite" className="sr-only">
             {saveNotice ?? ""}

@@ -535,8 +535,8 @@ live project need explicit operator approval.
    FK would destroy stage-log history and break the edge agent (see
    `docs/ingestion-state-machine.md` R24e). Allowlist entry removed. Still open:
    align the `rag_visual_eval_*` document FK definitions.
-9. **`invoke_ingestion_worker`** hardcodes the project URL — migrate to the
-   GUC pattern (`20260702160000` precedent).
+9. ~~**`invoke_ingestion_worker`** hardcodes the project URL~~ — closed: the
+   function was retired by `20260926041000`.
 10. **Migration-chain fidelity** (affects Supabase Preview/branches, not
     live): 13 keys where the chain diverges from schema.sql — buckets are only
     created by schema.sql, `documents`/`ingestion_jobs` updated*at trigger

@@ -48,7 +48,7 @@ export const CLINICAL_TWMERGE_THEME = {
   // globals.css @theme --text-* — size-only steps (no baked leading/tracking).
   // `3xs`/`2xs` already resolve as t-shirt sizes; listed so the scale reads
   // whole and stays correct if that heuristic ever narrows.
-  text: ["3xs", "2xs", "sm-minus", "base-minus", "lg-minus", "2xl-minus", "3xl-minus", "hero"],
+  text: ["3xs", "2xs", "sm-minus", "base-minus", "lg-minus", "2xl-minus", "3xl-minus", "hero", "display"],
 
   // globals.css @theme --leading-* — the two steps Tailwind's scale cannot
   // express. Tailwind still owns tight/snug/normal/relaxed.
@@ -111,7 +111,6 @@ export const CLINICAL_TWMERGE_THEME = {
     "specifier-map-jump",
     "specifier-map-step-number",
     "tap",
-    "ward-phone-bar",
   ],
 
   // globals.css @theme --ease-*.

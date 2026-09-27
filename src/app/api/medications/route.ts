@@ -20,7 +20,7 @@ import {
   type MedicationRecord,
   type MedicationSearchMatch,
 } from "@/lib/medications";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { publicCatalogueAccessContext } from "@/lib/public-api-access";
 import {
   catalogueListFallbackBudgetMs,
   catalogueListScope,
@@ -41,7 +41,8 @@ const medicationListQuerySchema = z.object({
   q: z
     .string()
     .trim()
-    .max(200)
+    // Matches the Answer/Documents search bound (api/search), so a pasted vignette searches instead of failing.
+    .max(2000)
     .optional()
     .transform((value) => (value ? value : undefined)),
   limit: queryInteger({ fallback: 50, min: 1, max: 100 }),
@@ -198,11 +199,11 @@ export async function GET(request: Request) {
       );
     }
 
-    // Anonymous callers still resolve access + rate limit: publicAccessContext skips the
+    // Anonymous callers still resolve access + rate limit: publicCatalogueAccessContext skips the
     // Supabase auth round-trip for requests with no session cookie/bearer, but every caller
     // (authenticated or not) must pass the registry limiter before we serve the full catalog.
     const supabase = createAdminClient();
-    const access = await publicAccessContext(request, supabase);
+    const access = await publicCatalogueAccessContext(request, supabase);
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,

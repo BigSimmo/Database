@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "45d29716-4741-44b6-b1a0-cba9d38ee54d",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#M3XZV0",
+    "outcome": "Documents filter sheet fixed in a42dfebc5 (PR B); calculators half fixed in PR A (claude/psychsift-screen-a-ui); pinned by tests/document-filter-panel.dom.test.tsx (document filter sheet focus return) and PR A's calculator focus tests.",
+    "baseRowFingerprint": "b56985683a83b9884c3970e2a26a8ab8a1ee27af1c0af00deecedaff9b40cc07"
+  }
+}

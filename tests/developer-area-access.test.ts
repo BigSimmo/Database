@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { issueDeveloperAccessToken } from "../src/lib/developer-area/link-access";
 
 // resolveDeveloperAccessState() is the real authorization decision behind the
-// Development hub and Caring Contact routes in production (src/proxy.ts and
+// Development hub and Care Plan routes in production (src/proxy.ts and
 // mockups/layout.tsx only decide which requests reach it). It must distinguish
 // three states — no session, a session that is not an administrator, and an
 // administrator session — because the middle case (someone else's ordinary

@@ -1,30 +1,43 @@
 import {
+  BedDouble,
+  Ban,
   BookOpenText,
+  Brain,
   BookMarked,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
   ClipboardList,
+  Feather,
   GitCompareArrows,
+  GraduationCap,
+  House,
   Landmark,
+  LayoutGrid,
   LibraryBig,
   ListChecks,
+  MessageCircle,
   Network,
   NotebookPen,
+  Phone,
+  Presentation,
   Repeat,
   Printer,
   Search,
+  Settings,
   Sparkles,
   Stethoscope,
   Scale,
   Target,
+  Users,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
 import {
-  ON_CALL_HOME_ICON,
+  ON_CALL_HUB_PAGE_ICONS,
   ON_CALL_SECTION_ICONS,
   ON_CALL_VIEW_ICONS,
 } from "@/components/on-call/on-call-section-identity";
@@ -70,10 +83,16 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   //
   // `extended` hides these below its top band; they still have to be right,
   // because the sheet and the wide bar both show them.
-  tonight: ON_CALL_HOME_ICON,
-  contacts: ON_CALL_SECTION_ICONS.contacts,
+  //
+  // The six shift pages read `ON_CALL_HUB_PAGE_ICONS`, the map their own pages
+  // use. Call and Refer are the successors of Contacts and Referrals, so they
+  // wear the same Phone and Repeat.
+  now: ON_CALL_HUB_PAGE_ICONS.now,
+  whoson: ON_CALL_HUB_PAGE_ICONS["whos-on"],
+  call: ON_CALL_HUB_PAGE_ICONS.call,
   playbook: ON_CALL_SECTION_ICONS.playbook,
-  referrals: ON_CALL_SECTION_ICONS.referrals,
+  refer: ON_CALL_HUB_PAGE_ICONS.refer,
+  find: ON_CALL_HUB_PAGE_ICONS.find,
   orientation: ON_CALL_SECTION_ICONS.orientation,
   // The registry id and the stored section id genuinely differ here, and this
   // is the only place the two vocabularies meet: the rail slot is `teaching`
@@ -98,11 +117,31 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   year: CalendarDays,
   log: NotebookPen,
   check: ClipboardCheck,
+  training: GraduationCap,
   calendar: CalendarRange,
   routines: Repeat,
   plan: Target,
+  learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
+  // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
+  // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
+  // gear, matched to nothing else in this rail so it cannot be mistaken for a
+  // section.
+  today: CalendarClock,
+  shifts: CalendarRange,
+  settings: Settings,
+  // First Nations. Prefixed ids, so On Call's "contacts" icon is not shared —
+  // each mode's rail slots wear their own mark even where the idea overlaps.
+  "first-nations-bedside": LayoutGrid,
+  "first-nations-contacts": Phone,
+  "first-nations-talking": MessageCircle,
+  "first-nations-family": Users,
+  "first-nations-mental-health": Brain,
+  "first-nations-on-the-ward": BedDouble,
+  "first-nations-mistakes": Ban,
+  "first-nations-going-home": House,
+  "first-nations-end-of-life": Feather,
 };
 
 /**

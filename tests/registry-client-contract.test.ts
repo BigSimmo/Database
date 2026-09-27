@@ -6,7 +6,7 @@ import { getServiceRecord, rankServiceRecords, serviceRecords } from "@/lib/serv
 
 /** Mirrors the demo/public-access "full" list payload built by
  *  GET /api/registry/records (publicRegistryPayload + registryListPayload)
- *  against the real generated 246-record service catalogue, so this test
+ *  against the real generated 252-record service catalogue, so this test
  *  fails if the client parser and the server's actual shape ever diverge. */
 function buildFullListPayload() {
   const governance = Object.fromEntries(
@@ -76,8 +76,8 @@ function buildRecordPayload(slug: string) {
 }
 
 describe("registry-client-contract", () => {
-  it("parses the real generated 246-record full-view service registry payload", () => {
-    expect(serviceRecords.length).toBe(246);
+  it("parses the real generated 252-record full-view service registry payload", () => {
+    expect(serviceRecords.length).toBe(252);
     const payload = buildFullListPayload();
     const parsed = parseRegistryListResponse(payload, "full");
     expect(parsed).not.toBeNull();
@@ -136,6 +136,56 @@ describe("registry-client-contract", () => {
 
   it("rejects a non-boolean degraded value rather than treating it as truthy", () => {
     expect(parseRegistryListResponse({ ...buildFullListPayload(), degraded: "yes" }, "full")).toBeNull();
+  });
+
+  it("projects away nested source fields the publication layer still allows", () => {
+    // Live render_payload rows can carry source.summary / title / version / lastUpdated
+    // (nestedPathKeys in site-content-publication). Before projection those keys made the
+    // whole list parse as null and Services/Forms painted "Could not load …".
+    const base = buildFullListPayload();
+    const dirty = {
+      ...base,
+      records: base.records.map((record, index) =>
+        index === 0
+          ? {
+              ...record,
+              source: {
+                ...(record.source ?? {}),
+                summary: "extra publication field",
+                title: "Source title",
+                version: "1",
+                lastUpdated: "2026-09-01",
+              },
+            }
+          : record,
+      ),
+    };
+    const parsed = parseRegistryListResponse(dirty, "full");
+    expect(parsed).not.toBeNull();
+    expect(parsed?.records[0]?.source).toBeTruthy();
+    expect(
+      parsed?.records[0]?.source &&
+        !("summary" in (parsed.records[0].source as Record<string, unknown>)) &&
+        !("title" in (parsed.records[0].source as Record<string, unknown>)) &&
+        !("version" in (parsed.records[0].source as Record<string, unknown>)) &&
+        !("lastUpdated" in (parsed.records[0].source as Record<string, unknown>)),
+    ).toBe(true);
+  });
+
+  it("accepts canonical live governance that includes review-date fields", () => {
+    // canonicalSiteContentGovernance always emits lastReviewedAt/reviewDueAt. Seeds do not.
+    // Rejecting the live shape is why a recovered catalogue blanked Services/Forms while the
+    // degraded seed path still looked healthy.
+    const payload = {
+      ...buildFullListPayload(),
+      governance: Object.fromEntries(
+        Object.entries(buildFullListPayload().governance).map(([slug, entry]) => [
+          slug,
+          { ...entry, lastReviewedAt: null, reviewDueAt: null },
+        ]),
+      ),
+    };
+    expect(parseRegistryListResponse(payload, "full")).not.toBeNull();
   });
 
   it("still rejects a list payload carrying a key the route never emits", () => {

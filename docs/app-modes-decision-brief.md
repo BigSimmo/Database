@@ -318,8 +318,7 @@ unaffordable; the census is the proof, because half the surfaces are visibly hal
 **The honest shape is already visible in the code.** Ten bare mode paths are redirect stubs
 already, and nothing broke. What remains is one search over your documents, plus a small number
 of things that were never search modes: the medication safety workspace (which already refuses to
-search), the prescribing interaction engine, the calculators, the Caring Contacts tool, the PDF
-viewer. Call those tools, put them behind one launcher, and delete the register. You lose fifteen
+search), the prescribing interaction engine, the calculators, the PDF viewer. Call those tools, put them behind one launcher, and delete the register. You lose fifteen
 labels and roughly 4,500 lines of tests about labels. You lose no clinical capability.
 
 **The strongest fact against this position.** The genuinely separate interaction models are real
@@ -385,7 +384,8 @@ and print pages. Sources becomes a tab inside Documents; it is the provenance le
 corpus and belongs nowhere else. Tools dies outright as a mode: 14 of its 16 entries link back to
 other modes, and its own route already suppresses its search box (`global-search-shell.tsx` line
 494 reads `pathname !== "/tools"`), so its entire search declaration is dead code. Its two real
-destinations — the safety plan and Caring Contacts — move to the sidebar as applications.
+destinations — the safety plan and Caring Contacts — move to the sidebar as applications. (Caring
+Contacts has since been retired, on 2026-09-26.)
 
 **The two I find genuinely hard.** Therapy Compass is instrument-shaped — constraint-based
 recommendation, printable briefs, a handout builder, 6,616 lines — and it fails only my second

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8dd9c480-8519-4d7e-b1c5-382f6255bf7b",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "No clinical hazard register entry covers services crisis routing",
+    "detail": "docs/clinical-hazard-analysis.md registers H1-H7 (numbers, stale sources, stripped caveats, misattribution, untrusted answers, adversarial content, MHA timeline); none covers the services navigator's crisis routing: a crisis, self-harm or suicidal query that fails to pin or show the right crisis line (000, CAMHS Crisis Connect, MHERL, 13YARN, 1800RESPECT, SARC, Alcohol and Drug Support Line, Rurallink, aftercare, postvention), or a record wrongly carrying a crisis chip (see the Fiona Stanley MBU issue). The controls exist in code (src/lib/service-urgent-routing.ts, tests/services-safety-routing.test.ts, tests/services-safety-regressions.test.ts) but are not traced to a hazard, severity or residual risk. NEXT: add a named hazard (e.g. H8 services crisis routing) with its controls, tests and residual risk (national lines not pinned for youth; availability-unverified records), and refresh the hazard snapshot per the register's own procedure.",
+    "source": "PR C review 2026-09-25",
+    "issueUlid": "01M3CT4CN4X1SPWBFCWRVBV7QJ"
+  }
+}

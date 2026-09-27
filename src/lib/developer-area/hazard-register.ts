@@ -23,7 +23,7 @@ export function reviewExpiredAtPerth(reviewExpiresAt: string | null, now = new D
 /**
  * The three states a hazard row can carry, plus the escape hatch.
  *
- * `string` is deliberately part of the union. The Caring Contacts log is a
+ * `string` is deliberately part of the union. A hazard log can be a
  * markdown document a human edits, so a status this code has never seen is a
  * change to that document, not an impossibility — and the generator passes it
  * through rather than coercing it to the nearest known band. The page renders
@@ -38,9 +38,9 @@ export type HazardRow = {
   status: HazardStatus;
   owner: string | null;
   residualRisk: string | null;
-  /** Caring Contacts rows only: the harm the row describes. */
+  /** Markdown-log rows only: the harm the row describes. */
   harm?: string;
-  /** Caring Contacts rows only: whether the row cites any control at all. */
+  /** Markdown-log rows only: whether the row cites any control at all. */
   hasControl?: boolean;
   /** PsychSift rows only: how many files and tests the register cites. */
   controlCount?: number;
@@ -70,6 +70,9 @@ export type HazardRegister = {
   openAssuranceDecisions: { id: string; owner: string | null; residualRisk: string | null }[];
 };
 
+/** A register retired with the prototype it covered: recorded so its absence is explained, never rendered as a register. */
+export type RetiredRegister = { name: string; retiredAt: string; status: string };
+
 export type HazardSnapshot = {
   version: string;
   generatedAt: string;
@@ -82,6 +85,7 @@ export type HazardSnapshot = {
     reviewExpired: number;
   };
   registers: HazardRegister[];
+  retired?: RetiredRegister[];
 };
 
 /**

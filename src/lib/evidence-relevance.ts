@@ -6,6 +6,7 @@ import {
 import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
 import { hasClinicalActionSignal, hasClinicalPopulationSignal } from "@/lib/rag/rag-clinical-language-signals";
 import { parseAnswerRequestContext } from "@/lib/answer-request-context";
+import { atomicNmhsClozapineRedRangeSegment } from "@/lib/rag/rag-source-segmentation";
 import type {
   DocumentMatch,
   EvidenceRelevance,
@@ -496,10 +497,53 @@ function hasStructuredThresholdComparisonInput(query: string, source: SearchResu
   });
 }
 
+const bloodStopBoundaryTerms = new Set([
+  "anc",
+  "fbc",
+  "wbc",
+  "wcc",
+  "absolute",
+  "neutrophil",
+  "full",
+  "blood",
+  "count",
+  "white",
+  "cell",
+  "threshold",
+  "withhold",
+  "withheld",
+  "stop",
+  "cease",
+]);
+
+function hasSourceBoundBloodStopBoundary(query: string, source: SearchResult) {
+  // Only an unqualified blood-count stop-boundary request can use this semantic
+  // match. Check ALL raw words, before queryCoreTerms truncation, so populations,
+  // negation and additional clinical constraints cannot disappear.
+  const words: string[] = query.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const scaffold = new Set(["what", "which", "is", "are", "the", "or", "and", "should", "clozapine"]);
+  if (
+    !words.includes("clozapine") ||
+    !words.some((word) => ["anc", "fbc", "wbc", "wcc", "neutrophil", "blood"].includes(word)) ||
+    !words.some((word) => ["withhold", "withheld", "stop", "cease"].includes(word)) ||
+    !words.every((word) => scaffold.has(word) || bloodStopBoundaryTerms.has(normalizeTerm(word)))
+  )
+    return false;
+  // Reuse the existing exact, single-source row binding. Captions, adjacent
+  // chunks, lexical overlap and other documents cannot supply its boundaries.
+  return Boolean(
+    atomicNmhsClozapineRedRangeSegment({
+      sourceLabel: `${source.title} ${source.file_name}`,
+      content: source.content,
+    }),
+  );
+}
+
 export function buildSourceRelevance(query: string, source: SearchResult): SourceEvidenceRelevance {
   const coreTerms = queryCoreTerms(query);
   const medicationTerms = coreTerms.filter((term) => namedMedicationTerms.has(term));
   const blocks = sourceTextBlocks(source);
+  const boundBloodStopBoundary = hasSourceBoundBloodStopBoundary(query, source);
   const titleMatchedTerms = coreTerms.filter(
     (term) =>
       !(term === "frequency" && monitoringFrequencyQuestion.test(query)) && textIncludesTerm(blocks.title, term),
@@ -507,7 +551,7 @@ export function buildSourceRelevance(query: string, source: SearchResult): Sourc
   const contentMatchedTerms = coreTerms.filter((term) =>
     term === "frequency" && monitoringFrequencyQuestion.test(query)
       ? requestedMonitoringCadence(query, source.content)
-      : textIncludesTerm(blocks.content, term),
+      : textIncludesTerm(blocks.content, term) || (boundBloodStopBoundary && bloodStopBoundaryTerms.has(term)),
   );
   const metadataMatchedTerms = coreTerms.filter(
     (term) =>

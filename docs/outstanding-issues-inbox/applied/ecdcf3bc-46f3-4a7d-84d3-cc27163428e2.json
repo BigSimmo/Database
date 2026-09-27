@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ecdcf3bc-46f3-4a7d-84d3-cc27163428e2",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#99N903",
+    "outcome": "Resolved 2026-09-25 by PR #3024 (ca68134b0): the unsourced 'Private script only in most states' phrase was deleted from the alprazolam record in data/medications-snapshot.json, test updated. Closed as stale in the 2026-09-25 ledger sweep.",
+    "baseRowFingerprint": "b83d094ae38cdf292d2ebdee5805f6edd13e1b9a897354c48ae5c82ed24f6334"
+  }
+}

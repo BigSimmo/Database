@@ -13,7 +13,11 @@
 // reference only, not automated clinical decision support. The runtime binding lives in
 // @/lib/specifiers-governance (usage mode, CDS=false, required option-level review
 // badges, and SpecifierSafetyNote copy). Source-verified counts are not clinical
-// attestations — clinicianReviewStatus remains pending until real review fields land.
+// attestations. Real clinician review fields now exist: `npm run clinical:review -- --kind
+// specifier` writes clinicianReviewStatus "clinician-reviewed" plus reviewedBy, reviewedAt and
+// reviewedContentSha256 into an entry's `review` object. Every surface decides "signed or
+// pending" through isSpecifierClinicianReviewed / specifierClinicianReviewLabel below, which
+// fail closed: an entry missing any of those fields still reads as pending.
 
 import specifiersContent from "../../data/specifiers-content.json";
 
@@ -42,7 +46,60 @@ export type SpecifierReview = {
   sourceVerificationStatus: SpecifierSourceStatus;
   clinicianReviewStatus: string;
   changedSinceReview: boolean;
+  /** Public name of the clinician who signed the entry off; absent until a sign-off. */
+  reviewedBy?: string | null;
+  /** UTC ISO timestamp of the sign-off; absent until a sign-off. */
+  reviewedAt?: string | null;
+  /** SHA-256 (64 hex) of the content the reviewer signed; absent until a sign-off. */
+  reviewedContentSha256?: string | null;
 };
+
+/** The only clinicianReviewStatus value that `npm run clinical:review -- --kind specifier` writes. */
+export const SPECIFIER_CLINICIAN_REVIEWED_STATUS = "clinician-reviewed";
+
+export const SPECIFIER_PENDING_CLINICIAN_REVIEW_LABEL = "Pending qualified review";
+
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+function parsedReviewDate(value: string | null | undefined): Date | null {
+  if (typeof value !== "string" || !ISO_TIMESTAMP.test(value)) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+type SpecifierReviewFields = Pick<SpecifierReview, "clinicianReviewStatus" | "reviewedBy" | "reviewedAt">;
+
+/**
+ * True only for a complete clinician sign-off: the reviewed status, a non-empty reviewer
+ * name and a parseable ISO timestamp. Anything less fails closed to pending, so a partial or
+ * hand-edited attestation can never make an entry read as reviewed.
+ */
+export function isSpecifierClinicianReviewed(review: SpecifierReviewFields): boolean {
+  return (
+    review.clinicianReviewStatus === SPECIFIER_CLINICIAN_REVIEWED_STATUS &&
+    typeof review.reviewedBy === "string" &&
+    review.reviewedBy.trim().length > 0 &&
+    parsedReviewDate(review.reviewedAt) !== null
+  );
+}
+
+const reviewDateFormat = new Intl.DateTimeFormat("en-AU", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Australia/Perth",
+});
+
+/**
+ * The one reader-facing statement of a specifier's clinician review state:
+ * "Definition reviewed by <name> on <D Month YYYY>" (Perth date) for a complete sign-off, otherwise
+ * "Pending qualified review".
+ */
+export function specifierClinicianReviewLabel(review: SpecifierReviewFields): string {
+  if (!isSpecifierClinicianReviewed(review)) return SPECIFIER_PENDING_CLINICIAN_REVIEW_LABEL;
+  const date = parsedReviewDate(review.reviewedAt)!;
+  return `Definition reviewed by ${review.reviewedBy!.trim()} on ${reviewDateFormat.format(date)}`;
+}
 
 export type SpecifierDefinition = {
   meaning: string;

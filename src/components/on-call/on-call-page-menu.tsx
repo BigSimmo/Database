@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
+import { BriefcaseMedical, Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
@@ -14,6 +14,7 @@ import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { ON_CALL_HOME_TAGS } from "@/lib/on-call/home-modules";
 import { type OnCallNotification } from "@/lib/on-call/notifications";
+import { type ReminderType } from "@/lib/reminders/settings";
 
 /**
  * The page menu's rows, without a trigger or a sheet of its own.
@@ -122,6 +123,19 @@ export function OnCallPageMenuActions({
       ) : null}
 
       <Link
+        href="/roster"
+        onClick={() => onNavigate?.()}
+        className={inPageActionRowClass}
+        data-testid="on-call-page-menu-shifts"
+      >
+        <BriefcaseMedical aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="grid gap-0.5">
+          <span>My shifts</span>
+          <span className={cn(textMuted, "text-xs font-normal")}>Your own roster. Only you can see it.</span>
+        </span>
+      </Link>
+
+      <Link
         href="/on-call/card"
         onClick={() => onNavigate?.()}
         className={inPageActionRowClass}
@@ -145,7 +159,7 @@ export function OnCallPageMenuActions({
       <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-privacy">
         <Lock aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="grid gap-0.5">
-          <span className="font-bold">Private entries are yours alone</span>
+          <span className="font-semibold">Private entries are yours alone</span>
           <span className={cn(textMuted, "text-xs")}>
             An entry marked private is visible only when you are signed in, never on the printed card, and never to
             anyone else.
@@ -156,9 +170,9 @@ export function OnCallPageMenuActions({
       <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-tags">
         <Tag aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="grid gap-0.5">
-          <span className="font-bold">What the home shows</span>
+          <span className="font-semibold">What the home shows</span>
           <span className={cn(textMuted, "text-xs")}>
-            {`Tag a contact "${ON_CALL_HOME_TAGS.callFirst}", "${ON_CALL_HOME_TAGS.switchboard}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home.`}
+            {`Tick "Call first on the home" on a contact to add it to Your usual. Tag a playbook scenario "${ON_CALL_HOME_TAGS.pinned}" to open it first in Who do I call now.`}
           </span>
         </span>
       </div>
@@ -192,6 +206,7 @@ export function OnCallPageMenu({
   staleCount = 0,
   summary,
   notifications,
+  onSnoozeNotifications,
 }: {
   /** The page this menu belongs to, or `"home"` for the dashboard. */
   view: OnCallPageView | "home";
@@ -229,6 +244,8 @@ export function OnCallPageMenu({
    * header. The caller already holds the list.
    */
   notifications?: readonly OnCallNotification[];
+  /** Snoozes one reminder type for a week; passed through to the notification list. */
+  onSnoozeNotifications?: (type: ReminderType) => void;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -249,12 +266,10 @@ export function OnCallPageMenu({
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          // The count is in the label, not only in the badge: a screen reader
-          // gets the number without having to reach a decorative dot.
+          // Something is waiting, said in words as well as by the dot, and never
+          // as a number (F15): the list, with its count, is inside the sheet.
           aria-label={
-            notificationCount > 0
-              ? `Open ${title} actions. ${notificationCount} ${notificationCount === 1 ? "item needs" : "items need"} attention.`
-              : `Open ${title} actions`
+            notificationCount > 0 ? `Open ${title} actions. Something needs attention.` : `Open ${title} actions`
           }
           data-testid="on-call-page-menu-trigger"
           className={cn(
@@ -268,14 +283,9 @@ export function OnCallPageMenu({
           {notificationCount > 0 ? (
             <span
               aria-hidden="true"
-              data-testid="on-call-page-menu-notification-count"
-              className={cn(
-                "absolute -right-0.5 -top-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1",
-                "bg-[color:var(--command)] text-3xs font-bold leading-4 text-[color:var(--command-contrast)]",
-              )}
-            >
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
+              data-testid="on-call-page-menu-notification-dot"
+              className="absolute right-1.5 top-1.5 size-2 rounded-full bg-[color:var(--clinical-accent)] ring-2 ring-[color:var(--surface)]"
+            />
           ) : null}
         </button>
       </UniversalHeaderTrailingPortal>
@@ -294,7 +304,11 @@ export function OnCallPageMenu({
             page is raising on its own rather than offering on request. */}
         {notifications ? (
           <div className="mb-4">
-            <OnCallNotificationsPanel notifications={notifications} onNavigate={() => setOpen(false)} />
+            <OnCallNotificationsPanel
+              notifications={notifications}
+              onNavigate={() => setOpen(false)}
+              onSnooze={onSnoozeNotifications}
+            />
           </div>
         ) : null}
 

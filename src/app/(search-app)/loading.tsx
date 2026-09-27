@@ -21,9 +21,10 @@ import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
  * permanent rather than transient.
  *
  * That is why this file must not sit at `src/app/`. From there it wrapped **every** route
- * in the application, including `/mockups/**`, and Ward Flow's browser suite could not
- * address a single element: 55 of the 57 test identifiers on the referral board and 65 of
- * 67 on the emergency-department board resolved to two nodes each. Scoped to this group,
+ * in the application, including `/mockups/**`, and the browser suite of the since-retired
+ * Ward Flow prototype could not address a single element: 55 of the 57 test identifiers on
+ * the referral board and 65 of 67 on the emergency-department board resolved to two nodes
+ * each. Scoped to this group,
  * the routes outside it render in one piece with no hidden container and nothing to
  * reveal.
  *

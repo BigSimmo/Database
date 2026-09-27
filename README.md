@@ -48,12 +48,12 @@ running it; it is not a prerequisite to documentation or other offline-only work
 npm run check:supabase-project
 ```
 
-The expected live project is `Clinical KB Database`:
+The expected live project is `PsychSift Production`:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
 SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy
-SUPABASE_PROJECT_NAME=Clinical KB Database
+SUPABASE_PROJECT_NAME=PsychSift Production
 ```
 
 Do not use the older unused Supabase project `Database`
@@ -62,7 +62,7 @@ demo mode if that stale ref appears in `.env.local`.
 
 5. Database bootstrap:
 
-- **Existing `Clinical KB Database` project:** this is the live project. Normal
+- **Existing `PsychSift Production` project:** this is the live project. Normal
   local development does not require a SQL editor bootstrap step. Current schema
   and migration status require the approved live checks; this README is not proof
   that a particular migration has been applied.
@@ -138,7 +138,7 @@ local credentials or enabling live provider access.
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never expose it in the browser.
 - `SUPABASE_PROJECT_REF` must stay `sjrfecxgysukkwxsowpy` for the live
-  `Clinical KB Database` project.
+  `PsychSift Production` project.
 - Documents and extracted images are stored in private Supabase buckets.
 - Initial assumptions are guideline/reference documents only, not patient
   identifiable records.
@@ -171,7 +171,7 @@ advisors, and docs lookup — not as a replacement for committed migrations.
 
 1. Open **Cursor Settings → Tools & MCP** and enable the `supabase` server.
 2. Complete the one-time OAuth flow in your browser. Choose the Supabase org that
-   owns **Clinical KB Database** (`sjrfecxgysukkwxsowpy`).
+   owns **PsychSift Production** (`sjrfecxgysukkwxsowpy`).
 3. Reload the window, then verify with a prompt such as: _"List tables using
    Supabase MCP."_
 4. Keep **manual tool-call approval** enabled. Review SQL and migration actions
@@ -181,7 +181,7 @@ advisors, and docs lookup — not as a replacement for committed migrations.
 
 Defaults in `.cursor/mcp.json`:
 
-- `project_ref=sjrfecxgysukkwxsowpy` — scoped to the live `Clinical KB Database` Supabase project
+- `project_ref=sjrfecxgysukkwxsowpy` — scoped to the live `PsychSift Production` Supabase project
   only
 - `read_only=true` — safer default for exploration and reviews
 
@@ -232,7 +232,7 @@ prompt such as: _"Call Figma whoami and report only handle and plan tier."_
 
 ## Documentation
 
-Process and freshness (Documentation agent): [`docs/DOCS-SYSTEM.md`](docs/DOCS-SYSTEM.md) — pipeline, doc classes, recheck triggers, PsychSift + Ward Flow registry.
+Process and freshness (Documentation agent): [`docs/DOCS-SYSTEM.md`](docs/DOCS-SYSTEM.md) — pipeline, doc classes, recheck triggers, PsychSift registry.
 
 Full categorized index: `docs/README.md` (maintained docs vs point-in-time
 records vs archive). The most load-bearing entries:

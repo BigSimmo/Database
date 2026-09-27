@@ -33,6 +33,7 @@ import { cn, floatingControl, primaryControl, toolbarButton } from "@/components
 import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
 import {
   buildDiscriminators,
+  curatedProvenanceFor,
   differentialStatusLabel,
   type DifferentialRelatedMapDetail,
 } from "@/lib/differential-detail";
@@ -1069,6 +1070,7 @@ export function DiagnosisMapPanel({
           selectedSlug={selected === "diagnosis" ? null : selected.id}
           selectedNode={selected === "diagnosis" ? null : selected}
           relatedMapDetails={relatedMapDetails}
+          provenanceLabel={curatedProvenanceFor(curated)}
           onSelect={(slug) => {
             const node = record.related.find((candidate) => candidate.id === slug);
             if (node) handleSelect(node);

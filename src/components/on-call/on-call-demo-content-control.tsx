@@ -331,7 +331,7 @@ export function OnCallDemoContentControl({ state }: { state: OnCallDemoContentSt
       {loading ? (
         <p className={cn("text-xs", textMuted)}>
           {total} example entries, every number an obvious placeholder. Most of them are shared rather than private, so
-          while they are loaded anyone who opens this site can read them. Removing them is one tap.
+          while they are loaded anyone signed in to this site can read them. Removing them is one tap.
         </p>
       ) : (
         <p className={cn("text-xs", textMuted)}>

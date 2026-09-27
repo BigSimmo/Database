@@ -1,6 +1,6 @@
 "use client";
 
-import { FlaskConical, ListChecks, Server, Stethoscope, BookOpen } from "lucide-react";
+import { BookOpen, CalendarCheck, FlaskConical, ListChecks, Server, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
@@ -14,6 +14,7 @@ import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-sectio
  * produces no dead jump.
  */
 export const developerHubNavSections: readonly PageSection[] = [
+  { id: "developer-hub-today", label: "Today", icon: CalendarCheck },
   { id: "developer-hub-environment", label: "Environment", icon: Server },
   { id: "developer-hub-work", label: "Work and decisions", icon: ListChecks },
   { id: "developer-hub-clinical", label: "Clinical trust", icon: Stethoscope },
@@ -28,13 +29,13 @@ export function DeveloperHubNavHeader({ actions }: { actions?: ReactNode }) {
   return (
     <InPageNavHeader
       back={{ href: "/", label: "Home" }}
-      title="Developer"
+      title="Owner panel"
       sections={sections}
       activeId={activeId}
       onSelectSection={selectSection}
       actions={actions}
-      actionsNoun="developer hub"
-      actionsDescription="Choose how to use this hub."
+      actionsNoun="owner panel"
+      actionsDescription="Choose how to use this panel."
       testIdPrefix="developer-hub"
     />
   );

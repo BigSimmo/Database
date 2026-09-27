@@ -14,7 +14,7 @@
 export const DEVELOPER_AREA_HEADER = "x-developer-area";
 
 /** The exact requested path+query, so a sign-in redirect can return the visitor
- *  to the specific page they asked for (e.g. a deep Caring Contact route), not
+ *  to the specific page they asked for (e.g. a deep Care Plan route), not
  *  just the area root. */
 export const DEVELOPER_AREA_PATH_HEADER = "x-developer-area-path";
 
@@ -23,12 +23,7 @@ export const DEVELOPER_AREA_PATH_HEADER = "x-developer-area-path";
  *  blanket production block, because `isDeveloperGatedPath` requires either an
  *  exact hit or a following `/`. Add a prefix here one subtree at a time; never
  *  widen this to `/mockups`. */
-export const DEVELOPER_GATED_PATH_PREFIXES = [
-  "/mockups/development",
-  "/mockups/caring-contacts",
-  "/mockups/care-plan",
-  "/mockups/ward-flow",
-] as const;
+export const DEVELOPER_GATED_PATH_PREFIXES = ["/mockups/development", "/mockups/care-plan"] as const;
 
 /**
  * Whether a pathname is inside one of the gated subtrees. Exact-or-slash, so a

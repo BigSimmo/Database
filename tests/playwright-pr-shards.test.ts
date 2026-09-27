@@ -95,9 +95,7 @@ describe("playwright PR UI shard groups", () => {
     expect(visualConfig).toMatch(/testMatch:\s*\/.*ui-visual-\(artifacts\|baseline\)/);
 
     const testMatch = testMatchFromConfig(config);
-    const projectPatterns = ["productionSpecPattern", "mockupSpecPattern", "seededSpecPattern"].map((name) =>
-      configPattern(config, name),
-    );
+    const projectPatterns = ["productionSpecPattern", "mockupSpecPattern"].map((name) => configPattern(config, name));
     const orphans: string[] = [];
     for (const file of readdirSync(path.resolve("tests")).filter((entry) => entry.endsWith(".spec.ts"))) {
       const spec = `tests/${file}`;

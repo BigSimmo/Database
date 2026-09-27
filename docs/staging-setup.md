@@ -27,7 +27,7 @@ those vars are unset.
 
 1. **Create the project.** Same org (`BigSimmo's Org`), region
    **ap-southeast-2 (Sydney)** — a _separate project_, not a branch of
-   production. Name it e.g. `Clinical KB Staging`. (Can be done via the
+   production. Name it e.g. `PsychSift Staging`. (Can be done via the
    Supabase MCP `create_project` after a `confirm_cost` step — a new project is
    ~$10/month — or from the dashboard.) Record the new project ref
    (`<staging-ref>`) and generate a DB password.
@@ -61,7 +61,7 @@ those vars are unset.
 ## B. Staging app host (compute tier)
 
 Host: **Railway**, same as production (see `docs/deployment-architecture.md` §2).
-Stand staging up as a **second environment** in the active `Database` Railway project,
+Stand staging up as a **second environment** in the active `PsychSift` Railway project,
 with one `app` service pinned to **Southeast Asia
 (`asia-southeast1-eqsg3a`, Singapore)** — the closest region to the staging
 Supabase project in Sydney. Do not create a worker for this release profile.
@@ -85,11 +85,11 @@ Reuse the app image; only the environment variables differ.
    | ------------------------------------------- | -------------------------- |
    | `SUPABASE_SERVICE_ROLE_KEY`                 | staging `sb_secret_…`      |
    | `SUPABASE_PROJECT_REF`                      | `<staging-ref>`            |
-   | `SUPABASE_PROJECT_NAME`                     | `Clinical KB Staging`      |
+   | `SUPABASE_PROJECT_NAME`                     | `PsychSift Staging`        |
    | `SUPABASE_STAGING_PROJECT_REF`              | `<staging-ref>`            |
-   | `SUPABASE_STAGING_PROJECT_NAME`             | `Clinical KB Staging`      |
+   | `SUPABASE_STAGING_PROJECT_NAME`             | `PsychSift Staging`        |
    | `NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF`  | `<staging-ref>`            |
-   | `NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME` | `Clinical KB Staging`      |
+   | `NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME` | `PsychSift Staging`        |
    | `RAG_QUERY_HASH_SECRET`                     | unique staging-only secret |
    | `RAG_PROVIDER_MODE`                         | `offline`                  |
 

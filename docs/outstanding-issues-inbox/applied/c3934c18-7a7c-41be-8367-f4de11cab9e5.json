@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c3934c18-7a7c-41be-8367-f4de11cab9e5",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Claude review workflow: the enableAllProjectMcpServers false setting is still overridden to true",
+    "detail": "Observed 2026-09-26 in job 108333544464 (run 36216555282, PR #3046): the workflow passes settings '{\"enableAllProjectMcpServers\": false}' but the action logs 'Updated settings with enableAllProjectMcpServers: true', the same as first recorded under #NNAWDT on 2026-09-20. Impact looks low, not proven: the reviewer's allowedTools list names no project MCP tool, and .mcp.json is restored from main rather than the PR head, but the project MCP servers may still be started on the runner. Next action: read how claude-code-action v1.0.223 merges the settings input, then either pass the setting in the form it honours or record why auto-load is harmless here; update the workflow header comment either way.",
+    "source": "GitHub Actions job 108333544464 log, read 2026-09-26 in session claude/review-assessment-4s1w86",
+    "issueUlid": "01M3DYQ73KV1NYQ0HW5B1MSKQ7"
+  }
+}

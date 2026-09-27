@@ -9,7 +9,7 @@ import { StatusMark } from "@/components/ui/status-mark";
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
 import {
   cleanDifferentialItem,
-  curatedProvenanceLabel,
+  curatedProvenanceFor,
   differentialGroupScopeNote,
   differentialSourceStatusLabel,
   differentialValidationStatusLabel,
@@ -128,7 +128,9 @@ export function DifferentialOverviewRail({
               ))}
             </ol>
             {doNowCurated ? (
-              <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceLabel}</p>
+              <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">
+                {curatedProvenanceFor(curated)}
+              </p>
             ) : null}
           </RailBlock>
         ) : null}

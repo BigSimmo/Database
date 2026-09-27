@@ -141,6 +141,27 @@ describe("PatientProfilePanel — physiological input validation", () => {
     expect(scr).not.toHaveAttribute("aria-invalid");
     expect(storedProfile().scr).toBe(0.3);
   });
+
+  // #HXC4D4(b): the creatinine range message was the only numeric one with no
+  // unit, so 1.02 (an ordinary mg/dL value) was refused with the µmol/L bound
+  // and nothing on screen said which unit that bound was in.
+  it("names the selected creatinine unit in its label and range message", () => {
+    renderPanel();
+    const scr = screen.getByTestId("patient-scr") as HTMLInputElement;
+    expect(screen.getByLabelText("Serum creatinine (µmol/L)")).toBe(scr);
+
+    fireEvent.change(scr, { target: { value: "1.02" } });
+    expect(scr).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent(/^Enter 15–3000 µmol\/L\.$/);
+
+    fireEvent.change(scr, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("radio", { name: "mg/dL" }));
+    const scrMgdl = screen.getByTestId("patient-scr") as HTMLInputElement;
+    expect(screen.getByLabelText("Serum creatinine (mg/dL)")).toBe(scrMgdl);
+
+    fireEvent.change(scrMgdl, { target: { value: "200" } });
+    expect(screen.getByRole("alert")).toHaveTextContent(/^Enter [0-9.]+–[0-9.]+ mg\/dL\.$/);
+  });
 });
 
 function renderTwoPanels() {

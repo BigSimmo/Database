@@ -368,9 +368,18 @@ function EvidenceLinkList({ sources }: { sources: CalculatorEvidenceSource[] }) 
 }
 
 /**
+ * The governance reference is named, not linked (owner decision 2026-09-25,
+ * #XSZ4XV): its target is a private engineering record a clinician cannot open,
+ * so a link would only lead to a sign-in wall.
+ */
+function GovernanceReferenceList({ sources }: { sources: CalculatorEvidenceSource[] }) {
+  return <>{sources.map((source) => source.title).join(", ")}</>;
+}
+
+/**
  * The internal governance record rides on every instrument's `sourceIds`, so it
  * would otherwise print beside a validation study as clinical evidence. It is
- * kept and linked, under its own label.
+ * kept, as plain text, under its own label.
  */
 function ActionEvidenceLines({ sourceIds }: { sourceIds: string[] }) {
   const { clinical, governance } = partitionEvidenceSources(sourceIds);
@@ -385,7 +394,7 @@ function ActionEvidenceLines({ sourceIds }: { sourceIds: string[] }) {
       ) : null}
       {governance.length ? (
         <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-          Governance reference: <EvidenceLinkList sources={governance} />
+          Governance reference: <GovernanceReferenceList sources={governance} />
         </span>
       ) : null}
     </>
@@ -493,7 +502,7 @@ export function ScorePanel({
         ) : null}
         {governanceSources.length ? (
           <p className="text-3xs font-semibold text-[color:var(--text-muted)]">
-            Governance reference: <EvidenceLinkList sources={governanceSources} />
+            Governance reference: <GovernanceReferenceList sources={governanceSources} />
           </p>
         ) : null}
       </div>

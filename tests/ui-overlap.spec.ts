@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import { clickWhenSettled } from "./playwright-settlement";
 
 /**
  * Element-overlap regression coverage.
@@ -16,7 +17,7 @@ const headerWidths = [640, 768, 1024, 1152, 1280, 1366, 1440, 1536] as const;
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -427,6 +428,115 @@ test.describe("Header element overlap coverage", () => {
     }
   });
 
+  // #ASVM8H (SPEC 9.4, "sticky elements do not cover focused content"). A browser phone
+  // scrolls the document, and a Tab press scrolls the focused control into view without
+  // knowing the fixed dock exists. The clearance comes from the `.phone-scroll-surface`
+  // focus rule in globals.css (scroll-margin-block-end = the live composer reserve), so
+  // this walks every result tab stop with real key presses and checks each one is on
+  // screen, above the visible dock, and is what a tap at its centre would actually hit.
+  test("phone Tab never leaves a focused result control under the compact dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoDashboard(page);
+    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          results: [],
+          visualEvidence: [],
+          relatedDocuments: [],
+          documentMatches: Array.from({ length: 5 }, (_, index) => ({
+            document_id: `1111111${index}-1111-4111-8111-111111111111`,
+            title: `Lithium monitoring guideline ${index + 1}`,
+            file_name: `lithium-monitoring-${index + 1}.pdf`,
+            labels: [],
+            summarySnippet: "Reviewed lithium monitoring guidance covering levels, renal and thyroid checks.",
+            bestPages: [1, 2],
+            bestChunkIds: [`chunk-lithium-${index}`],
+            imageCount: 0,
+            tableCount: 0,
+            matchReason: "Matched indexed passage",
+            score: 0.9 - index * 0.05,
+          })),
+          relevance: { verdict: "strong", score: 0.91, directSourceCount: 5, weakSourceCount: 0 },
+          smartPanel: {},
+          telemetry: { query_class: "lookup", retrieval_strategy: "text_fast_path" },
+          scope: { queryMode: "lookup" },
+          sourceGovernanceWarnings: [],
+          demoMode: true,
+        },
+      });
+    });
+
+    await page.goto("/documents/search?q=lithium", { waitUntil: "domcontentloaded" });
+    const input = page.locator('[data-testid="global-search-input"]:visible').first();
+    await expect(async () => {
+      await expect(page.locator("header#search")).toHaveCount(1);
+      await expect(input).toBeVisible();
+    }).toPass({ timeout: 30_000 });
+    // Submit from the dock so the search runs after setup status has settled.
+    await input.fill("lithium");
+    await input.press("Enter");
+    await expect(page.getByRole("link", { name: /Result 5:/ })).toBeVisible({ timeout: 30_000 });
+    await page.evaluate(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      window.scrollTo(0, 0);
+    });
+
+    const covered: string[] = [];
+    let resultStops = 0;
+    let scrolledStops = 0;
+    for (let press = 0; press < 80; press++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (!active || active === document.body) return { kind: "none" as const };
+        if (active.closest(".phone-footer-layer")) return { kind: "dock" as const };
+        if (!active.closest(".phone-scroll-surface")) {
+          return { kind: "chrome" as const };
+        }
+        const rect = active.getBoundingClientRect();
+        const dockForm = document.querySelector('form[role="search"][data-footer-variant="compact"]');
+        const dockLayer = (dockForm?.closest(".phone-footer-layer") ?? dockForm) as HTMLElement | null;
+        const dockRect = dockLayer?.getBoundingClientRect();
+        const dockStyle = dockLayer ? getComputedStyle(dockLayer) : null;
+        const dockShowing = Boolean(
+          dockRect &&
+          dockStyle &&
+          dockStyle.visibility !== "hidden" &&
+          Number(dockStyle.opacity) > 0 &&
+          dockRect.top < window.innerHeight - 1,
+        );
+        const floor = dockShowing ? dockRect!.top : window.innerHeight;
+        const centreX = Math.min(Math.max(rect.left + rect.width / 2, 0), window.innerWidth - 1);
+        const centreY = Math.min(Math.max(rect.top + rect.height / 2, 0), window.innerHeight - 1);
+        const hit = document.elementFromPoint(centreX, centreY);
+        return {
+          kind: "content" as const,
+          label: (active.getAttribute("aria-label") ?? active.innerText ?? "").trim().slice(0, 40),
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+          floor: Math.round(floor),
+          scrollY: Math.round(window.scrollY),
+          hitIsSelf: Boolean(hit && (hit === active || active.contains(hit))),
+        };
+      });
+      if (stop.kind === "dock") break;
+      if (stop.kind !== "content") continue;
+      resultStops += 1;
+      if (stop.scrollY > 0) scrolledStops += 1;
+      // 1px tolerance for subpixel layout.
+      if (stop.top < 0 || stop.bottom > stop.floor + 1 || !stop.hitIsSelf) {
+        covered.push(
+          `"${stop.label}" at [${stop.top}, ${stop.bottom}] vs dock line ${stop.floor} (scrollY ${stop.scrollY}, hit self: ${stop.hitIsSelf})`,
+        );
+      }
+    }
+
+    // The walk must reach tab stops that start below the dock line, or it proves nothing.
+    expect(resultStops, "Tab must walk the result list").toBeGreaterThanOrEqual(10);
+    expect(scrolledStops, "some result stops must need the page to scroll").toBeGreaterThan(0);
+    expect(covered, "no focused result control may sit under the dock or off screen").toEqual([]);
+  });
+
   test("phone home keeps one tappable example ticker without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
@@ -525,13 +635,73 @@ test.describe("Tablet usability regressions", () => {
 
     const rail = promptRow.locator(".answer-suggestion-chips");
     const before = await rail.evaluate((node) => node.scrollLeft);
-    await forward.click();
-    await expect
-      .poll(async () => rail.evaluate((node) => node.scrollLeft), {
-        message: "the control must actually move the rail",
-        timeout: 5_000,
-      })
-      .toBeGreaterThan(before);
+    // The composer mounts and measures its rail in the first second after load. A WebKit release
+    // run clicked the control while that was still happening and the rail never moved, so wait
+    // for the control to hold still before pressing it.
+    //
+    // Evidence on failure only — the assertion below is unchanged. This journey has failed
+    // on WebKit alone (scrollLeft stays 0) and cannot be reproduced in Chromium, so record what
+    // WebKit actually did: whether the click reached the product handler, what the scroll call
+    // asked for and got, and whether the rail read afterwards is still the node that was clicked.
+    await rail.evaluate((node) => {
+      const record: Record<string, unknown> = { scrollByCalls: [] as unknown[], clicks: [] as string[] };
+      (window as unknown as { __railEvidence: typeof record }).__railEvidence = record;
+      node.setAttribute("data-rail-evidence", "clicked-rail");
+      const nativeScrollBy = node.scrollBy.bind(node);
+      node.scrollBy = ((...args: Parameters<Element["scrollBy"]>) => {
+        const beforeCall = node.scrollLeft;
+        nativeScrollBy(...args);
+        (record.scrollByCalls as unknown[]).push({
+          args,
+          beforeCall,
+          afterCall: node.scrollLeft,
+          connected: node.isConnected,
+        });
+      }) as Element["scrollBy"];
+      document.addEventListener(
+        "click",
+        (event) => {
+          const target = event.target as Element | null;
+          (record.clicks as string[]).push(
+            `${target?.tagName ?? "?"} in ${target?.closest("[data-testid]")?.getAttribute("data-testid") ?? "?"}`,
+          );
+        },
+        { capture: true },
+      );
+    });
+    await clickWhenSettled(forward);
+    try {
+      await expect
+        .poll(async () => rail.evaluate((node) => node.scrollLeft), {
+          message: "the control must actually move the rail",
+          timeout: 5_000,
+        })
+        .toBeGreaterThan(before);
+    } catch (error) {
+      const evidence = await page.evaluate(() => {
+        const rails = [...document.querySelectorAll<HTMLElement>(".answer-suggestion-chips-scroll")];
+        return {
+          ...(window as unknown as { __railEvidence?: Record<string, unknown> }).__railEvidence,
+          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+          activeElement: document.activeElement?.tagName,
+          rails: rails.map((rail) => {
+            const style = getComputedStyle(rail);
+            return {
+              clickedRail: rail.getAttribute("data-rail-evidence") === "clicked-rail",
+              visible: rail.getClientRects().length > 0,
+              scrollLeft: rail.scrollLeft,
+              scrollWidth: rail.scrollWidth,
+              clientWidth: rail.clientWidth,
+              overflowX: style.overflowX,
+              scrollBehavior: style.scrollBehavior,
+            };
+          }),
+        };
+      });
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}\nrail evidence: ${JSON.stringify(evidence)}`,
+      );
+    }
     await expect(promptRow.getByTestId("answer-suggestion-scroll-back")).toBeVisible();
 
     // The contract the affordance had to be designed around: one row of chips,

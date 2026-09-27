@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "20255219-d493-4ef4-97f4-7cf6ff6867c8",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#6GR6B8",
+    "outcome": "Closed by owner ruling (Josh, 2026-09-25): the current tablet behaviour is intended; no code change.",
+    "baseRowFingerprint": "36ad95d0533d45edc18a3d80b026b5639dcd307d7e5ee74006e50ba0eacbba70"
+  }
+}

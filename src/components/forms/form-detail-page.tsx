@@ -245,6 +245,40 @@ function confirmCheckParts(check: string): { cue?: string; body: string } {
 // overflow the fixed-width column, but the full code is exposed to assistive
 // tech via an sr-only label (the decorative head is aria-hidden) and to sighted
 // users via a tooltip — matching FormCodeBadge's pattern.
+type PathwayStepItem = { code: string; title: string; meta: string; isEmpty: boolean };
+
+// One list for the Before, Parallel and After steps. An empty step shows its
+// sentence only: rendering the short label and the sentence together read as
+// "No parallel formNo parallel form is listed for this step" (audit VUX-38).
+function PathwayStepList({ items, className }: { items: readonly PathwayStepItem[]; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+        className,
+      )}
+    >
+      {items.map((item) => (
+        <div
+          key={`${item.code}-${item.title}`}
+          className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+        >
+          <PathwayStepCode code={item.code} />
+          {item.isEmpty ? (
+            <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
+          ) : (
+            <p className="text-xs font-medium leading-5 text-[color:var(--text-heading)]">
+              <span className="font-semibold">{item.meta}</span>
+              {" — "}
+              <span className={textMuted}>{item.title}</span>
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PathwayStepCode({ code }: { code: string }) {
   const { head, qualifier } = splitFormCode(code);
   const fullCode = qualifier ? `${head} ${qualifier}` : head;
@@ -364,26 +398,7 @@ function PathwayContextCard({
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
             <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Before</p>
-            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-              {beforeForms.map((item) => (
-                <div
-                  key={`${item.code}-${item.title}`}
-                  className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
-                >
-                  <PathwayStepCode code={item.code} />
-                  <p
-                    className={cn(
-                      "text-xs font-medium leading-5",
-                      item.isEmpty ? textMuted : "text-[color:var(--text-heading)]",
-                    )}
-                  >
-                    <span className="font-semibold">{item.meta}</span>
-                    {item.isEmpty ? "" : " — "}
-                    {item.isEmpty ? item.title : <span className={textMuted}>{item.title}</span>}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <PathwayStepList className="mt-2" items={beforeForms} />
           </div>
           <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
             <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
@@ -400,50 +415,12 @@ function PathwayContextCard({
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
             <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Parallel</p>
-            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-              {parallelForms.map((item) => (
-                <div
-                  key={`${item.code}-${item.title}`}
-                  className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
-                >
-                  <PathwayStepCode code={item.code} />
-                  <p
-                    className={cn(
-                      "text-xs font-medium leading-5",
-                      item.isEmpty ? textMuted : "text-[color:var(--text-heading)]",
-                    )}
-                  >
-                    <span className="font-semibold">{item.meta}</span>
-                    {item.isEmpty ? "" : " — "}
-                    {item.isEmpty ? item.title : <span className={textMuted}>{item.title}</span>}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <PathwayStepList className="mt-2" items={parallelForms} />
           </div>
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
             <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">After</p>
-            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-              {afterForms.map((item) => (
-                <div
-                  key={`${item.code}-${item.title}`}
-                  className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
-                >
-                  <PathwayStepCode code={item.code} />
-                  <p
-                    className={cn(
-                      "text-xs font-medium leading-5",
-                      item.isEmpty ? textMuted : "text-[color:var(--text-heading)]",
-                    )}
-                  >
-                    <span className="font-semibold">{item.meta}</span>
-                    {item.isEmpty ? "" : " — "}
-                    {item.isEmpty ? item.title : <span className={textMuted}>{item.title}</span>}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <PathwayStepList className="mt-2" items={afterForms} />
           </div>
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
@@ -826,7 +803,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)] xl:items-start">
                 <FormCodeBadge code={code} variant="hero" />
                 <div className="min-w-0">
-                  <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
+                  <h1 className="max-w-4xl text-2xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
                   </h1>
                   <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">

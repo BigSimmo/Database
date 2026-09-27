@@ -63,6 +63,16 @@ describe("shared Therapy ranker", () => {
     expect(rankTherapyCandidates(records, "CBT")[0]?.record.name).toBe("Cognitive behavioural therapy");
   });
 
+  it("does not let a possessive apostrophe match the whole catalogue", () => {
+    // "Tourette's" used to split into "tourette" + "s", and the one-letter token matched all 205 records.
+    const possessive = searchTherapyRecords("Tourette's");
+    expect(possessive.length).toBeGreaterThan(0);
+    expect(possessive.length).toBeLessThan(therapyRecords.length);
+    expect(possessive.map((match) => match.record.slug)).toEqual(
+      searchTherapyRecords("Tourette").map((match) => match.record.slug),
+    );
+  });
+
   // The inverse of this used to hold: production filtered every unreviewed record
   // out, which emptied discovery and 404'd all 205 routes. Review status is now a
   // disclosure, not a reachability gate, so an unreviewed record must resolve.

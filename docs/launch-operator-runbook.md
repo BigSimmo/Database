@@ -41,7 +41,7 @@ Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** =
 node -v                              # must report >= 24.15.0 < 25 (Node 24 engine floor)
 npm -v                               # must report >= 11.0.0 < 12 (npm 11)
 npm run check:runtime                # validates Node 24 and npm 11 engines
-npm run check:supabase-project       # must report Clinical KB Database / sjrfecxgysukkwxsowpy
+npm run check:supabase-project       # must report PsychSift Production / sjrfecxgysukkwxsowpy
 npx supabase migration list --linked
 npm run reindex:health               # note jobs_pending / jobs_processing (needed for step 1 R17)
 ```
@@ -104,7 +104,7 @@ Record outcomes in release notes / [process-hardening.md](process-hardening.md).
 
 Detailed: [staging-setup.md](staging-setup.md). No code change — the identity guard activates on env.
 
-1. **⏸ PAUSE** create Supabase project `Clinical KB Staging`, same org, **ap-southeast-2**, generate DB
+1. **⏸ PAUSE** create Supabase project `PsychSift Staging`, same org, **ap-southeast-2**, generate DB
    password (Supabase MCP `create_project` after `confirm_cost`, or dashboard). Record `<staging-ref>`.
 2. `supabase link --project-ref <staging-ref>` → `supabase db push` → `npm run check:indexing`.
 3. Seed synthetic (~50 docs, **never** production clinical docs):
@@ -128,8 +128,8 @@ Detailed: [staging-setup.md](staging-setup.md). No code change — the identity 
 2. **⏸ PAUSE** deploy that candidate image in the tenancy profile. Set staging-only
    secrets, but omit `OPENAI_API_KEY` and set `RAG_PROVIDER_MODE=offline`:
    `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF=<staging-ref>`,
-   `SUPABASE_PROJECT_NAME=Clinical KB Staging`, `SUPABASE_STAGING_PROJECT_REF=<staging-ref>`,
-   `SUPABASE_STAGING_PROJECT_NAME=Clinical KB Staging`, `RAG_QUERY_HASH_SECRET` (staging),
+   `SUPABASE_PROJECT_NAME=PsychSift Staging`, `SUPABASE_STAGING_PROJECT_REF=<staging-ref>`,
+   `SUPABASE_STAGING_PROJECT_NAME=PsychSift Staging`, `RAG_QUERY_HASH_SECRET` (staging),
    `RAG_PROVIDER_MODE=offline`. Keep one warm instance. Confirm `GET /api/health`
    reports `deploymentCommitSha=<candidate-sha>`, then dispatch the SHA-bound
    tenancy workflow from a Git ref that resolves to that same `<candidate-sha>`

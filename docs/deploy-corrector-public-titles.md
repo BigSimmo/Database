@@ -3,7 +3,7 @@
 Covers the ordered corrector migrations
 `supabase/migrations/20260717120000_corrector_public_titles_only.sql` and
 `supabase/migrations/20260717171000_public_title_corrector.sql` for the live
-**Clinical KB Database** project (`sjrfecxgysukkwxsowpy`).
+**PsychSift Production** project (`sjrfecxgysukkwxsowpy`).
 
 **What it does:** scopes `public.correct_clinical_query_terms` (the clinical query-term
 corrector) so its spell-correction vocabulary is built only from the **public
@@ -83,7 +83,7 @@ records the blocker; it does not itself authorize or implement the database clea
 - The repo cloned locally, Node 24.x / npm 11.x.
 - Your **production** secrets in `.env.local` (the same ones the live app uses):
   `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy`,
-  `SUPABASE_PROJECT_NAME=Clinical KB Database`, `SUPABASE_SERVICE_ROLE_KEY`.
+  `SUPABASE_PROJECT_NAME=PsychSift Production`, `SUPABASE_SERVICE_ROLE_KEY`.
 - Supabase CLI access: a login token (`npx supabase login`) and the project's
   **database password** (Supabase dashboard → Project Settings → Database).
 - No dedicated install needed — `npx supabase …` fetches the CLI on first use.
@@ -114,7 +114,7 @@ npx supabase link --project-ref sjrfecxgysukkwxsowpy      # may prompt for the D
 ### 3. 🛑 Safety gate — confirm you're on production, and see what's pending
 
 ```bash
-npm run check:supabase-project        # must print: Clinical KB Database / sjrfecxgysukkwxsowpy
+npm run check:supabase-project        # must print: PsychSift Production / sjrfecxgysukkwxsowpy
 npx supabase migration list --linked  # review every local/remote row and its order
 ```
 
@@ -164,12 +164,12 @@ Supabase credentials** (login token + DB password). If it doesn't, its read-only
 in step 1 will fail — then use Option A instead.
 
 Keep Codex's **"ask before running commands" / approval** setting ON. Start a task on
-`BigSimmo/Database` and paste:
+`BigSimmo/PsychSift` and paste:
 
 > Deploy the already-merged corrector migrations
 > `supabase/migrations/20260717120000_corrector_public_titles_only.sql` and
 > `supabase/migrations/20260717171000_public_title_corrector.sql`
-> to the **live production** Supabase project **Clinical KB Database** (ref
+> to the **live production** Supabase project **PsychSift Production** (ref
 > `sjrfecxgysukkwxsowpy`), using the repo's linked-migration workflow. This is a
 > production clinical database — treat every step as confirmation-required and **pause
 > for my explicit approval before applying anything**.
@@ -197,7 +197,7 @@ Keep Codex's **"ask before running commands" / approval** setting ON. Start a ta
 
 Your two decision points:
 
-- After steps 1–4: reply **"go"** only if the project is `Clinical KB Database /
+- After steps 1–4: reply **"go"** only if the project is `PsychSift Production /
 sjrfecxgysukkwxsowpy` and every pending migration, in order, is expected and
   authorized, including the forward title-word cleanup. Otherwise stop and review the
   output.

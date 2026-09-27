@@ -39,7 +39,7 @@ export function HandbookResourceCatalogue({ query = "" }: { readonly query?: str
   return (
     <section aria-labelledby="official-resources-heading" className="grid gap-4" data-testid="handbook-resources">
       <div>
-        <h2 id="official-resources-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="official-resources-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           Official WA starting points
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -53,7 +53,7 @@ export function HandbookResourceCatalogue({ query = "" }: { readonly query?: str
         if (resources.length === 0) return null;
         return (
           <section key={group} aria-labelledby={`handbook-${group}-heading`} className="grid gap-2">
-            <h3 id={`handbook-${group}-heading`} className="text-sm font-bold text-[color:var(--text-heading)]">
+            <h3 id={`handbook-${group}-heading`} className="text-sm font-semibold text-[color:var(--text-heading)]">
               {handbookResourceGroupLabels[group]}
             </h3>
             <div className="grid gap-3 lg:grid-cols-2">
@@ -61,7 +61,7 @@ export function HandbookResourceCatalogue({ query = "" }: { readonly query?: str
                 <article key={resource.id} className={cn(cardSurface, "min-w-0 p-4")}>
                   <div className="grid gap-2">
                     <div>
-                      <h4 className="break-words text-sm font-bold text-[color:var(--text-heading)]">
+                      <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">
                         {resource.title}
                       </h4>
                       <p className={cn(textMuted, "mt-0.5 text-xs")}>{resource.jurisdiction}</p>

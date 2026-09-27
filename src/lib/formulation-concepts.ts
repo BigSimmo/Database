@@ -44,6 +44,10 @@ export type FormulationRecordReview = {
   status: string;
   reviewer: string | null;
   preparedAt: string;
+  /** Written with `reviewer` by `npm run clinical:review`; absent until then. */
+  reviewedAt?: string | null;
+  /** The content pin: see scripts/lib/clinical-record-review-contract.mjs. */
+  reviewedContentSha256?: string | null;
 };
 
 /** `held` records stay out of every clinician-facing surface until the named

@@ -5,9 +5,14 @@ import { formSlug as catalogueFormSlug } from "@/lib/form-catalog";
 import { formPageHref } from "@/lib/form-register";
 import { formStaticParams } from "@/lib/forms";
 import { assertNoDraftIsPublished, dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
-import { dictionaryDefinitionReviews } from "@/lib/dictionary-editorial/definition-reviews";
+import {
+  dictionaryDefinitionReviews,
+  isDefinitionReviewClinicallyApproved,
+} from "@/lib/dictionary-editorial/definition-reviews";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
-import { loadSpecifiersContent } from "@/lib/specifiers-content";
+import { isSpecifierClinicianReviewed, loadSpecifiersContent } from "@/lib/specifiers-content";
+import { formulationConcepts, formulationGuides } from "@/lib/formulation-concepts";
+import { conceptReviewState } from "@/lib/formulation-review-status";
 
 /**
  * The failure this file exists to prevent is a silent zero.
@@ -25,7 +30,9 @@ import { loadSpecifiersContent } from "@/lib/specifiers-content";
  */
 const EXPECTED: Record<SignOffFamilyId, number> = {
   "wa-mha-forms": 54,
-  formulation: 12,
+  // 12 mechanisms + 46 contextual concepts + 6 guide modules. The queue used to
+  // read the mechanisms only, which hid 52 unsigned records (ledger #33JDBW).
+  formulation: 64,
   // 201 exported diagnosis records + 31 presentation workflows, all of which
   // derive `validation_status: unverified` from the same snapshot governance
   // block. The prior hand count of "201" covered the diagnoses only.
@@ -38,14 +45,18 @@ const EXPECTED: Record<SignOffFamilyId, number> = {
   // unlinked.
   specifiers: 603,
   therapy: 205,
-  // 90 records carry disposition `candidate`; 88 of those are still
-  // `validationStatus: unverified` and so appear in acquisitionReviewQueue().
+  // 99 unverified candidate records appear in acquisitionReviewQueue().
+  // 2026-09-26: was 94. PR #3067 admitted five dictionary sources on their
+  // publishers' own "last updated" stamps; none is signed off.
+  // 2026-09-26: was 88. PR #3067 recorded six new unverified candidates from
+  // owner-approved publisher page reads;
+  // none is signed off.
   // 2026-09-25: was 75. The WA forms/medicines/cultural-notes branch added 13
   // new unsigned candidates (the Mental Health Act 2014 record, seven Chief
   // Psychiatrist standards, the clozapine guideline, two Language Services
   // documents, ScriptCheckWA and the Monitored Medicines Prescribing Code);
   // its five new rejected records are excluded from the queue by design.
-  sources: 88,
+  sources: 99,
 };
 
 describe("clinical sign-off queue", () => {
@@ -84,6 +95,22 @@ describe("clinical sign-off queue", () => {
     expect(queue.total).toBe(Object.values(EXPECTED).reduce((sum, count) => sum + count, 0));
   });
 
+  it("lists every unsigned Formulation concept and guide module, not only the mechanisms", () => {
+    // Ledger #33JDBW: the concepts and guides live in a second file the queue
+    // never opened, and they carry their status under `review.status`, not
+    // `reviewStatus`. The guide modules instruct rather than describe, so they are
+    // the part of the family a clinician most needs to see here.
+    const formulation = queue.families.find((family) => family.id === "formulation")!;
+    for (const record of [...formulationConcepts, ...formulationGuides]) {
+      if (conceptReviewState(record).reviewed) continue;
+      const row = formulation.rows.find((candidate) => candidate.id === record.id);
+      expect(row, `${record.id} is missing from the formulation family`).toBeDefined();
+      expect(row!.nativeStatus).toBe(record.review.status);
+      expect(row!.href).toBe(record.release === "published" ? `/formulation/${record.id}` : null);
+    }
+    expect(new Set(formulation.rows.map((row) => row.key)).size).toBe(formulation.rows.length);
+  });
+
   it("reuses the source acquisition ledger's own queue rather than re-deriving the filter", () => {
     const sources = queue.families.find((family) => family.id === "sources")!;
     expect(sources.rows.map((row) => row.id)).toEqual(acquisitionReviewQueue().map((record) => record.id));
@@ -98,11 +125,15 @@ describe("clinical sign-off queue", () => {
         `${draft.id} is missing`,
       ).toBe(true);
     }
+    // A definition review leaves the queue only once `npm run clinical:review` has
+    // written a complete clinicalApproval onto it; every other review stays listed.
     for (const review of dictionaryDefinitionReviews) {
       expect(
         dictionary.rows.some((row) => row.id === review.id),
-        `${review.id} is missing`,
-      ).toBe(true);
+        isDefinitionReviewClinicallyApproved(review)
+          ? `${review.id} is signed but still listed`
+          : `${review.id} is missing`,
+      ).toBe(!isDefinitionReviewClinicallyApproved(review));
     }
   });
 
@@ -141,8 +172,12 @@ describe("clinical sign-off queue", () => {
     const specifiers = queue.families.find((family) => family.id === "specifiers")!;
     const universals = specifiers.rows.filter((row) => row.key.startsWith("specifier-universal:"));
 
-    expect(universals.length).toBe(content.universalSpecifiers.length);
-    expect(universals.length).toBe(content.stats.universalSpecifiers);
+    // A universal leaves the queue only once it carries a complete clinician sign-off.
+    const unsignedUniversals = content.universalSpecifiers.filter(
+      (specifier) => !isSpecifierClinicianReviewed(specifier.review),
+    );
+    expect(content.universalSpecifiers.length).toBe(content.stats.universalSpecifiers);
+    expect(universals.map((row) => row.id)).toEqual(unsignedUniversals.map((specifier) => specifier.review.rowKey));
     expect(specifiers.rows.length).toBe(content.stats.itemsPendingClinicianReview + universals.length);
     // Unlinked on purpose: publicSpecifierRecords() is curated records plus
     // specifierCatalogItems(), and a universal is in neither, so /specifiers/<slug>

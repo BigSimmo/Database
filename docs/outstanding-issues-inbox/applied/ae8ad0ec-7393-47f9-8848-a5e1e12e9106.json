@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ae8ad0ec-7393-47f9-8848-a5e1e12e9106",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#358YM0",
+    "outcome": "Fixed in 8a028a7bf and 9a3182828 (demo-mode fixture favourites and preset sets carry an 'Example' label, and 'Example favourites shown in demo mode' is shown, on the /favourites library, the dashboard Favourites hub and the command-surface dropdown, where a fixture reads Example instead of Saved; a clinician's own saved favourites are never labelled; production never shows fixtures); pinned by tests/favourites-demo-examples.dom.test.tsx and tests/favourites-auth-gate.dom.test.tsx.",
+    "baseRowFingerprint": "2fdbda5fa4e21f10582357589c30dd305af697de65c0783fbca847e992ecb803"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7981e1ea-d7d2-47c3-8562-4af376ee32f8",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Source-conflict and jurisdiction behaviour has no deliberate tests; owner to confirm the tier rule (audit F16)",
+    "detail": "OWNER DECISION 2026-09-25: confirmed the existing tier order (WA validated > Australian national > other Australian state > supplementary, within a relevance band) and asked for two additions: a superseded source is never used as evidence, and a clinically material WA-vs-national disagreement is disclosed with both sources shown. Found 2026-09-25: outdated sources are currently KEPT and shown with a danger-severity OUTDATED warning (src/lib/source-governance.ts), and authority conflict in source-authority-registry.ts means publisher-metadata mismatch, not clinical disagreement. Both additions change retrieval/answer behaviour: flag before editing and run a live canary pair (owner approval, about USD 1-2) around the change. A rule already exists: src/lib/australian-source-priority.ts ranks wa_validated < australian_national < australian_state < supplementary WITHIN a relevance band, and tracks authorityConflictCount. Only 3 eval cases touch conflict/superseded sources. Owner recommendation (2026-09-25): confirm that order, add (a) superseded versions never used as evidence and (b) disclose both sources when WA and national disagree on something clinically material. Next action: owner confirms the rule, then add conflict/currentness/attribution cases. Ranking is RAG-protected: flag before editing and require a canary pair for any ordering change.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CJ78QHBFCTST7YFDZZHKE3"
+  }
+}

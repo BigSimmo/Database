@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4b9bb7c6-cb2b-4304-bf75-98890f31719e",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#WY625D",
+    "detail": "RECHECKED 2026-09-25: no dates added. The cloud session's network egress refuses every publisher host (wa.gov.au, mhc.wa.gov.au, aihw.gov.au, ruah.org.au, youthfocus.com.au, passages.org.au, healthdirect.gov.au and others all returned connect_rejected on 2026-09-25), and the sources skill forbids taking a publisher, date or contact detail from anywhere but the publisher's own page, so this cannot be done from a cloud session. TO UNBLOCK: run it from an unrestricted network, for example a Remote Control session on the owner's PC, or have the owner approve each page fetch. Never infer a date from a search summary. PRIOR DETAIL: REVIEW 2026-09-25 (offline audit of current main; no provider access): Dispositions now show 40 held and 18 admitted (row said 41 held). The 'publisher registered, date still required' blocker applies to 12 sources, not 17. The AIHW premise is stale: PR #2819 (8cdadc445) read the AIHW pages; AIHW-OAT-2026 is admitted, and AOD, NASS and SUICIDE are held because the publisher gives only an update stamp or undated page, not because of a 403. The count of 21 needing a date is correct. PRIOR DETAIL: After the 2026-09-16 register work, 41 of the 58 dictionary-handover sources remain held and the binding constraint is now a date rather than governance. None of the 41 carries a publication or review date in the handover. Seventeen have a publisher that is now registered and need only a date read from the publisher's own page. Four AIHW pages (alcohol and other drug treatment glossary, suicide and self-harm monitoring glossary, ambulance attendances, opioid agonist therapy in the prisons report) returned HTTP 403 to automated fetch; AIHW is registered and ledger-eligible, so a release date is the only thing missing for all four. A WA Health PDF and the national recovery framework also need a browser read. Per-source blockers and next actions are in src/data/dictionary-source-dispositions.json.",
+    "baseRowFingerprint": "68d955473017b2021774165e70aa2e6143c48fd9cbef4e43ba7733084a84abc8"
+  }
+}

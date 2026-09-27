@@ -168,12 +168,12 @@ describe("the example-content control", () => {
 
   it("says that loading publishes, before it loads", async () => {
     // The shared read selects `is_personal = false` across every account, so
-    // most of these rows become readable by anyone who opens the site. That
+    // most of these rows become readable by anyone signed in to the site. That
     // consequence is the reason this sentence exists, and a silent button
     // would be the defect.
     mockFetch(0);
     render(<Harness signedOut={false} demoMode={false} />);
-    expect(await screen.findByText(/anyone who opens this site can read them/i)).toBeVisible();
+    expect(await screen.findByText(/anyone signed in to this site can read them/i)).toBeVisible();
     expect(screen.getByText(/Removing them is one tap/i)).toBeVisible();
     expect(screen.getByText(new RegExp(`${ON_CALL_DEMO_ENTRY_COUNT} example entries`))).toBeVisible();
   });

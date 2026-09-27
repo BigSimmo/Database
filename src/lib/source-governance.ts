@@ -6,6 +6,8 @@ import type {
   SourceGovernanceCode,
   SourceGovernanceUiToken,
 } from "@/lib/types";
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
+import { documentCautionFor } from "@/lib/document-cautions";
 import { SOURCE_GOVERNANCE_CODES } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
@@ -33,6 +35,9 @@ export const GOVERNANCE_SEVERITY_MATRIX: Record<SourceGovernanceCode, SourceGove
     [SOURCE_GOVERNANCE_CODES.NON_LOCAL]: "info",
     [SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD]: "info",
     [SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE]: "dynamic",
+    // "warning", not "danger": a danger warning refuses the whole answer, and one known error in
+    // one document must not suppress everything else that document and its neighbours support.
+    [SOURCE_GOVERNANCE_CODES.DOCUMENT_CAUTION]: "warning",
   } as const;
 
 export const GOVERNANCE_UI_TOKEN_MATRIX: Record<SourceGovernanceCode, SourceGovernanceUiToken | "dynamic"> = {
@@ -46,6 +51,7 @@ export const GOVERNANCE_UI_TOKEN_MATRIX: Record<SourceGovernanceCode, SourceGove
   [SOURCE_GOVERNANCE_CODES.NON_LOCAL]: "neutral",
   [SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD]: "muted",
   [SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE]: "dynamic",
+  [SOURCE_GOVERNANCE_CODES.DOCUMENT_CAUTION]: "destructive",
 } as const;
 
 export const sourceGovernanceRefusalAnswer =
@@ -59,6 +65,11 @@ export const sourceGovernanceRefusalAnswer =
 export const OUTDATED_SOURCE_WARNING_MESSAGE = "One or more supporting sources are marked outdated.";
 export const POOR_EXTRACTION_WARNING_MESSAGE = "One or more supporting sources have poor extraction quality.";
 export const WEAK_EVIDENCE_DANGER_MESSAGE = "The retrieved evidence is completely unbacked by the source.";
+export const UNVERIFIED_SOURCE_WARNING_MESSAGE = "One or more supporting sources have not been locally validated.";
+// Same code, severity and visibility as the unverified caveat above, worded for what is actually
+// known: the issuing WA service endorsed the document, and nobody has reviewed it here (#JYH1FH).
+export const WA_ENDORSED_UNREVIEWED_SOURCE_WARNING_MESSAGE =
+  "One or more supporting sources are endorsed by the issuing WA service but have not been reviewed here.";
 
 const dangerSourceGovernanceMessages = new Set<string>([
   OUTDATED_SOURCE_WARNING_MESSAGE,
@@ -84,6 +95,8 @@ const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
   // review-due language already emitted in the render-policy copy text
   // (answer-render-policy.buildWarnings), which the badge list previously suppressed.
   SOURCE_GOVERNANCE_CODES.REVIEW_DUE,
+  // A known error in the cited document itself (src/lib/document-cautions.ts).
+  SOURCE_GOVERNANCE_CODES.DOCUMENT_CAUTION,
 ]);
 
 function isLocalMetadataText(value: string) {
@@ -135,6 +148,19 @@ export function sourceGovernanceWarnings(args: {
     const title = result.title;
     const document_id = result.document_id;
 
+    const caution = documentCautionFor(result);
+    if (caution) {
+      pushUnique(warnings, {
+        code: SOURCE_GOVERNANCE_CODES.DOCUMENT_CAUTION,
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.DOCUMENT_CAUTION
+        ] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.DOCUMENT_CAUTION] as SourceGovernanceUiToken,
+        message: caution.message,
+        document_id,
+        title,
+      });
+    }
     if (source.document_status === "outdated") {
       pushUnique(warnings, {
         code: SOURCE_GOVERNANCE_CODES.OUTDATED,
@@ -168,7 +194,9 @@ export function sourceGovernanceWarnings(args: {
         code: SOURCE_GOVERNANCE_CODES.UNVERIFIED,
         severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.UNVERIFIED] as SourceGovernanceWarning["severity"],
         uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.UNVERIFIED] as SourceGovernanceUiToken,
-        message: "One or more supporting sources have not been locally validated.",
+        message: hasWaDocumentControlEndorsement(source)
+          ? WA_ENDORSED_UNREVIEWED_SOURCE_WARNING_MESSAGE
+          : UNVERIFIED_SOURCE_WARNING_MESSAGE,
         document_id,
         title,
       });
@@ -265,7 +293,16 @@ function plural(count: number, singular: string, pluralValue = `${singular}s`) {
   return `${count} ${count === 1 ? singular : pluralValue}`;
 }
 
+function isWaEndorsedUnreviewedWarning(warning: SourceGovernanceWarning) {
+  return (
+    warning.code === SOURCE_GOVERNANCE_CODES.UNVERIFIED &&
+    warning.message === WA_ENDORSED_UNREVIEWED_SOURCE_WARNING_MESSAGE
+  );
+}
+
 function groupedMessage(warning: SourceGovernanceWarning, count: number) {
+  if (isWaEndorsedUnreviewedWarning(warning))
+    return `${plural(count, "source")} ${count === 1 ? "is" : "are"} endorsed by the issuing WA service but not reviewed here.`;
   if (warning.code === SOURCE_GOVERNANCE_CODES.OUTDATED) return `${plural(count, "source")} marked outdated.`;
   if (warning.code === SOURCE_GOVERNANCE_CODES.REVIEW_DUE) return `${plural(count, "source")} due for review.`;
   if (warning.code === SOURCE_GOVERNANCE_CODES.NON_LOCAL)
@@ -289,7 +326,8 @@ export function groupSourceGovernanceWarnings(warnings: SourceGovernanceWarning[
   const grouped = new Map<string, GroupedSourceGovernanceWarning>();
 
   for (const warning of warnings) {
-    const key = warning.code;
+    // WA-endorsed, unreviewed sources are counted apart from sources of unknown provenance.
+    const key = isWaEndorsedUnreviewedWarning(warning) ? `${warning.code}:wa_endorsed` : warning.code;
     const existing = grouped.get(key);
     if (existing) {
       existing.count += 1;
@@ -335,13 +373,20 @@ export function hasDangerSourceGovernanceWarning(warnings: SourceGovernanceWarni
 export function isClaimEvidenceGovernanceEligible(
   source: Pick<
     ClinicalSourceMetadata,
-    "source_kind" | "content_mode" | "clinical_validation_status" | "extraction_quality"
+    | "source_kind"
+    | "content_mode"
+    | "clinical_validation_status"
+    | "clinical_validation_evidence"
+    | "extraction_quality"
   >,
 ) {
   return (
     source.source_kind === "document" &&
     source.content_mode === "indexed_content" &&
-    (source.clinical_validation_status === "approved" || source.clinical_validation_status === "locally_reviewed") &&
+    (source.clinical_validation_status === "approved" ||
+      source.clinical_validation_status === "locally_reviewed" ||
+      // Keeps the claim eligibility the backfill's `locally_reviewed` stamp gave (#JYH1FH).
+      hasWaDocumentControlEndorsement(source)) &&
     source.extraction_quality === "good"
   );
 }

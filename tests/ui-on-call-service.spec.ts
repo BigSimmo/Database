@@ -1,4 +1,5 @@
 import { expect, test } from "playwright/test";
+import { clickWhenHydrated, expectHydrated } from "./playwright-settlement";
 
 test.describe("Invited handbook phone experience", () => {
   for (const width of [320, 390, 430, 1280]) {
@@ -31,11 +32,46 @@ test.describe("Invited handbook phone experience", () => {
     });
   }
 
+  test("editors import a spreadsheet as drafts and see what needs checking", async ({ page }) => {
+    // Demo mode signs the reader in as the synthetic service's admin, an editor.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/on-call/service");
+    const workspace = page.getByTestId("service-page").filter({ visible: true });
+    const tabs = workspace.getByRole("navigation", { name: "Service handbook sections" });
+    for (const name of ["Import", "Needs checking"]) {
+      const tab = tabs.getByRole("button", { name, exact: true });
+      await expect(tab).toBeVisible();
+      // WebKit can replace the streamed tab between visibility and geometry
+      // reads. Keep the tap-height requirement while waiting for the live tab.
+      await expect.poll(async () => (await tab.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(47.5);
+    }
+    await clickWhenHydrated(tabs.getByRole("button", { name: "Import", exact: true }));
+    await workspace.getByLabel("Choose a CSV file").setInputFiles({
+      name: "synthetic-numbers.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from("Team,Role,Phone\nMedicine,Synthetic registrar,9000 0042\nICU,Synthetic registrar,4456\n"),
+    });
+    const preview = workspace.getByTestId("service-import-preview");
+    await expect(preview.getByRole("table")).toBeVisible();
+    await expect(preview.getByText("Medicine: Synthetic registrar")).toBeVisible();
+    // Demo mode previews but saves nothing; the drafts-only rule is stated above the file input.
+    await expect(
+      workspace.getByText("Rows are saved as drafts. Nobody sees them until you publish below."),
+    ).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Demo mode saves nothing" })).toBeDisabled();
+    expect(await workspace.evaluate((el) => el.scrollWidth <= window.innerWidth)).toBe(true);
+    await clickWhenHydrated(tabs.getByRole("button", { name: "Needs checking", exact: true }));
+    await expect(workspace.getByRole("heading", { name: "What needs checking" })).toBeVisible();
+    await expect(workspace.getByRole("link", { name: "Check these" })).toHaveAttribute("href", "/on-call/check");
+  });
+
   test("finds the exact local extension and never offers a public dial action", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/on-call/service");
-    await page.getByRole("searchbox", { name: "Search service handbook" }).fill("coordination extension");
-    await page.getByRole("button", { name: "Open first result" }).click();
+    const handbookSearch = page.getByRole("searchbox", { name: "Search service handbook" });
+    await expectHydrated(handbookSearch);
+    await handbookSearch.fill("coordination extension");
+    await clickWhenHydrated(page.getByRole("button", { name: "Open first result" }));
     const entry = page.getByTestId("service-entry-61000000-0000-4000-8000-000000000001");
     await expect(entry).toBeFocused();
     await expect(entry.getByRole("button", { name: /Copy extension/ })).toBeVisible();

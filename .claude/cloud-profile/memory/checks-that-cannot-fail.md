@@ -38,5 +38,5 @@ look. Neither would have surfaced from re-reading the code.
 4. **Know which stream a hook's output must use** — see [[claude-hook-exec-bit-trap]] for the
    sibling trap in the same area.
 
-Related: [[ward-flow-verification-lessons]] — green tests that missed a wrong value on every
-screen. Same family: the test ran, the test passed, the test proved nothing.
+Related: the Ward Flow verification lessons (retired with that prototype on 2026-09-26) — green
+tests that missed a wrong value on every screen. Same family: the test ran, the test passed, the test proved nothing.

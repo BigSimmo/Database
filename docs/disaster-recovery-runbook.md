@@ -1,4 +1,4 @@
-# Disaster recovery runbook — Clinical KB Database
+# Disaster recovery runbook — PsychSift Production
 
 Last rehearsed: 2026-07-07 (schema restore rehearsal against a local Supabase
 Postgres container; the live project `sjrfecxgysukkwxsowpy` was read-only
@@ -110,15 +110,17 @@ it before you need it:
   in the bare image. schema.sql declares vector/pg_trgm/uuid-ossp plus pg_cron
   (matching migration 20260901033250); drift-manifest replay must succeed on the
   pinned bare image when that declaration is present.
-- **pg_cron schedules** — the invoked functions (`invoke_ingestion_worker`,
-  `invoke_indexing_v3_agent`) are codified, but the `cron.schedule(...)` rows
-  themselves are live-only. After restore, re-create the cron jobs.
+- **pg_cron schedules** — the invoked function (`invoke_indexing_v3_agent`) is
+  codified, but the `cron.schedule(...)` rows themselves are live-only. After
+  restore, re-create its cron job. `invoke_ingestion_worker` was retired by
+  `20260926041000`; do not re-create it or schedule it.
 - **Vault secrets** — `cron_ingestion_jwt` (and any siblings) must be re-added
-  before the cron→edge-function chain works.
+  before the cron→edge-function chain works (`invoke_indexing_v3_agent` sends it
+  as its login token).
 - **Custom GUCs** — `20260702160000` reads the agent URL from a database GUC;
   re-set it (`alter database ... set ...`) on the restored project.
-- **Edge functions** — deploy `indexing-v3-agent` (and the ingestion worker
-  function) separately via the CLI.
+- **Edge functions** — deploy `indexing-v3-agent` and `site-content-sync`
+  separately via the CLI.
 - **Dashboard config** — auth providers (magic link, Apple/Google/Microsoft SSO
   redirect URLs and the rotating Apple web OAuth secret), connection-pool caps (the documented 10-connection auth cap
   is dashboard-only), API keys (publishable + service role are per-project;
@@ -147,7 +149,7 @@ A schema restore is not operationally complete until all five environment-owned 
    - Re-set custom parameters (e.g. `app.indexing_agent_url`) via `ALTER DATABASE postgres SET ...`.
    - Sanity check: Run `SELECT name, setting, source FROM pg_settings WHERE name LIKE 'app.%';`.
 4. **Supabase Edge Functions:**
-   - Redeploy required functions (`indexing-v3-agent`, ingestion worker) with the Deno v2.x toolchain in an approved change window:
+   - Redeploy required functions (`indexing-v3-agent`, `site-content-sync`) with the Deno v2.x toolchain in an approved change window:
      ```bash
      supabase functions deploy indexing-v3-agent --project-ref <PROJECT_REF>
      ```

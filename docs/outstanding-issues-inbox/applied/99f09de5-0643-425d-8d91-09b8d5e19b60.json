@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "99f09de5-0643-425d-8d91-09b8d5e19b60",
+  "createdOn": "2026-09-26",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Repair the 1,935 'Locally reviewed' labels: owner confirmed 2026-09-26 they came from a bulk import, not a reviewer",
+    "detail": "Follows the pending #JYH1FH add request (1,935 documents display Locally reviewed with no recorded reviewer). OWNER ANSWER 2026-09-26: IMPORT, not a person. The badge overstates what happened, so the repair is to the records, not to any gate. NEXT ACTION: prepare a reviewed change that moves those documents' clinical_validation_status from locally_reviewed to unverified (or a new honest value such as imported_unreviewed), leaving any document with a recorded reviewer untouched. It changes live clinical data in Supabase, so it needs explicit owner approval and a dry-run count first (expect about 1,935 of 2,065); if shipped as a migration, merge is deploy. src/lib/answer-client-payload.ts treats locally_reviewed as an authority level beside approved, so check whether the change moves answer labels or ordering and flag RAG impact before touching it. When done, close this and #JYH1FH together.",
+    "source": "Owner answer in Claude Code session 2026-09-26 (session_018CR3YcCWjJk2fyzTNYmMi4)",
+    "issueUlid": "01M3E4CD2346VNY9RG38VWWGAG"
+  }
+}

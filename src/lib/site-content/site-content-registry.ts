@@ -14,7 +14,19 @@ export const SITE_CONTENT_REGISTRY_VERSION = "site-content-registry-v1" as const
 
 export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
-  modeId: Exclude<AppModeId, "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme">;
+  modeId: Exclude<
+    AppModeId,
+    | "answer"
+    | "documents"
+    | "favourites"
+    | "sources"
+    | "on-call"
+    | "cme"
+    | "psychiatry"
+    | "my-work"
+    | "roster"
+    | "first-nations"
+  >;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
   producerClass: SiteContentRecord["producerClass"];
@@ -283,6 +295,45 @@ export const siteContentModeExclusions = [
     // nothing and must never become a retrieval corpus.
     modeId: "cme",
     reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // Psychiatry is a landing page of links to other modes. It holds no
+    // content of its own, so there is nothing for it to publish.
+    modeId: "psychiatry",
+    reason: "operational_chrome",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // My Work is a landing page over the owner's own On Call records and
+    // settings. It publishes nothing: the records are private user state.
+    modeId: "my-work",
+    reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // Roster holds the owner's own shifts, imported or hand-added. It
+    // publishes nothing: the records are private user state, and Global
+    // Constraints forbid Roster data from ever reaching a provider.
+    modeId: "roster",
+    reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // First Nations' content lives in `data/first-nations/pages.json`, governed
+    // like every other clinical content file, not through this producer
+    // pipeline: it is operational chrome (crisis numbers, contacts, guidance
+    // pages), not a retrieval corpus.
+    modeId: "first-nations",
+    reason: "operational_chrome",
     permanent: true,
     reviewed: true,
     reviewOwner: "clinical_content_governance",

@@ -35,10 +35,12 @@ if (localGates.length === 0) {
 // field so a comment that merely mentions `run: npm run X` cannot masquerade as
 // an executed gate (which would let the drift check pass after the real step was
 // deleted). Trailing `# comment` on the step line is allowed. Steps in this repo
-// are single-command, so a single capture is sufficient.
+// are single-command, so a single capture is sufficient. Only two forwarded-argument shapes
+// are accepted, each named here: the coverage merge flags, and ESLint's worker count
+// (`npm run lint -- --concurrency=4`), which changes speed, never what is linted.
 const npmRunScript = (line) =>
   line.match(
-    /^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)(?:\s+--\s+--merge-reports=[\w./-]+(?:\s+--reporter=default)?)?\s*(?:#.*)?$/,
+    /^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)(?:\s+--\s+(?:--merge-reports=[\w./-]+(?:\s+--reporter=default)?|--concurrency=\d+))?\s*(?:#.*)?$/,
   )?.[1];
 
 // Extract the `run: npm run X` scripts inside a named top-level job (2-space key).

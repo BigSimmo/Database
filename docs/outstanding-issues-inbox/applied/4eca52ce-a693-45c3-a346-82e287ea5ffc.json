@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4eca52ce-a693-45c3-a346-82e287ea5ffc",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#XSZ4XV",
+    "detail": "PARTLY FIXED 2026-09-25: (1) the calculator governance reference now renders as plain text, not a link, per the owner decision (8465d2e97, search-detail.tsx; pinned by tests/calculators-clinical-safety.dom.test.tsx). The url in data/calculators/evidence.json is unchanged. (2) eval/docling/README.md and docs/worker-deploy-runbook.md now name the version pinned in eval/docling/requirements.txt instead of the stale docling==2.120.2 (7bd62e845; pinned by tests/docling-model-artifacts.test.ts); the Gate B decision record was left alone as history. STILL OPEN: (3) eval/docling/model-artifacts.json has treeDigest null, so the model pin only warns; one operator Docker build records it. Earlier history: PR #2920 (2026-09-19) landed vendored brand fonts, the Docling artifact-digest check and the real offline BrandMark; CACHE_VERSION was already done.",
+    "baseRowFingerprint": "abc22c449d9d270cc6beaf498215d8f5074a8e141e4ba3da7e15edb1b9a8023d"
+  }
+}

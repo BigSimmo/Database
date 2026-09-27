@@ -18,11 +18,11 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
+import { clickWhenSettled, expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -312,27 +312,32 @@ async function waitForReactEventHandler(locator: Locator, eventName: "onChange" 
 
 async function expectIdlePhoneHomeCentered(page: Page, homeTestId: string) {
   await expect(page.getByTestId(homeTestId)).toBeVisible();
-  const geometry = await page.evaluate((homeTestId) => {
-    const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
-      const rect = node.getBoundingClientRect();
-      const style = window.getComputedStyle(node);
-      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
-    });
-    const canvas = document.querySelector("[data-mode-home-canvas]");
-    const main = document.getElementById("main-content");
-    if (!home || !canvas || !main) return null;
-    const homeRect = home.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    return {
-      homeMidX: homeRect.left + homeRect.width / 2,
-      homeMidY: homeRect.top + homeRect.height / 2,
-      canvasMidX: canvasRect.left + canvasRect.width / 2,
-      canvasMidY: canvasRect.top + canvasRect.height / 2,
-      canvasHeight: canvasRect.height,
-      docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
-      mainOverflowY: main.scrollHeight - main.clientHeight,
-    };
-  }, homeTestId);
+  // Hydration/streaming can briefly swap the home, canvas or main node after the first
+  // visible paint; read the geometry once all three exist rather than on a single sample.
+  const readGeometry = () =>
+    page.evaluate((homeTestId) => {
+      const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
+        const rect = node.getBoundingClientRect();
+        const style = window.getComputedStyle(node);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      });
+      const canvas = document.querySelector("[data-mode-home-canvas]");
+      const main = document.getElementById("main-content");
+      if (!home || !canvas || !main) return null;
+      const homeRect = home.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        homeMidX: homeRect.left + homeRect.width / 2,
+        homeMidY: homeRect.top + homeRect.height / 2,
+        canvasMidX: canvasRect.left + canvasRect.width / 2,
+        canvasMidY: canvasRect.top + canvasRect.height / 2,
+        canvasHeight: canvasRect.height,
+        docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+        mainOverflowY: main.scrollHeight - main.clientHeight,
+      };
+    }, homeTestId);
+  await expect.poll(readGeometry, { message: "the idle home, canvas and main must all render" }).not.toBeNull();
+  const geometry = await readGeometry();
 
   expect(geometry).not.toBeNull();
   expect(geometry!.docOverflowY).toBeLessThanOrEqual(2);
@@ -544,7 +549,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 2, name: "PsychSift Search" })).toHaveCount(0);
     await categories.getByRole("radio", { name: /All tools/ }).click();
 
-    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+    // Below the fold at 1280x900: see clickWhenSettled for why this click must not scroll.
+    await clickWhenSettled(results.getByRole("button", { name: "View details for Medication Prescribing" }));
     await expect(results.getByRole("complementary", { name: "Medication Prescribing" })).toBeVisible();
     await expect(
       results.getByRole("complementary", { name: "Medication Prescribing" }).getByRole("link", {
@@ -691,10 +697,17 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       ["PsychSift Search", "/?mode=answer"],
     ] as const) {
       await expect(results.getByRole("link", { name: `Open ${title}` })).toHaveAttribute("href", href);
-      await results.getByRole("button", { name: `View details for ${title}` }).click();
+      // Most rows sit below the fold, and the header's scroll-hide moves them mid-click.
+      await clickWhenSettled(results.getByRole("button", { name: `View details for ${title}` }));
       const detail = results.getByRole("complementary", { name: title });
       await expect(detail.locator(`a[href="${href}"]`).first()).toBeVisible();
     }
+    // The desktop details panel is sticky: scrolling to the end of the list must leave it on
+    // screen. An overflow-x-hidden page wrapper once made the wrapper the sticky scroll
+    // container, so the panel scrolled away and opening details jumped the page to the top.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+    await expect(results.getByRole("complementary", { name: "PsychSift Search" })).toBeInViewport();
     // External companion-app launchers were removed; no localhost links should remain.
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
@@ -1376,7 +1389,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       {
         path: "/?mode=prescribing",
         testId: "shared-home-empty-state",
-        heading: "Medication Guidance",
+        heading: "Medication Reference",
         headingLevel: 2,
       },
       {
@@ -2089,7 +2102,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
           demoMode: true,
           checks: [
             { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-            { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test project ready." },
+            { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test project ready." },
             { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
             { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search ready." },
             { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -3005,8 +3018,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy");
-    await expect(page.getByTestId("differential-compare-queue")).toBeVisible({ timeout: 30_000 });
-    const mobileOpen = page.getByTestId("differential-compare-open");
+    // The navigation briefly overlaps the outgoing and incoming page roots; wait for one owner.
+    await expectSingleSettledOwner(page.getByTestId("differential-compare-queue"), {
+      message: "phone compare queue owner",
+      timeout: 30_000,
+    });
+    // Scope to the visible owner: the hidden streaming copy of the page (#093)
+    // can still be in the tree after the navigation above.
+    const mobileOpen = visibleByTestId(page, "differential-compare-open");
     await expect(mobileOpen).toHaveAttribute("href", /\/differentials\/presentations\/acute-confusion-encephalopathy/);
     await mobileOpen.scrollIntoViewIfNeeded();
     await Promise.all([
@@ -3259,7 +3278,7 @@ test.describe("PsychSift service detail page", () => {
     // mounted on the page behind it — that banner is the save confirmation.
     await actionsTrigger.click();
     await actions.getByRole("button", { name: "Save service" }).click();
-    await expect(page.getByRole("status")).toContainText("Service saved");
+    await expect(page.getByTestId("service-detail-page").getByRole("status")).toContainText("Service saved");
 
     await actionsTrigger.click();
     await expect(actions.getByRole("button", { name: "Remove saved service" })).toBeVisible();
@@ -3422,6 +3441,14 @@ test.describe("Responsive layout guards", () => {
     // flake is removed by tightening the assertion rather than loosening it.
     const patientCopyPanel = page.locator("[data-safety-plan-copy]");
     await expect(patientCopyPanel).toHaveCount(1);
+    // Below lg the builder and the patient copy are two tabs, so a phone user reaches the
+    // export buttons, and the warning beside them, through "Plan preview". Walk the same path.
+    const paneSwitch = page.getByRole("tablist", { name: "Safety plan view" });
+    const phonePanes = await paneSwitch.isVisible();
+    const showPane = async (name: "Build" | "Plan preview") => {
+      if (phonePanes) await paneSwitch.getByRole("tab", { name }).click();
+    };
+    await showPane("Plan preview");
     await expect(
       patientCopyPanel.getByText(/Copying, printing, or saving a PDF moves the plan outside PsychSift/i),
     ).toBeVisible();
@@ -3442,8 +3469,10 @@ test.describe("Responsive layout guards", () => {
     });
     appRequests.length = 0;
 
+    await showPane("Build");
     await page.getByLabel("e.g. Not sleeping for a couple of nights").fill("Not sleeping");
     await page.getByRole("button", { name: "Add" }).first().click();
+    await showPane("Plan preview");
     await page.getByRole("button", { name: "Copy" }).click();
 
     await expect

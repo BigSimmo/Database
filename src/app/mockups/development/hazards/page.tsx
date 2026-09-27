@@ -9,6 +9,7 @@ import {
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { resolveFreshnessFrom } from "@/lib/developer-area/freshness";
+import { DOCUMENT_CAUTIONS } from "@/lib/document-cautions";
 import {
   loadHazardSnapshot,
   missingRegisters,
@@ -37,11 +38,12 @@ export const metadata: Metadata = {
  * before any total, because those are the ones that block a real-patient pilot.
  *
  * **It never merges the registers.** The answer pipeline's register is
- * machine-checked and states that it establishes static evidence only; the
- * Caring Contacts log is an unsigned draft; Ward Flow has no register at all.
- * Rendering them as one list would manufacture a uniform coverage claim that no
- * document in this repository makes. Each section therefore carries its own
- * authority sentence, in that register's own words.
+ * machine-checked and states that it establishes static evidence only. Any
+ * other register added here keeps its own section, because rendering them as
+ * one list would manufacture a uniform coverage claim that no document in this
+ * repository makes. Each section therefore carries its own authority sentence,
+ * in that register's own words. Registers retired with their prototypes are
+ * listed by name only, so their absence is explained rather than silent.
  */
 const DANGER_CARD_CLASS =
   "grid gap-1 rounded-xl border border-[color:var(--danger)]/40 bg-[color:var(--danger-soft)] p-4";
@@ -113,8 +115,9 @@ export default function DeveloperHazardsPage() {
   return (
     <PanelPageShell testId="developer-hazards" title="Hazard register" freshness={freshness} freshnessLabel="Hazards">
       <p className="text-sm leading-6 text-[color:var(--text-muted)]">
-        Three clinical areas: two registers and one area with no register, kept apart on purpose. Nothing here is
-        clinical assurance: a control existing in code says the rule runs, not that it is the right rule.
+        One clinical area has a live register; registers retired with their prototypes are listed at the end by name
+        only. Nothing here is clinical assurance: a control existing in code says the rule runs, not that it is the
+        right rule.
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -220,6 +223,50 @@ export default function DeveloperHazardsPage() {
             </ul>
           </PanelSection>
         ))}
+
+      {snapshot.retired && snapshot.retired.length > 0 ? (
+        <PanelSection
+          testId="developer-hazards-retired"
+          headingId="developer-hazards-retired-heading"
+          heading="Retired registers"
+        >
+          <ul className="grid gap-2">
+            {snapshot.retired.map((entry) => (
+              <li key={entry.name} className={META_CLASS}>
+                {entry.name} — retired {entry.retiredAt}: {entry.status}.
+              </li>
+            ))}
+          </ul>
+        </PanelSection>
+      ) : null}
+      <PanelSection
+        testId="developer-hazards-document-cautions"
+        headingId="developer-hazards-document-cautions-heading"
+        heading="Known errors in source documents"
+      >
+        <p className="text-sm leading-6 text-[color:var(--text-muted)]">
+          Errors in a source document itself, which re-indexing cannot fix. Each keeps its caution on every answer that
+          cites the document. The wording says &ldquo;appears&rdquo; because the caution asks the reader to check, it
+          does not correct the source.
+        </p>
+        <ul className="grid gap-2">
+          {DOCUMENT_CAUTIONS.map((caution) => (
+            <li
+              key={caution.id}
+              data-testid={`developer-hazards-document-caution-${caution.id}`}
+              className={CARD_CLASS}
+            >
+              <p className="text-sm leading-6 text-[color:var(--text-heading)]">{caution.message}</p>
+              <p className="text-sm leading-6 text-[color:var(--text-heading)]">
+                <span className="font-bold">Decision:</span> {caution.decision}
+              </p>
+              <p className={META_CLASS}>
+                <span className={MONO_CLASS}>{caution.ledger}</span> · recorded {caution.recordedOn}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </PanelSection>
     </PanelPageShell>
   );
 }

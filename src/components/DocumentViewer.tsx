@@ -151,6 +151,7 @@ export function DocumentViewer({
   const [loadingDocument, setLoadingDocument] = useState(() => !initialDetail && !initialError);
   const [viewerError, setViewerError] = useState<string | null>(() => initialError ?? null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [pdfCanvasLoadFailed, setPdfCanvasLoadFailed] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloadingSource, setDownloadingSource] = useState(false);
   const [previewAttempt, setPreviewAttempt] = useState(0);
@@ -253,6 +254,7 @@ export function DocumentViewer({
     setPdfRotation(0);
     setPdfFullscreen(false);
     setPdfPageCount(null);
+    setPdfCanvasLoadFailed(false);
   }
   const {
     status: authStatus,
@@ -935,6 +937,7 @@ export function DocumentViewer({
         onRotate: handlePdfRotate,
         fullscreen: pdfFullscreen,
         onFullscreenChange: setPdfFullscreen,
+        disabled: pdfCanvasLoadFailed,
       }
     : undefined;
   const headerTitle = readyDocument
@@ -1550,6 +1553,7 @@ export function DocumentViewer({
                         // the keyboard reaches rotation without the viewer owning a
                         // second copy of that state.
                         onRotate={handlePdfRotate}
+                        onLoadFailedChange={setPdfCanvasLoadFailed}
                       />
                     ) : (
                       <NonPdfSourcePreview

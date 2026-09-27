@@ -1,3 +1,11 @@
+import {
+  DEFAULT_REMINDER_SETTINGS,
+  mergeReminderSettings,
+  normalizeReminderSettings,
+  type ReminderSettings,
+  type ReminderSettingsPatch,
+} from "@/lib/reminders/settings-model";
+
 export type DensityPreference = "comfortable" | "compact" | "spacious";
 /**
  * "system" follows prefers-reduced-motion. "reduced" and "full" are explicit
@@ -30,6 +38,21 @@ export type AppPreferences = {
   notifyGuidelineUpdates: boolean;
   notifyProductNews: boolean;
   notifySavedChanges: boolean;
+  /**
+   * Reminder controls: in-app visibility, snooze, calendar alerts, quiet hours
+   * and the daily alert cap. See `@/lib/reminders/settings-model`. The defaults
+   * reproduce the app as it was before these existed.
+   */
+  reminders: ReminderSettings;
+};
+
+/**
+ * What a PUT may carry. `reminders` may be partial: fields and reminder types
+ * a client omits keep their stored value, so an older tab that knows fewer
+ * types cannot reset the ones it does not know about.
+ */
+export type AccountPreferencesPatch = Partial<Omit<AppPreferences, "reminders">> & {
+  reminders?: ReminderSettingsPatch;
 };
 
 export const JURISDICTION_OPTIONS = [
@@ -93,6 +116,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
   notifyGuidelineUpdates: true,
   notifyProductNews: false,
   notifySavedChanges: true,
+  reminders: DEFAULT_REMINDER_SETTINGS,
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -121,6 +145,7 @@ export const PREFERENCE_FIELD_KEYS = [
   "notifyGuidelineUpdates",
   "notifyProductNews",
   "notifySavedChanges",
+  "reminders",
 ] as const satisfies ReadonlyArray<keyof AppPreferences>;
 
 /**
@@ -128,9 +153,14 @@ export const PREFERENCE_FIELD_KEYS = [
  * request body. Pre-change clients that PUT an older shape must not re-enable
  * privacy opt-outs stored on the account.
  */
-export function mergeAccountPreferences(stored: unknown, patch: Partial<AppPreferences>): AppPreferences {
+export function mergeAccountPreferences(stored: unknown, patch: AccountPreferencesPatch): AppPreferences {
   const base = stored === null || stored === undefined ? DEFAULT_PREFERENCES : normalizePreferences(stored);
-  return normalizePreferences({ ...base, ...patch });
+  const { reminders, ...rest } = patch;
+  return normalizePreferences({
+    ...base,
+    ...rest,
+    reminders: reminders ? mergeReminderSettings(base.reminders, reminders) : base.reminders,
+  });
 }
 
 export function normalizePreferences(input: unknown): AppPreferences {
@@ -161,5 +191,6 @@ export function normalizePreferences(input: unknown): AppPreferences {
     notifyGuidelineUpdates: coerceBoolean(input.notifyGuidelineUpdates, DEFAULT_PREFERENCES.notifyGuidelineUpdates),
     notifyProductNews: coerceBoolean(input.notifyProductNews, DEFAULT_PREFERENCES.notifyProductNews),
     notifySavedChanges: coerceBoolean(input.notifySavedChanges, DEFAULT_PREFERENCES.notifySavedChanges),
+    reminders: normalizeReminderSettings(input.reminders),
   };
 }
