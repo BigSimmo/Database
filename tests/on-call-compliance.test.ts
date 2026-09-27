@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { FORBIDDEN_VERDICTS, readerFacingStrings, type ReaderFacingString } from "./helpers/reader-facing-strings";
+
 import { ON_CALL_COMPLIANCE_BANDS } from "@/components/on-call/on-call-page-sections";
 import {
   COMPLIANCE_KIND,
@@ -20,7 +22,6 @@ import {
   type OnCallComplianceConsequence,
   type OnCallEntry,
 } from "@/lib/on-call/entry-model";
-import { readerFacingStrings, verdictsIn, type ReaderFacingString } from "./helpers/reader-facing-strings";
 
 /**
  * Compliance rides the stored `logistics` section rather than adding a seventh
@@ -526,20 +527,19 @@ const COMPLIANCE_SURFACES = [
   "src/lib/on-call/compliance.ts",
   /** The page: every row, every band note, the scope note, the empty state. */
   "src/components/on-call/on-call-compliance-section.tsx",
-  /** Route metadata — the browser tab, and the text a shared link carries. The
-   *  page moved to Admin > Renewals on 2026-09-26 (Admin update 1); the old
-   *  `/on-call/compliance` file is now a redirect backstop with no prose. */
-  "src/app/(search-app)/admin/renewals/page.tsx",
+  /** Route metadata — the browser tab, and the text a shared link carries. */
+  "src/app/(search-app)/on-call/compliance/page.tsx",
   /** The page summary and the add hint, both rendered in the actions sheet. */
   "src/components/on-call/on-call-section-page.tsx",
-  /** The hub home. Its Compliance tile moved to My Work (now Admin) on
-   *  2026-09-26; it stays in scope because Recent still lists compliance rows
-   *  by name. */
+  /** The hub home. Its Compliance tile moved to My Work on 2026-09-26; it
+   *  stays in scope because Recent still lists compliance rows by name. */
   "src/components/on-call/on-call-home.tsx",
-  /** Admin's Today (formerly My Work): the What's next rows print each
-   *  requirement's recorded date, and its Renewals card carries the page's
-   *  one-line description. */
-  "src/components/admin/admin-today-page.tsx",
+  /** Admin Today now owns the requirement summary and recorded renewal date. */
+  "src/components/admin/today/today-requirements-module.tsx",
+  "src/components/admin/today/today-renew-next-card.tsx",
+  /** Admin Renewals owns the moved checklist and its reader-facing status. */
+  "src/components/admin/admin-renewals-page.tsx",
+  "src/components/admin/renewals/checklist-status.tsx",
   /** The demo requirements, which ARE the page's content in demo mode. */
   "src/lib/on-call/demo-entries.ts",
   /** The compliance form's labels, hints and privacy sentence — and
@@ -557,6 +557,14 @@ const COMPLIANCE_SURFACES = [
    *  of these becomes "Up to date" it is a verdict on a requirement instead. */
   "src/components/on-call/on-call-freshness-badge.tsx",
 ] as const;
+
+function verdictsIn(strings: readonly ReaderFacingString[]): string[] {
+  return strings.flatMap(({ file, line, text }) =>
+    FORBIDDEN_VERDICTS.filter(({ pattern }) => pattern.test(text)).map(
+      ({ pattern, why }) => `${file}:${line} matches ${pattern} (${why}) in ${JSON.stringify(text)}`,
+    ),
+  );
+}
 
 const NO_VERDICT_RULE =
   "A compliance surface may not tell the reader they ARE anything. Nothing here is checked with the issuing " +

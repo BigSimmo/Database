@@ -57,7 +57,7 @@ telling them apart is the whole job:
 | no request reaches the receiver at all | no outgoing webhook configured on the Railway project               | add it in Railway → Project → Settings → Webhooks |
 
 **Owner action, open since 2026-09-16 (#B6JP6F).** The integration is in row 1 right now: the
-production `Database` service logs `Railway webhook rejected: presented secret did not match
+production `PsychSift` service logs `Railway webhook rejected: presented secret did not match
 RAILWAY_WEBHOOK_SECRET` with `tokenPresented=true` on every deploy (six rejections in the 40 s after
 the 2026-09-16 12:27 UTC container start). **There is nothing to fix in this repository.** The
 receiver in `src/app/api/webhooks/railway/route.ts` is correct and is behaving correctly by
@@ -66,9 +66,9 @@ step with the `RAILWAY_WEBHOOK_SECRET` service variable. No MCP tool covers Rail
 webhooks, and the fix needs the secret value, so it cannot be done from a coding session at all —
 it is the owner, in the Railway dashboard:
 
-1. Railway → project `Database` → the `Database` service → Variables: set `RAILWAY_WEBHOOK_SECRET`
+1. Railway → project `PsychSift` → the `PsychSift` service → Variables: set `RAILWAY_WEBHOOK_SECRET`
    to a fresh value of at least 16 characters.
-2. Railway → project `Database` → Settings → Webhooks: delete the existing webhook and re-add it as
+2. Railway → project `PsychSift` → Settings → Webhooks: delete the existing webhook and re-add it as
    `https://psychiatry.tools/api/webhooks/railway?token=<that same value>`.
 3. Confirm on the next deploy that the rejection warning stops. Until it does, **no deploy success
    or failure notification reaches chat at all** — the same silence that cost three days on
@@ -83,7 +83,7 @@ every one answered `401`, while the investigation was looking at the third row.
 
 > Chat destination: this receiver forwards through `postChatNotification`, which
 > reads `SLACK_WEBHOOK_URL`/`DISCORD_WEBHOOK_URL` from **server env** — set them on
-> the Railway `Database` service. With the token set but no chat URL in server env
+> the Railway `PsychSift` service. With the token set but no chat URL in server env
 > the receiver authenticates and returns `200 { "forwarded": false }`, so deploy
 > alerts are silently undelivered.
 
@@ -150,7 +150,7 @@ offline:
   migration to the live project through the normal deploy path.
 
 **1. Set the app env var** — `SUPABASE_INGESTION_WEBHOOK_SECRET` (min 16 chars) on
-the Railway `Database` + `worker` services.
+the Railway `PsychSift` + `worker` services.
 
 **2. Store the same secret in Supabase Vault** so the trigger can read it without
 hardcoding it:

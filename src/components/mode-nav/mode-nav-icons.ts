@@ -1,35 +1,46 @@
 import {
+  BedDouble,
+  Ban,
   BookOpenText,
+  Brain,
   BookMarked,
   BriefcaseBusiness,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
   ClipboardList,
+  Feather,
   GitCompareArrows,
   GraduationCap,
+  House,
   Landmark,
+  LayoutGrid,
   LibraryBig,
-  LifeBuoy,
   ListChecks,
+  LifeBuoy,
+  MessageCircle,
   Network,
   NotebookPen,
+  Phone,
   Presentation,
   Repeat,
   Printer,
   Search,
+  Settings,
   Sparkles,
   Stethoscope,
-  Scale,
   Sunrise,
+  Scale,
   Target,
+  Users,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
 import {
-  ON_CALL_HOME_ICON,
+  ON_CALL_HUB_PAGE_ICONS,
   ON_CALL_SECTION_ICONS,
   ON_CALL_VIEW_ICONS,
 } from "@/components/on-call/on-call-section-identity";
@@ -75,21 +86,30 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   //
   // `extended` hides these below its top band; they still have to be right,
   // because the sheet and the wide bar both show them.
-  tonight: ON_CALL_HOME_ICON,
-  contacts: ON_CALL_SECTION_ICONS.contacts,
+  //
+  // The six shift pages read `ON_CALL_HUB_PAGE_ICONS`, the map their own pages
+  // use. Call and Refer are the successors of Contacts and Referrals, so they
+  // wear the same Phone and Repeat.
+  now: ON_CALL_HUB_PAGE_ICONS.now,
+  whoson: ON_CALL_HUB_PAGE_ICONS["whos-on"],
+  call: ON_CALL_HUB_PAGE_ICONS.call,
   playbook: ON_CALL_SECTION_ICONS.playbook,
-  referrals: ON_CALL_SECTION_ICONS.referrals,
+  refer: ON_CALL_HUB_PAGE_ICONS.refer,
+  find: ON_CALL_HUB_PAGE_ICONS.find,
   orientation: ON_CALL_SECTION_ICONS.orientation,
   // The registry id and the stored section id genuinely differ here, and this
   // is the only place the two vocabularies meet: the rail slot is `teaching`
   // (what the reader is shown) and the section is `education` (route segment,
   // database check constraint). Same pair as `whoswho` / `who-is-who` below.
   teaching: ON_CALL_SECTION_ICONS.education,
-  // Who's who is a VIEW over a stored section, not a section, so it has no
-  // entry in `ON_CALL_SECTION_ICONS` — its glyph lives in `ON_CALL_VIEW_ICONS`,
-  // which is where this reads it from. A rail slot and the page it opens must
-  // wear the same mark. (On Call's Admin and Compliance pages moved to the
-  // Admin mode on 2026-09-26; Renewals below keeps Compliance's glyph.)
+  logistics: ON_CALL_SECTION_ICONS.logistics,
+  // Compliance and Who's who are VIEWS over a stored section, not sections, so
+  // neither has an entry in `ON_CALL_SECTION_ICONS` — their glyphs live in
+  // `ON_CALL_VIEW_ICONS`, which is where these read them from. A rail slot and
+  // the page it opens must wear the same mark. Compliance is not a shield with
+  // a tick, and not by accident: `ON_CALL_VIEW_ICONS` carries the reasoning,
+  // which is that the page may never render a verdict on anything it lists.
+  compliance: ON_CALL_VIEW_ICONS.compliance,
   whoswho: ON_CALL_VIEW_ICONS["who-is-who"],
   service: Building2,
   card: Printer,
@@ -107,13 +127,29 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   learning: Presentation,
   programme: ClipboardList,
   setup: ListChecks,
-  // Admin. Renewals reads the Compliance glyph so the moved page keeps its mark (CalendarClock, never a tick).
-  // Nothing here is imported from `@/lib/admin`: this module reaches the `/` bundle
-  // (`tests/on-call-root-bundle-isolation.test.ts`).
-  today: Sunrise,
+  // Admin's page destinations in the mode picker.
+  "admin-today": Sunrise,
   renewals: ON_CALL_VIEW_ICONS.compliance,
   "new-job": BriefcaseBusiness,
   help: LifeBuoy,
+  // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
+  // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
+  // gear, matched to nothing else in this rail so it cannot be mistaken for a
+  // section.
+  today: CalendarClock,
+  shifts: CalendarRange,
+  settings: Settings,
+  // First Nations. Prefixed ids, so On Call's "contacts" icon is not shared —
+  // each mode's rail slots wear their own mark even where the idea overlaps.
+  "first-nations-bedside": LayoutGrid,
+  "first-nations-contacts": Phone,
+  "first-nations-talking": MessageCircle,
+  "first-nations-family": Users,
+  "first-nations-mental-health": Brain,
+  "first-nations-on-the-ward": BedDouble,
+  "first-nations-mistakes": Ban,
+  "first-nations-going-home": House,
+  "first-nations-end-of-life": Feather,
 };
 
 /**

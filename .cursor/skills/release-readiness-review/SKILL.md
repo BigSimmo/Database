@@ -17,7 +17,7 @@ Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before 
 
 - **Static Analysis:** Run lint or typecheck only when the changed paths can plausibly fail that contract; do not stack them ceremonially.
 - **Verification Gates:** Start with the smallest focused proof. Use `npm run verify:pr-local` for PR handoff confidence. `npm run verify:release` is reserved for explicit release confidence and requires user approval because it includes provider-backed checks.
-- **Target database checks:** `npm run check:supabase-project` is provider-backed. Run it only with explicit user approval, using the repository-designated environment without printing secrets, to confirm the target is `Clinical KB Database` ref `sjrfecxgysukkwxsowpy`.
+- **Target database checks:** `npm run check:supabase-project` is provider-backed. Run it only with explicit user approval, using the repository-designated environment without printing secrets, to confirm the target is `PsychSift Production` ref `sjrfecxgysukkwxsowpy`.
 
 ### 2. Clinical Governance Compliance
 

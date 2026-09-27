@@ -1,6 +1,6 @@
 # Clinical Hazard Analysis — Answer Pipeline (ISO 14971-style)
 
-**System:** Clinical KB Database — source-backed clinical Q&A over user-uploaded guideline documents.
+**System:** PsychSift Production — source-backed clinical Q&A over user-uploaded guideline documents.
 **Scope:** Every pathway from a generated system output to potential patient harm. Answer-generation pipeline only (`src/lib/rag/rag.ts`, `answer-verification.ts`, `source-text-sanitizer.ts`, `ward-output.ts`, `answer-render-policy.ts`, `evidence.ts`, `source-governance.ts`, `clinical-search.ts`, and the copy/export surfaces).
 **Status:** Historical analysis plus evidence refresh. [`docs/clinical-hazard-controls.json`](clinical-hazard-controls.json) is the current machine-checked status authority. Static proof does not establish clinical adequacy, source truth/authority, regulatory classification, or authorised risk acceptance.
 **Companion:** [`docs/rag-injection-threat-model.md`](rag-injection-threat-model.md) covers the adversarial (ingestion→context→answer) chain in depth; hazard **H6** here cross-references it.

@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { TextField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, floatingControl, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import {
   CME_MISSED_SESSION_MINUTES_MAX,
   CME_MISSED_SESSION_MINUTES_MIN,
@@ -107,12 +109,12 @@ function MissedSessionFields({
   return (
     <div className="flex flex-col gap-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextField
+        <CmeDateField
           id={`${idPrefix}-date`}
           label="Date"
-          type="date"
+          today={perthCalendarDate(new Date())}
           value={draft.occurredOn}
-          onChange={(event) => onChange({ ...draft, occurredOn: event.target.value })}
+          onChange={(occurredOn) => onChange({ ...draft, occurredOn })}
           required
         />
         <Select

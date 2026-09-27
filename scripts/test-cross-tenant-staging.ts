@@ -518,7 +518,7 @@ async function exerciseTenancyBoundary(args: {
   );
   assertCondition(answerA.answerQualityTier === "source_only", "Staging app is not returning a source-only answer.");
   assertCondition(
-    answerA.fallbackReason === "source_only_offline_mode",
+    answerA.fallbackReasonCode === "provider_offline",
     "Staging app must run with RAG_PROVIDER_MODE=offline for this harness.",
   );
   assertCondition(
@@ -763,6 +763,7 @@ async function main() {
       tokenA: sessionA.token,
       tokenB: sessionB.token,
       userIdB: sessionB.userId,
+      emailB: config.userBEmail,
       marker: fixtureA.marker,
       register,
     });
@@ -789,6 +790,7 @@ async function main() {
       tokenA: sessionA.token,
       tokenB: sessionB.token,
       userIdB: sessionB.userId,
+      emailB: config.userBEmail,
       serviceId: serviceWrites.serviceId,
       siteId: serviceWrites.siteId,
       marker: fixtureA.marker,

@@ -99,6 +99,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 padding: "0.625rem 1rem",
                 fontSize: "0.875rem",
                 fontWeight: 600,
+                minHeight: "48px",
               }}
             >
               Try again
@@ -115,6 +116,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 padding: "0.625rem 1rem",
                 fontSize: "0.875rem",
                 fontWeight: 600,
+                minHeight: "48px",
               }}
             >
               Reload page
@@ -131,13 +133,14 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 padding: "0.625rem 1rem",
                 fontSize: "0.875rem",
                 fontWeight: 600,
+                minHeight: "48px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "0.5rem",
               }}
             >
-              {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
+              {copied ? "Copied diagnostics" : copyFailed ? "Copy failed — try again" : "Copy diagnostics"}
             </button>
           </div>
         </div>

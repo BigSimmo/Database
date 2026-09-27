@@ -61,7 +61,8 @@ export type ApiRateLimitBucket =
   | "document_admin"
   | "ingestion_admin"
   | "on_call"
-  | "cme";
+  | "cme"
+  | "roster";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -104,6 +105,10 @@ const apiRateLimitDefaults = {
   // CME entry/year reads and writes: an owner's own CPD log and confirmed targets. Same
   // shape as on_call — generous for interactive single-owner use, bounded against abuse.
   cme: { limit: 60, windowSeconds: 60 },
+  // Roster own-shift reads/writes: an owner's own imported/hand-added shifts, calendar
+  // links and settings. Same shape as on_call — generous for interactive single-owner
+  // use, bounded against abuse.
+  roster: { limit: 60, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {

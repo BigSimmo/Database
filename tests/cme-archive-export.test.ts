@@ -79,10 +79,10 @@ describe("CME archived accounting and exports", () => {
     expect(await fetchOwnerCmeEntries(client as never, "owner", "year", { includeArchived: true })).toHaveLength(2);
     expect(chain.eq).toHaveBeenCalledWith("owner_id", "owner");
     chain.limit = () => Promise.resolve({ data, error: null, count: 1001 });
-    await expect(fetchOwnerCmeEntries(client as never, "owner", "year")).rejects.toThrow(/complete record/);
+    await expect(fetchOwnerCmeEntries(client as never, "owner", "year")).rejects.toThrow(/whole record/);
     chain.limit = () => Promise.resolve({ data, error: null, count: data.length });
     data = Array.from({ length: 2001 }, () => ({}));
-    await expect(fetchOwnerCmeEntries(client as never, "owner", "year")).rejects.toThrow(/complete record/);
+    await expect(fetchOwnerCmeEntries(client as never, "owner", "year")).rejects.toThrow(/whole record/);
   });
 });
 describe("Learning prefill accepts no passive duration or unsafe source", () => {

@@ -3,15 +3,11 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 
 /**
- * The reader-facing string scanner, shared by `tests/on-call-compliance.test.ts`
- * (where it was written) and `tests/admin-wording.test.ts`. It decides what a
- * reader SEES in a source file — JSX text and string literals that are not
- * plumbing — so a banned verdict word can be caught in prose while comments
- * that quote it stay free to explain why it is banned.
+ * The reader-facing string scanner shared by the On Call wording guards
+ * (`tests/on-call-compliance.test.ts`, `tests/on-call-hub-wording.test.ts`):
+ * every string in a file that could reach a reader, and the verdict vocabulary
+ * those pages may never use. Extracted unchanged from the compliance test.
  */
-
-/** One banned word or phrase, with the reason kept beside it so a failure explains itself. */
-export type VerdictPattern = { pattern: RegExp; why: string };
 
 /**
  * JSX attributes whose value is machinery rather than something a reader reads.
@@ -47,6 +43,8 @@ export const NON_PROSE_ATTRIBUTES = new Set([
  * property of a recorded date) while banning "expired" (a verdict on the
  * holder).
  */
+export type VerdictPattern = { pattern: RegExp; why: string };
+
 export const FORBIDDEN_VERDICTS: readonly VerdictPattern[] = [
   { pattern: /\bcompliant\b/i, why: "a verdict on the holder; nothing here is checked with the issuing body" },
   { pattern: /\bnoncompliant\b/i, why: "the same verdict, spelled shut" },
@@ -128,7 +126,7 @@ export function isStringShaped(
 }
 
 /** The name of the JSX attribute this literal is the value of, if it is one. */
-export function enclosingJsxAttribute(node: ts.Node): string | undefined {
+function enclosingJsxAttribute(node: ts.Node): string | undefined {
   let current: ts.Node | undefined = node.parent;
   while (current && !ts.isSourceFile(current)) {
     if (ts.isJsxAttribute(current)) return current.name.getText();

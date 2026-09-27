@@ -89,6 +89,18 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/cme")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/cme/log")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/cme/routines")).toBe(false);
+    // Every First Nations route claims the slot: the mode home and every
+    // section mount `FirstNationsNavHeader` themselves.
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/contacts")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/talking")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/family")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/mental-health")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/on-the-ward")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/mistakes")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/going-home")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/end-of-life")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/card")).toBe(true);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
@@ -159,6 +171,16 @@ describe("header addon slot ownership", () => {
       "/admin/help",
       "/cme/programme",
       "/cme/setup",
+      "/first-nations",
+      "/first-nations/contacts",
+      "/first-nations/talking",
+      "/first-nations/family",
+      "/first-nations/mental-health",
+      "/first-nations/on-the-ward",
+      "/first-nations/mistakes",
+      "/first-nations/going-home",
+      "/first-nations/end-of-life",
+      "/first-nations/card",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -320,6 +342,8 @@ describe("header addon slot ownership", () => {
       "src/components/dsm/dsm-diagnosis-nav-header.tsx",
       "src/components/dsm/dsm-differential-considerations-page.tsx",
       "src/components/factsheets/factsheet-nav-header.tsx",
+      // First Nations' own header, mounted on the mode home and every section.
+      "src/components/first-nations/first-nations-nav-header.tsx",
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
       // On Call now follows the sibling convention exactly: both its headers —

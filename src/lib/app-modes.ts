@@ -24,6 +24,8 @@ export const appModeIds = [
   "cme",
   "psychiatry",
   "my-work",
+  "roster",
+  "first-nations",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -609,6 +611,64 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "roster",
+    label: "Roster",
+    description: "Your own shifts: imported, or added by hand, with Today, Shifts and Settings",
+    href: "/roster",
+    search: {
+      // Roster reads the owner's own shifts, already in the browser — a local
+      // catalogue, like On Call and CME — so it borrows the benign "tools"
+      // command kind rather than adding a search kind that would have to be
+      // threaded through universal search.
+      kind: "tools",
+      placeholder: "Search your shifts...",
+      inputAriaLabel: "Search your own roster",
+      submitIdleLabel: "Roster",
+      submitBusyLabel: "Roster",
+      submitAriaLabel: "Search your own roster",
+      emptyTitle: "Search your own roster",
+      readyTitle: "Find a shift, a workplace or a calendar link",
+      progressLabel: "Searching your shifts.",
+      resultKind: "tools",
+      resultHeading: "Roster",
+      // No results page. `/roster` is a dashboard (Today), and there is no
+      // `/roster/search`: a retargeted composer would accept a query and land
+      // the reader on a page that ignores it.
+      resultsSurface: "none",
+      statusLabel: "Roster",
+      nextStep: "Open Today, Shifts or Settings",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "first-nations",
+    label: "First Nations",
+    description: "Culturally safe care for Aboriginal and Torres Strait Islander patients",
+    href: "/first-nations",
+    search: {
+      // The mode owns its own in-page search box on every page (standard §13),
+      // so the shared composer must not query the remote index for it.
+      kind: "tools",
+      placeholder: "Search First Nations",
+      inputAriaLabel: "Search First Nations",
+      submitIdleLabel: "First Nations",
+      submitBusyLabel: "First Nations",
+      submitAriaLabel: "Search First Nations",
+      emptyTitle: "Choose a First Nations page",
+      readyTitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients",
+      progressLabel: "Opening the page.",
+      resultKind: "tools",
+      resultHeading: "First Nations",
+      // No results page. The mode home and every section keep their own
+      // in-page search box; a retargeted composer would accept a query and
+      // land the reader on a page that ignores it.
+      resultsSurface: "none",
+      statusLabel: "First Nations",
+      nextStep: "Open a page",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -651,6 +711,8 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "cme",
   "psychiatry",
   "my-work",
+  "roster",
+  "first-nations",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

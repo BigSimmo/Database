@@ -55,8 +55,17 @@ describe("year check", () => {
     expect(educational.entryIds).toEqual(["a"]);
     const total = check.rows.find((row) => row.id === "total")!;
     expect(total.ready).toBe(false);
-    expect(total.summary).toBe("15 hours logged, 35 short");
+    expect(total.summary).toBe("15 h logged, 35 h to go");
     expect(total.action?.href).toBe("/cme/new?year=2026");
+  });
+
+  it("says Reached, with the hours logged, once the total is reached", () => {
+    const check = buildCmeYearCheck(SET, [entry({ id: "a", allocations: [{ category: "educational", hours: 52.5 }] })]);
+    const total = check.rows.find((row) => row.id === "total")!;
+    expect(total.ready).toBe(true);
+    expect(total.summary).toBe("Reached · 52.5 h logged");
+    expect(total.action).toBeNull();
+    expect(check.rows.find((row) => row.id === "requirement-educational")!.summary).toBe("Reached");
   });
 
   it("flags missing evidence, reflections and copies, and links to the filtered log", () => {
@@ -71,9 +80,42 @@ describe("year check", () => {
     expect(check.rows.find((row) => row.id === "copied")!.action?.href).toBe("/cme/log?year=2026&copy=todo");
   });
 
-  it("does not report missing evidence when counts were never loaded", () => {
-    const check = buildCmeYearCheck(SET, [entry({ id: "a", evidenceCount: undefined })]);
-    expect(check.rows.find((row) => row.id === "evidence")!.ready).toBe(true);
+  it("says Not checked, never ready and never missing, when counts were never loaded", () => {
+    const check = buildCmeYearCheck(SET, [
+      entry({ id: "a", evidenceCount: undefined }),
+      entry({ id: "b", evidenceCount: 0 }),
+    ]);
+    const evidence = check.rows.find((row) => row.id === "evidence")!;
+    expect(evidence).toEqual({
+      id: "evidence",
+      group: "records",
+      label: "Evidence kept for each activity",
+      ready: false,
+      notChecked: true,
+      summary: "Not checked",
+      entryIds: [],
+      action: null,
+    });
+    // Not counted as done.
+    expect(check.readyCount).toBe(check.rows.filter((row) => row.ready).length);
+    expect(check.rows.filter((row) => row.ready)).not.toContain(evidence);
+  });
+
+  it("says No activities yet, never that every activity has evidence, when nothing is logged", () => {
+    const evidence = buildCmeYearCheck(SET, []).rows.find((row) => row.id === "evidence")!;
+    // Still nothing outstanding (the first test in this file pins that for every record row).
+    expect(evidence).toMatchObject({ ready: true, summary: "No activities yet", entryIds: [], action: null });
+    expect(evidence.notChecked).toBeUndefined();
+  });
+
+  it("counts evidence normally once every activity has a count", () => {
+    const check = buildCmeYearCheck(SET, [entry({ id: "a", evidenceCount: 2 })]);
+    const evidence = check.rows.find((row) => row.id === "evidence")!;
+    expect(evidence.notChecked).toBeUndefined();
+    expect(evidence).toMatchObject({
+      ready: true,
+      summary: "Every activity has a certificate or other evidence attached",
+    });
   });
 
   it("sends a missing plan to the plan page and a missing domain to the log", () => {

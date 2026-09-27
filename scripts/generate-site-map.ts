@@ -174,28 +174,40 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
   "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/search": "Therapy library search surface.",
-  "/on-call":
-    "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
+  "/on-call": "On Call Now: your shift, checklists, usual numbers and the hospital's emergency line.",
+  "/on-call/whos-on": "Who is rostered on, by team, for yesterday, today and tomorrow.",
+  "/on-call/call":
+    "Your hospital's numbers by area, outside lines and your own numbers, each with the date it was updated.",
+  "/on-call/refer": "How to refer to each service at your hospital, and your own referral notes.",
+  "/on-call/find": "Wards, equipment, manuals and the plan for when systems go down, for your hospital.",
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
   "/psychiatry":
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
   "/admin":
-    "Admin Today: the next renewal to act on, what needs you (passed dates and what is not recorded yet), how many statewide requirements you have recorded, and your new job's progress, with a first-visit setup sheet for registration and indemnity dates. A dashboard, not a redirect to the shared search home — Admin has no search results surface.",
+    "Admin Today: the next renewal to act on, what needs you, statewide requirements recorded and new-job progress. Admin has no search results surface.",
   "/admin/renewals":
-    "A checklist of the statewide requirements crossed with the doctor's own recorded dates (soonest first, no end date, not recorded yet, not for this job), a Personal tab for their own renewals, a Renewed sheet, calendar files and a plain-text copy for medical workforce. Recorded dates only — never a check with the issuing body.",
-  "/admin/new-job":
-    "Starting and leaving a job: your start date, logins and system access with your own ticks, workforce and payroll contacts, and a readable page of your own Admin records to copy or print.",
-  // Admin update 1 retired these three paths. Each keeps a page that only redirects, as a
-  // backstop behind the proxy's 307, which carries the query string.
-  "/my-work": "Compatibility redirect to `/admin`: My Work became Admin; the query string is carried across.",
-  "/on-call/compliance":
-    "Compatibility redirect to `/admin/renewals`, where On Call's Compliance page moved; the query string is carried across.",
-  "/on-call/logistics":
-    "Compatibility redirect to `/admin/help`, where On Call's Admin rows moved; the query string is carried across.",
-  "/admin/help":
-    "Crisis lines first, then support, guides, contacts and on-site detail (building access, food, the on-call room), with an everyday-word search that runs on the page.",
+    "Statewide requirements alongside the doctor's own recorded dates and personal renewals; dates are not verified with an issuing body.",
+  "/admin/new-job": "Starting and leaving a job, with the doctor's own progress and service contacts.",
+  "/admin/new-job/records": "The doctor's own Admin records to copy or print.",
+  "/admin/help": "Crisis lines, support, guides, contacts and on-site detail with in-page search.",
+  "/my-work": "Compatibility redirect to `/admin`, carrying the query string.",
+  "/on-call/compliance": "Compatibility redirect to `/admin/renewals`, carrying the query string.",
+  "/on-call/logistics": "Compatibility redirect to `/admin/help`, carrying the query string.",
+  "/first-nations":
+    "First Nations Bedside page: the Aboriginal liaison figure for the chosen hospital, the crisis strip (000 and 13YARN), what to do first and links to the eight section pages. A dashboard, not a redirect to the shared search home — First Nations has no search results surface.",
+  "/first-nations/contacts":
+    "First Nations contacts: liaison, community-controlled health services and statewide lines, each with its source and checked date.",
+  "/first-nations/talking":
+    "First Nations Talking: how to open a conversation, words to say aloud and the Mental Health Act s 81 cultural-support provisions.",
+  "/first-nations/family": "First Nations Family: involving family, kin and community in care.",
+  "/first-nations/mental-health": "First Nations Mental health: culturally safe assessment and support.",
+  "/first-nations/on-the-ward": "First Nations On the ward: situation plans for the admission (nothing is saved).",
+  "/first-nations/mistakes": "First Nations Common mistakes: what to avoid and what to do instead.",
+  "/first-nations/going-home": "First Nations Going home: discharge planning, travel support and return to Country.",
+  "/first-nations/end-of-life": "First Nations End of life: Sorry Business and caring for the family.",
+  "/first-nations/card": "First Nations pocket card: the key numbers and prompts on one printable card.",
   "/cme":
-    "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
+    "CPD dashboard: total hours logged this year against the confirmed targets, a plain-words pace line for the year's end, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CPD has no search results surface.",
   "/cme/log":
     "Every continuing-education activity recorded, grouped by month, with a category filter and a text search box. Each row opens the entry it belongs to.",
   "/cme/log/[id]":
@@ -209,13 +221,13 @@ const routeDescriptions: Record<string, string> = {
   "/cme/plan":
     "The yearly development plan screen. Not yet built in this phase — the page says so plainly, and offers logging the time spent writing the plan as an activity so the hours still count toward the year.",
   "/cme/learning":
-    "A curated list of upcoming Western Australian courses and events for psychiatrists, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
+    "A curated list of upcoming Western Australian courses and events, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
   "/cme/programme":
     "The requirement targets confirmed for this year — hours required in each category — and the source document they were confirmed against.",
   "/cme/setup":
     "The one-time setup checklist: confirm this year's requirement targets, set up routines, and the other steps this phase has not built yet.",
   "/cme/customise":
-    "Choose which modules show on the CME dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
+    "Choose which modules show on the CPD dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
   "/tools": "Clinical tools and applications launcher directory.",
   // Mockup routes deliberately carry no curated description here — the developer-gated
   // prototypes (see src/lib/developer-area/headers.ts) have none either — so they render with
@@ -302,9 +314,10 @@ const routeOwnershipRows = [
   ],
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
-  ["CME", "src/app/(search-app)/cme, src/components/cme"],
+  ["CPD", "src/app/(search-app)/cme, src/components/cme"],
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
   ["Admin", "src/app/(search-app)/admin, src/components/admin, src/lib/admin"],
+  ["First Nations", "src/app/(search-app)/first-nations, src/components/first-nations, src/lib/first-nations"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -490,6 +503,8 @@ function renderModeRoutes() {
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
     psychiatry: appModeHomeHref("psychiatry"),
     "my-work": appModeHomeHref("my-work"),
+    roster: appModeHomeHref("roster"),
+    "first-nations": appModeHomeHref("first-nations"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -624,7 +639,7 @@ function renderModePageIndex() {
         "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
     {
-      mode: "CME",
+      mode: "CPD",
       home: appModeHomeHref("cme"),
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
       detail:
@@ -635,14 +650,21 @@ function renderModePageIndex() {
       home: appModeHomeHref("psychiatry"),
       search: appModeHomeHref("psychiatry"),
       detail:
-        'No results page — `resultsSurface: "none"`, like On Call and CME. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
+        'No results page — `resultsSurface: "none"`, like On Call and CPD. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
     },
     {
       mode: "Admin",
       home: appModeHomeHref("my-work"),
       search: appModeHomeHref("my-work"),
       detail:
-        'No results page — `resultsSurface: "none"`, like Psychiatry. `/admin` is Today; `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to Admin pages (`staticRouteRedirects` in `src/proxy.ts`).',
+        'No results page — `resultsSurface: "none"`, like Psychiatry. `/admin` is Today; `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to Admin pages.',
+    },
+    {
+      mode: "First Nations",
+      home: appModeHomeHref("first-nations"),
+      search: appModeHomeHref("first-nations"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like My Work. Every page keeps its own in-page search box. `/first-nations` Bedside, then `/contacts`, `/talking`, `/family`, `/mental-health`, `/on-the-ward`, `/mistakes`, `/going-home`, `/end-of-life`, and the `/card` pocket card.',
     },
   ]);
 }

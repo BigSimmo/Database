@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
@@ -87,7 +88,24 @@ import {
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
 import { modeSectionIcon } from "@/components/mode-nav/mode-nav-icons";
-import { activeModeSecondaryNavigationId, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
+import {
+  modePagesCheckClass,
+  modePagesGroupHeadingClass,
+  modePagesGroupHintClass,
+  modePagesIconClass,
+  modePagesIconStroke,
+  modePagesLabelClass,
+  modePagesRowClass,
+  modePagesSheetTitleClass,
+  modePagesTileClass,
+} from "@/components/clinical-dashboard/mode-pages-sheet-classes";
+import {
+  activeModeSecondaryNavigationId,
+  groupModeSecondaryNavigationEntries,
+  modeSecondaryNavigationEntries,
+  visibleModeSecondaryNavigationEntries,
+} from "@/lib/mode-secondary-navigation";
+import { readOnCallEditorFlag, subscribeOnCallEditorFlag } from "@/lib/on-call/device-state-keys";
 import { orderByPhoneModeGroups, phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
@@ -159,8 +177,9 @@ function documentScopeMeta(document: ClinicalDocument) {
   const title = documentScopeTitle(document).toLowerCase();
   const fileName = document.file_name;
   const fileBase = fileName.replace(/\.pdf$/i, "").toLowerCase();
-  if (fileBase === title || fileBase.startsWith(title)) return `${document.page_count ?? "?"} pages`;
-  return `${fileName} · ${document.page_count ?? "?"} pages`;
+  const pages = document.page_count === 1 ? "1 page" : `${document.page_count ?? "?"} pages`;
+  if (fileBase === title || fileBase.startsWith(title)) return pages;
+  return `${fileName} · ${pages}`;
 }
 
 export function MasterSearchHeader({
@@ -562,6 +581,13 @@ export function MasterSearchHeader({
   const modeOwnPages =
     selectedAppMode.search.resultsSurface === "none" ? modeSecondaryNavigationEntries(selectedAppMode.id) : [];
   const modeOwnPagesAvailable = modeOwnPages.length > 0;
+  /**
+   * Whether the pages sheet offers "Manage service": true for an editor, and
+   * while the role is still unknown (S3), false only once the hub's own
+   * handbook read has seen a non-editor. Read from the device, so the sheet
+   * needs no fetch of its own (F24). False on the server.
+   */
+  const onCallEditor = useSyncExternalStore(subscribeOnCallEditorFlag, readOnCallEditorFlag, () => false);
   /**
    * Which of this mode's pages the reader is on, when the pill lists pages.
    *
@@ -1395,6 +1421,8 @@ export function MasterSearchHeader({
     const active = currentPathname === entry.href;
     const Icon = modeSectionIcon(entry.id);
     if (!Icon) return null;
+    // The pages level is on the 48/52 rule (kit 1.7); the "Choose mode" level
+    // above keeps its own rows. Recipes in `mode-pages-sheet-classes.ts`.
     return (
       <Link
         key={entry.id}
@@ -1402,9 +1430,13 @@ export function MasterSearchHeader({
         onClick={dismissModeMenu}
         aria-current={active ? "page" : undefined}
         data-testid={`app-mode-section-${entry.id}`}
-        className={cn(modeMenuRowClass(active), "no-underline")}
+        className={modePagesRowClass(active)}
       >
-        {renderModeMenuRowContent({ icon: Icon, label: entry.label, active })}
+        <span aria-hidden="true" className={modePagesTileClass(active)}>
+          <Icon aria-hidden="true" className={modePagesIconClass} strokeWidth={modePagesIconStroke} />
+        </span>
+        <span className={modePagesLabelClass}>{entry.label}</span>
+        {active ? <Check aria-hidden="true" className={modePagesCheckClass} strokeWidth={2} /> : null}
       </Link>
     );
   }
@@ -1419,9 +1451,44 @@ export function MasterSearchHeader({
    * places, which is what stops it feeling like a dead end.
    */
   function renderModeSectionLevel() {
+    // Hidden pages and editor-only pages leave the sheet; the pill still names
+    // them when one is open, because `modeOwnPages` itself is unfiltered.
+    const { main, tools, more } = groupModeSecondaryNavigationEntries(
+      visibleModeSecondaryNavigationEntries(modeOwnPages, { isEditor: onCallEditor }),
+    );
     return (
-      <div data-testid="app-mode-section-list" className="grid gap-1 pt-1">
-        {modeOwnPages.map((entry) => renderModeSectionOption(entry))}
+      <div data-testid="app-mode-section-list" className="grid pt-1">
+        <div className="grid">{main.map((entry) => renderModeSectionOption(entry))}</div>
+        {tools.length > 0 ? (
+          <section
+            role="group"
+            aria-labelledby="app-mode-section-tools-heading"
+            data-testid="app-mode-section-group-tools"
+            className="mt-1.5 grid gap-1 border-t border-[color:var(--border)] pt-2"
+          >
+            <h3 id="app-mode-section-tools-heading" className={modePagesGroupHeadingClass}>
+              Tools
+            </h3>
+            <div className="grid">{tools.map((entry) => renderModeSectionOption(entry))}</div>
+          </section>
+        ) : null}
+        {more.length > 0 ? (
+          <section
+            role="group"
+            aria-labelledby="app-mode-section-more-heading"
+            aria-describedby="app-mode-section-more-hint"
+            data-testid="app-mode-section-group-more"
+            className="mt-1.5 grid gap-1 border-t border-[color:var(--border)] pt-2"
+          >
+            <h3 id="app-mode-section-more-heading" className={modePagesGroupHeadingClass}>
+              More
+            </h3>
+            <p id="app-mode-section-more-hint" className={modePagesGroupHintClass}>
+              Moving to their own modes
+            </p>
+            <div className="grid">{more.map((entry) => renderModeSectionOption(entry))}</div>
+          </section>
+        ) : null}
         <div className="mt-1.5 border-t border-[color:var(--border)] pt-1.5">
           <button
             type="button"
@@ -2637,19 +2704,19 @@ export function MasterSearchHeader({
                 // one is the only place the mode is named once the big line
                 // stops naming it.
                 <>
-                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                  <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {activeModePage.label}
                   </span>
-                  <span className="block truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--clinical-accent)]">
+                  <span className="block truncate text-2xs font-semibold uppercase leading-3 tracking-eyebrow text-[color:var(--clinical-accent)]">
                     {selectedAppMode.label}
                   </span>
                 </>
               ) : (
                 <>
-                  <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
+                  <span className="hidden truncate text-2xs font-semibold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
                     Mode
                   </span>
-                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                  <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {selectedAppMode.label}
                   </span>
                 </>
@@ -2683,7 +2750,7 @@ export function MasterSearchHeader({
                 >
                   <ArrowLeft aria-hidden="true" className="size-icon-md" />
                 </button>
-                <h2 className="min-w-0 truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+                <h2 className={cn(modePagesSheetTitleClass, "min-w-0 break-words text-[color:var(--text-heading)]")}>
                   {`${selectedAppMode.label} pages`}
                 </h2>
               </div>
@@ -2858,7 +2925,9 @@ export function MasterSearchHeader({
           contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
           bodyClassName="bg-[color:var(--surface-lux)] px-2.5 pb-2 pt-0.5"
           headerClassName="bg-[color:var(--surface-lux)] px-4 pb-3 pt-1.5"
-          titleClassName="tracking-[var(--tracking-display)]"
+          titleClassName={
+            modeSheetView === "sections" ? modePagesSheetTitleClass : "tracking-[var(--tracking-display)]"
+          }
           closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition-colors duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border motion-reduce:transition-none"
         >
           {modeSheetView === "sections" ? (

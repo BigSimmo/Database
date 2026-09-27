@@ -182,7 +182,7 @@ function ContactRow({
                     pill under the title. A pill per datum turned a contact
                     list into five rows a screen; the board shows twelve. */}
                 {primary ? (
-                  <span className="nums text-sm font-bold">
+                  <span className="font-normal nums tracking-wide text-sm">
                     {primary.label === "Ext" ? "Ext " : primary.label === "Pager" ? "Pager " : ""}
                     {primary.value}
                   </span>
@@ -385,7 +385,7 @@ export function OnCallContactsSection({
                 heading's accessible name turns "Needs checking" into "Needs
                 checking 3", and the list underneath already carries its own
                 length. */}
-            <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+            <span aria-hidden="true" className="nums text-2xs font-medium text-[color:var(--text-muted)]">
               {needsChecking.length}
             </span>
           </div>
@@ -432,7 +432,7 @@ export function OnCallContactsSection({
                   <h3 id={headingId} className={eyebrowText}>
                     {group.area}
                   </h3>
-                  <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+                  <span aria-hidden="true" className="nums text-2xs font-medium text-[color:var(--text-muted)]">
                     {group.entries.length}
                   </span>
                 </div>

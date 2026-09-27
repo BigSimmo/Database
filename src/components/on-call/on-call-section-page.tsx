@@ -29,6 +29,7 @@ import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
 import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
+import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
 import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,9 @@ import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocumentsState } from "@/lib/on-call/linked-documents";
 import { onCallEntryFreshness, type OnCallEntry, onCallEntryIsEditable } from "@/lib/on-call/entry-model";
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
+import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 import { isAdminWorkforceExplainer } from "@/lib/admin/placement";
@@ -223,6 +226,13 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // it, and "mark all as still correct" writes to it.
   const visibleEntries = onCallVisibleEntries(view, sectionEntries);
   const visibleCount = visibleEntries.length;
+  // "Coming up", moved here from the mode home when Now dropped it (plan C25).
+  // `selectUpcomingTeachingSessions` rolls a recurring session forward from its
+  // anchor rather than letting it vanish the afternoon its date passes.
+  const upcomingTeaching = useMemo(
+    () => (view === "education" ? selectUpcomingTeachingSessions(entries, onCallLocalDateKey(new Date())) : []),
+    [view, entries],
+  );
 
   // Overdue entries in THIS view, which is what "mark all as still correct"
   // may stamp. Never the whole hub, and never the other half of a split
@@ -426,6 +436,12 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
             The `<h1>` stays for the document outline and for a screen reader;
             it simply is not painted. */}
         <h1 className="sr-only">{title}</h1>
+
+        {upcomingTeaching.length > 0 ? (
+          <section data-testid="on-call-home-upcoming" aria-label="Coming up">
+            <OnCallTeachingStrip sessions={upcomingTeaching} />
+          </section>
+        ) : null}
 
         <section
           id={`on-call-${view}-entries`}

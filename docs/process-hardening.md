@@ -715,7 +715,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
   (`check:runtime`, `sitemap:check`, lint — 8 pre-existing warnings, 0 errors — typecheck, unit
   tests 1251 passed / 3 skipped).
 - **Live 36/36 CONFIRMED (2026-07-07):** ran `npm run check:supabase-project` (live mode against
-  `Clinical KB Database` / `sjrfecxgysukkwxsowpy`) then `npm run eval:retrieval:quality` with the
+  `PsychSift Production` / `sjrfecxgysukkwxsowpy`) then `npm run eval:retrieval:quality` with the
   new default owner (no `RAG_EVAL_OWNER_ID` set). Result: **`cases=36`, `failed_cases=0`,
   `latency_failed_cases=0`**, `document_recall@5=1`, `content_recall@5=1`, `top_k_hit_rate=1`,
   `mrr@10=0.8148`, `content_mrr@10=0.9244`, strategies `{text_fast_path:25, document_lookup_fast_path:1,

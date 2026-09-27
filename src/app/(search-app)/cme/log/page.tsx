@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { CmeLogPage, type CmeLogAttention } from "@/components/cme/cme-log-page";
 import { CmeStateNotice } from "@/components/cme/cme-state-notice";
-import { cpdYearOf } from "@/lib/cme/cpd-year";
+import { cpdYearOf, perthCalendarDate } from "@/lib/cme/cpd-year";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
@@ -30,7 +30,7 @@ export default async function CmeLogRoute({
   if (data.state === "signed-out" || data.state === "unavailable") {
     return (
       <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-        <CmeStateNotice state={data.state} year={data.year} />
+        <CmeStateNotice state={data.state} year={data.year} heading="Log" />
       </main>
     );
   }
@@ -41,6 +41,7 @@ export default async function CmeLogRoute({
     <CmeLogPage
       entries={data.entries}
       set={data.set ?? placeholderSet(data.year)}
+      today={perthCalendarDate(data.now)}
       navigationYears={[currentYear, currentYear - 1, data.year]}
       justSaved={query.saved === "1"}
       missedLinkFailed={query.missed === "unlinked"}

@@ -24,7 +24,9 @@ export type InformationPageMode =
   | "on-call"
   | "cme"
   | "psychiatry"
-  | "my-work";
+  | "my-work"
+  | "roster"
+  | "first-nations";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -94,10 +96,23 @@ export function isInformationPage(pathname: string): boolean {
   // surface, so its home must not wear a composer. The sections it links to
   // keep their own routes and their own composers.
   if (pathname === "/psychiatry") return true;
-  // Every Admin route, the home included: the mode declares no search surface,
-  // so no page wears a composer, and each sub-page mounts its own in-page bar.
-  if (pathname === "/admin") return true;
-  if (isSlugDetail(pathname, "/admin")) return true;
+  // Every Admin page owns its in-page navigation and has no search composer.
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
+  // Every Roster route, the mode home included, for On Call's reason exactly:
+  // the mode declares no search surface, so it has no composer on any page.
+  // Its pages also own their in-page header (`InPageNavHeader`, the
+  // DocumentViewer template) rather than the shared mode-nav bar, so being an
+  // information page is also what stops the shell drawing a second bar over
+  // the top. `isSlugDetail` covers the single-segment children (`/roster/shifts`,
+  // `/roster/settings`, `/roster/calendar`) and `/roster` itself is the bare
+  // path rather than a slug detail, so it needs its own test.
+  if (isSlugDetail(pathname, "/roster")) return true;
+  if (pathname === "/roster") return true;
+  // Every First Nations route, the mode home included: the mode owns its own
+  // in-page search box on every page (standard §13), so it has no composer of
+  // the shared kind on any route and this is what keeps the shell from
+  // mounting one.
+  if (pathname === "/first-nations" || pathname.startsWith("/first-nations/")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -141,4 +156,6 @@ export const informationPageShellModes = [
   "cme",
   "psychiatry",
   "my-work",
+  "roster",
+  "first-nations",
 ] as const satisfies readonly InformationPageMode[];

@@ -14,7 +14,7 @@ before updating it; never assume an ID.
 
 **What happened.** Ledger `#248` remains open. Current evidence shows that migration
 `20260705180000_reconcile_search_health_indexes.sql` is recorded as applied on the live Supabase
-project (`Clinical KB Database`, ref `sjrfecxgysukkwxsowpy`) while two of its indexes are
+project (`PsychSift Production`, ref `sjrfecxgysukkwxsowpy`) while two of its indexes are
 currently missing. Supabase's transaction model excludes a persisted partial application, and later
 migrations show that history advanced, but neither point distinguishes skipped DDL/mark-applied
 history from indexes that were created and later dropped. The Phase 1 read-only history and audit
@@ -69,7 +69,7 @@ against a pinned canonical definition, and only then marks a fail-fast guard mig
 
 **Key repo facts every session needs:**
 
-- Repo: `BigSimmo/Database`, default branch `main`. Live Supabase ref `sjrfecxgysukkwxsowpy`
+- Repo: `BigSimmo/PsychSift`, default branch `main`. Live Supabase ref `sjrfecxgysukkwxsowpy`
   (the ref `qjgitjyhxrwxsrydablr` is stale — never use). Migrations target role `postgres`.
 - `supabase/migrations/` is the source of truth; `supabase/schema.sql` is a mirror;
   `supabase/drift-manifest.json` is generated (`npm run drift:manifest`, needs Docker) and
@@ -189,7 +189,7 @@ conclusion for `#248`; no writes performed.
 **Prompt to paste:**
 
 > Read docs/database-remediation-plan.md and docs/database-remediation-playbook.md. I authorize a
-> READ-ONLY window against the live Supabase project Clinical KB Database
+> READ-ONLY window against the live Supabase project PsychSift Production
 > (sjrfecxgysukkwxsowpy) for Phase 1. Absolutely no INSERT/UPDATE/DELETE/DDL — SELECT and EXPLAIN
 > only; stop and report if any step would write. Execute: (1) run the migration-history
 > fingerprint query from the plan (statements IS NULL over supabase_migrations.schema_migrations)
@@ -216,7 +216,7 @@ Definition of done: pasted replay output + green drift line in the forensics doc
 **Prompt to paste:**
 
 > Read docs/database-remediation-plan.md and docs/database-remediation-playbook.md. I authorize
-> mutation of the STAGING Supabase tier (Clinical KB Staging) only — production
+> mutation of the STAGING Supabase tier (PsychSift Staging) only — production
 > (sjrfecxgysukkwxsowpy) remains read-only and must not be targeted; verify the target ref before
 > every command and abort if it resolves to production. Execute Phase 2: replay the full committed
 > migration chain onto staging to parity (staging is idle, so guard migrations like 20260804110240
