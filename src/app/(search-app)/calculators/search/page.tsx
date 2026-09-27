@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { CalculatorsSearchPage } from "@/components/calculators";
-import {
-  CALCULATOR_RECORD_PARAM,
-  calculatorRecordById,
-  calculatorRecordHref,
-} from "@/components/calculators/calculator-routes";
+import { CALCULATOR_RECORD_PARAM, calculatorRecordById } from "@/components/calculators/calculator-routes";
 
 export const metadata: Metadata = {
   title: "Search clinical calculators | PsychSift",
