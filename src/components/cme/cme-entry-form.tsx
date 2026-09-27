@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { z } from "zod";
 
 import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/components/cme/cme-allocation-field";
@@ -445,11 +445,10 @@ export function CmeEntryForm({
     setRestoredDraft(false);
   }
 
-  useEffect(() => {
-    return subscribeAccountTransition(() => {
-      discardDraft();
-    });
-  }, [draftStorageKey]);
+  // Reads the latest form state when an account transition fires, without resubscribing each render.
+  const onAccountTransition = useEffectEvent(() => discardDraft());
+  useEffect(() => subscribeAccountTransition(onAccountTransition), []);
+
   async function handleSaveDraft() {
     if (!onSaveDraft || savingDraft || saving) return;
     setSubmitError(null);
