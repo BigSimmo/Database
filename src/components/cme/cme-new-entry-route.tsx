@@ -9,6 +9,7 @@ import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import type { CmeDraft, CmeDraftPayload } from "@/lib/cme/drafts";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+import { perthCalendarDate } from "@/lib/perth-time";
 
 /** One key for every new-entry form, so the quick-log sheet and this page continue the same draft. */
 export const CME_NEW_ENTRY_DRAFT_KEY = "cme-entry-draft:new";
@@ -83,7 +84,7 @@ export function CmeNewEntryRoute({
     set?.requirements.flatMap((requirement) =>
       requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
     ) ?? [];
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" });
+  const today = perthCalendarDate();
   const initialDate = set && !today.startsWith(`${set.year}-`) ? `${set.year}-01-01` : today;
   const initialEntry = resumeDraft
     ? {

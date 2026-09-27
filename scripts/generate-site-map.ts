@@ -637,6 +637,13 @@ function renderModePageIndex() {
         "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
     {
+      mode: "On Call",
+      home: appModeHomeHref("on-call"),
+      search: appModeHomeHref("on-call"),
+      detail:
+        'No results page — `resultsSurface: "none"`. `/on-call` is a shift dashboard; section pages include `/on-call/now`, `/on-call/call`, `/on-call/refer`, `/on-call/find`, `/on-call/whos-on`, `/on-call/compliance`, `/on-call/contacts`, and `/on-call/who-is-who`.',
+    },
+    {
       mode: "CPD",
       home: appModeHomeHref("cme"),
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
@@ -656,6 +663,13 @@ function renderModePageIndex() {
       search: appModeHomeHref("my-work"),
       detail:
         'No results page — `resultsSurface: "none"`, like Psychiatry. `/my-work` is a dashboard of what is due and links; the pages it gathers keep their On Call routes.',
+    },
+    {
+      mode: "Roster",
+      home: appModeHomeHref("roster"),
+      search: appModeHomeHref("roster"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like On Call. `/roster` Today dashboard, `/roster/shifts` full schedule and month calendar, `/roster/calendar` feed subscribe, and `/roster/settings`.',
     },
     {
       mode: "First Nations",

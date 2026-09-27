@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const repository = "BigSimmo/PsychSift";
+const [repositoryOwner, repositoryName] = repository.split("/");
 const expectedIdentity = "BigSimmo";
 const expectedOrigin = `https://github.com/${repository}.git`;
 const allowProviderFlag = "--allow-provider";
@@ -180,7 +181,7 @@ export function githubShellAccess(run = resilientShellRun) {
   }
   if (run("gh", ["run", "rerun", "--help"]).status !== 0) return failure("GH_ACTIONS_RERUN_UNAVAILABLE");
 
-  const pullRequestSelection = `repository(owner: "BigSimmo", name: "Database") { pullRequest(number: ${selectedPullRequestNumber}) { reviewThreads(first: 100) { totalCount nodes { id isResolved viewerCanResolve } pageInfo { hasNextPage } } } }`;
+  const pullRequestSelection = `repository(owner: "${repositoryOwner}", name: "${repositoryName}") { pullRequest(number: ${selectedPullRequestNumber}) { reviewThreads(first: 100) { totalCount nodes { id isResolved viewerCanResolve } pageInfo { hasNextPage } } } }`;
   const mutationQuery = `query { __type(name: "Mutation") { fields { name } } ${pullRequestSelection} }`;
   const mutationSchema = parseJson(run("gh", ["api", "graphql", "-f", `query=${mutationQuery}`]));
   const mutationNames = new Set(mutationSchema?.data?.__type?.fields?.map((field) => field.name) ?? []);
@@ -284,7 +285,11 @@ function fakeSuccessfulRun(command, args) {
     );
   }
   if (key === `gh pr diff 123 --repo ${repository} --name-only`) return success("README.md\n");
-  if (/gh api repos\/BigSimmo\/Database\/(pulls\/123\/reviews|issues\/123\/comments|pulls\/123\/comments)/u.test(key)) {
+  if (
+    ["pulls/123/reviews", "issues/123/comments", "pulls/123/comments"].some(
+      (path) => key === `gh api repos/${repository}/${path}?per_page=1`,
+    )
+  ) {
     return success("[]");
   }
   if (key === `gh api repos/${repository}/commits/${"a".repeat(40)}/check-runs?per_page=1`) {

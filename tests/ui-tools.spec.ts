@@ -3278,7 +3278,7 @@ test.describe("PsychSift service detail page", () => {
     // mounted on the page behind it — that banner is the save confirmation.
     await actionsTrigger.click();
     await actions.getByRole("button", { name: "Save service" }).click();
-    await expect(page.getByRole("status")).toContainText("Service saved");
+    await expect(page.getByTestId("service-detail-page").getByRole("status")).toContainText("Service saved");
 
     await actionsTrigger.click();
     await expect(actions.getByRole("button", { name: "Remove saved service" })).toBeVisible();
