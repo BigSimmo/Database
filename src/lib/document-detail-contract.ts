@@ -91,6 +91,8 @@ export type DocumentChunkWindow = {
 
 export type DocumentDetailPayload = {
   document: ClinicalDocument;
+  /** Explicitly projected date for an authorised public document; raw metadata stays private. */
+  publicReviewDate?: string | null;
   pages: DocumentDetailPage[];
   images: DocumentDetailImage[];
   tableFacts: DocumentDetailTableFact[];
