@@ -7,7 +7,6 @@ import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
-import { AdminFloatingAdd } from "@/components/admin/admin-floating-add";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallComplianceSection } from "@/components/on-call/on-call-compliance-section";
@@ -41,7 +40,6 @@ import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 import { isAdminWorkforceExplainer } from "@/lib/admin/placement";
-import type { AppModeId } from "@/lib/app-modes";
 
 /**
  * Generic, non-owner-specific framing for each view. Shown to every reader,
@@ -151,15 +149,6 @@ const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
   compliance: "The expiry date you have, who issues it, and what lapsing would cost.",
 };
 
-/** When another mode hosts one of these views (Admin > Renewals hosts `compliance`). */
-export type OnCallSectionPageChrome = {
-  title: string;
-  modeIdentity: AppModeId;
-  testId: string;
-  /** Josh, 16:31Z: Admin adds through a floating dark "+ Add", not the in-page secondary button. */
-  floatingAdd?: { label: string; testId: string };
-};
-
 /**
  * The one module every On Call view route renders, following
  * `src/components/sources/sources-pages.tsx`'s factoring: peer surfaces off one
@@ -186,7 +175,7 @@ export type OnCallSectionPageChrome = {
  * names on their contacts. The add, edit and verify controls below are gated on
  * `isAuthenticated`, because their routes require one.
  */
-export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chrome?: OnCallSectionPageChrome }) {
+export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   const { isAuthenticated } = useAccountData();
   const [editorState, setEditorState] = useState<{ open: boolean; entry: OnCallEntry | null }>({
     open: false,
@@ -200,7 +189,7 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
     running: false,
     error: null,
   });
-  const title = chrome?.title ?? ON_CALL_VIEW_TITLES[view];
+  const title = ON_CALL_VIEW_TITLES[view];
   const Icon = ON_CALL_VIEW_ICONS[view];
   const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
   // Each list component filters `entries` itself — by section, and for the two
@@ -349,11 +338,7 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
     entries: sectionEntries,
     onEditEntry: isAuthenticated
       ? (entry: OnCallEntry) => {
-          // On Call's Recent list lives in `localStorage`. A view another mode
-          // hosts records nothing there: Admin keeps nothing on the device
-          // (spec review 5), and Renewals' rows are a doctor's own
-          // registration, indemnity and clearances.
-          if (!chrome) recordOnCallRecent({ id: entry.id, title: entry.title });
+          recordOnCallRecent({ id: entry.id, title: entry.title });
           setEditorState({ open: true, entry });
         }
       : undefined,
@@ -413,13 +398,11 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
           has none. */}
       <OnCallPageMenu
         view={view}
-        title={chrome?.title}
         entryCount={visibleCount}
         summary={`${visibleCount} ${visibleCount === 1 ? "entry" : "entries"}. ${ON_CALL_VIEW_DESCRIPTIONS[view]}`}
         order={view === "contacts" ? contactsOrder : undefined}
         onOrderChange={view === "contacts" ? setContactsOrder : undefined}
-        // A hosted view with its own floating add keeps one add control, not two.
-        onAdd={isAuthenticated && !chrome?.floatingAdd ? () => setEditorState({ open: true, entry: null }) : undefined}
+        onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
         addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
         addHint={ON_CALL_ADD_HINT[view]}
         onVerifyAll={offersBulkVerify && isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
@@ -428,8 +411,8 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
         // wired to different conditions.
         staleCount={offersBulkVerify ? staleEntries.length : 0}
       />
-      <OnCallSectionNavHeader title={title} sections={pageSections} modeIdentity={chrome?.modeIdentity} />
-      <InformationPageShell testId={chrome?.testId ?? `on-call-${view}-main`}>
+      <OnCallSectionNavHeader title={title} sections={pageSections} />
+      <InformationPageShell testId={`on-call-${view}-main`}>
         {/* No hero above the list.
             ---------------------------------------------------------------
             This page used to open with an eyebrow reading "On Call", a
@@ -463,7 +446,7 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
                 (it also appears in that section's empty state). The others get
                 it here, because without one an owner can reach an empty
                 Playbook or Logistics page with no way to put anything on it. */}
-            {isAuthenticated && view !== "contacts" && !chrome?.floatingAdd ? (
+            {isAuthenticated && view !== "contacts" ? (
               <Button
                 variant="secondary"
                 size="sm"
@@ -502,13 +485,6 @@ export function OnCallSectionPage({ view, chrome }: { view: OnCallPageView; chro
           )}
         </section>
       </InformationPageShell>
-      {isAuthenticated && chrome?.floatingAdd ? (
-        <AdminFloatingAdd
-          label={chrome.floatingAdd.label}
-          testId={chrome.floatingAdd.testId}
-          onClick={() => setEditorState({ open: true, entry: null })}
-        />
-      ) : null}
       {/* One editor for every view: its field map is already keyed by section.
           Who's who writes `contacts` rows, so it hands over the storage section
           rather than the view. */}
