@@ -98,7 +98,11 @@ export const ON_CALL_SECTION_HREFS: Record<OnCallSection, string> = {
   referrals: "/on-call/referrals",
   orientation: "/on-call/orientation",
   education: "/on-call/education",
-  logistics: "/on-call/logistics",
+  // The section id stays `logistics`, but its page now lives in Admin: On Call's
+  // admin rows moved to Admin > Help on 2026-09-26 (Admin update 1), and
+  // `/on-call/logistics` redirects there. Every On Call link to those rows reads
+  // this entry, so they all land on Help (spec review 19).
+  logistics: "/admin/help",
 };
 
 /**
@@ -161,7 +165,9 @@ export const ON_CALL_VIEW_ICONS: Record<OnCallPageView, LucideIcon> = {
 export const ON_CALL_VIEW_HREFS: Record<OnCallPageView, string> = {
   ...ON_CALL_SECTION_HREFS,
   "who-is-who": "/on-call/who-is-who",
-  compliance: "/on-call/compliance",
+  // The view id stays `compliance`, but its page now lives in Admin > Renewals
+  // (Admin update 1, 2026-09-26); `/on-call/compliance` redirects there.
+  compliance: "/admin/renewals",
 };
 
 /** The glyph for the mode home. Not a section, so it is not in the maps above. */

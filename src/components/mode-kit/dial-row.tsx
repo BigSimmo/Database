@@ -35,6 +35,7 @@ export type ModeDialRowProps = {
   /** Quiet red disc and a 6px red dot: an emergency number only. */
   readonly tone?: "default" | "emergency";
   readonly trailingAction?: ReactNode;
+  readonly sheetFooter?: ReactNode;
   /** Called when a call link is tapped, so the mode can remember it. */
   readonly onCall?: () => void;
   readonly now?: Date;
@@ -70,6 +71,7 @@ export function ModeDialRow({
   meta,
   tone = "default",
   trailingAction,
+  sheetFooter,
   onCall,
   now,
   testId,
@@ -161,6 +163,7 @@ export function ModeDialRow({
           now={now}
           onCall={onCall}
           testId={`${testId}-sheet`}
+          footer={sheetFooter}
         />
       ) : null}
     </li>
