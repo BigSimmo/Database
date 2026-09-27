@@ -87,7 +87,7 @@ export function ReminderSettingsBlock({
           Reminders
         </p>
         <p className={cn("mt-0.5 text-xs font-medium leading-5", textMuted)}>
-          These work now. They choose which CME and On Call reminders show in the app, and which dates alert your phone
+          These work now. They choose which CPD and On Call reminders show in the app, and which dates alert your phone
           through your calendar link or a downloaded calendar file. Nothing is sent anywhere else.
         </p>
       </div>

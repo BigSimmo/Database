@@ -255,6 +255,11 @@
      misreads the clamp() value as a font-family list. Call sites that set an
      explicit leading-* utility still win over this default. */
   --text-hero--line-height: 1.12;
+  /* The one display figure on a mode home (mode design standard module 8:
+     36–44px at weight 300, inside the hero summary only). CPD's Today uses it
+     for "32.5" in "32.5 of 50 h". Declared in CLINICAL_TWMERGE_THEME.text too. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
 
   /* Named leading steps for the two contexts the stepped scale could not
      express, so neither has to be spelled as an arbitrary value. Tailwind owns
@@ -1156,6 +1161,50 @@ body {
     --mode-identity-border: ButtonBorder;
     --mode-identity-contrast: ButtonText;
   }
+}
+
+/* Mode summary surface (mode design standard v13.3 §4).
+   ------------------------------------------------------------------
+   The dark "Right now" panel a mode home may build its hero from; every mode
+   reuses these rather than inventing its own dark card. Read through the
+   `modeSummary*` recipes in `src/components/mode-kit/recipes.ts`.
+   Light: the graphite command fill with its own light ink (16.5:1) and muted
+   ink (7.8:1). Dark: the raised lux surface with the ordinary dark text, so the
+   panel lifts instead of inverting. The aliases resolve on <html>, like the
+   mode identity block above. */
+:root {
+  --surface-summary: var(--command);
+  --surface-summary-ink: #f5f7f7;
+  --surface-summary-muted: #a4adb7;
+  --surface-summary-line: rgb(255 255 255 / 12%);
+}
+
+.dark {
+  --surface-summary: var(--surface-lux);
+  --surface-summary-ink: var(--text);
+  --surface-summary-muted: var(--text-muted);
+  --surface-summary-line: var(--border);
+}
+
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --surface-summary: Canvas;
+    --surface-summary-ink: CanvasText;
+    --surface-summary-muted: CanvasText;
+    --surface-summary-line: CanvasText;
+  }
+}
+
+/* CPD's hero bar fill (Today's hero summary, the hero's one graphic).
+   The dashboard is not inside [data-mode-identity="cme"] (only the pill and
+   the rail carry it), so the fill cannot read --mode-identity. The summary panel is
+   dark in both themes, so both themes take CPD's dark-theme indigo, as the
+   standard says for the mode colour on a hero: 7.3:1 on the light panel and
+   6.7:1 on the dark one; 5.1:1 and 5.4:1 against the bar's track
+   (--surface-summary-line). */
+:root {
+  --cme-hero-fill: #97a3df;
 }
 
 @layer base {

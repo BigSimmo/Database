@@ -4,14 +4,22 @@ import { Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
+import { CmeDateField, useCmeDateChecks } from "@/components/cme/cme-date-field";
 import { CmeNavHeader } from "@/components/cme/cme-nav-header";
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/choice";
 import { TextField } from "@/components/ui/text-field";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
-import { CME_PRESET_SOURCES, CME_PRESET_VERSION, createAustralianRanzcpPreset } from "@/lib/cme/presets";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
+import {
+  CME_PRESET_SOURCES,
+  CME_PRESET_VERSION,
+  createAustralianRanzcpPreset,
+  describeConfirmedSource,
+} from "@/lib/cme/presets";
 import {
   cmeCategories,
   cmeCategoryLabels,
@@ -101,6 +109,7 @@ export function CmeSetupPage({
   readonly onConfirm?: (set: CmeRequirementSet) => Promise<void>;
 }) {
   const targetYear = year ?? set?.year ?? new Date().getFullYear();
+  const today = perthCalendarDate(new Date());
   const [draft, setDraft] = useState<CmeRequirementSet>(
     () =>
       set ??
@@ -109,10 +118,15 @@ export function CmeSetupPage({
   const [saving, setSaving] = useState(false);
   const [savedFingerprint, setSavedFingerprint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const dateChecks = useCmeDateChecks();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!onConfirm || saving) return;
+    if (dateChecks.anyInvalid) {
+      setError("Fix the date before saving.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -146,16 +160,18 @@ export function CmeSetupPage({
     <>
       <CmeNavHeader title="Set up" />
       <InformationPageShell testId="cme-setup-page">
-        <h1 className="text-xl font-extrabold text-[color:var(--text-heading)]">
+        <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">
           Confirm your {targetYear} requirements
         </h1>
         <p className={cn(textMuted, "text-sm leading-relaxed")}>
           Start from the versioned Australian baseline + psychiatry peer-review preset, then edit it to match your own
-          CPD home. This preset is a starting draft, not a claim of full RANZCP CPD-home compliance.
+          CPD home. A preset is a starting draft, not a claim that it matches your CPD home&rsquo;s whole programme.
         </p>
 
         <section data-testid="cme-setup-preset" className={cn(cardSurface, "p-4")}>
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Preset {CME_PRESET_VERSION}</p>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Starting preset: {describeConfirmedSource(CME_PRESET_VERSION)}
+          </p>
           <ul className="mt-2 space-y-1 text-xs text-[color:var(--text-muted)]">
             {CME_PRESET_SOURCES.map((source) => (
               <li key={source.url}>
@@ -177,7 +193,7 @@ export function CmeSetupPage({
 
         {demoMode ? (
           <InlineNotice tone="neutral">
-            Demo mode is read-only. The complete confirmation form remains visible for inspection.
+            Demo mode is read-only. The whole confirmation form stays visible so you can look through it.
           </InlineNotice>
         ) : null}
         {error ? <InlineNotice tone="neutral">{error}</InlineNotice> : null}
@@ -187,8 +203,8 @@ export function CmeSetupPage({
         {draft.requirements.length === 0 ? (
           <div>
             <InlineNotice tone="neutral">
-              This saved year has no complete requirement set yet. Existing log entries stay in place while you repair
-              the setup.
+              This saved year has no usable requirement set yet. Existing log entries stay in place while you repair the
+              setup.
             </InlineNotice>
             <div className="mt-3">
               <Button
@@ -225,12 +241,14 @@ export function CmeSetupPage({
                 }))
               }
             />
-            <TextField
+            <CmeDateField
               label="Confirmation date"
               id="cme-setup-confirmed-on"
-              type="date"
+              required
+              allowFuture={false}
+              today={today}
               value={draft.confirmedOn}
-              onChange={(event) => setDraft((current) => ({ ...current, confirmedOn: event.target.value }))}
+              onChange={(confirmedOn) => setDraft((current) => ({ ...current, confirmedOn }))}
             />
           </div>
           <TextField
@@ -251,7 +269,7 @@ export function CmeSetupPage({
               <div>
                 <h2
                   id="cme-setup-requirements-heading"
-                  className="text-base font-bold text-[color:var(--text-heading)]"
+                  className="text-base font-semibold text-[color:var(--text-heading)]"
                 >
                   Requirements
                 </h2>
@@ -377,27 +395,22 @@ export function CmeSetupPage({
                         <legend className="text-sm font-medium text-[color:var(--text)]">Categories included</legend>
                         <div className="mt-1 grid gap-2 sm:grid-cols-3">
                           {cmeCategories.map((category) => (
-                            <label
+                            <Checkbox
                               key={category}
-                              className="flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={
-                                  requirement.spec.shape === "hours-across-categories" &&
-                                  requirement.spec.categories.includes(category)
-                                }
-                                onChange={(event) => {
-                                  if (requirement.spec.shape !== "hours-across-categories") return;
-                                  const categories = event.target.checked
-                                    ? [...requirement.spec.categories, category]
-                                    : requirement.spec.categories.filter((item) => item !== category);
-                                  if (categories.length > 0)
-                                    setDraft((current) => updateAcross(current, requirement.id, { categories }));
-                                }}
-                              />
-                              {cmeCategoryLabels[category]}
-                            </label>
+                              label={cmeCategoryLabels[category]}
+                              checked={
+                                requirement.spec.shape === "hours-across-categories" &&
+                                requirement.spec.categories.includes(category)
+                              }
+                              onChange={(event) => {
+                                if (requirement.spec.shape !== "hours-across-categories") return;
+                                const categories = event.target.checked
+                                  ? [...requirement.spec.categories, category]
+                                  : requirement.spec.categories.filter((item) => item !== category);
+                                if (categories.length > 0)
+                                  setDraft((current) => updateAcross(current, requirement.id, { categories }));
+                              }}
+                            />
                           ))}
                         </div>
                       </fieldset>
@@ -436,7 +449,7 @@ export function CmeSetupPage({
                   {requirement.spec.shape === "activity-count" ? (
                     <div className="space-y-3">
                       <TextField
-                        label="Required domains"
+                        label="Practice domains"
                         id={`cme-requirement-${requirement.id}-domains`}
                         value={requirement.spec.buckets.join(", ")}
                         onChange={(event) =>
@@ -456,7 +469,7 @@ export function CmeSetupPage({
                         hint="Comma-separated; each selected domain is tracked separately."
                       />
                       <TextField
-                        label="Activities required per domain"
+                        label="Activities per domain"
                         id={`cme-requirement-${requirement.id}-count`}
                         type="number"
                         min="1"
@@ -470,16 +483,19 @@ export function CmeSetupPage({
                     </div>
                   ) : null}
                   {requirement.spec.shape === "task" ? (
-                    <TextField
+                    <CmeDateField
                       label="Completion date"
+                      onInvalidChange={dateChecks.report(`completed-${requirement.id}`)}
                       id={`cme-requirement-${requirement.id}-completed`}
-                      type="date"
+                      chips={false}
+                      allowFuture={false}
+                      today={today}
                       value={requirement.completedOn ?? ""}
-                      onChange={(event) =>
+                      onChange={(completedOn) =>
                         setDraft((current) =>
                           replaceRequirement(current, requirement.id, (item) => ({
                             ...item,
-                            completedOn: event.target.value || null,
+                            completedOn: completedOn || null,
                           })),
                         )
                       }

@@ -10,7 +10,7 @@ describe("maturity governance documentation", () => {
     const pia = read("docs/privacy-impact-assessment.md");
     expect(pia).toContain("Status:** Draft for governance approval");
     expect(pia).toContain("Revised:** 2026-09-01");
-    expect(pia).toMatch(/\| PIA-2 \| Mitigated \|/);
+    expect(pia).toMatch(/\| PIA-2\s+\| Mitigated\s+\|/);
     expect(pia).toContain("PIA-1");
     expect(pia).toContain("close the six release-blocking");
     expect(pia).toContain("clinical PHI-minimisation acceptance");
