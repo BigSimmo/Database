@@ -24,7 +24,8 @@ describe("First Nations content", () => {
   });
   it("indexes only contacts with a visible page destination", () => {
     const index = buildSearchIndex(inputs);
-    expect(index.some((entry) => entry.title === "Aboriginal Interpreting WA")).toBe(true);
+    expect(index.some((entry) => entry.title === "Rurallink support line")).toBe(true);
+    expect(index.some((entry) => entry.id === "aboriginal-interpreting-wa")).toBe(false);
     for (const id of ["brams", "wirraka-maya", "grams", "bega", "derbarl", "swams"]) {
       expect(
         index.some((entry) => entry.id === id),
