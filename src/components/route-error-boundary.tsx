@@ -48,7 +48,8 @@ export function RouteErrorBoundary({
   }, [error, logLabel]);
 
   return (
-    <div
+    <main
+      id="main-content"
       className={cn(
         "flex flex-col items-center justify-center bg-[color:var(--surface-lux)] px-4 font-sans text-[color:var(--text)] select-none",
         minHeightClass,
@@ -111,6 +112,6 @@ export function RouteErrorBoundary({
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

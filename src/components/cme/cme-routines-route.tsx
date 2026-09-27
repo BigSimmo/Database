@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import { CmeRoutinesPage } from "@/components/cme/cme-routines-page";
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
+import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import {
   cmeRoutineCadenceLabels,
@@ -49,6 +50,20 @@ export function CmeRoutinesRoute({
   const [draft, setDraft] = useState<RoutineDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isDirty = useMemo(() => {
+    if (!editingId) return false;
+    if (editingId === "new") return Boolean(draft.title.trim());
+    const original = routines.find((r) => r.id === editingId);
+    if (!original) return false;
+    return (
+      draft.title.trim() !== original.title.trim() ||
+      draft.cadence !== original.cadence ||
+      draft.usualHours !== original.usualHours ||
+      (draft.nextDue || null) !== (original.nextDue || null)
+    );
+  }, [editingId, draft, routines]);
+  useDirtyStateGuard(isDirty && !demoMode);
   // The form renders above the list, so on a phone tapping Edit on a routine
   // further down opened it out of sight and looked like nothing happened.
   // Bring it into view and move focus to its heading each time it opens.
@@ -79,6 +94,10 @@ export function CmeRoutinesRoute({
       setError("Demo mode is read-only. Sign in to save routines to a private CME record.");
       return;
     }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("You're offline. Reconnect and try saving your routine again.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -89,16 +108,28 @@ export function CmeRoutinesRoute({
         body: JSON.stringify(draft),
       });
       if (!response.ok) throw new Error(await apiError(response));
-      const payload = (await response.json()) as { routine: CmeRoutine };
-      setRoutines((current) =>
-        creating
-          ? [...current, payload.routine]
-          : current.map((item) => (item.id === payload.routine.id ? payload.routine : item)),
-      );
+      const payload = (await response.json().catch(() => null)) as { routine?: CmeRoutine } | null;
+      if (payload?.routine) {
+        setRoutines((current) =>
+          creating
+            ? [...current, payload.routine!]
+            : current.map((item) => (item.id === payload.routine!.id ? payload.routine! : item)),
+        );
+      }
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save this routine.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isFetchError =
+        cause instanceof TypeError &&
+        (cause.message.toLowerCase().includes("fetch") || cause.message.toLowerCase().includes("load failed"));
+      setError(
+        isOffline || isFetchError
+          ? "You're offline. Reconnect and try saving your routine again."
+          : cause instanceof Error
+            ? cause.message
+            : "Could not save this routine.",
+      );
     } finally {
       setSaving(false);
     }
@@ -108,6 +139,10 @@ export function CmeRoutinesRoute({
     if (!editingId || editingId === "new" || saving) return;
     if (demoMode) {
       setError("Demo mode is read-only. Sign in to archive a private routine.");
+      return;
+    }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("You're offline. Reconnect and try archiving your routine again.");
       return;
     }
     setSaving(true);
@@ -120,12 +155,24 @@ export function CmeRoutinesRoute({
         body: JSON.stringify(archivedDraft),
       });
       if (!response.ok) throw new Error(await apiError(response));
-      const payload = (await response.json()) as { routine: CmeRoutine };
-      setRoutines((current) => current.map((item) => (item.id === payload.routine.id ? payload.routine : item)));
+      const payload = (await response.json().catch(() => null)) as { routine?: CmeRoutine } | null;
+      if (payload?.routine) {
+        setRoutines((current) => current.map((item) => (item.id === payload.routine!.id ? payload.routine! : item)));
+      }
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not archive this routine.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isFetchError =
+        cause instanceof TypeError &&
+        (cause.message.toLowerCase().includes("fetch") || cause.message.toLowerCase().includes("load failed"));
+      setError(
+        isOffline || isFetchError
+          ? "You're offline. Reconnect and try archiving your routine again."
+          : cause instanceof Error
+            ? cause.message
+            : "Could not archive this routine.",
+      );
     } finally {
       setSaving(false);
     }

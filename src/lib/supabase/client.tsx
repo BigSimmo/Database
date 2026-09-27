@@ -483,19 +483,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!client) return;
     invalidateAuthRequests();
+    let remoteSignOutFailed = false;
     try {
       await client.auth.signOut();
     } catch {
-      setStatus("error");
-      setError("Sign out failed. Please try again.");
-      return;
+      remoteSignOutFailed = true;
+    } finally {
+      clearAccountScopedBrowserState();
+      publishedUserIdRef.current = null;
+      setSession(null);
+      setStatus("signed_out");
+      if (remoteSignOutFailed) {
+        setNotice("Signed out on this device. Reconnect to complete server sign-out.");
+      } else {
+        setError(null);
+        setNotice(null);
+      }
     }
-    clearAccountScopedBrowserState();
-    publishedUserIdRef.current = null;
-    setSession(null);
-    setStatus("signed_out");
-    setError(null);
-    setNotice(null);
   }, [client, invalidateAuthRequests]);
 
   const markSessionExpired = useCallback(() => {

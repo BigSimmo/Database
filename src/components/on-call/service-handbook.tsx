@@ -67,6 +67,10 @@ function ServiceEntryCard({
 
   async function submitReport() {
     if (!reason.trim() || busy) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("You are offline. Connect to send a correction.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -74,7 +78,14 @@ function ServiceEntryCard({
       setReason("");
       setReportOpen(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "This correction could not be reported.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (cause instanceof TypeError && cause.message.includes("fetch"))
+      ) {
+        setError("You are offline. Connect to send a correction.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "This correction could not be reported.");
+      }
     } finally {
       setBusy(false);
     }

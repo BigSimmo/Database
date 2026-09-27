@@ -7,7 +7,7 @@
  */
 
 const CACHE_PREFIX = "clinical-kb-pwa-";
-const CACHE_VERSION = "2026-09-25-v2";
+const CACHE_VERSION = "2026-09-27-v1";
 const SHELL_CACHE = `${CACHE_PREFIX}shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_PREFIX}static-${CACHE_VERSION}`;
 const STATIC_CACHE_PREFIX = `${CACHE_PREFIX}static-`;
@@ -233,11 +233,41 @@ function emergencyOfflineResponse() {
   );
 }
 
+const NAVIGATION_TIMEOUT_MS = 3500;
+
+function fetchWithTimeout(request, timeoutMs) {
+  if (typeof setTimeout === "undefined") {
+    return fetch(request);
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Navigation network timeout"));
+    }, timeoutMs);
+
+    fetch(request)
+      .then((response) => {
+        if (typeof clearTimeout !== "undefined") clearTimeout(timer);
+        resolve(response);
+      })
+      .catch((error) => {
+        if (typeof clearTimeout !== "undefined") clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 async function handleNavigation(event) {
   try {
-    const preloaded = await event.preloadResponse;
+    const preloaded = event.preloadResponse ? await event.preloadResponse.catch(() => null) : null;
     if (preloaded) return preloaded;
-    return await fetch(event.request);
+    return await (typeof setTimeout !== "undefined"
+      ? Promise.race([
+          fetch(event.request),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Navigation network timeout")), NAVIGATION_TIMEOUT_MS),
+          ),
+        ])
+      : fetch(event.request));
   } catch {
     return (await safeCacheMatch(SHELL_CACHE, OFFLINE_URL)) ?? emergencyOfflineResponse();
   }
@@ -272,6 +302,7 @@ self.addEventListener("activate", (event) => {
       const retainedStaticCaches = new Set(
         names
           .filter((name) => name.startsWith(STATIC_CACHE_PREFIX) && name !== STATIC_CACHE)
+          .sort()
           .slice(-MAX_RETAINED_STATIC_CACHES),
       );
       await Promise.allSettled(

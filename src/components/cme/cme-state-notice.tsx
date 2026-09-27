@@ -40,6 +40,11 @@ export function CmeStateNotice({
         testId="cme-unavailable"
         title="Your CME record is temporarily unavailable."
         body="No saved data is being guessed or replaced. Please try again when the connection is restored."
+        actions={
+          <Button variant="secondary" onClick={() => window.location.reload()}>
+            Try again
+          </Button>
+        }
       />
     );
   }

@@ -5,11 +5,11 @@ import { useState } from "react";
 
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { CME_NEW_ENTRY_DRAFT_KEY } from "@/lib/account-scoped-browser-state";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
-/** One key for every new-entry form, so the quick-log sheet and this page continue the same draft. */
-export const CME_NEW_ENTRY_DRAFT_KEY = "cme-entry-draft:new";
+export { CME_NEW_ENTRY_DRAFT_KEY };
 
 /**
  * Reads the message the API actually sent, so the form shows the reason rather
@@ -100,6 +100,9 @@ export function CmeNewEntryRoute({
 
   async function saveEntry(entry: CmeEntryDraft) {
     if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      throw new Error("You're offline. Your draft is preserved on this device. Reconnect and try saving again.");
+    }
     const response = await fetch("/api/cme/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -230,9 +230,11 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
       Request: WorkerRequest,
       Response,
       caches: cacheStorage,
+      clearTimeout,
       console,
       fetch: networkFetch,
       self: workerGlobal,
+      setTimeout,
     }),
     { filename: "public/sw.js" },
   );

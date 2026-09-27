@@ -28,6 +28,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   const [loading, setLoading] = useState(false);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [evidenceQuery, setEvidenceQuery] = useState<string | null>(null);
+  const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const searchRequestSeqRef = useRef(0);
   const searchAbortRef = useRef<AbortController | null>(null);
 
@@ -39,6 +40,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
 
       setLoading(true);
       setEvidenceQuery(null);
+      setSetupWarning(null);
       // This page had only a bare AbortController, which fires on unmount or supersede and never
       // on a stuck request. `/api/search` has no server-side deadline, so a request that never
       // settled left `finally` unreached and this page spinning on "Searching…" indefinitely —
@@ -56,6 +58,11 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         if (requestId !== searchRequestSeqRef.current) return;
         if (!response.ok) {
           setDocumentMatches([]);
+          if (typeof navigator !== "undefined" && !navigator.onLine) {
+            setSetupWarning(
+              "You are offline. Showing reviewed catalogue results; source search requires a connection.",
+            );
+          }
           return;
         }
 
@@ -66,12 +73,16 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       } catch (error) {
         // A timeout is OUR abort, not the caller's, so it must not be swallowed as one: it clears
         // the spinner and empties the evidence list rather than leaving stale matches on screen.
-        // It is not yet distinguishable from "no sources found" in this page's UI; giving it its
-        // own message needs a prop through DifferentialsHome and belongs in deliberate UI work.
         if (!deadline.timedOut && (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")))
           return;
         if (requestId !== searchRequestSeqRef.current) return;
         setDocumentMatches([]);
+        const isOffline =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          (error instanceof TypeError && error.message.includes("fetch"));
+        if (isOffline) {
+          setSetupWarning("You are offline. Showing reviewed catalogue results; source search requires a connection.");
+        }
       } finally {
         deadline.cancel();
         if (requestId === searchRequestSeqRef.current) setLoading(false);
@@ -120,6 +131,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         searchSubmitted={autoRunSearch}
         documentMatches={documentMatches}
         evidenceQuery={evidenceQuery}
+        setupWarning={setupWarning}
         onRunSearch={navigateToSearch}
       />
     </ModeHomeMain>

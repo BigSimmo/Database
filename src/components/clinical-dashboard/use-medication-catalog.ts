@@ -261,10 +261,17 @@ export function useMedicationCatalog(
             (error instanceof DOMException && error.name === "AbortError")
           )
             return;
+          const isOffline =
+            (typeof navigator !== "undefined" && !navigator.onLine) ||
+            (error instanceof TypeError && error.message.includes("fetch"));
           setState({
             data: null,
             loading: false,
-            error: error instanceof Error ? error.message : "Could not load medications.",
+            error: isOffline
+              ? "You are offline. Connect to search the live medication registry."
+              : error instanceof Error
+                ? error.message
+                : "Could not load medications.",
           });
         });
     }, debounceMs);
@@ -314,10 +321,17 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
       })
       .catch((error) => {
         if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        const isOffline =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          (error instanceof TypeError && error.message.includes("fetch"));
         setState({
           data: null,
           loading: false,
-          error: error instanceof Error ? error.message : "Could not load medication.",
+          error: isOffline
+            ? "You are offline. Connect to view this medication."
+            : error instanceof Error
+              ? error.message
+              : "Could not load medication.",
         });
       });
     return () => {

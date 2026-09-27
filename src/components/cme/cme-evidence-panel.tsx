@@ -55,13 +55,21 @@ export function CmeEvidencePanel({
         cache: "no-store",
         signal: controller.signal,
       });
-      const body = await response.json();
+      const body = (await response.json().catch(() => ({}))) as { evidence?: unknown; message?: string };
       if (!response.ok) throw new Error(body.message ?? "Evidence could not be loaded.");
       const parsed = cmeEvidenceSchema.array().parse(body.evidence);
       if (!controller.signal.aborted) setResult({ entryId, files: parsed });
     } catch (cause) {
-      if (!controller.signal.aborted)
-        setError(cause instanceof Error ? cause.message : "Evidence could not be loaded.");
+      if (!controller.signal.aborted) {
+        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+        setError(
+          isOffline
+            ? "You are offline. Evidence files cannot be loaded."
+            : cause instanceof Error
+              ? cause.message
+              : "Evidence could not be loaded.",
+        );
+      }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
@@ -101,6 +109,10 @@ export function CmeEvidencePanel({
 
   async function upload() {
     if (!file || !confirmed || !previewOpened || readOnly || demoMode || busy) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("You are offline. Connect to upload evidence.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -117,7 +129,11 @@ export function CmeEvidencePanel({
         body: data,
         signal: controller.signal,
       });
-      const body = await response.json();
+      const body = (await response.json().catch(() => ({}))) as {
+        evidence?: unknown;
+        message?: string;
+        duplicate?: boolean;
+      };
       if (!response.ok) throw new Error(body.message ?? "Evidence upload failed. Your file selection is retained.");
       const saved = cmeEvidenceSchema.parse(body.evidence);
       if (controller.signal.aborted) return;
@@ -324,6 +340,10 @@ function EvidenceFileRow({
   }
 
   async function remove() {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("You are offline. Connect to remove evidence.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -336,7 +356,14 @@ function EvidenceFileRow({
       if (!response.ok) throw new Error(body.message ?? "The file could not be removed. Try again.");
       onRemoved(cmeEvidenceSchema.parse(body.evidence));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The file could not be removed. Try again.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      setError(
+        isOffline
+          ? "You are offline. Connect to remove evidence."
+          : cause instanceof Error
+            ? cause.message
+            : "The file could not be removed. Try again.",
+      );
     } finally {
       setBusy(false);
     }

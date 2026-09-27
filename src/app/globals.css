@@ -1625,6 +1625,17 @@ summary::-webkit-details-marker {
   font-weight: 800;
 }
 
+/* DSM mobile compare strip adapts to footer scroll-hide transitions */
+.dsm-mobile-compare-strip {
+  transition: transform var(--duration-quick) var(--ease-out-soft);
+}
+
+@media (max-width: 1023px) {
+  body[data-phone-chrome-hidden="true"] .dsm-mobile-compare-strip {
+    transform: translateY(calc(100% + var(--safe-area-bottom, 0px) + 2rem));
+  }
+}
+
 /* Medication surfaces: Patient details sits above the search pill in the dock,
    the same in-flow trick as the Compare bar so scroll-hide moves both together.
    Deliberately one row shorter and quieter than Compare: Compare is the primary
@@ -3490,7 +3501,6 @@ summary::-webkit-details-marker {
   }
 }
 
-/* Safe-area helpers for notches and home indicators */
 @utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
@@ -3501,6 +3511,19 @@ summary::-webkit-details-marker {
 
 @utility pb-safe-2 {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Global PWA notices sit above the phone composer and home indicator without

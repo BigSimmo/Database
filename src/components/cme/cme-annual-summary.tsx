@@ -68,7 +68,17 @@ export function CmeAnnualSummary({
           <Button testId="cme-summary-save-pdf" onClick={() => savePdf(set.year)}>
             Save as PDF
           </Button>
-          <a href={`/api/cme/export?year=${set.year}`} download className={buttonFaceClass({ variant: "secondary" })}>
+          <a
+            href={`/api/cme/export?year=${set.year}`}
+            download
+            className={buttonFaceClass({ variant: "secondary" })}
+            onClick={(event) => {
+              if (typeof navigator !== "undefined" && !navigator.onLine) {
+                event.preventDefault();
+                window.alert("You are offline. Connect to download the CSV export.");
+              }
+            }}
+          >
             Download CSV
           </a>
         </div>

@@ -3,9 +3,10 @@
 import { Check, NotebookPen, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import { cn, eyebrowText, floatingControl, InlineNotice, primaryControl, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import {
@@ -63,7 +64,21 @@ export function CmePlanPage({
   const filled = drafts.filter((draft) => draft.goal.trim().length > 0);
   const tooShort = filled.some((draft) => draft.goal.trim().length < CME_PLAN_GOAL_MIN_LENGTH);
 
+  const isDirty = useMemo(() => {
+    if (goals.length === 0 && drafts.length === 1 && !drafts[0].goal.trim()) return false;
+    if (drafts.length !== goals.length) return true;
+    return drafts.some((draft, index) => {
+      const original = goals[index];
+      return !original || draft.goal.trim() !== original.goal.trim();
+    });
+  }, [drafts, goals]);
+  useDirtyStateGuard(isDirty && !readOnly);
+
   async function save() {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setMessage("You're offline. Reconnect and try saving your plan again.");
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
@@ -82,11 +97,23 @@ export function CmePlanPage({
         message?: string;
       } | null;
       if (!response.ok) throw new Error(payload?.message ?? `Could not save your plan (${response.status}).`);
-      setDrafts((payload?.goals ?? []).map((goal) => ({ key: nextKey(), id: goal.id, goal: goal.goal })));
+      if (Array.isArray(payload?.goals)) {
+        setDrafts(payload.goals.map((goal) => ({ key: nextKey(), id: goal.id, goal: goal.goal })));
+      }
       setMessage("Plan saved.");
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save your plan.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isFetchError =
+        error instanceof TypeError &&
+        (error.message.toLowerCase().includes("fetch") || error.message.toLowerCase().includes("load failed"));
+      setMessage(
+        isOffline || isFetchError
+          ? "You're offline. Reconnect and try saving your plan again."
+          : error instanceof Error
+            ? error.message
+            : "Could not save your plan.",
+      );
     } finally {
       setSaving(false);
     }

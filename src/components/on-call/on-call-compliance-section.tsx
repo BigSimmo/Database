@@ -523,6 +523,7 @@ export function OnCallComplianceSection({
    * about what this page does not know.
    */
   const allPrivate = compliance.length > 0 && compliance.every((entry) => entry.isPersonal);
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
   if (compliance.length === 0) {
     return (
@@ -537,14 +538,16 @@ export function OnCallComplianceSection({
             is a glyph arguing with its own caption. */}
         <EmptyState
           icon={ON_CALL_VIEW_ICONS.compliance}
-          title="No requirements recorded yet"
+          title={isOffline ? "Personal compliance records need a connection" : "No requirements recorded yet"}
           // `onEditEntry` is passed only to a signed-in reader, and compliance
           // rows are never shared, so a signed-out reader always lands here and
           // cannot add anything: tell them what would let them.
           body={
-            onEditEntry
-              ? "Registration, indemnity, credentialing, mandatory training and CPD. Add one from this page and it appears here, grouped by what happens if it lapses — with the date you recorded, and where you recorded it from."
-              : "Registration, indemnity, credentialing, mandatory training and CPD. These are private to your account, so sign in to record yours and see them here, grouped by what happens if it lapses."
+            isOffline
+              ? "Your compliance records are private to your account and never cached offline. Connect to the internet to review or record them."
+              : onEditEntry
+                ? "Registration, indemnity, credentialing, mandatory training and CPD. Add one from this page and it appears here, grouped by what happens if it lapses — with the date you recorded, and where you recorded it from."
+                : "Registration, indemnity, credentialing, mandatory training and CPD. These are private to your account, so sign in to record yours and see them here, grouped by what happens if it lapses."
           }
           testId="on-call-compliance-empty"
         />

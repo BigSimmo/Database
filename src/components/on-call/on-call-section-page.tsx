@@ -280,6 +280,10 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
    * number look checked.
    */
   async function verifyAllStale() {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setVerifyAllState({ running: false, error: "You are offline. Connect to confirm entries." });
+      return;
+    }
     setVerifyAllState({ running: true, error: null });
     let working = [...entries];
     const commit = () => cacheOnCallEntries(working);
@@ -297,9 +301,16 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         }
       } catch (error) {
         commit();
+        const isOfflineError =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          (error instanceof TypeError && error.message.includes("fetch"));
         setVerifyAllState({
           running: false,
-          error: error instanceof Error ? error.message : "Could not confirm these entries.",
+          error: isOfflineError
+            ? "You are offline. Connect to confirm entries."
+            : error instanceof Error
+              ? error.message
+              : "Could not confirm these entries.",
         });
         return;
       }

@@ -11,6 +11,7 @@ import { cn, fieldControlPlain, fieldControlWithIcon, InlineNotice, textMuted } 
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
 import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory, type CmeEntry } from "@/lib/cme/types";
+import { subscribeAccountTransition } from "@/lib/account-scoped-browser-state";
 
 /**
  * One activity, captured on one sheet: what it was, when, how many hours it
@@ -402,6 +403,12 @@ export function CmeEntryForm({
     setRestoredDraft(false);
   }
 
+  useEffect(() => {
+    return subscribeAccountTransition(() => {
+      discardDraft();
+    });
+  }, [draftStorageKey]);
+
   function handleAllocationChange(nextAllocations: readonly CmeAllocation[], total: number) {
     setSplitAllocations([...nextAllocations]);
     setSplitTotal(total);
@@ -418,7 +425,13 @@ export function CmeEntryForm({
       setRestoredDraft(false);
       resetFields();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Could not save this entry.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isFetchError = error instanceof TypeError && error.message.toLowerCase().includes("fetch");
+      if (isOffline || isFetchError) {
+        setSubmitError("You're offline. Your draft is preserved on this device. Reconnect and try saving again.");
+      } else {
+        setSubmitError(error instanceof Error ? error.message : "Could not save this entry.");
+      }
     } finally {
       setSaving(false);
     }
