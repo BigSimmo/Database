@@ -37,27 +37,42 @@ function escapePdf(text: string): string {
 
 /** A one-page text PDF with the sample roster drawn as a table, written by hand so no PDF library is needed. */
 export function sampleRosterPdf(options: { scanned?: boolean } = {}): Buffer {
-  const lines: string[] = [];
-  if (!options.scanned) {
-    const table = [SAMPLE_ROSTER.header, ...SAMPLE_ROSTER.rows];
-    const columns = [40, 150, 220, 290, 360, 430];
-    table.forEach((row, rowIndex) => {
+  if (options.scanned) return rosterPdf([{ scanned: true }]);
+  return rosterPdf([{ title: SAMPLE_ROSTER.title, table: [SAMPLE_ROSTER.header, ...SAMPLE_ROSTER.rows] }]);
+}
+
+/** One page of a hand-written PDF: rows drawn as a table (header included, if the page has one), or a scanned page. */
+export type RosterPdfPage = {
+  readonly title?: string;
+  readonly table?: readonly (readonly string[])[];
+  readonly scanned?: boolean;
+};
+
+/** A text PDF of one or more pages, each drawn as a table at the same column positions. */
+export function rosterPdf(pages: readonly RosterPdfPage[]): Buffer {
+  const columns = [40, 150, 220, 290, 360, 430];
+  const streams = pages.map((page) => {
+    if (page.scanned) return "0.5 g 40 400 400 300 re f";
+    const lines: string[] = [];
+    if (page.title) lines.push(`BT /F1 12 Tf 40 740 Td (${escapePdf(page.title)}) Tj ET`);
+    (page.table ?? []).forEach((row, rowIndex) => {
       row.forEach((cell, column) => {
         if (!cell) return;
         lines.push(`BT /F1 9 Tf ${columns[column]} ${700 - rowIndex * 20} Td (${escapePdf(cell)}) Tj ET`);
       });
     });
-    lines.unshift(`BT /F1 12 Tf 40 740 Td (${escapePdf(SAMPLE_ROSTER.title)}) Tj ET`);
-  } else {
-    lines.push("0.5 g 40 400 400 300 re f");
-  }
-  const stream = lines.join("\n");
+    return lines.join("\n");
+  });
+  // Objects: 1 catalog, 2 pages, 3 font, then a page and its content stream for each page.
+  const pageObject = (index: number) => 4 + index * 2;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
-    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    `<< /Type /Pages /Kids [${streams.map((_, index) => `${pageObject(index)} 0 R`).join(" ")}] /Count ${streams.length} >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ...streams.flatMap((stream, index) => [
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${pageObject(index) + 1} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
+    ]),
   ];
   let body = "%PDF-1.4\n";
   const offsets: number[] = [];

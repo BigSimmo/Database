@@ -7,7 +7,13 @@ import { RosterReadError, tableToGrid } from "@/lib/roster/import/table";
 import { inferShiftKind } from "@/lib/roster/shift-kind";
 import { perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
-import { SAMPLE_ROSTER, sampleRosterCsv, sampleRosterPdf, sampleRosterXlsx } from "./helpers/roster-fixtures";
+import {
+  rosterPdf,
+  SAMPLE_ROSTER,
+  sampleRosterCsv,
+  sampleRosterPdf,
+  sampleRosterXlsx,
+} from "./helpers/roster-fixtures";
 
 vi.mock("server-only", () => ({}));
 
@@ -155,6 +161,66 @@ describe("file readers agree on the same roster", () => {
 
   it("reads a text PDF", async () => {
     expect(await namesAndFirstRow(readRosterPdf(sampleRosterPdf(), TODAY))).toEqual(expected);
+  });
+
+  it("reads staff rows that continue on a second page, with or without a repeated header", async () => {
+    const [first, second, third] = SAMPLE_ROSTER.rows;
+    const withHeader = rosterPdf([
+      { title: SAMPLE_ROSTER.title, table: [SAMPLE_ROSTER.header, first, second] },
+      { table: [SAMPLE_ROSTER.header, third] },
+    ]);
+    expect(await namesAndFirstRow(readRosterPdf(withHeader, TODAY))).toEqual(expected);
+    const withoutHeader = rosterPdf([
+      { title: SAMPLE_ROSTER.title, table: [SAMPLE_ROSTER.header, first, second] },
+      { title: "Page 2 of 2", table: [third] },
+    ]);
+    expect(await namesAndFirstRow(readRosterPdf(withoutHeader, TODAY))).toEqual(expected);
+  });
+
+  it("reads days that continue on a second page, each person's days joined to their row", async () => {
+    const pdf = rosterPdf([
+      {
+        table: [
+          ["Name", "Grade", "Mon 5/10", "Tue 6/10", "Wed 7/10"],
+          ["Dr Alex Example", "Registrar", "D", "E", "N"],
+          ["Sam Sample", "Resident", "N", "N", ""],
+        ],
+      },
+      {
+        table: [
+          ["Name", "Grade", "Thu 8/10", "Fri 9/10", "Sat 10/10"],
+          ["Sam Sample", "Resident", "D", "", "E"],
+          ["Dr Alex Example", "Registrar", "OFF", "D", "D"],
+        ],
+      },
+    ]);
+    const grid = await readRosterPdf(pdf, TODAY);
+    expect(grid.dates.filter(Boolean)).toEqual([
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-07",
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-10",
+    ]);
+    const days = (cells: readonly string[]) => cells.filter((_, column) => grid.dates[column] !== null).join(",");
+    expect(grid.rows.map((row) => [row.name, days(row.cells)])).toEqual([
+      ["Dr Alex Example", "D,E,N,OFF,D,D"],
+      ["Sam Sample", "N,N,,D,,E"],
+    ]);
+  });
+
+  it("does not join a later page whose days go backwards or repeat", async () => {
+    const pdf = rosterPdf([
+      { table: [SAMPLE_ROSTER.header, ...SAMPLE_ROSTER.rows] },
+      {
+        table: [
+          ["Name", "Grade", "Wed 30/9", "Thu 1/10", "Fri 2/10"],
+          ["Other Person", "Intern", "D", "D", "D"],
+        ],
+      },
+    ]);
+    expect(await namesAndFirstRow(readRosterPdf(pdf, TODAY))).toEqual(expected);
   });
 
   it("says a scanned PDF can't be read", async () => {
