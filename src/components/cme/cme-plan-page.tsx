@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
-import { cn, eyebrowText, floatingControl, InlineNotice, primaryControl, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  controlDisabled,
+  eyebrowText,
+  floatingControl,
+  InlineNotice,
+  primaryControl,
+  textMuted,
+} from "@/components/ui-primitives";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
@@ -267,7 +275,10 @@ export function CmePlanPage({
                     type="button"
                     disabled={!targetReady || targetFull || carryingId !== null || demoMode}
                     onClick={() => void carryGoal(goal)}
-                    className="min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold text-[color:var(--text)] disabled:opacity-60"
+                    className={cn(
+                      "min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold text-[color:var(--text)]",
+                      controlDisabled,
+                    )}
                   >
                     {carryingId === goal.id ? "Carrying…" : `Carry into ${set.year + 1}`}
                   </button>
