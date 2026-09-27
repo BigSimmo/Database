@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cc6311e8-9d2c-453a-9e70-928515a0dfa6",
+  "createdOn": "2026-09-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3752dc35-5e88-43c5-bfde-f8ffeb89a69b",
+    "reason": "Superseded: replacement also corrects the summary count (five to one)."
+  }
+}

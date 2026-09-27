@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2d708344-915b-4811-be70-4ceb754b8cc0",
+  "createdOn": "2026-09-27",
+  "action": "update",
+  "payload": {
+    "id": "#4NSKNS",
+    "detail": "LOCATIONS CORRECTED 2026-09-27 for main 7f8312f2c. src/components/on-call/service-page.tsx:282 canLeaveEditor() and service-entry-editor.tsx:130 confirm before in-app entry switches only; neither registers beforeunload. Confidence: likely, not every exit path traced. Next action: confirm the exit paths, then add a beforeunload guard while an entry is being edited (same pattern as src/components/cme/cme-entry-form.tsx:342).",
+    "baseRowFingerprint": "def94c82dac18e566acc99315fa7e8eb386598cecc6f6e372a124b4db37a0096"
+  }
+}

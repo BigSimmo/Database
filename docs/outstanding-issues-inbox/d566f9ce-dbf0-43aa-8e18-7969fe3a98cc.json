@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d566f9ce-dbf0-43aa-8e18-7969fe3a98cc",
+  "createdOn": "2026-09-27",
+  "action": "done",
+  "payload": {
+    "id": "#AHSHSY",
+    "outcome": "Closed as invalid 2026-09-27: tests/ui-care-plan-mockup.spec.ts:1867 is rmSync(captureDirectory, { recursive: true, force: true }), a filesystem option, not a Playwright click. No click with force: true exists in the specs (Codex review on PR 3128).",
+    "baseRowFingerprint": "aeb0f61249af299d09f93be3b771f846c8e73f05972bf6cd83072dbe8572648c"
+  }
+}
