@@ -344,7 +344,11 @@ export function RosterDraftUpload({
           </Button>
         )}
       </div>
-      <p role="status" aria-live="polite" className="text-sm">
+      <p className="text-sm">
+        {busy ? "Working… " : ""}
+        {message}
+      </p>
+      <p role="status" aria-live="polite" className="sr-only">
         {busy ? "Working… " : ""}
         {message}
       </p>
@@ -361,7 +365,7 @@ export function RosterDraftUpload({
               <label key={index} className="grid gap-1 text-sm">
                 Row {index + 1}: {row.name}
                 <select
-                  className="min-h-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2"
+                  className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2"
                   value={
                     choices[index]?.kind === "person"
                       ? choices[index].userId
@@ -424,7 +428,7 @@ export function RosterDraftUpload({
                     <label className="mt-2 grid gap-1">
                       {item.reason} Choose what to keep:
                       <select
-                        className="min-h-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2"
+                        className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2"
                         value={decisions[item.key] ?? ""}
                         onChange={(event) =>
                           setDecisions((old) => ({ ...old, [item.key]: event.target.value as "keep" | "file" }))
