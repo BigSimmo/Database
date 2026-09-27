@@ -206,6 +206,34 @@ const routeDescriptions: Record<string, string> = {
   "/first-nations/going-home": "First Nations Going home: discharge planning, travel support and return to Country.",
   "/first-nations/end-of-life": "First Nations End of life: Sorry Business and caring for the family.",
   "/first-nations/card": "First Nations pocket card: the key numbers and prompts on one printable card.",
+  "/teaching":
+    "Teaching's Today: the next session as a summary hero with only the actions that apply (Join and Details, or Scan to check in and Check in without code while it is on), what needs the doctor, and one row to the rest of the week, across every service the doctor belongs to. Signed-out readers can open a made-up demo.",
+  "/teaching/week":
+    "The week: a seven-day rail, Whole service or Presenting, every remaining day grouped, Add to my calendar, the doctor's own teaching list also shown from On Call (edited with On Call's editor) and the service handbook's teaching entries.",
+  "/teaching/logbook":
+    "The doctor's attendance record: this term, hours, sessions not yet in CPD, a weekly chart, and a ledger by month with Log to CPD and a CSV download.",
+  "/teaching/teach":
+    "Presenter preparation, de-identification confirmation, taught-before history and released feedback totals.",
+  "/teaching/supervision":
+    "Private registrar and supervisor records, targets, confirmation and retained corrections with a ten-second Undo window.",
+  "/teaching/feedback": "Tap-only feedback for attended sessions; no free text or responder names in presenter totals.",
+  "/teaching/review":
+    "Explicit selection and hours for weekly personal CPD logging; attendance never awards credit automatically.",
+  "/teaching/import":
+    "Organiser timetable CSV/XLSX preview before explicit import, with no patient details or uploaded slides.",
+  "/teaching/organise":
+    "For a service's organisers: the next 48 hours with clashes named, counts, series, groups, members, invitations, posting a change with a 10-second undo, and the attendance export.",
+  "/teaching/whats-on":
+    "What's on across the doctor's health service: On now leads with Join, a day rail and an All / My level / Online switch, and a plus to add another service's open session to the doctor's own week.",
+  "/teaching/session/[id]":
+    "One session under the in-page header: when and where, a change line when it was moved or cancelled, the phase module (On now, check-in, Log to CPD after it ends), details and materials. A removed session says it is no longer in the programme.",
+  "/teaching/session/[id]/check-in":
+    "The presenter's check-in screen: a QR and its six digits that change every 30 seconds, a draining hairline, Room or Teams, counts, and a link to a shared screen. The code comes down when the connection drops.",
+  "/teaching/c/[token]":
+    "Where a scanned check-in QR lands. It opens the scan and finishes it; signed out, it sends a sign-in link that returns to `/teaching/c/complete`. Not indexed, and sends no referrer.",
+  "/teaching/c/complete": "Finishes a check-in after sign-in, from the claim this browser holds.",
+  "/teaching/display/[token]":
+    "The shared check-in screen for a projector or a Teams share: title, room, the QR, its six digits and a draining hairline. No app chrome and no sign-in.",
   "/cme":
     "CPD dashboard: total hours logged this year against the confirmed targets, a plain-words pace line for the year's end, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CPD has no search results surface.",
   "/cme/log":
@@ -318,6 +346,7 @@ const routeOwnershipRows = [
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
   ["Admin", "src/app/(search-app)/admin, src/components/admin, src/lib/admin"],
   ["First Nations", "src/app/(search-app)/first-nations, src/components/first-nations, src/lib/first-nations"],
+  ["Teaching", "src/app/(search-app)/teaching, src/app/(display)/teaching, src/components/teaching"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -505,6 +534,7 @@ function renderModeRoutes() {
     "my-work": appModeHomeHref("my-work"),
     roster: appModeHomeHref("roster"),
     "first-nations": appModeHomeHref("first-nations"),
+    teaching: appModeHomeHref("teaching"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -679,6 +709,13 @@ function renderModePageIndex() {
       search: appModeHomeHref("first-nations"),
       detail:
         'No results page — `resultsSurface: "none"`, like My Work. Every page keeps its own in-page search box. `/first-nations` Bedside, then `/contacts`, `/talking`, `/family`, `/mental-health`, `/on-the-ward`, `/mistakes`, `/going-home`, `/end-of-life`, and the `/card` pocket card.',
+    },
+    {
+      mode: "Teaching",
+      home: appModeHomeHref("teaching"),
+      search: appModeHomeHref("teaching"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like CPD. `/teaching` is Today; Week, Logbook and Organise are its other pages; `/teaching/session/[id]` is one session with `/check-in`; `/teaching/c/[token]` is the scan landing; `/teaching/display/[token]` is the chrome-free shared screen.',
     },
   ]);
 }

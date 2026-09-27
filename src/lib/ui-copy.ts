@@ -130,6 +130,13 @@ export const sharedHomePresentation = {
     subtitle: "What you have done this year, and what is still short.",
     suggestions: ["peer review group", "journal club", "audit"],
   },
+  teaching: {
+    title: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+    // Session titles only: nothing personal is ever suggested into a search
+    // that leaves the app (plan contracts §8).
+    suggestions: ["grand round", "journal club", "case conference"],
+  },
   psychiatry: {
     title: "Psychiatry",
     subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",

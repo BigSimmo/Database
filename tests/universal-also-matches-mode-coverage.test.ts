@@ -71,6 +71,9 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   // CME, for On Call's reason exactly. The file named here is the dashboard the
   // reader actually lands on at `/cme`.
   cme: { file: "src/components/cme/cme-dashboard.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // Teaching, for On Call's reason exactly. The file named here is the
+  // dashboard the reader lands on at `/teaching`.
+  teaching: { file: "src/components/teaching/teaching-today.tsx", mounts: false, because: NO_RESULTS_SURFACE },
   // Psychiatry, for the same reason: its home is a dashboard of links.
   psychiatry: { file: "src/components/psychiatry/psychiatry-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
   // Admin (mode id `my-work`), likewise: Today is a dashboard of what is due and links.

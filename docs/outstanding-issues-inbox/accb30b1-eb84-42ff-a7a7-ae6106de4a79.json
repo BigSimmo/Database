@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "accb30b1-eb84-42ff-a7a7-ae6106de4a79",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#FNPHYN",
+    "outcome": "Stripped stale relative phrases ('next week', 'later this month') from teaching schedule time badges, and sorted undated entries safely with positive infinity key without parsing free text (#FNPHYN).",
+    "baseRowFingerprint": "79fcd767d2e00c34707475ca65efbd84482eb8b0b3579014668019fa109557fd"
+  }
+}

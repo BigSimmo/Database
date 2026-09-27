@@ -5,6 +5,13 @@
   "perFileMinRemovedCases": 3,
   "approvedReductions": [
     {
+      "path": "tests/on-call-entry-chips.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Whole-file deletion: src/lib/on-call/entry-chips.ts safely removed under dead-code deletion protocol (#T3ZQGK).",
+      "approvedOn": "2026-09-27"
+    },
+    {
       "path": "tests/gate-arbiter.test.ts",
       "before": 42,
       "after": 0,

@@ -121,6 +121,12 @@ const expectedPresentations = [
     iconClass: "lucide-graduation-cap",
   },
   {
+    modeId: "teaching",
+    title: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+    iconClass: "lucide-presentation",
+  },
+  {
     modeId: "psychiatry",
     title: "Psychiatry",
     subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
