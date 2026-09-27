@@ -1,4 +1,3 @@
-import { perthCalendarDate } from "@/lib/perth-time";
 import snapshotJson from "../../../data/hazard-register-snapshot.json";
 
 export const HAZARD_SNAPSHOT_VERSION = "hazard-register-snapshot-v1";
@@ -10,7 +9,14 @@ export function reviewExpiredAtPerth(reviewExpiresAt: string | null, now = new D
   const parsed = new Date(`${reviewExpiresAt}T00:00:00Z`);
   if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== reviewExpiresAt) return true;
 
-  const today = perthCalendarDate(now);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: REVIEW_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const today = `${values.year}-${values.month}-${values.day}`;
   return reviewExpiresAt < today;
 }
 

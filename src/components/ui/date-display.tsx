@@ -1,7 +1,6 @@
 "use client";
 
 import { useClientTime } from "@/lib/use-client-time";
-import { perthCalendarDate } from "@/lib/perth-time";
 import { cn } from "@/components/ui-primitives";
 import { createBoundedDiagnosticRecorder } from "@/components/ui/design-system-diagnostics";
 import { MissingValue, type MissingValueReason } from "@/components/ui/missing-value";
@@ -43,6 +42,12 @@ const DATE_TIME = { ...DATE_ONLY, hour: "2-digit", minute: "2-digit", hour12: fa
  */
 const DATE_ONLY_FORMAT = new Intl.DateTimeFormat("en-AU", DATE_ONLY);
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-AU", DATE_TIME);
+const PERTH_CALENDAR_DAY_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Australia/Perth",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 const RELATIVE_FORMAT = new Intl.RelativeTimeFormat("en-AU", { numeric: "auto" });
 
 /**
@@ -83,16 +88,9 @@ function parseClinicalIsoDate(value: string): Date | null {
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }
 
-const PERTH_CALENDAR_DAY_FORMAT = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Australia/Perth",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
 /** The Perth calendar day as `YYYY-MM-DD`, so "days ago" counts days, not 24-hour blocks. */
 function perthCalendarDay(instant: Date) {
-  return perthCalendarDate(instant);
+  return PERTH_CALENDAR_DAY_FORMAT.format(instant);
 }
 
 function calendarDayDelta(from: Date, to: Date) {
