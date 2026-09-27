@@ -9,7 +9,7 @@ import { cn } from "@/components/ui-primitives";
 
 /*
  * A module's actions as a strip (v4.2). The faces are the app's, not a second
- * copy: `ModeActionButton` on `main` (#3115) is a compact 34px ICON-ONLY
+ * copy: `ModeActionButton` on `main` (On Call PR 3115) is a compact 34px ICON-ONLY
  * control (`icon` and `label` required, no `children`) — a different job, an
  * in-row control, not a labelled call-to-action — and `ModeHeroLink` always
  * renders a `next/link` with no `onClick` and no external-tab support. Per

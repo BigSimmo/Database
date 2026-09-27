@@ -397,9 +397,8 @@ export function DayRail({
         // `}` immediately before a literal space and a unit word ("sessions")
         // is exactly the hand-rolled-unit shape `teaching-type-weight.test.ts`
         // guards against, even inside an aria-label with nothing visual to wrap.
-        const sessionsWord = "sessions";
-        const countWords =
-          day.count === 0 ? "no sessions" : day.count === 1 ? "1 session" : `${day.count} ${sessionsWord}`;
+        const sessionWord = day.count === 1 ? "session" : "sessions";
+        const countWords = day.count === 0 ? `no ${sessionWord}` : `${day.count} ${sessionWord}`;
         return (
           <button
             key={day.key}
