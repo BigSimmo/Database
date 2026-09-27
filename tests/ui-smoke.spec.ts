@@ -3156,20 +3156,14 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.waitForTimeout(320);
       await expect(header).toHaveAttribute("data-scroll-hidden", "true");
       await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-      const settledHiddenGeometry = await page.evaluate(() => {
-        const headerNode = document.querySelector<HTMLElement>("header.universal-header");
-        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
-        if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
-        const headerRect = headerNode.getBoundingClientRect();
-        const dockRect = dockNode.getBoundingClientRect();
-        return {
-          headerBottom: headerRect.bottom,
-          dockTop: dockRect.top,
-          viewportHeight: window.innerHeight,
-        };
-      });
-      expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
-      expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
+      // Headless WebKit can render no frame during the wall-clock delay. Poll
+      // the actual painted geometry so the hidden transform must finish.
+      await expect
+        .poll(async () => header.evaluate((node) => node.getBoundingClientRect().bottom))
+        .toBeLessThanOrEqual(1);
+      await expect
+        .poll(async () => dock.evaluate((node) => node.getBoundingClientRect().top - window.innerHeight))
+        .toBeGreaterThanOrEqual(-1);
       await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
 
       await scrollPrimarySurface(page, 20);
@@ -5793,7 +5787,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await summaryToggle.click();
     await expect(summaryToggle).toHaveAttribute("aria-expanded", "true");
     await expect(summaryToggle).toContainText("Show less");
-    await clinicalSummary.getByTestId("open-clinical-priorities").click();
+    await clickWhenSettled(clinicalSummary.getByTestId("open-clinical-priorities"));
     const prioritiesSheet = page.getByRole("dialog", { name: "Clinical priorities" });
     await expect(prioritiesSheet).toBeVisible();
     await page.keyboard.press("Escape");
