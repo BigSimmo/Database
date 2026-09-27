@@ -1484,7 +1484,11 @@ describe("design-system adoption manifest", () => {
     //
     // 105 -> 108 on 2026-09-26: Roster's Today (`/roster`), `/roster/shifts` and
     // `/roster/settings`, each declared in `adoption-contract.json`.
-    expect(manifest.routeCoverage.discovered).toHaveLength(108);
+    //
+    // 108 -> 112 on 2026-09-27: the rebuilt On Call's shift pages `/on-call/call`,
+    // `/on-call/refer`, `/on-call/find` and `/on-call/whos-on` (Who's on hidden from the
+    // menu behind its flag, but still a route).
+    expect(manifest.routeCoverage.discovered).toHaveLength(112);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

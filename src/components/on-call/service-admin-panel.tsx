@@ -195,7 +195,7 @@ export function ServiceAdminPanel({
   return (
     <section aria-labelledby="service-admin-heading" className="grid gap-5" data-testid="service-admin">
       <div>
-        <h2 id="service-admin-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="service-admin-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           Service administration
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -205,7 +205,7 @@ export function ServiceAdminPanel({
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
       <section aria-labelledby="service-sites-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-        <h3 id="service-sites-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-sites-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Sites
         </h3>
         <ul className="grid gap-1 text-sm text-[color:var(--text)]">
@@ -236,7 +236,7 @@ export function ServiceAdminPanel({
       </section>
 
       <section aria-labelledby="service-invitations-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-        <h3 id="service-invitations-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-invitations-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Invitations
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -335,7 +335,7 @@ export function ServiceAdminPanel({
       </section>
 
       <section aria-labelledby="service-members-heading" className="grid gap-3">
-        <h3 id="service-members-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-members-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Members
         </h3>
         <div className="grid gap-3 lg:grid-cols-2">

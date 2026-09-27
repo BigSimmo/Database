@@ -73,7 +73,7 @@ function SearchResultRow({ result }: { result: OnCallSearchResult }) {
       trailing={
         telHref && number ? (
           <span className="flex items-center gap-2">
-            <span className="nums text-sm font-bold text-[color:var(--text-heading)]">{number.value}</span>
+            <span className="nums text-sm font-normal text-[color:var(--text-heading)]">{number.value}</span>
             {/* The row opens this exact record; the chevron is decoration. */}
             <span
               aria-hidden="true"

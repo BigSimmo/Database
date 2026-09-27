@@ -509,6 +509,11 @@
         "area": "product"
       },
       {
+        "path": "/on-call/call",
+        "file": "src/app/(search-app)/on-call/call/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/care-plan/team",
         "file": "src/app/mockups/care-plan/team/page.tsx",
         "area": "mockup"
@@ -969,6 +974,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/refer",
+        "file": "src/app/(search-app)/on-call/refer/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/psychiatry",
         "file": "src/app/(search-app)/psychiatry/page.tsx",
         "area": "product"
@@ -1034,6 +1044,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/whos-on",
+        "file": "src/app/(search-app)/on-call/whos-on/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/[sourceId]",
         "file": "src/app/(search-app)/sources/[sourceId]/page.tsx",
         "area": "product"
@@ -1076,6 +1091,11 @@
       {
         "path": "/roster/calendar",
         "file": "src/app/(search-app)/roster/calendar/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/find",
+        "file": "src/app/(search-app)/on-call/find/page.tsx",
         "area": "product"
       },
       {

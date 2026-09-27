@@ -174,8 +174,12 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
   "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/search": "Therapy library search surface.",
-  "/on-call":
-    "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
+  "/on-call": "On Call Now: your shift, checklists, usual numbers and the hospital's emergency line.",
+  "/on-call/whos-on": "Who is rostered on, by team, for yesterday, today and tomorrow.",
+  "/on-call/call":
+    "Your hospital's numbers by area, outside lines and your own numbers, each with the date it was updated.",
+  "/on-call/refer": "How to refer to each service at your hospital, and your own referral notes.",
+  "/on-call/find": "Wards, equipment, manuals and the plan for when systems go down, for your hospital.",
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
   "/psychiatry":
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",

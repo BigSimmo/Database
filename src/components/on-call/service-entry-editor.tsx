@@ -1,12 +1,14 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
+import { onCallDot } from "@/components/on-call/kit/recipes";
 import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
+import { handbookEditorWarnings, handbookPlacementLine } from "@/lib/on-call/handbook-editor-checks";
 import {
   serviceContentKinds,
   serviceOrientationPhases,
@@ -44,6 +46,16 @@ const phaseLabels: Record<(typeof serviceOrientationPhases)[number], string> = {
 
 type SourceDraft = { label: string; url: string };
 
+/** Warnings about the number get the kit's small amber dot; the rest are plain muted lines (standard §3). */
+const DOTTED_WARNINGS = new Set(["number-length", "number-shared"]);
+
+const TITLE_HINT =
+  "Start with a team or place to group it: ICU: Registrar, Ward: 4B, Downtime: …, Emergency: …. Access, food, taxi and security belong in Admin.";
+const BODY_HINT =
+  "Add Also known as: HDU, high dependency on its own line so people can search everyday words. For a number that only works from a hospital phone, add From a mobile: 9000 0000, 55 so readers can call from their own phone. No patient details.";
+const PHONE_HINT =
+  "For switchboard then extension, type the full number, a comma, then the extension: 9000 0000, 4455.";
+
 function initialSources(entry: ServiceEntry | null): SourceDraft[] {
   const sources = entry?.content.sources ?? [];
   return sources.length > 0 ? sources.map((source) => ({ ...source })) : [{ label: "", url: "" }];
@@ -66,11 +78,14 @@ export function ServiceEntryEditor({
   entry,
   sites,
   defaultSiteId,
+  entries = [],
   onSave,
   onCancel,
 }: {
   readonly entry: ServiceEntry | null;
   readonly sites: readonly ServiceSite[];
+  /** The service's entries, for the editor's warnings (a similar team, a shared number). */
+  readonly entries?: readonly ServiceEntry[];
   readonly defaultSiteId: string | null;
   readonly onSave: (action: EntrySaveAction) => Promise<void>;
   readonly onCancel: () => void;
@@ -90,6 +105,20 @@ export function ServiceEntryEditor({
   const [sources, setSources] = useState<SourceDraft[]>(() => initialSources(entry));
   const [busy, setBusy] = useState<"draft" | "publish" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const placementId = useId();
+  const warningsId = useId();
+  const placement = handbookPlacementLine({ title, section, kind, siteId: siteId || null, phone });
+  const warnings = title.trim()
+    ? handbookEditorWarnings(
+        { title, section, kind, siteId: siteId || null, phone },
+        {
+          entries,
+          editingId: loadedEntry?.id ?? null,
+          siteName: sites.find((site) => site.id === siteId)?.name ?? null,
+        },
+      )
+    : [];
 
   const dirty =
     JSON.stringify({ section, kind, siteId, title, body, phone, orientationPhase, sources }) !== initialFingerprint;
@@ -162,7 +191,7 @@ export function ServiceEntryEditor({
   return (
     <section aria-labelledby="service-entry-editor-heading" className="grid gap-4" data-testid="service-entry-editor">
       <div>
-        <h2 id="service-entry-editor-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="service-entry-editor-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           {loadedEntry ? "Edit handbook entry" : "Add handbook entry"}
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -183,6 +212,7 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={section}
                 onChange={(event) => setSection(event.target.value as EntrySaveAction["section"])}
                 className={fieldControlPlain}
@@ -199,6 +229,7 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={kind}
                 onChange={(event) => setKind(event.target.value as EntrySaveAction["kind"])}
                 className={fieldControlPlain}
@@ -215,6 +246,7 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={siteId}
                 onChange={(event) => setSiteId(event.target.value)}
                 className={fieldControlPlain}
@@ -235,6 +267,7 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={orientationPhase}
                 onChange={(event) => setOrientationPhase(event.target.value as EntrySaveAction["orientationPhase"])}
                 className={fieldControlPlain}
@@ -249,21 +282,41 @@ export function ServiceEntryEditor({
           </FormField>
         ) : null}
 
-        <TextField
-          label="Title"
-          id="service-entry-title"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          required
-        />
-        <FormField
-          label="Service guidance"
-          id="service-entry-body"
-          hint="Keep it general and operational. No patient details."
-        >
+        <div className="grid gap-1">
+          <TextField
+            label="Title"
+            id="service-entry-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            required
+            hint={TITLE_HINT}
+            aria-describedby={warnings.length > 0 ? `${placementId} ${warningsId}` : placementId}
+          />
+          <p id={placementId} className={cn(textMuted, "text-sm")} data-testid="service-entry-placement">
+            {placement}
+          </p>
+          {warnings.length > 0 ? (
+            <ul id={warningsId} className={cn(textMuted, "grid gap-1 text-sm")} data-testid="service-entry-warnings">
+              {warnings.map((warning) => (
+                <li key={warning.id} className="flex items-baseline gap-2" data-warning={warning.id}>
+                  {DOTTED_WARNINGS.has(warning.id) ? (
+                    <span
+                      aria-hidden="true"
+                      data-warning-dot=""
+                      className={cn(onCallDot, "bg-[color:var(--warning)]")}
+                    />
+                  ) : null}
+                  <span className="min-w-0 break-words">{warning.text}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        <FormField label="Service guidance" id="service-entry-body" hint={BODY_HINT}>
           {(field) => (
             <textarea
               id={field.id}
+              aria-describedby={field.describedBy}
               rows={5}
               value={body}
               onChange={(event) => setBody(event.target.value)}
@@ -276,7 +329,7 @@ export function ServiceEntryEditor({
           id="service-entry-phone"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
-          hint="Optional. Label extensions clearly in the entry title or body."
+          hint={PHONE_HINT}
         />
 
         <fieldset className="grid gap-3">
@@ -347,6 +400,9 @@ export function ServiceEntryEditor({
           </InlineNotice>
         )}
 
+        <p className={cn(textMuted, "text-sm")} data-testid="service-entry-save-note">
+          Save only when something changed. Saving sets the Updated date readers see.
+        </p>
         <div className="grid gap-2 sm:grid-cols-3">
           <Button
             type="submit"
