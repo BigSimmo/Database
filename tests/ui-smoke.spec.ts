@@ -6368,10 +6368,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
+    const recovery = page.locator("[data-route-recovery]");
+    await expect(recovery.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
     await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
-    await expect(page.getByRole("status")).not.toContainText("loading source");
-    await expect(page.getByRole("status")).not.toContainText("Loading source metadata");
+    await expect(recovery.getByRole("status")).not.toContainText("loading source");
+    await expect(recovery.getByRole("status")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });
