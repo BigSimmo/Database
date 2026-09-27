@@ -4,13 +4,13 @@
     "committed_at": "2026-09-27"
   },
   "counts": {
-    "open": 157,
+    "open": 161,
     "p1": 20,
-    "p2": 69,
-    "p3": 68,
+    "p2": 72,
+    "p3": 69,
     "queued": 6,
     "pending": 0,
-    "resolved": 680
+    "resolved": 681
   },
   "queue": [
     {
@@ -1408,8 +1408,8 @@
       "id": "#HPPMXH",
       "priority": "P3",
       "type": "task",
-      "summary": "Playwright: six assertions read a count once instead of retrying",
-      "detail": "tests/ui-formulation-result-cards.spec.ts:52, tests/ui-smoke.spec.ts:3211 and 3212, tests/ui-on-call-boards.spec.ts:563, 690 and 771 use expect(await locator.count()) which never retries, so a slow render fails the test. Next action: switch each to expect.poll(() => locator.count()) with the same matcher, or toHaveCount where the count is exact.",
+      "summary": "Playwright: eleven assertions read a count once instead of retrying",
+      "detail": "CORRECTED 2026-09-27 (Codex review on PR 3128; the first count missed multi-line expect calls and On Call lines had drifted): 11 assertions use expect(await locator.count()), which never retries, on main 7f8312f2c: tests/answer-progress-ui-smoke.spec.ts:631, tests/ui-accessibility.spec.ts:343, tests/ui-dictionary.spec.ts:377, tests/ui-formulation-result-cards.spec.ts:52, tests/ui-on-call-boards.spec.ts:535, 544, 662 and 743, tests/ui-smoke.spec.ts:2258, 3211 and 3212. Next action: switch each to expect.poll(() => locator.count()) with the same matcher, or toHaveCount where the count is exact. Re-derive locations before editing, since line numbers drift.",
       "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
       "added": "2026-09-27"
     },
@@ -1418,7 +1418,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "On Call handbook: unsaved entry edits are likely lost on tab close or refresh",
-      "detail": "src/components/on-call/service-page.tsx:386 canLeaveEditor() and service-entry-editor.tsx:101 confirm before in-app entry switches only; neither registers beforeunload. Confidence: likely, not every exit path traced. Next action: confirm the exit paths, then add a beforeunload guard while an entry is being edited (same pattern as src/components/cme/cme-entry-form.tsx:324).",
+      "detail": "LOCATIONS CORRECTED 2026-09-27 for main 7f8312f2c. src/components/on-call/service-page.tsx:282 canLeaveEditor() and service-entry-editor.tsx:130 confirm before in-app entry switches only; neither registers beforeunload. Confidence: likely, not every exit path traced. Next action: confirm the exit paths, then add a beforeunload guard while an entry is being edited (same pattern as src/components/cme/cme-entry-form.tsx:342).",
       "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
       "added": "2026-09-27"
     },
@@ -1441,20 +1441,11 @@
       "added": "2026-09-27"
     },
     {
-      "id": "#AHSHSY",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Playwright: one click uses force: true, bypassing actionability checks",
-      "detail": "tests/ui-care-plan-mockup.spec.ts:1867, inside the optional CARE_PLAN_CAPTURE_EVIDENCE evidence-capture test, so risk is low. force can hide a genuinely unclickable control. Next action: remove force and wait for the control to be actionable, or document why force is required.",
-      "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
-      "added": "2026-09-27"
-    },
-    {
       "id": "#5K1788",
       "priority": "P3",
       "type": "issue",
       "summary": "On Call dates are formatted without a time zone and may show the previous day near midnight (unconfirmed)",
-      "detail": "src/components/on-call/service-admin-panel.tsx:66 and 317, service-handbook.tsx:147 and service-governance-panel.tsx:186 call toLocaleDateString(\"en-AU\") with no timeZone. These client components still server-render, where the process runs in UTC, so a timestamp near Perth midnight can render as the prior day on the server and a different day in the browser (hydration mismatch). Unconfirmed. Next action: pass timeZone Australia/Perth as src/components/developer-area/hub/freshness-stamp.tsx:31 already does, or share one date formatter.",
+      "detail": "LOCATIONS CORRECTED 2026-09-27 for main 7f8312f2c. src/components/on-call/service-admin-panel.tsx:66 and 329, service-handbook.tsx:153 and service-governance-panel.tsx:186 call toLocaleDateString(\"en-AU\") with no timeZone. These client components still server-render, where the process runs in UTC, so a timestamp near Perth midnight can render as the prior day on the server and a different day in the browser (hydration mismatch). Unconfirmed. Next action: pass timeZone Australia/Perth as src/components/developer-area/hub/freshness-stamp.tsx already does, or share one date formatter.",
       "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
       "added": "2026-09-27"
     },
@@ -1471,8 +1462,8 @@
       "id": "#PVVAPA",
       "priority": "P3",
       "type": "task",
-      "summary": "Playwright: five navigations wait on networkidle, which Playwright advises against",
-      "detail": "tests/ui-specifiers.spec.ts:24, tests/ui-hydration.spec.ts:61, tests/ui-style-contract.spec.ts:165, 184 and 227 use waitForLoadState or goto with networkidle, which is unreliable when a page keeps a connection open. Next action: wait for the specific element or state each test needs instead.",
+      "summary": "Playwright: one hydration test still waits on networkidle, which Playwright advises against",
+      "detail": "CORRECTED 2026-09-27 (Codex review on PR 3128): only one executable networkidle wait remains, tests/ui-hydration.spec.ts:61 await page.waitForLoadState(\"networkidle\"). The other four originally cited lines (ui-specifiers.spec.ts:24, ui-style-contract.spec.ts:165, 184, 227) are comments recording that networkidle was deliberately avoided, so they need no change. Next action: replace the one call with a wait on the specific hydrated element or state the test needs.",
       "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
       "added": "2026-09-27"
     },
@@ -1481,7 +1472,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Safety Plan: a half-written plan is lost without warning on tab close, refresh or phone swipe-back",
-      "detail": "The plan is deliberately browser-tab only and never persisted (src/components/patient-safety-plan.tsx:545 isDirty). isDirty guards only the in-app header back control; there is no beforeunload guard anywhere in the Safety Plan route, so closing the tab, reloading, or an OS back gesture discards an in-progress plan silently, potentially mid-consultation. Next action: add a beforeunload warning while isDirty is true, copying the existing pattern in src/components/cme/cme-entry-form.tsx:324, plus a unit or Playwright assertion that the listener is registered only while dirty. Must not persist plan content anywhere (privacy contract, see archived #060).",
+      "detail": "LOCATIONS CORRECTED 2026-09-27 for main 7f8312f2c (lines drifted after the review). The plan is deliberately browser-tab only and never persisted (src/components/patient-safety-plan.tsx:548 isDirty). isDirty guards only the in-app header back control; there is no beforeunload guard anywhere in the Safety Plan route, so closing the tab, reloading, or an OS back gesture discards an in-progress plan silently, potentially mid-consultation. Next action: add a beforeunload warning while isDirty is true, copying the existing pattern in src/components/cme/cme-entry-form.tsx:342, plus a unit or Playwright assertion that the listener is registered only while dirty. Must not persist plan content anywhere (privacy contract, see archived #060).",
       "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
       "added": "2026-09-27"
     },
@@ -1490,8 +1481,53 @@
       "priority": "P3",
       "type": "task",
       "summary": "UI copy uses three full stops instead of an ellipsis character in 14 places",
-      "detail": "Vercel Web Interface Guidelines: use the single ellipsis character, and loading states end with it. Instances: formulation/formulation-builder-page.tsx:357, 532, 594; ClinicalDashboard.tsx:2064, 2065, 3294; DocumentViewer.tsx:1682; applications-launcher-page.tsx:99; therapy-compass/screens/sheets-screen.tsx:358; tools/tool-local-search.tsx:55; clinical-dashboard/signed-image.tsx:240; clinical-dashboard/image-lightbox.tsx:363; clinical-dashboard/master-search-header.tsx:254; forms/form-detail-page.tsx:857 (all under src/components). Cosmetic. Next action: replace in one pass and update any tests that assert the old strings.",
+      "detail": "LOCATIONS CORRECTED 2026-09-27 for main 7f8312f2c. Vercel Web Interface Guidelines: use the single ellipsis character, and loading states end with it. Instances: formulation/formulation-builder-page.tsx:357, 532, 594; ClinicalDashboard.tsx:2064, 2065, 3294; DocumentViewer.tsx:1682; applications-launcher-page.tsx:99; therapy-compass/screens/sheets-screen.tsx:358; tools/tool-local-search.tsx:55; clinical-dashboard/signed-image.tsx:240; clinical-dashboard/image-lightbox.tsx:363; clinical-dashboard/master-search-header.tsx:272; forms/form-detail-page.tsx:857 (all under src/components). Cosmetic. Next action: replace in one pass and update any tests that assert the old strings.",
       "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+      "added": "2026-09-27"
+    },
+    {
+      "id": "#23Q709",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "scripts/stamp-service-worker.mjs runs in the production build but is missing from Railway's app watch patterns, so a change to it alone never redeploys the site",
+      "detail": "package.json build:internal runs node scripts/stamp-service-worker.mjs, which rewrites public/sw.js per release (see the Dockerfile runner-stage comment). railway.app.json watchPatterns lists the other build scripts individually (guard-next-build.mjs, check-client-bundle-secrets.mjs, check-upload-limit-parity.mjs, run-heavy.mjs) but not this one. Next action: add /scripts/stamp-service-worker.mjs to railway.app.json watchPatterns, and consider a static test that every script the build:internal chain invokes is watched.",
+      "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+      "added": "2026-09-27"
+    },
+    {
+      "id": "#H69FNZ",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "The search 'rerank' timing is mostly database time, so the 4.1 s blamed on re-ranking in #T9PRB9 is really database round trips",
+      "detail": "src/lib/rag/rag.ts starts rerankStartedAt at line 1453 and adds the elapsed time at 1484 and 1531, and src/lib/rag/rag-hydration.ts:137 does the same. Those windows include metadata hydration, memory-card hydration and visual-evidence hydration, which are Supabase round trips (Singapore to Sydney). The deterministic second-stage rerank itself is in-process arithmetic, and the semantic reranker is off by default (RAG_SEMANTIC_RERANK_ENABLED=false). So in the #T9PRB9 probe (search 9.2 s = rpc 4.2 s + rerank 4.1 s), nearly all search time is database work. Consequence: #CWWH2E (27 to 45 round trips per search, currently P3) is the first latency lever, not reranking. Also note: the 1.4 s rate-limit figure in #T9PRB9 predates 5c1ac4f87 (2026-09-26, one-round-trip anonymous rate limit), which has not been re-measured live. Next action: split rerank_latency_ms so hydration round trips are timed separately from ranking. This is RAG telemetry on a protected surface: flag before editing and write a RAG impact line (no ordering change expected). Then re-run scripts/probe-answer-timing.mjs from Perth (provider-backed, owner approval) to confirm.",
+      "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+      "added": "2026-09-27"
+    },
+    {
+      "id": "#J4RF41",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "The worker's crash-alert webhook has no timeout, so a stalled alert endpoint delays the worker's exit and Railway restart by up to about five minutes",
+      "detail": "worker/main.ts:2141 awaits fetch(env.WORKER_FAILURE_WEBHOOK_URL, ...) in the fatal main().catch handler with no signal, before flushWorkerErrorTracking() and process.exit. If the webhook host accepts the connection but never answers, the process waits on undici's default timeouts (about 300 s) and Railway's ALWAYS restart policy cannot act. src/lib/webhooks/chat-notify.ts already uses AbortSignal.timeout(CHAT_POST_TIMEOUT_MS) for the same kind of call. Next action: add signal: AbortSignal.timeout(<a few seconds>) to this fetch.",
+      "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+      "added": "2026-09-27"
+    },
+    {
+      "id": "#FZP7VW",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Live search's query embedding can wait 45 s and retry twice, the same 45 s the browser allows, so a slow OpenAI reply fails the search instead of falling back to keyword results",
+      "detail": "embedTextWithTelemetry (src/lib/openai.ts) uses requestOptions with no per-call timeout, so it takes OPENAI_REQUEST_TIMEOUT_MS (45000, src/lib/env.ts:172) and OPENAI_MAX_RETRIES (2) via defaultMaxRetries (openai.ts:189). Callers on the interactive path (src/lib/rag/rag.ts around 1364 and 1703, rag-governed-search.ts:120) pass only the request signal. The browser search budget is searchRequestTimeoutMs = 45_000 (src/components/clinical-dashboard/search-utils.ts:423), so one slow embedding call always exhausts the user's whole budget. Next action: give the interactive query embedding its own short deadline (a few seconds, no retry) and let search continue on the lexical/text path when it expires, with telemetry. The caller side is a RAG-protected surface: flag before editing; a fallback-path change may need a canary pair.",
+      "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+      "added": "2026-09-27"
+    },
+    {
+      "id": "#1DYJJQ",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Most server-side Supabase calls have no deadline, so a stalled database request can hang for minutes on the single app replica",
+      "detail": "The service-role client (src/lib/supabase/admin.ts:16) is created without a global fetch timeout, and only 14 non-test files in src/ apply .abortSignal() to queries (the readiness probe in src/lib/supabase/health.ts does). Everything else relies on undici's default header/body timeouts (about 300 s). That includes the durable rate-limit RPCs every answer passes through (src/lib/api-rate-limit.ts:300, 360, 424). Search is bounded only by the client disconnecting at 45 s; other routes have no bound. Next action: add a default per-request deadline for server Supabase calls (for example a global fetch wrapper with AbortSignal.timeout, overridable for known long operations such as ingestion and exports), classify the expiry as unavailable, and cover it with a unit test. Check the ingestion worker's long jobs are exempt before rollout.",
+      "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
       "added": "2026-09-27"
     }
   ],
