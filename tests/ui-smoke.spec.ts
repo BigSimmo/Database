@@ -1257,14 +1257,16 @@ test.describe("PsychSift UI smoke coverage", () => {
             inputShadow: inputStyle.boxShadow,
             pillBorder,
             pillShadow,
-            pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
+            pillBorderChanged: pillBorder !== resting.border,
+            pillShadowChanged: pillShadow !== resting.shadow && pillShadow !== "none",
           };
         }, restingPill);
       })
       .toMatchObject({
         inputOutline: "none",
         inputShadow: "none",
-        pillChanged: true,
+        pillBorderChanged: true,
+        pillShadowChanged: true,
       });
     const universalFocus = await universalInput.evaluate((element) => {
       const inputStyle = getComputedStyle(element);
