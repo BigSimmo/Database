@@ -179,6 +179,16 @@ export const modeSecondaryNavigationRegistry = {
   // My Work's home is itself the list of pages it gathers, each of which keeps
   // its own address and navigation, so the hub registers no destinations.
   "my-work": [],
+  // Roster's three Release 1 pages, registered so the mode pill's section
+  // sheet can open them. Like On Call and CME, Roster is absent from
+  // `MODE_NAV_ADOPTED_MODES`: its pages own their own in-page header
+  // (`InPageNavHeader`, the DocumentViewer template) rather than a shared rail
+  // repeating the same three destinations.
+  roster: [
+    { id: "today", label: "Today", href: "/roster" },
+    { id: "shifts", label: "Shifts", href: "/roster/shifts" },
+    { id: "settings", label: "Settings", href: "/roster/settings" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -341,6 +351,15 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/cme") return "year";
     return null;
   }
+  if (modeId === "roster") {
+    if (pathname === "/roster/shifts") return "shifts";
+    if (pathname === "/roster/settings") return "settings";
+    // Exact match only, for the same reason On Call's and CME's homes are: a
+    // prefix test here would mark Today current on every Roster route as well
+    // as its own.
+    if (pathname === "/roster") return "today";
+    return null;
+  }
   // Every mode with destinations has a branch above; the rest register none, so
   // nothing can be current. This used to be
   // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
@@ -399,6 +418,7 @@ export function isModeSecondaryNavigationRoute(params: {
   if (modeId === "sources") {
     return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
+  if (modeId === "roster") return pathname === "/roster/shifts" || pathname === "/roster/settings";
   return false;
 }
 

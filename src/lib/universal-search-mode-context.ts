@@ -36,6 +36,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // My Work is a landing page over pages that keep their own addresses; it
   // contributes no search domains either.
   "my-work": [],
+  // Roster reads the owner's own shifts, already in the browser, so it
+  // contributes no cross-entity universal-search domain.
+  roster: [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {

@@ -258,6 +258,19 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["on-call", "cme", "documents"],
     remoteSearchEnabled: false,
   },
+  roster: {
+    // Roster reads the owner's own shifts, already in the browser — see the
+    // mode definition in src/lib/app-modes.ts — so its command panel must not
+    // query the remote index.
+    examples: [...sharedHomePresentation.roster.suggestions],
+    suggestions: [
+      { text: "night shift hours", meta: "Hours" },
+      { text: "next weekend off", meta: "Today" },
+      { text: "import my roster", meta: "Shifts" },
+    ],
+    crossModes: ["my-work", "on-call", "cme"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {

@@ -140,6 +140,11 @@ export const sharedHomePresentation = {
     subtitle: "Paperwork, deadlines and checks, with what is due first.",
     suggestions: ["leave", "registration", "roster"],
   },
+  roster: {
+    title: "Roster",
+    subtitle: "Your own shifts: what's on today, this week and this month.",
+    suggestions: ["night shift hours", "next weekend off", "import my roster"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */

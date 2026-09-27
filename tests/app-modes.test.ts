@@ -220,7 +220,7 @@ describe("app mode search contract", () => {
     const config = appModeSearchConfig("sources");
     const mode = appModeDefinitions.find((definition) => definition.id === "sources");
 
-    expect(appModeIds).toHaveLength(20);
+    expect(appModeIds).toHaveLength(21);
     expect(mode).toMatchObject({
       label: "Sources",
       description: "Ranked clinical source catalogue and traceability",
@@ -480,6 +480,10 @@ describe("app mode search contract", () => {
       psychiatry: "/psychiatry?q=clozapine&run=1",
       // My Work, likewise: a dashboard with no search route.
       "my-work": "/my-work?q=clozapine&run=1",
+      // Roster, for On Call's and CME's reason exactly: no search route, no
+      // composer, `resultsSurface` is "none", and `standaloneModeHomeHref`
+      // navigates the mode pill to `/roster` before a query can be typed.
+      roster: "/roster?q=clozapine&run=1",
     });
   });
 
