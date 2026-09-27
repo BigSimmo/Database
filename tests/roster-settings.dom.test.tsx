@@ -161,6 +161,16 @@ describe("Roster Settings", () => {
     expect(screen.queryByTestId("roster-settings-workplaces")).toBeNull();
   });
 
+  it("says the calendar links could not be loaded, rather than that there are none", async () => {
+    mockShifts([day("2026-10-12")]);
+    routes.set("GET /api/roster/links", () => Response.json({ error: "Unavailable" }, { status: 503 }));
+    render(<RosterSettingsPage />);
+    expect(await screen.findByTestId("roster-settings-links-error")).toHaveTextContent(
+      "Your calendar links could not be loaded. Try again later.",
+    );
+    expect(screen.queryByTestId("roster-settings-links")).toBeNull();
+  });
+
   it("removes a workplace with its calendar links and codes, without recording an import", async () => {
     mockShifts([day("2026-10-12")]);
     mockSettings({ calendarShifts: false, rowName: null, codes: { "Example Hospital": { ADO: { kind: "off" } } } });

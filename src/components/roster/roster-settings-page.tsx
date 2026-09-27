@@ -227,38 +227,44 @@ export function RosterSettingsPage() {
               </ModeGroupedList>
             )}
 
-            <ModeGroupedList eyebrow="Calendar links" testId="roster-settings-links">
-              {links.links.length === 0 ? (
-                <ModeRow title="None yet" />
-              ) : (
-                links.links.map((link) => (
-                  <ModeRow
-                    key={link.id}
-                    title={link.hostPreview}
-                    subtitle={
-                      describeLinkFailure(link.lastError) ??
-                      (link.lastFetchedAt
-                        ? `Updated ${formatModeDate(link.lastFetchedAt)} ${formatModeTime(link.lastFetchedAt)}`
-                        : (link.workplace ?? undefined))
-                    }
-                    trailing={
-                      <>
-                        <ModeActionButton
-                          icon={RefreshCw}
-                          label={`Refresh ${link.hostPreview}`}
-                          onClick={() => void linkAction(links.refresh(link.id), "Refreshed")}
-                        />
-                        <ModeActionButton
-                          icon={Trash2}
-                          label={`Remove ${link.hostPreview}`}
-                          onClick={() => void linkAction(links.remove(link.id), "Removed")}
-                        />
-                      </>
-                    }
-                  />
-                ))
-              )}
-            </ModeGroupedList>
+            {links.status === "error" ? (
+              <ModeNotice tone="warning" testId="roster-settings-links-error">
+                Your calendar links could not be loaded. Try again later.
+              </ModeNotice>
+            ) : (
+              <ModeGroupedList eyebrow="Calendar links" testId="roster-settings-links">
+                {links.links.length === 0 ? (
+                  <ModeRow title="None yet" />
+                ) : (
+                  links.links.map((link) => (
+                    <ModeRow
+                      key={link.id}
+                      title={link.hostPreview}
+                      subtitle={
+                        describeLinkFailure(link.lastError) ??
+                        (link.lastFetchedAt
+                          ? `Updated ${formatModeDate(link.lastFetchedAt)} ${formatModeTime(link.lastFetchedAt)}`
+                          : (link.workplace ?? undefined))
+                      }
+                      trailing={
+                        <>
+                          <ModeActionButton
+                            icon={RefreshCw}
+                            label={`Refresh ${link.hostPreview}`}
+                            onClick={() => void linkAction(links.refresh(link.id), "Refreshed")}
+                          />
+                          <ModeActionButton
+                            icon={Trash2}
+                            label={`Remove ${link.hostPreview}`}
+                            onClick={() => void linkAction(links.remove(link.id), "Removed")}
+                          />
+                        </>
+                      }
+                    />
+                  ))
+                )}
+              </ModeGroupedList>
+            )}
 
             <section className="grid gap-2" aria-label="Delete my data">
               <Button variant="danger" icon={Trash2} onClick={startDelete} disabled={shifts.demoMode}>
