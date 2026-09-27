@@ -35,6 +35,7 @@ import { ModeNavHeaderPortal } from "@/components/mode-nav/mode-nav-portal";
 import {
   __setPhoneOverlayReserveSettledForTests,
   phoneOverlayReserveGeometryQuietWindowMs,
+  publishPhoneOverlayChromeReserveNow,
   usePhoneOverlayChromeReserve,
 } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
@@ -228,6 +229,54 @@ describe("portal wiring into the immediate reserve publisher", () => {
       );
     });
     expect(reserve()).toBe(`${baseStackPx + addonRowPx}px`);
+
+    act(() => {
+      root.render(<Shell>{null}</Shell>);
+    });
+    expect(slot.childElementCount).toBe(0);
+    expect(reserve()).toBe(`${baseStackPx}px`);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("gives back the row's current height when it grew after the claim", () => {
+    // A medication route's nav row renders without its section rail while the
+    // record is null, then grows in place once it loads. The settled reserve is
+    // republished at the taller height, so the release must subtract the row's
+    // height at release time, not the height captured when it was claimed.
+    const { slot, container } = mountChrome();
+    const stack = document.querySelector<HTMLElement>(".phone-sticky-header-stack")!;
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]')!;
+    const railPx = 40;
+    let grown = false;
+    const rowHeight = () => (slot.childElementCount > 0 ? addonRowPx + (grown ? railPx : 0) : 0);
+    for (const element of [stack, collapse]) {
+      Object.defineProperty(element, "offsetHeight", { configurable: true, get: () => baseStackPx + rowHeight() });
+    }
+    Object.defineProperty(slot, "offsetHeight", { configurable: true, get: rowHeight });
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<Shell>{null}</Shell>);
+    });
+    flushFrames([0, phoneOverlayReserveGeometryQuietWindowMs + 1]);
+    act(() => {
+      root.render(
+        <Shell>
+          <PhoneHeaderCollapsePortal>
+            <nav>nav</nav>
+          </PhoneHeaderCollapsePortal>
+        </Shell>,
+      );
+    });
+    expect(reserve()).toBe(`${baseStackPx + addonRowPx}px`);
+
+    // The rail arrives and the settled reserve is republished at the new height.
+    grown = true;
+    publishPhoneOverlayChromeReserveNow();
+    expect(reserve()).toBe(`${baseStackPx + addonRowPx + railPx}px`);
 
     act(() => {
       root.render(<Shell>{null}</Shell>);

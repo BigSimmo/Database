@@ -102,9 +102,13 @@ export function publishPhoneOverlayChromeReserveNow(): void {
  * - After settle, the inline measured value is in force. Claiming re-measures
  *   through the immediate publisher, which is safe post-settle.
  * - Releasing subtracts the row's height: before settle by restoring the value
- *   it replaced, after settle arithmetically. It cannot re-measure, because
- *   React runs layout-effect destroys before it detaches portal children, so the
- *   row is still in the stack when the cleanup runs.
+ *   it replaced, after settle arithmetically. It cannot re-measure the stack,
+ *   because React runs layout-effect destroys before it detaches portal
+ *   children, so the row is still in the stack when the cleanup runs. For the
+ *   same reason the host still holds the row, so the release reads the host's
+ *   height at that moment rather than the one captured at claim time: a row can
+ *   grow while claimed (a medication nav gains its section rail once the record
+ *   loads), and the settled reserve has since been republished at that height.
  *
  * The addon slot holds one page-owned row (see `ModeNavHeaderPortal`), so the
  * host's own height is that row's height.
@@ -115,6 +119,9 @@ export function claimPhoneOverlayAddonReserve(host: HTMLElement): () => void {
   const rowPx = Math.round(host.offsetHeight);
   if (rowPx <= 0) return () => {};
   const root = document.documentElement;
+  // The row's height when it is released, falling back to the claimed height
+  // if the host no longer measures (see the release note above).
+  const releasedRowPx = () => Math.round(host.offsetHeight) || rowPx;
 
   if (!hasSettledPhoneOverlayReserve) {
     const previousInline = root.style.getPropertyValue(reserveProperty);
@@ -124,7 +131,7 @@ export function claimPhoneOverlayAddonReserve(host: HTMLElement): () => void {
     root.style.setProperty(reserveProperty, claimed);
     return () => {
       if (hasSettledPhoneOverlayReserve) {
-        releaseSettledRow(rowPx);
+        releaseSettledRow(releasedRowPx());
         return;
       }
       if (root.style.getPropertyValue(reserveProperty) !== claimed) return;
@@ -135,7 +142,7 @@ export function claimPhoneOverlayAddonReserve(host: HTMLElement): () => void {
 
   publishPhoneOverlayChromeReserveNow();
   return () => {
-    if (hasSettledPhoneOverlayReserve) releaseSettledRow(rowPx);
+    if (hasSettledPhoneOverlayReserve) releaseSettledRow(releasedRowPx());
   };
 }
 
