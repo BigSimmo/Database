@@ -1985,6 +1985,7 @@
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/mode-kit/dial-sheet.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
