@@ -41,7 +41,9 @@ test.describe("Invited handbook phone experience", () => {
     for (const name of ["Import", "Needs checking"]) {
       const tab = tabs.getByRole("button", { name, exact: true });
       await expect(tab).toBeVisible();
-      expect((await tab.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(47.5);
+      // WebKit can replace the streamed tab between visibility and geometry
+      // reads. Keep the tap-height requirement while waiting for the live tab.
+      await expect.poll(async () => (await tab.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(47.5);
     }
     await clickWhenHydrated(tabs.getByRole("button", { name: "Import", exact: true }));
     await workspace.getByLabel("Choose a CSV file").setInputFiles({

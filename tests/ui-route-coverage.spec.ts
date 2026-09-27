@@ -16,7 +16,7 @@ const differentialDesignSweepViewports = [320, 390, 639, 768, 1440, 1920] as con
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Local route fixture ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Local route fixture ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Local route fixture ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Local route fixture ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Local route fixture ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Not used by this test." },
