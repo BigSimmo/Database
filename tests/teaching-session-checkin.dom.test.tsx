@@ -12,6 +12,7 @@ import { TeachingCheckinScreen } from "@/components/teaching/teaching-checkin";
 import { TeachingDisplayScreen } from "@/components/teaching/teaching-display";
 import { TeachingScanLanding } from "@/components/teaching/teaching-scan-landing";
 import { TeachingSessionScreen } from "@/components/teaching/teaching-session";
+import { TeachingWeekPanel } from "@/components/teaching/teaching-week-panel";
 
 import { authState } from "./helpers/teaching-auth";
 import {
@@ -272,5 +273,49 @@ describe("the shared screen", () => {
     serveFetch((url) => (url === `/api/teaching/display/${SECRET}` ? apiError(410, "teaching_link_expired") : null));
     render(<TeachingDisplayScreen secret={SECRET} />);
     expect(await screen.findByTestId("teaching-display-ended")).toHaveTextContent("This display link has ended.");
+  });
+});
+
+describe("Week's side panel", () => {
+  it("opens a session beside the list with its place in the week, and steps to the next", async () => {
+    const second = "22222222-2222-4222-8222-222222222222";
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=session")
+        ? json(
+            200,
+            detail({
+              occurrenceId: new URL(url, "http://x").searchParams.get("occurrenceId")!,
+              title: url.includes(second) ? "Journal club" : "Registrar teaching",
+            }),
+          )
+        : null,
+    );
+    let current = OCC;
+    const select = (id: string) => (current = id);
+    const { rerender } = render(
+      <TeachingWeekPanel
+        occurrenceId={current}
+        ids={[OCC, second]}
+        select={select}
+        close={() => undefined}
+        demoMode={false}
+      />,
+    );
+    expect(await screen.findByText("Session · 1 of 2 this week")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Registrar teaching" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous session" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next session" }));
+    rerender(
+      <TeachingWeekPanel
+        occurrenceId={current}
+        ids={[OCC, second]}
+        select={select}
+        close={() => undefined}
+        demoMode={false}
+      />,
+    );
+    expect(await screen.findByText("Journal club")).toBeInTheDocument();
+    expect(screen.getByText("Session · 2 of 2 this week")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next session" })).toBeDisabled();
   });
 });

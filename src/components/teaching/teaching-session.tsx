@@ -74,7 +74,14 @@ export function TeachingSessionScreen({ occurrenceId, demoMode, initialSheet, em
   else if (!now || !detail) body = <ModeModuleSkeleton rows={4} eyebrow />;
   else
     body = (
-      <SessionBody key={detail.occurrenceId} detail={detail} now={now} live={!demoMode} initialSheet={initialSheet} />
+      <SessionBody
+        key={detail.occurrenceId}
+        detail={detail}
+        now={now}
+        live={!demoMode}
+        initialSheet={initialSheet}
+        embedded={embedded}
+      />
     );
 
   const content = <div className="grid gap-3">{body}</div>;
@@ -102,12 +109,16 @@ function SessionBody({
   now,
   live,
   initialSheet,
+  embedded,
 }: {
   detail: SessionDetailRead;
   now: Date;
   live: boolean;
   initialSheet?: "scan";
+  embedded: boolean;
 }) {
+  // Beside Week the page already has its heading, so the session's title is a section heading there.
+  const Title = embedded ? "h2" : "h1";
   const visitor = detail.visitor === true;
   const cancelled = detail.status === "cancelled";
   const staff = detail.canShowCode && !cancelled && !visitor;
@@ -206,7 +217,7 @@ function SessionBody({
   return (
     <>
       <div className="grid gap-1">
-        <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">{detail.title}</h1>
+        <Title className="text-xl font-semibold text-[color:var(--text-heading)]">{detail.title}</Title>
         <p className="nums text-sm font-normal text-[color:var(--text-muted)]">{sessionWhen(detail)}</p>
       </div>
       {change ? <ModeNotice tone="warning">{change}</ModeNotice> : null}
