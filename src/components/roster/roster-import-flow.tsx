@@ -29,7 +29,7 @@ import {
   type OnCallShiftSnapshot,
 } from "@/lib/roster/shifts/model";
 import { parseRosterCsv } from "@/lib/roster/shifts/parse-csv";
-import { parseRosterIcs, plural } from "@/lib/roster/shifts/parse-ics";
+import { parseRosterIcs, plural, shiftCapNote } from "@/lib/roster/shifts/parse-ics";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 import { formatShiftRange, kindOf } from "./roster-format";
@@ -68,6 +68,9 @@ const READ_ERRORS: Record<RosterReadError["reason"], string> = {
   too_big: "That file is too big. Export a shorter date range.",
   unreadable: "That file could not be read.",
 };
+
+/** Follows the parser's own note when a file has more shifts than one import may carry. Nothing is saved. */
+const TOO_MANY_SHIFTS = "Export a shorter date range.";
 
 function formatOf(name: string): OnCallShiftFormat | null {
   const lower = name.toLowerCase();
@@ -347,11 +350,18 @@ export function RosterImportFlow({
       if (format === "ics") {
         const result = parseRosterIcs(text);
         const read = result.shifts.map((shift) => ({ ...shift, kind: kindOf(shift) }));
-        if (read.length === 0) setError(["No shifts were found in that file.", ...result.notes].join(" "));
+        const capNote = shiftCapNote(result);
+        if (capNote) setError(`${capNote} ${TOO_MANY_SHIFTS}`);
+        else if (read.length === 0) setError(["No shifts were found in that file.", ...result.notes].join(" "));
         else goToRows({ format, fileName, grid: null, shifts: read });
         return;
       }
       const list = parseRosterCsv(text);
+      const capNote = shiftCapNote(list);
+      if (capNote) {
+        setError(`${capNote} ${TOO_MANY_SHIFTS}`);
+        return;
+      }
       if (list.shifts.length > 0) {
         goToRows({
           format,

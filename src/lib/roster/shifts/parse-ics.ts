@@ -26,6 +26,11 @@ export type RosterParseResult = {
   readonly notes: string[];
 };
 
+/** The note a parse writes when it hit the per-import shift cap, or null when it did not. */
+export function shiftCapNote(result: RosterParseResult): string | null {
+  return result.notes.find((note) => /more were left out\.$/.test(note)) ?? null;
+}
+
 type Property = { name: string; params: Record<string, string>; value: string };
 
 function unfold(text: string): string[] {

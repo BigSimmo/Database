@@ -354,6 +354,22 @@ describe("POST /api/roster/links/refresh", () => {
     expect(text).not.toContain("feed.ics");
   });
 
+  it("saves nothing when the feed has more shifts in the window than one import may carry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-01T00:00:00.000Z"));
+    const calls = fakeSupabase({ roster_calendar_links: storedLinks.roster_calendar_links, on_call_shifts: [] });
+    const events = Array.from({ length: 405 }, (_, index) => {
+      const start = new Date(Date.UTC(2026, 9, 2, 0, 0, 0) + index * 12 * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 8 * 60 * 60 * 1000);
+      return `BEGIN:VEVENT\nUID:s-${index}\nDTSTART:${icsDateTime(start)}\nDTEND:${icsDateTime(end)}\nSUMMARY:Day\nEND:VEVENT`;
+    });
+    mocks.fetchLink.mockResolvedValue(["BEGIN:VCALENDAR", ...events, "END:VCALENDAR"].join("\n"));
+    const response = await refreshLinks(refreshRequest({ id: linkId }));
+    expect(await response.json()).toEqual({ results: [{ id: linkId, ok: false, reason: "too_many_shifts" }] });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(calls.find((call) => call.op === "update")?.updatedFields).toMatchObject({ last_error: "too_many_shifts" });
+  });
+
   it("saves nothing when the link is removed while its feed is still being fetched", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-01T00:00:00.000Z"));

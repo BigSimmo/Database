@@ -17,7 +17,7 @@ import {
   type RosterCalendarLinkForRefresh,
 } from "@/lib/roster/calendar-links";
 import { inferShiftKind } from "@/lib/roster/shift-kind";
-import { parseRosterIcs } from "@/lib/roster/shifts/parse-ics";
+import { parseRosterIcs, shiftCapNote } from "@/lib/roster/shifts/parse-ics";
 import { addDaysToDate, perthDateOf, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 import { replaceOwnerShifts, undoShiftImport } from "@/lib/roster/shifts/repository";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -52,11 +52,6 @@ function addMonthsToDate(date: string, months: number): string {
   return new Date(Date.UTC(year, month - 1 + months, day)).toISOString().slice(0, 10);
 }
 
-/** Whether the parse hit the per-import shift cap: more shifts existed in the window than one import may carry. */
-function hitShiftCap(notes: readonly string[]): boolean {
-  return notes.some((note) => /were left out\.$/.test(note));
-}
-
 /** Whether the link is still the owner's, for the same workplace. */
 async function linkStillCurrent(
   supabase: ReturnType<typeof createAdminClient>,
@@ -85,7 +80,8 @@ async function refreshOne(
     return { id: link.id, ok: false, reason: stored };
   }
   const parsed = parseRosterIcs(text, { from: window.from, to: window.to });
-  if (hitShiftCap(parsed.notes)) {
+  // More shifts in the window than one import may carry: save none rather than a cut-off roster.
+  if (shiftCapNote(parsed)) {
     const stored = toStoredLinkReason("too_many_shifts");
     await recordCalendarLinkRefresh(supabase, ownerId, link.id, { ok: false, reason: stored });
     return { id: link.id, ok: false, reason: stored };

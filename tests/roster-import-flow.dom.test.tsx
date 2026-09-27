@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RosterGrid } from "@/lib/roster/import/grid";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import { ON_CALL_SHIFT_IMPORT_MAX, type OnCallShift } from "@/lib/roster/shifts/model";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /*
@@ -195,5 +195,46 @@ describe("Roster import flow", () => {
     await importFile("notes.txt", "hello");
     expect(await screen.findByText("Choose a PDF, Excel, CSV or calendar file.")).toBeInTheDocument();
     expect(fetchCalls("/api/roster/read-file", "POST")).toHaveLength(0);
+  });
+});
+
+describe("Roster import flow, a file over the shift cap", () => {
+  function icsWithShifts(count: number): string {
+    const events = Array.from({ length: count }, (_, index) => {
+      const day = new Date(Date.UTC(2026, 9, 12 + index, 0, 0, 0));
+      const stamp = (date: Date) =>
+        date
+          .toISOString()
+          .replace(/[-:]/g, "")
+          .replace(/\.\d{3}/, "");
+      const end = new Date(day.getTime() + 8 * 60 * 60 * 1000);
+      return [
+        "BEGIN:VEVENT",
+        `UID:shift-${index}`,
+        `DTSTART:${stamp(day)}`,
+        `DTEND:${stamp(end)}`,
+        "SUMMARY:Example Hospital day",
+        "END:VEVENT",
+      ].join("\n");
+    });
+    return ["BEGIN:VCALENDAR", ...events, "END:VCALENDAR"].join("\n");
+  }
+
+  it("says how many shifts were left out and offers no Save", async () => {
+    render(<RosterShiftsPage now={now} />);
+    await importFile("roster.ics", icsWithShifts(ON_CALL_SHIFT_IMPORT_MAX + 5));
+    expect(
+      await screen.findByText(
+        `Only the first ${ON_CALL_SHIFT_IMPORT_MAX} shifts were read; 5 more were left out. Export a shorter date range.`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull();
+    expect(fetchCalls("/api/roster/shifts", "POST")).toHaveLength(0);
+  });
+
+  it("still reads a file under the cap", async () => {
+    render(<RosterShiftsPage now={now} />);
+    await importFile("roster.ics", icsWithShifts(3));
+    expect(await screen.findByRole("button", { name: "Save 3 shifts" })).toBeEnabled();
   });
 });
