@@ -369,19 +369,27 @@ const CULTURAL_NOTE_ICONS: Record<FormCulturalNoteKind, typeof Languages> = {
  */
 function CulturalNoteText({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
+  const isLong = text.trim().length > 160;
   return (
     <>
-      <p className={cn("mt-1 text-sm leading-6 text-[color:var(--text)]", expanded ? null : "max-sm:line-clamp-3")}>
+      <p
+        className={cn(
+          "mt-1 text-sm leading-6 text-[color:var(--text)]",
+          !expanded && isLong ? "max-sm:line-clamp-3" : null,
+        )}
+      >
         {text}
       </p>
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((current) => !current)}
-        className="-ml-1 inline-flex min-h-tap items-center px-1 text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
-      >
-        {expanded ? "Show less" : "Show more"}
-      </button>
+      {isLong ? (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+          className="-ml-1 inline-flex min-h-tap items-center px-1 text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      ) : null}
     </>
   );
 }
