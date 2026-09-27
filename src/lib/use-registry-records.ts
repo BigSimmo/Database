@@ -173,7 +173,11 @@ export function useRegistryRecords(
           return;
         }
         if (!response.ok) {
-          setState(recordsState("error", kind, view));
+          setState((current) =>
+            current.records.length > 0
+              ? { ...current, status: "ready", degraded: true }
+              : recordsState("error", kind, view),
+          );
           return;
         }
         const responsePayload: unknown = await response.json().catch(() => null);
@@ -196,7 +200,13 @@ export function useRegistryRecords(
         );
       })
       .catch(() => {
-        if (isCurrentRequest()) setState(recordsState("error", kind, view));
+        if (isCurrentRequest()) {
+          setState((current) =>
+            current.records.length > 0
+              ? { ...current, status: "ready", degraded: true }
+              : recordsState("error", kind, view),
+          );
+        }
       });
     return () => {
       active = false;
