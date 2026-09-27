@@ -2,15 +2,41 @@
 import { useState, type ReactNode } from "react";
 import { cn } from "@/components/ui-primitives";
 import { ModeDialSheet, ModeFactTile } from "@/components/first-nations/kit";
-import { dialNumber, telHref } from "@/lib/first-nations/contact-format";
+import { dialNumber, telHref, vcardFor } from "@/lib/first-nations/contact-format";
+import { ContactReviewLine } from "@/components/first-nations/review-line";
 import type { ContactView } from "@/lib/first-nations/view-model";
 
-/**
- * The kit's dial sheet for one First Nations contact: the number in large
- * digits, Call, Copy (and Share where the phone has it), and the checked line
- * with its source. The kit sheet has no footer slot, so "Save to phone" and
- * "Report a wrong number" are not in it; the report link lives in the page menu.
- */
+/** Only public team details leave the app, after an explicit action. */
+export function ContactActions({ contact }: { contact: ContactView }) {
+  const dialable = Boolean(telHref(contact.number));
+  return (
+    <div className="grid gap-2">
+      <ContactReviewLine checkedAt={contact.checkedAt} />
+      {dialable ? (
+        <a
+          className="inline-flex min-h-12 items-center text-sm-minus underline"
+          href={`data:text/vcard;charset=utf-8,${encodeURIComponent(vcardFor(contact))}`}
+          download={`${contact.id}.vcf`}
+        >
+          Save to phone
+        </a>
+      ) : null}
+      {contact.reportHref ? (
+        <>
+          <a className="inline-flex min-h-12 items-center text-sm-minus underline" href={contact.reportHref}>
+            Report a wrong number
+          </a>
+          <p className="text-2xs text-[color:var(--text-muted)]">
+            Opens your email app. Include public contact corrections only, never patient or staff personal details.
+            PsychSift stores no report.
+          </p>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** Every First Nations number uses the shared dial sheet. */
 function DialSheet({ contact, open, onClose }: { contact: ContactView; open: boolean; onClose: () => void }) {
   return (
     <ModeDialSheet
@@ -21,6 +47,7 @@ function DialSheet({ contact, open, onClose }: { contact: ContactView; open: boo
       number={dialNumber(contact)}
       source={{ label: contact.source.title, url: contact.source.url }}
       checkedAt={contact.checkedAt}
+      footer={<ContactActions contact={contact} />}
     />
   );
 }
