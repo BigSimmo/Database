@@ -73,7 +73,7 @@ async function main() {
     "-e",
     "SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy",
     "-e",
-    "SUPABASE_PROJECT_NAME=Clinical KB Database",
+    "SUPABASE_PROJECT_NAME=PsychSift Production",
     // Production instrumentation refuses to boot without a keyed query-hash
     // secret (min 16 chars). Placeholder is provider-free and CI-only.
     "-e",

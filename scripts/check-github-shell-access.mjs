@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-const repository = "BigSimmo/Database";
+const repository = "BigSimmo/PsychSift";
 const expectedIdentity = "BigSimmo";
 const expectedOrigin = `https://github.com/${repository}.git`;
 const allowProviderFlag = "--allow-provider";

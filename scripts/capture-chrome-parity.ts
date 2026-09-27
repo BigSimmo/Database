@@ -29,7 +29,7 @@ const QUERY_TEXT = "Synthetic lithium monitoring guidance";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Parity environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Parity Supabase ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Parity Supabase ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Parity schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Parity search ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Parity OpenAI ready." },
