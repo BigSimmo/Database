@@ -33,15 +33,9 @@ import { useRosterShifts } from "./use-roster-shifts";
 
 export const ROSTER_DELETE_UNDO_MS = 30_000;
 
-/*
- * The evening-before shift reminder is the "shifts" reminder type, added to
- * the shared reminder model by Roster's reminders change. Until that lands the
- * model does not know the type or its lead time, so these two names are cast
- * here, in one place, and the shared model normalises away what it does not
- * know.
- */
-const SHIFTS_REMINDER = "shifts" as string as ReminderType;
-const EVENING_BEFORE = "evening-before" as string as ReminderLeadTime;
+/* The evening-before shift reminder is the shared model's "shifts" type with its fixed 20:00 lead time. */
+const SHIFTS_REMINDER: ReminderType = "shifts";
+const EVENING_BEFORE: ReminderLeadTime = "evening-before";
 
 type DeleteState = "idle" | "pending" | "deleted";
 

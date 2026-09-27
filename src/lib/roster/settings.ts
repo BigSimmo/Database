@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import type { CodeMeaning } from "@/lib/roster/import/grid";
 import { SHIFT_KINDS, type ShiftKind } from "@/lib/roster/shift-kind";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
@@ -29,9 +30,8 @@ export const ROSTER_SETTINGS_ROW_NAME_MAX = 80;
 /** A workplace key: the same limit as an import's own workplace name. */
 const ROSTER_SETTINGS_WORKPLACE_KEY_MAX = 80;
 
-/** What one shift code means for this doctor at one workplace. Times are Perth `HH:MM`. */
-export type CodeMeaning =
-  { readonly kind: "off" } | { readonly kind: ShiftKind; readonly start: string; readonly end: string };
+/** What one shift code means for this doctor at one workplace; shared with the import reader. */
+export type { CodeMeaning };
 
 export type RosterSettings = {
   /** Off by default: Roster shifts reach the calendar link only once the doctor turns this on. */
