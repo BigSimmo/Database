@@ -464,7 +464,14 @@ describe("clinical hazard review dates: expiry and pull-request scope", () => {
   describe("the command-line check", () => {
     function run(env: Record<string, string>, now: Date, args: string[] = []) {
       const childEnv: NodeJS.ProcessEnv = { ...process.env };
-      for (const key of ["REVIEW_DATE_MODE", "BASE_SHA", "HEAD_SHA", "GITHUB_EVENT_NAME", "GITHUB_REF", "GITHUB_ACTIONS"]) {
+      for (const key of [
+        "REVIEW_DATE_MODE",
+        "BASE_SHA",
+        "HEAD_SHA",
+        "GITHUB_EVENT_NAME",
+        "GITHUB_REF",
+        "GITHUB_ACTIONS",
+      ]) {
         delete childEnv[key];
       }
       return spawnSync(
