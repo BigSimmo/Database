@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Registered-worktree reporting for the Database repository.
+ * Registered-worktree reporting for the PsychSift repository.
  *
  * This module is intentionally incapable of changing files, refs, objects, registrations,
  * or worktree directories. The historical `clean:worktree` package command is retained as a
