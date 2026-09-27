@@ -225,3 +225,31 @@ export function buildAnswerClipboardText({
     ? `${demoAnswerDisclosure}\n\n${copied}`
     : copied;
 }
+
+/**
+ * Fallback reasons that mean retrieval found nothing that answers the question.
+ * The rows still on screen were searched, not relied on.
+ */
+const REFUSAL_FALLBACK_REASON_CODES: ReadonlySet<string> = new Set(["coverage_gap", "no_candidates", "low_signal"]);
+
+/**
+ * Whether an answer is a refusal, for the source rail's "Documents searched" framing
+ * (#Z9NS6H). Deliberately the UNION of every candidate signal — `grounded === false`,
+ * an `ungrounded` or `no_answer` answer state, or a coverage_gap/no_candidates/low_signal
+ * fallback reason — because each covers different answers, and the patient-safe error
+ * is to under-claim support: calling a real answer's sources "searched" costs a word,
+ * while calling a refusal's sources "cited" tells a clinician the documents back an
+ * answer that was never given. Owner approval 2026-09-28.
+ */
+export function answerIsRefusal({
+  answer,
+  answerState,
+}: {
+  answer: Pick<ClientRagAnswerPayload, "grounded" | "fallbackReasonCode">;
+  /** `no_answer` is not an `AnswerState` (no card renders it), but a caller holding one is holding a refusal. */
+  answerState?: { kind: AnswerState["kind"] | "no_answer" } | null;
+}): boolean {
+  if (answer.grounded === false) return true;
+  if (answerState?.kind === "ungrounded" || answerState?.kind === "no_answer") return true;
+  return answer.fallbackReasonCode != null && REFUSAL_FALLBACK_REASON_CODES.has(answer.fallbackReasonCode);
+}
