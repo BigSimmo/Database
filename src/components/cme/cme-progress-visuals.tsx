@@ -210,68 +210,82 @@ export function CmePaceChart({
 
   return (
     <figure data-testid="cme-pace-chart" className="m-0">
-      <svg
-        role="img"
-        aria-label={description}
-        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-        className="block h-auto w-full overflow-visible"
-      >
-        {/* Target level. */}
-        <line
-          x1={PAD_LEFT}
-          x2={CHART_WIDTH - PAD_RIGHT}
-          y1={y(targetHours)}
-          y2={y(targetHours)}
-          className="stroke-[color:var(--border)]"
-          strokeWidth={1}
-        />
-        {/* Even pace: nothing on 1 January to the target on 31 December. */}
-        <line
-          data-testid="cme-pace-chart-even"
-          x1={x(0)}
-          y1={y(0)}
-          x2={x(lastDay)}
-          y2={y(targetHours)}
-          className="stroke-[color:var(--text-muted)]"
-          strokeWidth={1.5}
-          strokeDasharray="4 4"
-        />
-        {/* Hours logged. */}
-        <polyline
-          data-testid="cme-pace-chart-logged"
-          points={linePoints}
-          fill="none"
-          className="stroke-[color:var(--command)] forced-colors:stroke-[CanvasText]"
-          strokeWidth={2.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
+      {/* The plot stretches to the card's width at a fixed height, so it no
+          longer scales up 2x on a desktop card: the month labels were drawn at
+          about 22px and the strokes thickened with it. Lines keep a constant
+          stroke width, and the "today" dot and the month labels are HTML placed
+          by percentage so they stay round and at the body text size. */}
+      <div className="relative h-28 sm:h-32">
+        <svg
+          role="img"
+          aria-label={description}
+          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+          preserveAspectRatio="none"
+          className="block h-full w-full overflow-visible"
+        >
+          {/* Target level. */}
+          <line
+            x1={PAD_LEFT}
+            x2={CHART_WIDTH - PAD_RIGHT}
+            y1={y(targetHours)}
+            y2={y(targetHours)}
+            className="stroke-[color:var(--border)]"
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+          {/* Even pace: nothing on 1 January to the target on 31 December. */}
+          <line
+            data-testid="cme-pace-chart-even"
+            x1={x(0)}
+            y1={y(0)}
+            x2={x(lastDay)}
+            y2={y(targetHours)}
+            className="stroke-[color:var(--text-muted)]"
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            vectorEffect="non-scaling-stroke"
+          />
+          {/* Hours logged. */}
+          <polyline
+            data-testid="cme-pace-chart-logged"
+            points={linePoints}
+            fill="none"
+            className="stroke-[color:var(--command)] forced-colors:stroke-[CanvasText]"
+            strokeWidth={2.5}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
         {/* Today is product blue (standard module 7); a whole past year ends in the line's own ink. */}
-        <circle
+        <span
+          aria-hidden="true"
           data-testid="cme-pace-chart-end"
-          cx={x(endIndex)}
-          cy={y(running)}
-          r={4}
-          className={
+          style={{
+            left: `${(x(endIndex) / CHART_WIDTH) * 100}%`,
+            top: `${(y(running) / CHART_HEIGHT) * 100}%`,
+          }}
+          className={cn(
+            "absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
             todayIndex === null
-              ? "fill-[color:var(--command)] forced-colors:fill-[CanvasText]"
-              : "fill-[color:var(--clinical-accent)] forced-colors:fill-[Highlight]"
-          }
+              ? "bg-[color:var(--command)] forced-colors:bg-[CanvasText]"
+              : "bg-[color:var(--clinical-accent)] forced-colors:bg-[Highlight]",
+          )}
         />
         {MONTH_TICKS.map((tick) => {
           const index = dayIndex(`${year}-${String(tick.month).padStart(2, "0")}-01`, year);
           return (
-            <text
+            <span
               key={tick.label}
-              x={x(index)}
-              y={CHART_HEIGHT - 4}
-              className="fill-[color:var(--text-muted)] text-2xs"
+              aria-hidden="true"
+              style={{ left: `${(x(index) / CHART_WIDTH) * 100}%` }}
+              className="absolute bottom-0 text-2xs text-[color:var(--text-muted)]"
             >
               {tick.label}
-            </text>
+            </span>
           );
         })}
-      </svg>
+      </div>
       <figcaption className={cn(textMuted, "mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs")}>
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden="true" className="h-0.5 w-4 rounded-full bg-[color:var(--command)]" />

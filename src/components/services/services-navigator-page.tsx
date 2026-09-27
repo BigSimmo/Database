@@ -164,10 +164,13 @@ function ServiceCard({
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+          {/* A fixed 150-character cut clipped short records mid-word at every
+              width ("Immedia…" on 13YARN, ledger #8RWKA0). Clamp by lines on a
+              phone instead and show the whole line where there is room. */}
+          <p className="mt-1 line-clamp-3 text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:line-clamp-none">
             {compactText(
               service.bestUse ?? service.subtitle,
-              150,
+              400,
               "Open the record to review service fit and referral details.",
             )}
           </p>

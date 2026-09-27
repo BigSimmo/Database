@@ -29,7 +29,7 @@ export default function NotFound() {
         <div className="mt-6 flex flex-col gap-2">
           <Link
             href="/"
-            className={cn(primaryControl, "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+            className={cn(primaryControl, "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
           >
             <Search aria-hidden="true" className="h-4 w-4" />
             Back to search
@@ -37,7 +37,7 @@ export default function NotFound() {
 
           <Link
             href="/documents/search"
-            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Browse documents
           </Link>
