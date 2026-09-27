@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 531,
   "stats": {
-    "resolvedRows": 396,
-    "unresolvedRows": 135,
-    "rowsWithCatalogueTarget": 445,
-    "medicationsWithUnresolvedRows": 119
+    "resolvedRows": 395,
+    "unresolvedRows": 136,
+    "rowsWithCatalogueTarget": 444,
+    "medicationsWithUnresolvedRows": 120
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -7997,13 +7997,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["phenelzine", "tranylcypromine"],
-          "termIds": ["maois"],
-          "resolved": true,
+          "counterparties": [],
+          "termIds": [],
+          "resolved": false,
           "note": "HIGH — Cimetidine (doubles moclobemide levels)."
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "nortriptyline": {
       "rows": [

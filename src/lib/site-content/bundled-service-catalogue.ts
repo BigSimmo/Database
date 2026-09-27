@@ -131,7 +131,10 @@ export function bundledServicesMissingFrom(
  * Canonical service entries for major Perth metropolitan public acute psychiatric inpatient
  * units and the statewide urgent toxicology resource (WA Poisons Information Centre).
  *
- * Verified against WA Health, NMHS, SMHS, EMHS, and CAHS official service descriptions.
+ * Drafted from WA Health, NMHS, SMHS, EMHS, and CAHS official service descriptions. No
+ * clinical-owner sign-off exists yet, so these records carry no reviewer, are marked not locally
+ * verified, and are deliberately NOT appended to the served fallback (`bundledServicesMissingFrom`)
+ * or the static route params: they stay held until signed off (owner approval 2026-09-28).
  */
 export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord[] = [
   {
@@ -211,7 +214,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: [
       "inpatient",
@@ -306,7 +308,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: [
       "inpatient",
@@ -404,7 +405,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: ["inpatient", "acute_care", "psychiatric_ward", "fsh", "smhs", "adult", "hospital", "public_hospital"],
     catchments: ["South Metropolitan Health Service", "Perth metro"],
@@ -495,7 +495,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: [
       "inpatient",
@@ -587,7 +586,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: ["inpatient", "acute_care", "rph", "emhs", "ward_2k", "adult", "emergency_psychiatry", "public_hospital"],
     catchments: ["East Metropolitan Health Service", "Perth City", "Perth metro"],
@@ -676,7 +674,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: ["inpatient", "acute_care", "bentley_hospital", "ward_4", "emhs", "adult", "public_hospital"],
     catchments: ["East Metropolitan Health Service", "Perth metro"],
@@ -772,7 +769,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: ["inpatient", "acute_care", "midland_hospital", "sjog_midland", "emhs", "adult", "public_hospital"],
     catchments: ["East Metropolitan Health Service", "Swan", "Hills", "Perth metro"],
@@ -867,7 +863,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: [
       "inpatient",
@@ -967,7 +962,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: [
       "inpatient",
@@ -1080,7 +1074,6 @@ export const CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES: readonly ServiceRecord
       confidence: "High",
       availabilityStatus: "active",
       lastVerifiedAt: "2026-09-27",
-      reviewer: "Inpatient Services and Poisons Specialist",
     },
     tags: [
       "toxicology",

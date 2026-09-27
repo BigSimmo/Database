@@ -110,6 +110,16 @@ const ybocsSeverity: CalculatorOption[] = [
   { label: "Extreme", short: "4", points: 4 },
 ];
 
+// Items 4 and 9 ask how much effort the patient makes to resist, which is a different question
+// from the perceived control asked by items 5 and 10, so they carry their own anchors.
+const ybocsResistance: CalculatorOption[] = [
+  { label: "Always resists", short: "0", points: 0 },
+  { label: "Resists most of the time", short: "1", points: 1 },
+  { label: "Some effort to resist", short: "2", points: 2 },
+  { label: "Yields, with some reluctance", short: "3", points: 3 },
+  { label: "Completely yields", short: "4", points: 4 },
+];
+
 const ybocsControl: CalculatorOption[] = [
   { label: "Complete control", short: "0", points: 0 },
   { label: "Much control", short: "1", points: 1 },
@@ -623,7 +633,7 @@ export const calculators: CalculatorFixture[] = [
       {
         id: "y4",
         kind: "options",
-        options: ybocsControl,
+        options: ybocsResistance,
         text: "Resistance against obsessions",
         detail: "0 = always resists",
       },
@@ -634,7 +644,7 @@ export const calculators: CalculatorFixture[] = [
       {
         id: "y9",
         kind: "options",
-        options: ybocsControl,
+        options: ybocsResistance,
         text: "Resistance against compulsions",
         detail: "0 = always resists",
       },

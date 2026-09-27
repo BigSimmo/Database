@@ -368,7 +368,7 @@ describe("Y-BOCS control item scoring", () => {
   const ybocs = fixture("ybocs");
 
   it("uses inverted control anchors where 0 is complete control and 4 is no control", () => {
-    const controlItemIds = ["y4", "y5", "y9", "y10"];
+    const controlItemIds = ["y5", "y10"];
     for (const itemId of controlItemIds) {
       const item = ybocs.items.find((i) => i.id === itemId);
       expect(item).toBeDefined();
@@ -380,6 +380,19 @@ describe("Y-BOCS control item scoring", () => {
       expect(options[2]).toEqual({ label: "Moderate control", short: "2", points: 2 });
       expect(options[3]).toEqual({ label: "Little control", short: "3", points: 3 });
       expect(options[4]).toEqual({ label: "No control", short: "4", points: 4 });
+    }
+  });
+
+  it("gives the resistance items (4 and 9) their own effort-to-resist anchors", () => {
+    for (const itemId of ["y4", "y9"]) {
+      const options = ybocs.items.find((i) => i.id === itemId)?.options ?? [];
+      expect(options.map((option) => [option.label, option.points])).toEqual([
+        ["Always resists", 0],
+        ["Resists most of the time", 1],
+        ["Some effort to resist", 2],
+        ["Yields, with some reluctance", 3],
+        ["Completely yields", 4],
+      ]);
     }
   });
 

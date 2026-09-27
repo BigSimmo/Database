@@ -212,6 +212,16 @@ const ybocsSeverity: CalculatorOption[] = [
   { label: "Extreme", short: "4", points: 4 },
 ];
 
+// Items 4 and 9 ask how much effort the patient makes to resist, which is a different question
+// from the perceived control asked by items 5 and 10, so they carry their own anchors.
+const ybocsResistance: CalculatorOption[] = [
+  { label: "Always resists", short: "0", points: 0 },
+  { label: "Resists most of the time", short: "1", points: 1 },
+  { label: "Some effort to resist", short: "2", points: 2 },
+  { label: "Yields, with some reluctance", short: "3", points: 3 },
+  { label: "Completely yields", short: "4", points: 4 },
+];
+
 const ybocsControl: CalculatorOption[] = [
   { label: "Complete control", short: "0", points: 0 },
   { label: "Much control", short: "1", points: 1 },
@@ -735,7 +745,7 @@ const calculatorFixtures: RawCalculatorFixture[] = [
       {
         id: "y4",
         kind: "options",
-        options: ybocsControl,
+        options: ybocsResistance,
         text: "Resistance against obsessions",
         detail: "0 = always resists",
       },
@@ -746,7 +756,7 @@ const calculatorFixtures: RawCalculatorFixture[] = [
       {
         id: "y9",
         kind: "options",
-        options: ybocsControl,
+        options: ybocsResistance,
         text: "Resistance against compulsions",
         detail: "0 = always resists",
       },
@@ -802,7 +812,7 @@ const responseAnchorSetIds: Record<string, string> = {
   cage: "rax-a9efad27e70f3351",
   auditc: "rax-2542f10c0cd037e1",
   sadpersons: "rax-d3e9691eb7b40e58",
-  ybocs: "rax-bac06d27d2e8654b",
+  ybocs: "rax-f6b6411d03a7e8a8",
 };
 
 /**

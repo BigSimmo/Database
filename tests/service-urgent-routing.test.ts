@@ -83,3 +83,20 @@ describe("service urgent routing — Requirement R2", () => {
     });
   });
 });
+
+describe("service urgent routing — explicitly named services", () => {
+  it("keeps a named service first while still pinning the crisis routes after it", () => {
+    const resultTitles = titles("13YARN crisis support", 8);
+    expect(resultTitles[0]).toMatch(/^13\s*YARN$/i);
+    expect(resultTitles.slice(1, 4)).toEqual(
+      expect.arrayContaining([
+        "Emergency services",
+        expect.stringMatching(/MHERL|Mental Health Emergency Response Line/),
+      ]),
+    );
+  });
+
+  it("does not let a bare crisis word claim a named-service lead", () => {
+    expect(titles("crisis", 1)[0]).toBe("Emergency services");
+  });
+});

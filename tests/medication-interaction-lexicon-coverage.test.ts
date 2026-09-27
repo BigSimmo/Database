@@ -26,6 +26,7 @@ type IndexRow = {
   counterparties: string[];
   termIds: string[];
   resolved: boolean;
+  note: string;
 };
 
 const index = JSON.parse(
@@ -520,6 +521,25 @@ describe("lexicon hygiene", () => {
     expect(maoiSlugs).toContain("moclobemide");
     expect(maoiSlugs).toContain("phenelzine");
     expect(maoiSlugs).toContain("tranylcypromine");
+  });
+
+  it("does not expand moclobemide's own name into a class-wide MAOI alert on its own rows", () => {
+    // Moclobemide is a surface of the `maois` term. On moclobemide's own rows the
+    // name refers to itself: "Cimetidine (doubles moclobemide levels)" must not
+    // become a HIGH interaction with phenelzine and tranylcypromine.
+    const cimetidineRow = index.bySlug.moclobemide?.rows.find((row) => /cimetidine/i.test(row.note));
+    expect(cimetidineRow).toBeDefined();
+    expect(cimetidineRow?.counterparties).not.toContain("phenelzine");
+    expect(cimetidineRow?.counterparties).not.toContain("tranylcypromine");
+    // Other drugs' MAOI warnings still reach moclobemide and the irreversible MAOIs.
+    const reachesAllMaois = Object.entries(index.bySlug).some(
+      ([slug, entry]) =>
+        slug !== "moclobemide" &&
+        entry.rows.some((row) =>
+          ["moclobemide", "phenelzine", "tranylcypromine"].every((maoi) => row.counterparties.includes(maoi)),
+        ),
+    );
+    expect(reachesAllMaois).toBe(true);
   });
 
   it("never lets a source medication appear as its own counterparty", () => {

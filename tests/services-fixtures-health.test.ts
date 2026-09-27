@@ -5,10 +5,12 @@ import {
   CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES,
   WA_POISONS_CENTRE_SERVICE,
   bundledServiceGovernance,
+  bundledServicesMissingFrom,
   getBundledCanonicalServiceRecord,
   preferBundledServiceRecord,
 } from "@/lib/site-content/bundled-service-catalogue";
 import { serviceNavigatorQuery, type ServiceRecord } from "@/lib/service-ranker";
+import { serviceRecords } from "@/lib/services";
 
 const REQUIRED_SLUGS = [
   "graylands-hospital-and-frankland-centre",
@@ -95,7 +97,8 @@ describe("bundled services fixtures health", () => {
       // No clinical-owner sign-off exists for these fixtures (serviceRecordSignOff returns null),
       // so they must not claim local verification on the detail page.
       expect(service.verification?.locallyVerified).toBe(false);
-      expect(service.verification?.reviewer?.trim()).toBeTruthy();
+      // No named reviewer until a real clinical-owner sign-off exists.
+      expect(service.verification?.reviewer).toBeUndefined();
       expect(service.verification?.lastVerifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
       // Facets: tags & catchments
@@ -240,5 +243,16 @@ describe("bundled services fixtures health", () => {
       expect(swapped.record.title).toBe("WA Poisons Information Centre");
       expect(swapped.governance.validationStatus).toBe("unverified");
     });
+  });
+});
+
+describe("unsigned inpatient and poisons fixtures stay held", () => {
+  it("are not appended to the served fallback or the static service routes", () => {
+    const held = new Set(CANONICAL_INPATIENT_AND_TOXICOLOGY_SERVICES.map((record) => record.slug));
+    expect(serviceRecords.some((record) => held.has(record.slug))).toBe(false);
+    const retainedBootstrap = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
+    const missing = bundledServicesMissingFrom([], { activeReleaseId: retainedBootstrap });
+    expect(missing.length).toBeGreaterThan(0);
+    expect(missing.some((record) => held.has(record.slug))).toBe(false);
   });
 });

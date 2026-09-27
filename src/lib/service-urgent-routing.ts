@@ -317,12 +317,41 @@ function findRegionalDaytimeUsable(records: readonly ServiceRecord[], region: st
   );
 }
 
+function normalizeForNameMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Usable records whose full title the query spells out ("13YARN crisis support" names 13YARN).
+ * Titles shorter than five characters are ignored so a stray token cannot claim the lead. */
+function findExplicitlyNamedServices(records: readonly ServiceRecord[], query: string): ServiceRecord[] {
+  const normalizedQuery = ` ${normalizeForNameMatch(query)} `;
+  return records.filter((service) => {
+    const title = normalizeForNameMatch(service.title ?? "");
+    if (title.replace(/ /g, "").length < 5) return false;
+    if (!normalizedQuery.includes(` ${title} `)) return false;
+    const status = service.verification?.availabilityStatus;
+    return !status || status === "active";
+  });
+}
+
 export function rankServiceUrgentRoutes(records: readonly ServiceRecord[], query: string): ServiceSearchMatch[] {
   const intents = detectServiceUrgentIntents(query);
   if (intents.length === 0) return [];
 
   const seen = new Set<string>();
   const matches: ServiceSearchMatch[] = [];
+
+  // A query that names a service keeps that service first. Crisis wording in the same query
+  // still pins every urgent route straight after it, so naming a service never removes help;
+  // it only stops a generic word ("crisis", "acute") from demoting the service asked for.
+  for (const service of findExplicitlyNamedServices(records, query)) {
+    if (seen.has(service.slug)) continue;
+    seen.add(service.slug);
+    matches.push({ service, score: 1_000_001, reasons: ["urgent route", "named service"] });
+  }
 
   intents.forEach((intent, index) => {
     const sequence = findPinnedSequence(records, intent, seen);

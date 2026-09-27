@@ -60,17 +60,17 @@ export type ToolCatalogRecord = {
 /**
  * Consultant Psychiatrist Medicare Benefits Schedule (MBS) billing item references.
  *
- * Statutory and clinical governance rules:
+ * MBS billing rules and clinical governance notes:
  * - Item 291: Comprehensive assessment and preparation of a management plan by a consultant
  *   psychiatrist for a patient referred by a general practitioner.
  *   Key rules:
  *   1. GP Referral: Must be referred by a general practitioner who will manage the patient,
  *      specifically requesting an assessment and management plan under Item 291.
  *   2. 12-Month Restriction: Payable only once in any 12-month period for a patient.
- *   3. Statutory Prohibition on Ongoing Management: The reporting consultant psychiatrist is
- *      statutorily prohibited from providing ongoing management or treatment following preparation
- *      of the Item 291 plan (ongoing care remains the responsibility of the referring GP; standard
- *      ongoing psychiatric attendance items cannot be claimed for that episode).
+ *   3. Ongoing-management billing condition: Item 291 is claimable only where the referring GP,
+ *      not the psychiatrist, will provide ongoing management. It is an MBS eligibility condition,
+ *      not a legal bar on the psychiatrist treating the patient; if the psychiatrist is to take on
+ *      ongoing care, Item 291 is not the item to claim (check the current MBS descriptor).
  *
  * - Item 293: Review of a management plan by a consultant psychiatrist.
  *   Key rules:
@@ -101,11 +101,11 @@ export const psychiatricMedicareBillingItems: Record<"291" | "293", PsychiatricB
       "Referral must be from a general practitioner who will manage the patient, explicitly requesting an assessment and management plan under Item 291.",
     frequencyRestriction: "Payable only once in any 12-month period for a patient (12-month restriction).",
     ongoingManagementRule:
-      "Statutory prohibition on ongoing management: the reporting consultant psychiatrist is prohibited from providing ongoing management or treatment to the patient following preparation of the Item 291 plan (care remains with the referring GP, and standard ongoing psychiatry attendance items may not be billed for that episode).",
+      "Billing condition, not a treatment ban: Item 291 is claimable only where the referring GP will provide ongoing management (care remains with the referring GP). It does not prohibit the psychiatrist from treating the patient; if the psychiatrist is to take on ongoing care, Item 291 is not the appropriate item. Check the current MBS descriptor.",
     rules: [
       "Referral must be from a general practitioner requesting the preparation of a management plan.",
       "Payable only once in any 12-month period (12-month restriction).",
-      "Statutory prohibition on the reporting psychiatrist providing ongoing management; primary ongoing care must be delivered by the referring GP.",
+      "Billing condition: claimable only where the referring GP will provide ongoing management; it is not a prohibition on the psychiatrist treating the patient.",
     ],
   },
   "293": {
@@ -334,7 +334,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Generate care-plan guidance with monitoring and follow-up prompts.",
     bestFor: "Care-planning guidance and MBS 291/293 management plans",
     detail:
-      "Generate care-plan structure, review milestones, monitoring needs, and follow-up tasks. Covers MBS psychiatric management plans: Item 291 (GP referral required, 12-month restriction, statutory prohibition on reporting psychiatrist providing ongoing management) and Item 293 (GP-referred review of Item 291 management plan, 12-month restriction).",
+      "Generate care-plan structure, review milestones, monitoring needs, and follow-up tasks. Covers MBS psychiatric management plans: Item 291 (GP referral required, 12-month restriction, billing condition that the referring GP provides ongoing management, not a treatment ban) and Item 293 (GP-referred review of Item 291 management plan, 12-month restriction).",
     href: "/?mode=answer&q=care%20plan&focus=1",
     area: "care",
     status: "ready",
@@ -362,7 +362,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
       "Review date",
       "Monitoring responsibilities",
       "MBS 291 12-month restriction and GP referral",
-      "Prohibition on psychiatrist ongoing management under 291",
+      "MBS 291 billing condition: referring GP provides ongoing management",
     ],
     neededInput: [
       "Diagnosis or working problem",

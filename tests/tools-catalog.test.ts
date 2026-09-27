@@ -130,7 +130,8 @@ describe("tools catalog", () => {
     expect(item291).toBeDefined();
     expect(item291.referralRequirement).toMatch(/general practitioner|GP/i);
     expect(item291.frequencyRestriction).toMatch(/12-month/i);
-    expect(item291.ongoingManagementRule).toMatch(/statutory prohibition on ongoing management/i);
+    expect(item291.ongoingManagementRule).toMatch(/billing condition, not a treatment ban/i);
+    expect(item291.ongoingManagementRule).not.toMatch(/statutor/i);
     expect(item291.ongoingManagementRule).toMatch(/referring GP/i);
 
     const item293 = psychiatricMedicareBillingItems["293"];
@@ -144,11 +145,12 @@ describe("tools catalog", () => {
     expect(carePlans.detail).toContain("Item 291");
     expect(carePlans.detail).toContain("Item 293");
     expect(carePlans.detail).toMatch(/12-month restriction/i);
-    expect(carePlans.detail).toMatch(/statutory prohibition/i);
+    expect(carePlans.detail).toMatch(/billing condition/i);
+    expect(carePlans.detail).not.toMatch(/statutory prohibition/i);
     expect(carePlans.checkFirst).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/291.*12-month/i),
-        expect.stringMatching(/prohibition on psychiatrist ongoing management/i),
+        expect.stringMatching(/291 billing condition/i),
       ]),
     );
   });
