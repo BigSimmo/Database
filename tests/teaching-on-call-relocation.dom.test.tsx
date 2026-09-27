@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextRequest } from "next/server";
@@ -113,8 +113,12 @@ describe("Teaching preserves On Call until approved transfer", () => {
     // sentence, so `OnCallTeachingStrip` stays on disk — just unused by the home
     // above, which is the actual behaviour change (spec §8).
     expect(existsSync("src/components/on-call/on-call-teaching-strip.tsx")).toBe(true);
-    const myWork = readFileSync("src/components/my-work/my-work-home.tsx", "utf8");
-    expect(myWork).toContain('description="Recorded expiry dates by month"');
-    expect(myWork).not.toMatch(/Teaching and recorded expiry/);
+    // My Work's home (and its Calendar tile) became Admin in Admin update 1 and was deleted, so the
+    // old "Teaching and recorded expiry dates" tile text must not survive anywhere it moved to.
+    expect(existsSync("src/components/my-work/my-work-home.tsx")).toBe(false);
+    for (const name of readdirSync("src/components/admin")) {
+      if (!name.endsWith(".tsx")) continue;
+      expect(readFileSync(`src/components/admin/${name}`, "utf8"), name).not.toMatch(/Teaching and recorded expiry/);
+    }
   });
 });
