@@ -100,7 +100,7 @@ export function RouteErrorBoundary({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className={cn(primaryControl, "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+              className={cn(primaryControl, "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Reload page
@@ -109,7 +109,7 @@ export function RouteErrorBoundary({
             <button
               type="button"
               onClick={() => reset()}
-              className={cn(primaryControl, "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+              className={cn(primaryControl, "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Try again
@@ -120,7 +120,7 @@ export function RouteErrorBoundary({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               Reload page
             </button>
@@ -129,14 +129,14 @@ export function RouteErrorBoundary({
           <button
             type="button"
             onClick={copyDiagnostics}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             {copied ? (
-              <Check aria-hidden="true" className="h-4 w-4 text-green-600" />
+              <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--success)]" />
             ) : (
               <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
             )}
-            {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
+            {copied ? "Copied diagnostics" : copyFailed ? "Copy failed — try again" : "Copy diagnostics"}
           </button>
         </div>
       </div>

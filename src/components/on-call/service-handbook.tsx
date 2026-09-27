@@ -14,6 +14,7 @@ import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { resolveHandbookPhone, spokenOnCallNumber } from "@/lib/on-call/number-resolver";
 import type { ServiceAction, ServiceDetail, ServiceEntry } from "@/lib/on-call/service-model";
+import { formatOnCallDate } from "@/components/on-call/on-call-dates";
 
 type ReportAction = Extract<ServiceAction, { action: "report.create" }>;
 
@@ -36,7 +37,7 @@ function updateLabel(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? "Review date unavailable"
-    : `Updated ${new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "short", year: "numeric" }).format(date)}`;
+    : `Updated ${formatOnCallDate(date)}`;
 }
 
 function learningHref(entry: ServiceEntry): string | null {
@@ -150,7 +151,7 @@ function ServiceEntryCard({
 
         {entry.content.kind !== "operational" && entry.reviewedAt && entry.publishedRevision === entry.revision ? (
           <p className={cn(textMuted, "break-words text-xs")}>
-            Reviewed {new Date(entry.reviewedAt).toLocaleDateString("en-AU")}
+            Reviewed {formatOnCallDate(entry.reviewedAt)}
             {entry.reviewedBy ? ` · reviewer ${entry.reviewedBy.slice(0, 8)}` : ""}
           </p>
         ) : null}

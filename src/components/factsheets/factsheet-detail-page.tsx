@@ -298,7 +298,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                           <span className="block truncate text-sm font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
                             {sheet.title}
                           </span>
-                          <span className="block truncate text-xs text-[color:var(--text-muted)]">{sheet.summary}</span>
+                          <span className="line-clamp-2 text-xs text-[color:var(--text-muted)]">{sheet.summary}</span>
                         </span>
                         <span className="shrink-0 text-xs font-bold text-[color:var(--text-muted)]">
                           {sheet.readTime}

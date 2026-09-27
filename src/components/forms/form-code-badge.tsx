@@ -81,11 +81,13 @@ export function FormCodeBadge({
         {head}
       </span>
       {qualifier ? (
+        // Sentence case, not uppercase: "ATTACHMENT" at 10px bold is wider than
+        // the 48–64px chip and was always cut to "ATTAC…" in the forms list.
         <span
           aria-hidden
           title={qualifier}
           className={cn(
-            "w-full truncate text-center font-bold uppercase leading-none tracking-tight opacity-75",
+            "w-full truncate text-center font-bold leading-none tracking-tight opacity-75",
             qualifierSizeByVariant[variant],
           )}
         >

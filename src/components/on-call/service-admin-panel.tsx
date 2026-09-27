@@ -16,6 +16,7 @@ import {
   type ServiceMember,
   type ServiceRole,
 } from "@/lib/on-call/service-model";
+import { formatOnCallDate, formatOnCallDateTime } from "@/components/on-call/on-call-dates";
 
 type ActionRunner = (action: ServiceAction) => Promise<Record<string, unknown>>;
 
@@ -63,7 +64,7 @@ function MemberRow({ member, onAction }: { readonly member: ServiceMember; reado
           Member {member.id.slice(0, 8)}
         </p>
         <p className={cn(textMuted, "mt-0.5 text-xs")}>
-          Joined {new Date(member.joinedAt).toLocaleDateString("en-AU")}
+          Joined {formatOnCallDate(member.joinedAt)}
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -298,7 +299,7 @@ export function ServiceAdminPanel({
           <InlineNotice tone="neutral">
             <span className="grid min-w-0 gap-2">
               <span>
-                This code is shown once and expires {new Date(newInvitation.expiresAt).toLocaleString("en-AU")}.
+                This code is shown once and expires {formatOnCallDateTime(newInvitation.expiresAt)}.
               </span>
               <code className="select-all break-all rounded-sm bg-[color:var(--surface-subtle)] p-2 text-xs">
                 {newInvitation.code}
@@ -326,7 +327,7 @@ export function ServiceAdminPanel({
                   className="grid gap-2 rounded-lg border border-[color:var(--border)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
                   <p className="min-w-0 break-words text-sm text-[color:var(--text)]">
-                    {invitation.role} · {status} · expires {new Date(invitation.expiresAt).toLocaleDateString("en-AU")}
+                    {invitation.role} · {status} · expires {formatOnCallDate(invitation.expiresAt)}
                   </p>
                   {status === "Open" ? (
                     <Button

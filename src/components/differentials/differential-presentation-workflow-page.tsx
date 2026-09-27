@@ -321,7 +321,7 @@ function DesktopComparisonTable({
 
       <div
         data-testid="differential-comparison-scroll"
-        className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
+        className="polished-scroll @container overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         <table
           aria-label="Differential comparison"
@@ -373,14 +373,20 @@ function DesktopComparisonTable({
                       colSpan={columns.length}
                       className="border-b border-r border-[color:var(--border)] bg-[color:var(--surface-subtle)]/60 px-3 py-3 align-top text-2xs font-semibold leading-normal text-[color:var(--text-muted)]"
                     >
-                      <span className="mb-1 block text-2xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
-                        Applies to the whole presentation
-                      </span>
-                      <ComparisonCellContent
-                        diagnosisLinks={diagnosisLinks}
-                        criterionId={criterion.id}
-                        value={shared}
-                      />
+                      {/* The cell spans every candidate column, so it is far wider
+                          than the visible table and long answers ran off the
+                          right edge. Pin the text beside the criteria column and
+                          wrap it to the visible width of the scroll area. */}
+                      <div className="sticky left-[11rem] max-w-[calc(100cqw-12.5rem)]">
+                        <span className="mb-1 block text-2xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                          Applies to the whole presentation
+                        </span>
+                        <ComparisonCellContent
+                          diagnosisLinks={diagnosisLinks}
+                          criterionId={criterion.id}
+                          value={shared}
+                        />
+                      </div>
                     </td>
                   ) : (
                     columns.map((candidate) => (
