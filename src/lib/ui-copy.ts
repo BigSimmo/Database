@@ -62,7 +62,7 @@ export const sharedHomePresentation = {
   },
   differentials: {
     title: "Differential Diagnosis",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Compare causes, distinguishing features, and clinical clues.",
     suggestions: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
   },
   dsm: {

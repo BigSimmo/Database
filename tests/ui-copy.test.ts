@@ -57,7 +57,7 @@ const EXPECTED_MODE_TITLES: Record<
   differentials: {
     sharedTitle: "Differential Diagnosis",
     standaloneTitle: "Differentials",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Compare causes, distinguishing features, and clinical clues.",
   },
   dsm: {
     sharedTitle: "DSM-5 Diagnosis",

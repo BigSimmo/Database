@@ -44,7 +44,7 @@ const expectedPresentations = [
   {
     modeId: "differentials",
     title: "Differential Diagnosis",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Compare causes, distinguishing features, and clinical clues.",
     iconClass: "lucide-brain-circuit",
   },
   {

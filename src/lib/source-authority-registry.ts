@@ -559,13 +559,11 @@ export const sourceAuthorityRegistry = [
   // sources retrieval picks, which is a separate decision from letting the register
   // name them.
   //
-  // Four further publishers were deliberately NOT registered, because the strings
-  // are descriptions rather than agencies: "Government of Western Australia",
-  // "WA Health service providers", "Mental Health Commission / WA Health" (two
-  // publishers in one field) and "4AT developers". Registering a catch-all like
-  // "Government of Western Australia" would resolve every WA government document to
-  // one authority, which is worse than leaving those four records held until their
-  // actual publishing agency is established.
+  // Four publishers previously described in descriptive text ("Government of Western Australia",
+  // "WA Health service providers", "Mental Health Commission / WA Health", and "4AT developers")
+  // were standardized to official agency names: Mental Health Advocacy Service (MHASWA),
+  // Fiona Stanley Fremantle Hospitals Group (FSFHG), Mental Health Commission WA (MHCWA),
+  // and Edinburgh Delirium Research Group (EDRG).
   authority({
     key: "mental-health-tribunal-wa",
     codes: ["MHTWA"],
@@ -870,6 +868,16 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "edinburgh-delirium-research-group",
+    codes: ["EDRG"],
+    publisher: "Edinburgh Delirium Research Group",
+    publisherAliases: ["University of Edinburgh Delirium Research Group", "4AT developers"],
+    jurisdictions: ["International", "UK", "Scotland"],
+    scope: "international",
+    tier: "supplementary",
     catalogueIdentityOnly: true,
   }),
 ] satisfies SourceAuthorityDefinition[];
