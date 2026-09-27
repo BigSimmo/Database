@@ -178,8 +178,9 @@ function documentScopeMeta(document: ClinicalDocument) {
   const title = documentScopeTitle(document).toLowerCase();
   const fileName = document.file_name;
   const fileBase = fileName.replace(/\.pdf$/i, "").toLowerCase();
-  if (fileBase === title || fileBase.startsWith(title)) return `${document.page_count ?? "?"} pages`;
-  return `${fileName} · ${document.page_count ?? "?"} pages`;
+  const pages = document.page_count === 1 ? "1 page" : `${document.page_count ?? "?"} pages`;
+  if (fileBase === title || fileBase.startsWith(title)) return pages;
+  return `${fileName} · ${pages}`;
 }
 
 export function MasterSearchHeader({

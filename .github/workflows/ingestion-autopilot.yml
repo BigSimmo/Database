@@ -33,7 +33,7 @@ permissions:
 env:
   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
   SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
-  SUPABASE_PROJECT_NAME: Clinical KB Database
+  SUPABASE_PROJECT_NAME: PsychSift Production
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
 
 jobs:

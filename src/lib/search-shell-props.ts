@@ -117,6 +117,10 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "my-work", desktopSearchPlacement: "hero" };
   }
 
+  if (pathname.startsWith("/roster")) {
+    return { initialMode: "roster", desktopSearchPlacement: "hero" };
+  }
+
   if (pathname === "/first-nations" || pathname.startsWith("/first-nations/")) {
     return { initialMode: "first-nations", desktopSearchPlacement: "hero" };
   }

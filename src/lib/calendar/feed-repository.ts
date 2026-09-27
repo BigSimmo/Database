@@ -16,6 +16,11 @@ import {
   normalizeReminderSettings,
   type ReminderSettings,
 } from "@/lib/reminders/settings";
+import { inferShiftKind, SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
+import type { OnCallShift } from "@/lib/roster/shifts/model";
+import { perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
+import { fetchOwnerShifts } from "@/lib/roster/shifts/repository";
+import { DEFAULT_ROSTER_SETTINGS, fetchRosterSettings, type RosterSettings } from "@/lib/roster/settings";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
@@ -64,6 +69,24 @@ export async function fetchOwnerReminderSettings(supabase: AdminClient, ownerId:
   }
 }
 
+/**
+ * The feed owner's Roster settings, for deciding whether shifts belong on the
+ * feed. A failed read serves the feed without Roster shifts rather than
+ * failing it, the same conservative fallback as the reminder settings above:
+ * a shift that fails to appear on the feed the owner can still open the app
+ * and see, whereas a broken feed is a broken phone alert.
+ */
+async function fetchOwnerRosterSettingsForFeed(supabase: AdminClient, ownerId: string): Promise<RosterSettings> {
+  try {
+    return await fetchRosterSettings(supabase, ownerId);
+  } catch (error) {
+    logger.warn("calendar feed roster settings unavailable", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return DEFAULT_ROSTER_SETTINGS;
+  }
+}
+
 export async function ownerHasCalendarFeed(supabase: AdminClient, ownerId: string): Promise<boolean> {
   if (!ownerId) throw new Error("Missing calendar feed owner.");
   const { data, error } = await supabase
@@ -102,16 +125,45 @@ export async function calendarFeedOwner(supabase: AdminClient, token: string): P
   return typeof data === "string" ? data : null;
 }
 
+/** How far ahead Roster shifts reach into the feed: enough to be useful, never a doctor's whole roster history. */
+const ROSTER_FEED_WINDOW_DAYS = 60;
+
+/**
+ * Upcoming shifts as calendar events, only once the doctor has turned on
+ * "Shifts on my calendar link" in Roster Settings. Deliberately narrow, like
+ * every other feed source: no workplace and no location, since anyone
+ * holding the link can read it.
+ */
+function rosterShiftEvents(shifts: readonly OnCallShift[]): CalendarEvent[] {
+  // A shift stored without a kind (an older calendar-link refresh) is given one from its times, never dropped.
+  return shifts.map((shift) => ({
+    id: `roster-shift-${shift.id}`,
+    title: `Roster: ${SHIFT_KIND_LABEL[shift.kind ?? inferShiftKind(shift)]}`,
+    date: perthDateOf(shift.startsAt),
+    startTime: perthTimeOf(shift.startsAt),
+    durationMinutes: Math.max(1, Math.round((Date.parse(shift.endsAt) - Date.parse(shift.startsAt)) / 60_000)),
+    kind: "other" as const,
+    reminderType: "shifts" as const,
+  }));
+}
+
 export async function calendarFeedEvents(supabase: AdminClient, ownerId: string, now: Date): Promise<CalendarEvent[]> {
   const year = cpdYearOf(now);
-  const [thisYear, nextYear, routines, teaching, teachingSessions, reminders] = await Promise.all([
+  const [thisYear, nextYear, routines, teaching, teachingSessions, reminders, rosterSettings] = await Promise.all([
     fetchOwnerCmeYear(supabase, ownerId, year),
     fetchOwnerCmeYear(supabase, ownerId, year + 1),
     fetchOwnerCmeRoutines(supabase, ownerId),
     fetchVisibleOnCallEntries(supabase, ownerId, { section: "education" }),
     fetchTeachingFeedSessions(supabase, ownerId, now),
     fetchOwnerReminderSettings(supabase, ownerId),
+    fetchOwnerRosterSettingsForFeed(supabase, ownerId),
   ]);
+  let rosterShifts: CalendarEvent[] = [];
+  if (rosterSettings.calendarShifts) {
+    const shifts = await fetchOwnerShifts(supabase, ownerId, now);
+    const windowEndMillis = now.getTime() + ROSTER_FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    rosterShifts = rosterShiftEvents(shifts.filter((shift) => Date.parse(shift.startsAt) <= windowEndMillis));
+  }
   const events = [
     ...(thisYear ? cmeDeadlineEvents(thisYear) : []),
     ...(nextYear ? cmeDeadlineEvents(nextYear) : []),
@@ -121,6 +173,7 @@ export async function calendarFeedEvents(supabase: AdminClient, ownerId: string,
       perthCalendarDate(now),
     ),
     ...teachingCalendarEvents(teachingSessions),
+    ...rosterShifts,
   ];
   return applyReminderAlarms(events, reminders, now);
 }

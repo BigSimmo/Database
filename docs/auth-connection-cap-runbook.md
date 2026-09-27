@@ -4,7 +4,7 @@
 **When:** complete this _before_ the first compute (vertical) scale-up and before
 any horizontal replica add. See the ordering in `docs/deployment-architecture.md`
 §2 and the bottleneck analysis in `docs/audit/capacity-review.md` §2–§3.
-**Project:** `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), region
+**Project:** `PsychSift Production` (`sjrfecxgysukkwxsowpy`), region
 ap-southeast-2 (Sydney).
 
 ## Why this is the first bottleneck
@@ -51,7 +51,7 @@ Concretely, the desired end state is:
 > Confirm the live label before changing anything — do not force a value that the
 > UI does not offer.
 
-1. Sign in to the Supabase dashboard and open the **`Clinical KB Database`**
+1. Sign in to the Supabase dashboard and open the **`PsychSift Production`**
    project (ref `sjrfecxgysukkwxsowpy`). Confirm the ref in the URL before
    touching any control — it must be `sjrfecxgysukkwxsowpy`, never the stale
    `qjgitjyhxrwxsrydablr`.

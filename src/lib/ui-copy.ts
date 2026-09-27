@@ -147,6 +147,11 @@ export const sharedHomePresentation = {
     subtitle: "Paperwork, deadlines and checks, with what is due first.",
     suggestions: ["leave", "registration", "roster"],
   },
+  roster: {
+    title: "Roster",
+    subtitle: "Your own shifts: what's on today, this week and this month.",
+    suggestions: ["night shift hours", "next weekend off", "import my roster"],
+  },
   "first-nations": {
     title: "First Nations",
     subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",

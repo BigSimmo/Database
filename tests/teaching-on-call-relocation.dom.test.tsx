@@ -86,7 +86,9 @@ describe("Teaching preserves On Call until approved transfer", () => {
   });
 
   it("retains teaching selected for the pocket card", () => {
-    expect(selectCardEntries([TEACHING, WARD], new Date()).map((e) => e.id)).toEqual(expect.arrayContaining(["ward", "ward-teaching"]));
+    expect(selectCardEntries([TEACHING, WARD], new Date()).map((e) => e.id)).toEqual(
+      expect.arrayContaining(["ward", "ward-teaching"]),
+    );
   });
 
   it("keeps legacy teaching discoverable in On Call search", () => {

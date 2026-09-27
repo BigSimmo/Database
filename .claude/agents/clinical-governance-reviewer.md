@@ -31,7 +31,7 @@ Run the preflight from `.github/pull_request_template.md` on any change that tou
 
 - Source-backed claims still require linked source verification before clinical use.
 - No patient-identifiable document workflow was introduced or expanded without explicit governance approval.
-- Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`).
+- Supabase target remains `PsychSift Production` (`sjrfecxgysukkwxsowpy`).
 - Service-role keys and private document access remain server-only.
 - Demo/synthetic content remains clearly separated from real clinical sources.
 - Source metadata, review status, and outdated/unknown-source behavior remain conservative.

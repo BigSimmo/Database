@@ -1,11 +1,11 @@
 ---
 name: run-pr
-description: Run the automated open-PR maintenance sweep on bigsimmo/database — fix failing CI on every open PR, address and resolve review threads, merge origin/main into branches with a real conflict, and push fixes. Use when the user types "Run PR" as the task message, or asks to sweep/fix/maintain all open PRs. "Run PR" is standing authorization for GitHub reads, pushes to PR feature branches, thread replies/resolutions, and CI re-runs; it never authorizes merging into main, closing PRs, force-pushes, branch deletion, auto-merge, or provider-backed gates.
+description: Run the automated open-PR maintenance sweep on bigsimmo/psychsift — fix failing CI on every open PR, address and resolve review threads, merge origin/main into branches with a real conflict, and push fixes. Use when the user types "Run PR" as the task message, or asks to sweep/fix/maintain all open PRs. "Run PR" is standing authorization for GitHub reads, pushes to PR feature branches, thread replies/resolutions, and CI re-runs; it never authorizes merging into main, closing PRs, force-pushes, branch deletion, auto-merge, or provider-backed gates.
 ---
 
 # run-pr — open-PR maintenance sweep
 
-One-shot sweep over every open pull request on `bigsimmo/database` (drafts included): fix failing
+One-shot sweep over every open pull request on `bigsimmo/psychsift` (drafts included): fix failing
 required CI checks, address unresolved review threads, merge `origin/main` into branches with a
 real conflict (being merely behind is not a reason to sync), push the results, record the ledger,
 and report per-PR before/after state.

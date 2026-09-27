@@ -224,7 +224,7 @@ function DialTile({
                 "-ml-1 min-h-12 rounded-md px-1 text-left text-base-minus text-[color:var(--text)]",
               )}
             >
-              <span className="break-words">{dial.display}</span>
+              <span className="whitespace-nowrap">{dial.display}</span>
             </button>
           ) : null}
           {!dial ? <OnCallStateLabel state={{ kind: "not-recorded" }} /> : null}
@@ -277,7 +277,10 @@ function TileOutlines({ count }: { readonly count: number }) {
 }
 
 /** Two across on a phone; one column once text is enlarged (nothing is cut off). */
-const tilesGrid = "grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-2";
+// 10rem, not 9rem: at 320px two 9rem tiles left the number too narrow and it
+// broke mid-number ("0000 000 / 001"). Small phones now get one tile per row;
+// 390px phones still get two. A number never wraps.
+const tilesGrid = "grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2";
 
 export function NowYourUsual({
   tiles,

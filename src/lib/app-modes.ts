@@ -25,6 +25,7 @@ export const appModeIds = [
   "teaching",
   "psychiatry",
   "my-work",
+  "roster",
   "first-nations",
 ] as const;
 
@@ -644,6 +645,36 @@ export const appModeDefinitions = [
     },
   },
   {
+    id: "roster",
+    label: "Roster",
+    description: "Your own shifts: imported, or added by hand, with Today, Shifts and Settings",
+    href: "/roster",
+    search: {
+      // Roster reads the owner's own shifts, already in the browser — a local
+      // catalogue, like On Call and CME — so it borrows the benign "tools"
+      // command kind rather than adding a search kind that would have to be
+      // threaded through universal search.
+      kind: "tools",
+      placeholder: "Search your shifts...",
+      inputAriaLabel: "Search your own roster",
+      submitIdleLabel: "Roster",
+      submitBusyLabel: "Roster",
+      submitAriaLabel: "Search your own roster",
+      emptyTitle: "Search your own roster",
+      readyTitle: "Find a shift, a workplace or a calendar link",
+      progressLabel: "Searching your shifts.",
+      resultKind: "tools",
+      resultHeading: "Roster",
+      // No results page. `/roster` is a dashboard (Today), and there is no
+      // `/roster/search`: a retargeted composer would accept a query and land
+      // the reader on a page that ignores it.
+      resultsSurface: "none",
+      statusLabel: "Roster",
+      nextStep: "Open Today, Shifts or Settings",
+      badgeLabel: null,
+    },
+  },
+  {
     id: "first-nations",
     label: "First Nations",
     description: "Culturally safe care for Aboriginal and Torres Strait Islander patients",
@@ -714,6 +745,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "teaching",
   "psychiatry",
   "my-work",
+  "roster",
   "first-nations",
 ]);
 

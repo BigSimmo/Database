@@ -135,6 +135,11 @@ const EXPECTED_MODE_TITLES: Record<
     standaloneTitle: "My Work",
     subtitle: "Paperwork, deadlines and checks, with what is due first.",
   },
+  roster: {
+    sharedTitle: "Roster",
+    standaloneTitle: "Roster",
+    subtitle: "Your own shifts: what's on today, this week and this month.",
+  },
   "first-nations": {
     sharedTitle: "First Nations",
     standaloneTitle: "First Nations",
@@ -147,7 +152,7 @@ describe("ui-copy", () => {
     it("covers every declared app mode exactly once", () => {
       const definedModes = Object.keys(sharedHomePresentation) as AppModeId[];
       expect(definedModes.sort()).toEqual([...appModeIds].sort());
-      expect(definedModes).toHaveLength(21);
+      expect(definedModes).toHaveLength(22);
     });
 
     it.each(appModeIds)("provides non-empty title and subtitle for %s", (modeId) => {

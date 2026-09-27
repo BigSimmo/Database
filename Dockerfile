@@ -142,7 +142,7 @@ COPY --from=build /app/scripts/deploy/migration-versions.mjs ./scripts/deploy/mi
 COPY package.json next.config.ts ./
 USER node
 EXPOSE 3000
-LABEL org.opencontainers.image.source="https://github.com/BigSimmo/Database"
+LABEL org.opencontainers.image.source="https://github.com/BigSimmo/PsychSift"
 LABEL org.opencontainers.image.title="PsychSift app tier"
 LABEL org.opencontainers.image.description="Next.js 16 app tier for the PsychSift medical guideline RAG knowledge base"
 LABEL org.opencontainers.image.licenses="UNLICENSED"

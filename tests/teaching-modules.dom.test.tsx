@@ -441,7 +441,9 @@ describe("LogToCpdSheet", () => {
     const dialog = screen.getByRole("dialog", { name: "Log to CPD" });
     fireEvent.change(within(dialog).getByLabelText("Hours"), { target: { value: "1.1" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save to CPD" }));
-    expect(await within(dialog).findByText("Use quarter hours between 0.25 and 8, for example 1.25.")).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText("Use quarter hours between 0.25 and 8, for example 1.25."),
+    ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     fireEvent.change(within(dialog).getByLabelText("Hours"), { target: { value: "1" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save to CPD" }));

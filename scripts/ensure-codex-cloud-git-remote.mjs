@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-export const CODEX_CLOUD_REPOSITORY = "BigSimmo/Database";
+export const CODEX_CLOUD_REPOSITORY = "BigSimmo/PsychSift";
 export const CODEX_CLOUD_ORIGIN_URL = `https://github.com/${CODEX_CLOUD_REPOSITORY}.git`;
 
 function run(command, args, cwd) {

@@ -127,19 +127,39 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
   else if (view.status === "offline" || view.status === "error" || view.status === "setup")
     body = <TeachingStateNotice state={view.status} onRetry={view.retry} />;
   else if (!now || !view.week) body = <ModeModuleSkeleton rows={4} eyebrow />;
-  else if (demoMode) body = <>
-    <ModeNotice>Made-up demo service. Explore the programme and roles; no real invitations, membership changes or records are sent.</ModeNotice>
-    <ModeGroupedList eyebrow="Demo programme" testId="teaching-organise-demo">
-      {view.week.sessions.map(session => <ModeRow key={session.occurrenceId} title={session.title} subtitle={`${perthDateKey(session.startsAt)} · ${perthTime(session.startsAt)}`} href={`/teaching/session/${session.occurrenceId}`} />)}
-    </ModeGroupedList>
-    <ModeGroupedList eyebrow="Explore the roles">
-      <ModeRow title="Learner" subtitle="Choose attendance and personal CPD actions" href="/teaching/logbook" />
-      <ModeRow title="Presenter" subtitle="Readiness, de-identification and feedback" href="/teaching/teach" />
-      <ModeRow title="Registrar and supervisor" subtitle="Log, review and confirm synthetic supervision" href="/teaching/supervision" />
-      <ModeRow title="Organiser" subtitle="Preview a timetable without saving it" href="/teaching/import" />
-    </ModeGroupedList>
-    <ModeNotice>In an approved service, organisers manage series, groups, invitations and supervision pairings. Service admins manage programme access. Neither role can read a doctor&apos;s private CPD figures.</ModeNotice>
-  </>;
+  else if (demoMode)
+    body = (
+      <>
+        <ModeNotice>
+          Made-up demo service. Explore the programme and roles; no real invitations, membership changes or records are
+          sent.
+        </ModeNotice>
+        <ModeGroupedList eyebrow="Demo programme" testId="teaching-organise-demo">
+          {view.week.sessions.map((session) => (
+            <ModeRow
+              key={session.occurrenceId}
+              title={session.title}
+              subtitle={`${perthDateKey(session.startsAt)} · ${perthTime(session.startsAt)}`}
+              href={`/teaching/session/${session.occurrenceId}`}
+            />
+          ))}
+        </ModeGroupedList>
+        <ModeGroupedList eyebrow="Explore the roles">
+          <ModeRow title="Learner" subtitle="Choose attendance and personal CPD actions" href="/teaching/logbook" />
+          <ModeRow title="Presenter" subtitle="Readiness, de-identification and feedback" href="/teaching/teach" />
+          <ModeRow
+            title="Registrar and supervisor"
+            subtitle="Log, review and confirm synthetic supervision"
+            href="/teaching/supervision"
+          />
+          <ModeRow title="Organiser" subtitle="Preview a timetable without saving it" href="/teaching/import" />
+        </ModeGroupedList>
+        <ModeNotice>
+          In an approved service, organisers manage series, groups, invitations and supervision pairings. Service admins
+          manage programme access. Neither role can read a doctor&apos;s private CPD figures.
+        </ModeNotice>
+      </>
+    );
   else if (teams.length === 0 || !serviceId)
     body = <ModeNotice>Organise is for your service&apos;s organisers.</ModeNotice>;
   else if (organise.status === "loading" || organise.status === "idle") body = <ModeModuleSkeleton rows={4} eyebrow />;
@@ -166,7 +186,9 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
       ...sessionRow(s, context),
       href: null,
       onSelect:
-        delayed.pending || s.status === "cancelled" || s.source !== "teaching" ? undefined : () => setOpen({ kind: "change", session: s }),
+        delayed.pending || s.status === "cancelled" || s.source !== "teaching"
+          ? undefined
+          : () => setOpen({ kind: "change", session: s }),
       status: firstRisk?.occurrenceId === s.occurrenceId ? { tone: "warning" as const, text: firstRisk.text } : null,
     }));
     const refresh = () => {
@@ -284,7 +306,14 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
           />
         </ModeGroupedList>
         {notice ? <ModeNotice tone="warning">{notice}</ModeNotice> : null}
-        <TeachingSupervisionAdmin key={service} serviceId={service} data={data} today={perthDateKey(now)} isAdmin={teams.find(team => team.id === service)?.role === "admin"} onSaved={refresh} />
+        <TeachingSupervisionAdmin
+          key={service}
+          serviceId={service}
+          data={data}
+          today={perthDateKey(now)}
+          isAdmin={teams.find((team) => team.id === service)?.role === "admin"}
+          onSaved={refresh}
+        />
         {open?.kind === "change" ? (
           <ChangeSheet
             session={open.session}
@@ -334,7 +363,9 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
     <InformationPageShell width="narrow" gap={false} testId="teaching-organise">
       <div className="grid gap-3">
         <h1 className="sr-only">Organise</h1>
-        <Link href="/teaching/import" className="inline-flex min-h-12 items-center underline">Import a timetable</Link>
+        <Link href="/teaching/import" className="inline-flex min-h-12 items-center underline">
+          Import a timetable
+        </Link>
         {teams.length > 0 && serviceId && !demoMode ? (
           <ServicePicker teams={teams} value={serviceId} onChange={setChosen} />
         ) : null}
@@ -346,7 +377,9 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
           data-testid="teaching-organise-pending"
           className="fixed inset-x-4 bottom-4 z-[var(--z-toast)] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-1 pr-1 pl-3 shadow-[var(--e4)]"
         >
-          <span className="text-sm text-[color:var(--text-heading)]">{delayed.pending}. Leaving this page cancels the unsent change.</span>
+          <span className="text-sm text-[color:var(--text-heading)]">
+            {delayed.pending}. Leaving this page cancels the unsent change.
+          </span>
           <button
             type="button"
             onClick={delayed.undo}
@@ -360,4 +393,6 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
   );
 }
 
-export function TeachingOrganise(props: { demoMode: boolean }) { return <TeachingAccountPage component={TeachingOrganiseContent} {...props} />; }
+export function TeachingOrganise(props: { demoMode: boolean }) {
+  return <TeachingAccountPage component={TeachingOrganiseContent} {...props} />;
+}

@@ -147,7 +147,7 @@ describe("cursor twins of the claude surfaces", () => {
   it("cursor supabase skill's repository override does not depend on a workstation path", () => {
     const skill = readFileSync(join(repoRoot, ".cursor/skills/supabase/SKILL.md"), "utf8");
     expect(skill).not.toMatch(/C:\\/);
-    expect(skill).toContain("any checkout of BigSimmo/Database");
+    expect(skill).toContain("any checkout of BigSimmo/PsychSift");
     // The fragments `npm run check:skills` asserts must survive the rewording.
     for (const contract of [
       "prove the target is a disposable local development database",

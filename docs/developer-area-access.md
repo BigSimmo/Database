@@ -36,7 +36,7 @@ the signed cookie and redirects the secret back out of the URL. There is no
 second verification path, deliberately — two would be two things to get wrong.
 
 **Setup, once per deployment.** Generate a secret and set it as the server-only
-Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `Database` service:
+Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `PsychSift` service:
 
 ```bash
 openssl rand -hex 32

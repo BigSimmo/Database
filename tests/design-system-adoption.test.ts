@@ -1477,8 +1477,8 @@ describe("design-system adoption manifest", () => {
     //
     // 105 -> 106 on 2026-09-26: `/my-work`, the My Work mode's dashboard.
     //
-    // 120 main routes plus 12 Teaching routes.
-    expect(manifest.routeCoverage.discovered).toHaveLength(137);
+    // 122 existing routes plus the 17 Teaching routes.
+    expect(manifest.routeCoverage.discovered).toHaveLength(139);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

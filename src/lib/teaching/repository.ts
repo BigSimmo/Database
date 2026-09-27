@@ -180,17 +180,26 @@ export async function readWeek(
   actorId: string,
   range: { from: string; to: string },
 ): Promise<TeachingWeek> {
-  const week = parseTeachingResult(teachingWeekSchema, await teachingCommand(client, actorId, null, "week.read", range));
+  const week = parseTeachingResult(
+    teachingWeekSchema,
+    await teachingCommand(client, actorId, null, "week.read", range),
+  );
   if (week.teams.length === 0) return week;
   // The service-role client must constrain both owner and the membership-authorized teams.
   // A failed consent read fails the whole response rather than displaying a false opt-out.
-  const { data, error } = await client.from("teaching_calendar_optins")
+  const { data, error } = await client
+    .from("teaching_calendar_optins")
     .select("service_id")
     .eq("user_id", actorId)
-    .in("service_id", week.teams.map(team => team.id));
+    .in(
+      "service_id",
+      week.teams.map((team) => team.id),
+    );
   if (error) throw teachingRpcError(error);
-  const optedIn = new Set(parseTeachingResult(z.array(z.object({ service_id: z.uuid() })), data).map(row => row.service_id));
-  return { ...week, teams: week.teams.map(team => ({ ...team, inCalendar: optedIn.has(team.id) })) };
+  const optedIn = new Set(
+    parseTeachingResult(z.array(z.object({ service_id: z.uuid() })), data).map((row) => row.service_id),
+  );
+  return { ...week, teams: week.teams.map((team) => ({ ...team, inCalendar: optedIn.has(team.id) })) };
 }
 
 export async function readLogbook(client: AdminClient, actorId: string): Promise<LogbookRow[]> {

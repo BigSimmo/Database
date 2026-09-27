@@ -1,5 +1,5 @@
 export const expectedSupabaseProject = {
-  name: "Clinical KB Database",
+  name: "PsychSift Production",
   ref: "sjrfecxgysukkwxsowpy",
   url: "https://sjrfecxgysukkwxsowpy.supabase.co",
   region: "ap-southeast-2",
@@ -166,8 +166,17 @@ export function checkSupabaseProjectConfig(
     problems.push(`SUPABASE_PROJECT_REF is ${configuredRef}; expected ${expected.ref} (${expected.name}).`);
   }
 
-  if (configuredName && configuredName !== expected.name) {
+  // A Railway deployment can start while its project-name variable is being
+  // coordinated with the renamed Supabase dashboard project. The immutable
+  // project ref and URL remain required during that short transition.
+  const priorProductionName = "Clinical KB Database";
+  const transitioningProductionName =
+    environment === "production" && configuredName === priorProductionName && observedRefs.includes(expected.ref);
+  if (configuredName && configuredName !== expected.name && !transitioningProductionName) {
     problems.push(`SUPABASE_PROJECT_NAME is "${configuredName}"; expected "${expected.name}".`);
+  }
+  if (transitioningProductionName && problems.length === 0) {
+    warnings.push(`Update SUPABASE_PROJECT_NAME to "${expected.name}" on Railway.`);
   }
 
   if (staleProject) {

@@ -100,9 +100,15 @@ function TeachingLogbookContent({ demoMode }: { demoMode: boolean }) {
       <div className="grid gap-3">
         <h1 className="sr-only">Logbook</h1>
         <nav aria-label="Logbook actions" className="flex flex-wrap gap-3">
-          <Link href="/teaching/supervision" className="inline-flex min-h-12 items-center underline">Supervision</Link>
-          <Link href="/teaching/review" className="inline-flex min-h-12 items-center underline">Weekly CPD review</Link>
-          <Link href="/teaching/feedback" className="inline-flex min-h-12 items-center underline">Give feedback</Link>
+          <Link href="/teaching/supervision" className="inline-flex min-h-12 items-center underline">
+            Supervision
+          </Link>
+          <Link href="/teaching/review" className="inline-flex min-h-12 items-center underline">
+            Weekly CPD review
+          </Link>
+          <Link href="/teaching/feedback" className="inline-flex min-h-12 items-center underline">
+            Give feedback
+          </Link>
         </nav>
         {body}
       </div>
@@ -110,4 +116,6 @@ function TeachingLogbookContent({ demoMode }: { demoMode: boolean }) {
   );
 }
 
-export function TeachingLogbook(props: { demoMode: boolean }) { return <TeachingAccountPage component={TeachingLogbookContent} {...props} />; }
+export function TeachingLogbook(props: { demoMode: boolean }) {
+  return <TeachingAccountPage component={TeachingLogbookContent} {...props} />;
+}

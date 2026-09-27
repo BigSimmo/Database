@@ -157,8 +157,6 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compliance", label: "Compliance", href: "/on-call/compliance", group: "more" },
     { id: "logistics", label: "Admin", href: ON_CALL_ADMIN_ROWS_HREF, group: "more" },
     { id: "teaching", label: "Teaching", href: "/on-call/education", group: "more" },
-    { id: "shifts", label: "My shifts", href: "/on-call/shifts", group: "more" },
-    { id: "calendar", label: "Calendar", href: "/on-call/calendar", group: "more" },
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who", group: "more" },
     { id: "orientation", label: "Orientation checklists", href: "/on-call/orientation", group: "more" },
   ],
@@ -206,6 +204,16 @@ export const modeSecondaryNavigationRegistry = {
   // My Work's home is itself the list of pages it gathers, each of which keeps
   // its own address and navigation, so the hub registers no destinations.
   "my-work": [],
+  // Roster's three Release 1 pages, registered so the mode pill's section
+  // sheet can open them. Like On Call and CME, Roster is absent from
+  // `MODE_NAV_ADOPTED_MODES`, so no shared rail is mounted. Its pages carry no
+  // in-page navigation header either: the mode pill's section sheet is how a
+  // reader moves between Today, Shifts and Settings.
+  roster: [
+    { id: "today", label: "Today", href: "/roster" },
+    { id: "shifts", label: "Shifts", href: "/roster/shifts" },
+    { id: "settings", label: "Settings", href: "/roster/settings" },
+  ],
   // First Nations, spec §3 order. The pages sheet's group headings ("At the
   // bedside", "During the stay", "Leaving hospital") wait for the shared pages
   // sheet to support groups (On Call's rebuild).
@@ -254,7 +262,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "therapy-compass",
   "dictionary",
   "sources",
-  // On Call is deliberately absent. Its fifteen destinations stay registered
+  // On Call is deliberately absent. Its thirteen destinations stay registered
   // below — the mode pill's section level reads them — but no page mounts the
   // shared bar, because the pill already opens exactly those pages and a rail
   // repeating them was two controls doing one job. The section pages carry the
@@ -291,8 +299,6 @@ const ON_CALL_ACTIVE_IDS: Readonly<Record<string, string>> = {
   "/on-call/compliance": "compliance",
   "/on-call/logistics": "logistics",
   "/on-call/education": "teaching",
-  "/on-call/shifts": "shifts",
-  "/on-call/calendar": "calendar",
   "/on-call/who-is-who": "whoswho",
   "/on-call/orientation": "orientation",
 };
@@ -437,6 +443,15 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/teaching/organise") return "organise";
     return null;
   }
+  if (modeId === "roster") {
+    if (pathname === "/roster/shifts") return "shifts";
+    if (pathname === "/roster/settings") return "settings";
+    // Exact match only, for the same reason On Call's and CME's homes are: a
+    // prefix test here would mark Today current on every Roster route as well
+    // as its own.
+    if (pathname === "/roster") return "today";
+    return null;
+  }
   // Every mode with destinations has a branch above; the rest register none, so
   // nothing can be current. This used to be
   // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
@@ -495,6 +510,7 @@ export function isModeSecondaryNavigationRoute(params: {
   if (modeId === "sources") {
     return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
+  if (modeId === "roster") return pathname === "/roster/shifts" || pathname === "/roster/settings";
   return false;
 }
 

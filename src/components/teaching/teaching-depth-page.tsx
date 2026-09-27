@@ -10,7 +10,10 @@ import type { TeachingResource } from "@/components/teaching/use-teaching-resour
 import { useAuthSession } from "@/lib/supabase/client";
 
 /** Account changes also clear unsaved choices and mutation results, not just fetched records. */
-export function TeachingAccountPage({ component: Component, demoMode }: {
+export function TeachingAccountPage({
+  component: Component,
+  demoMode,
+}: {
   component: ComponentType<{ demoMode: boolean }>;
   demoMode: boolean;
 }) {
@@ -18,7 +21,13 @@ export function TeachingAccountPage({ component: Component, demoMode }: {
   return <Component key={`${auth.authEpoch}:${demoMode}`} demoMode={demoMode} />;
 }
 
-export function TeachingDepthPage<T>({ title, demoMode, resource, ready, children }: {
+export function TeachingDepthPage<T>({
+  title,
+  demoMode,
+  resource,
+  ready,
+  children,
+}: {
   title: string;
   demoMode: boolean;
   resource: TeachingResource<T>;
@@ -30,11 +39,13 @@ export function TeachingDepthPage<T>({ title, demoMode, resource, ready, childre
   else if (!demoMode && ["offline", "error", "setup"].includes(resource.status))
     body = <TeachingStateNotice state={resource.status as "offline" | "error" | "setup"} onRetry={resource.retry} />;
   else if (!ready) body = <ModeModuleSkeleton rows={3} />;
-  return <InformationPageShell width="narrow" gap={false}>
-    <div className="grid gap-4">
-      <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">{title}</h1>
-      {demoMode ? <ModeNotice>Made-up demo. Changes stay on this page and are not saved.</ModeNotice> : null}
-      {body}
-    </div>
-  </InformationPageShell>;
+  return (
+    <InformationPageShell width="narrow" gap={false}>
+      <div className="grid gap-4">
+        <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">{title}</h1>
+        {demoMode ? <ModeNotice>Made-up demo. Changes stay on this page and are not saved.</ModeNotice> : null}
+        {body}
+      </div>
+    </InformationPageShell>
+  );
 }

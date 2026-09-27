@@ -55,6 +55,11 @@ const staticRouteRedirects: Record<string, string> = {
   // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
   // thing there, so the query string travels unchanged.
   "/dictionary/browse": "/dictionary/search",
+  // My shifts moved from On Call into its own Roster mode. Old bookmarks and
+  // deep links keep working; old APIs re-export the new ones instead (see
+  // `src/app/api/on-call/shifts/route.ts`).
+  "/on-call/shifts": "/roster/shifts",
+  "/on-call/calendar": "/roster/calendar",
   // The one mockup path that still redirects in production rather than 404ing
   // through `shouldBlockProductionMockups`. `mockups/README.md`, `docs/site-map.md`
   // and the site-map GENERATOR (`scripts/generate-site-map.ts`, which hardcodes the

@@ -88,14 +88,23 @@ test("Teaching page menu reaches Resources and What's on", async ({ page }) => {
   }
 });
 
-for (const [path, heading] of [["teach", "Teach"], ["supervision", "Supervision"], ["feedback", "Feedback"], ["review", "Weekly CPD review"], ["import", "Import a timetable"]] as const) {
+for (const [path, heading] of [
+  ["teach", "Teach"],
+  ["supervision", "Supervision"],
+  ["feedback", "Feedback"],
+  ["review", "Weekly CPD review"],
+  ["import", "Import a timetable"],
+] as const) {
   test(`${heading} fits a phone in light and dark appearance`, async ({ page }, testInfo) => {
     await page.goto(`/teaching/${path}`);
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await expectNoSidewaysScroll(page, `${heading} ${scheme}`);
-      await testInfo.attach(`${path}-${scheme}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+      await testInfo.attach(`${path}-${scheme}`, {
+        body: await page.screenshot({ fullPage: true }),
+        contentType: "image/png",
+      });
     }
     await largeText(page);
     await expectNoSidewaysScroll(page, `${heading} at 200%`);

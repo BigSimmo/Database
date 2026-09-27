@@ -93,6 +93,11 @@ export const SCANNED_LIB_MODULES = [
   // tenancy gate pointed in opposite directions and nothing noticed, which is
   // how a compliance requirement reached a world-readable read unexamined.
   "src/lib/on-call/repository.ts",
+  // Roster reads and writes each doctor's own shifts, calendar links and settings through these
+  // repositories, never from a route, so phase 2 must read them for the same reason as On Call's.
+  "src/lib/roster/shifts/repository.ts",
+  "src/lib/roster/calendar-links.ts",
+  "src/lib/roster/settings.ts",
 ];
 
 export const API_DIR_SEGMENTS = ["src", "app", "api"];
@@ -1096,6 +1101,8 @@ const ON_CALL_SHARED_READ_REASON =
   "Deliberately unscoped: On Call is a shared reference surface by owner decision (2026-09-04), so this read returns every account's shared rows with no owner to filter by. Since 2026-09-26 it answers signed-in callers only: its one caller, fetchVisibleOnCallEntries, returns nothing without a viewer owner id, and the route answers an anonymous caller with an empty list. Its tenancy control is not an owner predicate but two allow-lists that fail closed — PUBLIC_ON_CALL_SECTIONS (a seventh section is withheld until it is named on purpose, and `education` (Teaching) is left off it by owner decision 2026-09-26, so teaching rows reach only their owner) and rowMayBeComplianceRequirement (any `kind` on a `logistics` row, read from the raw row before parsing, so a malformed compliance requirement is withheld rather than published). A colleague's `details.contactName` is also dropped from every row it returns (OWNER_ONLY_DETAIL_KEYS, 2026-09-26). Added 2026-09-20 after a security review found this file sat outside the scanner: tests/on-call-api-contract.test.ts forbids the route from querying the table directly, which moved every On Call query out of src/app/api — the only directory phase 1 reads. Pinned by tests/on-call-repository.test.ts.";
 const ON_CALL_DEMO_CONTENT_COLLISION_REASON =
   "Deliberately cross-owner existence probe, and it has to be: the example corpus it guards is published to every reader. `fetchSharedOnCallEntries` returns `is_personal = false` rows across ALL owners, and the loader's upsert key is (owner_id, section, slug), so a second account loading the corpus would not collide with the first — it would put a second, undeduplicated copy of the shared rows on the page of every signed-in reader, and repeated loads would walk toward ON_CALL_MAX_ENTRIES on the shared read where they would crowd out real entries. An owner-scoped query cannot detect that, because the thing being detected is by definition another owner's rows. Narrowness is the control: it selects `slug` only — never `owner_id`, never content — filters to `is_personal = false` and to the fixed demo slug list, takes `.limit(1)`, and the handler reads nothing but whether a row came back. So the only fact it can disclose, to an authenticated caller, is that example content exists somewhere on a site that already shows that content to every signed-in reader. It gates a write and never returns anyone's data. Added 2026-09-21 with the loader, after a Codex review found the duplicate-publication path.";
+const ROSTER_MANUAL_SHIFT_INSERT_REASON =
+  "An insert, not a read: every row is built in the same function with `owner_id: ownerId`, and the payload is a flatMap over the doctor's own shifts and their weekly repeats, so the scanner cannot see the key at the payload's top level. requireOwner(ownerId) runs first, ownerId comes from the signed-in session in /api/roster/shifts/manual, and the table's own RLS keeps it service-role only. Added 2026-09-27 with Roster's hand-added shifts; pinned by tests/roster-shifts.test.ts.";
 const SETUP_STATUS_REASON =
   "Local-origin-gated setup/health existence probe. It returns status booleans and counts only, never owner rows, so a fresh deployment can diagnose missing setup before any corpus exists (tenancy review §3 / TEN-N1).";
 
@@ -1104,6 +1111,14 @@ const SETUP_STATUS_REASON =
  * query chain. Every entry names its proof; the mechanical kinds are re-checked in the AST.
  */
 export const SCOPE_EXEMPTIONS = [
+  {
+    file: "src/lib/roster/shifts/repository.ts",
+    table: "on_call_shifts",
+    fn: "addManualShifts",
+    queries: 1,
+    proof: PROOF_KINDS.REVIEWED_INDIRECT,
+    reason: ROSTER_MANUAL_SHIFT_INSERT_REASON,
+  },
   {
     file: "src/app/api/on-call/demo-content/route.ts",
     table: "on_call_entries",

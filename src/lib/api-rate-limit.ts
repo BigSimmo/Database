@@ -63,7 +63,8 @@ export type ApiRateLimitBucket =
   | "on_call"
   | "cme"
   | "teaching"
-  | "teaching_code";
+  | "teaching_code"
+  | "roster";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -112,6 +113,10 @@ const apiRateLimitDefaults = {
   // Typed six-digit check-in codes can be guessed, so a signed-in doctor gets few attempts.
   // Scanned codes carry a 128-bit MAC and cannot be guessed; see the anonymous entry below.
   teaching_code: { limit: 12, windowSeconds: 60 },
+  // Roster own-shift reads/writes: an owner's own imported/hand-added shifts, calendar
+  // links and settings. Same shape as on_call — generous for interactive single-owner
+  // use, bounded against abuse.
+  roster: { limit: 60, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {

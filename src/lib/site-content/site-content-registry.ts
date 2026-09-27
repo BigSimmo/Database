@@ -16,7 +16,17 @@ export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
   modeId: Exclude<
     AppModeId,
-    "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme" | "psychiatry" | "my-work" | "first-nations" | "teaching"
+    | "answer"
+    | "documents"
+    | "favourites"
+    | "sources"
+    | "on-call"
+    | "cme"
+    | "psychiatry"
+    | "my-work"
+    | "roster"
+    | "first-nations"
+    | "teaching"
   >;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
@@ -303,6 +313,16 @@ export const siteContentModeExclusions = [
     // My Work is a landing page over the owner's own On Call records and
     // settings. It publishes nothing: the records are private user state.
     modeId: "my-work",
+    reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // Roster holds the owner's own shifts, imported or hand-added. It
+    // publishes nothing: the records are private user state, and Global
+    // Constraints forbid Roster data from ever reaching a provider.
+    modeId: "roster",
     reason: "private_user_state",
     permanent: true,
     reviewed: true,

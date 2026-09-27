@@ -325,6 +325,7 @@ describe("site content producer registry", () => {
       expect.objectContaining({ modeId: "cme", reason: "private_user_state", permanent: true, reviewed: true }),
       expect.objectContaining({ modeId: "psychiatry", reason: "operational_chrome", permanent: true, reviewed: true }),
       expect.objectContaining({ modeId: "my-work", reason: "private_user_state", permanent: true, reviewed: true }),
+      expect.objectContaining({ modeId: "roster", reason: "private_user_state", permanent: true, reviewed: true }),
       expect.objectContaining({
         modeId: "first-nations",
         reason: "operational_chrome",

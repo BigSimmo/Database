@@ -67,7 +67,10 @@ export function TeachingStateNotice({
         <Sheet open={howOpen} onClose={() => setHowOpen(false)} title="How to join a service">
           <div className="grid gap-2 text-sm text-[color:var(--text-heading)]">
             <p>Your service&apos;s organiser gives you an invitation code for your work email.</p>
-            <p>Sign in with that email, then enter the code under Join with invitation.</p><Link className="inline-flex min-h-12 items-center underline" href="/on-call/service">Open service invitations</Link>
+            <p>Sign in with that email, then enter the code under Join with invitation.</p>
+            <Link className="inline-flex min-h-12 items-center underline" href="/on-call/service">
+              Open service invitations
+            </Link>
           </div>
         </Sheet>
       ) : null}

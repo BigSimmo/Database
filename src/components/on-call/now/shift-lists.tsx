@@ -13,7 +13,7 @@ import {
 import { OnCallStateLabel } from "@/components/on-call/kit/state-label";
 import { onCallNameText, onCallNumberText, onCallSecondaryText } from "@/components/on-call/kit/type";
 import { OnCallNextShift } from "@/components/on-call/on-call-next-shift";
-import type { OnCallShiftsState } from "@/components/on-call/use-on-call-shifts";
+import type { RosterShiftsState } from "@/components/roster/use-roster-shifts";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -127,7 +127,7 @@ export function NowShiftLists({
   now,
 }: {
   readonly context: OnCallShiftContext;
-  readonly shifts: OnCallShiftsState;
+  readonly shifts: RosterShiftsState;
   readonly items: readonly HandbookItem[];
   readonly now: Date;
 }) {

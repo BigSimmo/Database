@@ -41,7 +41,8 @@ export function useTeachingWeek(
 
   useEffect(() => {
     if (options.demoMode) setTeachingRoles(["organiser", "admin"]);
-    else if (resource.status === "ready" && resource.data) setTeachingRoles(resource.data.teams.map((team) => team.role));
+    else if (resource.status === "ready" && resource.data)
+      setTeachingRoles(resource.data.teams.map((team) => team.role));
     else if (resource.status === "signed-out" || resource.status === "loading") setTeachingRoles([]);
   }, [options.demoMode, resource.status, resource.data]);
 

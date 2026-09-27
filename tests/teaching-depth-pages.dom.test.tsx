@@ -17,18 +17,40 @@ import { entry, pairingView, NOTE } from "./helpers/teaching-depth-fixtures";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const serviceId = "22222222-2222-4222-8222-222222222222";
-const row = { occurrenceId: id, serviceName: "Demo service", title: "Demo grand round", startsAt: "2026-09-20T04:00:00Z", endsAt: "2026-09-20T05:00:00Z", hours: 1 };
-const reply = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
+const row = {
+  occurrenceId: id,
+  serviceName: "Demo service",
+  title: "Demo grand round",
+  startsAt: "2026-09-20T04:00:00Z",
+  endsAt: "2026-09-20T05:00:00Z",
+  hours: 1,
+};
+const reply = (value: unknown, status = 200) =>
+  new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 const posts = () => vi.mocked(fetch).mock.calls.filter(([, options]) => options?.method === "POST");
 
-beforeEach(() => { auth.authEpoch = 1; auth.status = "authenticated"; vi.stubGlobal("fetch", vi.fn()); });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+beforeEach(() => {
+  auth.authEpoch = 1;
+  auth.status = "authenticated";
+  vi.stubGlobal("fetch", vi.fn());
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("Teaching depth journeys", () => {
   it("cancels queued organiser writes when the account changes or the page unmounts", async () => {
     vi.useFakeTimers();
     const hook = renderHook(() => useDelayedPost());
-    const job = { label: "Synthetic change", url: "/api/teaching/services/synthetic", body: {}, onPosted: vi.fn(), onFailed: vi.fn() };
+    const job = {
+      label: "Synthetic change",
+      url: "/api/teaching/services/synthetic",
+      body: {},
+      onPosted: vi.fn(),
+      onFailed: vi.fn(),
+    };
     act(() => hook.result.current.schedule(job));
     auth.authEpoch++;
     hook.rerender();
@@ -46,7 +68,22 @@ describe("Teaching depth journeys", () => {
     expect(posts()).toHaveLength(0);
   });
   it("shows the proposed correction before the supervisor confirms it", async () => {
-    const pairing = pairingView({ access: "supervisor", entries: [entry({ notes: [{ noteId: NOTE, reason: "wrong_length", correctedValue: { minutes: 120 }, confirmedAt: null, createdAt: "2026-09-27T00:00:00Z" }] })] });
+    const pairing = pairingView({
+      access: "supervisor",
+      entries: [
+        entry({
+          notes: [
+            {
+              noteId: NOTE,
+              reason: "wrong_length",
+              correctedValue: { minutes: 120 },
+              confirmedAt: null,
+              createdAt: "2026-09-27T00:00:00Z",
+            },
+          ],
+        }),
+      ],
+    });
     vi.mocked(fetch).mockImplementation(async () => reply({ pairings: [pairing] }));
     render(<TeachingSupervision demoMode={false} />);
     expect(await screen.findByText("Proposed correction: Minutes: 120")).toBeInTheDocument();
@@ -55,7 +92,10 @@ describe("Teaching depth journeys", () => {
   });
 
   it("serializes confirmations across pairings so a refresh cannot cancel another queued change", async () => {
-    const pairings = [pairingView({ access: "supervisor", entries: [entry({ date: "2026-09-25" })] }), pairingView({ pairingId: id, access: "supervisor", entries: [entry({ entryId: id, date: "2026-09-26" })] })];
+    const pairings = [
+      pairingView({ access: "supervisor", entries: [entry({ date: "2026-09-25" })] }),
+      pairingView({ pairingId: id, access: "supervisor", entries: [entry({ entryId: id, date: "2026-09-26" })] }),
+    ];
     vi.mocked(fetch).mockImplementation(async (_url, options) => reply(options?.method === "POST" ? {} : { pairings }));
     render(<TeachingSupervision demoMode={false} />);
     const first = await screen.findByRole("button", { name: "Confirm 2026-09-25" });
@@ -68,7 +108,13 @@ describe("Teaching depth journeys", () => {
   });
   it("requires explicit CPD selection and retains idempotency keys after an uncertain save", async () => {
     let writes = 0;
-    vi.mocked(fetch).mockImplementation(async (_url, options) => options?.method === "POST" ? ++writes === 1 ? Promise.reject(new TypeError("network")) : reply({ results: [{ occurrenceId: id, entryId: id, code: null, message: null }] }) : reply({ rows: [row] }));
+    vi.mocked(fetch).mockImplementation(async (_url, options) =>
+      options?.method === "POST"
+        ? ++writes === 1
+          ? Promise.reject(new TypeError("network"))
+          : reply({ results: [{ occurrenceId: id, entryId: id, code: null, message: null }] })
+        : reply({ rows: [row] }),
+    );
     render(<TeachingCpdReview demoMode={false} />);
     const choose = await screen.findByRole("checkbox");
     expect(choose).not.toBeChecked();
@@ -99,7 +145,11 @@ describe("Teaching depth journeys", () => {
   it("offers tap-only feedback, preserves answers after failure, and sends no identity field", async () => {
     const session = demoFeedbackOpen("2026-09-27")[0];
     let writes = 0;
-    vi.mocked(fetch).mockImplementation(async (_url, options) => options?.method === "POST" ? reply(++writes === 1 ? { error: "Unavailable" } : {}, writes === 1 ? 503 : 200) : reply({ sessions: [session] }));
+    vi.mocked(fetch).mockImplementation(async (_url, options) =>
+      options?.method === "POST"
+        ? reply(++writes === 1 ? { error: "Unavailable" } : {}, writes === 1 ? 503 : 200)
+        : reply({ sessions: [session] }),
+    );
     render(<TeachingFeedback demoMode={false} />);
     fireEvent.click(await screen.findByRole("radio", { name: "4" }));
     fireEvent.click(screen.getByRole("radio", { name: "About right" }));
@@ -109,7 +159,12 @@ describe("Teaching depth journeys", () => {
     expect(screen.getByRole("radio", { name: "4" })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
     await screen.findByText("Thanks. Your answer was sent.");
-    expect(JSON.parse(String(posts()[1][1]?.body))).toEqual({ action: "feedback.submit", occurrenceId: session.occurrenceId, useful: 4, pace: "right" });
+    expect(JSON.parse(String(posts()[1][1]?.body))).toEqual({
+      action: "feedback.submit",
+      occurrenceId: session.occurrenceId,
+      useful: 4,
+      pace: "right",
+    });
   });
 
   it("cancels supervision confirmation during the ten-second undo period", async () => {
@@ -128,7 +183,9 @@ describe("Teaching depth journeys", () => {
   });
 
   it("does not mark presenter readiness saved when the request fails", async () => {
-    vi.mocked(fetch).mockImplementation(async (_url, options) => options?.method === "POST" ? reply({}, 503) : reply(demoTeach("2026-09-27")));
+    vi.mocked(fetch).mockImplementation(async (_url, options) =>
+      options?.method === "POST" ? reply({}, 503) : reply(demoTeach("2026-09-27")),
+    );
     render(<TeachingTeach demoMode={false} />);
     const aims = await screen.findByRole("checkbox", { name: "Aims written" });
     fireEvent.click(aims);
@@ -139,14 +196,20 @@ describe("Teaching depth journeys", () => {
   it("previews rows before importing and prevents a blind repeat after an uncertain commit", async () => {
     const series = { title: "Demo session" };
     vi.mocked(fetch).mockImplementation(async (_url, options) => {
-      if (options?.method !== "POST") return reply({ teams: [{ id: serviceId, name: "Demo service", role: "organiser" }] });
+      if (options?.method !== "POST")
+        return reply({ teams: [{ id: serviceId, name: "Demo service", role: "organiser" }] });
       const body = JSON.parse(String(options.body));
-      return body.action === "import.preview" ? reply({ rows: [{ line: 2, title: "Demo session", errors: [] }], ready: [series] }) : reply({}, 503);
+      return body.action === "import.preview"
+        ? reply({ rows: [{ line: 2, title: "Demo session", errors: [] }], ready: [series] })
+        : reply({}, 503);
     });
     render(<TeachingImport demoMode={false} />);
     const input = await screen.findByLabelText(/Choose CSV/);
     const file = new File([], "timetable.csv", { type: "text/csv" });
-    Object.defineProperty(file, "text", { value: async () => IMPORT_TEMPLATE_HEADERS.join(",") + "\nDemo session,lecture,once,2026-09-28,,12:30,60,Demo room,," });
+    Object.defineProperty(file, "text", {
+      value: async () =>
+        IMPORT_TEMPLATE_HEADERS.join(",") + "\nDemo session,lecture,once,2026-09-28,,12:30,60,Demo room,,",
+    });
     fireEvent.change(input, { target: { files: [file] } });
     await screen.findByText("Preview — nothing imported yet");
     expect(posts()).toHaveLength(1);

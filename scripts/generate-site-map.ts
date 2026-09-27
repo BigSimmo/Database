@@ -204,11 +204,15 @@ const routeDescriptions: Record<string, string> = {
     "The week: a seven-day rail, Whole service or Presenting, every remaining day grouped, Add to my calendar, the doctor's own teaching list also shown from On Call (edited with On Call's editor) and the service handbook's teaching entries.",
   "/teaching/logbook":
     "The doctor's attendance record: this term, hours, sessions not yet in CPD, a weekly chart, and a ledger by month with Log to CPD and a CSV download.",
-  "/teaching/teach": "Presenter preparation, de-identification confirmation, taught-before history and released feedback totals.",
-  "/teaching/supervision": "Private registrar and supervisor records, targets, confirmation and retained corrections with a ten-second Undo window.",
+  "/teaching/teach":
+    "Presenter preparation, de-identification confirmation, taught-before history and released feedback totals.",
+  "/teaching/supervision":
+    "Private registrar and supervisor records, targets, confirmation and retained corrections with a ten-second Undo window.",
   "/teaching/feedback": "Tap-only feedback for attended sessions; no free text or responder names in presenter totals.",
-  "/teaching/review": "Explicit selection and hours for weekly personal CPD logging; attendance never awards credit automatically.",
-  "/teaching/import": "Organiser timetable CSV/XLSX preview before explicit import, with no patient details or uploaded slides.",
+  "/teaching/review":
+    "Explicit selection and hours for weekly personal CPD logging; attendance never awards credit automatically.",
+  "/teaching/import":
+    "Organiser timetable CSV/XLSX preview before explicit import, with no patient details or uploaded slides.",
   "/teaching/organise":
     "For a service's organisers: the next 48 hours with clashes named, counts, series, groups, members, invitations, posting a change with a 10-second undo, and the attendance export.",
   "/teaching/whats-on":
@@ -526,6 +530,7 @@ function renderModeRoutes() {
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
     psychiatry: appModeHomeHref("psychiatry"),
     "my-work": appModeHomeHref("my-work"),
+    roster: appModeHomeHref("roster"),
     "first-nations": appModeHomeHref("first-nations"),
     teaching: appModeHomeHref("teaching"),
   };
