@@ -360,7 +360,7 @@ export function ImageLightbox(props: ImageLightboxProps) {
               className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)] disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               <RefreshCw aria-hidden="true" className={cn("h-4 w-4", retryDisabled && "animate-spin")} />
-              {retryDisabled ? "Retrying..." : "Retry"}
+              {retryDisabled ? "Retrying…" : "Retry"}
             </button>
           </div>
         ) : (
