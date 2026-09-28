@@ -9,9 +9,7 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
-    "test": "node --test backend.test.mjs",
-    "migrate": "node --env-file-if-exists=.env migrate.mjs --apply",
-    "check:connection": "node --env-file-if-exists=.env migrate.mjs --check"
+    "test": "node --test backend.test.mjs"
   },
   "dependencies": {
     "@azure/functions": "^4.16.5",

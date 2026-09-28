@@ -12,8 +12,9 @@ Never enter or upload real patient information.
 - The Function's existing managed identity accesses a private blob container in
   its existing storage account. Sessions are stored under owner-specific paths.
   No storage key or password is stored in the backend.
-- The PostgreSQL `schema.sql` and `migrate.mjs` are retained for a later
-  private-network rollout. They have not been applied and are not used by this API.
+- The PostgreSQL `schema.sql` is retained for a later private-network rollout.
+  It has not been applied and is not used by this API. There is no migration
+  runner yet; add one together with a PostgreSQL store adapter.
 - Each session has an owner UUID and a revision. `PUT` uses an expected revision;
   a stale save returns `409` and does not replace the current blob.
 - The API accepts only the `synthetic` classification. This label and basic

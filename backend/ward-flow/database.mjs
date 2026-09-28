@@ -25,15 +25,16 @@ export async function openStorage(storage) {
 export function createStore(client) {
   const base = `https://${client.account}.blob.core.windows.net/${client.container}`;
   let containerPromise;
+  async function checkContainer() {
+    const result = await client.request("PUT", `${base}?restype=container`);
+    if (
+      result.status !== 201 &&
+      !(result.status === 409 && result.headers.get("x-ms-error-code") === "ContainerAlreadyExists")
+    )
+      throw new Error("Session container unavailable");
+  }
   async function ensureContainer() {
-    containerPromise ??= (async () => {
-      const result = await client.request("PUT", `${base}?restype=container`);
-      if (
-        result.status !== 201 &&
-        !(result.status === 409 && result.headers.get("x-ms-error-code") === "ContainerAlreadyExists")
-      )
-        throw new Error("Session container unavailable");
-    })().catch((error) => {
+    containerPromise ??= checkContainer().catch((error) => {
       containerPromise = undefined;
       throw error;
     });
@@ -50,7 +51,8 @@ export function createStore(client) {
     return { url, record: await result.json(), etag };
   }
   return {
-    ready: ensureContainer,
+    // Readiness contacts storage on every probe so a later outage is reported.
+    ready: checkContainer,
     async read(owner, id) {
       return (await get(owner, id)).record;
     },

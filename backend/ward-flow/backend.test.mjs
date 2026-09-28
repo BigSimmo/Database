@@ -4,6 +4,7 @@ import { readConfig } from "./config.mjs";
 import { createHandler } from "./server.mjs";
 import { createStore } from "./database.mjs";
 import { handleHttp } from "./function.mjs";
+import { createAuthenticator } from "./auth.mjs";
 
 // Kept byte-identical so the formatting pass does not re-add the pinned audience line.
 // prettier-ignore
@@ -184,4 +185,49 @@ test("Azure Functions adapter preserves the API response", async () => {
   assert.equal(response.status, 404);
   assert.equal(response.headers["cache-control"], "no-store");
   assert.match(response.body.toString(), /Session not found/);
+});
+
+test("identity-provider outages return 503 while bad tokens stay 401", async () => {
+  const outage = Object.assign(new Error("timed out"), { code: "ERR_JWKS_TIMEOUT" });
+  const expired = Object.assign(new Error("expired"), { code: "ERR_JWT_EXPIRED" });
+  for (const [failure, status] of [
+    [outage, 503],
+    [new TypeError("fetch failed"), 503],
+    [expired, 401],
+  ]) {
+    const authenticate = await createAuthenticator(config, {
+      keys: {},
+      jose: {
+        jwtVerify: async () => {
+          throw failure;
+        },
+      },
+    });
+    const { calls } = setup();
+    const handler = createHandler({ config, store: { read: async () => calls.push("read") }, authenticate });
+    const response = await handler(request());
+    assert.equal(response.status, status);
+    assert.equal(calls.length, 0);
+    assert.doesNotMatch(await response.text(), /timed out|fetch failed|expired"/);
+  }
+});
+
+test("session ids are canonicalised so one session maps to one blob", async () => {
+  const { handler, calls } = setup();
+  const mixedCase = "ABCDEF01-aBcD-4EF0-8abc-DEF012345678";
+  await handler(
+    new Request(`http://localhost/v1/sessions/${mixedCase}`, { headers: { authorization: "Bearer accepted" } }),
+  );
+  assert.equal(calls[0][2], mixedCase.toLowerCase());
+});
+
+test("readiness contacts storage on every probe", async () => {
+  let healthy = true;
+  const store = createStore({
+    ...config.storage,
+    request: async () => new Response(null, { status: healthy ? 201 : 403 }),
+  });
+  await store.ready();
+  healthy = false;
+  await assert.rejects(store.ready(), /container unavailable/);
 });

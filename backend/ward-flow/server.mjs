@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { readConfig } from "./config.mjs";
 import { createStore, openStorage } from "./database.mjs";
-import { createAuthenticator } from "./auth.mjs";
+import { createAuthenticator, VerifierUnavailableError } from "./auth.mjs";
 
 const BODY_LIMIT = 1_048_576;
 const SESSION_PATH = /^\/v1\/sessions\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
@@ -59,9 +59,13 @@ export function createHandler({ config, store, authenticate }) {
     let owner;
     try {
       owner = await authenticate(request.headers.get("authorization"));
-    } catch {
+    } catch (error) {
+      if (error instanceof VerifierUnavailableError)
+        return respond(503, { error: "Sign-in verification unavailable; try again shortly" });
       return respond(401, { error: "Sign in with the authorised Microsoft account" });
     }
+    // Blob names are case-sensitive; one logical session must map to one blob.
+    const sessionId = match?.[1].toLowerCase();
     try {
       if (path === "/readyz" && request.method === "GET") {
         await store.ready();
@@ -69,7 +73,7 @@ export function createHandler({ config, store, authenticate }) {
       }
       if (!match) return respond(405, { error: "Method not allowed" });
       if (request.method === "GET") {
-        const result = await store.read(owner, match[1]);
+        const result = await store.read(owner, sessionId);
         return result ? respond(200, result) : respond(404, { error: "Session not found" });
       }
       if (request.method !== "PUT") return respond(405, { error: "Method not allowed" });
@@ -90,7 +94,7 @@ export function createHandler({ config, store, authenticate }) {
         body.expectedRevision >= 2_147_483_646
       )
         return respond(400, { error: "A synthetic snapshot and valid revision are required" });
-      const revision = await store.save(owner, match[1], body.expectedRevision, body.payload);
+      const revision = await store.save(owner, sessionId, body.expectedRevision, body.payload);
       return revision === null
         ? respond(409, { error: "Session changed; reload before saving" })
         : respond(200, { revision });
