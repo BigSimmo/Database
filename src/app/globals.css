@@ -675,10 +675,10 @@
      it must stay synchronous: letting the reserve hook's 80ms quiet window own
      that transition left every element on the page 49px too high for ~110ms,
      long enough for a tap to press one control and release on another
-     (#CHPC5C). On a COLD load this seed still stands unrefined for the whole
-     quiet window, because that immediate publish is suppressed until the hook
-     has settled once — see `use-phone-overlay-chrome-reserve.ts` for why, and
-     docs/search-chrome-behaviour.md for what closing it would take. */
+     (#CHPC5C). On a COLD load, before the hook has settled, the claiming
+     portal instead writes this seed plus the row's own height inline
+     (`claimPhoneOverlayAddonReserve`), so the reserve is exact from the same
+     commit on every path. */
   --phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h));
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --keyboard-height: 0px;
@@ -5536,6 +5536,16 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
    --mobile-composer-reserve (hero ↔ dock) must snap — those clear the marker
    immediately. DocumentViewer keeps its own Tailwind duration classes. */
 @media (max-width: 639px) {
+  /* The top reserve must snap in the frame it changes (#CHPC5C). The initial
+     `transition-property` is `all`, and the reduced-motion rules give every
+     element a 0.01ms duration, so without this a portal's cold-load claim of
+     `--phone-overlay-chrome-h` started a padding-top transition that painted
+     the old value for one frame: every tap target 49px too high, then back.
+     The reserve-transitioning rule below is more specific and still animates
+     padding-bottom when it applies. */
+  [data-testid="mobile-composer-reserve-pad"] {
+    transition-property: none;
+  }
   #main-content[data-reserve-transitioning="true"] {
     will-change: padding-bottom;
     transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
