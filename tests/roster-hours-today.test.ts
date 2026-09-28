@@ -98,6 +98,17 @@ describe("summariseToday", () => {
     expect(lead.state === "day_off" && lead.next?.id).toBe("2026-10-15-night");
   });
 
+  it("says a day off only when no worked shift ended earlier today", () => {
+    const dayOff = summariseToday(shifts, at("2026-10-13", "10:00")).lead;
+    expect(dayOff).toMatchObject({ state: "day_off", finishedToday: false });
+    const afterDayShift = summariseToday(shifts, at("2026-10-12", "18:00")).lead;
+    expect(afterDayShift).toMatchObject({ state: "day_off", finishedToday: true });
+    const afterNightThenDay = summariseToday(shifts, at("2026-10-17", "17:00")).lead;
+    expect(afterNightThenDay).toMatchObject({ state: "day_off", finishedToday: true });
+    const postNightsDay = summariseToday(shifts, at("2026-10-18", "10:00")).lead;
+    expect(postNightsDay).toMatchObject({ state: "day_off", finishedToday: false });
+  });
+
   it("says empty when there are no shifts", () => {
     expect(summariseToday([], at("2026-10-13", "10:00")).lead).toEqual({ state: "empty" });
   });

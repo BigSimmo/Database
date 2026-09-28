@@ -126,6 +126,12 @@
         "dev_only": false
       },
       {
+        "id": "teaching",
+        "label": "Teaching",
+        "home": "/teaching",
+        "dev_only": false
+      },
+      {
         "id": "therapy-compass",
         "label": "Therapy",
         "home": "/?mode=therapy-compass",
@@ -175,8 +181,18 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/supervision",
+        "file": "src/app/(search-app)/teaching/supervision/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/roster/shifts",
         "file": "src/app/(search-app)/roster/shifts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/teaching/teach",
+        "file": "src/app/(search-app)/teaching/teach/page.tsx",
         "area": "product"
       },
       {
@@ -212,6 +228,11 @@
       {
         "path": "/roster/team",
         "file": "src/app/(search-app)/roster/team/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/teaching/whats-on",
+        "file": "src/app/(search-app)/teaching/whats-on/page.tsx",
         "area": "product"
       },
       {
@@ -288,6 +309,11 @@
         "path": "/mockups/privacy-page-directions",
         "file": "src/app/mockups/privacy-page-directions/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/resources/[collectionId]",
+        "file": "src/app/(search-app)/teaching/resources/[collectionId]/page.tsx",
+        "area": "product"
       },
       {
         "path": "/dictionary/[slug]",
@@ -368,6 +394,11 @@
         "path": "/mockups/universal-search-redesign",
         "file": "src/app/mockups/universal-search-redesign/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/logbook",
+        "file": "src/app/(search-app)/teaching/logbook/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/document-search/source-overlays",
@@ -510,6 +541,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/resources",
+        "file": "src/app/(search-app)/teaching/resources/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/answer-chat-perfected",
         "file": "src/app/mockups/answer-chat-perfected/page.tsx",
         "area": "mockup"
@@ -565,6 +601,11 @@
         "area": "product"
       },
       {
+        "path": "/teaching/feedback",
+        "file": "src/app/(search-app)/teaching/feedback/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/first-nations/on-the-ward",
         "file": "src/app/(search-app)/first-nations/on-the-ward/page.tsx",
         "area": "product"
@@ -583,6 +624,11 @@
         "path": "/mockups/dictionary-browse-header",
         "file": "src/app/mockups/dictionary-browse-header/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/c/complete",
+        "file": "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "area": "product"
       },
       {
         "path": "/safety-plan",
@@ -643,6 +689,11 @@
         "path": "/mockups/verification-notice-subtle",
         "file": "src/app/mockups/verification-notice-subtle/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/organise",
+        "file": "src/app/(search-app)/teaching/organise/page.tsx",
+        "area": "product"
       },
       {
         "path": "/cme/check",
@@ -740,6 +791,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/display/[token]",
+        "file": "src/app/(display)/teaching/display/[token]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/cme/calendar",
         "file": "src/app/(search-app)/cme/calendar/page.tsx",
         "area": "product"
@@ -748,6 +804,11 @@
         "path": "/mockups/privacy-live-signal-perfected",
         "file": "src/app/mockups/privacy-live-signal-perfected/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/import",
+        "file": "src/app/(search-app)/teaching/import/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/sidebar-live",
@@ -818,6 +879,11 @@
         "path": "/mockups/tools-split-compact-sheet",
         "file": "src/app/mockups/tools-split-compact-sheet/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/week",
+        "file": "src/app/(search-app)/teaching/week/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/clinical-sign-off-actions",
@@ -1035,6 +1101,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/session/[id]/check-in",
+        "file": "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/therapy-compass/search",
         "file": "src/app/(search-app)/therapy-compass/search/page.tsx",
         "area": "product"
@@ -1095,6 +1166,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/session/[id]",
+        "file": "src/app/(search-app)/teaching/session/[id]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/therapy-recommend-popup-triage",
         "file": "src/app/mockups/therapy-recommend-popup-triage/page.tsx",
         "area": "mockup"
@@ -1117,6 +1193,11 @@
       {
         "path": "/services/[slug]",
         "file": "src/app/(search-app)/services/[slug]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/teaching",
+        "file": "src/app/(search-app)/teaching/page.tsx",
         "area": "product"
       },
       {
@@ -1215,6 +1296,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/c/[token]",
+        "file": "src/app/(search-app)/teaching/c/[token]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/search-refine-adaptive",
         "file": "src/app/mockups/search-refine-adaptive/page.tsx",
         "area": "mockup"
@@ -1273,6 +1359,11 @@
         "path": "/mockups/phone-inpage-navigation",
         "file": "src/app/mockups/phone-inpage-navigation/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/review",
+        "file": "src/app/(search-app)/teaching/review/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/also-matches-accents",
@@ -1499,8 +1590,20 @@
         "file": "src/app/api/images/[id]/signed-url/route.ts"
       },
       {
+        "path": "/api/teaching/checkin/open",
+        "file": "src/app/api/teaching/checkin/open/route.ts"
+      },
+      {
         "path": "/api/answer",
         "file": "src/app/api/answer/route.ts"
+      },
+      {
+        "path": "/api/teaching/depth",
+        "file": "src/app/api/teaching/depth/route.ts"
+      },
+      {
+        "path": "/api/teaching/whats-on",
+        "file": "src/app/api/teaching/whats-on/route.ts"
       },
       {
         "path": "/api/upload",
@@ -1511,12 +1614,20 @@
         "file": "src/app/api/roster/team/[serviceId]/draft/route.ts"
       },
       {
+        "path": "/api/teaching/resources/services/[serviceId]",
+        "file": "src/app/api/teaching/resources/services/[serviceId]/route.ts"
+      },
+      {
         "path": "/api/cme/year/close",
         "file": "src/app/api/cme/year/close/route.ts"
       },
       {
         "path": "/api/cme/training",
         "file": "src/app/api/cme/training/route.ts"
+      },
+      {
+        "path": "/api/teaching/display/[token]",
+        "file": "src/app/api/teaching/display/[token]/route.ts"
       },
       {
         "path": "/api/roster/alerts/check",
@@ -1595,6 +1706,10 @@
         "file": "src/app/api/ingestion/jobs/[id]/retry/route.ts"
       },
       {
+        "path": "/api/teaching/import/read",
+        "file": "src/app/api/teaching/import/read/route.ts"
+      },
+      {
         "path": "/api/documents/[id]/reindex",
         "file": "src/app/api/documents/[id]/reindex/route.ts"
       },
@@ -1619,6 +1734,14 @@
         "file": "src/app/api/site-content/publications/route.ts"
       },
       {
+        "path": "/api/teaching/services/[serviceId]",
+        "file": "src/app/api/teaching/services/[serviceId]/route.ts"
+      },
+      {
+        "path": "/api/teaching/cpd/review",
+        "file": "src/app/api/teaching/cpd/review/route.ts"
+      },
+      {
         "path": "/api/cme/entries/[id]/evidence",
         "file": "src/app/api/cme/entries/[id]/evidence/route.ts"
       },
@@ -1639,12 +1762,20 @@
         "file": "src/app/api/roster/team/[serviceId]/maker/route.ts"
       },
       {
+        "path": "/api/teaching/services/[serviceId]/depth",
+        "file": "src/app/api/teaching/services/[serviceId]/depth/route.ts"
+      },
+      {
         "path": "/api/cme/drafts",
         "file": "src/app/api/cme/drafts/route.ts"
       },
       {
         "path": "/api/cme/routines/[id]",
         "file": "src/app/api/cme/routines/[id]/route.ts"
+      },
+      {
+        "path": "/api/teaching/checkin/complete",
+        "file": "src/app/api/teaching/checkin/complete/route.ts"
       },
       {
         "path": "/api/calendar/feed",
@@ -1699,6 +1830,10 @@
         "file": "src/app/api/roster/team/[serviceId]/invite/route.ts"
       },
       {
+        "path": "/api/teaching/cpd",
+        "file": "src/app/api/teaching/cpd/route.ts"
+      },
+      {
         "path": "/api/cme/entries/[id]/goal",
         "file": "src/app/api/cme/entries/[id]/goal/route.ts"
       },
@@ -1751,8 +1886,20 @@
         "file": "src/app/api/cme/missed/route.ts"
       },
       {
+        "path": "/api/teaching",
+        "file": "src/app/api/teaching/route.ts"
+      },
+      {
+        "path": "/api/teaching/resources",
+        "file": "src/app/api/teaching/resources/route.ts"
+      },
+      {
         "path": "/api/local-project-id",
         "file": "src/app/api/local-project-id/route.ts"
+      },
+      {
+        "path": "/api/cme/plan/carry",
+        "file": "src/app/api/cme/plan/carry/route.ts"
       },
       {
         "path": "/api/on-call/services",
@@ -1798,6 +1945,11 @@
   },
   "documentation": {
     "documents": [
+      {
+        "path": "docs/superpowers/specs/2026-09-26-cpd-elevation-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
       {
         "path": "docs/decisions/2026-09-16-withhold-unreliable-differential-bodies.md",
         "section": "decisions",
@@ -1947,6 +2099,11 @@
         "path": "docs/prompts/codex-cloud-review/2-codex-full-stack-master-prompt-review-and-stress-test.md",
         "section": "prompts",
         "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-26-cpd-elevation.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-platform-contracts-readiness.md",
@@ -11805,6 +11962,14 @@
         "checks": "Provider-backed GitHub PR inventory via MCP (400 PRs #264-#674, all merged=false); local read-only git: rewritten-main-aware cherry-pick + two-dot tree + branch-only-file novelty sweep vs origin/main e75fad90; adversarial re-check. Remote `git push --delete` attempted (provider-backed write) and DENIED with HTTP 403. No OpenAI/Supabase/live-eval checks."
       },
       {
+        "date": "2026-09-27",
+        "ref": "claude/project-thread-dvyrvn",
+        "head": "593f71702e837f59609176ea488fdbdc671236ad",
+        "scope": "Teaching null permission guards and current-main calendar/navigation integration",
+        "outcome": "Reviewed: no remaining blockers in bounded source review",
+        "checks": "Independent schema guardian inspected exact function-body parity, tenancy/grants, schema mirrors, Roster feed mock, navigation and redirects. Permission regression 3/3; migration-role and immutability passed. No PostgreSQL replay or UI execution; drift manifest awaits CI artifact."
+      },
+      {
         "date": "2026-07-17",
         "ref": "PR #737 / claude/therapy-compass-display-6kisnw",
         "head": "594584dc79d9d6c14018dcce088357a251504d4f",
@@ -12067,6 +12232,14 @@
         "scope": "Production UI CI fix: differentials-home hydration strict-mode",
         "outcome": "FIXED. Hosted Production UI failed solely on `dashboard differentials mode param redirects…`: `getByTestId(differentials-home)` hit 2 nodes (server+client overlap). Applied `expectSingleSettledOwner` before the visibility assert. No product change.",
         "checks": "Focused production Playwright journey PASS 1/1 via `npm run test:e2e` (system Chrome); no provider-backed checks."
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "codex/chat-first-nations-completion-first-nations-completion",
+        "head": "5c5d181eb2c0b17e7de81268d7780ef60407b573",
+        "scope": "PR3155 CI and three existing review findings",
+        "outcome": "Validated all three existing findings; prepared account-transition reset, visible-destination search filtering, canonical crisis verification-date synchronization, and dial-sheet typography repair.",
+        "checks": "GitHub run 36321975569 failed Static PR checks: sameFileTextSmMinusMix at dial-sheet.tsx. Source inspection; regression assertions added. No local tests/build/lint/typecheck run by explicit owner request; follow-up validation delegated to GitHub."
       },
       {
         "date": "2026-07-29",

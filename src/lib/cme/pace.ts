@@ -1,5 +1,7 @@
 import { CPD_PACE_MINIMUM_ELAPSED_DAYS } from "@/lib/cme/cpd-year";
 import type { CmeEntry } from "@/lib/cme/types";
+import type { CmeCategory } from "@/lib/cme/types";
+import type { CmeRoutine } from "@/lib/cme/routines";
 import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
 
 /**
@@ -103,6 +105,28 @@ export function cmeTargetReachedOn(entries: readonly CmeEntry[], targetHours: nu
   return null;
 }
 
+export type CmeWeekBar = { readonly index: number; readonly hours: number; readonly state: "past" | "now" | "future" };
+
+/** Seven-day spans from 1 January in Perth, including a short 53rd span. */
+export function buildCmeWeekBars(entries: readonly CmeEntry[], year: number, today: string): CmeWeekBar[] {
+  const start = dayNumber(`${year}-01-01`);
+  const end = dayNumber(`${year}-12-31`);
+  const current = dayNumber(today);
+  const bars = Array.from({ length: Math.ceil((end - start + 1) / 7) }, () => 0);
+  for (const entry of entries) {
+    if (entry.archivedAt || !entry.date.startsWith(`${year}-`)) continue;
+    const day = dayNumber(entry.date);
+    if (day < start || day > end) continue;
+    const index = Math.floor((day - start) / 7);
+    bars[index] = round2(bars[index] + entry.allocations.reduce((sum, allocation) => sum + allocation.hours, 0));
+  }
+  return bars.map((hours, index) => ({
+    index,
+    hours,
+    state: current < start + index * 7 ? "future" : current >= start + (index + 1) * 7 ? "past" : "now",
+  }));
+}
+
 /**
  * The hero's first line: the season, then the year's end, date first.
  *
@@ -128,4 +152,80 @@ export function cmeSeasonLine(args: { year: number; today: string }): string {
   if (today >= `${year}${LAST_QUARTER_STARTS}`) return `Last quarter · year ends ${yearEnd}, ${inWeeks}`;
   if (dayOfYear(year, today) < CPD_PACE_MINIMUM_ELAPSED_DAYS) return "Early in the year · write your plan";
   return `Year ends ${yearEnd}, ${inWeeks}`;
+}
+
+export type CmeRoutineGapScenario = {
+  readonly routineId: string;
+  readonly title: string;
+  readonly hoursPerOccurrence: number;
+  readonly occurrences: number;
+  readonly projectedHours: number;
+  /** False when the routine cannot recur often enough before 31 Dec to cover the gap. */
+  readonly closesGap: boolean;
+};
+
+const CADENCE_STEP: Record<CmeRoutine["cadence"], { days: number; months: number }> = {
+  weekly: { days: 7, months: 0 },
+  monthly: { days: 0, months: 1 },
+  quarterly: { days: 0, months: 3 },
+};
+
+function stepDate(dateIso: string, cadence: CmeRoutine["cadence"], times: number): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const { days, months } = CADENCE_STEP[cadence];
+  if (days) return new Date(Date.UTC(y, m - 1, d + days * times)).toISOString().slice(0, 10);
+  const monthIndex = m - 1 + months * times;
+  const lastDay = new Date(Date.UTC(y, monthIndex + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, monthIndex, Math.min(d, lastDay))).toISOString().slice(0, 10);
+}
+
+/** How many times a routine can still occur from `today` (Perth) to 31 Dec of `year`, by cadence and next due date. */
+export function routineOccurrencesBeforeYearEnd(routine: CmeRoutine, today: string, year: number): number {
+  const yearEnd = `${year}-12-31`;
+  const yearStart = `${year}-01-01`;
+  if (today > yearEnd) return 0;
+  let start = routine.nextDue && routine.nextDue > today ? routine.nextDue : today;
+  if (start < yearStart) start = yearStart;
+  let occurrences = 0;
+  while (stepDate(start, routine.cadence, occurrences) <= yearEnd) occurrences += 1;
+  return occurrences;
+}
+
+/**
+ * Illustrative arithmetic from an owner's active routine template. A routine
+ * does not prove attendance, schedule future dates, or create CPD hours.
+ */
+export function cmeRoutineGapScenarios(
+  routines: readonly CmeRoutine[],
+  hoursToGo: number,
+  category?: CmeCategory,
+  window?: { readonly today: string; readonly year: number },
+): CmeRoutineGapScenario[] {
+  if (!(hoursToGo > 0)) return [];
+  return routines
+    .filter((routine) => routine.archivedAt === null)
+    .map((routine) => {
+      const hoursPerOccurrence = category
+        ? round2(
+            routine.usualAllocations
+              .filter((allocation) => allocation.category === category)
+              .reduce((sum, allocation) => sum + allocation.hours, 0),
+          )
+        : routine.usualHours;
+      if (!(hoursPerOccurrence > 0)) return null;
+      const needed = Math.ceil((hoursToGo - 0.000001) / hoursPerOccurrence);
+      const available = window ? routineOccurrencesBeforeYearEnd(routine, window.today, window.year) : needed;
+      const occurrences = Math.min(needed, available);
+      if (occurrences < 1) return null;
+      return {
+        routineId: routine.id,
+        title: routine.title,
+        hoursPerOccurrence,
+        occurrences,
+        projectedHours: round2(occurrences * hoursPerOccurrence),
+        closesGap: occurrences >= needed,
+      };
+    })
+    .filter((scenario): scenario is CmeRoutineGapScenario => scenario !== null)
+    .sort((a, b) => a.occurrences - b.occurrences || a.title.localeCompare(b.title));
 }

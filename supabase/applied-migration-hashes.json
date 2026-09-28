@@ -1,7 +1,7 @@
 {
   "note": "sha256 of every migration this repository has shipped, with newlines normalised. An entry whose hash changes means an applied migration was edited, which cannot reach the live database. See scripts/check-migration-immutability.mjs.",
   "generator": "scripts/check-migration-immutability.mjs",
-  "sealed_at": "2026-09-27T19:06:48.582Z",
+  "sealed_at": "2026-09-28T07:42:32.131Z",
   "versions": {
     "20260527000000_bulk_ingestion.sql": "813e8e314064a6dcbaaa55e2765a8ce901d5783b304b4a7af7bb7417a07daf7c",
     "20260527001000_documents_policy_cleanup.sql": "559c26f3172bf75e545a41adef75538b2bf648ea7d53c8eb3d3ea7c244c65a48",
@@ -283,9 +283,11 @@
     "20260926225409_roster_mode.sql": "1181ff49d88344ac79581f60cd742dec392737760125a81185289a03d081b1d9",
     "20260926225509_admin_mode.sql": "375caf3a35c83597cbf2bcaea1e6a16d79106b6b60f20e123697dcbe2b8e2731",
     "20260926225609_teaching_mode.sql": "e46b4f93caa6c2338c4358c27b2acf4e414e14c8b03543e7a2e18c17e22d6028",
+    "20260927135500_teaching_permission_null_guards.sql": "e54535a9f79f77d3e02ba657bd5fbba3b4ed607ce5dbc2f94e64da85f8ab6ea6",
+    "20260927195000_cme_atomic_goal_carry.sql": "88d29db6ce66a865f54c7f1d28a894dd9da28dc39d135fb8f0aef60c8a407cb9",
     "20260927010000_roster_release_two.sql": "7152f1e3da95cf438258df19fcc57b30d2894f08448357c9c16246fd3b1e40a0",
-    "20260927020000_roster_draft_versioning.sql": "cbced4a274345bf68a743ecf9db2db5d364d926141454899b52a62cf4290e91c",
-    "20260927030000_roster_maker_workflow.sql": "99b727dbc9882186c086f91f73e45906db6e8079e9cf94bf1465197685eef170",
-    "20260928000000_roster_rule_review_invalidation.sql": "d9dd3946f80c48e7757a5707fa733eba60eff39e10885e63bcf314f5f2296e7e"
+    "20260928092000_roster_draft_versioning.sql": "cbced4a274345bf68a743ecf9db2db5d364d926141454899b52a62cf4290e91c",
+    "20260928092100_roster_maker_workflow.sql": "99b727dbc9882186c086f91f73e45906db6e8079e9cf94bf1465197685eef170",
+    "20260928092200_roster_rule_review_invalidation.sql": "d9dd3946f80c48e7757a5707fa733eba60eff39e10885e63bcf314f5f2296e7e"
   }
 }

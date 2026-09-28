@@ -1490,7 +1490,8 @@ describe("design-system adoption manifest", () => {
     // 122 -> 127: Admin Today, Renewals, New job, its Records page and Help.
     // 127 -> 131 on 2026-09-27: Roster Team, Requests, Manage and Join.
     // The owner-only developer panel remains outside production route coverage.
-    expect(manifest.routeCoverage.discovered).toHaveLength(131);
+    // 131 -> 148: the 17 Teaching routes.
+    expect(manifest.routeCoverage.discovered).toHaveLength(148);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

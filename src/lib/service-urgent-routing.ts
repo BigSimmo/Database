@@ -30,8 +30,6 @@ const REGIONAL_WA =
 // `detectClockTimeUrgency` below — a bare "pm" match here previously misclassified
 // genuine business-hours times such as "2pm" as after-hours.
 const AFTER_HOURS_KEYWORDS = /\b(?:after[- ]?hours|tonight|overnight|weekend|public holiday)\b/i;
-const METRO_OR_PEEL = /\b(?:perth|metro(?:politan)?|peel|mandurah)\b/i;
-const ADULT = /\b(?:adult|18\s*[- ]?\s*(?:year|yr)s?[- ]?old|[2-9][0-9]\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
 const AFTERCARE =
   /(?:\baftercare\b.*\bsuicid\w*\b|\bsuicid\w*\b.*\baftercare\b|\bdischarg\w*\b.*\b(?:suicide attempt|suicidal crisis)\b|\b(?:suicide attempt|suicidal crisis)\b.*\bdischarg\w*\b)/i;
 const POSTVENTION =
@@ -176,8 +174,11 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
   const postvention = POSTVENTION.test(clean);
   const child = CHILD.test(clean);
   const youthAnyAge = !child && YOUTH.test(clean);
+  const acuteCrisis = crisis && !postvention && !AFTERCARE.test(clean);
 
-  if (immediateDanger) intents.push("emergency");
+  if (immediateDanger || (acuteCrisis && !child && !youthAnyAge && !REGIONAL_WA.test(clean))) {
+    intents.push("emergency");
+  }
   if (crisis && (child || youthAnyAge)) intents.push("camhs_crisis");
   if (ABORIGINAL.test(clean) && crisis) intents.push("aboriginal_crisis");
   if (FAMILY_VIOLENCE_NAMED.test(clean) || FAMILY_VIOLENCE_DESCRIBED.test(clean)) intents.push("family_violence");
@@ -195,7 +196,7 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
       intents.push("regional_after_hours");
     }
   }
-  if (crisis && !child && (youthAnyAge || ADULT.test(clean) || METRO_OR_PEEL.test(clean))) {
+  if (acuteCrisis && !child) {
     intents.push("adult_metro_crisis");
   }
   if (AOD_TERMS.test(clean) && AOD_URGENCY.test(clean)) intents.push("aod_urgent");
@@ -247,6 +248,7 @@ const TAG_MATCHERS: Record<ServiceUrgentIntent, RegExp[]> = {
 // one leads, or push 1800RESPECT out of the results.
 const PINNED_TITLE_SEQUENCES: Partial<Record<ServiceUrgentIntent, readonly RegExp[]>> = {
   family_violence: [/^Women[’']?s Domestic Violence Helpline$/i, /^1800RESPECT$/i],
+  adult_metro_crisis: [/Mental Health Emergency Response Line|\bMHERL\b/i, /^Lifeline WA$/i],
 };
 
 // Score step between successive pins of one intent. Every pin of an intent must stay above the
@@ -315,12 +317,41 @@ function findRegionalDaytimeUsable(records: readonly ServiceRecord[], region: st
   );
 }
 
+function normalizeForNameMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Usable records whose full title the query spells out ("13YARN crisis support" names 13YARN).
+ * Titles shorter than five characters are ignored so a stray token cannot claim the lead. */
+function findExplicitlyNamedServices(records: readonly ServiceRecord[], query: string): ServiceRecord[] {
+  const normalizedQuery = ` ${normalizeForNameMatch(query)} `;
+  return records.filter((service) => {
+    const title = normalizeForNameMatch(service.title ?? "");
+    if (title.replace(/ /g, "").length < 5) return false;
+    if (!normalizedQuery.includes(` ${title} `)) return false;
+    const status = service.verification?.availabilityStatus;
+    return !status || status === "active";
+  });
+}
+
 export function rankServiceUrgentRoutes(records: readonly ServiceRecord[], query: string): ServiceSearchMatch[] {
   const intents = detectServiceUrgentIntents(query);
   if (intents.length === 0) return [];
 
   const seen = new Set<string>();
   const matches: ServiceSearchMatch[] = [];
+
+  // A query that names a service keeps that service first. Crisis wording in the same query
+  // still pins every urgent route straight after it, so naming a service never removes help;
+  // it only stops a generic word ("crisis", "acute") from demoting the service asked for.
+  for (const service of findExplicitlyNamedServices(records, query)) {
+    if (seen.has(service.slug)) continue;
+    seen.add(service.slug);
+    matches.push({ service, score: 1_000_001, reasons: ["urgent route", "named service"] });
+  }
 
   intents.forEach((intent, index) => {
     const sequence = findPinnedSequence(records, intent, seen);

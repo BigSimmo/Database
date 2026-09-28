@@ -82,13 +82,23 @@ describe("header addon slot ownership", () => {
     // `/on-call/search` no longer exists — the mode declares no search surface —
     // so nothing claims it.
     expect(isHeaderAddonSlotOwnedRoute("/on-call/search")).toBe(false);
-    // CME claims the slot on exactly the two pages that mount `CmeNavHeader`.
-    // Its other routes mount no header of their own, so they must stay out.
+    // CPD's five page families claim the slot through their own tab row or read header.
     expect(isHeaderAddonSlotOwnedRoute("/cme/programme")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/cme/setup")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/cme")).toBe(false);
-    expect(isHeaderAddonSlotOwnedRoute("/cme/log")).toBe(false);
-    expect(isHeaderAddonSlotOwnedRoute("/cme/routines")).toBe(false);
+    for (const pathname of [
+      "/cme",
+      "/cme/check",
+      "/cme/log",
+      "/cme/routines",
+      "/cme/plan",
+      "/cme/calendar",
+      "/cme/training",
+      "/cme/learning",
+    ]) {
+      expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
+    }
+    expect(isHeaderAddonSlotOwnedRoute("/cme/new")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/summary")).toBe(false);
     // Every First Nations route claims the slot: the mode home and every
     // section mount `FirstNationsNavHeader` themselves.
     expect(isHeaderAddonSlotOwnedRoute("/first-nations")).toBe(true);
@@ -101,6 +111,14 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/first-nations/going-home")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/first-nations/end-of-life")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/first-nations/card")).toBe(true);
+    // Teaching claims the slot on exactly the two pages that mount
+    // `TeachingNavHeader`. Its four top pages use the pages sheet instead.
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/session/11111111-1111-4111-8111-111111111111")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/session/11111111-1111-4111-8111-111111111111/check-in")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/week")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/organise")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/c/complete")).toBe(false);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
@@ -171,6 +189,14 @@ describe("header addon slot ownership", () => {
       "/admin/help",
       "/cme/programme",
       "/cme/setup",
+      "/cme",
+      "/cme/check",
+      "/cme/log",
+      "/cme/routines",
+      "/cme/plan",
+      "/cme/calendar",
+      "/cme/training",
+      "/cme/learning",
       "/first-nations",
       "/first-nations/contacts",
       "/first-nations/talking",
@@ -181,6 +207,8 @@ describe("header addon slot ownership", () => {
       "/first-nations/going-home",
       "/first-nations/end-of-life",
       "/first-nations/card",
+      "/teaching/session/11111111-1111-4111-8111-111111111111",
+      "/teaching/session/11111111-1111-4111-8111-111111111111/check-in",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -334,6 +362,7 @@ describe("header addon slot ownership", () => {
       // (`cmeSections` is a superset the header narrows per render), so the
       // whole mode's claim is registered in this one file.
       "src/components/cme/cme-nav-header.tsx",
+      "src/components/cme/cme-page-tabs.tsx",
       "src/components/developer-area/developer-hub-nav-header.tsx",
       "src/components/dictionary/dictionary-catalogue-pages.tsx",
       "src/components/dictionary/dictionary-term-page.tsx",
@@ -364,6 +393,7 @@ describe("header addon slot ownership", () => {
       // and needs no `*-nav-header.tsx` sibling to carry hooks or icons.
       "src/components/sources/sources-pages.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
+      "src/components/teaching/teaching-nav-header.tsx",
       "src/components/therapy-compass/therapy-record-nav-header.tsx",
     ]);
   });

@@ -46,6 +46,21 @@ export async function fetchCmeEvidenceCounts(
   return z.record(z.string(), z.number().int().nonnegative()).parse(data);
 }
 
+/**
+ * Entry ids that hold at least one active (not removed) certificate. Other evidence kinds
+ * (receipt, assessment, other) do not satisfy "Certificates to add".
+ */
+export async function fetchCmeCertificateEntryIds(client: Client, ownerId: string): Promise<ReadonlySet<string>> {
+  const { data, error } = await client
+    .from("cme_evidence")
+    .select("entry_id")
+    .eq("owner_id", ownerId)
+    .eq("kind", "certificate")
+    .is("removed_at", null);
+  if (error) throw new PublicApiError("Evidence counts could not be loaded. Try again.", 503);
+  return new Set((data ?? []).map((row) => row.entry_id));
+}
+
 export function evidenceFromRow(row: EvidenceRow) {
   return cmeEvidenceSchema.parse({
     id: row.id,
