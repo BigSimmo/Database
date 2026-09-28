@@ -840,6 +840,7 @@ function SourceStatusBanner({
   loading,
   sourcesChecked,
   hasCatalogueResults,
+  setupWarning,
   onRunSourceSearch,
 }: {
   sourceCount: number;
@@ -847,6 +848,7 @@ function SourceStatusBanner({
   loading: boolean;
   sourcesChecked: boolean;
   hasCatalogueResults: boolean;
+  setupWarning?: string | null;
   onRunSourceSearch: () => void;
 }) {
   const hasSourceEvidence = evidenceState === "source-backed";
@@ -879,15 +881,17 @@ function SourceStatusBanner({
         <p className="min-w-0 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
           {loading
             ? "Checking indexed sources…"
-            : hasSourceEvidence
-              ? `${sourceCount.toLocaleString()} indexed source ${sourceCount === 1 ? "match" : "matches"}`
-              : sourcesChecked
-                ? hasCatalogueResults
-                  ? "No indexed source matches — showing reviewed catalogue results"
-                  : "No indexed source matches"
-                : hasCatalogueResults
-                  ? "Indexed sources have not been checked — showing reviewed catalogue results"
-                  : "Indexed sources have not been checked"}
+            : setupWarning
+              ? setupWarning
+              : hasSourceEvidence
+                ? `${sourceCount.toLocaleString()} indexed source ${sourceCount === 1 ? "match" : "matches"}`
+                : sourcesChecked
+                  ? hasCatalogueResults
+                    ? "No indexed source matches — showing reviewed catalogue results"
+                    : "No indexed source matches"
+                  : hasCatalogueResults
+                    ? "Indexed sources have not been checked — showing reviewed catalogue results"
+                    : "Indexed sources have not been checked"}
         </p>
       </div>
       {!loading && !hasSourceEvidence && !sourcesChecked ? (
@@ -950,12 +954,14 @@ function SearchResultsView({
   loading,
   documentMatches,
   evidenceQuery,
+  setupWarning,
   onRunSearch,
 }: {
   query: string;
   loading: boolean;
   documentMatches?: ClientDocumentMatch[];
   evidenceQuery?: string | null;
+  setupWarning?: string | null;
   onRunSearch?: (query: string) => void;
 }) {
   const [sortValue, setSortValue] = useResultSort();
@@ -1234,6 +1240,7 @@ function SearchResultsView({
         loading={loading}
         sourcesChecked={sourcesChecked}
         hasCatalogueResults={!catalogFailed && results.length > 0}
+        setupWarning={setupWarning}
         onRunSourceSearch={rerunSearch}
       />
       {/* One panel, two presentations. Both triggers above open this: the phone
@@ -1506,6 +1513,7 @@ export function DifferentialsHome({
   searchSubmitted,
   documentMatches,
   evidenceQuery,
+  setupWarning,
   onRunSearch,
 }: {
   query: string;
@@ -1549,6 +1557,7 @@ export function DifferentialsHome({
         loading={loading}
         documentMatches={documentMatches}
         evidenceQuery={evidenceQuery}
+        setupWarning={setupWarning}
         onRunSearch={runSearch}
       />
     );

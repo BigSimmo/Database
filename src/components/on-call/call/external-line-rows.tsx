@@ -1,5 +1,6 @@
 "use client";
 
+import { LifeBuoy } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
 import { onCallCrisisLines, type OnCallExternalLine } from "@/components/on-call/call/external-lines";
@@ -22,7 +23,9 @@ export function OnCallExternalLineRows({
   emergencyTone = false,
   trailingAction,
   testIdPrefix,
+  now,
 }: {
+  readonly now?: Date;
   readonly lines: readonly OnCallExternalLine[];
   /** 000 in quiet red: only on the crisis-lines module (signed-out, offline and failure screens). */
   readonly emergencyTone?: boolean;
@@ -32,6 +35,7 @@ export function OnCallExternalLineRows({
   return lines.map((line) => (
     <Fragment key={line.id}>
       <OnCallDialRow
+        now={now}
         id={line.id}
         source="handbook"
         title={line.title}
@@ -44,7 +48,7 @@ export function OnCallExternalLineRows({
         testId={`${testIdPrefix}-${line.id}`}
       />
       <li className="min-w-0 px-3 pb-1.5" data-testid={`${testIdPrefix}-${line.id}-source`}>
-        <OnCallUpdatedLine updatedAt={line.updatedAt} sources={line.sources} testId="on-call-updated-date" />
+        <OnCallUpdatedLine now={now} updatedAt={line.updatedAt} sources={line.sources} testId="on-call-updated-date" />
       </li>
     </Fragment>
   ));
@@ -55,10 +59,16 @@ export function OnCallExternalLineRows({
  * every loading, signed-out and failure state on Call, Refer and Find (owner
  * decision). They are part of the app, so they never wait on the network.
  */
-export function OnCallCrisisLines() {
+export function OnCallCrisisLines({
+  now,
+  testId = "on-call-crisis-lines",
+}: {
+  readonly now?: Date;
+  readonly testId?: string;
+}) {
   return (
-    <OnCallGroupedList eyebrow="Crisis lines" testId="on-call-crisis-lines">
-      <OnCallExternalLineRows lines={onCallCrisisLines()} emergencyTone testIdPrefix="on-call-crisis-line" />
+    <OnCallGroupedList eyebrow="Crisis lines" headerIcon={LifeBuoy} testId={testId}>
+      <OnCallExternalLineRows lines={onCallCrisisLines()} now={now} emergencyTone testIdPrefix="on-call-crisis-line" />
     </OnCallGroupedList>
   );
 }

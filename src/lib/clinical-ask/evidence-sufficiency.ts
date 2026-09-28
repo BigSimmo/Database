@@ -70,8 +70,9 @@ function claimKind(text: string, atoms: readonly ClinicalValueAtom[]): ClinicalC
   if (/\b(?:duration|week|month|year|day|hour|minute)s?\b/i.test(text)) return "duration";
   if (/\b(?:threshold|cut-?off|score|at least|at most|greater than|less than)\b/i.test(text)) return "threshold";
   if (/\b(?:criterion|criteria|diagnos(?:is|tic))\b/i.test(text)) return "criterion";
-  if (/\b(?:eligib|qualif|accepts? referrals?)\b/i.test(text)) return "eligibility";
-  if (/\b(?:form|required field|signature|submit|submission|authoris)\b/i.test(text)) return "form_requirement";
+  if (/\b(?:eligib|qualif(?:y|ies|ied|ying|ication|ications)|accepts? referrals?)\b/i.test(text)) return "eligibility";
+  if (/\b(?:form|required field|signature|submit|submission|authoris(?:e|es|ed|ing|ation|ations))\b/i.test(text))
+    return "form_requirement";
   if (/\b(?:contact|phone|telephone|email|address)\b/i.test(text)) return "contact";
   if (/\b(?:therapy|psychotherapy|intervention|treatment)\b/i.test(text)) return "therapy";
   return atoms.length > 0 ? "numeric" : "narrative";

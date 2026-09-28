@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRosterTeams, rosterTeamUrl } from "./use-roster-team";
+import { mergeMyShifts, type RosterDisplayShift } from "@/lib/roster/team/team-view";
+import { rosterAssignmentsSchema, type RosterAssignment, type RosterTeam } from "@/lib/roster/team/model";
+import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 import type {
   OnCallManualShiftRequest,
@@ -18,11 +22,21 @@ import type {
  * `signed-out` is a resting state, not an error: a roster is personal, so a
  * signed-out reader simply has none to show.
  */
+/**
+ * One of my shifts as every Roster screen shows it: my own (imported or added
+ * by hand) or my shift on a confirmed team's roster (`source: "team"`, never
+ * copied into my own shifts table).
+ */
+export type MyShift = RosterDisplayShift;
+
 export type RosterShiftsStatus = "loading" | "ready" | "signed-out" | "error";
 
 export type RosterShiftsState = {
   readonly status: RosterShiftsStatus;
-  readonly shifts: readonly OnCallShift[];
+  readonly shifts: readonly MyShift[];
+  readonly teamMessage?: string | null;
+  /** A selected team window is still being read; an empty period is not yet known to be free. */
+  readonly teamLoading: boolean;
   readonly latestImport: OnCallShiftImportSummary | null;
   readonly demoMode: boolean;
   /** Save an imported roster. Resolves to an error sentence, or null on success. */
@@ -48,6 +62,7 @@ type Payload = {
   latestImport?: OnCallShiftImportSummary | null;
   demoMode?: boolean;
   error?: unknown;
+  message?: string;
 };
 
 export const ROSTER_SHIFTS_URL = "/api/roster/shifts";
@@ -74,7 +89,53 @@ async function fetchShifts(signal?: AbortSignal): Promise<Loaded> {
   }
 }
 
-export function useRosterShifts(): RosterShiftsState {
+export function useRosterShifts(teamRange?: { from: string; to: string }): RosterShiftsState {
+  const teams = useRosterTeams();
+  const today = perthDateOf(new Date());
+  const from = teamRange?.from ?? addDaysToDate(today, -21);
+  const to = teamRange?.to ?? addDaysToDate(today, 40);
+  const [teamData, setTeamData] = useState<{
+    payload: typeof teams.data;
+    owner: string;
+    from: string;
+    to: string;
+    rows: { team: RosterTeam; assignments: RosterAssignment[] }[];
+    message: string | null;
+  } | null>(null);
+  const actorId = teams.data?.actorId;
+  const teamPayload = teams.data;
+  useEffect(() => {
+    if (!actorId || !teamPayload) return;
+    const controller = new AbortController();
+    const enabled = (Array.isArray(teamPayload.teams) ? teamPayload.teams : []).filter((team) => team.enabled);
+    void Promise.all(
+      enabled.map(async (team) => {
+        const query = new URLSearchParams({ what: "assignments", from, to });
+        const response = await fetch(`${rosterTeamUrl(team.serviceId)}?${query}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("team unavailable");
+        return { team, assignments: rosterAssignmentsSchema.parse(await response.json()).assignments };
+      }),
+    )
+      .then((rows) => {
+        if (!controller.signal.aborted)
+          setTeamData({ payload: teamPayload, owner: actorId, from, to, rows, message: null });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setTeamData({
+            payload: teamPayload,
+            owner: actorId,
+            from,
+            to,
+            rows: [],
+            message: "Team shifts could not be loaded. Your own shifts are shown.",
+          });
+      });
+    return () => controller.abort();
+  }, [actorId, teamPayload, from, to]);
   const [status, setStatus] = useState<RosterShiftsStatus>("loading");
   const [shifts, setShifts] = useState<readonly OnCallShift[]>([]);
   const [latestImport, setLatestImport] = useState<OnCallShiftImportSummary | null>(null);
@@ -164,7 +225,7 @@ export function useRosterShifts(): RosterShiftsState {
         const payload = await readPayload(response);
         if (!response.ok) return errorText(payload, "Your data could not be deleted. Try again.");
         accept(payload);
-        return null;
+        return payload.message ?? null;
       } catch {
         return "Your data could not be deleted. Check your connection and try again.";
       }
@@ -196,9 +257,35 @@ export function useRosterShifts(): RosterShiftsState {
     await fetch(`${ROSTER_SHIFTS_URL}/imports/${current.id}`, { method: "PATCH" }).catch(() => undefined);
   }, [latestImport]);
 
+  const reloadTeams = teams.reload;
+  const reload = useCallback(async () => {
+    reloadTeams();
+    await load();
+  }, [reloadTeams, load]);
+
+  const currentTeamData =
+    actorId &&
+    teamData?.owner === actorId &&
+    teamData.payload === teamPayload &&
+    teamData.from === from &&
+    teamData.to === to &&
+    teams.status === "ready"
+      ? teamData
+      : null;
+  const enabledTeamCount = Array.isArray(teamPayload?.teams)
+    ? teamPayload.teams.filter((team) => team.enabled).length
+    : 0;
+
   return {
     status,
-    shifts,
+    shifts: currentTeamData && actorId ? mergeMyShifts(shifts, currentTeamData.rows, actorId) : shifts,
+    teamLoading:
+      teams.status === "loading" ||
+      (teams.status === "ready" && Boolean(actorId) && enabledTeamCount > 0 && !currentTeamData),
+    teamMessage:
+      teams.status === "error"
+        ? "Team shifts could not be loaded. Your own shifts are shown."
+        : (currentTeamData?.message ?? null),
     latestImport,
     demoMode,
     save,
@@ -206,7 +293,7 @@ export function useRosterShifts(): RosterShiftsState {
     removeSeries,
     deleteAll,
     removeWorkplace,
-    reload: load,
+    reload,
     dismissChanges,
   };
 }

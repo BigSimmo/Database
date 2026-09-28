@@ -79,6 +79,7 @@ export type HospitalHandbookState = {
   /** "device" only once lane D lands. */
   readonly source: "network" | "device";
   readonly savedAt: string | null;
+  readonly hours?: import("@/lib/on-call/now-rows").OnCallHospitalHours | null;
   readonly error: string | null;
   /** Persisted in `onCallHospitalChoiceStorageKey`. */
   choose(serviceId: string, siteId: string | null): void;
@@ -88,8 +89,8 @@ export type HospitalHandbookState = {
   report(entryId: string, reason: HandbookReportReason): Promise<HandbookReportResult>;
   hasReported(entryId: string, reason: HandbookReportReason): boolean;
   /**
-   * Stage C hook point: Now calls this when the roster says tonight's shift is
-   * at another hospital. A no-op until Stage C adds the one-time prompt.
+   * Legacy compatibility callback. Now renders its roster mismatch prompt in
+   * HospitalShiftUpdates without persisting a workplace or auto-switching.
    */
   onRosteredSiteMismatch(rosteredSiteName: string): void;
 };
@@ -330,7 +331,7 @@ export function useHospitalHandbook(): HospitalHandbookState {
   useEffect(() => {
     if (!live || !serviceId || !detailKey || !hospitalKey) return;
     const settle = (value: ServiceDetail) => {
-      const items = publishedHandbookItems(value);
+      const items = publishedHandbookItems(value).filter((item) => item.siteId === null || item.siteId === siteId);
       const removed = reconcileSeen(hospitalKey, items, new Date());
       rememberOnCallEmergencyPinned(hospitalKey, pinnedEmergencyEntries(items, siteId).length > 0);
       setDetailState({ key: detailKey, status: "ready", detail: value, removed });
@@ -436,8 +437,13 @@ export function useHospitalHandbook(): HospitalHandbookState {
   const readyDetail = status === "ready" && currentDetail?.status === "ready" ? currentDetail : null;
   const items = useMemo(
     () =>
-      demo ? publishedHandbookItems(demoServiceDetail) : readyDetail ? publishedHandbookItems(readyDetail.detail) : [],
-    [demo, readyDetail],
+      (demo
+        ? publishedHandbookItems(demoServiceDetail)
+        : readyDetail
+          ? publishedHandbookItems(readyDetail.detail)
+          : []
+      ).filter((item) => item.siteId === null || item.siteId === siteId),
+    [demo, readyDetail, siteId],
   );
   const hospitals = useMemo(() => hospitalOptions(services), [services]);
   const visible = status === "ready" || status === "loading";
@@ -457,6 +463,12 @@ export function useHospitalHandbook(): HospitalHandbookState {
     emergencyPinExpected: hospitalKey && !demo ? readOnCallEmergencyPinned(hospitalKey) : demo ? true : null,
     source: "network",
     savedAt: null,
+    hours: (() => {
+      const site = (demo ? demoServiceDetail : readyDetail?.detail)?.sites.find((site) => site.id === siteId);
+      return site?.afterHoursStart && site.afterHoursEnd
+        ? { afterHoursFrom: site.afterHoursStart, afterHoursUntil: site.afterHoursEnd }
+        : null;
+    })(),
     error,
     choose,
     changeHospital: choose,

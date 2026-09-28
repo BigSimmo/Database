@@ -9,6 +9,8 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { deleteOwnerCalendarLinks } from "@/lib/roster/calendar-links";
 import { clearRosterSettings } from "@/lib/roster/settings";
+import { removeAllOwnerSubscriptions } from "@/lib/roster/alerts/subscriptions";
+import { removeAllOwnerLeave, withdrawRosterRequests } from "@/lib/roster/team/delete-my-data";
 import { demoOnCallShifts } from "@/lib/roster/shifts/demo-shifts";
 import { shiftIsInWindow } from "@/lib/roster/shifts/diff";
 import { onCallShiftImportRequestSchema } from "@/lib/roster/shifts/model";
@@ -114,9 +116,24 @@ export async function DELETE(request: Request) {
     if (rateLimit.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rateLimit);
     // Delete my data: links first (so no refresh can bring shifts back), then settings, then shifts and imports.
     await deleteOwnerCalendarLinks(supabase, user.id);
+    await removeAllOwnerSubscriptions(supabase, user.id);
+    await removeAllOwnerLeave(supabase, user.id);
+    const cleanup = await withdrawRosterRequests(supabase, user.id);
     await clearRosterSettings(supabase, user.id);
     await deleteOwnerShifts(supabase, user.id);
-    return NextResponse.json({ shifts: [], latestImport: null }, { headers: noStore });
+    return NextResponse.json(
+      {
+        shifts: [],
+        latestImport: null,
+        ...(cleanup.skippedTeams
+          ? {
+              message:
+                "Your own data was removed. Some team requests could not be withdrawn; check Requests. Your team keeps its rostered shifts.",
+            }
+          : {}),
+      },
+      { headers: noStore },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);

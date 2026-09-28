@@ -327,10 +327,14 @@ describe("On Call home layout", () => {
       render(<OnCallHome />);
       expect(usualCallHref("bed-manager")).toMatch(/90000011$/);
 
-      // Nothing is clicked, scrolled or typed. Only the clock moves.
-      act(() => {
-        vi.advanceTimersByTime(6 * 60 * 1000);
-      });
+      // Nothing is clicked, scrolled or typed. Only the clock moves. The page wakes at
+      // least once a minute (cover and ladder windows), so step minute by minute and let
+      // each wake re-render and schedule the next, as it would on a phone left open.
+      for (let minute = 0; minute < 6; minute += 1) {
+        act(() => {
+          vi.advanceTimersByTime(60 * 1000);
+        });
+      }
 
       expect(usualCallHref("bed-manager")).toMatch(/90000012$/);
       expect(screen.getByTestId("on-call-now-usual-bed-manager")).toHaveTextContent(/after hours/i);

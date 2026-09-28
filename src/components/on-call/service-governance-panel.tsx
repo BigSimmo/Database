@@ -1,5 +1,7 @@
 "use client";
 
+import { ServiceStructuredPreview } from "@/components/on-call/service-structured-preview";
+
 import { ExternalLink, Pencil } from "lucide-react";
 import { useState } from "react";
 
@@ -77,6 +79,7 @@ function ReviewRow({
           {entry.content.body}
         </p>
       ) : null}
+      <ServiceStructuredPreview content={entry.content} />
       {entry.content.sources.length > 0 ? (
         <div className="grid gap-1">
           {entry.content.sources.map((source) => (

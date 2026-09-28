@@ -22,6 +22,11 @@ export type RouteErrorBoundaryProps = {
   showReload?: boolean;
   /** Minimum-height utility so route segments and the app shell can size differently. */
   minHeightClass?: string;
+  /**
+   * Render as the page's `<main id="main-content">` landmark. Only the root boundary owns it;
+   * nested segment boundaries render inside a shell that already provides that landmark.
+   */
+  landmark?: boolean;
 };
 
 const CHUNK_LOAD_MESSAGE =
@@ -60,8 +65,10 @@ export function RouteErrorBoundary({
   logLabel = "Unhandled runtime error captured by boundary:",
   showReload = false,
   minHeightClass = "min-h-[50vh]",
+  landmark = false,
 }: RouteErrorBoundaryProps) {
   const router = useOptionalRouter();
+  const Container = landmark ? "main" : "div";
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { copied, copyFailed, copyDiagnostics } = useCopyDiagnostics(error);
   const chunkLoad = isChunkLoadError(error);
@@ -76,7 +83,8 @@ export function RouteErrorBoundary({
   }, [error, logLabel]);
 
   return (
-    <div
+    <Container
+      id={landmark ? "main-content" : undefined}
       className={cn(
         "flex flex-col items-center justify-center bg-[color:var(--surface-lux)] px-4 font-sans text-[color:var(--text)] select-none",
         minHeightClass,
@@ -161,6 +169,6 @@ export function RouteErrorBoundary({
           </button>
         </div>
       </div>
-    </div>
+    </Container>
   );
 }
