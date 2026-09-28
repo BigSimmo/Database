@@ -36,13 +36,16 @@ export function initWorkerErrorTracking(): boolean {
       release: resolveSentryRelease(),
       environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development",
       tracesSampleRate: resolveTracesSampleRate(),
-      sendDefaultPii: false,
+      // Sentry 11 removed `sendDefaultPii`; with `dataCollection` set it was
+      // already ignored in v10, so collection is unchanged. v11 also streams spans
+      // by default, which skips `beforeSendTransaction`: keep the static lifecycle
+      // so every transaction still passes privacySafeTransactionEvent.
+      traceLifecycle: "static",
       dataCollection: {
         databaseQueryData: false,
         genAI: { inputs: false, outputs: false },
       },
       includeLocalVariables: false,
-      enableLogs: false,
       attachStacktrace: true,
       maxBreadcrumbs: 0,
       beforeSend(event) {
@@ -51,6 +54,10 @@ export function initWorkerErrorTracking(): boolean {
       beforeSendTransaction(event) {
         // Local scrubber shape is structural; cast back to the SDK type.
         return privacySafeTransactionEvent(event as never) as typeof event;
+      },
+      // Sentry 11 removed `enableLogs`; the worker never sends Sentry Logs.
+      beforeSendLog() {
+        return null;
       },
     });
     initialized = true;
