@@ -322,6 +322,39 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
+// Push payloads carry one type code only. The worker owns every word and click
+// destination, so a server response can never put a name or arbitrary URL on
+// the lock screen.
+const ROSTER_PUSH = {
+  changed: { body: "Your roster changed. Open Roster to see what moved.", path: "/roster" },
+  request: { body: "Something in Roster is waiting for you.", path: "/roster/requests" },
+  offer: { body: "A shift is open in your team. Open Roster to see it.", path: "/roster/requests" },
+  manage: { body: "Something in Manage is waiting for you.", path: "/roster/manage" },
+};
+
+self.addEventListener("push", (event) => {
+  let code = "changed";
+  try {
+    const candidate = event.data?.json()?.t;
+    if (Object.hasOwn(ROSTER_PUSH, candidate)) code = candidate;
+  } catch {
+    // A malformed push still shows a generic notification.
+  }
+  event.waitUntil(
+    self.registration.showNotification("Roster", {
+      body: ROSTER_PUSH[code].body,
+      data: { t: code },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const candidate = event.notification.data?.t;
+  const code = Object.hasOwn(ROSTER_PUSH, candidate) ? candidate : "changed";
+  event.waitUntil(self.clients.openWindow(ROSTER_PUSH[code].path));
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;

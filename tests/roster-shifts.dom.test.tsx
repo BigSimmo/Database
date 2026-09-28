@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SHIFT_KIND_LABEL, type ShiftKind } from "@/lib/roster/shift-kind";
+import { monthGridRange } from "@/lib/calendar/month-grid";
 import type { OnCallShift } from "@/lib/roster/shifts/model";
 import { addDaysToDate, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
@@ -54,6 +55,34 @@ function mockShifts(shifts: OnCallShift[]) {
 function mockSettings(settings: Record<string, unknown>) {
   routes.set("GET /api/roster/settings", () => Response.json({ settings }));
 }
+function mockTeamWindow(from: string, to: string, dates: string[]) {
+  const teamId = "22222222-2222-4222-8222-222222222222";
+  const actorId = "11111111-1111-4111-8111-111111111111";
+  routes.set("GET /api/roster/team", () =>
+    Response.json({
+      actorId,
+      teams: [{ serviceId: teamId, name: "General Medicine", enabled: true, role: "member", grade: "registrar" }],
+    }),
+  );
+  const url = `/api/roster/team/${teamId}?what=assignments&from=${from}&to=${to}`;
+  routes.set(`GET ${url}`, () =>
+    Response.json({
+      assignments: dates.map((date, index) => ({
+        id: `33333333-3333-4333-8333-${String(index + 1).padStart(12, "0")}`,
+        userId: actorId,
+        name: "Dr Alex Example",
+        grade: "registrar",
+        siteId: null,
+        siteName: "Example Hospital",
+        startsAt: `${date}T08:00:00+08:00`,
+        endsAt: `${date}T16:30:00+08:00`,
+        shiftCode: "D",
+        kind: "day",
+      })),
+    }),
+  );
+  return url;
+}
 function fetchCalls(url: string, method: string) {
   return fetchMock.mock.calls.filter(([input, init]) => String(input) === url && (init?.method ?? "GET") === method);
 }
@@ -74,6 +103,56 @@ afterEach(() => {
 });
 
 describe("Roster Shifts", () => {
+  it("loads the newly selected week before saying it has no team shifts", async () => {
+    mockShifts([]);
+    mockTeamWindow("2026-10-12", "2026-10-18", []);
+    const nextUrl = mockTeamWindow("2026-10-19", "2026-10-25", ["2026-10-20"]);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    await screen.findByText("No shifts this week");
+    fireEvent.click(screen.getByRole("button", { name: "Next week" }));
+    expect(screen.queryByText("No shifts this week")).toBeNull();
+    await waitFor(() => expect(fetchCalls(nextUrl, "GET")).toHaveLength(1));
+    expect(await screen.findByText("Tue 20 Oct")).toBeInTheDocument();
+  });
+
+  it("stops going back once the previous week is outside the loaded history", async () => {
+    mockShifts([]);
+    for (const [from, to] of [
+      ["2026-10-12", "2026-10-18"],
+      ["2026-10-05", "2026-10-11"],
+      ["2026-09-28", "2026-10-04"],
+      ["2026-09-21", "2026-09-27"],
+    ])
+      mockTeamWindow(from, to, []);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    await screen.findByText("No shifts this week");
+    const previous = () => screen.findByRole("button", { name: "Previous week" });
+    for (let step = 0; step < 3; step += 1) {
+      const button = await previous();
+      expect(button).toBeEnabled();
+      fireEvent.click(button);
+    }
+    expect(await previous()).toBeDisabled();
+  });
+
+  it("loads the newly selected month before displaying its team shifts", async () => {
+    mockShifts([]);
+    mockTeamWindow("2026-10-12", "2026-10-18", []);
+    const october = monthGridRange("2026-10");
+    const octoberUrl = mockTeamWindow(october.start, october.end, []);
+    const november = monthGridRange("2026-11");
+    const nextUrl = mockTeamWindow(november.start, november.end, ["2026-11-10"]);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    await screen.findByText("No shifts this week");
+    fireEvent.click(screen.getByRole("radio", { name: "Month" }));
+    await waitFor(() => expect(fetchCalls(octoberUrl, "GET")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByTestId("roster-team-shifts-loading")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Next month" }));
+    await waitFor(() => expect(fetchCalls(nextUrl, "GET")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByTestId("roster-team-shifts-loading")).toBeNull());
+    expect(screen.getByTestId("roster-shifts-month")).toHaveTextContent("D · Day");
+  });
+
   it("shows a night as +1 in the week", async () => {
     mockShifts([night("2026-10-15")]);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);

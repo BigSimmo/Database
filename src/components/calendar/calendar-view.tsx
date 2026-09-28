@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarPlus, ChevronLeft, ChevronRight, Download, Repeat } from "lucide-react";
-import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
 import { Checkbox } from "@/components/ui/choice";
 import { Sheet } from "@/components/ui/sheet";
@@ -181,6 +181,8 @@ export type CalendarViewProps = {
   readonly testId?: string;
   /** "dot" (default, unchanged) or "shape" (grey dot, ring and diamond). See `CalendarMarkStyle`. */
   readonly markStyle?: CalendarMarkStyle;
+  /** Reports the displayed month after arrows, swipes, or an adjacent-day selection. */
+  readonly onMonthChange?: (month: string) => void;
   /** Optional wording for the upcoming events list; the month follows this prefix. */
   readonly laterHeadingPrefix?: string;
 };
@@ -192,11 +194,15 @@ export function CalendarView({
   exportEvents,
   testId = "calendar-view",
   markStyle = "dot",
+  onMonthChange,
   laterHeadingPrefix = "Later in",
 }: CalendarViewProps) {
   const { preferences } = useAppPreferences();
   const reminders = preferences.reminders;
   const [month, setMonth] = useState(() => monthKeyOf(today));
+  useEffect(() => {
+    onMonthChange?.(month);
+  }, [month, onMonthChange]);
   const [selected, setSelected] = useState(today);
   const [sheetEvent, setSheetEvent] = useState<CalendarEvent | null>(null);
   // When the day turns over on an open page, a reader still looking at "today"

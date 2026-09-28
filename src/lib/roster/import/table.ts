@@ -24,11 +24,20 @@ function looksLikeName(cell: TableCell): boolean {
   return value.length >= 3 && /[a-z]{2,}/i.test(value) && !/^\d/.test(value);
 }
 
+/** A blank name may be a vacancy, but totals and empty layout rows are not. */
+function looksLikeShiftCell(cell: TableCell): boolean {
+  const value = text(cell).toUpperCase();
+  if (!value || ["OFF", "-", "–", "—", "/", "TOTAL", "SUM", "HOURS", "DATE", "NAME"].includes(value)) return false;
+  if (/^\d{1,2}:?\d{2}\s*(?:[-–]|TO)\s*\d{1,2}:?\d{2}$/.test(value)) return true;
+  return value.length <= 12 && /^[A-Z][A-Z0-9 /+_-]*$/.test(value);
+}
+
 /**
  * Rows and columns to a roster grid. The header row is the first of the top
  * rows with at least three dates in it; the names are the column, left of the
  * first date, holding the most name-like text (a grade or ward column sits
- * beside it on many rosters). Rows without a name are skipped.
+ * beside it on many rosters). A blank name is retained only when a dated cell
+ * looks like a shift, so Roster can offer it as an open shift.
  */
 export function tableToGrid(table: readonly (readonly TableCell[])[], today: string): RosterGrid {
   const headerIndex = table
@@ -55,7 +64,9 @@ export function tableToGrid(table: readonly (readonly TableCell[])[], today: str
 
   const rows = body.flatMap((row) => {
     const name = text(row[nameColumn]);
-    if (!looksLikeName(name)) return [];
+    if (!looksLikeName(name)) {
+      if (name || !dates.some((date, column) => date && looksLikeShiftCell(row[column]))) return [];
+    }
     return [{ name, cells: dates.map((_, column) => text(row[column])) }];
   });
   if (rows.length === 0) throw new RosterReadError("no_names");
