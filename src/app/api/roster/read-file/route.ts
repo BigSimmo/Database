@@ -46,6 +46,33 @@ function signatureOf(bytes: Uint8Array): "xlsx" | "pdf" | null {
   return null;
 }
 
+/** Streams the body with the route's cap so a missing or understated Content-Length cannot force a large buffer before the size check. */
+async function readBoundedForm(request: Request): Promise<FormData | null | "too_large"> {
+  if (!request.body) return null;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_CONTENT_LENGTH) {
+        await reader.cancel().catch(() => undefined);
+        return "too_large";
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new Response(Buffer.concat(chunks), {
+    headers: { "Content-Type": request.headers.get("content-type") ?? "" },
+  })
+    .formData()
+    .catch(() => null);
+}
+
 export async function POST(request: Request) {
   try {
     if (isDemoMode()) return demoRefusal();
@@ -62,7 +89,8 @@ export async function POST(request: Request) {
     const declaredLength = Number(request.headers.get("content-length"));
     if (Number.isFinite(declaredLength) && declaredLength > MAX_CONTENT_LENGTH) return tooLarge();
 
-    const form = await request.formData().catch(() => null);
+    const form = await readBoundedForm(request);
+    if (form === "too_large") return tooLarge();
     const file = form?.get("file");
     if (!(file instanceof File)) {
       return publicErrorResponse("Choose a roster file to import.", 400, { code: "invalid_form_data" });

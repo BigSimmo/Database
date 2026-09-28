@@ -24,7 +24,10 @@ describe("optional named On Call cover migration", () => {
   });
 
   it("projects the final command into schema.sql", () => {
-    expect(read("supabase/schema.sql").endsWith(migration)).toBe(true);
+    const schema = read("supabase/schema.sql");
+    const migrationAt = schema.indexOf(migration);
+    expect(migrationAt).toBeGreaterThanOrEqual(0);
+    expect(schema.lastIndexOf(commandStart)).toBe(migrationAt + migration.indexOf(commandStart));
   });
 
   it("trims the complete JavaScript whitespace set for staff names", () => {

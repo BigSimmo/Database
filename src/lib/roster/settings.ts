@@ -37,6 +37,8 @@ export type { CodeMeaning };
 export type RosterSettings = {
   /** Off by default: Roster shifts reach the calendar link only once the doctor turns this on. */
   readonly calendarShifts: boolean;
+  /** Lock-screen categories; both are opt-out after phone alerts are enabled. */
+  readonly alerts: { readonly changes: boolean; readonly requests: boolean };
   /** The row the doctor chose on their last import, remembered so it need not be asked again. */
   readonly rowName: string | null;
   /** Keyed by workplace ("" for an import with no workplace), then by the code as it appears on the roster. */
@@ -51,7 +53,12 @@ export type RosterSettingsPatch = Partial<Omit<RosterSettings, "codes">> & {
   readonly codes?: Readonly<Record<string, Readonly<Record<string, CodeMeaning>> | null>>;
 };
 
-export const DEFAULT_ROSTER_SETTINGS: RosterSettings = { calendarShifts: false, rowName: null, codes: {} };
+export const DEFAULT_ROSTER_SETTINGS: RosterSettings = {
+  calendarShifts: false,
+  alerts: { changes: true, requests: true },
+  rowName: null,
+  codes: {},
+};
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected an HH:MM time.");
 
@@ -89,7 +96,12 @@ const codesPatchSchema = z
  * changes (null removes one). Unknown keys are refused.
  */
 export const rosterSettingsPatchSchema = z
-  .object({ calendarShifts: z.boolean(), rowName: rowNameSchema, codes: codesPatchSchema })
+  .object({
+    calendarShifts: z.boolean(),
+    alerts: z.object({ changes: z.boolean(), requests: z.boolean() }).strict(),
+    rowName: rowNameSchema,
+    codes: codesPatchSchema,
+  })
   .partial()
   .strict();
 
@@ -102,10 +114,16 @@ export function normalizeRosterSettings(input: unknown): RosterSettings {
   if (!isPlainObject(input)) return DEFAULT_ROSTER_SETTINGS;
   const calendarShifts =
     typeof input.calendarShifts === "boolean" ? input.calendarShifts : DEFAULT_ROSTER_SETTINGS.calendarShifts;
+  const rawAlerts = isPlainObject(input.alerts) ? input.alerts : {};
+  const alerts = {
+    changes: typeof rawAlerts.changes === "boolean" ? rawAlerts.changes : true,
+    requests: typeof rawAlerts.requests === "boolean" ? rawAlerts.requests : true,
+  };
   const rowNameParsed = rowNameSchema.safeParse(input.rowName ?? null);
   const codesParsed = codesSchema.safeParse(input.codes ?? {});
   return {
     calendarShifts,
+    alerts,
     rowName: rowNameParsed.success ? rowNameParsed.data : DEFAULT_ROSTER_SETTINGS.rowName,
     codes: codesParsed.success ? codesParsed.data : DEFAULT_ROSTER_SETTINGS.codes,
   };

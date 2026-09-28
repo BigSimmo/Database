@@ -13,7 +13,7 @@ export function HospitalShiftUpdates({
   now,
 }: {
   handbook: HospitalHandbookState;
-  shifts: readonly OnCallShift[];
+  shifts: readonly Pick<OnCallShift, "startsAt" | "endsAt" | "workplace">[];
   now: Date;
 }) {
   const [dismissed, setDismissed] = useState<string | null>(null);

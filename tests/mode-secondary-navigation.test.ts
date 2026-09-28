@@ -55,7 +55,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   teaching: ["Today", "Week", "What's on", "Resources", "Logbook", "Teach", "Supervision", "Organise"],
   psychiatry: [],
   "my-work": ["Today", "Renewals", "New job", "Help"],
-  roster: ["Today", "Shifts", "Settings"],
+  roster: ["Today", "Shifts", "Team", "Requests", "Settings"],
   "first-nations": [
     "Bedside",
     "Contacts",
