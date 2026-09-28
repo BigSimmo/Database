@@ -6,6 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const accountState = vi.hoisted(() => ({ isAuthenticated: true }));
 
+// The Playbook page renders the hospital ladders, which read the hospital handbook.
+// Give it a signed-in reader whose hospital has published nothing, as other On Call tests do.
+vi.mock("@/components/on-call/use-hospital-handbook", async (importOriginal) => {
+  const { items, ready } = await import("./helpers/on-call-handbook-fixture");
+  const state = ready(items([]));
+  return {
+    ...(await importOriginal<typeof import("@/components/on-call/use-hospital-handbook")>()),
+    useHospitalHandbook: () => state,
+  };
+});
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),

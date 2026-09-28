@@ -322,6 +322,7 @@
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
+        "src/components/on-call/now/hospital-shift-updates.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-load-failed.tsx",
@@ -336,6 +337,8 @@
         "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-orientation-panel.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-site-hours.tsx",
+        "src/components/on-call/service-structured-fields.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/roster/roster-add-sheet.tsx",
         "src/components/roster/roster-hours-panel.tsx",
@@ -410,6 +413,7 @@
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
+        "src/components/on-call/now/hospital-shift-updates.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-load-failed.tsx",
@@ -424,6 +428,8 @@
         "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-orientation-panel.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-site-hours.tsx",
+        "src/components/on-call/service-structured-fields.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/roster/roster-add-sheet.tsx",
         "src/components/roster/roster-hours-panel.tsx",
@@ -1214,6 +1220,7 @@
         "src/components/on-call/service-handbook.tsx",
         "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-structured-fields.tsx",
         "src/components/ui/select.tsx",
         "src/components/ui/text-field.tsx"
       ],
@@ -1230,6 +1237,7 @@
         "src/components/on-call/service-handbook.tsx",
         "src/components/on-call/service-import-panel.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-structured-fields.tsx",
         "src/components/ui/select.tsx",
         "src/components/ui/text-field.tsx"
       ],
@@ -1342,7 +1350,8 @@
         "src/components/on-call/service-governance-panel.tsx",
         "src/components/on-call/service-handbook.tsx",
         "src/components/on-call/service-orientation-panel.tsx",
-        "src/components/on-call/service-page.tsx"
+        "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-site-hours.tsx"
       ],
       "productImportFiles": [
         "src/components/ClinicalDashboard.tsx",
@@ -1376,7 +1385,8 @@
         "src/components/on-call/service-governance-panel.tsx",
         "src/components/on-call/service-handbook.tsx",
         "src/components/on-call/service-orientation-panel.tsx",
-        "src/components/on-call/service-page.tsx"
+        "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-site-hours.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -2544,6 +2554,8 @@
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-site-hours.tsx",
+        "src/components/on-call/service-structured-fields.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-collection.tsx",
@@ -2573,6 +2585,8 @@
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
         "src/components/on-call/service-page.tsx",
+        "src/components/on-call/service-site-hours.tsx",
+        "src/components/on-call/service-structured-fields.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-collection.tsx",

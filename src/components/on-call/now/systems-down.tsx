@@ -73,7 +73,7 @@ export function NowFooter({
         <NowShiftLists context={context} shifts={shifts} items={items} now={now} />
         <OnCallRow
           title="Systems down"
-          subtitle="Downtime plan"
+          subtitle="Downtime plan needs a connection"
           href={ON_CALL_FIND_DOWNTIME_HREF}
           testId="on-call-now-systems-down"
         />
