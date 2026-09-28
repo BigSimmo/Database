@@ -153,7 +153,7 @@ for (const width of [390, 1280]) {
       await page.keyboard.press("ArrowLeft");
       await page.keyboard.press("Enter");
     } else await cell.click();
-    await page.getByLabel("Shift code", { exact: true }).selectOption("N");
+    await page.getByRole("combobox", { name: "Shift code", exact: true }).selectOption("N");
     await page.getByRole("button", { name: "Review change", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Review draft change" })).toBeVisible();
     expect(commands).toHaveLength(1);

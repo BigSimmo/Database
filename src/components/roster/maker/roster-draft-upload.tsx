@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { fetchRosterRead } from "@/components/roster/use-roster-team";
 import type { RosterGrid } from "@/lib/roster/import/grid";
 import { RosterReadError, tableToGrid } from "@/lib/roster/import/table";
-import { buildRosterDraftWorkbook } from "@/lib/roster/maker/draft-export";
 import { rosterDraftSchema, type RosterDraft } from "@/lib/roster/maker/model";
 import { parseUploadCsv, previewDraftUpload, type UploadChoice } from "@/lib/roster/maker/upload";
 import { perthDateOf } from "@/lib/roster/shifts/perth-time";
@@ -290,10 +289,21 @@ export function RosterDraftUpload({
     if (busy || exporting || disabled) return;
     setExporting(true);
     try {
-      const bytes = await buildRosterDraftWorkbook(snapshot, people);
-      const blob = new Blob([bytes as BlobPart], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      // Built on the server so exceljs never ships to the browser.
+      const query = new URLSearchParams({
+        draftId: snapshot.draft.id,
+        version: String(snapshot.draft.version),
+        format: "xlsx",
       });
+      const response = await fetch(`/api/roster/team/${encodeURIComponent(serviceId)}/draft?${query}`, {
+        cache: "no-store",
+      });
+      if (response.status === 409) {
+        setMessage("The draft changed. Reload it before exporting.");
+        return;
+      }
+      if (!response.ok) throw new Error("export failed");
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
