@@ -1,7 +1,7 @@
 {
   "note": "sha256 of every migration this repository has shipped, with newlines normalised. An entry whose hash changes means an applied migration was edited, which cannot reach the live database. See scripts/check-migration-immutability.mjs.",
   "generator": "scripts/check-migration-immutability.mjs",
-  "sealed_at": "2026-09-28T08:18:25.930Z",
+  "sealed_at": "2026-09-28T14:47:15.707Z",
   "versions": {
     "20260527000000_bulk_ingestion.sql": "813e8e314064a6dcbaaa55e2765a8ce901d5783b304b4a7af7bb7417a07daf7c",
     "20260527001000_documents_policy_cleanup.sql": "559c26f3172bf75e545a41adef75538b2bf648ea7d53c8eb3d3ea7c244c65a48",
@@ -289,6 +289,7 @@
     "20260927220000_roster_release_two.sql": "78c1c6e37a50b530f1f7f094c701e855d2d79de32b194fe681d97aa79ab3bcf5",
     "20260928092000_roster_draft_versioning.sql": "cbced4a274345bf68a743ecf9db2db5d364d926141454899b52a62cf4290e91c",
     "20260928092100_roster_maker_workflow.sql": "99b727dbc9882186c086f91f73e45906db6e8079e9cf94bf1465197685eef170",
-    "20260928092200_roster_rule_review_invalidation.sql": "d9dd3946f80c48e7757a5707fa733eba60eff39e10885e63bcf314f5f2296e7e"
+    "20260928092200_roster_rule_review_invalidation.sql": "d9dd3946f80c48e7757a5707fa733eba60eff39e10885e63bcf314f5f2296e7e",
+    "20260928091500_accept_rag_deep_memory_v2.sql": "cd1b8ba1e3e8cd0e4446b2806ba2a21846df45d1c2dbdc1a8dbbd1ba1f9b8ce4"
   }
 }

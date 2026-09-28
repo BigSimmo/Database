@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { consumeSubjectApiRateLimit, type RateLimitSubject } from "@/lib/api-rate-limit";
+import {
+  consumeSubjectApiRateLimit,
+  durableRateLimitDenyCacheSizeForTests,
+  resetDurableRateLimitDenyCacheForTests,
+  type RateLimitSubject,
+} from "@/lib/api-rate-limit";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 describe("api rate limiter dual-bucket & deny cache batching", () => {
@@ -49,5 +54,33 @@ describe("api rate limiter dual-bucket & deny cache batching", () => {
     expect(secondResult.limited).toBe(true);
     // Verified: RPC count is still 1 (zero additional DB round-trips)
     expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the deny cache bounded when many limited subjects never return", async () => {
+    resetDurableRateLimitDenyCacheForTests();
+    const mockSupabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          scope: "subject",
+          limited: true,
+          limit_value: 10,
+          remaining: 0,
+          retry_after_seconds: 60,
+          reset_at: new Date(Date.now() + 60000).toISOString(),
+        },
+        error: null,
+      }),
+    } as unknown as ReturnType<typeof createAdminClient>;
+
+    for (let index = 0; index < 2100; index += 1) {
+      await consumeSubjectApiRateLimit({
+        supabase: mockSupabase,
+        subject: { kind: "anonymous", subjectKey: `anon:bounded-${index}` },
+        bucket: "answer",
+      });
+    }
+
+    expect(durableRateLimitDenyCacheSizeForTests()).toBeLessThanOrEqual(2000);
+    resetDurableRateLimitDenyCacheForTests();
   });
 });

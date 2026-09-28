@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0484c739-c480-424e-8d10-608a1cf69648",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Post-merge eval-canary compare for the dead-stem RAG commit (661ccbb64)",
+    "detail": "34 retrieval/chunking/extraction regexes now match real word forms. Baseline: canary run #105 on 67d961107 (already failing on main, see #J8SJQ9), so compare retrieval metrics (doc/content recall 1.0, per-case rr) rather than pass/fail. Regression: revert 661ccbb64 alone. Also glance at answer grouping and document categories in the app (commit d6dd6f0f9).",
+    "source": "Claude session 2026-09-27, branch claude/repository-review-bugs-52tq9q",
+    "issueUlid": "01M3H9CJPA4JTTQ7E2VV2BHZB3"
+  }
+}

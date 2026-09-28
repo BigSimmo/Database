@@ -1080,10 +1080,14 @@ function queryClassAssetBoost(args: { queryClass: RagQueryClass; normalizedQuery
   const monitoringIntent = /\b(?:monitor|monitoring|baseline|review|follow.?up|blood|level|fbc|anc)\b/i.test(
     args.normalizedQuery,
   );
-  const cautionIntent = /\b(?:caution|avoid|contraindicat|toxicity|side effect|adverse|withhold|cease|stop)\b/i.test(
-    args.normalizedQuery,
-  );
-  const escalationIntent = /\b(?:escalat|urgent|senior|red flag|crisis|rapid|specialist)\b/i.test(args.normalizedQuery);
+  const cautionIntent =
+    /\b(?:caution|avoid|contraindicat(?:e|es|ed|ion|ions)|toxicity|side effect|adverse|withhold|cease|stop)\b/i.test(
+      args.normalizedQuery,
+    );
+  const escalationIntent =
+    /\b(?:escalat(?:e|es|ed|ing|ion|ions)|urgent|senior|red flag|crisis|rapid|specialist)\b/i.test(
+      args.normalizedQuery,
+    );
   const documentationIntent = /\b(?:document|documentation|form|checklist|record|required|requirement)\b/i.test(
     args.normalizedQuery,
   );
@@ -1471,7 +1475,7 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\b(?:image|figure|visual)\b.*\b(?:source|table|chart|matrix)\b/i.test(query);
   const wantsRiskFlowchart =
     /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
-    /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query);
+    /\b(?:risk|red\s*zone|red|urgent|escalat(?:e|es|ed|ing|ion|ions)|next step)\b/i.test(query);
   const wantsClozapineBloodMonitoring =
     /\bclozapine\b/i.test(correctedQueryText) &&
     /\b(?:blood|bloods|fbc|wcc|full blood count|white cell|observation|observations|monitor|monitoring)\b/i.test(
@@ -1627,9 +1631,15 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const titleCoverageBoost = Math.min(0.18, titleTokenMatches * 0.045);
   const titlePhraseBoost =
     /\btreatment\s+team\b/i.test(query) && /\btreatment\s+team\s+process\b/.test(titleTokenText) ? 0.18 : 0;
-  const safetyQuery = /\b(urgent|red flag|contraindicat|avoid|escalat|toxicity|dose|monitor)\b/i.test(query);
+  const safetyQuery =
+    /\b(urgent|red flag|contraindicat(?:e|es|ed|ion|ions)|avoid|escalat(?:e|es|ed|ing|ion|ions)|toxicity|dose|monitor)\b/i.test(
+      query,
+    );
   const safetyContentBoost =
-    safetyQuery && /\b(urgent|red flag|contraindicat|avoid|escalat|toxicity|maximum|monitor)\b/.test(haystack)
+    safetyQuery &&
+    /\b(urgent|red flag|contraindicat(?:e|es|ed|ion|ions)|avoid|escalat(?:e|es|ed|ing|ion|ions)|toxicity|maximum|monitor)\b/.test(
+      haystack,
+    )
       ? 0.08
       : 0;
   const status = result.source_metadata?.document_status;
@@ -2083,10 +2093,10 @@ function rankingTieBreakScore(query: string, result: SearchResult, explanation: 
   )
     score += 0.07;
   if (
-    /\b(?:risk|red\s*zone|red|urgent|escalat)\b/i.test(query) &&
+    /\b(?:risk|red\s*zone|red|urgent|escalat(?:e|es|ed|ing|ion|ions))\b/i.test(query) &&
     /\bflow\s*chart|flowchart|algorithm|matrix\b/i.test(haystack)
   ) {
-    if (/\b(?:risk|red\s*zone|red|urgent|escalat)\b/i.test(haystack)) score += 0.14;
+    if (/\b(?:risk|red\s*zone|red|urgent|escalat(?:e|es|ed|ing|ion|ions))\b/i.test(haystack)) score += 0.14;
     else score -= 0.05;
   }
   if (/\bpatient safety plan\b/i.test(query) && /\bpatient safety plan\b/.test(titleText)) score += 0.18;
