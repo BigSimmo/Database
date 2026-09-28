@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -73,6 +74,14 @@ afterEach(() => {
 });
 
 describe("who to call now", () => {
+  it("does not present the historical anchor as the current working-hours period on the server", () => {
+    state.entries = [LADDER];
+    const markup = renderToString(<OnCallCallNowPage />);
+    expect(markup).toContain("Loading current on-call context");
+    expect(markup).not.toContain("Working hours: working-hours steps are listed first.");
+    expect(markup).not.toContain("tel:0890000001");
+  });
+
   it("puts the after-hours steps first at night, with a call button, and keeps the rest below", () => {
     state.entries = [LADDER];
     render(<OnCallCallNowPage now={new Date(2026, 8, 22, 23, 0)} />);
@@ -102,6 +111,24 @@ describe("who to call now", () => {
 });
 
 describe("check these", () => {
+  it("updates the review queue when left open overnight", () => {
+    vi.useFakeTimers();
+    try {
+      const justBeforeMidnight = new Date(2026, 8, 26, 23, 59);
+      const due = new Date(new Date(2026, 8, 27).getTime() + 30 * 86_400_000);
+      due.setUTCFullYear(due.getUTCFullYear() - 1);
+      vi.setSystemTime(justBeforeMidnight);
+      state.entries = [entry({ id: "due", section: "contacts", lastVerifiedAt: due.toISOString() })];
+      render(<OnCallCheckPage />);
+      expect(screen.getByTestId("on-call-check-empty")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(2 * 60 * 1000));
+      expect(screen.getByTestId("on-call-check-group-soon")).toHaveTextContent("Entry due");
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
   it("confirms an entry and writes the updated entry to the saved copy", async () => {
     const user = userEvent.setup();
     const never = entry({ id: "switch", section: "contacts", title: "Switchboard", details: { role: "Switch" } });

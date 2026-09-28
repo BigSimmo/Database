@@ -275,7 +275,7 @@ describe("on-call section routes", () => {
       }
 
       const signedOut = screen.getByTestId(`on-call-${route.view}-signed-out`);
-      expect(signedOut).toHaveTextContent("Sign in to see your hospital's On Call numbers");
+      expect(signedOut).toHaveTextContent("Sign in to see shared On Call entries");
       expect(screen.queryByTestId(`on-call-${route.view}-empty`)).toBeNull();
       expect(screen.queryByTestId(addTestId(route))).toBeNull();
 

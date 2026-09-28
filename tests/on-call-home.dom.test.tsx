@@ -460,7 +460,8 @@ describe("the example-content module", () => {
     render(<OnCallHome />);
 
     const signedOut = screen.getByTestId("on-call-home-signed-out");
-    expect(signedOut).toHaveTextContent("Sign in to see your hospital's On Call numbers");
+    expect(signedOut).toHaveTextContent("Sign in to see shared On Call entries");
+    expect(signedOut).toHaveTextContent("Check the service before using a number.");
     expect(within(signedOut).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.queryByTestId("on-call-home-first-run-empty")).toBeNull();
   });
