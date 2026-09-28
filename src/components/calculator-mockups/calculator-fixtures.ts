@@ -110,6 +110,24 @@ const ybocsSeverity: CalculatorOption[] = [
   { label: "Extreme", short: "4", points: 4 },
 ];
 
+// Items 4 and 9 ask how much effort the patient makes to resist, which is a different question
+// from the perceived control asked by items 5 and 10, so they carry their own anchors.
+const ybocsResistance: CalculatorOption[] = [
+  { label: "Always resists", short: "0", points: 0 },
+  { label: "Resists most of the time", short: "1", points: 1 },
+  { label: "Some effort to resist", short: "2", points: 2 },
+  { label: "Yields, with some reluctance", short: "3", points: 3 },
+  { label: "Completely yields", short: "4", points: 4 },
+];
+
+const ybocsControl: CalculatorOption[] = [
+  { label: "Complete control", short: "0", points: 0 },
+  { label: "Much control", short: "1", points: 1 },
+  { label: "Moderate control", short: "2", points: 2 },
+  { label: "Little control", short: "3", points: 3 },
+  { label: "No control", short: "4", points: 4 },
+];
+
 export const calculators: CalculatorFixture[] = [
   {
     id: "phq9",
@@ -615,22 +633,22 @@ export const calculators: CalculatorFixture[] = [
       {
         id: "y4",
         kind: "options",
-        options: ybocsSeverity,
+        options: ybocsResistance,
         text: "Resistance against obsessions",
         detail: "0 = always resists",
       },
-      { id: "y5", kind: "options", options: ybocsSeverity, text: "Degree of control over obsessive thoughts" },
+      { id: "y5", kind: "options", options: ybocsControl, text: "Degree of control over obsessive thoughts" },
       { id: "y6", kind: "options", options: ybocsSeverity, text: "Time spent performing compulsive behaviours" },
       { id: "y7", kind: "options", options: ybocsSeverity, text: "Interference from compulsive behaviours" },
       { id: "y8", kind: "options", options: ybocsSeverity, text: "Distress if compulsions are prevented" },
       {
         id: "y9",
         kind: "options",
-        options: ybocsSeverity,
+        options: ybocsResistance,
         text: "Resistance against compulsions",
         detail: "0 = always resists",
       },
-      { id: "y10", kind: "options", options: ybocsSeverity, text: "Degree of control over compulsive behaviour" },
+      { id: "y10", kind: "options", options: ybocsControl, text: "Degree of control over compulsive behaviour" },
     ],
     bands: [
       {

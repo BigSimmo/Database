@@ -12,6 +12,7 @@ import {
   parseMedicationBrandNameList,
   rankMedicationRecords,
   shortValue,
+  PBS_SECTION_100_ODTP_PROGRAM,
   type MedicationRecord,
 } from "@/lib/medications";
 
@@ -512,5 +513,43 @@ describe("medicationIndication", () => {
     const indication = medicationIndication(record as MedicationRecord);
     expect(indication).toContain("H. pylori");
     expect(indication).not.toBe("Atypical CAP, H");
+  });
+});
+
+describe("lithium renal safety parameters", () => {
+  it("contraindicates lithium at Stage 4 CKD (eGFR < 30 mL/min)", () => {
+    const record = getMedicationRecord("lithium-carbonate-ir-sr");
+    expect(record).toBeTruthy();
+    const contra = record?.sections.find((s) => s.type === "contra");
+    const absolute = contra?.rows.find((r) => r.key === "Absolute");
+    expect(absolute?.patient?.match).toEqual({ egfr: { lt: 30 } });
+  });
+});
+
+describe("PBS Section 100 opioid dependence treatment references", () => {
+  it("reflects post-July 2023 Section 100 ODTP arrangements for buprenorphine depot", () => {
+    const record = getMedicationRecord("buprenorphine-sl-depot");
+    expect(record).toBeTruthy();
+    const formSection = record?.sections.find((s) => s.title === "Formulation & Access" || s.type === "form");
+    const pbsRow = formSection?.rows.find((r) => r.key === "Prescribing & PBS");
+    expect(pbsRow).toBeDefined();
+    expect(pbsRow?.val).toContain("Section 100 Opioid Dependence Treatment Program (ODTP)");
+    expect(pbsRow?.val).not.toContain("under S100 HSD Community Access");
+  });
+
+  it("reflects post-July 2023 Section 100 ODTP arrangements for Suboxone film", () => {
+    const record = getMedicationRecord("buprenorphine-naloxone");
+    expect(record).toBeTruthy();
+    const formSection = record?.sections.find((s) => s.title === "Formulation & Access" || s.type === "form");
+    const pbsRow = formSection?.rows.find((r) => r.key === "Prescribing & PBS");
+    expect(pbsRow).toBeDefined();
+    expect(pbsRow?.val).toContain("Section 100 Opioid Dependence Treatment Program (ODTP)");
+    expect(pbsRow?.val).not.toContain("under S100 HSD Community Access");
+  });
+
+  it("exports PBS Section 100 ODTP program transition metadata in medications module", () => {
+    expect(PBS_SECTION_100_ODTP_PROGRAM.effectiveDate).toBe("2023-07-01");
+    expect(PBS_SECTION_100_ODTP_PROGRAM.name).toContain("ODTP");
+    expect(PBS_SECTION_100_ODTP_PROGRAM.legacyProgram).toContain("HSD");
   });
 });

@@ -34,7 +34,21 @@ export const cmePlanGoalsSaveSchema = z
           .strict(),
       )
       .max(CME_PLAN_GOAL_MAX),
+    expectedGoals: z
+      .array(
+        z
+          .object({
+            id: z.string().uuid(),
+            goal: z.string().trim().min(CME_PLAN_GOAL_MIN_LENGTH).max(CME_PLAN_GOAL_MAX_LENGTH),
+          })
+          .strict(),
+      )
+      .max(CME_PLAN_GOAL_MAX),
   })
+  .strict();
+
+export const cmePlanGoalCarrySchema = z
+  .object({ sourceYear: z.number().int().min(2000).max(2099), goalId: z.string().uuid() })
   .strict();
 
 export const cmeEntryGoalSchema = z.object({ goalId: z.string().uuid().nullable() }).strict();

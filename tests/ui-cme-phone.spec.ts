@@ -24,9 +24,10 @@ const FROZEN = new Date("2026-09-19T02:00:00Z");
  * The original visual reference routes. Setup and routines additionally have
  * responsive journey coverage below now that they are functional screens.
  */
-export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/programme"] as const;
+// `/cme/programme` is now only a redirect to Set up, so the baseline measures Set up itself.
+export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/setup"] as const;
 
-const CME_CORE_ROUTES = [...CME_BASELINE_ROUTES, "/cme/setup", "/cme/routines", "/cme/summary?year=2026"] as const;
+const CME_CORE_ROUTES = [...CME_BASELINE_ROUTES, "/cme/routines", "/cme/summary?year=2026"] as const;
 
 const CLINICAL_STATUS_CLASS =
   /\b(?:bg|text|border|ring|fill|stroke)-(?:red|amber|green|orange|rose|emerald|yellow)-[0-9]/;
@@ -133,9 +134,12 @@ test.describe("CME core screens at phone widths", () => {
     await page.getByRole("button", { name: "Log 1.0 h for Demo journal club", exact: true }).click();
     await expect(page).toHaveURL(/\/cme\/new\?routine=/);
     await expect(page.getByLabel("What was it", { exact: false })).toHaveValue("Demo journal club");
-    await expect(
-      page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    // The routine's usual hours are shown, not assumed: the doctor chooses the hours actually spent.
+    await expect(page.getByText("This routine usually takes 1 h.")).toBeVisible();
+    const oneHour = page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true });
+    await expect(oneHour).toHaveAttribute("aria-pressed", "false");
+    await oneHour.click();
+    await expect(oneHour).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Educational", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -156,6 +160,11 @@ test.describe("CME core screens at phone widths", () => {
       .getByRole("link", { name: "2025", exact: true })
       .click();
     await expect(page).toHaveURL(/year=2025/);
+    await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
+    await page.getByRole("navigation", { name: "Log tabs" }).getByRole("link", { name: "Routines" }).click();
+    await expect(page).toHaveURL(/\/cme\/routines\?year=2025/);
+    await page.getByRole("navigation", { name: "Log tabs" }).getByRole("link", { name: "Activities" }).click();
+    await expect(page).toHaveURL(/\/cme\/log\?year=2025/);
     await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
     await page
       .getByRole("navigation", { name: "Select year" })
@@ -204,7 +213,8 @@ test.describe("CME core screens at phone widths", () => {
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await page.goto("/cme/setup");
     await expect(page.locator("#main-content")).toBeVisible();
-    const control = page.locator("#main-content").getByRole("button").first();
+    // Set up opens on its read view, whose first control is a link (Edit), not a button.
+    const control = page.locator("#main-content").locator("a[href], button").first();
     await control.focus();
     await expect(control).toBeFocused();
     await expect(control).toBeInViewport();
@@ -325,6 +335,24 @@ test.describe("CME annual records and explicit learning handoff", () => {
 });
 
 test.describe("CME phone design", () => {
+  test("opening a Today figure explains its source without shifting the page", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cme");
+    const main = page.locator("#main-content");
+    await expect(main).toBeVisible();
+    const before = await main.boundingBox();
+    await page.getByTestId("cme-hero-summary").getByRole("button").click();
+    const sheet = page.getByTestId("cme-today-detail-sheet");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByTestId("cme-today-detail-total")).toContainText("saved activities");
+    await expect(sheet.getByText(/This app does not independently certify it/)).toBeVisible();
+    const after = await main.boundingBox();
+    expect(after?.x).toBe(before?.x);
+    expect(after?.width).toBe(before?.width);
+    await page.keyboard.press("Escape");
+    await expect(sheet).not.toBeVisible();
+  });
+
   test("the Log button opens a quick panel over the dashboard without recording anything", async ({ page }) => {
     const writes: string[] = [];
     page.on("request", (request) => {

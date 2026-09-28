@@ -45,6 +45,8 @@ export type CmeAllocation = { readonly category: CmeCategory; readonly hours: nu
 export type CmeEntry = {
   readonly archivedAt?: string | null;
   readonly evidenceCount?: number;
+  /** Active certificates only; `undefined` when not counted (falls back to `evidenceCount`). */
+  readonly certificateCount?: number;
   /** A learning source link, not evidence of participation. */
   readonly sourceUrl?: string | null;
   /** Credit within reviewing hours, never extra hours added to the total. */
@@ -122,3 +124,8 @@ export type CmeYearClose = {
   readonly requirements: readonly CmeClosedRequirementStatus[];
   readonly amendments: readonly CmeYearAmendment[];
 };
+
+/** True only when the log has counted this activity's certificates and found none. */
+export function cmeCertificateMissing(entry: Pick<CmeEntry, "certificateCount" | "evidenceCount">): boolean {
+  return (entry.certificateCount ?? entry.evidenceCount) === 0;
+}

@@ -87,6 +87,7 @@ function bodySections(factsheet: Factsheet): PageSection[] {
         { id: "factsheet-what-it-is", label: "What it is", icon: Stethoscope },
         { id: "factsheet-how-it-works", label: "How it works", icon: ListOrdered },
         { id: "factsheet-what-to-expect", label: "What to expect", icon: Sparkles },
+        { id: "factsheet-support", label: "You're not alone", icon: HeartHandshake },
       ];
     case "procedure":
       return [

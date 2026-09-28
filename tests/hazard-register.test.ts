@@ -145,9 +145,9 @@ describe("buildHazardSnapshot against the real repository documents", () => {
     ]);
   });
 
-  it("reads all six answer-pipeline hazards with the titles from the analysis document", () => {
+  it("reads the six answer-pipeline hazards and services crisis routing (H8) with the titles from the analysis document", () => {
     const psychsift = snapshot.registers[0];
-    expect(psychsift.hazards.map((hazard) => hazard.id)).toEqual(["H1", "H2", "H3", "H4", "H5", "H6"]);
+    expect(psychsift.hazards.map((hazard) => hazard.id)).toEqual(["H1", "H2", "H3", "H4", "H5", "H6", "H8"]);
     expect(psychsift.hazards.every((hazard) => hazard.title)).toBe(true);
     // Quoted, not summarised: this sentence is what stops the panel reading as
     // clinical assurance.
