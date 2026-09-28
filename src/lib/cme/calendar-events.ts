@@ -2,6 +2,7 @@ import type { CalendarEvent, CalendarRecurrence } from "@/lib/calendar/calendar-
 import { formatRoutineHours, type CmeRoutine, type CmeRoutineCadence } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
+import { isRanzcpHome } from "@/lib/cme/home-choice";
 import { addDays } from "@/lib/calendar/calendar-event";
 
 /**
@@ -21,7 +22,7 @@ const CADENCE_RECURRENCE: Record<CmeRoutineCadence, CalendarRecurrence> = {
 
 /** RANZCP's 2026 program guide keeps each year's claim open until 1 March of the following year. */
 export function cmeReportingCloseDate(set: CmeRequirementSet): string | null {
-  return /ranzcp/i.test(set.confirmedSource) ? `${set.year + 1}-03-01` : null;
+  return isRanzcpHome(set.confirmedSource) ? `${set.year + 1}-03-01` : null;
 }
 
 export function cmeDeadlineEvents(set: CmeRequirementSet): CalendarEvent[] {

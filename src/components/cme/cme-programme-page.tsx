@@ -112,7 +112,10 @@ function targetRows(requirement: CmeRequirement): TargetRow[] {
 
 function TargetRowView({ row }: { row: TargetRow }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+    <div
+      id={`cme-requirement-${row.id}`}
+      className={cn(inPageAnchor, "flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0")}
+    >
       <dt className="min-w-0">
         <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.label}</span>
         {row.meta ? <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">{row.meta}</span> : null}
@@ -131,10 +134,12 @@ function TargetRowView({ row }: { row: TargetRow }) {
  */
 export function CmeProgrammePage({
   set,
+  title = "Programme",
   onReconfirm,
   onAddCollegeRequirement,
 }: {
   set: CmeRequirementSet;
+  title?: string;
   /** Wired by a future task. Phase 1 has no re-confirmation flow to hand this to yet. */
   onReconfirm?: () => void;
   /** Wired by a future task. Phase 1 has no college-requirement editor yet. */
@@ -158,9 +163,9 @@ export function CmeProgrammePage({
 
   return (
     <>
-      <CmeNavHeader title="Programme" />
+      <CmeNavHeader title={title} />
       <InformationPageShell testId="cme-programme-page">
-        <h1 className="sr-only">Programme</h1>
+        <h1 className="sr-only">{title}</h1>
 
         <section
           id="cme-national-baseline"
@@ -204,7 +209,10 @@ export function CmeProgrammePage({
                 Add
               </button>
             ) : (
-              <Link href={`/cme/setup?year=${set.year}#cme-setup-requirements-heading`} className={floatingControl}>
+              <Link
+                href={`/cme/setup?year=${set.year}&edit=1#cme-setup-requirements-heading`}
+                className={floatingControl}
+              >
                 <Plus className="h-4 w-4 shrink-0" aria-hidden />
                 Add
               </Link>
@@ -247,7 +255,7 @@ export function CmeProgrammePage({
               Re-confirm against this year&rsquo;s guide
             </button>
           ) : (
-            <Link href={`/cme/setup?year=${set.year}`} className={cn(floatingControl, "w-full")}>
+            <Link href={`/cme/setup?year=${set.year}&edit=1`} className={cn(floatingControl, "w-full")}>
               Re-confirm against this year&rsquo;s guide
             </Link>
           )}

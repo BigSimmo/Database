@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a57c0f06-4aa3-4fee-a81a-c0eff5a36a44",
+  "createdOn": "2026-09-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "592cb56e-9abd-49a3-a0c6-d18f9cae21ee",
+    "reason": "Duplicate done for #KRB96T: PR #3142's done request 67f78abc-ce70-40f4-89e9-d29f64dd692c already records the same fix, and its wording was kept in the merge."
+  }
+}

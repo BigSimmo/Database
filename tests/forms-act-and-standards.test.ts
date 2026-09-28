@@ -28,7 +28,7 @@ describe("actReferenceGroups", () => {
 
   it("orders the remaining sections numerically", () => {
     const other = groups.at(-1)!.sections.map((entry) => entry.section);
-    expect(other.slice(0, 3)).toEqual(["26", "28", "29"]);
+    expect(other.slice(0, 3)).toEqual(["14", "26", "28"]);
     expect(other).toContain("555");
     expect(other.indexOf("110")).toBeGreaterThan(other.indexOf("98"));
   });

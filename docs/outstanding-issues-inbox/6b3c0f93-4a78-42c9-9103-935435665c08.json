@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6b3c0f93-4a78-42c9-9103-935435665c08",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Split the largest front-end files (ClinicalDashboard ~4,000 lines, MasterSearchHeader ~3,200, globals.css ~6,000) into smaller owned modules",
+    "detail": "Found in the 2026-09-27 design review (PR #3145 session). Their size makes every UI change fragile and slow to review. Owner chose not to rebuild them in that pass. Do one file per careful PR, behaviour-neutral, with verify:phone-chrome and the full browser suite; globals.css splits must preserve cascade order (unlayered component CSS by design).",
+    "source": "Claude Code session 2026-09-27 phone-first design review (PR #3145)",
+    "issueUlid": "01M3HJC0A3H9WAQNHBB7G7GRV5"
+  }
+}

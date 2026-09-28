@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "592cb56e-9abd-49a3-a0c6-d18f9cae21ee",
+  "createdOn": "2026-09-27",
+  "action": "done",
+  "payload": {
+    "id": "#KRB96T",
+    "outcome": "Removed the obsolete manual JSON sign-off editing instructions in forms-content-review.json, sign-off-queue.ts and the MHA review sheet header; reviewers are directed to npm run clinical:review. PR #3146.",
+    "baseRowFingerprint": "dd51db48a36f2f69e1b0d152913b6f46f9d161444212771c4f54a8eaa8258924"
+  }
+}

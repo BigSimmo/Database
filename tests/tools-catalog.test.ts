@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  psychiatricMedicareBillingItems,
   rankToolRecords,
   toolCatalogRecordById,
   toolCatalogRecords,
@@ -122,5 +123,46 @@ describe("tools catalog", () => {
       expect(fixture.href).toBe(record.href);
       expect(fixture.sourceBacked).toBe(record.sourceBacked);
     }
+  });
+
+  it("explicitly states Consultant Psychiatrist Item 291 and Item 293 billing rules", () => {
+    const item291 = psychiatricMedicareBillingItems["291"];
+    expect(item291).toBeDefined();
+    expect(item291.referralRequirement).toMatch(/general practitioner|GP/i);
+    expect(item291.frequencyRestriction).toMatch(/12-month/i);
+    expect(item291.ongoingManagementRule).toMatch(/billing condition, not a treatment ban/i);
+    expect(item291.ongoingManagementRule).not.toMatch(/statutor/i);
+    expect(item291.ongoingManagementRule).toMatch(/referring GP/i);
+
+    const item293 = psychiatricMedicareBillingItems["293"];
+    expect(item293).toBeDefined();
+    expect(item293.description).toMatch(/review of (?:a )?management plan.*291/i);
+    expect(item293.referralRequirement).toMatch(/GP/i);
+    expect(item293.frequencyRestriction).toMatch(/12-month/i);
+    expect(item293.ongoingManagementRule).toMatch(/ongoing management remains with the referring GP/i);
+
+    const carePlans = toolCatalogRecordById("care-plans");
+    expect(carePlans.detail).toContain("Item 291");
+    expect(carePlans.detail).toContain("Item 293");
+    expect(carePlans.detail).toMatch(/12-month restriction/i);
+    expect(carePlans.detail).toMatch(/billing condition/i);
+    expect(carePlans.detail).not.toMatch(/statutory prohibition/i);
+    expect(carePlans.checkFirst).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/291.*12-month/i),
+        expect.stringMatching(/291 billing condition/i),
+      ]),
+    );
+  });
+
+  it("finds care plans via MBS 291 and Medicare billing keywords", () => {
+    const matches291 = rankToolRecords("291");
+    expect(matches291[0]?.tool.id).toBe("care-plans");
+
+    const matches293 = rankToolRecords("293");
+    expect(matches293[0]?.tool.id).toBe("care-plans");
+
+    const matchesBilling = rankToolRecords("medicare billing 291");
+    expect(matchesBilling[0]?.tool.id).toBe("care-plans");
   });
 });
