@@ -330,7 +330,7 @@
   },
   "dependencies": {
     "@next/env": "16.3.6",
-    "@sentry/nextjs": "^10.75.0",
+    "@sentry/nextjs": "^11.0.0",
     "@sentry/node": "^10.69.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.112.2",
