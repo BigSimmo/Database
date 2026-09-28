@@ -183,13 +183,23 @@ export async function blockExternalRequests(page: Page) {
 }
 
 export async function gotoPhoneSurface(page: Page, path: string, safeAreaBottom = 34) {
+  // Simulate installed-PWA safe-area insets (the repo routes env() through
+  // these vars precisely so Chromium tests can exercise them). Installed as an
+  // init script, not a one-off `addStyleTag`: a page that reloads itself right
+  // after first paint (CME did) destroyed the context mid-inject and dropped
+  // the insets. An init script re-applies them on every document load.
+  await page.addInitScript((css) => {
+    const apply = () => {
+      const style = document.createElement("style");
+      style.dataset.phoneSafeArea = "";
+      style.textContent = css;
+      (document.head ?? document.documentElement).appendChild(style);
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
+    else apply();
+  }, `:root{--safe-area-top:59px !important;--safe-area-bottom:${safeAreaBottom}px !important;}`);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-  // Simulate installed-PWA safe-area insets (the repo routes env() through
-  // these vars precisely so Chromium tests can exercise them).
-  await page.addStyleTag({
-    content: `:root{--safe-area-top:59px !important;--safe-area-bottom:${safeAreaBottom}px !important;}`,
-  });
   // Let hydration, fonts, and the composer/portal layout settle.
   await page.waitForTimeout(700);
 }
