@@ -37,13 +37,12 @@
     },
     {
       "code": "2",
-      "status": "reviewed",
+      "status": "drafted",
       "sections": ["34", "35"],
       "contextualSections": ["25", "36"],
       "basis": "Drafted from Mental Health Act 2014 (WA) s 34, s 35 with s 25, s 36 as context, and from the approved Form 2 as listed on the Office of the Chief Psychiatrist register.",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:20:51.637Z",
-      "reviewedContentSha256": "c5ea5c2479361dbeb78587e4963260a3096959f7a45c424c5795899e77f033e9"
+      "reviewedBy": null,
+      "reviewedAt": null
     },
     {
       "code": "3A",
