@@ -282,7 +282,7 @@ export function buildRetrievalQueryVariants(
   }
   if (
     /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
-    /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
+    /\b(?:risk|red\s*zone|red|urgent|escalat(?:e|es|ed|ing|ion|ions)|next step)\b/i.test(query)
   ) {
     addVariant("risk flow");
     // websearch_to_tsquery ANDs every term, so the previous "red zone risk flow"

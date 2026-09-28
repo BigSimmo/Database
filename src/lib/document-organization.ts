@@ -514,8 +514,10 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "mental-health",
     label_type: "service",
-    strong: [/\b(?:mental health|psychiatr|psychosis|schizophrenia|bipolar|ect\b|seclusion|camhs|mhoa)\b/i],
-    body: [/\b(?:mental health|psychiatr|psychosis|schizophrenia|bipolar|seclusion)\b/i],
+    strong: [
+      /\b(?:mental health|psychiatr(?:y|ic|ist|ists)|psychosis|schizophrenia|bipolar|ect\b|seclusion|camhs|mhoa)\b/i,
+    ],
+    body: [/\b(?:mental health|psychiatr(?:y|ic|ist|ists)|psychosis|schizophrenia|bipolar|seclusion)\b/i],
     minBodyMatches: 2,
   },
   {
@@ -535,8 +537,10 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "obstetrics-maternity",
     label_type: "service",
-    strong: [/\b(?:obstetric|maternity|labour|birth|antenatal|postnatal|perinatal|midwif|kemh|pregnan)\b/i],
-    body: [/\b(?:obstetric|maternity|antenatal|postnatal|perinatal|pregnan)\b/i],
+    strong: [
+      /\b(?:obstetric|maternity|labour|birth|antenatal|postnatal|perinatal|midwi(?:fe|fery|ves)|kemh|pregnan(?:t|cy|cies))\b/i,
+    ],
+    body: [/\b(?:obstetric|maternity|antenatal|postnatal|perinatal|pregnan(?:t|cy|cies))\b/i],
     minBodyMatches: 2,
   },
   {
@@ -563,15 +567,19 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "infectious-disease",
     label_type: "service",
-    strong: [/\b(?:infection control|infectious disease|antimicrobial|antibiotic|isolation|sepsis)\b/i],
-    body: [/\b(?:infection control|infectious disease|antimicrobial|antibiotic|isolation|sepsis)\b/i],
+    strong: [/\b(?:infection control|infectious disease|antimicrobials?|antibiotic|isolation|sepsis)\b/i],
+    body: [/\b(?:infection control|infectious disease|antimicrobials?|antibiotic|isolation|sepsis)\b/i],
     minBodyMatches: 3,
   },
   {
     label: "oncology-haematology",
     label_type: "service",
-    strong: [/\b(?:oncolog|haematolog|hematolog|chemotherapy|transfusion|apheresis|leukaemia)\b/i],
-    body: [/\b(?:oncolog|haematolog|hematolog|chemotherapy|transfusion|apheresis)\b/i],
+    strong: [
+      /\b(?:oncolog(?:y|ist|ists|ical)|haematolog(?:y|ist|ists|ical)|hematolog|chemotherapy|transfusion|apheresis|leukaemia)\b/i,
+    ],
+    body: [
+      /\b(?:oncolog(?:y|ist|ists|ical)|haematolog(?:y|ist|ists|ical)|hematolog|chemotherapy|transfusion|apheresis)\b/i,
+    ],
     minBodyMatches: 3,
   },
   {
@@ -635,8 +643,10 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "diabetes-endocrinology",
     label_type: "service",
-    strong: [/\b(?:diabetes|endocrin|insulin|hypoglycaem|dka\b|diabetic ketoacidosis|thyroid|adrenal)\b/i],
-    body: [/\b(?:diabetes|endocrin|insulin|hypoglycaem|diabetic ketoacidosis)\b/i],
+    strong: [
+      /\b(?:diabetes|endocrin(?:e|ology|ologist|ologists)|insulin|hypoglycaem|dka\b|diabetic ketoacidosis|thyroid|adrenal)\b/i,
+    ],
+    body: [/\b(?:diabetes|endocrin(?:e|ology|ologist|ologists)|insulin|hypoglycaem|diabetic ketoacidosis)\b/i],
     minBodyMatches: 3,
   },
   {
@@ -702,8 +712,8 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "antimicrobials",
     label_type: "medication",
-    strong: [/\b(?:antimicrobial|antibiotic|vancomycin|gentamicin|penicillin|meropenem)\b/i],
-    body: [/\b(?:antimicrobial|antibiotic|vancomycin|gentamicin|penicillin|meropenem)\b/i],
+    strong: [/\b(?:antimicrobials?|antibiotic|vancomycin|gentamicin|penicillin|meropenem)\b/i],
+    body: [/\b(?:antimicrobials?|antibiotic|vancomycin|gentamicin|penicillin|meropenem)\b/i],
     minBodyMatches: 2,
   },
   {
@@ -878,7 +888,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "prescribe",
     label_type: "clinical_action",
-    strong: [/\b(?:prescrib|dose|dosing|medication order|standing drug guideline|sdg\b|drug guideline)\b/i],
+    strong: [
+      /\b(?:prescrib(?:e|es|ed|er|ers|ing)|dose|dosing|medication order|standing drug guideline|sdg\b|drug guideline)\b/i,
+    ],
   },
   {
     label: "administer",
@@ -895,7 +907,7 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "escalate",
     label_type: "clinical_action",
-    strong: [/\b(?:escalat|urgent review|senior review|notify consultant)\b/i],
+    strong: [/\b(?:escalat(?:e|es|ed|ing|ion|ions)|urgent review|senior review|notify consultant)\b/i],
   },
   {
     label: "refer",
@@ -1014,7 +1026,7 @@ const smartFacetRules: SmartFacetRule[] = [
     label: "medication-instruction",
     label_type: "document_intent",
     strong: [
-      /\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|over the counter|complementary medicines|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium|permethrin)\b/i,
+      /\b(?:prescrib(?:e|es|ed|er|ers|ing)|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|over the counter|complementary medicines|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium|permethrin)\b/i,
     ],
   },
 
@@ -1162,8 +1174,8 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "prescribing",
     label_type: "workflow",
-    strong: [/\b(?:prescrib|dose|dosing|medication instruction)\b/i],
-    body: [/\b(?:prescrib|dose|dosing)\b/i],
+    strong: [/\b(?:prescrib(?:e|es|ed|er|ers|ing)|dose|dosing|medication instruction)\b/i],
+    body: [/\b(?:prescrib(?:e|es|ed|er|ers|ing)|dose|dosing)\b/i],
     minBodyMatches: 3,
   },
   {
@@ -1176,8 +1188,8 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "escalation",
     label_type: "workflow",
-    strong: [/\b(?:escalat|urgent review|notify consultant|senior review)\b/i],
-    body: [/\b(?:escalat|urgent review|senior review)\b/i],
+    strong: [/\b(?:escalat(?:e|es|ed|ing|ion|ions)|urgent review|notify consultant|senior review)\b/i],
+    body: [/\b(?:escalat(?:e|es|ed|ing|ion|ions)|urgent review|senior review)\b/i],
     minBodyMatches: 2,
   },
   {
@@ -1269,8 +1281,8 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "nursing-midwifery",
     label_type: "workflow",
-    strong: [/\b(?:nursing|nurse|midwif|clinical nurse)\b/i],
-    body: [/\b(?:nursing|nurse|midwif)\b/i],
+    strong: [/\b(?:nursing|nurse|midwi(?:fe|fery|ves)|clinical nurse)\b/i],
+    body: [/\b(?:nursing|nurse|midwi(?:fe|fery|ves))\b/i],
     minBodyMatches: 4,
   },
   {
@@ -1422,7 +1434,7 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "absconding-risk",
     label_type: "risk",
-    strong: [/\b(?:abscond|missing person|awol|absent without leave)\b/i],
+    strong: [/\b(?:abscond(?:s|ed|ing|er|ers)?|missing person|awol|absent without leave)\b/i],
   },
   {
     label: "falls-prevention",
@@ -1469,7 +1481,7 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "clinical-handover-escalation",
     label_type: "risk",
-    strong: [/\b(?:clinical handover|handover|isbar|escalation protocol|deteriorat)\b/i],
+    strong: [/\b(?:clinical handover|handover|isbar|escalation protocol|deteriorat(?:e|es|ed|ing|ion))\b/i],
   },
   {
     label: "open-disclosure",

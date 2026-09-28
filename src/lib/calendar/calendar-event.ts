@@ -42,6 +42,8 @@ export type CalendarEvent = {
   readonly kind: CalendarEventKind;
   /** Repeats from `date` onwards. */
   readonly recurrence?: CalendarRecurrence;
+  /** Original date of a repeated series, retained when this event is an expanded occurrence. */
+  readonly seriesStartDate?: string;
   readonly location?: string;
   readonly notes?: string;
   /** An in-app page about this event, if there is one. */
@@ -53,6 +55,13 @@ export type CalendarEvent = {
   readonly reminderType?: ReminderType;
   /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
   readonly alarmAt?: string;
+  /**
+   * Set on one occurrence of a repeating series that carries its own alarm. A
+   * calendar file writes it as an override of that occurrence (RFC 5545
+   * RECURRENCE-ID, same UID, no RRULE), so each alarm is absolute and counted
+   * against the daily cap. Set only by `applyReminderAlarms`.
+   */
+  readonly seriesOccurrence?: true;
   /**
    * A cancelled occurrence. It stays in exports and feeds so a calendar that already holds it
    * updates it rather than keeping it: it is written with STATUS:CANCELLED and never with an alarm.
@@ -131,6 +140,33 @@ function occurrenceAfter(anchor: string, recurrence: CalendarRecurrence, index: 
   }
 }
 
+/**
+ * The index of the last occurrence at or before `rangeStart`, or 0. Solved
+ * rather than counted, so a series that began years ago still reaches the range
+ * inside the cap below. For months it steps back one period, because clamping
+ * can put an occurrence a few days earlier than the month count suggests.
+ */
+function firstIndexNear(anchor: string, recurrence: CalendarRecurrence, rangeStart: string): number {
+  const anchorMillis = dateKeyToUtcMillis(anchor);
+  const startMillis = dateKeyToUtcMillis(rangeStart);
+  if (anchorMillis === null || startMillis === null || startMillis <= anchorMillis) return 0;
+  switch (recurrence) {
+    case "weekly":
+    case "fortnightly": {
+      const step = recurrence === "weekly" ? 7 : 14;
+      return Math.floor((startMillis - anchorMillis) / (step * DAY_MS));
+    }
+    case "monthly":
+    case "quarterly": {
+      const a = new Date(anchorMillis);
+      const b = new Date(startMillis);
+      const months = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+      const step = recurrence === "monthly" ? 1 : 3;
+      return Math.max(0, Math.floor(months / step) - 1);
+    }
+  }
+}
+
 /** Safety cap: a weekly series over a year is 53; nothing a page shows needs more. */
 const MAX_OCCURRENCES_PER_EVENT = 400;
 
@@ -150,10 +186,17 @@ export function expandEvents(
       if (event.date >= range.start && event.date <= range.end) result.push({ ...event, occurrenceKey: event.id });
       continue;
     }
-    for (let index = 0; index < MAX_OCCURRENCES_PER_EVENT; index += 1) {
+    const first = firstIndexNear(event.date, event.recurrence, range.start);
+    for (let index = first; index < first + MAX_OCCURRENCES_PER_EVENT; index += 1) {
       const date = occurrenceAfter(event.date, event.recurrence, index);
       if (date > range.end) break;
-      if (date >= range.start) result.push({ ...event, date, occurrenceKey: `${event.id}@${date}` });
+      if (date >= range.start)
+        result.push({
+          ...event,
+          date,
+          seriesStartDate: event.seriesStartDate ?? event.date,
+          occurrenceKey: `${event.id}@${date}`,
+        });
     }
   }
   return result.sort(compareEvents);
