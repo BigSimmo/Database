@@ -469,7 +469,6 @@ describe("tenancy table tiers", () => {
       "roster_assignments",
       "roster_change_agreements",
       "roster_draft_assignments",
-      "roster_maker_consents",
       "roster_member_roles",
       "roster_publication_seen",
       "roster_unavailability",
@@ -480,7 +479,7 @@ describe("tenancy table tiers", () => {
     // The user-keyed tier ACTUALLY QUERIED by scanned files is small and fully enumerated:
     // withOwnerReadScope cannot be used on it (it filters owner_id), so every call site
     // hand-rolls .eq("user_id", …).
-    // Roster's Delete my data reads the actor's own future unavailability by user_id.
+    // `roster_unavailability` is read only by Delete-my-data cleanup, with `.eq("user_id", …)` on the chain.
     expect(userKeyed).toEqual(["roster_unavailability", "user_favourite_sets", "user_favourites", "user_preferences"]);
   });
 });

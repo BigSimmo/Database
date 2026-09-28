@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
 import type { OnCallShift } from "@/lib/roster/shifts/model";
@@ -54,6 +54,17 @@ import { clearRosterSettings } from "@/lib/roster/settings";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
+import { calendarRosterShifts } from "@/lib/roster/team/calendar-shifts";
+
+afterEach(() => vi.unstubAllEnvs());
+
+it("keeps private team shifts out of the production feed while the release is held", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  const own = [night("2026-10-15")];
+  const shifts = await calendarRosterShifts(createAdminClient(), ownerId, own, NOW);
+  expect(shifts).toHaveLength(1);
+  expect(mocks.teams).not.toHaveBeenCalled();
+});
 
 import { GET as getRosterSettings, PUT as putRosterSettings } from "@/app/api/roster/settings/route";
 import { GET as getAccountPreferences, PUT as putAccountPreferences } from "@/app/api/account/preferences/route";

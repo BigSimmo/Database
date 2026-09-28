@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
@@ -25,6 +25,17 @@ vi.mock("@/lib/roster/team/repository", () => ({ rosterRead: mocks.overview }));
 
 import { DELETE, GET, PATCH, POST } from "@/app/api/roster/leave/route";
 import { PublicApiError } from "@/lib/http";
+
+afterEach(() => vi.unstubAllEnvs());
+
+it("holds real staff leave access in production before reading its data", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  const response = await GET(new Request("http://x/api/roster/leave"));
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ code: "roster_release_held" });
+  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(mocks.from).not.toHaveBeenCalled();
+});
 
 const ME = "5e000000-0000-4000-8000-000000000001";
 const OTHER = "5e000000-0000-4000-8000-000000000002";

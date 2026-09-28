@@ -116,7 +116,7 @@ export const pageOwnedHeaderRoutes = [
     // component travels with the header on a route that reaches it by a
     // different render path.
     name: "Therapy mode navigation (compare)",
-    route: "/therapy-compass/compare",
+    route: "/therapy-compass/compare?ids=cognitive-behavioural-therapy-cbt,acceptance-and-commitment-therapy-act",
     selector: '[data-testid="mode-nav"]',
     phoneMotion: "overlay" as const,
   },

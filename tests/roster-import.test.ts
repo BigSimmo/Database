@@ -243,6 +243,11 @@ describe("file readers agree on the same roster", () => {
     expect(await namesAndFirstRow(readRosterPdf(pdf, TODAY))).toEqual(expected);
   });
 
+  it("refuses a PDF longer than the page cap instead of reading only its first pages", async () => {
+    const pages = Array.from({ length: 13 }, () => ({ table: [SAMPLE_ROSTER.header, ...SAMPLE_ROSTER.rows] }));
+    await expect(readRosterPdf(rosterPdf(pages), TODAY)).rejects.toMatchObject({ reason: "too_big" });
+  });
+
   it("says a scanned PDF can't be read", async () => {
     await expect(readRosterPdf(sampleRosterPdf({ scanned: true }), TODAY)).rejects.toMatchObject({ reason: "scanned" });
   });

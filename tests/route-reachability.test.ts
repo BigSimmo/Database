@@ -34,6 +34,14 @@ const srcRoot = path.join(repoRoot, "src");
 /** Intentionally-unlinked static page routes, each with the reason it is exempt. */
 const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
+    "/roster/join",
+    "Invite-link landing page reached from shared invite URLs; in-app entry is a ModeRow on Roster Today/Team, which this Link-only scan does not model.",
+  ],
+  [
+    "/roster/manage",
+    "Manager surface reached via ModeRow rows on Roster Today and Alerts (manager-only), which this Link-only scan does not model.",
+  ],
+  [
     "/cme/programme",
     "Retired CPD Programme screen. It redirects to /cme/setup, which now owns both the read view and the editor, so in-app navigation links /cme/setup directly; the page stays only for existing bookmarks.",
   ],

@@ -1092,7 +1092,15 @@ export function OnCallEntryEditor({
       onSaved(parsedEntry.data);
       onClose();
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Could not save this entry.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (error instanceof TypeError &&
+          (error.message.toLowerCase().includes("fetch") || error.message.toLowerCase().includes("load failed")))
+      ) {
+        setFormError("You are offline. Connect to save this entry.");
+      } else {
+        setFormError(error instanceof Error ? error.message : "Could not save this entry.");
+      }
     } finally {
       setBusy(null);
     }
@@ -1110,7 +1118,15 @@ export function OnCallEntryEditor({
       onClose();
     } catch (error) {
       setConfirmDeleteOpen(false);
-      setFormError(error instanceof Error ? error.message : "Could not delete this entry.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (error instanceof TypeError &&
+          (error.message.toLowerCase().includes("fetch") || error.message.toLowerCase().includes("load failed")))
+      ) {
+        setFormError("You are offline. Connect to delete this entry.");
+      } else {
+        setFormError(error instanceof Error ? error.message : "Could not delete this entry.");
+      }
     } finally {
       setBusy(null);
     }
@@ -1382,7 +1398,16 @@ export function OnCallVerifyButton({ entry, onVerified, className }: OnCallVerif
       if (!parsed.success) throw new Error("Verify response was invalid.");
       onVerified(parsed.data);
     } catch (verifyError) {
-      setError(verifyError instanceof Error ? verifyError.message : "Could not verify this entry.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (verifyError instanceof TypeError &&
+          (verifyError.message.toLowerCase().includes("fetch") ||
+            verifyError.message.toLowerCase().includes("load failed")))
+      ) {
+        setError("You are offline. Connect to verify this entry.");
+      } else {
+        setError(verifyError instanceof Error ? verifyError.message : "Could not verify this entry.");
+      }
     } finally {
       setBusy(false);
     }

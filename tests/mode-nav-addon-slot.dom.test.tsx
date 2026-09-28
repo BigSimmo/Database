@@ -386,6 +386,7 @@ describe("header addon slot ownership", () => {
       // menu goes to the universal header's TRAILING slot, which is a different
       // host and not this one.
       "src/components/on-call/on-call-nav-header.tsx",
+      // Roster manage owns its own header for the manager surface.
       "src/components/roster/manage/roster-manage-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
       // The source record has no section index, so it renders the header's

@@ -8,6 +8,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
+import { rosterTeamReleaseEnabled } from "@/lib/roster/team/release";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -36,6 +37,10 @@ export async function withRosterApi(
         : publicErrorResponse("Demo mode can't change a team roster. Sign in to use your team.", 400, {
             code: "demo_mode_unavailable",
           });
+    } else if (!rosterTeamReleaseEnabled()) {
+      response = publicErrorResponse("Team roster is not available for real staff yet.", 503, {
+        code: "roster_release_held",
+      });
     } else {
       const client = createAdminClient();
       const user = await requireAuthenticatedUser(request, client);

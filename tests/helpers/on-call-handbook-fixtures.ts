@@ -84,3 +84,15 @@ export function readyHandbook(
     ...over,
   };
 }
+
+/** Role-only reviewed cover, with explicit synthetic windows. */
+export function coverItems(rows: readonly HandbookRow[]): HandbookItem[] {
+  return handbookItems(rows.map((row) => ({ ...row, kind: "clinical", section: "cover" }))).map((item) => ({
+    ...item,
+    cover: {
+      grade: "registrar",
+      ...(item.parsed.team ? { team: item.parsed.team } : {}),
+      window: { start: "00:00", end: "23:59" },
+    },
+  }));
+}

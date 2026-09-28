@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:admin|smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|roster-team|on-call-(?:boards|call|now|service)|teaching|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:admin|smoke|stress|accessibility|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|call|now|service)|teaching|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|roster-team|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Timings: mean of the successful post-critical production Chromium reports from
@@ -89,15 +89,6 @@ export const prUiSpecProfiles = Object.freeze([
     criticalSeconds: 0,
   },
   {
-    // New team and join journeys. Initial estimate until the first successful
-    // production timing artifact is available; keep the spec fail-closed in a
-    // required shard rather than leaving it orphaned.
-    file: "tests/ui-roster-team.spec.ts",
-    shard: 2,
-    fullSeconds: 15,
-    criticalSeconds: 0,
-  },
-  {
     // Estimate from four page loads (Today, Week, Session, the On Call redirect
     // backstop) — no PR CI report yet to measure against. The plan's own 20s
     // estimate does not fit: with today's recorded timings it would push
@@ -163,7 +154,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-clinical-ask.spec.ts",
-    shard: 1,
+    shard: 2,
     fullSeconds: 16.5,
     criticalSeconds: 16.5,
   },
@@ -276,6 +267,13 @@ export const prUiSpecProfiles = Object.freeze([
     criticalSeconds: 0,
   },
   {
+    // Unmeasured (new in Roster release two); estimated until a CI timing report exists.
+    file: "tests/ui-roster-team.spec.ts",
+    shard: 1,
+    fullSeconds: 4,
+    criticalSeconds: 0,
+  },
+  {
     file: "tests/ui-phone-scroll-document-rail.spec.ts",
     shard: 1,
     fullSeconds: 3.3,
@@ -295,7 +293,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-therapy-nav-scroll.spec.ts",
-    shard: 1,
+    shard: 2,
     fullSeconds: 3.2,
     criticalSeconds: 0,
   },

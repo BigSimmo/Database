@@ -45,6 +45,7 @@ export type OnCallDialRowProps = {
   readonly updatedAt?: string | null;
   readonly sources?: readonly { readonly label: string; readonly url: string }[];
   readonly reviewedAt?: string | null;
+  readonly lastConfirmedAt?: string | null;
   /** Quiet red on the call disc and a 6px red dot: the pinned emergency number only. */
   readonly tone?: OnCallDialRowTone;
   /** Named in the dial sheet ("Synthetic Hospital"). */
@@ -125,6 +126,7 @@ export function OnCallDialRow({
   updatedAt,
   sources,
   reviewedAt,
+  lastConfirmedAt,
   tone = "default",
   hospitalName,
   trailingAction,
@@ -261,6 +263,7 @@ export function OnCallDialRow({
           updatedAt={updatedAt}
           sources={sources}
           reviewedAt={reviewedAt}
+          lastConfirmedAt={lastConfirmedAt}
           now={now}
           onCall={recordCall}
           hospitalPhone={hospitalPhone}

@@ -3,9 +3,10 @@
 import { Check, NotebookPen, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import {
   cn,
   controlDisabled,
@@ -118,6 +119,16 @@ export function CmePlanPage({
       setCarryingId(null);
     }
   }
+
+  const isDirty = useMemo(() => {
+    if (savedGoals.length === 0 && drafts.length === 1 && !drafts[0].goal.trim()) return false;
+    if (drafts.length !== savedGoals.length) return true;
+    return drafts.some((draft, index) => {
+      const original = savedGoals[index];
+      return !original || draft.goal.trim() !== original.goal.trim();
+    });
+  }, [drafts, savedGoals]);
+  useDirtyStateGuard(isDirty && !readOnly);
 
   async function save() {
     setSaving(true);

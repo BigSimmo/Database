@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * Roster for a health service: the team API. The session is the only actor,
@@ -73,6 +73,21 @@ beforeEach(() => {
   mocks.consumeSubjectApiRateLimit.mockResolvedValue({ limited: false });
   mocks.rpc.mockResolvedValue({ data: overviewFixture, error: null });
   mocks.dispatch.mockResolvedValue(undefined);
+});
+
+afterEach(() => vi.unstubAllEnvs());
+
+it("holds real staff team access in production until explicitly enabled", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  const held = await GET_TEAMS(new Request("http://x/api/roster/team"));
+  expect(held.status).toBe(503);
+  expect(await held.json()).toMatchObject({ code: "roster_release_held" });
+  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(mocks.rpc).not.toHaveBeenCalled();
+
+  vi.stubEnv("ROSTER_TEAM_RELEASE_ENABLED", "true");
+  mocks.rpc.mockResolvedValue({ data: { teams: [] }, error: null });
+  expect((await GET_TEAMS(new Request("http://x/api/roster/team"))).status).toBe(200);
 });
 
 describe("reading a team", () => {

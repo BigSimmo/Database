@@ -471,12 +471,12 @@ describe("OnCallHandbookState", () => {
     },
   );
 
-  it("shows unavailable as a title and Try again only (review N12)", () => {
+  it("shows unavailable with a usable hospital-phone fallback", () => {
     render(<OnCallHandbookState handbook={handbook("unavailable")} page="call" />);
     const state = screen.getByTestId("on-call-handbook-state-unavailable");
     expect(within(state).getByRole("button", { name: "Try again" })).toBeInTheDocument();
     expect(state).not.toHaveTextContent(/server did not answer/);
-    expect(state.querySelectorAll("p")).toHaveLength(1);
+    expect(state).toHaveTextContent("use a hospital phone or ask the ward team for switchboard");
   });
 
   it("links a reader with no handbook to Manage service", () => {
