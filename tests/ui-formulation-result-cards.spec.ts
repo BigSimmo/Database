@@ -49,7 +49,7 @@ test("separates mechanism cards and keeps the primary actions on the card header
     const secondaryAction = actionGroup.getByRole("link", { name: "Use Worry in formulation" });
 
     await expect(cards.first()).toBeVisible();
-    expect(await cards.count()).toBeGreaterThan(1);
+    await expect.poll(() => cards.count()).toBeGreaterThan(1);
     await expect(action).toBeVisible();
     await expect(secondaryAction).toBeVisible();
 
