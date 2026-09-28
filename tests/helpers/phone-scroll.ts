@@ -183,13 +183,15 @@ export async function blockExternalRequests(page: Page) {
 }
 
 export async function gotoPhoneSurface(page: Page, path: string, safeAreaBottom = 34) {
+  await page.addInitScript((bottom) => {
+    document.documentElement.style.setProperty("--safe-area-top", "59px", "important");
+    document.documentElement.style.setProperty("--safe-area-bottom", `${bottom}px`, "important");
+  }, safeAreaBottom);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
   // Simulate installed-PWA safe-area insets (the repo routes env() through
-  // these vars precisely so Chromium tests can exercise them).
-  await page.addStyleTag({
-    content: `:root{--safe-area-top:59px !important;--safe-area-bottom:${safeAreaBottom}px !important;}`,
-  });
+  // these vars precisely so Chromium tests can exercise them). The init script
+  // reapplies them to any document created by an auth or canonical redirect.
   // Let hydration, fonts, and the composer/portal layout settle.
   await page.waitForTimeout(700);
 }
