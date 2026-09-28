@@ -362,7 +362,7 @@ function hasActionableConflictOrGap(conflictsOrGaps: ConflictOrGap[] = []) {
 
 /** Has conflict intent. */
 function hasConflictIntent(query: string) {
-  return /\b(?:conflict|gap|contradict|disagree|inconsisten|versus|vs)\b/i.test(query);
+  return /\b(?:conflict|gap|contradict|disagree|inconsisten(?:t|cy|cies)|versus|vs)\b/i.test(query);
 }
 
 /** Has explicit document lookup intent. */

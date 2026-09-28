@@ -18,17 +18,19 @@ export function OnCallUpdatedLine({
   updatedAt,
   sources,
   reviewedAt,
+  lastConfirmedAt,
   now,
   testId,
 }: {
   readonly updatedAt: string | null;
   readonly sources?: readonly { readonly label: string; readonly url: string }[];
   readonly reviewedAt?: string | null;
+  readonly lastConfirmedAt?: string | null;
   readonly now?: Date;
   readonly testId?: string;
 }) {
   const date = updatedAt ? formatOnCallDate(updatedAt) : "";
-  if (!date && !sources?.length) return null;
+  if (!date && !sources?.length && !lastConfirmedAt && !reviewedAt) return null;
   return (
     <span className="grid min-w-0 gap-0.5 text-xs text-[color:var(--text-muted)]" data-testid={testId}>
       {date ? (
@@ -36,6 +38,9 @@ export function OnCallUpdatedLine({
           Updated {date}
           <span className="text-[color:var(--text-muted)]">{` · ${onCallAgo(updatedAt ?? "", now)}`}</span>
         </span>
+      ) : null}
+      {lastConfirmedAt && formatOnCallDate(lastConfirmedAt) ? (
+        <span className={onCallNumberText}>Confirmed {formatOnCallDate(lastConfirmedAt)}</span>
       ) : null}
       {sources?.length || reviewedAt ? (
         <span className="flex min-w-0 flex-wrap items-center gap-x-3 text-[color:var(--text-muted)]">

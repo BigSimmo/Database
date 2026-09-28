@@ -9,7 +9,7 @@ import {
   onCallDeviceStoreChangedEvent,
   onCallShiftPickStorageKey,
 } from "@/lib/on-call/device-state-keys";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { selectNextShift } from "@/lib/roster/shifts/next-shift";
 import { addDaysToDate, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 

@@ -117,12 +117,31 @@ function notifyStackListeners() {
   for (const listener of Array.from(stackListeners)) listener();
 }
 
+let phoneScrollLockSurfaces: Array<{ element: HTMLElement; overflowY: string }> = [];
+
 export function pushSheet(id: string, root: HTMLElement | null = null) {
+  const existing = openSheets.find((entry) => entry.id === id);
+  if (existing) {
+    if (root && existing.root !== root) {
+      existing.root = root;
+      syncBackgroundInert();
+      notifyStackListeners();
+    }
+    return;
+  }
   if (openSheets.length === 0) {
     bodyScrollLockPreviousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     rootScrollLockPreviousOverflowY = document.documentElement.style.overflowY;
     document.documentElement.style.overflowY = "hidden";
+
+    phoneScrollLockSurfaces = [];
+    if (typeof document !== "undefined") {
+      document.querySelectorAll<HTMLElement>(".phone-scroll-surface").forEach((surface) => {
+        phoneScrollLockSurfaces.push({ element: surface, overflowY: surface.style.overflowY });
+        surface.style.overflowY = "hidden";
+      });
+    }
   }
   openSheets.push({ id, root });
   syncBackgroundInert();
@@ -154,6 +173,10 @@ export function popSheet(id: string) {
   if (openSheets.length === 0) {
     document.body.style.overflow = bodyScrollLockPreviousOverflow;
     document.documentElement.style.overflowY = rootScrollLockPreviousOverflowY;
+    for (const { element, overflowY } of phoneScrollLockSurfaces) {
+      element.style.overflowY = overflowY;
+    }
+    phoneScrollLockSurfaces = [];
   }
   syncBackgroundInert();
   notifyStackListeners();

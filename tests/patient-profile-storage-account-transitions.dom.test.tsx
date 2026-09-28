@@ -170,6 +170,17 @@ describe("account transitions clear the patient physiology profile (M4)", () => 
     vi.unstubAllEnvs();
   });
 
+  it("falls back to a local sign-out when the global sign-out throws, so a reload stays signed out", async () => {
+    await mountAuthenticated();
+    authApi.signOut.mockRejectedValueOnce(new Error("lock timeout"));
+    await act(async () => {
+      screen.getByRole("button", { name: "Sign out" }).click();
+    });
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed_out"));
+    expect(authApi.signOut).toHaveBeenCalledTimes(2);
+    expect(authApi.signOut).toHaveBeenLastCalledWith({ scope: "local" });
+  });
+
   for (const transition of transitions) {
     it(`removes the stored profile and notifies subscribers on ${transition.name}`, async () => {
       await mountAuthenticated();

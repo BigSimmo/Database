@@ -123,6 +123,26 @@ describe("tableToGrid", () => {
     expect(grid.rows.map((row) => row.name)).toEqual(SAMPLE_ROSTER.rows.map((row) => row[0]));
   });
 
+  it("keeps a blank-name shift for explicit open-row sorting but skips empty and total rows", () => {
+    const grid = tableToGrid(
+      [
+        ["Name", "1/10/2026", "2/10/2026", "3/10/2026"],
+        ["Alex Example", "D", "E", "N"],
+        ["", "", "08:00-16:30", ""],
+        ["", "", "", ""],
+        ["", "1", "2", "3"],
+        ["", "TOTAL", "", ""],
+        ["TBA", "D", "", ""],
+      ],
+      TODAY,
+    );
+    expect(grid.rows.map((row) => row.name)).toEqual(["Alex Example", "", "TBA"]);
+    expect(gridRowToShifts(grid, 1, {}).shifts).toHaveLength(1);
+    expect(findRememberedRow(grid, "Alex Example")).toBe(0);
+    expect(findRememberedRow(grid, "TBA")).toBe(2);
+    expect(findRememberedRow(grid, "")).toBeNull();
+  });
+
   it("says there are no dates when the file has no date header", () => {
     expect(() =>
       tableToGrid(
@@ -221,6 +241,11 @@ describe("file readers agree on the same roster", () => {
       },
     ]);
     expect(await namesAndFirstRow(readRosterPdf(pdf, TODAY))).toEqual(expected);
+  });
+
+  it("refuses a PDF longer than the page cap instead of reading only its first pages", async () => {
+    const pages = Array.from({ length: 13 }, () => ({ table: [SAMPLE_ROSTER.header, ...SAMPLE_ROSTER.rows] }));
+    await expect(readRosterPdf(rosterPdf(pages), TODAY)).rejects.toMatchObject({ reason: "too_big" });
   });
 
   it("says a scanned PDF can't be read", async () => {

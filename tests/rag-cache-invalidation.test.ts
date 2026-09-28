@@ -946,7 +946,7 @@ describe("RAG cache invalidation", () => {
     const indexingVersionGate = new Promise<void>((resolve) => {
       releaseIndexingVersion = resolve;
     });
-    const indexingStamp = "rag-deep-memory-v1:doc-1:2026-07-01T00:00:00.000Z:";
+    const indexingStamp = "rag-deep-memory-v2:doc-1:2026-07-01T00:00:00.000Z:";
 
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({
@@ -1015,7 +1015,7 @@ describe("RAG cache invalidation", () => {
     const indexingVersionGate = new Promise<void>((resolve) => {
       releaseIndexingVersion = resolve;
     });
-    const indexingStamp = "rag-deep-memory-v1:doc-1:2026-07-01T00:00:00.000Z:";
+    const indexingStamp = "rag-deep-memory-v2:doc-1:2026-07-01T00:00:00.000Z:";
 
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({

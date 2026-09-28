@@ -39,13 +39,13 @@ The manifest defines a stable app identity and root scope:
 - `background_color` is the brand light splash (`APP_THEME_COLORS.light`). `theme_color` is intentionally omitted
   from the manifest so light/dark browser chrome can keep updating via meta `theme-color`.
 - Language and direction are `en-AU` and `ltr`.
-- Categories are `medical`, `productivity`, and `utilities`; related native applications are not preferred.
+- Categories are `medical`, `productivity`, `utilities`, and `education`; related native applications are not preferred.
 - The SVG icon is accompanied by generated 192 px and 512 px PNG icons for the `any`, `maskable`, and `monochrome`
   purposes; the monochrome pair is a white alpha-only silhouette that platforms recolour (badges, themed icons).
 - `display_override` prefers `standalone` with a `minimal-ui` fallback and never requests `fullscreen`;
   `launch_handler` focuses an existing app window (`navigate-existing`, then `auto`) instead of spawning duplicates.
 - The 180 px Apple icon is opaque so iOS does not render transparency as black or fall back to a page screenshot.
-- Manifest shortcuts open Ask, Documents, Medication guidance, and Differentials. They are launch shortcuts, not
+- Manifest shortcuts open Ask, Documents, Medication guidance, Differentials, On Call, and CME. They are launch shortcuts, not
   offline features; each destination still requires the normal network/auth capabilities.
 - `appleWebApp.capable`, title, and translucent status-bar metadata support Add to Home Screen on Apple platforms.
 

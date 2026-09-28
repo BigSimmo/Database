@@ -55,7 +55,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   teaching: ["Today", "Week", "What's on", "Resources", "Logbook", "Teach", "Supervision", "Organise"],
   psychiatry: [],
   "my-work": ["Today", "Renewals", "New job", "Help"],
-  roster: ["Today", "Shifts", "Settings"],
+  roster: ["Today", "Shifts", "Team", "Requests", "Settings"],
   "first-nations": [
     "Bedside",
     "Contacts",
@@ -533,13 +533,13 @@ describe("mode secondary navigation registry", () => {
     }
   });
 
-  it("hides Who's on while its flag is off, and shows Manage service to editors only", () => {
+  it("shows role-only Who's on, and shows Manage service to editors only", () => {
     const entries = modeSecondaryNavigationRegistry["on-call"];
     const reader = visibleModeSecondaryNavigationEntries(entries, { isEditor: false }).map((entry) => entry.id);
     const editor = visibleModeSecondaryNavigationEntries(entries, { isEditor: true }).map((entry) => entry.id);
-    expect(ON_CALL_WHOS_ON_ENABLED).toBe(false);
-    expect(reader).not.toContain("whoson");
-    expect(editor).not.toContain("whoson");
+    expect(ON_CALL_WHOS_ON_ENABLED).toBe(true);
+    expect(reader).toContain("whoson");
+    expect(editor).toContain("whoson");
     expect(reader).not.toContain("service");
     expect(editor).toContain("service");
     // Every other mode is untouched by the filter.
