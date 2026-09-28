@@ -184,8 +184,14 @@ export async function blockExternalRequests(page: Page) {
 
 export async function gotoPhoneSurface(page: Page, path: string, safeAreaBottom = 34) {
   await page.addInitScript((bottom) => {
-    document.documentElement.style.setProperty("--safe-area-top", "59px", "important");
-    document.documentElement.style.setProperty("--safe-area-bottom", `${bottom}px`, "important");
+    const applySafeArea = () => {
+      const style = document.createElement("style");
+      style.dataset.testSafeArea = "true";
+      style.textContent = `:root{--safe-area-top:59px !important;--safe-area-bottom:${bottom}px !important;}`;
+      document.head.append(style);
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", applySafeArea, { once: true });
+    else applySafeArea();
   }, safeAreaBottom);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
