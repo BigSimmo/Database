@@ -7,7 +7,7 @@
  */
 
 const CACHE_PREFIX = "clinical-kb-pwa-";
-const CACHE_VERSION = "2026-09-28-v1";
+const CACHE_VERSION = "2026-09-28-v2";
 const SHELL_CACHE = `${CACHE_PREFIX}shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_PREFIX}static-${CACHE_VERSION}`;
 const STATIC_CACHE_PREFIX = `${CACHE_PREFIX}static-`;
@@ -233,11 +233,29 @@ function emergencyOfflineResponse() {
   );
 }
 
+const NAVIGATION_TIMEOUT_MS = 3500;
+
+function withNavigationTimeout(promise) {
+  if (typeof setTimeout === "undefined") return promise;
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Navigation network timeout")), NAVIGATION_TIMEOUT_MS);
+  });
+  return Promise.race([promise, deadline]).finally(() => {
+    if (typeof clearTimeout !== "undefined") clearTimeout(timer);
+  });
+}
+
 async function handleNavigation(event) {
   try {
-    const preloaded = await event.preloadResponse;
-    if (preloaded) return preloaded;
-    return await fetch(event.request);
+    // One deadline covers navigation preload as well as the network fetch: a preload that never
+    // settles on a dead or captive connection must still fall back to the offline page.
+    return await withNavigationTimeout(
+      (async () => {
+        const preloaded = event.preloadResponse ? await event.preloadResponse.catch(() => null) : null;
+        return preloaded ?? fetch(event.request);
+      })(),
+    );
   } catch {
     return (await safeCacheMatch(SHELL_CACHE, OFFLINE_URL)) ?? emergencyOfflineResponse();
   }
@@ -272,6 +290,7 @@ self.addEventListener("activate", (event) => {
       const retainedStaticCaches = new Set(
         names
           .filter((name) => name.startsWith(STATIC_CACHE_PREFIX) && name !== STATIC_CACHE)
+          .sort()
           .slice(-MAX_RETAINED_STATIC_CACHES),
       );
       await Promise.allSettled(
@@ -301,6 +320,39 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
+
+// Push payloads carry one type code only. The worker owns every word and click
+// destination, so a server response can never put a name or arbitrary URL on
+// the lock screen.
+const ROSTER_PUSH = {
+  changed: { body: "Your roster changed. Open Roster to see what moved.", path: "/roster" },
+  request: { body: "Something in Roster is waiting for you.", path: "/roster/requests" },
+  offer: { body: "A shift is open in your team. Open Roster to see it.", path: "/roster/requests" },
+  manage: { body: "Something in Manage is waiting for you.", path: "/roster/manage" },
+};
+
+self.addEventListener("push", (event) => {
+  let code = "changed";
+  try {
+    const candidate = event.data?.json()?.t;
+    if (Object.hasOwn(ROSTER_PUSH, candidate)) code = candidate;
+  } catch {
+    // A malformed push still shows a generic notification.
+  }
+  event.waitUntil(
+    self.registration.showNotification("Roster", {
+      body: ROSTER_PUSH[code].body,
+      data: { t: code },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const candidate = event.notification.data?.t;
+  const code = Object.hasOwn(ROSTER_PUSH, candidate) ? candidate : "changed";
+  event.waitUntil(self.clients.openWindow(ROSTER_PUSH[code].path));
 });
 
 self.addEventListener("fetch", (event) => {

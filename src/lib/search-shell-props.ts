@@ -127,6 +127,10 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "first-nations", desktopSearchPlacement: "hero" };
   }
 
+  if (pathname === "/teaching" || pathname.startsWith("/teaching/")) {
+    return { initialMode: "teaching", desktopSearchPlacement: "hero" };
+  }
+
   if (pathname.startsWith("/dictionary")) {
     // `/dictionary/sources` is a read-only governance page — the source method,
     // the authority hierarchy, the index and the review cadence. Nothing on it

@@ -801,7 +801,12 @@ describe("private document API access", () => {
             source_path: "/import/guideline.pdf",
             import_batch_id: "batch-99",
             error_message: "internal stage error",
-            metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
+            metadata: {
+              public_corpus: true,
+              review_date: "2025-06-30",
+              index_generation_id: "generation-a",
+              extraction_quality: "good",
+            },
           }),
         );
       }
@@ -837,6 +842,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     // The caller can still read the shared public document...
     expect(document).toMatchObject({ id: documentId, title: "Public guideline" });
+    expect(body.publicReviewDate).toBe("2025-06-30");
     expect(client.calls[0].orFilters).toContain(
       `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
     );

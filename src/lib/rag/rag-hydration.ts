@@ -15,7 +15,7 @@ import {
   type MemoryCardCache,
 } from "@/lib/rag/rag-candidate-sources";
 import { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
-import { measureSearchPhase, type SearchTiming } from "@/lib/rag/rag-search-timing";
+import { measureSearchPhase, startRerankClock, type SearchTiming } from "@/lib/rag/rag-search-timing";
 import { selectRetrievalEvidence } from "@/lib/retrieval-selection";
 
 // Extracted from rag.ts (maturity X3 / #101): per-request hydration of retrieved
@@ -113,7 +113,7 @@ export async function prepareCoverageGateResults(args: {
   timing: SearchTiming;
   signal?: AbortSignal;
 }) {
-  const startedAt = Date.now();
+  const rerankElapsedMs = startRerankClock(args.timing);
   const candidates = await measureSearchPhase(args.timing, "metadata_hydration", () =>
     attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache, args.signal),
   );
@@ -134,7 +134,7 @@ export async function prepareCoverageGateResults(args: {
     telemetry: args.telemetry,
     topK: args.topK,
   });
-  args.telemetry.rerank_latency_ms += Date.now() - startedAt;
+  args.telemetry.rerank_latency_ms += rerankElapsedMs();
   return results;
 }
 

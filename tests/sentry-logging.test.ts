@@ -68,6 +68,15 @@ describe("privacySafeLogAttributes", () => {
     ]) {
       expect(privacySafeLogAttributes({ failure })).toEqual({});
     }
+    // A lone clinical word used to pass as an "operational token".
+    for (const failure of ["suicidal", "Suicide", "patients", "MRN"]) {
+      expect(privacySafeLogAttributes({ failure })).toEqual({});
+    }
+    // Operational labels that happen to be ordinary words still pass.
+    expect(privacySafeLogAttributes({ bucket: "answer", route_type: "query" })).toEqual({
+      bucket: "answer",
+      route_type: "query",
+    });
     expect(privacySafeLogAttributes({ failure: "upstream timeout after retry" })).toEqual({
       failure: "upstream timeout after retry",
     });

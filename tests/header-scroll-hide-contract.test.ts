@@ -234,6 +234,11 @@ describe("shared header hide/reveal wiring", () => {
       "--phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h))",
     );
     expect(headerSource).toContain("pt-[max(0.5rem,var(--safe-area-top))]");
+    // The pad must never transition padding-top: under reduced motion every
+    // element gets a 0.01ms duration, and a claimed reserve then painted the
+    // stale value for one frame (#CHPC5C). The Playwright cold-load check pins
+    // the behaviour; this pins the rule it depends on.
+    expect(globalsSource).toMatch(/\[data-testid="mobile-composer-reserve-pad"\] \{\s*transition-property: none;\s*\}/);
     expect(reserveHookSource).toContain("useLayoutEffect");
     expect(shellSource).not.toContain("--phone-overlay-chrome-h,0px");
     // offsetHeight ignores transforms, so the measurement is the revealed

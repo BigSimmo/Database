@@ -1,6 +1,7 @@
 import {
   BedDouble,
   Ban,
+  ArrowLeftRight,
   BookOpenText,
   Brain,
   BookMarked,
@@ -13,7 +14,6 @@ import {
   ClipboardList,
   Feather,
   GitCompareArrows,
-  GraduationCap,
   House,
   Landmark,
   LayoutGrid,
@@ -24,17 +24,19 @@ import {
   Network,
   NotebookPen,
   Phone,
+  NotebookText,
   Presentation,
-  Repeat,
   Printer,
   Search,
   Settings,
   Sparkles,
+  SlidersHorizontal,
   Stethoscope,
   Sunrise,
   Scale,
   Target,
   Users,
+  UsersRound,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -119,13 +121,8 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   // page it opens.
   year: CalendarDays,
   log: NotebookPen,
-  check: ClipboardCheck,
-  training: GraduationCap,
-  calendar: CalendarRange,
-  routines: Repeat,
   plan: Target,
   learning: Presentation,
-  programme: ClipboardList,
   setup: ListChecks,
   // Admin's page destinations in the mode picker.
   "admin-today": Sunrise,
@@ -133,11 +130,14 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   "new-job": BriefcaseBusiness,
   help: LifeBuoy,
   // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
-  // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
-  // gear, matched to nothing else in this rail so it cannot be mistaken for a
-  // section.
+  // own CalendarRange mark (`category-identity.ts`); Team is the people on the
+  // roster; Requests is the swap arrows, since swaps are most of what it holds;
+  // Settings gets the generic gear, matched to nothing else in this rail so it
+  // cannot be mistaken for a section.
   today: CalendarClock,
   shifts: CalendarRange,
+  team: UsersRound,
+  requests: ArrowLeftRight,
   settings: Settings,
   // First Nations. Prefixed ids, so On Call's "contacts" icon is not shared —
   // each mode's rail slots wear their own mark even where the idea overlaps.
@@ -150,6 +150,14 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   "first-nations-mistakes": Ban,
   "first-nations-going-home": House,
   "first-nations-end-of-life": Feather,
+  // Teaching shares the Today calendar icon with Roster.
+  week: CalendarClock,
+  logbook: NotebookText,
+  organise: SlidersHorizontal,
+  "whats-on": CalendarDays,
+  resources: LibraryBig,
+  teach: Presentation,
+  supervision: Users,
 };
 
 /**

@@ -127,18 +127,24 @@ export function alarmFor(event: CalendarEvent, settings: ReminderSettings): Date
   return new Date(applyQuietHours(base - LEAD_MINUTES[lead] * MINUTE_MS, settings.quietHours));
 }
 
-type AlarmCandidate = { index: number; type: ReminderType; at: number; day: string; id: string };
+type AlarmCandidate = {
+  index: number;
+  /** The single occurrence of a repeating series this alarm belongs to; null for a one-off event. */
+  occurrence: CalendarEvent | null;
+  type: ReminderType;
+  at: number;
+  day: string;
+  id: string;
+};
 
-/**
- * The first alarm, at or after `now`, across an event's occurrences. A
- * repeating event gets the alarm of its next occurrence only: an absolute
- * alarm cannot repeat, so the calendar link moves it forward each time the
- * calendar re-reads the feed.
- */
+/** How far ahead a repeating series has its occurrences' alarms written out. */
+const ALARM_HORIZON_DAYS = 400;
+
+/** The first alarm, at or after `now`, of a one-off event. */
 function nextAlarm(event: CalendarEvent, settings: ReminderSettings, now: Date): number | null {
   const today = perthDateKey(now);
   // From yesterday: quiet hours can push last night's alarm into this morning.
-  const occurrences = expandEvents([event], { start: addDays(today, -1), end: addDays(today, 400) });
+  const occurrences = expandEvents([event], { start: addDays(today, -1), end: addDays(today, ALARM_HORIZON_DAYS) });
   for (const occurrence of occurrences) {
     const alarm = alarmFor(occurrence, settings);
     if (alarm && alarm.getTime() >= now.getTime()) return alarm.getTime();
@@ -152,6 +158,12 @@ function nextAlarm(event: CalendarEvent, settings: ReminderSettings, now: Date):
  * keeping the higher-priority types (see `REMINDER_TYPES`). Events without a
  * reminder type, with their type's alert off, or whose alarm is already in the
  * past are returned as they were. With the default settings nothing changes.
+ *
+ * A repeating series is never given a repeating alarm, which a calendar app
+ * would fire on every occurrence regardless of the cap. Instead each of its
+ * occurrences in the next `ALARM_HORIZON_DAYS` days competes for the cap on its
+ * own day, and every occurrence that keeps an alarm is returned, after the
+ * unchanged series, as its own `seriesOccurrence` event with an absolute alarm.
  */
 export function applyReminderAlarms(
   events: readonly CalendarEvent[],
@@ -159,11 +171,25 @@ export function applyReminderAlarms(
   now: Date,
 ): CalendarEvent[] {
   const candidates: AlarmCandidate[] = [];
+  const today = perthDateKey(now);
   events.forEach((event, index) => {
+    // A cancelled event never rings (see ics.ts), so it must not take a real alarm's place under the cap.
+    if (event.status === "cancelled") return;
     if (!event.reminderType || settings.types[event.reminderType].calendarAlert === "off") return;
-    const at = nextAlarm(event, settings, now);
-    if (at === null) return;
-    candidates.push({ index, type: event.reminderType, at, day: perthDateKey(new Date(at)), id: event.id });
+    const type = event.reminderType;
+    if (!event.recurrence) {
+      const at = nextAlarm(event, settings, now);
+      if (at !== null)
+        candidates.push({ index, occurrence: null, type, at, day: perthDateKey(new Date(at)), id: event.id });
+      return;
+    }
+    const occurrences = expandEvents([event], { start: addDays(today, -1), end: addDays(today, ALARM_HORIZON_DAYS) });
+    for (const { occurrenceKey, ...occurrence } of occurrences) {
+      const alarm = alarmFor(occurrence, settings);
+      if (!alarm || alarm.getTime() < now.getTime()) continue;
+      const at = alarm.getTime();
+      candidates.push({ index, occurrence, type, at, day: perthDateKey(alarm), id: occurrenceKey });
+    }
   });
   if (candidates.length === 0) return [...events];
 
@@ -173,14 +199,30 @@ export function applyReminderAlarms(
   );
   const perDay = new Map<string, number>();
   const kept = new Map<number, number>();
+  const keptOccurrences = new Map<number, AlarmCandidate[]>();
   for (const candidate of candidates) {
     const used = perDay.get(candidate.day) ?? 0;
     if (used >= settings.maxAlertsPerDay) continue;
     perDay.set(candidate.day, used + 1);
-    kept.set(candidate.index, candidate.at);
+    if (candidate.occurrence) {
+      keptOccurrences.set(candidate.index, [...(keptOccurrences.get(candidate.index) ?? []), candidate]);
+    } else {
+      kept.set(candidate.index, candidate.at);
+    }
   }
-  return events.map((event, index) => {
+  return events.flatMap((event, index) => {
     const at = kept.get(index);
-    return at === undefined ? event : { ...event, alarmAt: new Date(at).toISOString() };
+    if (at !== undefined) return [{ ...event, alarmAt: new Date(at).toISOString() }];
+    const occurrences = keptOccurrences.get(index);
+    if (!occurrences) return [event];
+    const overrides = [...occurrences]
+      .sort((a, b) => a.at - b.at)
+      .flatMap(({ occurrence, at: alarm }): CalendarEvent[] => {
+        if (!occurrence) return [];
+        const { recurrence: _series, ...single } = occurrence;
+        void _series;
+        return [{ ...single, seriesOccurrence: true, alarmAt: new Date(alarm).toISOString() }];
+      });
+    return [event, ...overrides];
   });
 }

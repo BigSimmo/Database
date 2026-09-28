@@ -92,13 +92,19 @@ export function OnCallHandbookItemRow({
               hospitalPhone={hospitalPhone}
               hospitalPhoneSwitch={hospitalPhoneSwitch}
               updatedAt={item.updatedAt}
+              lastConfirmedAt={item.lastConfirmedAt}
               sources={item.sources}
               hospitalName={hospitalName}
               testId={`${testId}-detail-dial`}
             />
           </OnCallGroupedList>
         ) : null}
-        <OnCallUpdatedLine updatedAt={item.updatedAt} sources={item.sources} testId="on-call-updated-date" />
+        <OnCallUpdatedLine
+          updatedAt={item.updatedAt}
+          lastConfirmedAt={item.lastConfirmedAt}
+          sources={item.sources}
+          testId="on-call-updated-date"
+        />
       </div>
     </Sheet>
   );
@@ -116,6 +122,7 @@ export function OnCallHandbookItemRow({
           hospitalPhone={hospitalPhone}
           hospitalPhoneSwitch={hospitalPhoneSwitch}
           updatedAt={item.updatedAt}
+          lastConfirmedAt={item.lastConfirmedAt}
           sources={item.sources}
           hospitalName={hospitalName}
           trailingAction={

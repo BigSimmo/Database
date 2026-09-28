@@ -378,7 +378,10 @@ beforeEach(() => {
   mocks.demo.mockReturnValue(false);
   mocks.rate.mockResolvedValue({ limited: false });
   mocks.auth.mockResolvedValue({ id: ownerId });
-  mocks.rpc.mockResolvedValue({ data: importId, error: null });
+  mocks.rpc.mockImplementation(async (name: string) => ({
+    data: name === "roster_read" ? { teams: [] } : importId,
+    error: null,
+  }));
 });
 
 describe("the My shifts API", () => {
@@ -495,6 +498,8 @@ describe("the My shifts API", () => {
     const writes = calls.filter((call) => call.op === "delete" || call.op === "update");
     expect(writes.map((call) => `${call.op} ${call.table}`)).toEqual([
       "delete roster_calendar_links",
+      "delete web_push_subscriptions",
+      "delete roster_leave",
       "update user_preferences",
       "delete on_call_shifts",
       "delete on_call_shift_imports",
@@ -502,7 +507,7 @@ describe("the My shifts API", () => {
     for (const call of writes.filter((write) => write.op === "delete")) {
       expect(call.eq).toContainEqual(["owner_id", ownerId]);
     }
-    const settingsWrite = writes[1]!;
+    const settingsWrite = writes.find((write) => write.table === "user_preferences")!;
     expect(settingsWrite.eq).toContainEqual(["user_id", ownerId]);
     expect(settingsWrite.updatedValue).toMatchObject({ preferences: { density: "compact" } });
     expect((settingsWrite.updatedValue as { preferences: object }).preferences).not.toHaveProperty("roster");

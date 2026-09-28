@@ -28,6 +28,34 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
+test("DSM compare strip follows the shared phone scroll-hide state", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/dsm/search?q=depression&ids=major-depressive-disorder,bipolar-ii-disorder");
+
+  const strip = page.locator(".dsm-mobile-compare-strip");
+  await expect(strip).toBeVisible({ timeout: 20_000 });
+  await addPhoneScrollRunway(page);
+  const visible = await strip.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, transform: getComputedStyle(element).transform };
+  });
+  expect(visible.transform, "the compare strip starts in its visible position").toBe("none");
+
+  await dragScrollUntilHidden(page, 720, 24);
+  await expectChromeHidden(page, page.getByTestId("universal-header-collapse"), "DSM compare-strip hide");
+  const hidden = await strip.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, transform: getComputedStyle(element).transform };
+  });
+  expect(hidden.transform, "DSM compare strip must translate with phone chrome").not.toBe("none");
+  expect(hidden.top, "hidden compare strip must move below its visible position").toBeGreaterThan(visible.top);
+
+  await dragScrollBy(page, -48, 12);
+  await expect(page.getByTestId("universal-header-collapse")).not.toHaveAttribute("data-scroll-hidden", "true");
+  await expect.poll(() => strip.evaluate((element) => getComputedStyle(element).transform)).toBe("none");
+});
+
 test("phone browser results use document scrolling so Safari can minimize its browser chrome", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);

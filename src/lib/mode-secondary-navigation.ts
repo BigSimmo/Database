@@ -160,29 +160,36 @@ export const modeSecondaryNavigationRegistry = {
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who", group: "more" },
     { id: "orientation", label: "Orientation checklists", href: "/on-call/orientation", group: "more" },
   ],
-  // CME's destinations. Like On Call's, they are registered here so the mode
-  // pill's section level can open them, but CME is deliberately absent from
+  // CPD's five pages. Older /cme/* addresses remain routed and map to their
+  // owning page below. Like On Call's, they are registered so the mode
+  // pill's section level can open them, but CPD is deliberately absent from
   // `MODE_NAV_ADOPTED_MODES` below: no page mounts the shared bar, because the
   // pill already opens exactly these and a rail repeating them would be two
   // controls doing one job.
   //
-  // "This year" leads because the dashboard is the page the mode is judged by.
-  // "Set up" is last and is the only entry not named in the mode's plan: it is
-  // here because `/cme/setup` is a real screen with no other inbound link, and
-  // an unreachable route is an orphan (`tests/route-reachability.test.ts`).
-  // `/cme/customise` is NOT here — it is reached from the dashboard's own
-  // "Customise" control, which is where the owner is when they want it.
+  // Today leads because the dashboard is the page the mode is judged by.
+  // Year check, Routines, Calendar, Training and Programme are tabs reached
+  // from their parent pages. Customise and the annual summary stay secondary.
   cme: [
-    { id: "year", label: "This year", href: "/cme" },
+    { id: "year", label: "Today", href: "/cme" },
     { id: "log", label: "Log", href: "/cme/log" },
-    { id: "check", label: "Year check", href: "/cme/check" },
-    { id: "training", label: "Training", href: "/cme/training" },
-    { id: "calendar", label: "Calendar", href: "/cme/calendar" },
-    { id: "routines", label: "Routines", href: "/cme/routines" },
     { id: "plan", label: "Plan", href: "/cme/plan" },
     { id: "learning", label: "Learning", href: "/cme/learning" },
-    { id: "programme", label: "Programme", href: "/cme/programme" },
     { id: "setup", label: "Set up", href: "/cme/setup" },
+  ],
+  // Teaching's pages, for the mode pill's page list, like CME's. Teaching is
+  // absent from `MODE_NAV_ADOPTED_MODES`: the pill already opens these, so no
+  // page mounts the shared bar. Organise is hidden from the pill for anyone
+  // who is not an organiser or admin (`src/lib/teaching/page-visibility.ts`);
+  teaching: [
+    { id: "today", label: "Today", href: "/teaching" },
+    { id: "week", label: "Week", href: "/teaching/week" },
+    { id: "whats-on", label: "What's on", href: "/teaching/whats-on" },
+    { id: "resources", label: "Resources", href: "/teaching/resources" },
+    { id: "logbook", label: "Logbook", href: "/teaching/logbook" },
+    { id: "teach", label: "Teach", href: "/teaching/teach" },
+    { id: "supervision", label: "Supervision", href: "/teaching/supervision" },
+    { id: "organise", label: "Organise", href: "/teaching/organise" },
   ],
   // Psychiatry's home is itself the list of sections it gathers, and each
   // section keeps its own navigation, so the hub registers no destinations.
@@ -194,14 +201,18 @@ export const modeSecondaryNavigationRegistry = {
     { id: "new-job", label: "New job", href: "/admin/new-job" },
     { id: "help", label: "Help", href: "/admin/help" },
   ],
-  // Roster's three Release 1 pages, registered so the mode pill's section
-  // sheet can open them. Like On Call and CME, Roster is absent from
+  // Roster's pages, registered so the mode pill's section sheet can open them.
+  // Manage is deliberately absent: this registry is the same for everyone and
+  // non-managers must not see it, so managers reach /roster/manage from a row
+  // on Today and on Settings. Like On Call and CME, Roster is absent from
   // `MODE_NAV_ADOPTED_MODES`, so no shared rail is mounted. Its pages carry no
   // in-page navigation header either: the mode pill's section sheet is how a
-  // reader moves between Today, Shifts and Settings.
+  // reader moves between its pages.
   roster: [
     { id: "today", label: "Today", href: "/roster" },
     { id: "shifts", label: "Shifts", href: "/roster/shifts" },
+    { id: "team", label: "Team", href: "/roster/team" },
+    { id: "requests", label: "Requests", href: "/roster/requests" },
     { id: "settings", label: "Settings", href: "/roster/settings" },
   ],
   // First Nations, spec §3 order. The pages sheet's group headings ("At the
@@ -404,18 +415,35 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     return ON_CALL_ACTIVE_IDS[pathname] ?? null;
   }
   if (modeId === "cme") {
-    if (pathname === "/cme/log") return "log";
-    if (pathname === "/cme/check") return "check";
-    if (pathname === "/cme/training") return "training";
-    if (pathname === "/cme/calendar") return "calendar";
-    if (pathname === "/cme/routines") return "routines";
-    if (pathname === "/cme/plan") return "plan";
+    if (
+      pathname === "/cme/log" ||
+      pathname.startsWith("/cme/log/") ||
+      pathname === "/cme/routines" ||
+      pathname === "/cme/new"
+    )
+      return "log";
+    if (pathname === "/cme/check") return "year";
+    if (pathname === "/cme/training" || pathname === "/cme/calendar" || pathname === "/cme/plan") return "plan";
     if (pathname === "/cme/learning") return "learning";
-    if (pathname === "/cme/programme") return "programme";
-    if (pathname === "/cme/setup") return "setup";
+    if (pathname === "/cme/programme" || pathname === "/cme/setup") return "setup";
     // Exact match only, for the same reason On Call's home is: a prefix test
-    // here would mark This year current on every CME route as well as its own.
+    // here would mark Today current on every CPD route as well as its own.
     if (pathname === "/cme") return "year";
+    return null;
+  }
+  if (modeId === "teaching") {
+    // Exact match only, as for On Call and CME: a prefix test would mark
+    // Today current on every Teaching route as well as its own.
+    if (pathname === "/teaching") return "today";
+    if (pathname === "/teaching/week") return "week";
+    if (pathname === "/teaching/whats-on") return "whats-on";
+    if (pathname === "/teaching/resources" || pathname.startsWith("/teaching/resources/")) return "resources";
+    if (pathname === "/teaching/teach") return "teach";
+    if (pathname === "/teaching/supervision") return "supervision";
+    if (pathname === "/teaching/review" || pathname === "/teaching/feedback") return "logbook";
+    if (pathname === "/teaching/import") return "organise";
+    if (pathname === "/teaching/logbook") return "logbook";
+    if (pathname === "/teaching/organise") return "organise";
     return null;
   }
   if (modeId === "my-work") {
@@ -427,6 +455,8 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   }
   if (modeId === "roster") {
     if (pathname === "/roster/shifts") return "shifts";
+    if (pathname === "/roster/team") return "team";
+    if (pathname === "/roster/requests") return "requests";
     if (pathname === "/roster/settings") return "settings";
     // Exact match only, for the same reason On Call's and CME's homes are: a
     // prefix test here would mark Today current on every Roster route as well
@@ -492,7 +522,9 @@ export function isModeSecondaryNavigationRoute(params: {
   if (modeId === "sources") {
     return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
-  if (modeId === "roster") return pathname === "/roster/shifts" || pathname === "/roster/settings";
+  if (modeId === "roster") {
+    return ["/roster/shifts", "/roster/team", "/roster/requests", "/roster/settings"].includes(pathname);
+  }
   return false;
 }
 

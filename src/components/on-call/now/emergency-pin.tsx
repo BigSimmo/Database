@@ -51,6 +51,7 @@ export function NowEmergencyPin({
             dial={item.dial}
             mobileDial={item.mobileDial}
             updatedAt={item.updatedAt}
+            lastConfirmedAt={item.lastConfirmedAt}
             sources={item.sources}
             tone="emergency"
             hospitalName={hospitalName}

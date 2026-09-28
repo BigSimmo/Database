@@ -258,6 +258,7 @@ export function NaturalLanguageAnswer({
   onOpenRailSource,
   openSourceIndex = null,
   showCopyAction = true,
+  isRefusal = false,
 }: {
   // Raw answer text (server bold intact); this component owns display
   // sanitization so <SafeBoldText> can render the high-yield emphasis.
@@ -302,6 +303,12 @@ export function NaturalLanguageAnswer({
   openSourceIndex?: number | null;
   /** Historical turns keep their local copy action; the live turn renders the combined utility row outside. */
   showCopyAction?: boolean;
+  /**
+   * The answer is a refusal (`answerIsRefusal`). Its rows were searched, not relied
+   * on, so the prose carries no source marks and the rail frames every row as
+   * "Documents searched" rather than as support for an answer that was not given.
+   */
+  isRefusal?: boolean;
 }) {
   const { preferences } = useAppPreferences();
   const fragments = primaryAnswerDisplayFragments(text, { preformatted, preserveBold: true });
@@ -317,7 +324,7 @@ export function NaturalLanguageAnswer({
    * this whole surface exists to prevent — and it would depend on cited rows
    * happening to sort first, which is true today and is not a contract.
    */
-  const markableSourceIds = railSources.map((row) => (row.cited === false ? "" : row.id));
+  const markableSourceIds = railSources.map((row) => (isRefusal || row.cited === false ? "" : row.id));
   // A historical turn mounts no drawer, so a mark there would advertise a panel
   // that never opens. Those turns render the prose unmarked.
   const clusters = onOpenSource
@@ -384,6 +391,7 @@ export function NaturalLanguageAnswer({
           onOpenSource={onOpenRailSource ?? onOpenSource}
           activeIndex={openSourceIndex}
           compact={preferences.compactCitations}
+          isRefusal={isRefusal}
         />
         {showCopyAction ? (
           <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">

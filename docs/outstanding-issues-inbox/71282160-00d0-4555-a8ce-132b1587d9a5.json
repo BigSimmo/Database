@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "71282160-00d0-4555-a8ce-132b1587d9a5",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#JHT39N",
+    "outcome": "Standardised publisher fields to Fiona Stanley Fremantle Hospitals Group, Mental Health Commission WA (the source authority register's canonical name), and Mental Health Advocacy Service across dictionary source candidates and acquisitions. No authority alias was added: a bare 'Mental Health Commission' alias changes RAG ranking, so it was dropped from PR #3142 (owner approval 2026-09-28) and needs its own before/after canary",
+    "baseRowFingerprint": "44492e5d59e00afa901c114ad1d93524baf34a95469181407f9a5eb1d623c0da"
+  }
+}

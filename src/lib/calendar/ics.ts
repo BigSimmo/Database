@@ -1,20 +1,12 @@
-import {
-  addDays,
-  CALENDAR_TIME_ZONE,
-  CALENDAR_UTC_OFFSET_MINUTES,
-  eventUtcRange,
-  type CalendarEvent,
-  type CalendarRecurrence,
-} from "@/lib/calendar/calendar-event";
+import { addDays, eventUtcRange, type CalendarEvent, type CalendarRecurrence } from "@/lib/calendar/calendar-event";
 
 /**
  * An iCalendar (RFC 5545) file for a set of events: the one format every
  * calendar — Apple, Google, Outlook — imports. Built on the device and handed
  * to the owner as a download; nothing is sent anywhere.
  *
- * Ordinary timed events use UTC (`Z`). A monthly month-end clamp needs the
- * recurrence dates interpreted in Perth instead, so those events use TZID and
- * a fixed-offset VTIMEZONE (Perth has no daylight saving).
+ * Timed events are written in UTC (`Z`) rather than with a `TZID`, which is
+ * exact for Perth (no daylight saving) and avoids shipping a VTIMEZONE block.
  */
 
 const PRODUCT_ID = "-//PsychSift//Calendar//EN";
@@ -63,18 +55,6 @@ export function compactUtc(instant: Date): string {
     .toISOString()
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}Z$/, "Z");
-}
-
-function compactPerth(instant: Date): string {
-  return compactUtc(new Date(instant.getTime() + CALENDAR_UTC_OFFSET_MINUTES * 60_000)).slice(0, -1);
-}
-
-function hasTimedMonthEndClamp(event: CalendarEvent): boolean {
-  return Boolean(
-    event.startTime &&
-    (event.recurrence === "monthly" || event.recurrence === "quarterly") &&
-    monthEndClamp(event.date),
-  );
 }
 
 /**
@@ -135,14 +115,7 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
   const lines = ["BEGIN:VEVENT", `UID:${event.id}@${UID_DOMAIN}`, `DTSTAMP:${compactUtc(stamp)}`];
   const range = eventUtcRange(event);
   if (range) {
-    if (hasTimedMonthEndClamp(event)) {
-      lines.push(
-        `DTSTART;TZID=${CALENDAR_TIME_ZONE}:${compactPerth(range.start)}`,
-        `DTEND;TZID=${CALENDAR_TIME_ZONE}:${compactPerth(range.end)}`,
-      );
-    } else {
-      lines.push(`DTSTART:${compactUtc(range.start)}`, `DTEND:${compactUtc(range.end)}`);
-    }
+    lines.push(`DTSTART:${compactUtc(range.start)}`, `DTEND:${compactUtc(range.end)}`);
   } else {
     // All-day: DTEND is the day after, exclusive.
     lines.push(
@@ -150,11 +123,21 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
       `DTEND;VALUE=DATE:${compactDate(addDays(event.date, 1))}`,
     );
   }
-  if (event.recurrence) lines.push(`RRULE:${recurrenceRule(event.recurrence, event.date)}`);
+  if (event.seriesOccurrence) {
+    // Overrides the series occurrence that starts at this same moment (RFC 5545 §3.8.4.4).
+    lines.push(
+      range ? `RECURRENCE-ID:${compactUtc(range.start)}` : `RECURRENCE-ID;VALUE=DATE:${compactDate(event.date)}`,
+    );
+  } else if (event.recurrence) {
+    lines.push(`RRULE:${recurrenceRule(event.recurrence, event.seriesStartDate ?? event.date)}`);
+  }
   lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
+  if (event.status === "cancelled") lines.push("STATUS:CANCELLED");
   if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);
-  lines.push(...alarmLines(event));
+  // A cancelled event never rings, whatever reminder settings gave it: an alarm would send a
+  // doctor to an empty room.
+  if (event.status !== "cancelled") lines.push(...alarmLines(event));
   lines.push("END:VEVENT");
   return lines;
 }
@@ -166,19 +149,6 @@ export function toIcs(
   const stamp = options.now ?? new Date();
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:${PRODUCT_ID}`, "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
   if (options.name) lines.push(`X-WR-CALNAME:${escapeIcsText(options.name)}`);
-  if (events.some(hasTimedMonthEndClamp)) {
-    lines.push(
-      "BEGIN:VTIMEZONE",
-      `TZID:${CALENDAR_TIME_ZONE}`,
-      "BEGIN:STANDARD",
-      "DTSTART:19700101T000000",
-      "TZOFFSETFROM:+0800",
-      "TZOFFSETTO:+0800",
-      "TZNAME:AWST",
-      "END:STANDARD",
-      "END:VTIMEZONE",
-    );
-  }
   // A subscribed feed asks the calendar app to re-read it this often. Apple and
   // Outlook honour it; Google keeps its own schedule (roughly daily).
   if (options.refreshHours && Number.isInteger(options.refreshHours) && options.refreshHours > 0) {

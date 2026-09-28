@@ -76,7 +76,12 @@
       "version": "Source review v2",
       "symptoms": ["Anxiety", "Panic", "Low mood", "Trauma intrusions"],
       "diagnosticContexts": ["Anxiety disorders", "PTSD", "Depression", "Personality difficulties"],
-      "protective": [],
+      "protective": [
+        "Approach coping attempts",
+        "Willingness to experience discomfort for valued goals",
+        "Safe and supportive relationships",
+        "Clear safety plan"
+      ],
       "sources": ["defense", "anxiety", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -187,10 +192,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.avoidance",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "fecb805b3986d1c7890fb914b3028da5668bdf6ff42adf6617f3850a480b1003"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -198,7 +200,12 @@
       "version": "Source review v2",
       "symptoms": ["Affective instability", "Interpersonal conflict", "Self-harm risk in some contexts"],
       "diagnosticContexts": ["Personality disorder contexts", "Trauma-related presentations"],
-      "protective": [],
+      "protective": [
+        "Capacity for reflection and mentalising",
+        "Stable therapeutic relationship",
+        "Mindfulness and distress tolerance skills",
+        "Supportive grounding network"
+      ],
       "sources": ["defense"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -284,10 +291,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.splitting",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "00ff9ff658845e675bb81c3a2759b8f3f13adfd2662eb2e4991a7c62b95a4c0e"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -300,7 +304,12 @@
         "Eating disorders",
         "Personality disorder contexts"
       ],
-      "protective": [],
+      "protective": [
+        "Self-compassion",
+        "Secure and non-judgemental connection",
+        "Positive self-concept in other domains",
+        "Openness to vulnerability in trusted spaces"
+      ],
       "sources": ["shame", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -420,10 +429,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.shame",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "306f4850e2891b2ce06477d2f4a5cf8bfce6659edf8bfbfc1cca168148197208"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -436,7 +442,12 @@
         "Bipolar disorder differential",
         "Trauma-related presentations"
       ],
-      "protective": [],
+      "protective": [
+        "Distress tolerance skills",
+        "Emotion regulation repertoire",
+        "Validation from trusted others",
+        "Sensory soothing strategies"
+      ],
       "sources": ["emotion"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -530,10 +541,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.emotion-regulation",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "794770c7470ea16dfde435dff1e5af9972c76424294aa2ce432a2166182f3591"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -546,7 +554,12 @@
         "Health anxiety",
         "Attachment insecurity"
       ],
-      "protective": [],
+      "protective": [
+        "Tolerance of uncertainty",
+        "Self-validation",
+        "Delayed gratification and response prevention",
+        "Trust in previous medical evaluations"
+      ],
       "sources": ["anxiety", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -651,10 +664,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.reassurance-seeking",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "400c69c6a6bd28596fc6e7711c95e9271d93e0033802e10f8cc705ceea0769b9"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -666,7 +676,12 @@
         "Trauma-related presentations",
         "Personality functioning"
       ],
-      "protective": [],
+      "protective": [
+        "Desire for meaningful connection",
+        "Reliable and predictable relational boundaries",
+        "High functional independence",
+        "Capacity for shared activities"
+      ],
       "sources": ["attachment"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -780,10 +795,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.attachment-avoidance",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "0eaa9f468ac213fa4c97d81375765a0fd899ebe9b809375488120d79d9958bc2"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -796,7 +808,12 @@
         "Trauma-related presentations",
         "Schema-focused formulation"
       ],
-      "protective": [],
+      "protective": [
+        "Recognised strengths and achievements",
+        "Supportive feedback from valued peers",
+        "Evidence-testing cognitive skills",
+        "Meaningful vocational or creative roles"
+      ],
       "sources": ["cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -883,10 +900,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.negative-core-beliefs",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "5881a32b90c1f088f485051a616e367caa07dd96e74980e75092ef2e61212c81"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -894,7 +908,12 @@
       "version": "Source review v2",
       "symptoms": ["Interpersonal conflict", "Paranoid ideation in some contexts", "Anger", "Shame"],
       "diagnosticContexts": ["Psychodynamic formulation", "Personality functioning", "Trauma-related mistrust"],
-      "protective": [],
+      "protective": [
+        "Willingness to consider alternative perspectives",
+        "Safe emotional container",
+        "Humour and self-awareness",
+        "Empathic feedback from trusted peers"
+      ],
       "sources": ["defense"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -980,10 +999,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.projection",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "84ddabde3d7ce2aa147665d8460c95fee56fd95c30f902da7692ff7180d46127"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -991,7 +1007,12 @@
       "version": "Source review v2",
       "symptoms": ["Depression", "Anxiety", "Insomnia", "Shame"],
       "diagnosticContexts": ["Depression", "Anxiety", "Trauma-related presentations", "Perfectionism"],
-      "protective": [],
+      "protective": [
+        "Behavioural activation",
+        "Attentional refocusing and absorption in tasks",
+        "Problem-solving orientation",
+        "Physical activity and routine"
+      ],
       "sources": ["rumination", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -1076,10 +1097,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.rumination",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "9ec993099850f30496516a6dcff07cdb3c86d139b604ed59871b02119902ea10"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -1087,7 +1105,12 @@
       "version": "Source review v2",
       "symptoms": ["Anxiety", "Muscle tension", "Insomnia", "Poor concentration"],
       "diagnosticContexts": ["Generalised anxiety", "Health anxiety", "Obsessive-compulsive presentations"],
-      "protective": [],
+      "protective": [
+        "Willingness to accept uncertainty",
+        "Distinction between hypothetical and real problems",
+        "Structured worry time and grounding",
+        "Strong practical problem-solving record"
+      ],
       "sources": ["anxiety", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -1166,10 +1189,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.worry",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "52e5ccfaa78c1d1de9e4195575f567b0f7d3dd2ae9dd0704502f41c9264cfb0b"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -1182,7 +1202,12 @@
         "Complex trauma",
         "Functional neurological symptoms differential"
       ],
-      "protective": [],
+      "protective": [
+        "Grounding and somatic sensory anchors",
+        "Trauma-informed safety strategies",
+        "Predictable and safe environment",
+        "Affect labelling and orientation skills"
+      ],
       "sources": ["dissociation"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -1333,10 +1358,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.dissociation",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "e6b456b27cd8c3797ad7e01ef1a29b23dbf01511510a56b03de6a4e54cdad52d"
+      "reviewStatus": "clinical_review_required"
     },
     {
       "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
@@ -1349,7 +1371,12 @@
         "Obsessive-compulsive personality traits",
         "Eating disorders"
       ],
-      "protective": [],
+      "protective": [
+        "Self-worth decoupled from achievement",
+        "Cognitive flexibility and \"good enough\" standard setting",
+        "Values outside work and performance",
+        "Self-compassion around error"
+      ],
       "sources": ["perfectionism", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -1458,10 +1485,7 @@
         }
       ],
       "conceptId": "psychsift.formulation.content.perfectionistic-concerns",
-      "reviewStatus": "reviewed",
-      "reviewedBy": "PsychSift",
-      "reviewedAt": "2026-09-26T17:25:47.688Z",
-      "reviewedContentSha256": "53cfefb036e628b4a51477b227b7805101188f39a315f190d5f44eac55cdf7d7"
+      "reviewStatus": "clinical_review_required"
     }
   ],
   "formulationTemplates": [

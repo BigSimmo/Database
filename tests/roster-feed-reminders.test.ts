@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
 import type { OnCallShift } from "@/lib/roster/shifts/model";
@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   cmeRoutines: vi.fn(),
   onCall: vi.fn(),
   ownerShifts: vi.fn(),
+  teams: vi.fn().mockResolvedValue([]),
+  teachingFeed: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -42,7 +44,9 @@ vi.mock("@/lib/cme/repository", () => ({
   fetchOwnerCmeRoutines: mocks.cmeRoutines,
 }));
 vi.mock("@/lib/on-call/repository", () => ({ fetchVisibleOnCallEntries: mocks.onCall }));
+vi.mock("@/lib/teaching/feed-repository", () => ({ fetchTeachingFeedSessions: mocks.teachingFeed }));
 vi.mock("@/lib/roster/shifts/repository", () => ({ fetchOwnerShifts: mocks.ownerShifts }));
+vi.mock("@/lib/roster/team/repository", () => ({ rosterReadTeams: mocks.teams, rosterRead: vi.fn() }));
 
 import { calendarFeedEvents } from "@/lib/calendar/feed-repository";
 import { applyReminderAlarms, DEFAULT_REMINDER_SETTINGS, updateReminderType } from "@/lib/reminders/settings";
@@ -50,6 +54,17 @@ import { clearRosterSettings } from "@/lib/roster/settings";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
+import { calendarRosterShifts } from "@/lib/roster/team/calendar-shifts";
+
+afterEach(() => vi.unstubAllEnvs());
+
+it("keeps private team shifts out of the production feed while the release is held", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  const own = [night("2026-10-15")];
+  const shifts = await calendarRosterShifts(createAdminClient(), ownerId, own, NOW);
+  expect(shifts).toHaveLength(1);
+  expect(mocks.teams).not.toHaveBeenCalled();
+});
 
 import { GET as getRosterSettings, PUT as putRosterSettings } from "@/app/api/roster/settings/route";
 import { GET as getAccountPreferences, PUT as putAccountPreferences } from "@/app/api/account/preferences/route";
@@ -155,6 +170,7 @@ beforeEach(() => {
   mocks.cmeRoutines.mockResolvedValue([]);
   mocks.onCall.mockResolvedValue([]);
   mocks.ownerShifts.mockResolvedValue([]);
+  mocks.teachingFeed.mockResolvedValue([]);
 });
 
 describe("the private calendar feed", () => {
@@ -271,6 +287,7 @@ describe("GET/PUT /api/roster/settings", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       calendarShifts: true,
+      alerts: { changes: true, requests: true },
       rowName: "Dr Alex Example",
       codes: { "Example Hospital": { ADO: { kind: "off" } } },
     });

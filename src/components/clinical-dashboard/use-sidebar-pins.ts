@@ -28,6 +28,7 @@ export const pinnableSidebarModeIds = [
   "sources",
   "on-call",
   "cme",
+  "teaching",
   "psychiatry",
   "my-work",
   "roster",

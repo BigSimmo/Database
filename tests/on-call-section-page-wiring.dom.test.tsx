@@ -15,6 +15,16 @@ import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 import { universalHeaderTrailingSlotId } from "@/lib/mode-home-composer";
 
+// The Playbook page renders the hospital ladders, which read the hospital handbook.
+// Give it a signed-in reader whose hospital has published nothing, as other On Call tests do.
+vi.mock("@/components/on-call/use-hospital-handbook", async (importOriginal) => {
+  const { items, ready } = await import("./helpers/on-call-handbook-fixture");
+  const state = ready(items([]));
+  return {
+    ...(await importOriginal<typeof import("@/components/on-call/use-hospital-handbook")>()),
+    useHospitalHandbook: () => state,
+  };
+});
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call/contacts",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),

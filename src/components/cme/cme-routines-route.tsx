@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { CmeDateField, useCmeDateChecks } from "@/components/cme/cme-date-field";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
@@ -9,8 +9,10 @@ import { CmeRoutinesPage } from "@/components/cme/cme-routines-page";
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
+import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
   cmeRoutineCadenceLabels,
   cmeRoutineCadences,
@@ -36,6 +38,14 @@ async function apiError(response: Response): Promise<string> {
   return `Could not save this routine (${response.status}).`;
 }
 
+/** A 2xx reply must still carry the saved routine; otherwise the editor stays open with an error. */
+async function savedRoutine(response: Response, failure: string): Promise<CmeRoutine> {
+  const payload = (await response.json().catch(() => null)) as { routine?: CmeRoutine } | null;
+  const routine = payload?.routine;
+  if (!routine || typeof routine !== "object" || typeof routine.id !== "string") throw new Error(failure);
+  return routine;
+}
+
 export function CmeRoutinesRoute({
   nowIso,
   initialRoutines,
@@ -51,6 +61,20 @@ export function CmeRoutinesRoute({
   const [draft, setDraft] = useState<RoutineDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isDirty = useMemo(() => {
+    if (!editingId) return false;
+    if (editingId === "new") return Boolean(draft.title.trim());
+    const original = routines.find((r) => r.id === editingId);
+    if (!original) return false;
+    return (
+      draft.title.trim() !== original.title.trim() ||
+      draft.cadence !== original.cadence ||
+      draft.usualHours !== original.usualHours ||
+      (draft.nextDue || null) !== (original.nextDue || null)
+    );
+  }, [editingId, draft, routines]);
+  useDirtyStateGuard(isDirty && !demoMode);
   const dateChecks = useCmeDateChecks();
   // The form renders above the list, so on a phone tapping Edit on a routine
   // further down opened it out of sight and looked like nothing happened.
@@ -96,16 +120,14 @@ export function CmeRoutinesRoute({
         body: JSON.stringify(draft),
       });
       if (!response.ok) throw new Error(await apiError(response));
-      const payload = (await response.json()) as { routine: CmeRoutine };
+      const routine = await savedRoutine(response, "Could not save this routine.");
       setRoutines((current) =>
-        creating
-          ? [...current, payload.routine]
-          : current.map((item) => (item.id === payload.routine.id ? payload.routine : item)),
+        creating ? [...current, routine] : current.map((item) => (item.id === routine.id ? routine : item)),
       );
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save this routine.");
+      setError(cmeSaveErrorText(cause, "Could not save this routine."));
     } finally {
       setSaving(false);
     }
@@ -127,12 +149,12 @@ export function CmeRoutinesRoute({
         body: JSON.stringify(archivedDraft),
       });
       if (!response.ok) throw new Error(await apiError(response));
-      const payload = (await response.json()) as { routine: CmeRoutine };
-      setRoutines((current) => current.map((item) => (item.id === payload.routine.id ? payload.routine : item)));
+      const routine = await savedRoutine(response, "Could not archive this routine.");
+      setRoutines((current) => current.map((item) => (item.id === routine.id ? routine : item)));
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not archive this routine.");
+      setError(cmeSaveErrorText(cause, "Could not archive this routine."));
     } finally {
       setSaving(false);
     }

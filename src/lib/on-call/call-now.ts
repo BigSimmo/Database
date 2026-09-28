@@ -19,6 +19,7 @@ export type OnCallCallNowStep = {
   readonly hours: OnCallStepHours;
   /** False when the step is marked for the other half of the day. */
   readonly appliesNow: boolean;
+  readonly waitMinutes?: number;
 };
 
 /** The one in-hours rule, `onCallPeriod`; kept under this name for existing callers. */

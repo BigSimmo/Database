@@ -118,6 +118,7 @@
       "id": "catalogues-forms-and-info",
       "disposition": "owned",
       "routes": [
+        "src/app/(display)/teaching/display/[token]/page.tsx",
         "src/app/(search-app)/admin/help/page.tsx",
         "src/app/(search-app)/admin/new-job/page.tsx",
         "src/app/(search-app)/admin/new-job/records/page.tsx",
@@ -199,9 +200,29 @@
         "src/app/(search-app)/sources/publishers/page.tsx",
         "src/app/(search-app)/sources/search/page.tsx",
         "src/app/(search-app)/sources/topics/page.tsx",
+        "src/app/(search-app)/teaching/c/[token]/page.tsx",
+        "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "src/app/(search-app)/teaching/feedback/page.tsx",
+        "src/app/(search-app)/teaching/import/page.tsx",
+        "src/app/(search-app)/teaching/logbook/page.tsx",
+        "src/app/(search-app)/teaching/organise/page.tsx",
+        "src/app/(search-app)/teaching/page.tsx",
+        "src/app/(search-app)/teaching/resources/[collectionId]/page.tsx",
+        "src/app/(search-app)/teaching/resources/page.tsx",
+        "src/app/(search-app)/teaching/review/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/page.tsx",
+        "src/app/(search-app)/teaching/supervision/page.tsx",
+        "src/app/(search-app)/teaching/teach/page.tsx",
+        "src/app/(search-app)/teaching/week/page.tsx",
+        "src/app/(search-app)/teaching/whats-on/page.tsx",
         "src/app/(search-app)/roster/page.tsx",
         "src/app/(search-app)/roster/shifts/page.tsx",
-        "src/app/(search-app)/roster/settings/page.tsx"
+        "src/app/(search-app)/roster/settings/page.tsx",
+        "src/app/(search-app)/roster/team/page.tsx",
+        "src/app/(search-app)/roster/requests/page.tsx",
+        "src/app/(search-app)/roster/manage/page.tsx",
+        "src/app/(search-app)/roster/join/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -210,11 +231,11 @@
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": ["tests/ui-style-contract.spec.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": ["tests/ckb-v2-token-contract.test.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "compact320": {
           "status": "passed",
@@ -222,7 +243,7 @@
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": ["tests/global-v2-activation.test.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "browser": {
           "status": "passed",
