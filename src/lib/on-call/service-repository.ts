@@ -20,7 +20,7 @@ const serviceErrors: Record<string, { status: number; message: string }> = {
   service_invitation_invalid: { status: 400, message: "This invitation is invalid, expired, revoked or already used." },
   service_invite_email_mismatch: {
     status: 403,
-    message: "Sign in with the email address this invitation was sent to.",
+    message: "Sign in with the confirmed email this invitation was issued to.",
   },
   service_already_member: { status: 409, message: "You already belong to this service." },
   service_invalid_site: { status: 400, message: "Choose a site belonging to this service." },

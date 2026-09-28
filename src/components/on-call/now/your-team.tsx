@@ -160,6 +160,7 @@ export function NowYourTeam({
               dial={item.dial}
               mobileDial={item.mobileDial}
               updatedAt={item.updatedAt}
+              lastConfirmedAt={item.lastConfirmedAt}
               sources={item.sources}
               hospitalName={hospitalName}
               now={now}

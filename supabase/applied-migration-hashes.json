@@ -285,6 +285,7 @@
     "20260926225609_teaching_mode.sql": "e46b4f93caa6c2338c4358c27b2acf4e414e14c8b03543e7a2e18c17e22d6028",
     "20260927135500_teaching_permission_null_guards.sql": "e54535a9f79f77d3e02ba657bd5fbba3b4ed607ce5dbc2f94e64da85f8ab6ea6",
     "20260927195000_cme_atomic_goal_carry.sql": "88d29db6ce66a865f54c7f1d28a894dd9da28dc39d135fb8f0aef60c8a407cb9",
+    "20260927202500_on_call_named_cover.sql": "fafbab97bdafda6cf71f26f112dc8a62506f95146920f1e7fe744f63b3136432",
     "20260927220000_roster_release_two.sql": "78c1c6e37a50b530f1f7f094c701e855d2d79de32b194fe681d97aa79ab3bcf5"
   }
 }
