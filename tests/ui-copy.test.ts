@@ -57,7 +57,7 @@ const EXPECTED_MODE_TITLES: Record<
   differentials: {
     sharedTitle: "Differential Diagnosis",
     standaloneTitle: "Differentials",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Differential diagnosis, clinical presentations, and workups.",
   },
   dsm: {
     sharedTitle: "DSM-5 Diagnosis",
@@ -120,6 +120,11 @@ const EXPECTED_MODE_TITLES: Record<
     standaloneTitle: "CPD",
     subtitle: "What you have done this year, and what is still short.",
   },
+  teaching: {
+    sharedTitle: "Teaching",
+    standaloneTitle: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+  },
   psychiatry: {
     sharedTitle: "Psychiatry",
     standaloneTitle: "Psychiatry",
@@ -147,7 +152,7 @@ describe("ui-copy", () => {
     it("covers every declared app mode exactly once", () => {
       const definedModes = Object.keys(sharedHomePresentation) as AppModeId[];
       expect(definedModes.sort()).toEqual([...appModeIds].sort());
-      expect(definedModes).toHaveLength(22);
+      expect(definedModes).toHaveLength(23);
     });
 
     it.each(appModeIds)("provides non-empty title and subtitle for %s", (modeId) => {

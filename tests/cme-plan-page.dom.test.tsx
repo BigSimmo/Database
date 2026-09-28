@@ -29,7 +29,7 @@ describe("development plan page", () => {
     await user.click(screen.getByTestId("cme-plan-save"));
     await waitFor(() => expect(screen.getByTestId("cme-plan-message")).toHaveTextContent("Plan saved."));
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(body).toEqual({ year: 2026, goals: [{ goal: "Document capacity well" }] });
+    expect(body).toEqual({ year: 2026, expectedGoals: [], goals: [{ goal: "Document capacity well" }] });
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -43,6 +43,57 @@ describe("development plan page", () => {
   it("says when the plan is not yet marked written", () => {
     render(<CmePlanPage set={SET} goals={[]} entries={[]} />);
     expect(screen.getByTestId("cme-plan-status")).toHaveTextContent("Not yet marked as written.");
+  });
+
+  it("offers each goal to carry only in the open year-end window and only on a tap", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ year: 2027, goals: [GOAL], carried: true }), { status: 200 }));
+    const props = { set: SET, goals: [GOAL], entries: [], nextYearConfirmed: true, nextYearGoals: [] };
+    const { rerender } = render(<CmePlanPage {...props} now={new Date("2026-12-16T12:00:00+08:00")} />);
+    expect(screen.queryByText("Carry goals into 2027")).toBeNull();
+    rerender(<CmePlanPage {...props} now={new Date("2026-12-17T12:00:00+08:00")} />);
+    expect(fetchMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Carry into 2027" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith("/api/cme/plan/carry", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ sourceYear: 2026, goalId: GOAL.id });
+    expect(screen.getByTestId("cme-carry-message")).toHaveTextContent("Carried into 2027.");
+    rerender(<CmePlanPage {...props} now={new Date("2027-01-10T12:00:00+08:00")} />);
+    expect(screen.getByText("Carry goals into 2027")).toBeInTheDocument();
+    rerender(<CmePlanPage {...props} now={new Date("2027-02-01T12:00:00+08:00")} />);
+    expect(screen.queryByText("Carry goals into 2027")).toBeNull();
+    rerender(
+      <CmePlanPage
+        {...props}
+        set={{ ...SET, closedAt: "2027-01-10T00:00:00Z" }}
+        now={new Date("2027-01-10T12:00:00+08:00")}
+      />,
+    );
+    expect(screen.queryByText("Carry goals into 2027")).toBeNull();
+  });
+
+  it("does not enable carry when the next-year plan has not been loaded", () => {
+    render(<CmePlanPage set={SET} goals={[GOAL]} entries={[]} now={new Date("2026-12-18T12:00:00+08:00")} />);
+    expect(screen.getByText(/next year’s targets have not been checked/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Carry into 2027" })).toBeDisabled();
+  });
+
+  it("keeps a stale editor from overwriting a changed plan", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ message: "Plan changed", code: "cme_plan_conflict" }), { status: 409 }),
+      );
+    render(<CmePlanPage set={SET} goals={[GOAL]} entries={[]} />);
+    await user.click(screen.getByTestId("cme-plan-save"));
+    await waitFor(() => expect(screen.getByTestId("cme-plan-message")).toHaveTextContent("changed elsewhere"));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).expectedGoals).toEqual([
+      { id: GOAL.id, goal: GOAL.goal },
+    ]);
+    expect(screen.getByTestId("cme-plan-save")).toBeDisabled();
   });
 });
 

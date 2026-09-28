@@ -399,6 +399,23 @@ export function rankMedicationRecords(
   }));
 }
 
+/**
+ * PBS Section 100 Opioid Dependence Treatment Program (ODTP).
+ * Since 1 July 2023, opioid dependence treatment medicines (including Suboxone sublingual
+ * films and long-acting buprenorphine depot injections) are listed under the PBS Section 100
+ * Opioid Dependence Treatment Program (ODTP) rather than the legacy Section 100 Highly
+ * Specialised Drugs (HSD) Community Access program. Patients access PBS-subsidised treatment
+ * with standard co-payments (accruing toward the Safety Net) at community pharmacies,
+ * removing legacy private dispensing/dosing fees.
+ */
+export const PBS_SECTION_100_ODTP_PROGRAM = {
+  name: "Section 100 Opioid Dependence Treatment Program (ODTP)",
+  effectiveDate: "2023-07-01",
+  legacyProgram: "Section 100 Highly Specialised Drugs (HSD) Community Access",
+  transitionSummary:
+    "Post-July 2023, ODT medicines (including buprenorphine depot and Suboxone films) transitioned to Section 100 ODTP with standard PBS co-payments and Safety Net accrual at community pharmacies.",
+} as const;
+
 export { medicationIdentityBadges } from "@/lib/medication-badges";
 
 export type MedicationHeroMetric = {

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 
-import { publishPhoneOverlayChromeReserveNow } from "./use-phone-overlay-chrome-reserve";
+import { claimPhoneOverlayAddonReserve } from "./use-phone-overlay-chrome-reserve";
 
 /**
  * Moves one page-owned navigation header into the universal phone collapse
@@ -16,7 +16,7 @@ import { publishPhoneOverlayChromeReserveNow } from "./use-phone-overlay-chrome-
  * that clears the fixed header has to grow in the SAME commit. Leaving that to
  * the reserve hook's geometry quiet window left every element 49px too high for
  * ~110ms, which is long enough for a tap to press one control and release on
- * another (#CHPC5C) — see `publishPhoneOverlayChromeReserveNow`.
+ * another (#CHPC5C) — see `claimPhoneOverlayAddonReserve`.
  */
 export function PhoneHeaderCollapsePortal({ children }: { children: ReactNode }) {
   const [phoneHost, setPhoneHost] = useState<HTMLElement | null>(null);
@@ -39,19 +39,14 @@ export function PhoneHeaderCollapsePortal({ children }: { children: ReactNode })
     };
   }, []);
 
-  // Runs after the commit that resolved (or dropped) the host, so the stack it
-  // measures already includes or excludes this subtree.
-  //
-  // Two things it does NOT do, both pinned in
-  // tests/phone-overlay-reserve-portal-wiring.dom.test.tsx. On a cold first
-  // load the publisher is suppressed outright — see its SCOPE LIMIT note. And
-  // there is no cleanup, so unmounting this component leaves the reserve at the
-  // taller value and holds content too low until the quiet window catches up;
-  // a cleanup cannot simply publish, because React runs layout-effect destroys
-  // before it detaches portal children, so it would measure the row it is
-  // about to lose.
+  // Runs after the commit that resolved (or dropped) the host, so the host
+  // already holds this subtree and its height is the row's height. The claim
+  // covers the cold first load as well as in-session navigation, and its
+  // cleanup takes the row's height back off when the row leaves the header —
+  // see `claimPhoneOverlayAddonReserve`.
   useLayoutEffect(() => {
-    publishPhoneOverlayChromeReserveNow();
+    if (!phoneHost) return;
+    return claimPhoneOverlayAddonReserve(phoneHost);
   }, [phoneHost]);
 
   return phoneHost ? createPortal(children, phoneHost) : children;

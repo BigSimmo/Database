@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { z } from "zod";
 
 import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/components/cme/cme-allocation-field";
@@ -8,6 +9,7 @@ import { CmeChoiceChip } from "@/components/cme/cme-choice-chip";
 import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/choice";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
 import {
@@ -142,7 +144,10 @@ export type CmeEntryFormProps = {
     | "buckets"
     | "formalPeerReviewHours"
   >;
-  initialStatedHours?: number;
+  /** Null explicitly leaves hours unselected even when a routine suggests a split. */
+  initialStatedHours?: number | null;
+  /** Existing owner entries, used only to ask before a same-day repeat. */
+  existingEntries?: readonly CmeEntry[];
   availableDomains?: readonly string[];
   submitLabel?: string;
   onDirtyChange?: (dirty: boolean) => void;
@@ -158,6 +163,8 @@ export type CmeEntryFormProps = {
    * for the full-page form; a sheet passes false because it has its own frame.
    */
   stickySave?: boolean;
+  /** Mount actions in a sheet's fixed footer while retaining this form's submit validation. */
+  actionContainer?: HTMLElement | null;
   /**
    * Offers "Save as draft": the form's fields as they stand, saved to the account whether or not
    * they would pass as an activity yet. A draft never counts toward hours.
@@ -194,15 +201,18 @@ export function CmeEntryForm({
   onSubmit,
   initialEntry,
   initialStatedHours,
+  existingEntries = [],
   availableDomains = [],
   submitLabel = "Save entry",
   onDirtyChange,
   draftStorageKey,
   stickySave = true,
+  actionContainer,
   onSaveDraft,
   initialDraft,
   draftControls,
 }: CmeEntryFormProps) {
+  const formId = useId();
   // Bumped after every successful save to remount CmeAllocationField, which
   // otherwise has no way to clear its own typed-text state from outside.
   const [formKey, setFormKey] = useState(0);
@@ -210,7 +220,10 @@ export function CmeEntryForm({
   // Nothing is chosen for a brand-new entry (spec §6.1): hours start empty.
   // Only a prefill — a routine, Log again, a draft, an edit — carries hours in.
   const carriedHours = initialEntry?.allocations.reduce((sum, allocation) => sum + allocation.hours, 0) ?? 0;
-  const initialHours = initialStatedHours ?? (carriedHours > 0 ? Math.round(carriedHours * 100) / 100 : null);
+  const initialHours =
+    initialStatedHours === null
+      ? null
+      : (initialStatedHours ?? (carriedHours > 0 ? Math.round(carriedHours * 100) / 100 : null));
   const [date, setDate] = useState(() => initialEntry?.date ?? perthCalendarDate(new Date()));
   const [sourceUrl, setSourceUrl] = useState(initialEntry?.sourceUrl ?? "");
   const [title, setTitle] = useState(initialEntry?.title ?? "");
@@ -240,6 +253,7 @@ export function CmeEntryForm({
   const [saving, setSaving] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [repeatPending, setRepeatPending] = useState<CmeEntryDraft | null>(null);
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(
     () =>
@@ -249,6 +263,48 @@ export function CmeEntryForm({
       (initialEntry?.costCents !== null && initialEntry?.costCents !== undefined),
   );
   const draftRestoreChecked = useRef(false);
+  // Smart defaults are suggestions only. A user's own tap or a restored/prefilled form wins.
+  const hoursChosenByUser = useRef(false);
+  const categoryChosenByUser = useRef(false);
+  const autoFilledTitle = useRef<string | null>(null);
+
+  function applyTitleDefaults() {
+    if (initialEntry?.title || initialDraft || restoredDraft || (draftStorageKey && !draftRestoreChecked.current))
+      return;
+    const normalized = title.trim().toLocaleLowerCase("en-AU");
+    if (normalized === autoFilledTitle.current) return;
+    if (autoFilledTitle.current) {
+      if (!hoursChosenByUser.current) {
+        setStatedHoursText("");
+        setHoursOtherOpen(false);
+      }
+      if (!categoryChosenByUser.current) {
+        setMode(null);
+        setSplitAllocations([]);
+        setSplitTotal(0);
+        setSplitSeed(undefined);
+      }
+      autoFilledTitle.current = null;
+    }
+    if (!normalized) return;
+    const previous = [...existingEntries]
+      .filter((entry) => !entry.archivedAt && entry.title.trim().toLocaleLowerCase("en-AU") === normalized)
+      .sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (!previous || (hoursChosenByUser.current && categoryChosenByUser.current)) return;
+    const total = previous.allocations.reduce((sum, allocation) => sum + allocation.hours, 0);
+    if (!hoursChosenByUser.current && total > 0) {
+      setStatedHoursText(String(Math.round(total * 100) / 100));
+      setHoursOtherOpen(false);
+    }
+    if (!categoryChosenByUser.current && previous.allocations.length) {
+      setMode(initialCategoryMode(previous.allocations));
+      setSplitAllocations([...previous.allocations]);
+      setSplitTotal(total);
+      setSplitSeed(previous.allocations);
+      setFormKey((key) => key + 1);
+    }
+    autoFilledTitle.current = normalized;
+  }
 
   const statedHours = parseCmeHours(statedHoursText) ?? 0;
   const otherHoursChosen = hoursOtherOpen || (statedHoursText.trim() !== "" && !HOUR_PRESETS.includes(statedHours));
@@ -378,6 +434,8 @@ export function CmeEntryForm({
       setFormalPeerReviewText(stored.formalPeerReviewText);
       setBuckets(stored.buckets);
       setCostText(stored.costText);
+      hoursChosenByUser.current = true;
+      categoryChosenByUser.current = true;
       if (stored.sourceUrl || stored.formalPeerReviewText || stored.buckets.length > 0 || stored.costText) {
         setDetailsOpen(true);
       }
@@ -422,6 +480,9 @@ export function CmeEntryForm({
   ]);
 
   function resetFields() {
+    hoursChosenByUser.current = false;
+    categoryChosenByUser.current = false;
+    autoFilledTitle.current = null;
     setDate(perthCalendarDate(new Date()));
     setTitle("");
     setSourceUrl("");
@@ -472,17 +533,17 @@ export function CmeEntryForm({
   }
 
   function handleAllocationChange(nextAllocations: readonly CmeAllocation[], total: number) {
+    categoryChosenByUser.current = true;
+    hoursChosenByUser.current = true;
     setSplitAllocations([...nextAllocations]);
     setSplitTotal(total);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!canSave || saving || !parsedDraft.success) return;
+  async function performSave(data: CmeEntryDraft) {
     setSubmitError(null);
     setSaving(true);
     try {
-      await onSubmit(parsedDraft.data);
+      await onSubmit(data);
       if (draftStorageKey) writeStoredDraft(draftStorageKey, null);
       setRestoredDraft(false);
       resetFields();
@@ -493,10 +554,30 @@ export function CmeEntryForm({
     }
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSave || saving || !parsedDraft.success) return;
+    const proposed = parsedDraft.data;
+    const sameTitle = proposed.title.trim().toLocaleLowerCase("en-AU");
+    if (
+      existingEntries.some(
+        (entry) =>
+          !entry.archivedAt &&
+          entry.date === proposed.date &&
+          entry.title.trim().toLocaleLowerCase("en-AU") === sameTitle,
+      )
+    ) {
+      setRepeatPending(proposed);
+      return;
+    }
+    void performSave(proposed);
+  }
+
   const saveControl = (
     <>
       <Button
         type="submit"
+        form={formId}
         variant="primary"
         // aria-disabled rather than disabled: Save keeps its Tab stop, so the
         // reason under it can be reached by keyboard (docs/wiring-conventions.md).
@@ -522,7 +603,31 @@ export function CmeEntryForm({
   );
 
   return (
-    <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-5" noValidate>
+    <form
+      id={formId}
+      onSubmit={handleSubmit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          event.currentTarget.requestSubmit();
+        }
+      }}
+      className="flex flex-col gap-5"
+      noValidate
+    >
+      <ConfirmDialog
+        open={repeatPending !== null}
+        onCancel={() => setRepeatPending(null)}
+        onConfirm={() => {
+          const pending = repeatPending;
+          setRepeatPending(null);
+          if (pending) void performSave(pending);
+        }}
+        title="Log it again?"
+        description="You logged this today already. Log it again?"
+        confirmLabel="Log again"
+        tone="primary"
+      />
       {submitError ? <InlineNotice tone="neutral">{submitError}</InlineNotice> : null}
       {restoredDraft ? (
         <div data-testid="cme-entry-draft-restored">
@@ -546,6 +651,7 @@ export function CmeEntryForm({
         placeholder="Grand round, course, reading…"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
+        onBlur={applyTitleDefaults}
       />
 
       <CmeDateField
@@ -566,6 +672,7 @@ export function CmeEntryForm({
               key={preset}
               pressed={!otherHoursChosen && statedHours === preset}
               onPress={() => {
+                hoursChosenByUser.current = true;
                 setHoursOtherOpen(false);
                 setStatedHoursText(String(preset));
               }}
@@ -576,6 +683,7 @@ export function CmeEntryForm({
           <CmeChoiceChip
             pressed={otherHoursChosen}
             onPress={() => {
+              hoursChosenByUser.current = true;
               setHoursOtherOpen(true);
               setHoursFocusRequest((count) => count + 1);
             }}
@@ -595,7 +703,10 @@ export function CmeEntryForm({
             autoComplete="off"
             placeholder="1.25 or 90 min"
             value={statedHoursText}
-            onChange={(event) => setStatedHoursText(event.target.value)}
+            onChange={(event) => {
+              hoursChosenByUser.current = true;
+              setStatedHoursText(event.target.value);
+            }}
             fieldClassName="mt-1"
           />
         ) : null}
@@ -612,12 +723,21 @@ export function CmeEntryForm({
               key={category}
               pressed={mode === category}
               title={cmeCategoryLabels[category]}
-              onPress={() => setMode(category)}
+              onPress={() => {
+                categoryChosenByUser.current = true;
+                setMode(category);
+              }}
             >
               {CATEGORY_CHIP_LABELS[category]}
             </CmeChoiceChip>
           ))}
-          <CmeChoiceChip pressed={mode === "split"} onPress={() => setMode("split")}>
+          <CmeChoiceChip
+            pressed={mode === "split"}
+            onPress={() => {
+              categoryChosenByUser.current = true;
+              setMode("split");
+            }}
+          >
             Split hours
           </CmeChoiceChip>
         </div>
@@ -757,20 +877,43 @@ export function CmeEntryForm({
             hours.
           </p>
           {draftControls}
-          <Button
-            type="button"
-            busy={savingDraft}
-            busyLabel="Saving draft…"
-            disabled={saving || (!title.trim() && !reflection.trim())}
-            onClick={() => void handleSaveDraft()}
-            testId="cme-entry-save-draft"
-          >
-            Save as draft
-          </Button>
+          {!actionContainer ? (
+            <Button
+              type="button"
+              busy={savingDraft}
+              busyLabel="Saving draft…"
+              disabled={saving || (!title.trim() && !reflection.trim())}
+              onClick={() => void handleSaveDraft()}
+              testId="cme-entry-save-draft"
+            >
+              Save as draft
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
-      {stickySave ? (
+      {actionContainer ? (
+        createPortal(
+          <div className="grid gap-2">
+            {saveControl}
+            {onSaveDraft ? (
+              <Button
+                type="button"
+                variant="secondary"
+                busy={savingDraft}
+                busyLabel="Saving draft…"
+                disabled={saving || (!title.trim() && !reflection.trim())}
+                onClick={() => void handleSaveDraft()}
+                testId="cme-entry-save-draft"
+                block
+              >
+                Keep as draft
+              </Button>
+            ) : null}
+          </div>,
+          actionContainer,
+        )
+      ) : stickySave ? (
         // Pinned while the form scrolls, so Save is never a long scroll away on
         // a phone. The page's own background sits behind it so text scrolling
         // underneath never shows through.

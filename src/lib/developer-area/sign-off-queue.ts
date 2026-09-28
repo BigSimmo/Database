@@ -101,7 +101,7 @@ function formsFamily(): SignOffFamily {
       nativeStatus: details.contentReviewStatus ?? "drafted",
       statusLabel: "Drafted, no clinician sign-off",
       requires:
-        "A named reviewer checks the operational guidance against the Act and the current approved form, then records status, reviewedBy and reviewedAt.",
+        "A named reviewer checks the operational guidance against the Act and the current approved form, then records sign-off via npm run clinical:review.",
       // `formPageHref`, never `/forms/${details.id}`. The catalogue id is
       // `form-<code>` unconditionally; the ROUTE slug is that only for the 50
       // forms without a legacy slug. Building the path from the id shipped four

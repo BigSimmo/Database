@@ -3,8 +3,85 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { CmeEntryForm } from "@/components/cme/cme-entry-form";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 
 describe("New entry", () => {
+  const knownEntry = {
+    id: "smart-default-source",
+    date: "2026-01-04",
+    title: "Journal club",
+    allocations: [{ category: "reviewing" as const, hours: 1.5 }],
+    reflection: "Earlier occasion",
+    costCents: null,
+    transcribed: false,
+    routineId: null,
+    documentId: null,
+    buckets: [],
+  };
+
+  it("suggests the latest hours and category for an exact normalized title, while keeping today's date", async () => {
+    const user = userEvent.setup();
+    render(<CmeEntryForm onSubmit={vi.fn()} existingEntries={[knownEntry]} />);
+    await user.type(screen.getByLabelText(/what was it/i), "  JOURNAL club  ");
+    await user.tab();
+    expect(screen.getByRole("button", { name: "1.5" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Reviewing" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("cme-entry-date-today")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Reflection")).toHaveValue("");
+  });
+
+  it("does not suggest choices for a different title", async () => {
+    const user = userEvent.setup();
+    render(<CmeEntryForm onSubmit={vi.fn()} existingEntries={[knownEntry]} />);
+    await user.type(screen.getByLabelText(/what was it/i), "Journal club follow-up");
+    await user.tab();
+    expect(screen.getByRole("button", { name: "1.5" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Reviewing" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("does not replace hours or category the doctor chose before typing the title", async () => {
+    const user = userEvent.setup();
+    render(<CmeEntryForm onSubmit={vi.fn()} existingEntries={[knownEntry]} />);
+    await user.click(screen.getByRole("button", { name: "2" }));
+    await user.click(screen.getByRole("button", { name: "Educational" }));
+    await user.type(screen.getByLabelText(/what was it/i), "Journal club");
+    await user.tab();
+    expect(screen.getByRole("button", { name: "2" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Educational" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("asks before logging the same trimmed title on the same Perth day", async () => {
+    const day = perthCalendarDate(new Date());
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const original = {
+      id: "demo-existing",
+      date: day,
+      title: "  Demo journal club  ",
+      allocations: [{ category: "educational" as const, hours: 1 }],
+      reflection: "",
+      costCents: null,
+      transcribed: false,
+      routineId: null,
+      documentId: null,
+      buckets: [],
+    };
+    render(
+      <CmeEntryForm
+        onSubmit={onSubmit}
+        existingEntries={[original]}
+        initialEntry={{ ...original, title: "demo JOURNAL club", sourceUrl: null, formalPeerReviewHours: 0 }}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Save entry" }));
+    expect(screen.getByText("You logged this today already. Log it again?")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.click(within(screen.getByTestId("confirm-dialog")).getAllByRole("button", { name: "Cancel" })[1]);
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save entry" }));
+    await user.click(screen.getByRole("button", { name: "Log again" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
   it("will not save until the allocations add up to the stated hours", async () => {
     const onSubmit = vi.fn();
     render(<CmeEntryForm onSubmit={onSubmit} />);
