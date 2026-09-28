@@ -82,6 +82,23 @@ export function useClinicalAskRunner({
             });
           }
         })
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted && !terminalEventDelivered) {
+            const isOffline =
+              (typeof navigator !== "undefined" && !navigator.onLine) ||
+              (error instanceof TypeError && error.message.includes("fetch"));
+            receiveCurrentEvent({
+              type: "error",
+              code: "provider_unavailable",
+              retryable: true,
+              message: isOffline
+                ? "A connection is required for a Smart answer. Connect to the internet and try again."
+                : error instanceof Error
+                  ? error.message
+                  : "Could not load the answer engine.",
+            });
+          }
+        })
         .finally(() => clinicalAskSession.releaseAbortController(controller));
     },
     [clinicalAskMode, clinicalAskOnline, clinicalAskSession, query],

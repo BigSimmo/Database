@@ -169,7 +169,14 @@ export function ServicePage({
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         if (activeContextKey.current === requestedContextKey && detailRequestSequence.current === requestSequence) {
           setOwnedDetail(null);
-          setError(cause instanceof Error ? cause.message : "This service is temporarily unavailable.");
+          const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+          setError(
+            isOffline
+              ? "You are offline. Connect to view service handbooks and details."
+              : cause instanceof Error
+                ? cause.message
+                : "This service is temporarily unavailable.",
+          );
         }
       } finally {
         if (activeContextKey.current === requestedContextKey && detailRequestSequence.current === requestSequence) {
@@ -215,7 +222,14 @@ export function ServicePage({
     void loadServices(ownerEpoch, controller.signal).catch((cause: unknown) => {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
       if (activeAuthEpoch.current !== ownerEpoch) return;
-      setError(cause instanceof Error ? cause.message : "Your services are temporarily unavailable.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      setError(
+        isOffline
+          ? "You are offline. Connect to view service handbooks and details."
+          : cause instanceof Error
+            ? cause.message
+            : "Your services are temporarily unavailable.",
+      );
       setState("unavailable");
     });
     return () => controller.abort();
@@ -310,23 +324,33 @@ export function ServicePage({
     const actionServiceId = selectedServiceId;
     const actionSiteId = selectedSiteId;
     const actionRotation = rotation;
-    const response = await fetch(`/api/on-call/services/${actionServiceId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(actionPayload),
-    });
-    const payload = await responseJson(response);
-    if (activeContextKey.current !== actionContextKey || activeAuthEpoch.current !== actionAuthEpoch) {
-      throw new Error("The service context changed before this action completed. Reopen the entry to continue.");
+    try {
+      const response = await fetch(`/api/on-call/services/${actionServiceId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(actionPayload),
+      });
+      const payload = await responseJson(response);
+      if (activeContextKey.current !== actionContextKey || activeAuthEpoch.current !== actionAuthEpoch) {
+        throw new Error("The service context changed before this action completed. Reopen the entry to continue.");
+      }
+      await loadDetail(actionServiceId, actionSiteId, actionRotation, actionContextKey);
+      if (activeContextKey.current !== actionContextKey || activeAuthEpoch.current !== actionAuthEpoch) {
+        throw new Error("The service context changed while this action refreshed. Reopen the entry to continue.");
+      }
+      if (actionPayload.action === "site.create" || actionPayload.action === "site.update") {
+        await loadServices(actionAuthEpoch);
+      }
+      return payload;
+    } catch (cause) {
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (cause instanceof TypeError && cause.message.includes("fetch"))
+      ) {
+        throw new Error("You are offline. Connect to update the service handbook.");
+      }
+      throw cause;
     }
-    await loadDetail(actionServiceId, actionSiteId, actionRotation, actionContextKey);
-    if (activeContextKey.current !== actionContextKey || activeAuthEpoch.current !== actionAuthEpoch) {
-      throw new Error("The service context changed while this action refreshed. Reopen the entry to continue.");
-    }
-    if (actionPayload.action === "site.create" || actionPayload.action === "site.update") {
-      await loadServices(actionAuthEpoch);
-    }
-    return payload;
   }
 
   async function createService() {
@@ -352,7 +376,14 @@ export function ServicePage({
       setSiteName("");
       setTab("handbook");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The service could not be created.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (cause instanceof TypeError && cause.message.includes("fetch"))
+      ) {
+        setError("You are offline. Connect to create a service.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "The service could not be created.");
+      }
     } finally {
       setServiceBusy(null);
     }
@@ -379,7 +410,14 @@ export function ServicePage({
       setJoinCode("");
       setTab("handbook");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The invitation could not be redeemed.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (cause instanceof TypeError && cause.message.includes("fetch"))
+      ) {
+        setError("You are offline. Connect to join a service.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "The invitation could not be redeemed.");
+      }
     } finally {
       setServiceBusy(null);
     }
@@ -429,7 +467,14 @@ export function ServicePage({
               onClick={() => {
                 setState("loading");
                 void loadServices(auth.authEpoch).catch((cause: unknown) => {
-                  setError(cause instanceof Error ? cause.message : "Your services are temporarily unavailable.");
+                  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+                  setError(
+                    isOffline
+                      ? "You are offline. Connect to view service handbooks and details."
+                      : cause instanceof Error
+                        ? cause.message
+                        : "Your services are temporarily unavailable.",
+                  );
                   setState("unavailable");
                 });
               }}
