@@ -53,6 +53,11 @@ for (const colorScheme of ["light", "dark"] as const) {
     });
 
     test("opens the shift lists sheet with the shift pick", async ({ page }) => {
+      // The demo roster (`demoOnCallShifts`) is on shift 08:00–17:00 Perth today,
+      // and a live rostered shift replaces the one-tap pick. Pin the browser to
+      // 20:00 Perth today, between demo shifts, so the pick shows at any hour.
+      const perthToday = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      await page.clock.setFixedTime(new Date(`${perthToday}T20:00:00+08:00`));
       await openNow(page, colorScheme);
       await visibleByTestId(page, "on-call-now-checklists").click();
       const sheet = visibleByTestId(page, "on-call-now-checklists-sheet");
