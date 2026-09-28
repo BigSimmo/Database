@@ -12,6 +12,7 @@ import { TextField } from "@/components/ui/text-field";
 import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
   cmeRoutineCadenceLabels,
   cmeRoutineCadences,
@@ -126,17 +127,7 @@ export function CmeRoutinesRoute({
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-      const isFetchError =
-        cause instanceof TypeError &&
-        (cause.message.toLowerCase().includes("fetch") || cause.message.toLowerCase().includes("load failed"));
-      setError(
-        isOffline || isFetchError
-          ? "You're offline. Reconnect and try saving your routine again."
-          : cause instanceof Error
-            ? cause.message
-            : "Could not save this routine.",
-      );
+      setError(cmeSaveErrorText(cause, "Could not save this routine."));
     } finally {
       setSaving(false);
     }
@@ -163,17 +154,7 @@ export function CmeRoutinesRoute({
       setEditingId(null);
       router.refresh();
     } catch (cause) {
-      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-      const isFetchError =
-        cause instanceof TypeError &&
-        (cause.message.toLowerCase().includes("fetch") || cause.message.toLowerCase().includes("load failed"));
-      setError(
-        isOffline || isFetchError
-          ? "You're offline. Reconnect and try archiving your routine again."
-          : cause instanceof Error
-            ? cause.message
-            : "Could not archive this routine.",
-      );
+      setError(cmeSaveErrorText(cause, "Could not archive this routine."));
     } finally {
       setSaving(false);
     }

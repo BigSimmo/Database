@@ -1488,7 +1488,8 @@ describe("design-system adoption manifest", () => {
     // `/on-call/shifts` deleted (proxy redirect), `/on-call/calendar` moved to `/roster/calendar`,
     // and Roster's Today (`/roster`), `/roster/shifts` and `/roster/settings` added — net plus two.
     // 122 -> 127: Admin Today, Renewals, New job, its Records page and Help.
-    expect(manifest.routeCoverage.discovered).toHaveLength(127);
+    // 127 -> 144: the 17 Teaching routes.
+    expect(manifest.routeCoverage.discovered).toHaveLength(144);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

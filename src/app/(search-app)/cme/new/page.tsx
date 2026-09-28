@@ -56,6 +56,7 @@ export default async function CmeNewEntryPageRoute({
       repeatOf={repeatOf}
       learningPrefill={learningPrefill}
       set={data.set}
+      existingEntries={data.entries}
       demoMode={data.demoMode}
     />
   );

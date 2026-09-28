@@ -51,7 +51,12 @@
         "Reduced exposure to disconfirming evidence",
         "Increasing life restriction"
       ],
-      "protective": [],
+      "protective": [
+        "Approach coping attempts",
+        "Willingness to experience discomfort for valued goals",
+        "Safe and supportive relationships",
+        "Clear safety plan"
+      ],
       "treatmentImplications": [
         "Graded exposure or behavioural experiments",
         "Reduce safety behaviours",
@@ -99,7 +104,12 @@
         "Interpersonal responses reinforce polarisation",
         "Repair conversations are avoided"
       ],
-      "protective": [],
+      "protective": [
+        "Capacity for reflection and mentalising",
+        "Stable therapeutic relationship",
+        "Mindfulness and distress tolerance skills",
+        "Supportive grounding network"
+      ],
       "treatmentImplications": [
         "Maintain consistent stance",
         "Name mixed affects carefully",
@@ -142,7 +152,12 @@
       "predisposing": ["Criticism or humiliation", "Trauma", "Stigma", "Attachment insecurity"],
       "precipitating": ["Exposure", "Mistake", "Dependency need", "Perceived rejection"],
       "perpetuating": ["Secrecy", "Avoidance", "Self-attack", "Ruptures that confirm defectiveness"],
-      "protective": [],
+      "protective": [
+        "Self-compassion",
+        "Secure and non-judgemental connection",
+        "Positive self-concept in other domains",
+        "Openness to vulnerability in trusted spaces"
+      ],
       "treatmentImplications": [
         "Use a non-shaming stance",
         "Name shame gently",
@@ -200,7 +215,12 @@
         "Ruptures increase threat",
         "Avoidance limits skills practice"
       ],
-      "protective": [],
+      "protective": [
+        "Distress tolerance skills",
+        "Emotion regulation repertoire",
+        "Validation from trusted others",
+        "Sensory soothing strategies"
+      ],
       "treatmentImplications": [
         "Emotion labelling",
         "Distress tolerance skills",
@@ -249,7 +269,12 @@
       "predisposing": ["Anxiety sensitivity", "Attachment insecurity", "Low self-trust", "Intolerance of uncertainty"],
       "precipitating": ["Ambiguous message", "Body sensation", "Mistake", "Perceived distance from another person"],
       "perpetuating": ["Temporary relief", "Escalating certainty demands", "Others withdraw or become frustrated"],
-      "protective": [],
+      "protective": [
+        "Tolerance of uncertainty",
+        "Self-validation",
+        "Delayed gratification and response prevention",
+        "Trust in previous medical evaluations"
+      ],
       "treatmentImplications": [
         "Map reassurance cycles",
         "Build uncertainty tolerance",
@@ -305,7 +330,12 @@
         "Others experience rejection",
         "Support is not tested as safe"
       ],
-      "protective": [],
+      "protective": [
+        "Desire for meaningful connection",
+        "Reliable and predictable relational boundaries",
+        "High functional independence",
+        "Capacity for shared activities"
+      ],
       "treatmentImplications": [
         "Respect autonomy",
         "Use predictable boundaries",
@@ -358,7 +388,12 @@
         "Avoidance of disconfirming experience",
         "Self-criticism and safety behaviours"
       ],
-      "protective": [],
+      "protective": [
+        "Recognised strengths and achievements",
+        "Supportive feedback from valued peers",
+        "Evidence-testing cognitive skills",
+        "Meaningful vocational or creative roles"
+      ],
       "treatmentImplications": [
         "Identify themes across situations",
         "Use behavioural experiments",
@@ -406,7 +441,12 @@
         "Others become defensive",
         "Suspicion appears confirmed"
       ],
-      "protective": [],
+      "protective": [
+        "Willingness to consider alternative perspectives",
+        "Safe emotional container",
+        "Humour and self-awareness",
+        "Empathic feedback from trusted peers"
+      ],
       "treatmentImplications": [
         "Validate affect before interpretation",
         "Explore evidence gently",
@@ -451,7 +491,12 @@
       "predisposing": ["Depressive thinking style", "Perfectionism", "Shame", "Low behavioural activation"],
       "precipitating": ["Failure", "Loss", "Conflict", "Unresolved ambiguity"],
       "perpetuating": ["Reduced action", "Increased negative affect", "Selective attention to threat or defectiveness"],
-      "protective": [],
+      "protective": [
+        "Behavioural activation",
+        "Attentional refocusing and absorption in tasks",
+        "Problem-solving orientation",
+        "Physical activity and routine"
+      ],
       "treatmentImplications": [
         "Shift to concrete problem-solving",
         "Attention training",
@@ -494,7 +539,12 @@
         "Avoidance of emotional processing",
         "Reduced tolerance of uncertainty"
       ],
-      "protective": [],
+      "protective": [
+        "Willingness to accept uncertainty",
+        "Distinction between hypothetical and real problems",
+        "Structured worry time and grounding",
+        "Strong practical problem-solving record"
+      ],
       "treatmentImplications": [
         "Worry postponement",
         "Uncertainty exposure",
@@ -546,7 +596,12 @@
         "Reduced memory integration",
         "Avoidance of affective processing"
       ],
-      "protective": [],
+      "protective": [
+        "Grounding and somatic sensory anchors",
+        "Trauma-informed safety strategies",
+        "Predictable and safe environment",
+        "Affect labelling and orientation skills"
+      ],
       "treatmentImplications": [
         "Grounding and stabilisation",
         "Window of tolerance work",
@@ -600,7 +655,12 @@
         "Temporary relief after meeting standards",
         "Self-criticism"
       ],
-      "protective": [],
+      "protective": [
+        "Self-worth decoupled from achievement",
+        "Cognitive flexibility and \"good enough\" standard setting",
+        "Values outside work and performance",
+        "Self-compassion around error"
+      ],
       "treatmentImplications": [
         "Behavioural experiments with good-enough performance",
         "Self-compassion work",

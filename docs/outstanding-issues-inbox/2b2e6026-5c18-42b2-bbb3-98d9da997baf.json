@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "2b2e6026-5c18-42b2-bbb3-98d9da997baf",
+  "createdOn": "2026-09-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "755c3372-faa7-4874-aced-c07f869bef65",
+    "reason": "Superseded by PR #3146 (owner approval 2026-09-28): H8 is now registered in docs/clinical-hazard-controls.json, so the partly-done update is replaced by done request e080d8f6-93b0-4944-bbcc-15cb51e2c38c."
+  }
+}

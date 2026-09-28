@@ -675,10 +675,10 @@
      it must stay synchronous: letting the reserve hook's 80ms quiet window own
      that transition left every element on the page 49px too high for ~110ms,
      long enough for a tap to press one control and release on another
-     (#CHPC5C). On a COLD load this seed still stands unrefined for the whole
-     quiet window, because that immediate publish is suppressed until the hook
-     has settled once — see `use-phone-overlay-chrome-reserve.ts` for why, and
-     docs/search-chrome-behaviour.md for what closing it would take. */
+     (#CHPC5C). On a COLD load, before the hook has settled, the claiming
+     portal instead writes this seed plus the row's own height inline
+     (`claimPhoneOverlayAddonReserve`), so the reserve is exact from the same
+     commit on every path. */
   --phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h));
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --keyboard-height: 0px;
@@ -1227,6 +1227,62 @@ body {
     --mode-identity-soft: Canvas;
     --mode-identity-border: ButtonBorder;
     --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* Teaching: plum, for the pill, the current tab and module icon tiles only.
+   Light #7a3b6e (spec §6). Dark is the calmer #cfa3c6 of v4.2, cleared as a
+   fill under #2a0f24 as well as as text. Buttons, links and selection stay
+   product colours (`--primary`), which this block does not remap. The hero's
+   colours are the mode kit's `--surface-summary*`. The QR pair is not
+   redefined for dark: a camera needs dark modules on a light quiet zone. */
+[data-mode-identity="teaching"] {
+  --mode-identity: #7a3b6e;
+  --mode-identity-soft: #f8eff6;
+  --mode-identity-border: #ead6e5;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+
+  --teaching-segment-on: var(--surface-lux);
+  --teaching-segment-line: var(--border);
+  --teaching-qr-light: #ffffff;
+  --teaching-qr-dark: #000000;
+}
+
+.dark [data-mode-identity="teaching"] {
+  --mode-identity: #cfa3c6;
+  --mode-identity-soft: #2a1d27;
+  --mode-identity-border: #45303f;
+  --mode-identity-contrast: #2a0f24;
+
+  --teaching-segment-on: var(--surface-lux);
+  --teaching-segment-line: #3a434c;
+}
+
+@media (forced-colors: active) {
+  /* Its own rule: the token test reads each block by its exact selector. */
+  [data-mode-identity="teaching"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+    --teaching-segment-on: Canvas;
+    --teaching-segment-line: CanvasText;
+  }
+}
+
+/* The live dot's one pulse (LiveLabel). The kit's state label has no live
+   tone; components apply it under `motion-safe:` only. */
+@keyframes teaching-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--success) 0%, transparent);
   }
 }
 
@@ -5503,6 +5559,16 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
    --mobile-composer-reserve (hero ↔ dock) must snap — those clear the marker
    immediately. DocumentViewer keeps its own Tailwind duration classes. */
 @media (max-width: 639px) {
+  /* The top reserve must snap in the frame it changes (#CHPC5C). The initial
+     `transition-property` is `all`, and the reduced-motion rules give every
+     element a 0.01ms duration, so without this a portal's cold-load claim of
+     `--phone-overlay-chrome-h` started a padding-top transition that painted
+     the old value for one frame: every tap target 49px too high, then back.
+     The reserve-transitioning rule below is more specific and still animates
+     padding-bottom when it applies. */
+  [data-testid="mobile-composer-reserve-pad"] {
+    transition-property: none;
+  }
   #main-content[data-reserve-transitioning="true"] {
     will-change: padding-bottom;
     transition: padding-bottom var(--duration-slow) var(--ease-out-soft);

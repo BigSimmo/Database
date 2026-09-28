@@ -5,15 +5,77 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
+import { CmeEntryForm, type CmeEntryDraft, type CmeEntryFormProps } from "@/components/cme/cme-entry-form";
 import { CME_NEW_ENTRY_DRAFT_KEY } from "@/components/cme/cme-new-entry-route";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, InlineNotice, primaryControl, textMuted } from "@/components/ui-primitives";
-import type { CmeRequirementSet } from "@/lib/cme/types";
+import type { CmeDraftPayload } from "@/lib/cme/drafts";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
+import { routinesDueOn, type CmeRoutine } from "@/lib/cme/routines";
+import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { perthCalendarDate } from "@/lib/perth-time";
 
 /** How long "Saved to your log" stays on screen after a quick log. */
-const SAVED_NOTICE_MS = 5000;
+const SAVED_NOTICE_MS = 6000;
+type InitialEntry = NonNullable<CmeEntryFormProps["initialEntry"]>;
+type LogAgainChoice = { id: string; label: string; detail: string; entry: InitialEntry };
+
+/** Due routines first, then recent distinct titles. No choice records anything. */
+function logAgainChoices(
+  routines: readonly CmeRoutine[],
+  entries: readonly CmeEntry[],
+  now: Date,
+  date: string,
+): LogAgainChoice[] {
+  const dueIds = new Set(routinesDueOn(routines, now).map(({ id }) => id));
+  const activeRoutines = routines
+    .filter(({ archivedAt }) => !archivedAt)
+    .sort((a, b) => Number(dueIds.has(b.id)) - Number(dueIds.has(a.id)));
+  const choices: LogAgainChoice[] = activeRoutines.map((routine) => ({
+    id: `routine-${routine.id}`,
+    label: routine.title,
+    detail: dueIds.has(routine.id) ? "Routine due" : "Routine",
+    entry: {
+      date,
+      title: routine.title,
+      sourceUrl: null,
+      allocations: routine.usualAllocations,
+      reflection: "",
+      costCents: null,
+      routineId: routine.id,
+      documentId: null,
+      buckets: [],
+      formalPeerReviewHours: 0,
+    },
+  }));
+  const seen = new Set(choices.map(({ label }) => label.trim().toLocaleLowerCase("en-AU")));
+  for (const entry of [...entries]
+    .filter((item) => !item.archivedAt && item.date.startsWith(date.slice(0, 4)))
+    .sort((a, b) => b.date.localeCompare(a.date))) {
+    const key = entry.title.trim().toLocaleLowerCase("en-AU");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    choices.push({
+      id: `entry-${entry.id}`,
+      label: entry.title,
+      detail: "Logged before",
+      entry: {
+        date,
+        title: entry.title,
+        sourceUrl: entry.sourceUrl ?? null,
+        allocations: entry.allocations,
+        reflection: "",
+        costCents: null,
+        routineId: null,
+        documentId: null,
+        buckets: entry.buckets,
+        formalPeerReviewHours: 0,
+      },
+    });
+    if (choices.length >= 5) break;
+  }
+  return choices.slice(0, 5);
+}
 
 async function quickLogSaveError(response: Response): Promise<string> {
   try {
@@ -42,22 +104,40 @@ async function quickLogSaveError(response: Response): Promise<string> {
  * The button is fixed bottom-right, clear of the phone's home indicator. CME
  * pages have no bottom search dock, so it never sits on top of a composer.
  */
-export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet; demoMode?: boolean }) {
+export function CmeQuickLog({
+  set,
+  routines = [],
+  entries = [],
+  nowIso,
+  demoMode = false,
+}: {
+  set: CmeRequirementSet;
+  routines?: readonly CmeRoutine[];
+  entries?: readonly CmeEntry[];
+  nowIso?: string;
+  demoMode?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
+  const [undoing, setUndoing] = useState(false);
+  const [selected, setSelected] = useState<InitialEntry | null>(null);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const [actionContainer, setActionContainer] = useState<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const domains = set.requirements.flatMap((requirement) =>
     requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
   );
-  const today = perthCalendarDate();
+  const now = nowIso ? new Date(nowIso) : new Date();
+  const today = perthCalendarDate(now);
   const initialDate = today.startsWith(`${set.year}-`) ? today : `${set.year}-01-01`;
+  const choices = logAgainChoices(routines, entries, now, initialDate);
 
   useEffect(() => {
-    if (!savedNotice) return;
-    const timer = window.setTimeout(() => setSavedNotice(false), SAVED_NOTICE_MS);
+    if (savedNotice === null) return;
+    const timer = window.setTimeout(() => setSavedNotice(null), SAVED_NOTICE_MS);
     return () => window.clearTimeout(timer);
   }, [savedNotice]);
 
@@ -69,12 +149,46 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
       body: JSON.stringify({ ...entry, requestId }),
     });
     if (!response.ok) throw new Error(await quickLogSaveError(response));
+    const payload = (await response.json().catch(() => null)) as { entry?: { id?: string } } | null;
     setOpen(false);
-    setSavedNotice(true);
+    setSavedNotice(payload?.entry?.id ?? "");
+    setUndoError(null);
+    setSelected(null);
     // A fresh request id per saved entry: the API treats a repeated id as the
     // same save, which is what protects a double tap, not a second activity.
     setRequestId(crypto.randomUUID());
     setFormKey((key) => key + 1);
+    router.refresh();
+  }
+
+  async function undo() {
+    if (!savedNotice || undoing) return;
+    setUndoing(true);
+    setUndoError(null);
+    try {
+      const response = await fetch(`/api/cme/entries/${savedNotice}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(`Could not undo this activity (${response.status}).`);
+      setSavedNotice(null);
+      router.refresh();
+    } catch (error) {
+      setUndoError(cmeSaveErrorText(error, "Could not undo this activity."));
+    } finally {
+      setUndoing(false);
+    }
+  }
+
+  async function saveDraft(payload: CmeDraftPayload) {
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to keep a private draft.");
+    const response = await fetch("/api/cme/drafts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload, waitingOn: null, waitingNote: null, followUpOn: null }),
+    });
+    if (!response.ok) throw new Error(await quickLogSaveError(response));
+    setOpen(false);
+    setSelected(null);
+    setFormKey((key) => key + 1);
+    router.push("/cme/log?tab=finish#cme-drafts");
     router.refresh();
   }
 
@@ -85,11 +199,22 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
         data-testid="cme-quick-log-saved"
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[var(--z-toast)] flex justify-center px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+4rem)]"
       >
-        {savedNotice ? (
-          <p className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--e4)]">
+        {savedNotice !== null ? (
+          <div className="pointer-events-auto inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--e4)]">
             <Check aria-hidden="true" className="size-icon-sm" />
-            Saved to your log.
-          </p>
+            <span>Saved to your log.</span>
+            {savedNotice ? (
+              <button
+                type="button"
+                disabled={undoing}
+                onClick={() => void undo()}
+                className="min-h-tap underline underline-offset-2"
+              >
+                Undo
+              </button>
+            ) : null}
+            {undoError ? <span>{undoError}</span> : null}
+          </div>
         ) : null}
       </div>
 
@@ -111,7 +236,10 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
         open={open}
         onClose={() => setOpen(false)}
         title="Log an activity"
+        placement="responsive-right"
         mobilePlacement="bottom"
+        footer={<div ref={setActionContainer} data-testid="cme-quick-log-actions" />}
+        footerClassName="pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         returnFocusRef={buttonRef}
         testId="cme-quick-log-sheet"
       >
@@ -121,24 +249,49 @@ export function CmeQuickLog({ set, demoMode = false }: { set: CmeRequirementSet;
               Demo mode lets you try the form. Saving is available only in your signed-in private record.
             </InlineNotice>
           ) : null}
+          {choices.length > 0 ? (
+            <div data-testid="cme-log-again" className="grid gap-1">
+              <p className={cn(textMuted, "text-xs")}>Log again</p>
+              {choices.map((choice) => (
+                <button
+                  key={choice.id}
+                  type="button"
+                  onClick={() => {
+                    setSelected(choice.entry);
+                    setFormKey((key) => key + 1);
+                  }}
+                  className="flex min-h-tap items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] px-3 text-left text-sm text-[color:var(--text)]"
+                >
+                  <span className="truncate">{choice.label}</span>
+                  <span className={cn(textMuted, "shrink-0 text-xs")}>{choice.detail}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           <CmeEntryForm
             key={formKey}
             onSubmit={saveEntry}
-            initialEntry={{
-              date: initialDate,
-              title: "",
-              sourceUrl: null,
-              allocations: [],
-              reflection: "",
-              costCents: null,
-              routineId: null,
-              documentId: null,
-              buckets: [],
-              formalPeerReviewHours: 0,
-            }}
+            initialEntry={
+              selected ?? {
+                date: initialDate,
+                title: "",
+                sourceUrl: null,
+                allocations: [],
+                reflection: "",
+                costCents: null,
+                routineId: null,
+                documentId: null,
+                buckets: [],
+                formalPeerReviewHours: 0,
+              }
+            }
+            existingEntries={entries}
+            initialStatedHours={undefined}
             availableDomains={domains}
-            draftStorageKey={CME_NEW_ENTRY_DRAFT_KEY}
+            draftStorageKey={selected ? undefined : CME_NEW_ENTRY_DRAFT_KEY}
             stickySave={false}
+            actionContainer={actionContainer}
+            onSaveDraft={demoMode ? undefined : saveDraft}
           />
           <p className={cn(textMuted, "text-center text-xs")}>
             Prefer more room?{" "}

@@ -23,6 +23,7 @@ import { describe, expect, it } from "vitest";
  */
 
 const ROOT = process.cwd();
+const repoRelative = (file: string): string => relative(ROOT, file).replaceAll("\\", "/");
 const CPD_DIRS = ["src/components/cme", "src/app/(search-app)/cme"];
 const RECIPE_SOURCES: Readonly<Record<string, readonly string[]>> = {
   "@/components/ui-primitives": ["src/components/primitive-recipes"],
@@ -161,7 +162,7 @@ function numberWeightFindings(sourceFile: ts.SourceFile): { findings: Finding[];
   const findings: Finding[] = [];
   let numbers = 0;
   const where = (node: ts.Node) =>
-    `${relative(ROOT, sourceFile.fileName)}:${sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1}`;
+    `${repoRelative(sourceFile.fileName)}:${sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1}`;
 
   const check = (opening: ts.JsxOpeningLikeElement, context: Context): Context => {
     const own = classTokens(attribute(opening, "className")?.initializer, scope).map(utility);
@@ -221,7 +222,7 @@ describe("CPD type weights", () => {
     const offenders = cpdFiles.flatMap((file) =>
       readFileSync(file, "utf8")
         .split("\n")
-        .flatMap((line, index) => (BANNED.test(line) ? [`${relative(ROOT, file)}:${index + 1}: ${line.trim()}`] : [])),
+        .flatMap((line, index) => (BANNED.test(line) ? [`${repoRelative(file)}:${index + 1}: ${line.trim()}`] : [])),
     );
     expect(offenders).toEqual([]);
   });

@@ -53,6 +53,7 @@ describe("collapsed rail marks the active mode (#03ARD6)", () => {
     ["psychiatry", "Psychiatry"],
     ["my-work", "Admin"],
     ["first-nations", "First Nations"],
+    ["teaching", "Teaching"],
   ] as const)("shows unpinned %s as the one current item", (modeId, label) => {
     const rail = renderRail(modeId);
 

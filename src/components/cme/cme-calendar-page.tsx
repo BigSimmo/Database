@@ -38,6 +38,7 @@ export function CmeCalendarPage({
         exportName={`CPD ${set.year}`}
         testId="cme-calendar-view"
         markStyle="shape"
+        laterHeadingPrefix="Coming up in"
       />
       <CalendarSubscribe testId="cme-calendar-subscribe" />
     </main>

@@ -7,8 +7,17 @@ import { useMemo, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
-import { cn, eyebrowText, floatingControl, InlineNotice, primaryControl, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  controlDisabled,
+  eyebrowText,
+  floatingControl,
+  InlineNotice,
+  primaryControl,
+  textMuted,
+} from "@/components/ui-primitives";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
   CME_PLAN_GOAL_MAX,
   CME_PLAN_GOAL_MAX_LENGTH,
@@ -17,6 +26,7 @@ import {
   type CmePlanGoal,
 } from "@/lib/cme/plan-goals";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+import { canCarryCmeGoals, carryableCmeGoals } from "@/lib/cme/year-close-actions";
 
 /**
  * DEVELOPMENT PLAN — the year's goals, written once near the start of the
@@ -44,11 +54,19 @@ export function CmePlanPage({
   goals,
   entries,
   demoMode = false,
+  now = new Date(),
+  nextYearConfirmed = null,
+  nextYearGoals,
 }: {
   set: CmeRequirementSet;
   goals: readonly CmePlanGoal[];
   entries: readonly CmeEntry[];
   demoMode?: boolean;
+  now?: Date;
+  /** Null means the next year's targets were not loaded. */
+  nextYearConfirmed?: boolean | null;
+  /** Required before enabling carry, so adding a goal cannot replace or duplicate a saved next-year goal. */
+  nextYearGoals?: readonly CmePlanGoal[];
 }) {
   const router = useRouter();
   const [drafts, setDrafts] = useState<Draft[]>(() =>
@@ -58,20 +76,58 @@ export function CmePlanPage({
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [carryingId, setCarryingId] = useState<string | null>(null);
+  const [carriedIds, setCarriedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [carryMessage, setCarryMessage] = useState<string | null>(null);
+  const [targetGoals, setTargetGoals] = useState<readonly CmePlanGoal[] | undefined>(nextYearGoals);
+  const [savedGoals, setSavedGoals] = useState(() => goals.map((goal) => ({ id: goal.id, goal: goal.goal })));
+  const [saveConflict, setSaveConflict] = useState(false);
   const readOnly = Boolean(set.closedAt) || demoMode;
   const planRequirement = set.requirements.find((requirement) => requirement.id === "plan");
   const tally = hoursByGoal(goals, entries);
   const filled = drafts.filter((draft) => draft.goal.trim().length > 0);
   const tooShort = filled.some((draft) => draft.goal.trim().length < CME_PLAN_GOAL_MIN_LENGTH);
+  const offerCarry = canCarryCmeGoals(set, now) && goals.length > 0;
+  const availableToCarry = carryableCmeGoals(goals, targetGoals).filter((goal) => !carriedIds.has(goal.id));
+  const targetReady = nextYearConfirmed === true && targetGoals !== undefined;
+  const targetFull = (targetGoals?.length ?? 0) >= CME_PLAN_GOAL_MAX;
+
+  async function carryGoal(goal: CmePlanGoal) {
+    if (!targetReady || carryingId || carriedIds.has(goal.id) || targetFull) return;
+    setCarryingId(goal.id);
+    setCarryMessage(null);
+    try {
+      const response = await fetch("/api/cme/plan/carry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceYear: set.year, goalId: goal.id }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        goals?: CmePlanGoal[];
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.goals) {
+        throw new Error(payload?.message ?? `Could not carry this goal (${response.status}).`);
+      }
+      setTargetGoals(payload.goals);
+      setCarriedIds((current) => new Set(current).add(goal.id));
+      setCarryMessage(`Carried into ${set.year + 1}.`);
+      router.refresh();
+    } catch (error) {
+      setCarryMessage(cmeSaveErrorText(error, "Could not carry this goal forward."));
+    } finally {
+      setCarryingId(null);
+    }
+  }
 
   const isDirty = useMemo(() => {
-    if (goals.length === 0 && drafts.length === 1 && !drafts[0].goal.trim()) return false;
-    if (drafts.length !== goals.length) return true;
+    if (savedGoals.length === 0 && drafts.length === 1 && !drafts[0].goal.trim()) return false;
+    if (drafts.length !== savedGoals.length) return true;
     return drafts.some((draft, index) => {
-      const original = goals[index];
+      const original = savedGoals[index];
       return !original || draft.goal.trim() !== original.goal.trim();
     });
-  }, [drafts, goals]);
+  }, [drafts, savedGoals]);
   useDirtyStateGuard(isDirty && !readOnly);
 
   async function save() {
@@ -83,6 +139,7 @@ export function CmePlanPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           year: set.year,
+          expectedGoals: savedGoals,
           goals: filled.map((draft) =>
             draft.id ? { id: draft.id, goal: draft.goal.trim() } : { goal: draft.goal.trim() },
           ),
@@ -91,25 +148,19 @@ export function CmePlanPage({
       const payload = (await response.json().catch(() => null)) as {
         goals?: CmePlanGoal[];
         message?: string;
+        code?: string;
       } | null;
-      if (!response.ok) throw new Error(payload?.message ?? `Could not save your plan (${response.status}).`);
-      if (Array.isArray(payload?.goals)) {
-        setDrafts(payload.goals.map((goal) => ({ key: nextKey(), id: goal.id, goal: goal.goal })));
+      if (response.status === 409 && payload?.code === "cme_plan_conflict") {
+        setSaveConflict(true);
+        throw new Error("This plan changed elsewhere. Copy any unsaved edits, then reload before saving.");
       }
+      if (!response.ok) throw new Error(payload?.message ?? `Could not save your plan (${response.status}).`);
+      setSavedGoals((payload?.goals ?? []).map((goal) => ({ id: goal.id, goal: goal.goal })));
+      setDrafts((payload?.goals ?? []).map((goal) => ({ key: nextKey(), id: goal.id, goal: goal.goal })));
       setMessage("Plan saved.");
       router.refresh();
     } catch (error) {
-      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-      const isFetchError =
-        error instanceof TypeError &&
-        (error.message.toLowerCase().includes("fetch") || error.message.toLowerCase().includes("load failed"));
-      setMessage(
-        isOffline || isFetchError
-          ? "You're offline. Reconnect and try saving your plan again."
-          : error instanceof Error
-            ? error.message
-            : "Could not save your plan.",
-      );
+      setMessage(cmeSaveErrorText(error, "Could not save your plan."));
     } finally {
       setSaving(false);
     }
@@ -186,7 +237,7 @@ export function CmePlanPage({
             <button
               type="button"
               className={primaryControl}
-              disabled={saving || tooShort}
+              disabled={saving || tooShort || saveConflict}
               onClick={() => void save()}
               data-testid="cme-plan-save"
             >
@@ -203,6 +254,64 @@ export function CmePlanPage({
           {message}
         </p>
       </section>
+
+      {offerCarry ? (
+        <section id="cme-carry-goals" className={cn(cardSurface, "mt-4 p-4")} aria-labelledby="cme-carry-heading">
+          <h2 id="cme-carry-heading" className="text-base font-semibold text-[color:var(--text)]">
+            Carry goals into {set.year + 1}
+          </h2>
+          <p className={cn(textMuted, "mt-1 text-sm")}>
+            Choose any goal you are still working on. Nothing carries forward automatically.
+          </p>
+          {nextYearConfirmed === false ? (
+            <p className="mt-2 text-sm">
+              <Link
+                href={`/cme/setup?year=${set.year + 1}`}
+                className="inline-flex min-h-tap items-center font-semibold underline underline-offset-2"
+              >
+                Confirm {set.year + 1} targets first
+              </Link>
+            </p>
+          ) : nextYearConfirmed === null ? (
+            <p className={cn(textMuted, "mt-2 text-sm")}>Next year’s targets have not been checked here yet.</p>
+          ) : null}
+          {availableToCarry.length === 0 ? (
+            <p className={cn(textMuted, "mt-2 text-sm")}>No goals left to carry.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-[color:var(--border)]">
+              {availableToCarry.map((goal) => (
+                <li key={goal.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span className="min-w-0 flex-1 text-sm text-[color:var(--text)]">{goal.goal}</span>
+                  <button
+                    type="button"
+                    disabled={!targetReady || targetFull || carryingId !== null || demoMode}
+                    onClick={() => void carryGoal(goal)}
+                    className={cn(
+                      "min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold text-[color:var(--text)]",
+                      controlDisabled,
+                    )}
+                  >
+                    {carryingId === goal.id ? "Carrying…" : `Carry into ${set.year + 1}`}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {targetFull ? (
+            <p className={cn(textMuted, "mt-2 text-sm")}>
+              {set.year + 1} already has the maximum of {CME_PLAN_GOAL_MAX} goals.
+            </p>
+          ) : null}
+          {nextYearConfirmed && !targetReady && !targetFull ? (
+            <p className={cn(textMuted, "mt-2 text-sm")}>
+              Carry is unavailable until next year’s goals have been loaded.
+            </p>
+          ) : null}
+          <p role="status" className="mt-2 text-sm" data-testid="cme-carry-message">
+            {carryMessage}
+          </p>
+        </section>
+      ) : null}
 
       <section className={cn(cardSurface, "mt-4 flex items-start gap-3 p-4")} data-testid="cme-plan-status">
         {planRequirement?.completedOn ? (

@@ -53,6 +53,11 @@ export type CalendarEvent = {
   readonly reminderType?: ReminderType;
   /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
   readonly alarmAt?: string;
+  /**
+   * A cancelled occurrence. It stays in exports and feeds so a calendar that already holds it
+   * updates it rather than keeping it: it is written with STATUS:CANCELLED and never with an alarm.
+   */
+  readonly status?: "cancelled";
   /** Further absolute alarm instants (ISO, UTC), one VALARM each. Set only by Admin's one-off renewal file. */
   readonly alarmsAt?: readonly string[];
 };
