@@ -169,6 +169,25 @@ export async function fetchOwnerCmeYear(
   return rowToCmeRequirementSet(yearRow, requirementRows ?? []);
 }
 
+/** Year ids for the signed-in owner's cross-year Log, bounded by the supported CPD calendar range. */
+export async function fetchOwnerCmeYears(
+  supabase: AdminClient,
+  ownerId: string,
+): Promise<readonly { id: string; year: number }[]> {
+  if (!ownerId) throw new Error("CME years were requested without an ownerId; refusing to run.");
+  const { data, error } = await supabase
+    .from("cme_years")
+    .select("id, year")
+    .eq("owner_id", ownerId)
+    .order("year", { ascending: false })
+    .limit(102);
+  if (error) throw cmeRepositoryError(error);
+  if ((data?.length ?? 0) > 101) {
+    throw new PublicApiError("The complete CPD year list could not be displayed.", 409);
+  }
+  return (data ?? []).map((row) => ({ id: row.id, year: row.year }));
+}
+
 /** Every logged entry for one owner's CPD year, most recent first. */
 export async function fetchOwnerCmeEntries(
   supabase: AdminClient,
@@ -265,6 +284,10 @@ export function cmeRepositoryError(error: { message: string }): Error {
     ],
     cme_year_open: ["This CPD year is not closed. Edit the activity instead of amending it.", 409],
     cme_close_conflict: ["Your record changed while the year was being closed. Reload and try again.", 409],
+    cme_plan_conflict: ["Your plan changed in another tab. Reload before saving it.", 409],
+    cme_goal_not_found: ["This goal is no longer available. Reload the plan and try again.", 404],
+    cme_goal_limit: ["The next year's plan already has ten goals.", 409],
+    cme_carry_unavailable: ["Goal carry is available from 17 December through January.", 409],
     cme_amendment_reason_invalid: ["Give a reason for this amendment (3 to 1000 characters).", 400],
     cme_year_not_confirmed: ["Confirm your CPD year before saving an entry.", 400],
     cme_entry_not_found: ["CPD entry not found.", 404],
@@ -400,14 +423,12 @@ export async function assertValidCmeLinkedIds(
   }
 }
 
-/**
- * Stamp `transcribed_at` after a successful clipboard copy. Never clears an
- * already-transcribed entry — copying again refreshes the instant.
- */
-export async function markCmeEntryTranscribed(
+/** Update the copy state of one owner-scoped, editable entry. */
+async function setCmeEntryTranscribed(
   supabase: AdminClient,
   ownerId: string,
   entryId: string,
+  transcribed: boolean,
 ): Promise<CmeEntry> {
   if (!ownerId) throw new Error("A CME entry was transcribed without an ownerId; refusing to run.");
 
@@ -435,7 +456,7 @@ export async function markCmeEntryTranscribed(
 
   const { data: updated, error: updateError } = await supabase
     .from("cme_entries")
-    .update({ transcribed_at: new Date().toISOString() })
+    .update({ transcribed_at: transcribed ? new Date().toISOString() : null })
     .eq("id", entryId)
     .eq("owner_id", ownerId)
     .select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)")
@@ -452,6 +473,24 @@ export async function markCmeEntryTranscribed(
       hours: allocation.hours,
     })),
   );
+}
+
+/** Stamp the copy time after a successful clipboard copy. */
+export async function markCmeEntryTranscribed(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+): Promise<CmeEntry> {
+  return setCmeEntryTranscribed(supabase, ownerId, entryId, true);
+}
+
+/** Undo a copy by clearing its time, subject to the same owner and year checks. */
+export async function clearCmeEntryTranscribed(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+): Promise<CmeEntry> {
+  return setCmeEntryTranscribed(supabase, ownerId, entryId, false);
 }
 
 /**

@@ -46,7 +46,6 @@ vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
 }));
 
 import OnCallContactsRoute from "@/app/(search-app)/on-call/contacts/page";
-import OnCallEducationRoute from "@/app/(search-app)/on-call/education/page";
 import OnCallOrientationRoute from "@/app/(search-app)/on-call/orientation/page";
 import OnCallPlaybookRoute from "@/app/(search-app)/on-call/playbook/page";
 import OnCallReferralsRoute from "@/app/(search-app)/on-call/referrals/page";
@@ -68,11 +67,8 @@ const routes: RouteCase[] = [
   { view: "playbook", title: "Playbook", Route: OnCallPlaybookRoute },
   { view: "referrals", title: "Referrals", Route: OnCallReferralsRoute },
   { view: "orientation", title: "Orientation", Route: OnCallOrientationRoute },
-  // Titled "Teaching" everywhere a reader sees it, even though the section id
-  // (route segment, database check constraint) stays "education".
-  { view: "education", title: "Teaching", Route: OnCallEducationRoute },
-  // No `logistics` row: On Call's Admin page moved to Admin > Help on 2026-09-26
-  // (Admin update 1), and `/on-call/logistics` is now a redirect backstop.
+  // No `education` row: its page forwards to Teaching's Week (spec §8). No `logistics`
+  // row: On Call's Admin page moved to Admin > Help on 2026-09-26 (Admin update 1).
   { view: "who-is-who", title: "Who's who", Route: OnCallWhoIsWhoRoute },
   // Compliance is a view over `logistics` split on `details.kind`, exactly as
   // Who's who is a view over `contacts`. Since Admin update 1 it renders as
@@ -124,16 +120,16 @@ afterEach(() => {
 });
 
 describe("on-call section routes", () => {
-  it("covers every declared on-call page, in order — the six sections, then the two views over one", () => {
+  it("covers every declared on-call page, in order — the five sections with a page, then the two views over one", () => {
     // Fails loudly if a section is added to the data model without a route case
     // here, rather than leaving the new section silently unguarded. Who's who and
     // Compliance are not stored sections — they are `contacts` and `logistics`
     // rows behind `details.kind` — so they are named separately rather than
     // folded into the model's list.
-    // `logistics` is left out because Admin > Help renders those rows now; its
-    // On Call route only redirects (tests/admin-foundations.dom.test.tsx).
+    // Education forwards to Teaching's Week (spec §8, tests/teaching-on-call-relocation.dom.test.tsx);
+    // `logistics` redirects to Admin > Help (tests/admin-foundations.dom.test.tsx).
     expect(routes.map((route) => route.view)).toEqual([
-      ...ON_CALL_SECTIONS.filter((section) => section !== "logistics"),
+      ...ON_CALL_SECTIONS.filter((section) => section !== "education" && section !== "logistics"),
       "who-is-who",
       "compliance",
     ]);
@@ -141,8 +137,11 @@ describe("on-call section routes", () => {
     // The same guard for the half of this mode the model's list cannot see. A
     // view over an existing section costs no migration, which is exactly why one
     // can be built and shipped without anything here noticing: Compliance was.
-    // Every page the identity map names must appear above, section or not.
-    const declaredViews: string[] = Object.keys(ON_CALL_VIEW_TITLES).filter((view) => view !== "logistics");
+    // Every page the identity map names must appear above, section or not — except
+    // "education" (forwards to Teaching's Week) and "logistics" (redirects to Admin > Help).
+    const declaredViews: string[] = Object.keys(ON_CALL_VIEW_TITLES).filter(
+      (view) => view !== "education" && view !== "logistics",
+    );
     expect(routes.map((route) => route.view as string).sort()).toEqual(declaredViews.sort());
   });
 

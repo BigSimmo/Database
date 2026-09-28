@@ -9,10 +9,16 @@
     "documentSha256": "921a5174712405a8298ec350e1be275e0664c62092519d87ae3886a135dd2d0c",
     "extractorVersion": 1,
     "counts": {
-      "sections": 109
+      "sections": 110
     }
   },
   "sections": [
+    {
+      "section": "14",
+      "heading": "Capacity of child to make decisions",
+      "text": "(1)A child is presumed to not have the capacity to make a treatment decision.\n(2)A child has the capacity to make a treatment decision if the child has sufficient maturity and understanding to make the decision having regard to the criteria set out in section 15.",
+      "textSha256": "a8faee7535560b29ff6d4a67e23114d7b2354c4ff5aa3bcebafe4d8f58b0f49f"
+    },
     {
       "section": "25",
       "heading": "Criteria for involuntary treatment order",

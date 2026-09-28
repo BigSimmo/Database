@@ -7,7 +7,7 @@ const BLOCK = "rounded-lg border border-[color:var(--border)] bg-[color:var(--su
 
 /** The same room under the last shape that the loaded page keeps for the floating "+ Log" (spec §5). */
 const PAGE =
-  "mx-auto flex w-full max-w-3xl flex-col bg-[color:var(--background)] px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6";
+  "mx-auto flex w-full flex-col bg-[color:var(--background)] px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6";
 
 /**
  * CPD Today's loading state: its shapes in its order, so nothing jumps when it
@@ -27,17 +27,15 @@ const PAGE =
  */
 export function CmeLoadingSkeleton() {
   return (
-    <div role="status" aria-label="Loading your CPD record" data-testid="cme-loading" className={PAGE}>
+    <div role="status" aria-label="Loading your CPD record" data-testid="cme-loading" className={cn(PAGE, "max-w-5xl")}>
       <div data-testid="cme-loading-header" aria-hidden="true" className="flex h-12 items-start justify-between gap-3">
         <span className="h-7 w-14 rounded-sm bg-[color:var(--surface-subtle)]" />
         <span className={cn(BLOCK, "h-12 w-28")} />
       </div>
-      <div
-        data-testid="cme-loading-hero"
-        aria-hidden="true"
-        className={cn(modeSummarySurface, "mt-4 h-37 rounded-xl")}
-      />
-      <div data-testid="cme-loading-card" aria-hidden="true" className={cn(BLOCK, "mt-3 h-56")} />
+      <div className="mt-4 grid gap-3 lg:grid-cols-2" data-testid="cme-loading-lead">
+        <div data-testid="cme-loading-hero" aria-hidden="true" className={cn(modeSummarySurface, "h-37 rounded-xl")} />
+        <div data-testid="cme-loading-card" aria-hidden="true" className={cn(BLOCK, "h-56")} />
+      </div>
       <div aria-hidden="true" className="mt-3 grid grid-cols-2 gap-3">
         <div data-testid="cme-loading-tile" className={cn(BLOCK, "h-22")} />
         <div data-testid="cme-loading-tile" className={cn(BLOCK, "h-22")} />
@@ -53,9 +51,51 @@ export function CmeLoadingSkeleton() {
 /** The Log's loading state: its heading's line, then a month of two-line rows. Never Today's hero. */
 export function CmeLogLoadingSkeleton() {
   return (
-    <div role="status" aria-label="Loading your CPD log" data-testid="cme-log-loading" className={cn(PAGE, "gap-4")}>
+    <div
+      role="status"
+      aria-label="Loading your CPD log"
+      data-testid="cme-log-loading"
+      className={cn(PAGE, "max-w-3xl gap-4")}
+    >
       <span aria-hidden="true" className="h-7 w-16 rounded-sm bg-[color:var(--surface-subtle)]" />
       <ModeModuleSkeleton rows={6} twoLine eyebrow testId="cme-log-loading-rows" />
+    </div>
+  );
+}
+
+/** Static shapes for the secondary CPD pages, in the same order as their loaded sections. */
+export function CmeSecondaryLoadingSkeleton({
+  page,
+}: {
+  page: "calendar" | "check" | "plan" | "training" | "summary" | "setup" | "programme";
+}) {
+  const isCalendar = page === "calendar";
+  const isTraining = page === "training";
+  const isPlan = page === "plan";
+  const isSummary = page === "summary";
+  const isProgramme = page === "programme" || page === "setup";
+  const rows = isCalendar ? 5 : isSummary ? 4 : isTraining ? 3 : 5;
+
+  return (
+    <div
+      role="status"
+      aria-label={`Loading your CPD ${page === "check" ? "year check" : page}`}
+      data-testid={`cme-${page}-loading`}
+      className={cn(PAGE, "max-w-3xl gap-4")}
+    >
+      <span aria-hidden="true" className="h-7 w-40 rounded-sm bg-[color:var(--surface-subtle)]" />
+      <span aria-hidden="true" className="h-4 w-64 max-w-full rounded-sm bg-[color:var(--surface-subtle)]" />
+      {isTraining ? (
+        <div aria-hidden="true" className="grid gap-4 sm:grid-cols-2">
+          <div className={cn(BLOCK, "h-36")} />
+          <div className={cn(BLOCK, "h-36")} />
+        </div>
+      ) : null}
+      {isCalendar ? <div aria-hidden="true" className={cn(BLOCK, "h-80")} /> : null}
+      {isPlan || isProgramme || isSummary ? (
+        <div aria-hidden="true" className={cn(BLOCK, isPlan ? "h-56" : "h-40")} />
+      ) : null}
+      <ModeModuleSkeleton rows={rows} twoLine eyebrow testId={`cme-${page}-loading-rows`} />
     </div>
   );
 }

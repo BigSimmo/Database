@@ -56,18 +56,54 @@ describe("plan goals API", () => {
   it("saves the year's goals through the owner-locked function, with the owner from the session", async () => {
     mocks.rpc.mockResolvedValue({ data: [{ id: GOAL, goal: "Document capacity well", sortOrder: 0 }], error: null });
     const response = await savePlan(
-      put("http://localhost/api/cme/plan", { year: 2026, goals: [{ goal: "  Document capacity well " }] }),
+      put("http://localhost/api/cme/plan", {
+        year: 2026,
+        goals: [{ goal: "  Document capacity well " }],
+        expectedGoals: [],
+      }),
     );
     expect(response.status).toBe(200);
-    expect(mocks.rpc).toHaveBeenCalledWith("cme_save_plan_goals", {
+    expect(mocks.rpc).toHaveBeenCalledWith("cme_save_plan_goals_checked", {
       p_owner_id: OWNER,
       p_year_id: YEAR_ID,
       p_goals: [{ goal: "Document capacity well" }],
+      p_expected_goals: [],
     });
     expect(await response.json()).toEqual({
       year: 2026,
       goals: [{ id: GOAL, goal: "Document capacity well", sortOrder: 0 }],
     });
+  });
+
+  it("uses an exact goal snapshot so a stale editor cannot erase or overwrite a carried goal", async () => {
+    mocks.rpc.mockResolvedValue({ data: [{ id: GOAL, goal: "Document capacity", sortOrder: 0 }], error: null });
+    const response = await savePlan(
+      put("http://localhost/api/cme/plan", {
+        year: 2026,
+        goals: [{ id: GOAL, goal: "Document capacity" }],
+        expectedGoals: [{ id: GOAL, goal: "Document capacity" }],
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("cme_save_plan_goals_checked", {
+      p_owner_id: OWNER,
+      p_year_id: YEAR_ID,
+      p_goals: [{ id: GOAL, goal: "Document capacity" }],
+      p_expected_goals: [{ id: GOAL, goal: "Document capacity" }],
+    });
+  });
+
+  it("returns a conflict when the saved goal text, order or IDs changed", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "cme_plan_conflict" } });
+    const response = await savePlan(put("http://localhost/api/cme/plan", { year: 2026, goals: [], expectedGoals: [] }));
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("cme_plan_conflict");
+  });
+
+  it("rejects old saves without a baseline instead of risking deletion of a carried goal", async () => {
+    const response = await savePlan(put("http://localhost/api/cme/plan", { year: 2026, goals: [] }));
+    expect(response.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("refuses in demo mode and never writes", async () => {
@@ -79,7 +115,9 @@ describe("plan goals API", () => {
 
   it("maps a closed year to a plain 409", async () => {
     mocks.rpc.mockResolvedValue({ data: null, error: { message: "cme_year_closed" } });
-    const response = await savePlan(put("http://localhost/api/cme/plan", { year: 2026, goals: [{ goal: "Abc" }] }));
+    const response = await savePlan(
+      put("http://localhost/api/cme/plan", { year: 2026, goals: [{ goal: "Abc" }], expectedGoals: [] }),
+    );
     expect(response.status).toBe(409);
   });
 
@@ -126,7 +164,9 @@ describe("plan goal rules", () => {
       cmePlanGoalsSaveSchema.safeParse({ year: 2026, goals: Array.from({ length: 11 }, () => ({ goal: "Goal" })) })
         .success,
     ).toBe(false);
-    expect(cmePlanGoalsSaveSchema.safeParse({ year: 2026, goals: [{ goal: "Abc" }] }).success).toBe(true);
+    expect(cmePlanGoalsSaveSchema.safeParse({ year: 2026, goals: [{ goal: "Abc" }], expectedGoals: [] }).success).toBe(
+      true,
+    );
   });
 
   it("adds up hours per goal, leaving archived activities out", () => {

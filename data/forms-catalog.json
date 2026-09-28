@@ -246,7 +246,7 @@
       "name": "Detain voluntary inpatient for assessment",
       "category": "Detention",
       "purpose": "Use for a voluntary inpatient requesting discharge where urgent assessment is required.",
-      "maker": "Authorised clinician specified by the Act pathway.",
+      "maker": "Person in charge of the ward",
       "involved": "Ward medical team, nursing coordinator, psychiatrist or registrar.",
       "threshold": "Assessment is required and no lawful next step has yet been completed.",
       "clock": "Assessment detention: up to 6 hours, measured from time Form 2 is made. Detention ends if assessment is incomplete at 6 hours or no s36 referral is made after assessment.",
@@ -308,6 +308,11 @@
         "Does not authorise treatment or continuing detention beyond the statutory off-ramp."
       ],
       "priorityFacts": {
+        "authority": {
+          "title": "Person in charge of the ward",
+          "detail": "Person in charge of the ward",
+          "body": "Under s 34 of the Mental Health Act 2014, the person in charge of a ward of an authorised hospital may make an order authorising detention of a voluntary inpatient for up to 6 hours for assessment."
+        },
         "clock": {
           "title": "Assessment detention: up to 6 hours",
           "detail": "from time Form 2 is made",

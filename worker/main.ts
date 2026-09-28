@@ -59,6 +59,9 @@ import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
 import { runWorkerLoop } from "./run-loop";
 import type { JobDocument, JobRow } from "./types";
 
+/** Upper bound on the fatal-exit alert, so a stalled webhook cannot delay the exit and restart. */
+const FAILURE_WEBHOOK_TIMEOUT_MS = 5_000;
+
 const supabase = createAdminClient();
 const workerId = `${os.hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
 const progressUpdateState = new Map<string, { updatedAt: number; progress: number; stage: string }>();
@@ -2144,6 +2147,8 @@ main().catch(async (error) => {
         body: JSON.stringify({
           text: `CRITICAL: PsychSift worker ${abort ? "aborted" : "stopped unexpectedly"}. Error: ${error instanceof Error ? error.message : String(error)}`,
         }),
+        // Bounded so a stalled endpoint cannot hold the exit, and with it Railway's restart.
+        signal: AbortSignal.timeout(FAILURE_WEBHOOK_TIMEOUT_MS),
       });
     } catch (webhookError) {
       console.error("Failed to dispatch worker failure webhook", safeErrorLogDetails(webhookError));

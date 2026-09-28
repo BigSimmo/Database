@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
+import { CmeProgrammePage } from "@/components/cme/cme-programme-page";
 import { CmeSetupPage } from "@/components/cme/cme-setup-page";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
@@ -9,12 +10,17 @@ export function CmeSetupRoute({
   year,
   set,
   demoMode,
+  editInitially = false,
 }: {
   readonly year: number;
   readonly set: CmeRequirementSet | null;
   readonly demoMode: boolean;
+  readonly editInitially?: boolean;
 }) {
   const router = useRouter();
+  if (set && !editInitially) {
+    return <CmeProgrammePage set={set} title="Set up" />;
+  }
   return (
     <CmeSetupPage
       year={year}
@@ -38,6 +44,7 @@ export function CmeSetupRoute({
                 : `Could not confirm requirements (${response.status}).`;
           throw new Error(message);
         }
+        router.push(`/cme/setup?year=${year}`);
         router.refresh();
       }}
     />

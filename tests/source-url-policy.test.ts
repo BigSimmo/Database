@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { safeCanonicalSourceUrl } from "@/lib/sources/source-url-policy";
+import { GOVERNED_SOURCE_HOSTS, safeCanonicalSourceUrl } from "@/lib/sources/source-url-policy";
 
 describe("governed source URL query policy", () => {
   it.each(["https://www.health.gov.au/resource?language=en", "https://www.legislation.wa.gov.au/act?OpenElement"])(
@@ -33,5 +33,13 @@ describe("governed source URL query policy", () => {
     "https://www.legislation.wa.gov.au/act?OpenElement&view=summary",
   ])("rejects the non-allowlisted query shape %s", (value) => {
     expect(safeCanonicalSourceUrl(value)).toBeNull();
+  });
+
+  it("allows governed host meteor.aihw.gov.au and maintains the pinned host count", () => {
+    expect(safeCanonicalSourceUrl("https://meteor.aihw.gov.au/content/807042")).toBe(
+      "https://meteor.aihw.gov.au/content/807042",
+    );
+    expect(GOVERNED_SOURCE_HOSTS).toContain("meteor.aihw.gov.au");
+    expect(GOVERNED_SOURCE_HOSTS.length).toBe(60);
   });
 });

@@ -66,6 +66,7 @@ const staticRouteRedirects: Record<string, string> = {
   // sentence) all name this route by hand, so `sitemap:check` cannot notice the entry
   // going away. Retiring it means moving all four together.
   "/mockups/document-search-command": "/documents/search",
+  // Keep the existing On Call teaching records reachable until a service approves transfer.
   // Admin mode, update 1 (2026-09-26). My Work became Admin and its home moved to
   // `/admin`; the two On Call pages Admin received moved with it. The query string
   // travels, and the browser keeps a `#on-call-entry-<id>` fragment across the 307,
