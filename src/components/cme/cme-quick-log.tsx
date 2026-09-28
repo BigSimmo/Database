@@ -225,7 +225,7 @@ export function CmeQuickLog({
         onClick={() => setOpen(true)}
         className={cn(
           primaryControl,
-          "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[var(--z-chrome)] rounded-full shadow-[var(--e4)] print:hidden",
+          "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-[var(--z-chrome)] rounded-full shadow-[var(--e4)] print:hidden",
         )}
       >
         <Plus aria-hidden="true" className="size-icon-sm" />

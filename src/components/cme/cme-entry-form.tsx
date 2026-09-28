@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { z } from "zod";
 
@@ -26,6 +26,7 @@ import { parseCmeHours } from "@/lib/cme/hours-input";
 import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
 import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory, type CmeEntry } from "@/lib/cme/types";
+import { subscribeAccountTransition } from "@/lib/account-scoped-browser-state";
 
 /**
  * One activity, captured on one sheet: what it was, when, how many hours it
@@ -504,6 +505,10 @@ export function CmeEntryForm({
     resetFields();
     setRestoredDraft(false);
   }
+
+  // Reads the latest form state when an account transition fires, without resubscribing each render.
+  const onAccountTransition = useEffectEvent(() => discardDraft());
+  useEffect(() => subscribeAccountTransition(onAccountTransition), []);
 
   async function handleSaveDraft() {
     if (!onSaveDraft || savingDraft || saving) return;
