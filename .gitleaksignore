@@ -150,3 +150,8 @@ b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:
 # trailing comma to the calendar_feed_tokens.sql line, so gitleaks re-reports that
 # SHA-256 migration hash (filename contains "tokens"). No credential material (PR #3069).
 5157952b26c517d89402908813d4f504d46f72ec:supabase/applied-migration-hashes.json:generic-api-key:274
+# PR #3162: WARD_API_AUDIENCE is the Ward Flow Azure app registration's client ID, a public
+# identifier (it appears in every token's aud claim), not a secret. config.mjs pins it on
+# purpose. Owner approved these two exceptions on 2026-09-28.
+00a86031e11b3d9702607d236b583fe7688cad10:backend/ward-flow/.env.example:generic-api-key:7
+00a86031e11b3d9702607d236b583fe7688cad10:backend/ward-flow/backend.test.mjs:generic-api-key:10
