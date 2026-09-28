@@ -469,6 +469,7 @@ describe("tenancy table tiers", () => {
       "roster_assignments",
       "roster_change_agreements",
       "roster_draft_assignments",
+      "roster_maker_consents",
       "roster_member_roles",
       "roster_publication_seen",
       "roster_unavailability",
