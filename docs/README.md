@@ -170,6 +170,7 @@ Every remaining tracked document in this category (operations, plus the `rag-beh
 
 ### Also catalogued (2026-09-26)
 
+- [pr-3126-local-merge-handover.md](pr-3126-local-merge-handover.md) — Local (Docker) steps to unblock PRs #3126 and #3147, the agreed migration order, and the time-of-day On Call test failure, written 2026-09-28
 - [pr-batch-runner.md](pr-batch-runner.md) — Sequential PR batch runner — prepares and merges a fixed snapshot of pull requests one at a time
 - [production-readiness.md](production-readiness.md) — Production readiness and operational release requirements (points to the canonical checklist)
 - [site-content-sync-runbook.md](site-content-sync-runbook.md) — Site-content publication and synchronization runbook
