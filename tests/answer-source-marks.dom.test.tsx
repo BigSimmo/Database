@@ -338,6 +338,32 @@ describe("in-prose source marks", () => {
     expect(screen.queryAllByTestId("answer-source-mark")).toHaveLength(0);
     expect(screen.getAllByTestId("answer-source-rail-row")[0].tagName).toBe("A");
   });
+
+  it("presents a refusal's rows as searched, never as support: no marks, no numbers, no 'cited' (#Z9NS6H)", () => {
+    render(
+      <NaturalLanguageAnswer
+        text={ANSWER}
+        query="clozapine monitoring"
+        bestSource={null}
+        sources={[]}
+        sourceLinks={[]}
+        railRows={ROWS}
+        claims={[claim({ claimId: "claim-1", text: FIRST_SENTENCE })]}
+        copied={false}
+        onCopy={vi.fn()}
+        onOpenSource={vi.fn()}
+        isRefusal
+      />,
+    );
+    expect(screen.queryAllByTestId("answer-source-mark")).toHaveLength(0);
+    const heading = screen.getByTestId("answer-source-rail-heading");
+    expect(heading).toHaveTextContent("Documents searched");
+    expect(heading).toHaveTextContent("2 searched");
+    expect(heading).not.toHaveTextContent(/cited/i);
+    for (const card of screen.getAllByTestId("answer-source-rail-row")) {
+      expect(card).toHaveAttribute("data-cited", "false");
+    }
+  });
 });
 
 describe("answer body no longer owns a source-status row", () => {

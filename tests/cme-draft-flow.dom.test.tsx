@@ -66,19 +66,17 @@ describe("saving an activity as a draft", () => {
   });
 });
 
-describe("the dashboard Next row", () => {
+describe("the dashboard To finish list", () => {
   const now = new Date("2026-06-15T02:00:00Z");
 
-  it("puts drafts to finish first when there are any", () => {
+  it("links to drafts when there are any", () => {
     render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={now} draftsToFinish={2} />);
-    const link = screen.getByTestId("cme-drafts-to-finish");
-    expect(link).toHaveTextContent("Drafts to finish: 2 activities");
-    expect(link).toHaveAttribute("href", "/cme/log#cme-drafts");
-    expect(link.compareDocumentPosition(screen.getByTestId("cme-next-action"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const link = screen.getByRole("link", { name: /Drafts to finish\s*2/ });
+    expect(link).toHaveAttribute("href", "/cme/log?year=2026&tab=finish#cme-drafts");
   });
 
   it("says nothing about drafts when there are none", () => {
     render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={now} />);
-    expect(screen.queryByTestId("cme-drafts-to-finish")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Drafts to finish/ })).toBeNull();
   });
 });

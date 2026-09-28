@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-27T00:39:37.018Z",
+  "generated_at": "2026-09-27T20:07:22.322Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "29f77da5a58055cd5499bd23028a23f4461311bdfb5ec796c4a34973b574f3c2",
+  "schema_sha256": "d2234db5e18cb33a7031c7a3317aeef6b842d49536410a0f1132c7950cea1c42",
   "replay_seconds": 18,
   "snapshot": {
     "views": [
@@ -1437,6 +1437,50 @@
             "default": "now()",
             "identity": "",
             "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_plan_goal_carries",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "source_goal_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "target_goal_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
             "generated": ""
           }
         ],
@@ -12863,6 +12907,18 @@
         "def_hash": "d83ff4302b947648c383ea7127013e99"
       },
       {
+        "def": "CREATE UNIQUE INDEX cme_plan_goal_carries_pkey ON public.cme_plan_goal_carries USING btree (owner_id, source_goal_id)",
+        "name": "cme_plan_goal_carries_pkey",
+        "table": "cme_plan_goal_carries",
+        "def_hash": "9c13ffeaa72a4d6a6e1ec5b977bcf700"
+      },
+      {
+        "def": "CREATE INDEX cme_plan_goal_carries_target_idx ON public.cme_plan_goal_carries USING btree (target_goal_id)",
+        "name": "cme_plan_goal_carries_target_idx",
+        "table": "cme_plan_goal_carries",
+        "def_hash": "a0fe1aeeef3470b4609a90ad6dd09b92"
+      },
+      {
         "def": "CREATE UNIQUE INDEX cme_plan_goals_id_owner_key ON public.cme_plan_goals USING btree (id, owner_id)",
         "name": "cme_plan_goals_id_owner_key",
         "table": "cme_plan_goals",
@@ -15452,6 +15508,18 @@
       },
       {
         "cmd": "ALL",
+        "name": "cme_plan_goal_carries service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_plan_goal_carries",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
         "name": "cme_plan_goals service role all",
         "qual": "true",
         "roles": [
@@ -16794,6 +16862,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "e196c9d0b04e466c5f8c3f0caa1f4c62",
+        "signature": "public.cme_carry_plan_goal(uuid,integer,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "5908ff81c29c363b51f44bcd87dca2aa",
         "signature": "public.cme_check_entry_allocations()"
       },
@@ -16916,6 +16992,14 @@
         ],
         "def_hash": "cb723dadd2d13699cf4443a140368edb",
         "signature": "public.cme_save_entry(uuid,uuid,uuid,jsonb,boolean,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "1d219569a62becf56ac640e177aad067",
+        "signature": "public.cme_save_plan_goals_checked(uuid,uuid,jsonb,jsonb)"
       },
       {
         "acl": [
@@ -18345,7 +18429,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "0067fcf58f915903cea57f86357b06ff",
+        "def_hash": "4f64ab00fd052ba13cd7a7ec22f90fc1",
         "signature": "public.teaching_depth_command(uuid,uuid,text,jsonb)"
       },
       {
@@ -18545,7 +18629,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "cacaf33adaac34ceee62c9fc5b1c0763",
+        "def_hash": "bfbdf71c07c615aa38e52ffacec4966a",
         "signature": "public.teaching_whats_on_command(uuid,uuid,text,jsonb)"
       },
       {
@@ -19165,6 +19249,21 @@
         "def": "CHECK (((char_length(btrim(title)) >= 3) AND (char_length(btrim(title)) <= 200)))",
         "name": "cme_missed_sessions_title_check",
         "table": "cme_missed_sessions"
+      },
+      {
+        "def": "PRIMARY KEY (owner_id, source_goal_id)",
+        "name": "cme_plan_goal_carries_pkey",
+        "table": "cme_plan_goal_carries"
+      },
+      {
+        "def": "FOREIGN KEY (source_goal_id, owner_id) REFERENCES public.cme_plan_goals(id, owner_id) ON DELETE CASCADE",
+        "name": "cme_plan_goal_carries_source_owner_fk",
+        "table": "cme_plan_goal_carries"
+      },
+      {
+        "def": "FOREIGN KEY (target_goal_id, owner_id) REFERENCES public.cme_plan_goals(id, owner_id) ON DELETE SET NULL (target_goal_id)",
+        "name": "cme_plan_goal_carries_target_owner_fk",
+        "table": "cme_plan_goal_carries"
       },
       {
         "def": "CHECK (((char_length(btrim(goal)) >= 3) AND (char_length(btrim(goal)) <= 300)))",

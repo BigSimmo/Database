@@ -30,4 +30,28 @@ describe("the CPD calendar page", () => {
     expect(screen.getByTestId("cme-calendar-view-grid").innerHTML).not.toContain("--tone-");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
+  it("names the CPD month feed as coming up", () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ subscribed: false, available: false }), { status: 200 }),
+    );
+    render(
+      <CmeCalendarPage
+        set={DEMO_CME_YEAR}
+        entries={[]}
+        routines={[
+          {
+            id: "routine",
+            title: "Peer review",
+            cadence: "monthly",
+            usualHours: 1,
+            usualAllocations: [],
+            nextDue: "2026-09-25",
+            archivedAt: null,
+          },
+        ]}
+        nowIso={DEMO_CME_INSTANT.toISOString()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Coming up in September" })).toBeInTheDocument();
+  });
 });
