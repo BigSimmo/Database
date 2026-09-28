@@ -87,3 +87,12 @@ describe("published presentation candidate rendering", () => {
     expect(copyText.mock.calls[0]![0]).toContain("Comparison incomplete");
   });
 });
+
+describe("presentation review panels", () => {
+  it("does not render a self-link back to the presentation route being viewed", () => {
+    const workflow = differentialPresentations()[0]!;
+    const { container } = render(<DifferentialPresentationWorkflowPage workflow={workflow} />);
+    expect(container.querySelector(`a[href="/differentials/presentations/${workflow.id}"]`)).toBeNull();
+    expect(screen.queryByRole("link", { name: /View handoff template/ })).not.toBeInTheDocument();
+  });
+});

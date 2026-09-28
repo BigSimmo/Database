@@ -36,6 +36,13 @@ describe("Programme", () => {
     expect(within(overlay).queryByText(/Practice domains/)).toBeNull();
   });
 
+  it("gives every confirmed target an address on the Set up read view", () => {
+    const { container } = render(<CmeProgrammePage set={DEMO_CME_YEAR} title="Set up" />);
+    for (const requirement of DEMO_CME_YEAR.requirements) {
+      expect(container.ownerDocument.getElementById(`cme-requirement-${requirement.id}`)).not.toBeNull();
+    }
+  });
+
   it("says plainly that the app never looks a requirement up", () => {
     render(<CmeProgrammePage set={DEMO_CME_YEAR} />);
     expect(screen.getByTestId("cme-no-lookup")).toHaveTextContent(/never looks|never changes/i);
@@ -49,6 +56,6 @@ describe("Programme", () => {
   it("links Add and Re-confirm to the real setup editor when callbacks are not supplied", () => {
     render(<CmeProgrammePage set={DEMO_CME_YEAR} />);
     expect(screen.getByRole("link", { name: /add/i })).toHaveAttribute("href", expect.stringContaining("/cme/setup"));
-    expect(screen.getByRole("link", { name: /re-confirm/i })).toHaveAttribute("href", "/cme/setup?year=2026");
+    expect(screen.getByRole("link", { name: /re-confirm/i })).toHaveAttribute("href", "/cme/setup?year=2026&edit=1");
   });
 });

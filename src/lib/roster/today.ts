@@ -18,7 +18,16 @@ export type TodayState =
   | { readonly state: "empty" }
   | { readonly state: "on_now"; readonly shift: TodayShift; readonly isNight: boolean }
   | { readonly state: "before"; readonly shift: TodayShift }
-  | { readonly state: "day_off"; readonly next: TodayShift | null };
+  | {
+      readonly state: "day_off";
+      readonly next: TodayShift | null;
+      /**
+       * A worked shift already ended today. The page then says "Finished for
+       * today" rather than "Day off", which contradicted the week strip
+       * showing that same shift under today's date.
+       */
+      readonly finishedToday: boolean;
+    };
 
 export type TodaySummary = {
   readonly lead: TodayState;
@@ -54,7 +63,13 @@ export function summariseToday(shifts: readonly TodayShift[], now: Date): TodayS
   if (sorted.length === 0) lead = { state: "empty" };
   else if (onNow) lead = { state: "on_now", shift: onNow, isNight: onNow.kind === "night" };
   else if (next && perthDateOf(next.startsAt) === today) lead = { state: "before", shift: next };
-  else lead = { state: "day_off", next };
+  else {
+    // An end at exactly midnight belongs to the day before, as leave does below.
+    const finishedToday = working.some(
+      (shift) => Date.parse(shift.endsAt) <= at && perthDateOf(new Date(Date.parse(shift.endsAt) - 1)) === today,
+    );
+    lead = { state: "day_off", next, finishedToday };
+  }
 
   const weekday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
   const monday = addDaysToDate(today, -weekday);

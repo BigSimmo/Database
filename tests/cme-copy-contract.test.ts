@@ -24,8 +24,8 @@ import { describe, expect, it } from "vitest";
 const root = new URL("../", import.meta.url);
 
 const CPD_FILES = [
-  ...globSync("src/components/cme/**/*.tsx", { cwd: root }),
-  ...globSync("src/app/(search-app)/cme/**/*.tsx", { cwd: root }),
+  ...globSync("src/components/cme/**/*.tsx", { cwd: root }).map((file) => file.replaceAll("\\", "/")),
+  ...globSync("src/app/(search-app)/cme/**/*.tsx", { cwd: root }).map((file) => file.replaceAll("\\", "/")),
   "src/lib/cme/evaluate.ts",
   "src/lib/cme/year-check.ts",
   "src/lib/cme/year-close.ts",

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "89f5676e-9eca-4ea7-b692-4596b96c26a0",
+  "createdOn": "2026-09-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6c8af65c-6b6b-4933-8471-26f39cb95d9f",
+    "reason": "Duplicate done for #HEN4EX, and its outcome is inaccurate: s 357 paragraphs (g) to (j) cover supervised persons, hostel residents, persons treated by prescribed services and ministerial-direction classes, not carers. PR #3146 (owner approval 2026-09-28) keeps the summary written strictly from the s 357 text; done request b8fd1e02-ac1c-4d35-a127-2a9122ea0367 records it."
+  }
+}

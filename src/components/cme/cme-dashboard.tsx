@@ -1,5 +1,8 @@
 "use client";
 
+import { CmeYearEndActions } from "@/components/cme/cme-year-close-panel";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
+import { canOfferCmeYearEnd } from "@/lib/cme/year-close-actions";
 import {
   BellOff,
   CalendarClock,
@@ -16,10 +19,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
 import { CmeHeroSummary } from "@/components/cme/cme-hero-summary";
 import { CmePaceChart, CmeRequirementMeter } from "@/components/cme/cme-progress-visuals";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
@@ -38,6 +42,9 @@ import { cmeCalendarEvents } from "@/lib/cme/calendar-events";
 import { buildCmeYearCheck } from "@/lib/cme/year-check";
 import { cmeDashboardModuleLabels, useCmeModuleOrder, type CmeDashboardModuleId } from "@/lib/cme/module-order";
 import { describeConfirmedSource } from "@/lib/cme/presets";
+import { buildCmeTodo } from "@/lib/cme/todo";
+import { cmeRoutineGapScenarios } from "@/lib/cme/pace";
+import type { TrainingPosition } from "@/lib/cme/training-timeline";
 import {
   cmeRoutineCadenceLabels,
   formatRoutineDueDate,
@@ -47,7 +54,15 @@ import {
   type CmeRoutine,
   type CmeRoutineLogPrefill,
 } from "@/lib/cme/routines";
-import type { CmeEntry, CmeRequirementSet, CmeRequirementSpec, CmeRequirementStatus } from "@/lib/cme/types";
+import {
+  cmeCategories,
+  cmeCategoryLabels,
+  type CmeEntry,
+  type CmeRequirement,
+  type CmeRequirementSet,
+  type CmeRequirementSpec,
+  type CmeRequirementStatus,
+} from "@/lib/cme/types";
 import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
 import {
   DEFAULT_REMINDER_SETTINGS,
@@ -61,9 +76,8 @@ import {
  * THE DASHBOARD — the screen the whole mode is judged by.
  *
  * Three things sit above the fold, unconditionally, in this order: the hero
- * summary (`CmeHeroSummary`: the season, hours against the target, a plain bar
- * and the weekly pace line, which is silent in the first four weeks), the pace
- * chart, and one computed next action. Everything below that line is a module the owner can
+ * summary (`CmeHeroSummary`: the season, hours, logged weeks and weekly pace)
+ * and the first two actions. Everything below that line is a module the owner can
  * reorder or hide — see `useCmeModuleOrder` and `CmeCustomisePage`.
  *
  * The screen has three seasons, driven entirely by `now` against the CPD
@@ -109,6 +123,30 @@ function formatDayFullMonth(dateIso: string): string {
 /** "32.5", never "32.50" — and a whole number drops its decimal point, so a legitimate zero reads as a plain "0". */
 function formatCmeHours(hours: number): string {
   return Number(hours.toFixed(2)).toString();
+}
+
+function contribution(entry: CmeEntry, requirement?: CmeRequirement): number {
+  if (!requirement) return entry.allocations.reduce((sum, item) => sum + item.hours, 0);
+  const { spec } = requirement;
+  if (spec.shape === "hours-in-category")
+    return entry.allocations
+      .filter((item) => item.category === spec.category)
+      .reduce((sum, item) => sum + item.hours, 0);
+  if (spec.shape === "hours-across-categories")
+    return entry.allocations
+      .filter((item) => spec.categories.includes(item.category))
+      .reduce((sum, item) => sum + item.hours, 0);
+  if (spec.shape === "credited-hours")
+    return Math.min(
+      entry.formalPeerReviewHours ?? 0,
+      entry.allocations.filter((item) => item.category === "reviewing").reduce((sum, item) => sum + item.hours, 0),
+    );
+  return 0;
+}
+
+function filteredLogHref(year: number, requirement?: CmeRequirement): string {
+  const category = requirement?.spec.shape === "hours-in-category" ? requirement.spec.category : null;
+  return `/cme/log?year=${year}${category ? `&category=${category}` : ""}`;
 }
 
 const MODULE_ICONS: Record<CmeDashboardModuleId, LucideIcon> = {
@@ -157,6 +195,15 @@ export type CmeDashboardProps = {
   readonly onSnoozeReminder?: (type: ReminderType) => void;
   /** Saved drafts whose next step is the owner's own. Shown first in the Next row; never hours. */
   readonly draftsToFinish?: number;
+  /** Current owner-scoped training position, when the server has loaded one. */
+  readonly currentTrainingPosition?: TrainingPosition | null;
+  /** A frozen demonstration never suggests that its records refresh. */
+  readonly demoMode?: boolean;
+  /** This year's plan goals, for the year-end checklist opened from Today. */
+  readonly goals?: readonly CmePlanGoal[];
+  /** Null means the next year's targets have not been read; never guess their status. */
+  readonly nextYearConfirmed?: boolean | null;
+  readonly nextYearGoals?: readonly CmePlanGoal[];
 };
 
 export type CmeReportingReminder = {
@@ -272,7 +319,13 @@ export function CmeDashboard({
   reminders = DEFAULT_REMINDER_SETTINGS,
   onSnoozeReminder,
   draftsToFinish = 0,
+  currentTrainingPosition = null,
+  demoMode = false,
+  goals = [],
+  nextYearConfirmed = null,
+  nextYearGoals,
 }: CmeDashboardProps) {
+  const [detail, setDetail] = useState<"hours" | "gap" | string | null>(null);
   const { moduleIds } = useCmeModuleOrder();
   const { totalHours, statuses, unmet } = evaluateYear({ set, entries });
   const inRequestedYear = cpdYearOf(now) === set.year;
@@ -280,8 +333,20 @@ export function CmeDashboard({
     ? paceProjection({ hoursSoFar: totalHours, targetHours: set.totalHours, instant: now, year: set.year })
     : null;
   const bounds = cpdYearBounds(set.year);
+  const yearEntries = entries.filter((entry) => !entry.archivedAt && entry.date.startsWith(`${set.year}-`));
+  const culturallySafePracticeToLog = set.requirements.some(
+    (requirement) =>
+      requirement.spec.shape === "activity-count" &&
+      requirement.spec.buckets.includes("Culturally safe practice") &&
+      !yearEntries.some((entry) => entry.buckets.includes("Culturally safe practice")),
+  );
 
   const today = perthCalendarDate(now);
+  const loadedTime = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Perth",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(now);
   const loggedToday = entries.filter((entry) => entry.date === today);
   const loggedTodayHours = loggedToday.reduce(
     (sum, entry) => sum + entry.allocations.reduce((inner, allocation) => inner + allocation.hours, 0),
@@ -318,7 +383,6 @@ export function CmeDashboard({
   // module. It used to take this slot too, which hid the requirement gap and
   // the year-end reminder whenever anything recurring was due.
   const nextAction = computeNextAction({ set, unmet, now, totalHours });
-  const allTargetsMet = unmet.length === 0 && totalHours >= set.totalHours;
   // Stable sort: unmet first. Position is one of the three channels this mode uses for
   // shortfall instead of colour — see the file-level note above.
   const sortedStatuses = [...statuses].sort((a, b) => Number(a.met) - Number(b.met));
@@ -337,51 +401,46 @@ export function CmeDashboard({
     onLogRoutine(routineLogPrefill(routine, now));
   }
 
-  const nextActionControl = set.closedAt ? (
-    <Link
-      data-testid="cme-next-action"
-      href={`/cme/summary?year=${set.year}`}
-      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
-    >
-      {nextAction}
-    </Link>
-  ) : allTargetsMet ? (
-    <p data-testid="cme-next-action" className="text-sm font-medium text-[color:var(--text)]">
-      {nextAction}
-    </p>
-  ) : inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS ? (
-    <Link
-      data-testid="cme-next-action"
-      href={`/cme/summary?year=${set.year}`}
-      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
-    >
-      {nextAction}
-    </Link>
-  ) : inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask ? (
-    <Link
-      data-testid="cme-next-action"
-      href={`/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(earlyTask.id)}`}
-      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
-    >
-      {nextAction}
-    </Link>
-  ) : nextRequirement?.spec.shape === "task" ? (
-    <Link
-      data-testid="cme-next-action"
-      href={`/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(nextRequirement.id)}`}
-      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
-    >
-      {nextAction}
-    </Link>
-  ) : (
-    <Link
-      data-testid="cme-next-action"
-      href={`/cme/new?year=${set.year}`}
-      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
-    >
-      {nextAction}
-    </Link>
-  );
+  // The year-end checklist (copying, self-evaluation, goal carry, next year, summary) opens from Today.
+  const offerYearEnd = canOfferCmeYearEnd(set, now);
+  const nextActionHref =
+    set.closedAt || (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS)
+      ? `/cme/summary?year=${set.year}`
+      : inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask
+        ? `/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(earlyTask.id)}`
+        : nextRequirement?.spec.shape === "task"
+          ? `/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(nextRequirement.id)}`
+          : `/cme/new?year=${set.year}`;
+  const todo = buildCmeTodo({
+    set,
+    entries,
+    routines,
+    statuses,
+    now,
+    draftsToFinish,
+    nextStep: { id: "next", label: nextAction, href: nextActionHref },
+    nextRequirementId: nextRequirement?.id,
+  });
+  const factStatuses = statuses
+    .filter((status) => {
+      const requirement = set.requirements.find((item) => item.id === status.requirementId);
+      return (
+        requirement?.source === "national" &&
+        (requirement.spec.shape === "hours-in-category" || requirement.spec.shape === "hours-across-categories")
+      );
+    })
+    .slice(0, 2);
+  const totalGap = Math.max(0, Number((set.totalHours - totalHours).toFixed(2)));
+  const gapScenarios = cmeRoutineGapScenarios(routines, totalGap, undefined, { today, year: set.year });
+  const detailRequirement =
+    detail && detail !== "hours" && detail !== "gap"
+      ? set.requirements.find((requirement) => requirement.id === detail)
+      : undefined;
+  const detailStatus = detailRequirement
+    ? statuses.find((status) => status.requirementId === detailRequirement.id)
+    : undefined;
+  const detailedEntries = yearEntries.filter((entry) => contribution(entry, detailRequirement) > 0);
+  const detailHours = detailRequirement ? (detailStatus?.progress?.value ?? 0) : totalHours;
 
   const moduleContent: Record<CmeDashboardModuleId, ReactNode> = {
     requirements: (
@@ -447,13 +506,48 @@ export function CmeDashboard({
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6">
+    <main className="mx-auto w-full max-w-5xl px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-xl font-semibold text-[color:var(--text)]">CPD</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-[color:var(--text)]">CPD</h1>
+          <p data-testid="cme-data-freshness" className={cn(textMuted, "mt-1 flex items-center gap-1.5 text-xs")}>
+            <span
+              aria-hidden="true"
+              className={cn(
+                "size-1.5 rounded-full bg-[color:var(--clinical-accent)]",
+                !demoMode && "motion-safe:animate-pulse motion-reduce:animate-none",
+              )}
+            />
+            {demoMode ? "Demo records" : `Saved records loaded at ${loadedTime}`}
+          </p>
+        </div>
         <Button variant="toolbar" size="sm" icon={Settings2} onClick={onOpenCustomise}>
           Customise
         </Button>
       </div>
+
+      {currentTrainingPosition?.stage || currentTrainingPosition?.rotation || currentTrainingPosition?.breakPeriod ? (
+        <Link
+          href="/cme/training"
+          data-testid="cme-training-position-link"
+          className={cn(
+            cardSurface,
+            "mt-3 flex min-h-tap items-center justify-between gap-3 p-3 text-sm text-[color:var(--text)]",
+          )}
+        >
+          <span>
+            {currentTrainingPosition.stage?.label ?? "Training"}
+            {currentTrainingPosition.onBreak
+              ? ` · on break${currentTrainingPosition.breakPeriod ? `: ${currentTrainingPosition.breakPeriod.label}` : ""}`
+              : currentTrainingPosition.rotationIndex !== null && currentTrainingPosition.rotationCount !== null
+                ? ` · rotation ${currentTrainingPosition.rotationIndex} of ${currentTrainingPosition.rotationCount}`
+                : currentTrainingPosition.rotation
+                  ? ` · ${currentTrainingPosition.rotation.label}`
+                  : ""}
+          </span>
+          <span className={textMuted}>Plan › Training</span>
+        </Link>
+      ) : null}
 
       {showReportingReminder && reportingReminder ? (
         <div className="mt-4 grid gap-1">
@@ -476,7 +570,7 @@ export function CmeDashboard({
         </div>
       ) : null}
 
-      <div className="mt-4">
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
         <CmeHeroSummary
           year={set.year}
           today={today}
@@ -484,8 +578,136 @@ export function CmeDashboard({
           targetHours={set.totalHours}
           entries={entries}
           closed={Boolean(set.closedAt)}
+          onOpenDetail={() => setDetail("hours")}
         />
+        <section className={cn(cardSurface, "p-4")} aria-labelledby="cme-next-to-log-heading">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="cme-next-to-log-heading" className="text-base font-semibold text-[color:var(--text)]">
+              Next to log
+            </h2>
+            <Link
+              href={`/cme/log?year=${set.year}`}
+              className="inline-flex min-h-tap items-center text-sm text-[color:var(--text)] underline underline-offset-2"
+            >
+              Log
+            </Link>
+          </div>
+          <ul className="divide-y divide-[color:var(--border)]">
+            {todo.nextToLog.slice(0, 2).map((item) =>
+              item.id === "next" && offerYearEnd ? (
+                <li key={item.id} className="py-2" data-testid="cme-next-action">
+                  <CmeYearEndActions
+                    set={set}
+                    entries={entries}
+                    goals={goals}
+                    now={now}
+                    nextYearConfirmed={nextYearConfirmed}
+                    nextYearGoals={nextYearGoals}
+                  />
+                </li>
+              ) : (
+                <li key={item.id}>
+                  <Link
+                    data-testid={item.id === "next" ? "cme-next-action" : undefined}
+                    href={item.href}
+                    className="flex min-h-tap flex-col justify-center py-2 text-sm text-[color:var(--text)]"
+                  >
+                    <span className="font-medium">{item.label}</span>
+                    {item.detail ? <span className={textMuted}>{item.detail}</span> : null}
+                  </Link>
+                </li>
+              ),
+            )}
+          </ul>
+        </section>
       </div>
+
+      {factStatuses.length > 0 ? (
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="cme-fact-tiles">
+          {factStatuses.map((status) => {
+            const requirement = set.requirements.find((item) => item.id === status.requirementId)!;
+            return (
+              <button
+                type="button"
+                key={requirement.id}
+                onClick={() => setDetail(requirement.id)}
+                className={cn(
+                  cardSurface,
+                  "flex min-h-tap w-full flex-col justify-center gap-1 rounded-xl p-3 text-left text-[color:var(--text)]",
+                )}
+              >
+                <span className={cn(eyebrowText, "line-clamp-2")}>{requirement.label}</span>
+                <span className="text-sm">
+                  {status.progress
+                    ? `${formatCmeHours(status.progress.value)} of ${formatCmeHours(status.progress.target)} h`
+                    : status.summary}
+                </span>
+                <span className={cn(textMuted, "text-xs")}>{status.summary}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {totalGap > 0 && !set.closedAt ? (
+        <button
+          type="button"
+          data-testid="cme-close-gap"
+          onClick={() => setDetail("gap")}
+          className={cn(cardSurface, "mt-3 flex min-h-tap w-full items-center justify-between gap-3 p-4 text-left")}
+        >
+          <span>
+            <span className="block text-sm font-semibold text-[color:var(--text)]">Close the gap</span>
+            <span className={cn(textMuted, "block text-sm")}>
+              {formatCmeHours(totalGap)} h to your recorded {formatCmeHours(set.totalHours)} h target
+            </span>
+          </span>
+          <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+        </button>
+      ) : null}
+
+      {todo.toFinish.length > 0 ? (
+        <section className={cn(cardSurface, "mt-3 p-4")} aria-labelledby="cme-to-finish-heading">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="cme-to-finish-heading" className="text-base font-semibold text-[color:var(--text)]">
+              To finish
+            </h2>
+            <Link
+              href={`/cme/log?year=${set.year}&tab=finish`}
+              className="inline-flex min-h-tap items-center text-sm text-[color:var(--text)] underline underline-offset-2"
+            >
+              See log
+            </Link>
+          </div>
+          <ul className="divide-y divide-[color:var(--border)]">
+            {todo.toFinish.slice(0, 2).map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={item.href}
+                  className="flex min-h-tap items-center justify-between gap-3 py-2 text-sm text-[color:var(--text)]"
+                >
+                  <span>{item.label}</span>
+                  <span className={textMuted}>{item.count}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {culturallySafePracticeToLog ? (
+        <Link
+          href="/first-nations/talking"
+          data-testid="cme-first-nations-learning-link"
+          className={cn(cardSurface, "mt-3 flex min-h-tap items-center justify-between gap-3 p-4")}
+        >
+          <span className="min-w-0 text-sm text-[color:var(--text)]">
+            <span className="block font-semibold">Optional learning: First Nations Talking</span>
+            <span className={cn(textMuted, "block")}>Opening this resource does not log a CPD activity.</span>
+          </span>
+          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+        </Link>
+      ) : null}
 
       <section className={cn(cardSurface, "mt-3 p-4")}>
         {pace && entries.length > 0 ? (
@@ -498,16 +720,12 @@ export function CmeDashboard({
             />
           </div>
         ) : null}
-        {draftsToFinish > 0 && !set.closedAt ? (
-          <Link
-            data-testid="cme-drafts-to-finish"
-            href="/cme/log#cme-drafts"
-            className="mt-3 inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
-          >
-            {draftsToFinish === 1 ? "Drafts to finish: 1 activity" : `Drafts to finish: ${draftsToFinish} activities`}
-          </Link>
-        ) : null}
-        <div className="mt-3">{nextActionControl}</div>
+        <Link
+          href={`/cme/check?year=${set.year}`}
+          className="inline-flex min-h-tap items-center text-sm text-[color:var(--text)] underline underline-offset-2"
+        >
+          Review the year check
+        </Link>
       </section>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
@@ -565,6 +783,93 @@ export function CmeDashboard({
           );
         })}
       </div>
+      <Sheet
+        open={detail !== null}
+        onClose={() => setDetail(null)}
+        title={detail === "gap" ? "Close the gap" : (detailRequirement?.label ?? "CPD hours")}
+        description={detail === "gap" ? "Illustrative routine scenarios" : "What makes up this figure"}
+        testId="cme-today-detail-sheet"
+      >
+        {detail === "gap" ? (
+          <div className="space-y-4 text-sm text-[color:var(--text)]">
+            <p>
+              {formatCmeHours(totalGap)} h remain to your {formatCmeHours(set.totalHours)} h target. This is based on
+              your saved entries and the target you confirmed on {formatRoutineDueDate(set.confirmedOn)}.
+            </p>
+            {gapScenarios.length ? (
+              <ul className="space-y-2" data-testid="cme-gap-scenarios">
+                {gapScenarios.map((scenario) => (
+                  <li key={scenario.routineId} className={cn(cardSurface, "p-3")}>
+                    <strong>{scenario.title}</strong>: {scenario.occurrences} ×{" "}
+                    {formatCmeHours(scenario.hoursPerOccurrence)} h
+                    {` = ${formatCmeHours(scenario.projectedHours)} h`}
+                    {scenario.closesGap ? null : " by 31 Dec, short of the gap on its own"}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No active routine with usual hours is saved. You can still log individual activities.</p>
+            )}
+            <p className={textMuted}>
+              These are examples using your routine templates. Only activities you actually do and save count as CPD; a
+              routine never logs itself. Category and other requirements may still need attention.
+            </p>
+            <Link
+              href={`/cme/routines?year=${set.year}`}
+              className="inline-flex min-h-tap items-center underline underline-offset-2"
+            >
+              Review routines
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4 text-sm text-[color:var(--text)]">
+            <p data-testid="cme-today-detail-total">
+              <strong>{formatCmeHours(detailHours)} h</strong> from {detailedEntries.length}{" "}
+              {detailedEntries.length === 1 ? "saved activity" : "saved activities"} in {set.year}.
+            </p>
+            {detailRequirement ? (
+              <p>
+                This {detailRequirement.source === "national" ? "national" : "college"} target was recorded by you on{" "}
+                {formatRoutineDueDate(set.confirmedOn)} from {describeConfirmedSource(set.confirmedSource)}. It is not
+                independently certified by this app.
+              </p>
+            ) : (
+              <>
+                <p>
+                  Target recorded by you on {formatRoutineDueDate(set.confirmedOn)} from{" "}
+                  {describeConfirmedSource(set.confirmedSource)}. This app does not independently certify it.
+                </p>
+                <ul className="space-y-1" aria-label="Hours by category">
+                  {cmeCategories.map((category) => {
+                    const hours = yearEntries.reduce(
+                      (sum, entry) =>
+                        sum +
+                        entry.allocations
+                          .filter((item) => item.category === category)
+                          .reduce((part, item) => part + item.hours, 0),
+                      0,
+                    );
+                    return (
+                      <li key={category} className="flex justify-between gap-3">
+                        <span>{cmeCategoryLabels[category]}</span>
+                        <span>{formatCmeHours(hours)} h</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+            <Link
+              href={filteredLogHref(set.year, detailRequirement)}
+              className="inline-flex min-h-tap items-center underline underline-offset-2"
+            >
+              {detailRequirement?.spec.shape === "hours-in-category"
+                ? `View ${cmeCategoryLabels[detailRequirement.spec.category].toLowerCase()} in Log`
+                : "View this year's Log"}
+            </Link>
+          </div>
+        )}
+      </Sheet>
     </main>
   );
 }

@@ -11,6 +11,7 @@ import { Select, type SelectOption } from "@/components/ui/select";
 import { TextField } from "@/components/ui/text-field";
 import { cn, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateLong, perthCalendarDate } from "@/lib/cme/cpd-year";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
   CME_DRAFT_WAITING_NOTE_MAX_LENGTH,
   draftTitle,
@@ -154,10 +155,7 @@ function DraftRow({
       if (!response.ok) throw new Error(body?.message ?? `Could not update this draft (${response.status}).`);
       if (body?.draft) onChanged(body.draft);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not update this draft.");
-      setWaitingOn(draft.waitingOn);
-      setWaitingNote(draft.waitingNote ?? "");
-      setFollowUpOn(draft.followUpOn ?? "");
+      setError(cmeSaveErrorText(cause, "Could not update this draft."));
     } finally {
       setBusy(false);
     }
@@ -174,7 +172,7 @@ function DraftRow({
       }
       onDeleted(draft.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not delete this draft.");
+      setError(cmeSaveErrorText(cause, "Could not delete this draft."));
       setBusy(false);
     }
   }
