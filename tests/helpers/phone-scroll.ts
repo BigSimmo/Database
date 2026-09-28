@@ -116,7 +116,7 @@ export const pageOwnedHeaderRoutes = [
     // component travels with the header on a route that reaches it by a
     // different render path.
     name: "Therapy mode navigation (compare)",
-    route: "/therapy-compass/compare",
+    route: "/therapy-compass/compare?ids=cognitive-behavioural-therapy-cbt,acceptance-and-commitment-therapy-act",
     selector: '[data-testid="mode-nav"]',
     phoneMotion: "overlay" as const,
   },
@@ -183,23 +183,21 @@ export async function blockExternalRequests(page: Page) {
 }
 
 export async function gotoPhoneSurface(page: Page, path: string, safeAreaBottom = 34) {
-  // Simulate installed-PWA safe-area insets (the repo routes env() through
-  // these vars precisely so Chromium tests can exercise them). Installed as an
-  // init script, not a one-off `addStyleTag`: a page that reloads itself right
-  // after first paint (CME did) destroyed the context mid-inject and dropped
-  // the insets. An init script re-applies them on every document load.
-  await page.addInitScript((css) => {
-    const apply = () => {
+  await page.addInitScript((bottom) => {
+    const applySafeArea = () => {
       const style = document.createElement("style");
-      style.dataset.phoneSafeArea = "";
-      style.textContent = css;
-      (document.head ?? document.documentElement).appendChild(style);
+      style.dataset.testSafeArea = "true";
+      style.textContent = `:root{--safe-area-top:59px !important;--safe-area-bottom:${bottom}px !important;}`;
+      document.head.append(style);
     };
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
-    else apply();
-  }, `:root{--safe-area-top:59px !important;--safe-area-bottom:${safeAreaBottom}px !important;}`);
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", applySafeArea, { once: true });
+    else applySafeArea();
+  }, safeAreaBottom);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+  // Simulate installed-PWA safe-area insets (the repo routes env() through
+  // these vars precisely so Chromium tests can exercise them). The init script
+  // reapplies them to any document created by an auth or canonical redirect.
   // Let hydration, fonts, and the composer/portal layout settle.
   await page.waitForTimeout(700);
 }

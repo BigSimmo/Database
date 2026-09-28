@@ -45,7 +45,15 @@ export function OnCallCheckPage({ now: nowProp }: { now?: Date } = {}) {
       const updated = (payload as { entry?: OnCallEntry } | null)?.entry;
       if (updated) cacheOnCallEntries(entries.map((existing) => (existing.id === updated.id ? updated : existing)));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Could not confirm this entry.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isFetchError = failure instanceof TypeError && failure.message.toLowerCase().includes("fetch");
+      setError(
+        isOffline || isFetchError
+          ? "You are offline. Connect to confirm this entry."
+          : failure instanceof Error
+            ? failure.message
+            : "Could not confirm this entry.",
+      );
     } finally {
       setPending(null);
     }

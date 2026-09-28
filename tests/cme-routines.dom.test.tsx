@@ -88,6 +88,35 @@ describe("Routines", () => {
     expect(navigation.push).toHaveBeenCalledWith("/cme/new?routine=r1");
   });
 
+  it("keeps the editor open with an error when a save returns an empty 2xx body", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 200 }));
+    render(<CmeRoutinesRoute nowIso={NOW.toISOString()} initialRoutines={[]} demoMode={false} />);
+    await user.click(screen.getByRole("button", { name: /new routine/i }));
+    await user.type(screen.getByLabelText(/routine name/i), "Supervision");
+    await user.click(screen.getByRole("button", { name: /save routine/i }));
+    expect(await screen.findByText("Could not save this routine.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/routine name/i)).toHaveValue("Supervision");
+    expect(navigation.refresh).not.toHaveBeenCalled();
+  });
+
+  it("still sends the save when navigator.onLine reports offline but the API is reachable", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ routine: dueRoutine }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    render(<CmeRoutinesRoute nowIso={NOW.toISOString()} initialRoutines={[]} demoMode={false} />);
+    await user.click(screen.getByRole("button", { name: /new routine/i }));
+    await user.type(screen.getByLabelText(/routine name/i), "Supervision");
+    await user.click(screen.getByRole("button", { name: /save routine/i }));
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/cme/routines", expect.objectContaining({ method: "POST" }));
+    expect(await screen.findByRole("button", { name: /log now for supervision/i })).toBeInTheDocument();
+  });
+
   it("takes the next due day as dd/mm/yyyy, with no browser date box", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(

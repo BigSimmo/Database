@@ -21,6 +21,9 @@ describe("PWA manifest and public bootstrap resources", () => {
     });
     // Splash/install canvas uses the brand light background. theme_color stays
     // on viewport.themeColor / meta theme-color so light/dark can update at runtime.
+    expect(appManifest.categories).toEqual(
+      expect.arrayContaining(["medical", "productivity", "utilities", "education"]),
+    );
     expect(appManifest.background_color).toBe(APP_THEME_COLORS.light);
     expect(appManifest).not.toHaveProperty("theme_color");
     expect(appManifest.name).toBeTruthy();
@@ -61,6 +64,12 @@ describe("PWA manifest and public bootstrap resources", () => {
     // home with Medication preselected, not the Medication Start-here surface.
     const medicationShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "Medication");
     expect(medicationShortcut?.url).toBe("/medications?focus=1");
+
+    const onCallShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "On Call");
+    expect(onCallShortcut?.url).toBe("/on-call?focus=1");
+
+    const cmeShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "CME");
+    expect(cmeShortcut?.url).toBe("/cme?focus=1");
   });
 
   it("declares conservative launch and display fallbacks", () => {
@@ -182,8 +191,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-09-28-v1",
-      offlineHtmlSha256: "70be4f718d584b542e2a60af66253989f74bb551cd49c73affcbf9f34fb9eb2f",
+      cacheVersion: "2026-09-28-v2",
+      offlineHtmlSha256: "d1ac1abdb766f55da039aae73078b49ca727d479efc4acd9e56ab7a3de78f097",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");
