@@ -61,7 +61,7 @@ function MemberRow({ member, onAction }: { readonly member: ServiceMember; reado
     <article className={cn(cardSurface, "grid gap-3 p-4")}>
       <div className="min-w-0">
         <p className="break-all text-sm font-semibold text-[color:var(--text-heading)]">
-          Member {member.id.slice(0, 8)}
+          {member.displayName || `Member ${member.id.slice(-8)}`}
         </p>
         <p className={cn(textMuted, "mt-0.5 text-xs")}>Joined {formatOnCallDate(member.joinedAt)}</p>
       </div>
@@ -128,7 +128,7 @@ export function ServiceAdminPanel({
   const [inviteRole, setInviteRole] = useState<ServiceRole>("member");
   const [inviteEmail, setInviteEmail] = useState("");
   const [expiresInDays, setExpiresInDays] = useState("3");
-  const [newInvitation, setNewInvitation] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [newInvitation, setNewInvitation] = useState<{ code: string; expiresAt: string; email: string } | null>(null);
   const [busy, setBusy] = useState<"site" | "invite" | string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -155,14 +155,14 @@ export function ServiceAdminPanel({
     try {
       const result = await onAction({
         action: "invitation.create",
-        role: inviteRole,
+        role: detail.membership.role === "admin" ? inviteRole : "member",
         expiresInDays: Number(expiresInDays),
         invitedEmail: inviteEmail.trim(),
       });
       if (typeof result.code !== "string" || typeof result.expiresAt !== "string") {
         throw new Error("The invitation was created but its one-time code was not returned.");
       }
-      setNewInvitation({ code: result.code, expiresAt: result.expiresAt });
+      setNewInvitation({ code: result.code, expiresAt: result.expiresAt, email: inviteEmail.trim() });
       setInviteEmail("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The invitation could not be created.");
@@ -201,42 +201,44 @@ export function ServiceAdminPanel({
           Service administration
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
-          Admins manage sites, invitations and member roles. Invitation codes are shown once after creation.
+          Editors invite members; admins also manage sites and roles. Limits: 5,000 members and 1,000 invitations.
+          Invitation codes are shown once.
         </p>
       </div>
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
-      <section aria-labelledby="service-sites-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-        <h3 id="service-sites-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
-          Sites
-        </h3>
-        <ul className="grid gap-1 text-sm text-[color:var(--text)]">
-          {detail.sites.map((site) => (
-            <li key={site.id} className="break-words">
-              {site.name}
-            </li>
-          ))}
-        </ul>
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <TextField
-            label="New site name"
-            id="service-new-site"
-            value={siteName}
-            onChange={(event) => setSiteName(event.target.value)}
-          />
-          <Button
-            variant="secondary"
-            icon={Plus}
-            busy={busy === "site"}
-            busyLabel="Adding…"
-            disabled={!siteName.trim() || busy !== null}
-            onClick={() => void addSite()}
-          >
-            Add site
-          </Button>
-        </div>
-      </section>
-
+      {detail.membership.role === "admin" ? (
+        <section aria-labelledby="service-sites-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
+          <h3 id="service-sites-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Sites
+          </h3>
+          <ul className="grid gap-1 text-sm text-[color:var(--text)]">
+            {detail.sites.map((site) => (
+              <li key={site.id} className="break-words">
+                {site.name}
+              </li>
+            ))}
+          </ul>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <TextField
+              label="New site name"
+              id="service-new-site"
+              value={siteName}
+              onChange={(event) => setSiteName(event.target.value)}
+            />
+            <Button
+              variant="secondary"
+              icon={Plus}
+              busy={busy === "site"}
+              busyLabel="Adding…"
+              disabled={!siteName.trim() || busy !== null}
+              onClick={() => void addSite()}
+            >
+              Add site
+            </Button>
+          </div>
+        </section>
+      ) : null}
       <section aria-labelledby="service-invitations-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
         <h3 id="service-invitations-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Invitations
@@ -259,7 +261,7 @@ export function ServiceAdminPanel({
                 onChange={(event) => setInviteRole(event.target.value as ServiceRole)}
                 className={fieldControlPlain}
               >
-                {serviceRoles.map((role) => (
+                {(detail.membership.role === "admin" ? serviceRoles : (["member"] as const)).map((role) => (
                   <option key={role} value={role}>
                     {role[0].toUpperCase() + role.slice(1)}
                   </option>
@@ -296,7 +298,10 @@ export function ServiceAdminPanel({
         {newInvitation ? (
           <InlineNotice tone="neutral">
             <span className="grid min-w-0 gap-2">
-              <span>This code is shown once and expires {formatOnCallDateTime(newInvitation.expiresAt)}.</span>
+              <span>
+                This invite works only for {newInvitation.email}. This code is shown once and expires{" "}
+                {formatOnCallDateTime(newInvitation.expiresAt)}.
+              </span>
               <code className="select-all break-all rounded-sm bg-[color:var(--surface-subtle)] p-2 text-xs">
                 {newInvitation.code}
               </code>
@@ -343,16 +348,18 @@ export function ServiceAdminPanel({
         </div>
       </section>
 
-      <section aria-labelledby="service-members-heading" className="grid gap-3">
-        <h3 id="service-members-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
-          Members
-        </h3>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {detail.members.map((member) => (
-            <MemberRow key={member.id} member={member} onAction={onAction} />
-          ))}
-        </div>
-      </section>
+      {detail.membership.role === "admin" ? (
+        <section aria-labelledby="service-members-heading" className="grid gap-3">
+          <h3 id="service-members-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Members
+          </h3>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {detail.members.map((member) => (
+              <MemberRow key={member.id} member={member} onAction={onAction} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }
