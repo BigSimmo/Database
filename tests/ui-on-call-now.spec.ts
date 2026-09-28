@@ -53,6 +53,15 @@ for (const colorScheme of ["light", "dark"] as const) {
     });
 
     test("opens the shift lists sheet with the shift pick", async ({ page }) => {
+      // The demo roster includes a daytime shift, which correctly replaces the
+      // manual pick while it is active. Exercise the no-roster path explicitly.
+      await page.route("**/api/roster/shifts", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ shifts: [], latestImport: null, demoMode: true }),
+        }),
+      );
       await openNow(page, colorScheme);
       await visibleByTestId(page, "on-call-now-checklists").click();
       const sheet = visibleByTestId(page, "on-call-now-checklists-sheet");
