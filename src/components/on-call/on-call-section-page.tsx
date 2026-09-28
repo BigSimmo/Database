@@ -319,9 +319,16 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         }
       } catch (error) {
         commit();
+        const isOfflineError =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          (error instanceof TypeError && error.message.includes("fetch"));
         setVerifyAllState({
           running: false,
-          error: error instanceof Error ? error.message : "Could not confirm these entries.",
+          error: isOfflineError
+            ? "You are offline. Connect to confirm entries."
+            : error instanceof Error
+              ? error.message
+              : "Could not confirm these entries.",
         });
         return;
       }

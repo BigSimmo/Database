@@ -44,7 +44,7 @@ class FetchEventHarness extends ExtendableEventHarness {
 
   constructor(
     readonly request: Request,
-    preloadResponse?: Response,
+    preloadResponse?: Response | Promise<Response | undefined>,
   ) {
     super();
     this.preloadResponse = Promise.resolve(preloadResponse);
@@ -230,9 +230,11 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
       Request: WorkerRequest,
       Response,
       caches: cacheStorage,
+      clearTimeout,
       console,
       fetch: networkFetch,
       self: workerGlobal,
+      setTimeout,
     }),
     { filename: "public/sw.js" },
   );
@@ -253,7 +255,10 @@ function createWorkerHarness(origin = PRODUCTION_ORIGIN) {
       dispatch("activate", event);
       await event.settle();
     },
-    async dispatchFetch(request: Request, preloadResponse?: Response): Promise<FetchDispatchResult> {
+    async dispatchFetch(
+      request: Request,
+      preloadResponse?: Response | Promise<Response | undefined>,
+    ): Promise<FetchDispatchResult> {
       const event = new FetchEventHarness(request, preloadResponse);
       dispatch("fetch", event);
 
@@ -419,6 +424,27 @@ describe("PWA service worker cache and lifecycle policy", () => {
     expect(await failedNavigation.response?.text()).toBe(OFFLINE_DOCUMENT);
     expect(worker.caches.entryUrls()).not.toContain(failedUrl);
     expect(worker.caches.putLog).toEqual([]);
+  });
+
+  it("serves the offline shell when navigation preload never settles", async () => {
+    vi.useFakeTimers();
+    try {
+      const worker = createWorkerHarness();
+      await worker.install();
+      worker.setNetworkHandler(async () => {
+        throw new TypeError("offline");
+      });
+      const pending = worker.dispatchFetch(
+        new worker.Request(`${PRODUCTION_ORIGIN}/stalled`, { destination: "document", mode: "navigate" }),
+        new Promise<Response | undefined>(() => undefined),
+      );
+      await vi.advanceTimersByTimeAsync(3500);
+      const result = await pending;
+      expect(result.handled).toBe(true);
+      expect(await result.response?.text()).toBe(OFFLINE_DOCUMENT);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns the in-memory emergency page when CacheStorage is unavailable offline", async () => {

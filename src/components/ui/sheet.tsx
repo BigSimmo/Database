@@ -442,17 +442,17 @@ export function Sheet({
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
           "transition duration-[var(--duration-moderate)] motion-reduce:transition-none sm:duration-[var(--duration-quick)]",
           placement === "left"
-            ? "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
+            ? "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe pl-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0 sm:pl-0"
             : placement === "right"
-              ? "h-full max-h-full max-w-[min(32rem,calc(100vw-1rem))] rounded-l-2xl border-y-0 border-r-0 pt-safe sm:max-h-dvh sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:pb-0"
+              ? "h-full max-h-full max-w-[min(32rem,calc(100vw-1rem))] rounded-l-2xl border-y-0 border-r-0 pt-safe pr-safe sm:max-h-dvh sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:pb-0 sm:pr-0"
               : placement === "responsive-right"
-                ? "max-h-[calc(100dvh-2rem)] rounded-t-2xl motion-safe:animate-sheet-up sm:h-full sm:max-h-full sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:border-y-0 sm:border-r-0 sm:pb-0 sm:motion-safe:animate-dialog-rise"
+                ? "max-h-[calc(100dvh-2rem)] rounded-t-2xl motion-safe:animate-sheet-up pr-safe sm:h-full sm:max-h-full sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:border-y-0 sm:border-r-0 sm:pb-0 sm:pr-0 sm:motion-safe:animate-dialog-rise"
                 : cn(
                     defaultSheetIsFullscreen
                       ? // Fullscreen panels size from the inset-0 backdrop (h-full), not
                         // 100dvh: iOS Safari resolves dvh stale across toolbar
                         // collapse, which strands a dead band under the sheet.
-                        "h-full max-h-full rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
+                        "h-full max-h-full rounded-none border-0 motion-safe:animate-pop-in px-safe sm:max-w-none sm:rounded-none sm:px-0 lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
                       : cn(
                           "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-dialog-rise",
                           defaultSheetIsTopAligned
@@ -463,9 +463,9 @@ export function Sheet({
                             : cn(
                                 "rounded-t-2xl motion-safe:animate-sheet-up",
                                 defaultSheetUsesViewportSize
-                                  ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
+                                  ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem-var(--keyboard-height,0px))] sm:min-h-0"
                                   : cn(
-                                      !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem)]",
+                                      !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem-var(--keyboard-height,0px))]",
                                       !hasSmallScreenMaxHeight && "sm:max-h-[88dvh]",
                                     ),
                               ),
