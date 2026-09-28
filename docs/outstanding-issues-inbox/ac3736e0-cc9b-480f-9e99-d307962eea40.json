@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ac3736e0-cc9b-480f-9e99-d307962eea40",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Owner clinical re-review: word-form fix withheld from three sealed hazard-control files",
+    "detail": "Dead stems inside \\b...\\b never match: answer-verification.ts:1480 escalat; rag-claim-support.ts:267 escalat, :1108 escalat/initiat/recommend; source-text-sanitizer.ts:48 escalat/contraindicat/prescrib, :61 escalat/prescrib. Edits reverted because these paths are sealed in docs/clinical-hazard-controls.json. Next: owner reviews the one-line changes, then re-apply and run npm run governance:seal-hazard-controls.",
+    "source": "Claude session 2026-09-27, branch claude/repository-review-bugs-52tq9q",
+    "issueUlid": "01M3H9CJH5HD1C6WEV9E9KKASJ"
+  }
+}

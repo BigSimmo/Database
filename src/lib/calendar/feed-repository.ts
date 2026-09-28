@@ -17,7 +17,8 @@ import {
   type ReminderSettings,
 } from "@/lib/reminders/settings";
 import { inferShiftKind, SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
+import { calendarRosterShifts } from "@/lib/roster/team/calendar-shifts";
 import { perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { fetchOwnerShifts } from "@/lib/roster/shifts/repository";
 import { DEFAULT_ROSTER_SETTINGS, fetchRosterSettings, type RosterSettings } from "@/lib/roster/settings";
@@ -160,7 +161,8 @@ export async function calendarFeedEvents(supabase: AdminClient, ownerId: string,
   ]);
   let rosterShifts: CalendarEvent[] = [];
   if (rosterSettings.calendarShifts) {
-    const shifts = await fetchOwnerShifts(supabase, ownerId, now);
+    const own = await fetchOwnerShifts(supabase, ownerId, now);
+    const shifts = await calendarRosterShifts(supabase, ownerId, own, now);
     const windowEndMillis = now.getTime() + ROSTER_FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     rosterShifts = rosterShiftEvents(shifts.filter((shift) => Date.parse(shift.startsAt) <= windowEndMillis));
   }

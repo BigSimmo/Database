@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { fortnightFor, summariseHours, type HoursExtra } from "@/lib/roster/hours";
 import { isWorkedKind } from "@/lib/roster/shift-kind";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 import { formatDateSpan, formatHours, kindOf } from "./roster-format";
@@ -47,12 +47,14 @@ export function RosterHoursPanel({
   now,
   extras,
   onExtra,
+  payFortnightAnchor = null,
 }: {
   readonly shifts: readonly OnCallShift[];
   readonly now: Date;
   /** Extra time recorded in this visit. */
   readonly extras: readonly RosterExtraTime[];
   readonly onExtra: (extra: RosterExtraTime) => void;
+  readonly payFortnightAnchor?: string | null;
 }) {
   const today = perthDateOf(now);
   const summary = useMemo(
@@ -60,9 +62,9 @@ export function RosterHoursPanel({
       summariseHours(
         shifts.map((shift) => ({ startsAt: shift.startsAt, endsAt: shift.endsAt, kind: kindOf(shift) })),
         extras,
-        fortnightFor(today, null),
+        fortnightFor(today, payFortnightAnchor),
       ),
-    [shifts, extras, today],
+    [shifts, extras, today, payFortnightAnchor],
   );
   const scale = Math.max(12, ...summary.days.map((day) => day.hours + day.extraHours));
   const finished = justFinished(shifts, now);

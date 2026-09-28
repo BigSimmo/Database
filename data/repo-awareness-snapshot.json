@@ -226,6 +226,11 @@
         "area": "product"
       },
       {
+        "path": "/roster/team",
+        "file": "src/app/(search-app)/roster/team/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/teaching/whats-on",
         "file": "src/app/(search-app)/teaching/whats-on/page.tsx",
         "area": "product"
@@ -661,6 +666,11 @@
         "area": "mockup"
       },
       {
+        "path": "/roster/requests",
+        "file": "src/app/(search-app)/roster/requests/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/development/on-call-freshness",
         "file": "src/app/mockups/development/on-call-freshness/page.tsx",
         "area": "mockup"
@@ -1046,6 +1056,11 @@
         "area": "product"
       },
       {
+        "path": "/roster/manage",
+        "file": "src/app/(search-app)/roster/manage/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/calculators-search",
         "file": "src/app/mockups/calculators-search/page.tsx",
         "area": "mockup"
@@ -1058,6 +1073,11 @@
       {
         "path": "/mockups/care-plan/patients/[patientId]/presentations/[presentationId]",
         "file": "src/app/mockups/care-plan/patients/[patientId]/presentations/[presentationId]/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/roster-teams",
+        "file": "src/app/mockups/development/roster-teams/page.tsx",
         "area": "mockup"
       },
       {
@@ -1248,6 +1268,11 @@
       {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/join",
+        "file": "src/app/(search-app)/roster/join/page.tsx",
         "area": "product"
       },
       {
@@ -1489,6 +1514,10 @@
         "file": "src/app/api/on-call/demo-content/route.ts"
       },
       {
+        "path": "/api/roster/owner/teams",
+        "file": "src/app/api/roster/owner/teams/route.ts"
+      },
+      {
         "path": "/api/roster/extra-time",
         "file": "src/app/api/roster/extra-time/route.ts"
       },
@@ -1503,6 +1532,10 @@
       {
         "path": "/api/medications/[slug]",
         "file": "src/app/api/medications/[slug]/route.ts"
+      },
+      {
+        "path": "/api/roster/leave",
+        "file": "src/app/api/roster/leave/route.ts"
       },
       {
         "path": "/api/eval-cases",
@@ -1589,8 +1622,16 @@
         "file": "src/app/api/teaching/display/[token]/route.ts"
       },
       {
+        "path": "/api/roster/alerts/check",
+        "file": "src/app/api/roster/alerts/check/route.ts"
+      },
+      {
         "path": "/api/search/universal",
         "file": "src/app/api/search/universal/route.ts"
+      },
+      {
+        "path": "/api/roster/alerts",
+        "file": "src/app/api/roster/alerts/route.ts"
       },
       {
         "path": "/api/on-call/entries/[id]/verify",
@@ -1647,6 +1688,10 @@
       {
         "path": "/api/documents/[id]/reviews",
         "file": "src/app/api/documents/[id]/reviews/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/export",
+        "file": "src/app/api/roster/team/[serviceId]/export/route.ts"
       },
       {
         "path": "/api/ingestion/jobs/[id]/retry",
@@ -1733,6 +1778,10 @@
         "file": "src/app/api/documents/[id]/search/route.ts"
       },
       {
+        "path": "/api/roster/team",
+        "file": "src/app/api/roster/team/route.ts"
+      },
+      {
         "path": "/api/cme/routines",
         "file": "src/app/api/cme/routines/route.ts"
       },
@@ -1749,12 +1798,24 @@
         "file": "src/app/api/account/favourites/route.ts"
       },
       {
+        "path": "/api/roster/team/[serviceId]",
+        "file": "src/app/api/roster/team/[serviceId]/route.ts"
+      },
+      {
         "path": "/api/ingestion/jobs",
         "file": "src/app/api/ingestion/jobs/route.ts"
       },
       {
         "path": "/api/cme/entries/[id]/evidence/[evidenceId]",
         "file": "src/app/api/cme/entries/[id]/evidence/[evidenceId]/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/remind",
+        "file": "src/app/api/roster/team/[serviceId]/remind/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/invite",
+        "file": "src/app/api/roster/team/[serviceId]/invite/route.ts"
       },
       {
         "path": "/api/teaching/cpd",
@@ -1785,6 +1846,10 @@
         "file": "src/app/api/webhooks/railway/route.ts"
       },
       {
+        "path": "/api/roster/owner/teams/[serviceId]",
+        "file": "src/app/api/roster/owner/teams/[serviceId]/route.ts"
+      },
+      {
         "path": "/api/search",
         "file": "src/app/api/search/route.ts"
       },
@@ -1795,6 +1860,10 @@
       {
         "path": "/api/on-call/entries/[id]",
         "file": "src/app/api/on-call/entries/[id]/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/cutoff",
+        "file": "src/app/api/roster/team/[serviceId]/cutoff/route.ts"
       },
       {
         "path": "/api/on-call/services/[serviceId]",
@@ -1843,6 +1912,10 @@
       {
         "path": "/api/jobs",
         "file": "src/app/api/jobs/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/publish",
+        "file": "src/app/api/roster/team/[serviceId]/publish/route.ts"
       },
       {
         "path": "/api/cme/drafts/[id]",
@@ -4113,6 +4186,11 @@
       {
         "path": "docs/decisions/2026-08-24-compact-citations-kept-for-the-rail.md",
         "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-d-release-3.md",
+        "section": "superpowers",
         "catalogued": false
       },
       {
@@ -15366,6 +15444,14 @@
         "scope": "search-bar handoff doc replacement + issues #230",
         "outcome": "Docs-only: stale handoff deleted, decisions doc added, ledger row captured. verify:cheap did not complete; prettier/outstanding-issues/docs-links/docs-index passed with quoted output",
         "checks": "prettier --check . ; check:outstanding-issues ; docs:check-links ; docs:check-index"
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "HEAD",
+        "head": "7fc6f20231c1519ca6ca710581cf153243b6b402",
+        "scope": "roster-release2-local-acceptance",
+        "outcome": "Findings: successive-publication swap lineage P1; recipient summary P1; targeted UI/state/privacy P2. Reviewed local uncommitted Release2 and separate DB draft; corrections require bounded verification.",
+        "checks": "Static code and contract review only; no tests, browser, SQL replay or provider checks run. Existing passing evidence not reasserted."
       },
       {
         "date": "2026-08-24",

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-27T20:30:41.755Z",
+  "generated_at": "2026-09-28T10:35:08.943Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "34ff9d7d2757a978d739fe7b444e55a02614a8fc43c8394bd0804fbc2e36e506",
-  "replay_seconds": 19,
+  "schema_sha256": "bf05fcdc5c6b9404b2c9241df778a40c3aeb6f763c950efa4696dd68482049c7",
+  "replay_seconds": 20,
   "snapshot": {
     "views": [
       {
@@ -7472,7 +7472,7 @@
           {
             "name": "indexing_version",
             "type": "text",
-            "default": "'rag-deep-memory-v1'::text",
+            "default": "'rag-deep-memory-v2'::text",
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -8773,6 +8773,82 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "name": "roster_publication_protections",
+        "columns": [
+          {
+            "name": "give_assignment_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "open_shift_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "overridden_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "service_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "swap_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "take_assignment_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "updated_by",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
           "service_role=arwd/postgres"
         ],
         "name": "roster_publication_seen",
@@ -9176,6 +9252,14 @@
           {
             "name": "ai_helper_consented_by",
             "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "next_cutoff_on",
+            "type": "date",
             "default": null,
             "identity": "",
             "not_null": false,
@@ -14617,6 +14701,30 @@
         "def_hash": "b9822d8a03f42e580e01a735082376df"
       },
       {
+        "def": "CREATE UNIQUE INDEX roster_publication_protections_open_shift_id_key ON public.roster_publication_protections USING btree (open_shift_id)",
+        "name": "roster_publication_protections_open_shift_id_key",
+        "table": "roster_publication_protections",
+        "def_hash": "4940dc9792c89d33b541dcd148ed3f75"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX roster_publication_protections_pkey ON public.roster_publication_protections USING btree (id)",
+        "name": "roster_publication_protections_pkey",
+        "table": "roster_publication_protections",
+        "def_hash": "d3a9e1b9fed6116e9fa1c6cc9a5cc0b9"
+      },
+      {
+        "def": "CREATE INDEX roster_publication_protections_service_idx ON public.roster_publication_protections USING btree (service_id)",
+        "name": "roster_publication_protections_service_idx",
+        "table": "roster_publication_protections",
+        "def_hash": "6a634128ea010f0254d949aeedc1827e"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX roster_publication_protections_swap_id_key ON public.roster_publication_protections USING btree (swap_id)",
+        "name": "roster_publication_protections_swap_id_key",
+        "table": "roster_publication_protections",
+        "def_hash": "bd657e9a4686030f0523e6488b792bd0"
+      },
+      {
         "def": "CREATE UNIQUE INDEX roster_publication_seen_pkey ON public.roster_publication_seen USING btree (publication_id, user_id)",
         "name": "roster_publication_seen_pkey",
         "table": "roster_publication_seen",
@@ -17038,7 +17146,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "8a74ffa93e5a548ff2ebda575b82a37a",
+        "def_hash": "927067ef3e76b8c072711845574a95b9",
         "signature": "public.commit_document_deep_memory_generation(uuid,text,uuid,text,text,integer,integer,jsonb,integer)"
       },
       {
@@ -17964,6 +18072,14 @@
       },
       {
         "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "31a11d15acae1b159d87658e58a06311",
+        "signature": "public.roster_lock_manager(uuid,uuid)"
+      },
+      {
+        "acl": [
           "postgres=X/postgres"
         ],
         "def_hash": "3970f82d1ac917820e8f1d2d8cc9b88e",
@@ -17998,7 +18114,39 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "06d61c4e4b0a7b7c3b5fa53cd0f421f9",
+        "def_hash": "bb07cc3fff16ee32e9317029d6e20d6a",
+        "signature": "public.roster_publication_replacement(uuid,uuid,uuid,date,date)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "c46eec04e931044ad5d98fffd98e0645",
+        "signature": "public.roster_publish_fingerprint(uuid,date,date)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "e688fdfb8de5d6690261d3a207910d4a",
+        "signature": "public.roster_publish_preview(uuid,uuid,date,date)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "3a50ff368c60f52fc1e20d896a6f540f",
+        "signature": "public.roster_publish(uuid,uuid,text,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "fd0d25d8fb28707b24505eeaad4d8b58",
         "signature": "public.roster_read(uuid,uuid,text,jsonb)"
       },
       {
@@ -18008,6 +18156,14 @@
         ],
         "def_hash": "2cbc744433ed015d042ab70a677e22e5",
         "signature": "public.roster_retention_purge()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "6701db1dc8793f0ee264cba1ffc3a968",
+        "signature": "public.roster_set_cutoff(uuid,uuid,date)"
       },
       {
         "acl": [
@@ -21346,6 +21502,56 @@
         "table": "roster_open_shifts"
       },
       {
+        "def": "FOREIGN KEY (give_assignment_id) REFERENCES public.roster_assignments(id) ON DELETE CASCADE",
+        "name": "roster_publication_protections_give_assignment_id_fkey",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "CHECK (((swap_id IS NULL) <> (open_shift_id IS NULL)))",
+        "name": "roster_publication_protections_one_source",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "FOREIGN KEY (open_shift_id) REFERENCES public.roster_open_shifts(id) ON DELETE CASCADE",
+        "name": "roster_publication_protections_open_shift_id_fkey",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "UNIQUE (open_shift_id)",
+        "name": "roster_publication_protections_open_shift_id_key",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "roster_publication_protections_pkey",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "FOREIGN KEY (service_id) REFERENCES public.on_call_services(id) ON DELETE CASCADE",
+        "name": "roster_publication_protections_service_id_fkey",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "FOREIGN KEY (swap_id) REFERENCES public.roster_swaps(id) ON DELETE CASCADE",
+        "name": "roster_publication_protections_swap_id_fkey",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "UNIQUE (swap_id)",
+        "name": "roster_publication_protections_swap_id_key",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "FOREIGN KEY (take_assignment_id) REFERENCES public.roster_assignments(id) ON DELETE CASCADE",
+        "name": "roster_publication_protections_take_assignment_id_fkey",
+        "table": "roster_publication_protections"
+      },
+      {
+        "def": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "name": "roster_publication_protections_updated_by_fkey",
+        "table": "roster_publication_protections"
+      },
+      {
         "def": "PRIMARY KEY (publication_id, user_id)",
         "name": "roster_publication_seen_pkey",
         "table": "roster_publication_seen"
@@ -21406,7 +21612,7 @@
         "table": "roster_shift_codes"
       },
       {
-        "def": "CHECK ((kind = ANY (ARRAY['day'::text, 'evening'::text, 'night'::text, 'on_call'::text, 'leave'::text, 'other'::text])))",
+        "def": "CHECK ((kind = ANY (ARRAY['day'::text, 'evening'::text, 'night'::text, 'on_call'::text, 'leave'::text, 'other'::text, 'off'::text])))",
         "name": "roster_shift_codes_kind_check",
         "table": "roster_shift_codes"
       },
@@ -21426,7 +21632,7 @@
         "table": "roster_shift_codes"
       },
       {
-        "def": "CHECK (((starts IS NULL) = (ends IS NULL)))",
+        "def": "CHECK ((((starts IS NULL) = (ends IS NULL)) AND ((kind <> 'off'::text) OR ((starts IS NULL) AND (ends IS NULL)))))",
         "name": "roster_shift_codes_times",
         "table": "roster_shift_codes"
       },

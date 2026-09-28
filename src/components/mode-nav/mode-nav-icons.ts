@@ -1,6 +1,7 @@
 import {
   BedDouble,
   Ban,
+  ArrowLeftRight,
   BookOpenText,
   Brain,
   BookMarked,
@@ -35,6 +36,7 @@ import {
   Scale,
   Target,
   Users,
+  UsersRound,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -128,11 +130,14 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   "new-job": BriefcaseBusiness,
   help: LifeBuoy,
   // Roster. Today is the mode home a shift opens to; Shifts reuses the mode's
-  // own CalendarRange mark (`category-identity.ts`); Settings gets the generic
-  // gear, matched to nothing else in this rail so it cannot be mistaken for a
-  // section.
+  // own CalendarRange mark (`category-identity.ts`); Team is the people on the
+  // roster; Requests is the swap arrows, since swaps are most of what it holds;
+  // Settings gets the generic gear, matched to nothing else in this rail so it
+  // cannot be mistaken for a section.
   today: CalendarClock,
   shifts: CalendarRange,
+  team: UsersRound,
+  requests: ArrowLeftRight,
   settings: Settings,
   // First Nations. Prefixed ids, so On Call's "contacts" icon is not shared —
   // each mode's rail slots wear their own mark even where the idea overlaps.
