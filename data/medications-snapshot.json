@@ -471,7 +471,7 @@
           },
           {
             "key": "Prescribing & PBS",
-            "val": "S8. PBS search shows buprenorphine modified-release injection strengths under S100 HSD Community Access; confirm product-specific item/restriction and jurisdictional OAT requirements before prescribing.",
+            "val": "S8. PBS search confirms buprenorphine modified-release injection listings under the Section 100 Opioid Dependence Treatment Program (ODTP) (transitioned from legacy S100 HSD Community Access post-July 2023); confirm product-specific item/restriction and jurisdictional OAT requirements before prescribing.",
             "tags": []
           }
         ]
@@ -797,7 +797,7 @@
           },
           {
             "key": "Prescribing & PBS",
-            "val": "S8. PBS search confirms Suboxone Film listings under S100 HSD Community Access for 2/0.5 mg and 8/2 mg films; confirm current jurisdictional OAT authority and PBS restriction details before prescribing.",
+            "val": "S8. PBS search confirms Suboxone Film listings under the Section 100 Opioid Dependence Treatment Program (ODTP) for 2/0.5 mg and 8/2 mg films (transitioned from legacy S100 HSD Community Access post-July 2023); confirm current jurisdictional OAT authority and PBS restriction details before prescribing.",
             "tags": []
           }
         ]
@@ -83022,7 +83022,7 @@
               "severity": "danger",
               "match": {
                 "egfr": {
-                  "lt": 15
+                  "lt": 30
                 }
               },
               "note": "Inferred from existing decision-section wording; review before clinical use."

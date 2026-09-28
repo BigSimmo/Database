@@ -165,7 +165,9 @@ function Hero({
 
   const eyebrow =
     lead.state === "day_off"
-      ? "Day off"
+      ? lead.finishedToday
+        ? "Finished for today"
+        : "Day off"
       : `${leadShift ? SHIFT_KIND_LABEL[kindOf(leadShift)] : "Shift"}${
           leadShift?.workplace ? ` · ${leadShift.workplace}` : ""
         }`;

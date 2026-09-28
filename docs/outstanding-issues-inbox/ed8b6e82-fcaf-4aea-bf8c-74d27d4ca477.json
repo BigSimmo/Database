@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ed8b6e82-fcaf-4aea-bf8c-74d27d4ca477",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CME phone customise screen renders two cme-module-order lists, failing the ui-cme-phone reorder-controls browser test",
+    "detail": "Seen 2026-09-27 in a local full verify:phone-chrome run on PR #3145's branch (which does not touch CME): tests/ui-cme-phone.spec.ts:109 failed with a strict-mode violation, getByTestId('cme-module-order') resolved to 2 elements (one inside mobile-composer-reserve-pad, one elsewhere). Either the customise list is rendered twice on a phone (a real duplicate-controls defect) or the test needs scoping. Not yet diagnosed; check whether it reproduces on origin/main first.",
+    "source": "Claude Code session 2026-09-27, local verify:phone-chrome (PR #3145 branch)",
+    "issueUlid": "01M3HJC0GCF06YE4TRF1E1NAQ0"
+  }
+}

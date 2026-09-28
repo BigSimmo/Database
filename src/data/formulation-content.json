@@ -76,7 +76,12 @@
       "version": "Source review v2",
       "symptoms": ["Anxiety", "Panic", "Low mood", "Trauma intrusions"],
       "diagnosticContexts": ["Anxiety disorders", "PTSD", "Depression", "Personality difficulties"],
-      "protective": [],
+      "protective": [
+        "Approach coping attempts",
+        "Willingness to experience discomfort for valued goals",
+        "Safe and supportive relationships",
+        "Clear safety plan"
+      ],
       "sources": ["defense", "anxiety", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -195,7 +200,12 @@
       "version": "Source review v2",
       "symptoms": ["Affective instability", "Interpersonal conflict", "Self-harm risk in some contexts"],
       "diagnosticContexts": ["Personality disorder contexts", "Trauma-related presentations"],
-      "protective": [],
+      "protective": [
+        "Capacity for reflection and mentalising",
+        "Stable therapeutic relationship",
+        "Mindfulness and distress tolerance skills",
+        "Supportive grounding network"
+      ],
       "sources": ["defense"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -294,7 +304,12 @@
         "Eating disorders",
         "Personality disorder contexts"
       ],
-      "protective": [],
+      "protective": [
+        "Self-compassion",
+        "Secure and non-judgemental connection",
+        "Positive self-concept in other domains",
+        "Openness to vulnerability in trusted spaces"
+      ],
       "sources": ["shame", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -427,7 +442,12 @@
         "Bipolar disorder differential",
         "Trauma-related presentations"
       ],
-      "protective": [],
+      "protective": [
+        "Distress tolerance skills",
+        "Emotion regulation repertoire",
+        "Validation from trusted others",
+        "Sensory soothing strategies"
+      ],
       "sources": ["emotion"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -534,7 +554,12 @@
         "Health anxiety",
         "Attachment insecurity"
       ],
-      "protective": [],
+      "protective": [
+        "Tolerance of uncertainty",
+        "Self-validation",
+        "Delayed gratification and response prevention",
+        "Trust in previous medical evaluations"
+      ],
       "sources": ["anxiety", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -651,7 +676,12 @@
         "Trauma-related presentations",
         "Personality functioning"
       ],
-      "protective": [],
+      "protective": [
+        "Desire for meaningful connection",
+        "Reliable and predictable relational boundaries",
+        "High functional independence",
+        "Capacity for shared activities"
+      ],
       "sources": ["attachment"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -778,7 +808,12 @@
         "Trauma-related presentations",
         "Schema-focused formulation"
       ],
-      "protective": [],
+      "protective": [
+        "Recognised strengths and achievements",
+        "Supportive feedback from valued peers",
+        "Evidence-testing cognitive skills",
+        "Meaningful vocational or creative roles"
+      ],
       "sources": ["cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -873,7 +908,12 @@
       "version": "Source review v2",
       "symptoms": ["Interpersonal conflict", "Paranoid ideation in some contexts", "Anger", "Shame"],
       "diagnosticContexts": ["Psychodynamic formulation", "Personality functioning", "Trauma-related mistrust"],
-      "protective": [],
+      "protective": [
+        "Willingness to consider alternative perspectives",
+        "Safe emotional container",
+        "Humour and self-awareness",
+        "Empathic feedback from trusted peers"
+      ],
       "sources": ["defense"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -967,7 +1007,12 @@
       "version": "Source review v2",
       "symptoms": ["Depression", "Anxiety", "Insomnia", "Shame"],
       "diagnosticContexts": ["Depression", "Anxiety", "Trauma-related presentations", "Perfectionism"],
-      "protective": [],
+      "protective": [
+        "Behavioural activation",
+        "Attentional refocusing and absorption in tasks",
+        "Problem-solving orientation",
+        "Physical activity and routine"
+      ],
       "sources": ["rumination", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -1060,7 +1105,12 @@
       "version": "Source review v2",
       "symptoms": ["Anxiety", "Muscle tension", "Insomnia", "Poor concentration"],
       "diagnosticContexts": ["Generalised anxiety", "Health anxiety", "Obsessive-compulsive presentations"],
-      "protective": [],
+      "protective": [
+        "Willingness to accept uncertainty",
+        "Distinction between hypothetical and real problems",
+        "Structured worry time and grounding",
+        "Strong practical problem-solving record"
+      ],
       "sources": ["anxiety", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -1152,7 +1202,12 @@
         "Complex trauma",
         "Functional neurological symptoms differential"
       ],
-      "protective": [],
+      "protective": [
+        "Grounding and somatic sensory anchors",
+        "Trauma-informed safety strategies",
+        "Predictable and safe environment",
+        "Affect labelling and orientation skills"
+      ],
       "sources": ["dissociation"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
@@ -1316,7 +1371,12 @@
         "Obsessive-compulsive personality traits",
         "Eating disorders"
       ],
-      "protective": [],
+      "protective": [
+        "Self-worth decoupled from achievement",
+        "Cognitive flexibility and \"good enough\" standard setting",
+        "Values outside work and performance",
+        "Self-compassion around error"
+      ],
       "sources": ["perfectionism", "cbt"],
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",

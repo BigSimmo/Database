@@ -69,6 +69,33 @@ export async function measureSearchPhase<T>(
   }
 }
 
+/**
+ * Supabase hydration phases that run inside the rerank windows. `rerank_latency_ms` excludes them,
+ * so it times ranking work rather than database round trips (those stay visible, per phase, in
+ * `retrieval_phase_latencies_ms`). Measurement only: nothing here changes ranking or ordering.
+ */
+const RERANK_EXCLUDED_HYDRATION_PHASES = [
+  "metadata_hydration",
+  "memory_hydration",
+  "visual_hydration",
+  "metadata_and_memory_hydration",
+] as const;
+
+function hydrationPhaseMs(timing: SearchTiming) {
+  return RERANK_EXCLUDED_HYDRATION_PHASES.reduce((total, phase) => total + (timing.phases[phase] ?? 0), 0);
+}
+
+/**
+ * Starts a rerank clock. The returned function reports the time elapsed since the start, less any
+ * hydration-phase time recorded in the meantime. Clamped at zero because a concurrent lane can
+ * record hydration time that overlaps the window.
+ */
+export function startRerankClock(timing: SearchTiming): () => number {
+  const startedAt = Date.now();
+  const hydrationAtStart = hydrationPhaseMs(timing);
+  return () => Math.max(0, Date.now() - startedAt - (hydrationPhaseMs(timing) - hydrationAtStart));
+}
+
 export function finishSearch<T extends { results: SearchResult[]; telemetry: SearchTelemetry }>(
   timing: SearchTiming,
   search: T,

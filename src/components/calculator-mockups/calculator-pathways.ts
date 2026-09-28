@@ -63,7 +63,7 @@ const pathways: Record<string, CalculatorPathway> = {
         minBandIndex: 2,
       },
       { title: "Low mood — differential diagnoses", kind: "differential", href: "/differentials" },
-      { title: "Mental health treatment plan", kind: "form", href: "/forms", minBandIndex: 1 },
+      { title: "Mental health treatment plan", kind: "guideline", href: "/documents?q=stepped+care", minBandIndex: 1 },
       {
         title: "Acute mental health team referral",
         kind: "service",
@@ -104,7 +104,7 @@ const pathways: Record<string, CalculatorPathway> = {
   },
   k10: {
     related: [
-      { title: "Mental health treatment plan", kind: "form", href: "/forms", minBandIndex: 2 },
+      { title: "Mental health treatment plan", kind: "guideline", href: "/documents?q=stepped+care", minBandIndex: 2 },
       {
         title: "Psychological distress — stepped care",
         kind: "guideline",

@@ -255,4 +255,43 @@ describe("ServiceDetailPage content cleanup", () => {
     const { container } = render(<ServiceDetailPage service={baseService()} />);
     expectWellFormedDefinitionLists(container);
   });
+
+  it("extracts the first valid dialable phone URI from composite strings without concatenating digits", () => {
+    const compositePhone = "1300 555 788 (metro); 1800 676 822 (Peel)";
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          primaryContact: { label: "Phone", value: compositePhone, kind: "phone" },
+          contacts: [{ label: "Phone", value: compositePhone, kind: "phone" }],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("service-actions-trigger"));
+    const actions = within(screen.getByTestId("service-actions-sheet"));
+    const callLink = actions.getByRole("link", { name: "Call" });
+    expect(callLink).toHaveAttribute("href", "tel:1300555788");
+    expect(callLink.getAttribute("href")).not.toContain("1800676822");
+  });
+
+  it("renders individual dialable links for multi-number and composite phone referral rows", () => {
+    const compositePhone = "1300 555 788 (metro); 1800 676 822 (Peel)";
+    const { container } = render(
+      <ServiceDetailPage
+        service={baseService({
+          referralInfo: [
+            { label: "Phone", value: compositePhone },
+            { label: "Triage phone", value: "08 9224 8888\n08 9224 8889" },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "1300 555 788 (metro)" })).toHaveAttribute("href", "tel:1300555788");
+    expect(screen.getByRole("link", { name: "1800 676 822 (Peel)" })).toHaveAttribute("href", "tel:1800676822");
+    expect(screen.getByRole("link", { name: "08 9224 8888" })).toHaveAttribute("href", "tel:0892248888");
+    expect(screen.getByRole("link", { name: "08 9224 8889" })).toHaveAttribute("href", "tel:0892248889");
+
+    expectWellFormedDefinitionLists(container);
+  });
 });

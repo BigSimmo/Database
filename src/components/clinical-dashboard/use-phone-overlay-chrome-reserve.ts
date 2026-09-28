@@ -53,17 +53,13 @@ export function readPhoneOverlayChromeReservePx(root: ParentNode = document): nu
  * Keeps both guards that matter: phone widths only, and never publish a
  * non-positive measurement over the CSS seed.
  *
- * SCOPE LIMIT — READ THIS BEFORE CITING THIS FUNCTION AS THE #CHPC5C FIX. The
- * settle precondition below means this only ever fires on an in-session
- * navigation. React runs layout effects children-first and the reserve hook
- * belongs to the shell, so on a cold first load a portal's effect runs before
- * the hook has settled anything and this returns early, every time. The trace
- * above IS a cold load, so that path is unchanged and the CI failure #CHPC5C
- * was filed for can still occur. `tests/phone-overlay-reserve-portal-wiring.dom.test.tsx`
- * pins it, and docs/search-chrome-behaviour.md records the way out: have the
- * portal publish its own height as a delta to the reserve in force rather than
- * re-measuring the stack, which removes the #147 exposure the precondition
- * exists for and so removes the precondition.
+ * Scope: the settle precondition below means this only ever fires on an
+ * in-session navigation. React runs layout effects children-first and the
+ * reserve hook belongs to the shell, so on a cold first load a portal's effect
+ * runs before the hook has settled anything and this returns early. Portals
+ * therefore go through `claimPhoneOverlayAddonReserve`, which covers the cold
+ * load by writing the seed plus the row's own height inline, and calls this for
+ * the settled case.
  */
 export function publishPhoneOverlayChromeReserveNow(): void {
   if (typeof window === "undefined") return;
@@ -83,6 +79,78 @@ export function publishPhoneOverlayChromeReserveNow(): void {
   const measured = readPhoneOverlayChromeReservePx();
   if (measured <= 0) return;
   document.documentElement.style.setProperty(reserveProperty, `${measured}px`);
+}
+
+/**
+ * Records the height of the `header-collapse-addon` row a portal has just moved
+ * out of page flow, so the reserve is right in the same commit on EVERY path,
+ * including the cold first load that `publishPhoneOverlayChromeReserveNow`
+ * cannot serve (#CHPC5C). Call it from the portal's layout effect after the
+ * commit that filled `host`; the returned function undoes it.
+ *
+ * It publishes the row's own height as a delta rather than re-measuring the
+ * stack, which is what makes it safe before the quiet window has settled:
+ *
+ * - Before settle, it writes the reserve in force (the CSS seed, or an earlier
+ *   claim's value) plus the row's height as an inline `calc()`. No stack
+ *   measurement is taken, so the transient wide-stack reading (#147) the settle
+ *   precondition guards against cannot leak in; the quiet window later settles
+ *   the same total in pixels. It writes `--phone-overlay-chrome-h` itself rather
+ *   than a second property the seed depends on: a production Chromium build
+ *   painted one frame with the dependent value still stale (a 49px layout shift
+ *   and back, ~15ms), while a direct write is picked up in the same frame.
+ * - After settle, the inline measured value is in force. Claiming re-measures
+ *   through the immediate publisher, which is safe post-settle.
+ * - Releasing subtracts the row's height: before settle by restoring the value
+ *   it replaced, after settle arithmetically. It cannot re-measure the stack,
+ *   because React runs layout-effect destroys before it detaches portal
+ *   children, so the row is still in the stack when the cleanup runs. For the
+ *   same reason the host still holds the row, so the release reads the host's
+ *   height at that moment rather than the one captured at claim time: a row can
+ *   grow while claimed (a medication nav gains its section rail once the record
+ *   loads), and the settled reserve has since been republished at that height.
+ *
+ * The addon slot holds one page-owned row (see `ModeNavHeaderPortal`), so the
+ * host's own height is that row's height.
+ */
+export function claimPhoneOverlayAddonReserve(host: HTMLElement): () => void {
+  if (typeof window === "undefined") return () => {};
+  if (!window.matchMedia(phoneMediaQuery).matches) return () => {};
+  const rowPx = Math.round(host.offsetHeight);
+  if (rowPx <= 0) return () => {};
+  const root = document.documentElement;
+  // The row's height when it is released, falling back to the claimed height
+  // if the host no longer measures (see the release note above).
+  const releasedRowPx = () => Math.round(host.offsetHeight) || rowPx;
+
+  if (!hasSettledPhoneOverlayReserve) {
+    const previousInline = root.style.getPropertyValue(reserveProperty);
+    const base = previousInline || getComputedStyle(root).getPropertyValue(reserveProperty).trim();
+    if (!base) return () => {};
+    const claimed = `calc(${base} + ${rowPx}px)`;
+    root.style.setProperty(reserveProperty, claimed);
+    return () => {
+      if (hasSettledPhoneOverlayReserve) {
+        releaseSettledRow(releasedRowPx());
+        return;
+      }
+      if (root.style.getPropertyValue(reserveProperty) !== claimed) return;
+      if (previousInline) root.style.setProperty(reserveProperty, previousInline);
+      else root.style.removeProperty(reserveProperty);
+    };
+  }
+
+  publishPhoneOverlayChromeReserveNow();
+  return () => {
+    if (hasSettledPhoneOverlayReserve) releaseSettledRow(releasedRowPx());
+  };
+}
+
+function releaseSettledRow(rowPx: number): void {
+  const root = document.documentElement;
+  const current = Number.parseFloat(root.style.getPropertyValue(reserveProperty));
+  if (!Number.isFinite(current) || current - rowPx <= 0) return;
+  root.style.setProperty(reserveProperty, `${current - rowPx}px`);
 }
 
 /**

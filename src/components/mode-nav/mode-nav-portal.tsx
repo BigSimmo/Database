@@ -3,7 +3,7 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { publishPhoneOverlayChromeReserveNow } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
+import { claimPhoneOverlayAddonReserve } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 
 /**
@@ -59,14 +59,13 @@ export function ModeNavHeaderPortal({ children }: { children: ReactNode }) {
   // reserve must grow in the same commit that removes it. Deferring to the
   // reserve hook's quiet window left the whole page 49px too high for ~110ms,
   // and a tap that straddled the correction pressed one control and released on
-  // another (#CHPC5C). Above the phone breakpoint the publish is a no-op, which
+  // another (#CHPC5C). Above the phone breakpoint the claim is a no-op, which
   // is what keeps this safe on the every-width host this portal deliberately
-  // uses.
-  //
-  // This closes the in-session case only. On a cold load the publisher returns
-  // early — read its SCOPE LIMIT note before treating #CHPC5C as fixed.
+  // uses. The claim covers the cold first load too, and gives the height back
+  // when the bar leaves the header — see `claimPhoneOverlayAddonReserve`.
   useLayoutEffect(() => {
-    publishPhoneOverlayChromeReserveNow();
+    if (!host) return;
+    return claimPhoneOverlayAddonReserve(host);
   }, [host]);
 
   return host ? createPortal(children, host) : children;
