@@ -5,7 +5,7 @@ import { normalizeCmeSourceUrl } from "@/lib/cme/learning-source";
 
 /**
  * WA LEARNING DIRECTORY — a curated, hand-checked list of upcoming courses and
- * events in Western Australia that a psychiatrist may want to attend.
+ * events in Western Australia that a doctor may want to attend.
  *
  * The data lives in `src/data/cme/wa-learning-directory.json`, not the database,
  * so a monthly check (by a person or an automated job) can rewrite that one file
@@ -19,11 +19,6 @@ import { normalizeCmeSourceUrl } from "@/lib/cme/learning-source";
  * Dates are Perth calendar dates (`YYYY-MM-DD`), compared as strings — the same
  * discipline `cpd-year.ts` documents, so no runtime time zone can roll a date.
  */
-
-/** A list older than this is flagged as possibly out of date. */
-export const LEARNING_DIRECTORY_STALE_AFTER_DAYS = 45;
-
-const MS_PER_DAY = 86_400_000;
 
 function isRealCalendarDate(value: string): boolean {
   const parsed = new Date(`${value}T00:00:00Z`);
@@ -55,6 +50,11 @@ const learningDirectoryItemSchema = z
       .max(120),
     title: nonEmptyText(200),
     provider: nonEmptyText(160),
+    /** Omitted means the item is relevant to every specialty. */
+    specialties: z
+      .array(nonEmptyText(80).transform((value) => value.toLowerCase()))
+      .max(20)
+      .optional(),
     kind: z.enum(["course", "event", "recorded"]),
     /**
      * False when the organiser's page did not give a date that could be
@@ -64,6 +64,15 @@ const learningDirectoryItemSchema = z
     datesConfirmed: z.boolean(),
     startsOn: calendarDateSchema.nullable(),
     endsOn: calendarDateSchema.nullable(),
+    /** Optional Perth 24-hour wall times; omitted means an all-day event. */
+    startsAt: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
+    endsAt: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
     mode: z.enum(["online", "in-person", "both"]),
     location: nonEmptyText(160).nullable(),
     costNote: nonEmptyText(200).nullable(),
@@ -86,6 +95,28 @@ const learningDirectoryItemSchema = z
     }
     if (item.endsOn !== null && item.startsOn !== null && item.endsOn < item.startsOn) {
       context.addIssue({ code: "custom", path: ["endsOn"], message: "The end date is before the start date." });
+    }
+    if ((item.startsAt === undefined) !== (item.endsAt === undefined)) {
+      context.addIssue({
+        code: "custom",
+        path: ["startsAt"],
+        message: "A timed event needs both start and end times.",
+      });
+    }
+    if (
+      item.startsAt &&
+      item.endsAt &&
+      item.startsOn &&
+      (item.endsOn ?? item.startsOn) === item.startsOn &&
+      item.endsAt <= item.startsAt
+    ) {
+      context.addIssue({ code: "custom", path: ["endsAt"], message: "The end time must follow the start time." });
+    }
+    if (
+      item.specialties &&
+      new Set(item.specialties.map((specialty) => specialty.toLowerCase())).size !== item.specialties.length
+    ) {
+      context.addIssue({ code: "custom", path: ["specialties"], message: "Specialties must be unique." });
     }
   });
 
@@ -125,50 +156,15 @@ export function loadLearningDirectory(): LearningDirectory {
   return WA_LEARNING_DIRECTORY;
 }
 
-function byStartThenTitle(a: LearningDirectoryItem, b: LearningDirectoryItem): number {
-  if (a.startsOn !== b.startsOn) {
-    if (a.startsOn === null) return 1;
-    if (b.startsOn === null) return -1;
-    return a.startsOn < b.startsOn ? -1 : 1;
-  }
-  return a.title.localeCompare(b.title, "en-AU");
-}
-
-/**
- * The dated list: items whose dates were confirmed and which have not finished
- * before `todayPerth`. An item finishes on its `endsOn`, or on its `startsOn`
- * when it has no end date; an item running today still shows. A recorded item
- * with no date always shows. Sorted by start date, undated last.
- *
- * Items whose dates are unconfirmed are excluded here — see
- * `unconfirmedLearningItems` — because a date nobody confirmed must not be the
- * reason something disappears.
- */
-export function upcomingLearningItems(
-  items: readonly LearningDirectoryItem[],
-  todayPerth: string,
-): LearningDirectoryItem[] {
-  return items
-    .filter((item) => item.datesConfirmed)
-    .filter((item) => {
-      const finishesOn = item.endsOn ?? item.startsOn;
-      return finishesOn === null || finishesOn >= todayPerth;
-    })
-    .sort(byStartThenTitle);
-}
-
-/** Items whose dates could not be confirmed. They never drop off automatically. */
-export function unconfirmedLearningItems(items: readonly LearningDirectoryItem[]): LearningDirectoryItem[] {
-  return items.filter((item) => !item.datesConfirmed).sort(byStartThenTitle);
-}
-
-/** True when the list was last checked more than 45 days before today's Perth date. */
-export function isDirectoryStale(lastCheckedOn: string, todayPerth: string): boolean {
-  const days = (Date.parse(`${todayPerth}T00:00:00Z`) - Date.parse(`${lastCheckedOn}T00:00:00Z`)) / MS_PER_DAY;
-  return days > LEARNING_DIRECTORY_STALE_AFTER_DAYS;
-}
-
-/** The new-entry form's prefill link. Carries only a title and a link; it never records attendance. */
-export function learningItemLogHref(item: Pick<LearningDirectoryItem, "title" | "url">): string {
-  return `/cme/new?${new URLSearchParams({ title: item.title, sourceUrl: item.url }).toString()}`;
-}
+export {
+  LEARNING_DIRECTORY_STALE_AFTER_DAYS,
+  upcomingLearningItems,
+  unconfirmedLearningItems,
+  defaultLearningSpecialty,
+  filterLearningItems,
+  pastLearningItems,
+  groupLearningByMonth,
+  isDirectoryStale,
+  learningItemLogHref,
+} from "@/lib/cme/learning-directory-view";
+export type { LearningFormat, LearningSpecialty, LearningMonthGroup } from "@/lib/cme/learning-directory-view";

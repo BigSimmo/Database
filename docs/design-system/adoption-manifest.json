@@ -728,6 +728,7 @@
       "directImportFiles": [
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
@@ -736,6 +737,7 @@
       "productImportFiles": [
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
@@ -951,7 +953,6 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/app/(search-app)/cme/programme/page.tsx",
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
@@ -975,7 +976,6 @@
         "src/components/on-call/service-page.tsx"
       ],
       "productImportFiles": [
-        "src/app/(search-app)/cme/programme/page.tsx",
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
@@ -2095,7 +2095,10 @@
         "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-dashboard.tsx",
+        "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-quick-log.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/compare/compare-picker-shell.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
@@ -2159,7 +2162,10 @@
         "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-dashboard.tsx",
+        "src/components/cme/cme-log-page.tsx",
         "src/components/cme/cme-quick-log.tsx",
+        "src/components/cme/cme-year-close-panel.tsx",
         "src/components/compare/compare-picker-shell.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
@@ -3173,12 +3179,12 @@
         {
           "file": "src/app/(search-app)/cme/programme/page.tsx",
           "exists": true,
-          "imports": ["EmptyState"],
-          "importedFamilies": ["feedback"],
+          "imports": [],
+          "importedFamilies": [],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CmePage"]
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/cme/routines/page.tsx",
@@ -5395,6 +5401,6 @@
     "productImportedComponentCount": 45,
     "rootCount": 152,
     "productionRouteCount": 144,
-    "nextUiEntryCount": 216
+    "nextUiEntryCount": 223
   }
 }

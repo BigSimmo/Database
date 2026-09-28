@@ -9,7 +9,11 @@ export const metadata: Metadata = {
   description: "Four things to set up once, then the mode runs itself.",
 };
 
-export default async function CmeSetupPageRoute({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+export default async function CmeSetupPageRoute({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string; edit?: string }>;
+}) {
   const query = await searchParams;
   const requestedYear = query.year ? Number(query.year) : undefined;
   const data = await loadCmePageData(
@@ -22,5 +26,13 @@ export default async function CmeSetupPageRoute({ searchParams }: { searchParams
       </main>
     );
   }
-  return <CmeSetupRoute key={data.year} year={data.year} set={data.set} demoMode={data.demoMode} />;
+  return (
+    <CmeSetupRoute
+      key={data.year}
+      year={data.year}
+      set={data.set}
+      demoMode={data.demoMode}
+      editInitially={query.edit === "1"}
+    />
+  );
 }

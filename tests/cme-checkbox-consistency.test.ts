@@ -8,7 +8,7 @@ const CPD_DIRS = ["src/components/cme", "src/app/(search-app)/cme"];
 function tsxFiles(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
     .filter((file) => file.endsWith(".tsx"))
-    .map((file) => join(dir, file));
+    .map((file) => join(dir, file).replaceAll("\\", "/"));
 }
 
 describe("CPD checkboxes", () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  answerIsRefusal,
   answerTextForClipboard,
   answerStateForAnswer,
   buildAnswerClipboardText,
@@ -340,4 +341,24 @@ it("R3 preserves the precise source-only reason in clipboard text", () => {
   const copied = buildAnswerClipboardText({ answer, weakEvidence: false, renderCopyText: "Clinical answer draft" });
   expect(copied).toContain("Answer generation timed out; the verified source-backed portion is shown.");
   expect(copied).toContain("without model synthesis");
+});
+
+describe("answerIsRefusal (#Z9NS6H, owner approval 2026-09-28)", () => {
+  // The union of every candidate signal: under-claiming support is the patient-safe error.
+  it.each([
+    ["grounded === false", { grounded: false }, null],
+    ["an ungrounded answer state", { grounded: true }, { kind: "ungrounded" as const }],
+    ["a no_answer state", { grounded: true }, { kind: "no_answer" as const }],
+    ["coverage_gap", { grounded: true, fallbackReasonCode: "coverage_gap" as const }, null],
+    ["no_candidates", { grounded: true, fallbackReasonCode: "no_candidates" as const }, null],
+    ["low_signal", { grounded: true, fallbackReasonCode: "low_signal" as const }, null],
+  ])("treats %s as a refusal", (_label, answer, answerState) => {
+    expect(answerIsRefusal({ answer, answerState })).toBe(true);
+  });
+
+  it("does not treat a grounded, ready answer as a refusal", () => {
+    expect(
+      answerIsRefusal({ answer: { grounded: true, fallbackReasonCode: null }, answerState: { kind: "ready" } }),
+    ).toBe(false);
+  });
 });

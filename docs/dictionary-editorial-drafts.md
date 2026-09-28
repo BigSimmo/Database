@@ -242,7 +242,7 @@ do not invent an abbreviation.
 
 | Count | Obstacle                                                                                                                   | Whose call                                          |
 | ----- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 19    | Host absent from `GOVERNED_SOURCE_HOSTS`, including `meteor.aihw.gov.au`                                                   | Owner — widening host policy is never a side effect |
+| 15    | Host absent from `GOVERNED_SOURCE_HOSTS` (the three METEOR records moved to a page read when it was added, 2026-09-28)     | Owner — widening host policy is never a side effect |
 | 17    | Publisher now registered; no publication or review date has been established                                               | Needs a page read                                   |
 | 4     | Publisher page returned HTTP 403 to this session (four AIHW pages; AIHW is registered, so the date is all that is missing) | Needs a browser read                                |
 | 4     | Publisher field is a description, not an agency (see above)                                                                | Needs the actual publisher                          |

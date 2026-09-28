@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e080d8f6-93b0-4944-bbcc-15cb51e2c38c",
+  "createdOn": "2026-09-27",
+  "action": "done",
+  "payload": {
+    "id": "#X1SPWB",
+    "outcome": "Resolved by PR #3146 (owner approval 2026-09-28): H8 (services crisis and emergency routing) is written in docs/clinical-hazard-analysis.md against the routing and tests on this tip and registered in docs/clinical-hazard-controls.json as partial, with review due 2026-12-28. Its residual gaps (unqualified crisis wording pins nothing, no Lifeline pin, no crisis-chip control #4WSEG4, phone numbers not cross-checked) are recorded there and need re-review when PR #3157's routing change lands.",
+    "baseRowFingerprint": "a2aaba0a7c4b088ea70cbad4bb8e129e12e80223e1ab5676c898ca275b0dbef9"
+  }
+}

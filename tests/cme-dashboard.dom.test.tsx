@@ -58,6 +58,78 @@ const FURTHEST_FROM_MET_ENTRIES: readonly CmeEntry[] = [
 ];
 
 describe("the dashboard", () => {
+  it("offers First Nations Talking as optional learning only while nothing is logged for that domain", () => {
+    const set: CmeRequirementSet = {
+      year: 2026,
+      confirmedOn: "2026-01-01",
+      confirmedSource: "Test fixture",
+      totalHours: 50,
+      requirements: [
+        {
+          id: "practice-domains",
+          label: "Practice domains",
+          source: "national",
+          spec: {
+            shape: "activity-count",
+            buckets: ["Culturally safe practice", "Professionalism"],
+            minimumPerBucket: 2,
+          },
+          completedOn: null,
+        },
+      ],
+    };
+    const entry: CmeEntry = {
+      id: "cultural-learning",
+      date: "2026-06-01",
+      title: "Learning activity",
+      allocations: [{ category: "educational", hours: 1 }],
+      reflection: "",
+      costCents: null,
+      transcribed: false,
+      routineId: null,
+      documentId: null,
+      buckets: ["Culturally safe practice"],
+    };
+    const now = new Date("2026-09-19T02:00:00Z");
+    const view = render(<CmeDashboard set={set} entries={[]} now={now} />);
+    const link = screen.getByTestId("cme-first-nations-learning-link");
+    expect(link).toHaveAttribute("href", "/first-nations/talking");
+    expect(link).toHaveTextContent("Optional learning");
+    expect(link).toHaveTextContent("Opening this resource does not log a CPD activity.");
+
+    view.rerender(<CmeDashboard set={set} entries={[entry]} now={now} />);
+    expect(screen.queryByTestId("cme-first-nations-learning-link")).toBeNull();
+    view.rerender(<CmeDashboard set={set} entries={[{ ...entry, archivedAt: "2026-07-01" }]} now={now} />);
+    expect(screen.getByTestId("cme-first-nations-learning-link")).toBeInTheDocument();
+    view.rerender(<CmeDashboard set={set} entries={[{ ...entry, date: "2025-06-01" }]} now={now} />);
+    expect(screen.getByTestId("cme-first-nations-learning-link")).toBeInTheDocument();
+    view.rerender(<CmeDashboard set={{ ...set, requirements: [] }} entries={[]} now={now} />);
+    expect(screen.queryByTestId("cme-first-nations-learning-link")).toBeNull();
+  });
+
+  it("shows a linked training line only for a supplied current period", () => {
+    const without = renderAt("2026-09-19T02:00:00Z");
+    expect(screen.queryByTestId("cme-training-position-link")).toBeNull();
+    without.unmount();
+
+    render(
+      <CmeDashboard
+        set={DEMO_CME_YEAR}
+        entries={DEMO_CME_ENTRIES}
+        now={new Date("2026-09-19T02:00:00Z")}
+        currentTrainingPosition={{
+          stage: { id: "stage", kind: "stage", label: "Stage 2", startsOn: "2026-01-01", endsOn: null, fte: 1 },
+          rotation: { id: "rotation", kind: "rotation", label: "Acute", startsOn: "2026-07-01", endsOn: null, fte: 1 },
+          rotationIndex: 3,
+          rotationCount: 4,
+          onBreak: false,
+          breakPeriod: null,
+        }}
+      />,
+    );
+    expect(screen.getByTestId("cme-training-position-link")).toHaveTextContent("Stage 2 · rotation 3 of 4");
+    expect(screen.getByTestId("cme-training-position-link")).toHaveAttribute("href", "/cme/training");
+  });
   it("opens an overdue routine as a pre-filled activity from the Routines due module", async () => {
     const user = userEvent.setup();
     const onLogRoutine = vi.fn();
@@ -133,10 +205,9 @@ describe("the dashboard", () => {
   it("turns into the year-end checklist in the last fortnight", () => {
     renderAt("2026-12-28T02:00:00Z");
     const next = screen.getByTestId("cme-next-action");
-    expect(next).toHaveTextContent(/year end/i);
-    // Closing happens on the annual summary, so the action names it and sends the owner there.
-    expect(next).toHaveTextContent(/close the year from your annual summary/i);
-    expect(next).toHaveAttribute("href", "/cme/summary?year=2026");
+    // Today opens the year-end checklist rather than bypassing it with a summary link.
+    expect(within(next).getByTestId("cme-year-end-open")).toHaveTextContent(/close the year/i);
+    expect(within(next).queryByRole("link")).toBeNull();
   });
 
   it("points a closed year at its snapshot instead of at more logging", () => {

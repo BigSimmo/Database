@@ -163,6 +163,8 @@ describe("CME entry [id] route", () => {
 
   it("persists transcribed_at through a narrow PATCH and replaces allocations transactionally", () => {
     expect(detail).toMatch(/markCmeEntryTranscribed\(/);
+    expect(detail).toMatch(/clearCmeEntryTranscribed\(/);
+    expect(detail).toMatch(/Object\.keys\(rawBody as object\)\.length === 1/);
     expect(detail).toMatch(/saveCmeEntry\(/);
     expect(repository).toMatch(/rpc\("cme_save_entry"/);
   });

@@ -89,7 +89,7 @@ describe("repository source providers", () => {
         .map((value) => new URL(value).hostname),
     );
 
-    expect(new Set(GOVERNED_SOURCE_HOSTS)).toEqual(emittedHosts);
+    expect(new Set(GOVERNED_SOURCE_HOSTS)).toEqual(new Set([...emittedHosts, "meteor.aihw.gov.au"]));
   });
 
   it("returns valid references with traceable application usages from every provider", () => {

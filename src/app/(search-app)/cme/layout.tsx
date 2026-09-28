@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { CmePageTabs } from "@/components/cme/cme-page-tabs";
 import { CmeOwnerBoundary } from "@/components/cme/cme-owner-boundary";
 import { isDemoMode } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -24,6 +25,9 @@ export default async function CmeLayout({ children }: { children: ReactNode }) {
   }
   return (
     <CmeOwnerBoundary serverOwnerId={serverOwnerId} serverAuthVerified={serverAuthVerified} demoMode={demoMode}>
+      <Suspense fallback={null}>
+        <CmePageTabs />
+      </Suspense>
       {children}
     </CmeOwnerBoundary>
   );

@@ -130,6 +130,41 @@ describe("the pace chart", () => {
 });
 
 describe("quick log", () => {
+  it("keeps save in the fixed sheet footer and accepts Ctrl+Enter from the form", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ entry: { id: "keyboard-entry" } }), { status: 201 }));
+    render(<CmeQuickLog set={SET} />);
+    await user.click(screen.getByTestId("cme-quick-log-button"));
+    const sheet = await screen.findByTestId("cme-quick-log-sheet");
+    const footer = within(sheet).getByTestId("cme-quick-log-actions");
+    expect(within(footer).getByRole("button", { name: "Save entry" })).toBeInTheDocument();
+    await user.type(within(sheet).getByLabelText(/what was it/i), "Keyboard seminar");
+    await user.click(within(sheet).getByRole("button", { name: "1" }));
+    await user.click(within(sheet).getByRole("button", { name: "Educational" }));
+    await user.type(within(sheet).getByLabelText("Reflection"), "Compared the guidance.");
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).title).toBe("Keyboard seminar");
+  });
+
+  it("keeps an incomplete activity as an account draft from the sheet footer", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ draft: { id: "draft-1" } }), { status: 201 }));
+    render(<CmeQuickLog set={SET} />);
+    await user.click(screen.getByTestId("cme-quick-log-button"));
+    const sheet = await screen.findByTestId("cme-quick-log-sheet");
+    await user.type(within(sheet).getByLabelText(/what was it/i), "Unfinished seminar");
+    await user.click(within(sheet).getByRole("button", { name: "Keep as draft" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith("/api/cme/drafts", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).payload.title).toBe("Unfinished seminar");
+    expect(navigation.push).toHaveBeenCalledWith("/cme/log?tab=finish#cme-drafts");
+  });
+
   it("opens the entry form in a panel, saves with one request, and says it landed", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -151,6 +186,27 @@ describe("quick log", () => {
     expect(typeof body.requestId).toBe("string");
     expect(navigation.refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("cme-quick-log-sheet")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/cme/entries/new", { method: "DELETE" });
+  });
+
+  it("fills the recent title and hours without saving", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    render(
+      <CmeQuickLog
+        set={SET}
+        entries={[entry({ id: "recent", date: "2026-09-01", title: "Synthetic seminar" })]}
+        nowIso="2026-09-26T02:00:00Z"
+      />,
+    );
+    await user.click(screen.getByTestId("cme-quick-log-button"));
+    const sheet = await screen.findByTestId("cme-quick-log-sheet");
+    await user.click(within(sheet).getByRole("button", { name: /synthetic seminar/i }));
+    expect(within(sheet).getByLabelText(/what was it/i)).toHaveValue("Synthetic seminar");
+    expect(within(sheet).getByRole("button", { name: /save entry/i })).not.toHaveAttribute("aria-disabled", "true");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps the panel open with the reason when the save fails", async () => {
