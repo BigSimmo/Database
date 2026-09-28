@@ -5,7 +5,7 @@ import { visibleByTestId } from "./playwright-settlement";
 /**
  * Now (the On Call mode home) and Who's on, in a browser, on the demo
  * handbook (`src/lib/on-call/service-demo.ts`: "Demonstration Hospital", the
- * synthetic short code 55 and 9000 00xx placeholders only).
+ * synthetic short code 55 and ACMA-reserved 5550 00xx numbers only).
  *
  * The DOM tests (`tests/on-call-now.dom.test.tsx`) prove the order and the
  * rules. This proves what jsdom cannot: real heights (the 48px floor), and the
@@ -36,7 +36,10 @@ for (const colorScheme of ["light", "dark"] as const) {
       const emergency = visibleByTestId(page, "on-call-now-emergency");
       await expect(emergency).toContainText("55");
       await expect(emergency).toContainText("From a hospital phone");
-      await expect(emergency.getByRole("link", { name: /from a mobile/i })).toHaveAttribute("href", /^tel:/);
+      await expect(emergency.getByRole("link", { name: /from a mobile/i })).toHaveAttribute(
+        "href",
+        "tel:0855500000,55",
+      );
       const tops = await Promise.all(
         ["on-call-now-hospital", "on-call-now-emergency", "on-call-now-right-now", "on-call-now-footer"].map(
           async (id) => (await visibleByTestId(page, id).boundingBox())?.y ?? Number.NaN,
@@ -112,13 +115,64 @@ for (const colorScheme of ["light", "dark"] as const) {
   });
 }
 
-test("Who's on answers by URL while the flag hides it, under the hospital's name", async ({ page }) => {
+test("Who's on shows published named cover under the hospital's name without storing the name", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ width: WIDTH, height: HEIGHT });
   await page.goto("/on-call/whos-on", { waitUntil: "domcontentloaded" });
   await expect(page.locator('div[hidden][id^="S:"]')).toHaveCount(0, { timeout: 20_000 });
   await expect(visibleByTestId(page, "on-call-hub-hospital")).toContainText("Demonstration Hospital", {
     timeout: 20_000,
   });
-  await expect(visibleByTestId(page, "on-call-whos-on-team-Medicine")).toContainText("Registrar on call");
+  await expect(visibleByTestId(page, "on-call-whos-on-team-Medicine")).toContainText("Registrar");
+  const team = visibleByTestId(page, "on-call-whos-on-team-Medicine");
+  await expect(team).toContainText("Dr Alex Example");
+  await expect(team.getByRole("link", { name: /Dr Alex Example/ }).first()).toHaveAttribute("href", /^tel:/);
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: HEIGHT });
+    expect(await team.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    if (width !== 1280)
+      await page.screenshot({ path: testInfo.outputPath(`named-cover-${width}.png`), fullPage: true });
+  }
+  expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))).not.toContain("Dr Alex Example");
   await expect(page.getByText(/being built|being set up/i)).toHaveCount(0);
+});
+
+test("hospital playbook keeps calls and their times on this device", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/on-call/playbook");
+  const ladder = visibleByTestId(page, "hospital-ladder-61000000-0000-4000-8000-000000000020");
+  await expect(ladder).toBeVisible();
+  await expect(ladder).toContainText("Hospital-set wait: 10 min");
+  const call = ladder.getByRole("link", { name: /^Call Synthetic first role,/ });
+  await expect(call).toHaveAttribute("href", "tel:0855500042");
+  await call.click();
+  await expect(ladder).toContainText(/called/i);
+});
+test("existing On Call calendar bookmarks reach Roster", async ({ page }) => {
+  await page.goto("/on-call/calendar");
+  await expect(page).toHaveURL(/\/roster\/calendar/);
+});
+
+test("hospital ladder stays usable across widths and accessible appearances", async ({ page }, testInfo) => {
+  await page.goto("/on-call/playbook");
+  const ladderModule = visibleByTestId(page, "on-call-hospital-ladders");
+  await expect(ladderModule).toBeVisible();
+  for (const width of [320, 390, 639, 768, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const box = await ladderModule.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+  }
+  await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+  const call = ladderModule.getByRole("link", { name: /^Call Synthetic first role,/ });
+  await call.focus();
+  await expect(call).toBeFocused();
+  await expect(call).toBeVisible();
+  await page.emulateMedia({ forcedColors: "none" });
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.screenshot({ path: testInfo.outputPath(`hospital-ladder-${width}.png`), fullPage: true });
+  }
 });

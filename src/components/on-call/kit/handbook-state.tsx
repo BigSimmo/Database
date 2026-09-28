@@ -113,6 +113,7 @@ export function OnCallHandbookState({
         <EmptyState
           icon={CloudOff}
           title="Hospital numbers could not be loaded."
+          body="Hospital numbers need a connection. If you cannot connect, use a hospital phone or ask the ward team for switchboard."
           actions={
             <Button type="button" variant="secondary" icon={RotateCw} onClick={handbook.retry}>
               Try again

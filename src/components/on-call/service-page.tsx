@@ -287,10 +287,10 @@ export function ServicePage({
         // Editor tools; members never see them (plan Task 4).
         if (item.id === "import" || item.id === "checking") return canEdit;
         if (item.id === "review") return canReview;
-        if (item.id === "admin") return detail?.membership.role === "admin";
+        if (item.id === "admin") return canEdit;
         return true;
       }),
-    [canEdit, canReview, detail?.membership.role],
+    [canEdit, canReview],
   );
 
   function canLeaveEditor(): boolean {
@@ -338,7 +338,7 @@ export function ServicePage({
       if (activeContextKey.current !== actionContextKey || activeAuthEpoch.current !== actionAuthEpoch) {
         throw new Error("The service context changed while this action refreshed. Reopen the entry to continue.");
       }
-      if (actionPayload.action === "site.create") {
+      if (actionPayload.action === "site.create" || actionPayload.action === "site.update") {
         await loadServices(actionAuthEpoch);
       }
       return payload;
@@ -704,7 +704,7 @@ export function ServicePage({
               onEdit={openEditor}
               onAction={action}
             />
-          ) : tab === "admin" && detail.membership.role === "admin" ? (
+          ) : tab === "admin" && canEdit ? (
             <ServiceAdminPanel detail={detail} onAction={action} />
           ) : (
             <section
