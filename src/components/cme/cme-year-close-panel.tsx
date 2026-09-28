@@ -1,15 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
+import { useRef, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormField } from "@/components/ui/form-field";
+import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateLong, perthCalendarDate } from "@/lib/cme/cpd-year";
-import type { CmeYearClose } from "@/lib/cme/types";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
+import type { CmeEntry, CmeRequirementSet, CmeYearClose } from "@/lib/cme/types";
+import { buildCmeYearEndActions, canOfferCmeYearEnd } from "@/lib/cme/year-close-actions";
 import {
   amendedVersionHours,
   canCloseCmeYear,
@@ -31,6 +36,61 @@ async function responseError(response: Response): Promise<string> {
 
 function formatInstantDate(instant: string): string {
   return formatCalendarDateLong(perthCalendarDate(new Date(instant)));
+}
+
+/** A single year-end checklist. Each row opens the existing owner-scoped screen where that task is done. */
+export function CmeYearEndActions({
+  set,
+  entries,
+  goals,
+  now,
+  nextYearConfirmed = null,
+  nextYearGoals,
+}: {
+  set: CmeRequirementSet;
+  entries: readonly CmeEntry[];
+  goals: readonly CmePlanGoal[];
+  now: Date;
+  /** Null means the next year's targets have not been read; never guess their status. */
+  nextYearConfirmed?: boolean | null;
+  nextYearGoals?: readonly CmePlanGoal[];
+}) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  if (!canOfferCmeYearEnd(set, now)) return null;
+  const actions = buildCmeYearEndActions({ set, entries, goals, now, nextYearConfirmed, nextYearGoals });
+  return (
+    <>
+      <Button ref={triggerRef} testId="cme-year-end-open" onClick={() => setOpen(true)}>
+        Close the year
+      </Button>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Close the ${set.year} year`}
+        description="Your year-end tasks, based on the records you have saved. Open each one to finish it."
+        placement="responsive-right"
+        mobilePlacement="bottom"
+        returnFocusRef={triggerRef}
+        testId="cme-year-end-sheet"
+      >
+        <ul className="divide-y divide-[color:var(--border)]" data-testid="cme-year-end-actions">
+          {actions.map((action) => (
+            <li key={action.id}>
+              <Link
+                href={action.href}
+                className="flex min-h-tap items-center justify-between gap-3 py-3 text-sm text-[color:var(--text)]"
+                data-testid={`cme-year-end-${action.id}`}
+              >
+                <span className="min-w-0 font-medium">{action.label}</span>
+                <span className={cn(textMuted, "shrink-0 text-right")}>{action.status}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
+    </>
+  );
 }
 
 /** The record of a closed year: what the snapshot froze, the shortfall note, and every amendment since. */
@@ -143,7 +203,7 @@ export function CmeYearClosePanel({
       if (!response.ok) throw new Error(await responseError(response));
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not close this year.");
+      setError(cmeSaveErrorText(caught, "Could not close this year."));
     } finally {
       setPending(false);
     }

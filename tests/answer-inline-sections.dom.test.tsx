@@ -230,11 +230,20 @@ describe("adaptive answer inline sections", () => {
         "answer-source-rail-row",
       );
       expect(sourceRows).toHaveLength(3);
-      expect(sourceRows[0]).toHaveAttribute("data-cited", "true");
-      expect(sourceRows[0]).toHaveAccessibleName(/Source 1: WA clinical guideline/i);
-      expect(sourceRows[1]).toHaveAttribute("data-cited", "true");
-      expect(sourceRows[1]).toHaveAccessibleName(/Source 2: Uploaded local protocol/i);
-      expect(sourceRows[2]).toHaveAttribute("data-cited", "false");
+      if (fallbackReasonCode) {
+        // coverage_gap is a refusal under the conservative definition (#Z9NS6H, owner
+        // approval 2026-09-28): every row is framed as searched, none as support.
+        expect(within(answerSurface).getByTestId("answer-source-rail-heading")).toHaveTextContent("Documents searched");
+        for (const row of sourceRows) expect(row).toHaveAttribute("data-cited", "false");
+        expect(sourceRows[0]).toHaveAccessibleName(/Also found: WA clinical guideline/i);
+        expect(sourceRows[1]).toHaveAccessibleName(/Also found: Uploaded local protocol/i);
+      } else {
+        expect(sourceRows[0]).toHaveAttribute("data-cited", "true");
+        expect(sourceRows[0]).toHaveAccessibleName(/Source 1: WA clinical guideline/i);
+        expect(sourceRows[1]).toHaveAttribute("data-cited", "true");
+        expect(sourceRows[1]).toHaveAccessibleName(/Source 2: Uploaded local protocol/i);
+        expect(sourceRows[2]).toHaveAttribute("data-cited", "false");
+      }
       expect(sourceRows[2]).toHaveAccessibleName(/Also found: Uncited retrieval/i);
       await userEvent.click(sourceRows[1]!);
       expect(
@@ -280,11 +289,11 @@ describe("adaptive answer inline sections", () => {
       "answer-source-rail-row",
     );
     expect(sourceRows).toHaveLength(3);
-    expect(sourceRows[0]).toHaveAttribute("data-cited", "true");
-    expect(sourceRows[0]).toHaveAccessibleName(/Source 1: WA clinical guideline/i);
-    expect(sourceRows[1]).toHaveAttribute("data-cited", "true");
-    expect(sourceRows[1]).toHaveAccessibleName(/Source 2: Uploaded local protocol/i);
-    expect(sourceRows[2]).toHaveAttribute("data-cited", "false");
+    // Weak evidence is an `ungrounded` answer state, a refusal under the conservative
+    // definition (#Z9NS6H): rows keep their order but none is framed as support.
+    for (const row of sourceRows) expect(row).toHaveAttribute("data-cited", "false");
+    expect(sourceRows[0]).toHaveAccessibleName(/Also found: WA clinical guideline/i);
+    expect(sourceRows[1]).toHaveAccessibleName(/Also found: Uploaded local protocol/i);
     expect(sourceRows[2]).toHaveAccessibleName(/Also found: Uncited retrieval/i);
     expect(within(screen.getAllByTestId("adaptive-answer-section")[1]!).getAllByTestId("citation")).toHaveLength(2);
   });
@@ -344,8 +353,10 @@ describe("adaptive answer inline sections", () => {
     );
     const wholeAnswerOrder = [orderedLeadSources[4]!, ...orderedLeadSources.slice(0, 4), wa];
     wholeAnswerOrder.forEach((item, index) => {
-      expect(sourceRows[index]).toHaveAttribute("data-cited", "true");
-      expect(sourceRows[index]).toHaveAccessibleName(new RegExp(`Source ${index + 1}: ${item.title}`));
+      // Low trust is a refusal under the conservative definition (#Z9NS6H): order is
+      // kept, but no row is numbered as support.
+      expect(sourceRows[index]).toHaveAttribute("data-cited", "false");
+      expect(sourceRows[index]).toHaveAccessibleName(new RegExp(`Also found: ${item.title}`));
     });
     await userEvent.click(sourceRows[0]!);
     expect(

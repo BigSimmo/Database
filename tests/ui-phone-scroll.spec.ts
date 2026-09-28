@@ -12,6 +12,7 @@ import {
   readFlipCount,
   dragScrollBy,
 } from "./helpers/phone-scroll";
+import { visibleByTestId } from "./playwright-settlement";
 
 /**
  * Shared shell phone chrome: the universal collapse owner, per-mode top-edge
@@ -542,4 +543,51 @@ test.describe("phone PWA standalone mode bounded scroll shell (#71NT23)", () => 
       }
     });
   }
+});
+
+test("a cold phone load never moves Open comparison when the nav row joins the header (#CHPC5C)", async ({ page }) => {
+  // The mode nav row starts in page flow and a portal moves it into the fixed
+  // phone header. If the reserve that clears the header grows even a few frames
+  // later, every element on the page jumps up by the row's height and back —
+  // long enough for a tap to press "Open comparison" and release on "Edit
+  // selection" (the recorded #CHPC5C failure, on exactly this route). Sample the
+  // link's position in every animation frame of a cold load and require that,
+  // once it exists, it never moves. Before the fix it rose 49px on every load.
+  // The suite runs with reduced motion, which also pins the one-frame variant:
+  // a 0.01ms padding-top transition that painted the stale reserve once.
+  await page.setViewportSize(phoneViewport);
+  await page.addInitScript(() => {
+    const samples: { top: number; occupied: boolean }[] = [];
+    (window as typeof window & { __compareOpenTops?: typeof samples }).__compareOpenTops = samples;
+    const sample = () => {
+      const link = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="differential-compare-open"]')).find(
+        (node) => node.getBoundingClientRect().height > 0,
+      );
+      const slot = document.querySelector<HTMLElement>('[data-testid="header-collapse-addon"]');
+      if (link) {
+        samples.push({
+          top: Math.round(link.getBoundingClientRect().top),
+          occupied: (slot?.childElementCount ?? 0) > 0,
+        });
+      }
+      if (samples.length < 2000) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+
+  await page.goto("/differentials/compare?ids=wernicke-encephalopathy", { waitUntil: "load" });
+  await expect(visibleByTestId(page, "differential-compare-open")).toBeVisible({ timeout: 30_000 });
+  // Keep sampling well past the reserve hook's 80ms quiet window.
+  await page.waitForTimeout(1_500);
+
+  const samples = await page.evaluate(
+    () =>
+      (window as typeof window & { __compareOpenTops?: { top: number; occupied: boolean }[] }).__compareOpenTops ?? [],
+  );
+  expect(
+    samples.some((entry) => entry.occupied),
+    "the nav row must reach the phone header while the link is on screen",
+  ).toBe(true);
+  const tops = samples.map((entry) => entry.top);
+  expect(new Set(tops).size, `Open comparison moved during a cold load: ${[...new Set(tops)].join(" -> ")}px`).toBe(1);
 });

@@ -1,4 +1,4 @@
--- LOCAL DRAFT: restamp at publication after #3117 merges; never edit the base migration.
+-- Follows the shipped Teaching and CME migrations; never edit an applied migration.
 -- Merge only inside Josh's approved window: merge applies to the live database.
 -- G4 exposes named planned leave to active team roster managers; health-service privacy
 -- approval and isolation evidence are prerequisites for real staff use. Members retain counts.

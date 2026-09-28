@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "87eddc45-2024-4960-86ba-20a6b015840a",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#F5GHS1",
+    "outcome": "Owner approval 2026-09-28: added AIHW's metadata registry meteor.aihw.gov.au to GOVERNED_SOURCE_HOSTS in src/lib/sources/source-url-policy.ts and updated the pinned host tests. The three METEOR dispositions (AIHW-NOCC-2026, AIHW-NOCC-NMDS-2026, METEOR-FOC-HISTORIC) no longer cite the host; they stay held, now on host_now_governed_date_still_required (plus jurisdiction form for METEOR-FOC-HISTORIC), until the METEOR pages are read. The other non-METEOR host-held sources are unchanged.",
+    "baseRowFingerprint": "ba4624aef2ce08820d2dd05967316e0f570690402cabda82d454d23d591308be"
+  }
+}

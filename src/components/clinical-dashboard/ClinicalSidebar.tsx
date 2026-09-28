@@ -111,6 +111,7 @@ const sidebarMoreModeIds = [
   "sources",
   "on-call",
   "cme",
+  "teaching",
   "psychiatry",
   "my-work",
   "roster",

@@ -170,11 +170,21 @@ function criterionPill(tone: ServiceCriterion["tone"]) {
   return { label: "Caution", className: toneWarning };
 }
 
+function extractFirstDialablePhone(value: string): string | undefined {
+  const sanitized = value.replace(/\b24\/7\b/gi, "").replace(/\((?:option|ext|line|menu)\s*\d+\)/gi, "");
+  const parts = sanitized.split(/[;\n/]|\s+or\s+/i).map((p) => p.trim());
+  for (const part of parts) {
+    const compact = part.replace(/[^\d+]/g, "");
+    if (compact.length >= 3) return compact;
+  }
+  return undefined;
+}
+
 function contactHref(contact: ServiceContact | null | undefined) {
   const value = contact?.value?.trim();
   if (!contact || !hasText(value)) return undefined;
   if (contact.kind === "phone") {
-    const compact = value.replace(/[^\d+]/g, "");
+    const compact = extractFirstDialablePhone(value);
     return compact ? `tel:${compact}` : undefined;
   }
   if (contact.kind === "email") return `mailto:${value}`;
@@ -262,7 +272,11 @@ function referralRowsFor(service: ServiceRecord, primaryContact: ServiceContact 
   return sourceRows
     .map((row) => ({
       ...row,
-      value: hasText(row.value) ? compactCatalogField(row.value, 160) : undefined,
+      value: hasText(row.value)
+        ? row.label.toLowerCase().includes("phone")
+          ? row.value.trim()
+          : compactCatalogField(row.value, 160)
+        : undefined,
     }))
     .filter((row) => hasText(row.value));
 }
@@ -376,6 +390,33 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
+function renderPhoneLines(value: string) {
+  const parts = value
+    .split(/(?:[;\n]+|\s+\/\s+)/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!parts.length) return displayText(value);
+  return (
+    <span className="flex flex-col gap-1">
+      {parts.map((part, idx) => {
+        const compact = extractFirstDialablePhone(part);
+        if (compact) {
+          return (
+            <a
+              key={idx}
+              href={`tel:${compact}`}
+              className="underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-[color:var(--clinical-accent)] hover:decoration-current"
+            >
+              {part}
+            </a>
+          );
+        }
+        return <span key={idx}>{part}</span>;
+      })}
+    </span>
+  );
+}
+
 /** Compact scan-first referral facts. Direct actions live in the referral band above. */
 function ReferralTable({ rows }: { rows: ServiceInfoRow[] }) {
   if (!rows.length) {
@@ -416,7 +457,9 @@ function ReferralTable({ rows }: { rows: ServiceInfoRow[] }) {
               {isPrimary ? <span className="sr-only">, primary access route</span> : null}
             </dt>
             <dd className="col-start-2 mt-0.5 min-w-0 whitespace-pre-line break-words text-sm font-medium leading-5 text-[color:var(--text-heading)]">
-              {displayText(row.value)}
+              {row.label.toLowerCase().includes("phone") && hasText(row.value)
+                ? renderPhoneLines(row.value)
+                : displayText(row.value)}
             </dd>
           </div>
         );

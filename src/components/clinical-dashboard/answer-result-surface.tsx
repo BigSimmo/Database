@@ -9,7 +9,7 @@ import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
+import { answerIsRefusal, answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
 import {
   answerUsesAdaptiveMainSurface,
@@ -292,6 +292,7 @@ function StagedAnswerResultSurfaceImpl({
     () => answerStateForAnswer({ answer, sources, weakEvidence }),
     [answer, sources, weakEvidence],
   );
+  const refusalAnswer = answerIsRefusal({ answer, answerState });
 
   // Built once so both arms of the `ready` / degraded split below stay identical.
   // The split exists only because `AnswerCardProps` discriminates on `state` to make
@@ -565,6 +566,7 @@ function StagedAnswerResultSurfaceImpl({
         onOpenRailSource={openSourceFromRail}
         openSourceIndex={openSourceIndex}
         showCopyAction={false}
+        isRefusal={refusalAnswer}
         copied={copiedAnswer}
         onCopy={onCopyAnswer}
       />

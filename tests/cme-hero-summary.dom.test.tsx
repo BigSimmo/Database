@@ -36,11 +36,12 @@ describe("the CPD hero summary", () => {
     expect(screen.getByTestId("cme-pace-sentence").textContent).toBe("About 1.3 h a week reaches 50 h by 31 Dec");
   });
 
-  it("draws a plain bar: no pace tick, no percentage, no status colour", () => {
+  it("draws the weeks without a grade or status colour", () => {
     const { container } = renderHero();
     expect(screen.getByTestId("cme-hero-bar")).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByTestId("cme-hero-bar-fill")).toHaveAttribute("width", "65");
-    expect(screen.getByTestId("cme-hero-bar-fill").getAttribute("class")).toContain("--cme-hero-fill");
+    expect(screen.getAllByTestId("cme-week-bar")).toHaveLength(53);
+    expect(screen.getByText(/Hours logged in each week of 2026/)).toBeInTheDocument();
+    expect(screen.getAllByTestId("cme-week-bar").some((bar) => bar.className.includes("--cme-hero-fill"))).toBe(true);
     expect(screen.queryByTestId("progress-mark")).toBeNull();
     expect(container.textContent).not.toContain("%");
     expect(container.innerHTML).not.toMatch(/--tone-|--success|--danger|--warning/);
@@ -64,11 +65,11 @@ describe("the CPD hero summary", () => {
     expect(screen.queryByTestId("cme-pace-sentence")).toBeNull();
   });
 
-  it("gives the day the target was reached once it is reached, with a full bar", () => {
+  it("gives the day the target was reached once it is reached", () => {
     // The demo log's running total passes 30 h on 15 Sep.
     renderHero({ targetHours: 30 });
     expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent("30 h reached on 15 Sep");
-    expect(screen.getByTestId("cme-hero-bar-fill")).toHaveAttribute("width", "100");
+    expect(screen.getAllByTestId("cme-week-bar")).toHaveLength(53);
   });
 
   it("says the hours still to go, not a weekly figure, in the last days of the year", () => {
@@ -85,9 +86,9 @@ describe("the CPD hero summary", () => {
     expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent("30 h reached on 15 Sep");
   });
 
-  it("draws an empty bar and no pace line for a zero target", () => {
+  it("keeps the logged weeks and hides pace for a zero target", () => {
     renderHero({ targetHours: 0 });
-    expect(screen.getByTestId("cme-hero-bar-fill")).toHaveAttribute("width", "0");
+    expect(screen.getAllByTestId("cme-week-bar").some((bar) => Number(bar.dataset.hours) > 0)).toBe(true);
     expect(screen.queryByTestId("cme-pace-sentence")).toBeNull();
   });
 

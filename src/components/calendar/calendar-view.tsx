@@ -183,6 +183,8 @@ export type CalendarViewProps = {
   readonly markStyle?: CalendarMarkStyle;
   /** Reports the displayed month after arrows, swipes, or an adjacent-day selection. */
   readonly onMonthChange?: (month: string) => void;
+  /** Optional wording for the upcoming events list; the month follows this prefix. */
+  readonly laterHeadingPrefix?: string;
 };
 
 export function CalendarView({
@@ -193,6 +195,7 @@ export function CalendarView({
   testId = "calendar-view",
   markStyle = "dot",
   onMonthChange,
+  laterHeadingPrefix = "Later in",
 }: CalendarViewProps) {
   const { preferences } = useAppPreferences();
   const reminders = preferences.reminders;
@@ -427,7 +430,9 @@ export function CalendarView({
 
       {laterThisMonth.length ? (
         <div data-testid={`${testId}-later`}>
-          <h3 className={eyebrowText}>Later in {monthLabel(month).split(" ")[0]}</h3>
+          <h3 className={eyebrowText}>
+            {laterHeadingPrefix} {monthLabel(month).split(" ")[0]}
+          </h3>
           <ul className="mt-2 flex flex-col gap-2">
             {laterThisMonth.slice(0, 8).map((event) => (
               <CalendarEventRow

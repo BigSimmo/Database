@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   onCall: vi.fn(),
   ownerShifts: vi.fn(),
   teams: vi.fn().mockResolvedValue([]),
+  teachingFeed: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -43,6 +44,7 @@ vi.mock("@/lib/cme/repository", () => ({
   fetchOwnerCmeRoutines: mocks.cmeRoutines,
 }));
 vi.mock("@/lib/on-call/repository", () => ({ fetchVisibleOnCallEntries: mocks.onCall }));
+vi.mock("@/lib/teaching/feed-repository", () => ({ fetchTeachingFeedSessions: mocks.teachingFeed }));
 vi.mock("@/lib/roster/shifts/repository", () => ({ fetchOwnerShifts: mocks.ownerShifts }));
 vi.mock("@/lib/roster/team/repository", () => ({ rosterReadTeams: mocks.teams, rosterRead: vi.fn() }));
 
@@ -157,6 +159,7 @@ beforeEach(() => {
   mocks.cmeRoutines.mockResolvedValue([]);
   mocks.onCall.mockResolvedValue([]);
   mocks.ownerShifts.mockResolvedValue([]);
+  mocks.teachingFeed.mockResolvedValue([]);
 });
 
 describe("the private calendar feed", () => {

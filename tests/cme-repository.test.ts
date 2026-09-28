@@ -6,8 +6,10 @@ import {
   assertValidCmeLinkedIds,
   cmeEntryToRow,
   cmeRepositoryError,
+  clearCmeEntryTranscribed,
   fetchOwnerCmeEntries,
   fetchOwnerCmeYear,
+  fetchOwnerCmeYears,
   insertCmeEntry,
   rowToCmeEntry,
 } from "@/lib/cme/repository";
@@ -110,6 +112,7 @@ function makeChain(response: FakeResponse) {
     order: vi.fn(() => chain),
     limit: vi.fn(() => chain),
     insert: vi.fn(() => chain),
+    update: vi.fn(() => chain),
     delete: vi.fn(() => chain),
     single: vi.fn(() => chain),
     maybeSingle: vi.fn(() => chain),
@@ -150,6 +153,63 @@ const YEAR_ROW = {
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
 };
+
+describe("undo a copied CPD entry", () => {
+  const savedRow = {
+    id: "22222222-2222-4222-8222-222222222222",
+    activity_date: "2026-09-15",
+    title: "Journal club",
+    reflection: "A useful discussion.",
+    cost_cents: null,
+    transcribed_at: "2026-09-15T12:00:00.000Z",
+    routine_id: null,
+    document_id: null,
+    buckets: [],
+    cme_allocations: [{ category: "educational", hours: 1 }],
+  };
+  const confirmedRequirement = {
+    id: "minimum",
+    label: "Minimum CPD",
+    source: "national",
+    spec: { shape: "task" },
+    completed_on: null,
+    sort_order: 0,
+  };
+
+  it("clears only the copied time on owner-scoped entry queries", async () => {
+    const client = fakeClient({
+      cme_entries: [
+        { data: savedRow, error: null },
+        { data: { ...savedRow, transcribed_at: null }, error: null },
+      ],
+      cme_years: [{ data: YEAR_ROW, error: null }],
+      cme_requirements: [{ data: [confirmedRequirement], error: null }],
+    });
+    const entry = await clearCmeEntryTranscribed(client as never, "owner-1", savedRow.id);
+    expect(entry.transcribed).toBe(false);
+    expect(entry.title).toBe(savedRow.title);
+    for (const query of client.calls.filter(({ table }) => table === "cme_entries")) {
+      expect(query.chain.eq).toHaveBeenCalledWith("id", savedRow.id);
+      expect(query.chain.eq).toHaveBeenCalledWith("owner_id", "owner-1");
+    }
+    expect(client.calls.at(-1)?.chain.update).toHaveBeenCalledWith({ transcribed_at: null });
+  });
+
+  it("returns the same not-found result for a missing or other-owner entry without updating", async () => {
+    const client = fakeClient({ cme_entries: [{ data: null, error: null }] });
+    await expect(clearCmeEntryTranscribed(client as never, "owner-1", savedRow.id)).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(client.calls[0].chain.eq).toHaveBeenCalledWith("owner_id", "owner-1");
+    expect(client.calls[0].chain.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to clear a copied time without an owner", async () => {
+    const client = fakeClient({});
+    await expect(clearCmeEntryTranscribed(client as never, "", savedRow.id)).rejects.toThrow(/ownerId/);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+});
 
 describe("fetchOwnerCmeYear", () => {
   it("filters cme_years by owner_id and year on the same chain as from()", async () => {
@@ -201,6 +261,24 @@ describe("fetchOwnerCmeYear", () => {
     expect(result).toBeNull();
     expect(client.calls).toHaveLength(1);
     expect(client.calls[0].table).toBe("cme_years");
+  });
+});
+
+describe("fetchOwnerCmeYears", () => {
+  it("returns only owner-scoped years in descending order", async () => {
+    const client = fakeClient({
+      cme_years: [{ data: [{ id: "year-2026", year: 2026 }], error: null }],
+    });
+    await expect(fetchOwnerCmeYears(client as never, "owner-1")).resolves.toEqual([{ id: "year-2026", year: 2026 }]);
+    expect(client.calls[0].chain.eq).toHaveBeenCalledWith("owner_id", "owner-1");
+    expect(client.calls[0].chain.order).toHaveBeenCalledWith("year", { ascending: false });
+    expect(client.calls[0].chain.limit).toHaveBeenCalledWith(102);
+  });
+
+  it("refuses to query years without an owner", async () => {
+    const client = fakeClient({});
+    await expect(fetchOwnerCmeYears(client as never, "")).rejects.toThrow(/ownerId/);
+    expect(client.from).not.toHaveBeenCalled();
   });
 });
 

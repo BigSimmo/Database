@@ -42,6 +42,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "Manager surface reached via ModeRow rows on Roster Today and Alerts (manager-only), which this Link-only scan does not model.",
   ],
   [
+    "/cme/programme",
+    "Retired CPD Programme screen. It redirects to /cme/setup, which now owns both the read view and the editor, so in-app navigation links /cme/setup directly; the page stays only for existing bookmarks.",
+  ],
+  [
     "/roster/calendar",
     "Legacy /on-call/calendar redirect target for existing bookmarks; Roster Settings owns current calendar subscription, so no in-app navigation links this compatibility page.",
   ],
@@ -56,6 +60,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
+  ],
+  [
+    "/teaching/c/complete",
+    "Sign-in return target for a doctor who scanned a check-in QR while signed out. Reached only through the emailed sign-in link's `next` (teaching-scan-landing.tsx), never from in-app navigation.",
   ],
   [
     "/my-work",

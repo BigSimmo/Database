@@ -7,6 +7,8 @@ import { fetchOwnerCmeRoutines, fetchOwnerCmeYear } from "@/lib/cme/repository";
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
 import { onCallTeachingEvents } from "@/lib/on-call/calendar-events";
 import { fetchVisibleOnCallEntries } from "@/lib/on-call/repository";
+import { teachingCalendarEvents } from "@/lib/teaching/calendar-events";
+import { fetchTeachingFeedSessions } from "@/lib/teaching/feed-repository";
 import { logger } from "@/lib/logger";
 import {
   applyReminderAlarms,
@@ -27,10 +29,17 @@ type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminC
  * The private calendar subscription behind `/api/calendar/feed/<token>.ics`.
  *
  * What a feed carries is deliberately narrow, because anyone holding the link
- * can read it: CME year deadlines and routines coming due, and On Call teaching
- * sessions the owner can see. Never logged CME activities (the owner's own
- * learning, and already in the past), never personal On Call entries, never
- * compliance expiry dates (not stored centrally), never anything about patients.
+ * can read it: CME year deadlines and routines coming due, the owner's own On
+ * Call teaching list (now shown in Teaching's Week, and linking there), and
+ * Teaching sessions from the teams where the owner turned on "Add to my
+ * calendar". Teaching sessions carry the title, time and place only: never a
+ * join link, a presenter or anyone's attendance. A cancelled Teaching session
+ * stays in the feed marked cancelled, with "Cancelled:" in its title and never
+ * an alarm, so subscribed calendars update it instead of keeping it.
+ *
+ * Never logged CME activities (the owner's own learning, and already in the
+ * past), never personal On Call entries, never compliance expiry dates (not
+ * stored centrally), never anything about patients.
  *
  * Events carry a calendar alarm only when the owner turned one on in Settings,
  * Notifications, Reminders. Their settings are read from their own preferences
@@ -141,11 +150,12 @@ function rosterShiftEvents(shifts: readonly OnCallShift[]): CalendarEvent[] {
 
 export async function calendarFeedEvents(supabase: AdminClient, ownerId: string, now: Date): Promise<CalendarEvent[]> {
   const year = cpdYearOf(now);
-  const [thisYear, nextYear, routines, teaching, reminders, rosterSettings] = await Promise.all([
+  const [thisYear, nextYear, routines, teaching, teachingSessions, reminders, rosterSettings] = await Promise.all([
     fetchOwnerCmeYear(supabase, ownerId, year),
     fetchOwnerCmeYear(supabase, ownerId, year + 1),
     fetchOwnerCmeRoutines(supabase, ownerId),
     fetchVisibleOnCallEntries(supabase, ownerId, { section: "education" }),
+    fetchTeachingFeedSessions(supabase, ownerId, now),
     fetchOwnerReminderSettings(supabase, ownerId),
     fetchOwnerRosterSettingsForFeed(supabase, ownerId),
   ]);
@@ -164,6 +174,7 @@ export async function calendarFeedEvents(supabase: AdminClient, ownerId: string,
       teaching.filter((entry) => !entry.isPersonal),
       perthCalendarDate(now),
     ),
+    ...teachingCalendarEvents(teachingSessions),
     ...rosterShifts,
   ];
   return applyReminderAlarms(events, reminders, now);
