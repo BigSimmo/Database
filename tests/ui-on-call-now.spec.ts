@@ -52,12 +52,14 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(main.getByRole("textbox")).toHaveCount(0);
     });
 
-    test("opens the shift lists sheet with the shift pick", async ({ page }) => {
+    test("opens the shift lists sheet with its shift source", async ({ page }) => {
       await openNow(page, colorScheme);
       await visibleByTestId(page, "on-call-now-checklists").click();
       const sheet = visibleByTestId(page, "on-call-now-checklists-sheet");
       await expect(sheet).toBeVisible();
-      await expect(sheet.getByRole("radio", { name: "Night" })).toBeVisible();
+      await expect(
+        sheet.getByTestId("on-call-now-shift-pick").or(sheet.getByTestId("on-call-next-shift")),
+      ).toBeVisible();
       await expect(sheet.getByTestId("on-call-now-checklist-start")).toBeVisible();
     });
 

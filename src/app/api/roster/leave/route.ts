@@ -6,6 +6,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
+import { rosterTeamReleaseEnabled } from "@/lib/roster/team/release";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import {
   createOwnerLeave,
@@ -39,6 +40,10 @@ async function run(request: Request, operation: "GET" | "POST" | "PATCH" | "DELE
   try {
     if (isDemoMode())
       return publicErrorResponse("Sign in to use your own leave.", 400, { code: "demo_mode_unavailable" });
+    if (!rosterTeamReleaseEnabled())
+      return publicErrorResponse("Team roster is not available for real staff yet.", 503, {
+        code: "roster_release_held",
+      });
     const { client, ownerId, rate } = await authorised(request);
     if (rate.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rate);
     if (operation === "GET") return NextResponse.json({ leave: await listOwnerLeave(client, ownerId) }, { headers });

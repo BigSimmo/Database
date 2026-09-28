@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const SERVICE = "5e000000-0000-4000-8000-000000000001";
 const PERSON = "5e000000-0000-4000-8000-000000000002";
@@ -87,6 +87,17 @@ beforeEach(() => {
   mocks.rpc.mockResolvedValue({ data: { ok: true }, error: null });
   mocks.from.mockImplementation(query);
   mocks.getUserById.mockResolvedValue({ data: { user: { email: "sam@example.org" } }, error: null });
+});
+
+afterEach(() => vi.unstubAllEnvs());
+
+it("holds team administration in production before it reaches authentication or the database", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  const response = await GET_LIST(new Request("https://example.org/api/roster/owner/teams"));
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({ code: "roster_release_held" });
+  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(mocks.from).not.toHaveBeenCalled();
 });
 
 describe("Roster owner teams", () => {

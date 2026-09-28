@@ -1,6 +1,7 @@
 import "server-only";
 import type { RosterAdminClient } from "./api";
 import { rosterRead, rosterReadTeams } from "./repository";
+import { rosterTeamReleaseEnabled } from "./release";
 import { mergeMyShifts } from "./team-view";
 import { addDaysToDate, perthDateOf } from "../shifts/perth-time";
 import type { OnCallShift } from "../shifts/model";
@@ -12,6 +13,9 @@ export async function calendarRosterShifts(
   own: readonly OnCallShift[],
   now: Date,
 ) {
+  if (!rosterTeamReleaseEnabled()) {
+    return mergeMyShifts(own, [], ownerId).filter((shift) => Date.parse(shift.endsAt) > now.getTime());
+  }
   const teams = await rosterReadTeams(client, ownerId);
   const from = addDaysToDate(perthDateOf(now), -1);
   const to = addDaysToDate(perthDateOf(now), 60);
