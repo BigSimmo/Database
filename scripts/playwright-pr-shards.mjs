@@ -89,6 +89,15 @@ export const prUiSpecProfiles = Object.freeze([
     criticalSeconds: 0,
   },
   {
+    // New team and join journeys. Initial estimate until the first successful
+    // production timing artifact is available; keep the spec fail-closed in a
+    // required shard rather than leaving it orphaned.
+    file: "tests/ui-roster-team.spec.ts",
+    shard: 2,
+    fullSeconds: 15,
+    criticalSeconds: 0,
+  },
+  {
     // Estimate from four page loads (Today, Week, Session, the On Call redirect
     // backstop) — no PR CI report yet to measure against. The plan's own 20s
     // estimate does not fit: with today's recorded timings it would push
@@ -154,7 +163,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-clinical-ask.spec.ts",
-    shard: 2,
+    shard: 1,
     fullSeconds: 16.5,
     criticalSeconds: 16.5,
   },
@@ -286,7 +295,7 @@ export const prUiSpecProfiles = Object.freeze([
   },
   {
     file: "tests/ui-therapy-nav-scroll.spec.ts",
-    shard: 2,
+    shard: 1,
     fullSeconds: 3.2,
     criticalSeconds: 0,
   },
