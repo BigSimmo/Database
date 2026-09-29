@@ -64006,13 +64006,13 @@
         "rows": [
           {
             "key": "Pregnancy",
-            "val": "CRITICAL — **Pregnancy** Category X (effectively). The most teratogenic AED in common use. Risk of neural tube defects (~5%), fetal valproate syndrome (facial anomalies, limb defects, autism). NEVER initiate in a woman of childbearing potential without specialist discussion, documented counselling, and dual contraception under the Australian REMS-equivalent guidelines.",
+            "val": "CONTRAINDICATED — **Pregnancy** Category D (effectively Category X). High teratogenic risk: neural tube defects (spina bifida ~10%), facial/cranial malformations, and severe neurodevelopmental disorders (autism spectrum disorders, reduced IQ by ~10 points). Strictly contraindicated in pregnancy and in women of childbearing potential unless full pregnancy prevention program requirements are met under TGA and RANZCP safety mandates.",
             "tags": [],
             "patient": {
               "factors": ["pregnancy"],
-              "action": "caution",
-              "severity": "caution",
-              "note": "Inferred from existing decision-section wording; review before clinical use."
+              "action": "contraindication",
+              "severity": "danger",
+              "note": "Contraindicated in pregnancy due to high teratogenic risk (neural tube defects ~10%, major congenital malformations) and long-term neurodevelopmental impairment (autism, cognitive deficit) per TGA and RANZCP safety mandates."
             }
           },
           {
@@ -64052,14 +64052,9 @@
             "val": "CAUTION — Low transfer into breast milk (~1-10%). Generally considered compatible with breastfeeding by most guidelines; however, monitor infant for sedation.",
             "tags": [],
             "patient": {
-              "factors": ["lactation", "paediatric"],
+              "factors": ["lactation"],
               "action": "dose-adjust",
               "severity": "caution",
-              "match": {
-                "age": {
-                  "lt": 18
-                }
-              },
               "note": "Inferred from existing decision-section wording; review before clinical use."
             }
           }
@@ -65516,6 +65511,11 @@
               "severity": "caution",
               "note": "Diazepam pregnancy row is treated as a source-backed benefit-risk caution, not as an automatic absolute contraindication."
             }
+          },
+          {
+            "key": "Parenteral Olanzapine",
+            "val": "CRITICAL — Avoid simultaneous parenteral administration with parenteral olanzapine due to risk of fatal respiratory depression and severe hypotension.",
+            "tags": []
           }
         ]
       },
@@ -65627,7 +65627,7 @@
       },
       {
         "label": "Avoid / Cautions",
-        "value": "Severe respiratory insufficiency, sleep apnea, Myasthenia Gravis. **Pregnancy** Category C (Risk of 'Floppy Infant Syndrome')."
+        "value": "Severe respiratory insufficiency, sleep apnea, Myasthenia Gravis. **Pregnancy** Category C (Risk of 'Floppy Infant Syndrome'). Avoid simultaneous parenteral administration with parenteral olanzapine (risk of fatal respiratory depression and severe hypotension)."
       },
       {
         "label": "Key Risks",
@@ -65807,6 +65807,11 @@
               "severity": "info",
               "note": "Existing row describes this as a safer option in hepatic impairment; highlight as information only, not as a contraindication."
             }
+          },
+          {
+            "key": "Parenteral Olanzapine",
+            "val": "CRITICAL — Avoid simultaneous parenteral administration with parenteral olanzapine due to risk of fatal respiratory depression and severe hypotension.",
+            "tags": []
           }
         ]
       },
@@ -65913,7 +65918,7 @@
       },
       {
         "label": "Avoid / Cautions",
-        "value": "Severe respiratory failure, Myasthenia Gravis."
+        "value": "Severe respiratory failure, Myasthenia Gravis. Avoid simultaneous parenteral administration with parenteral olanzapine (risk of fatal respiratory depression and severe hypotension)."
       },
       {
         "label": "Key Risks",
@@ -66109,6 +66114,11 @@
               },
               "note": "Older adults and frail patients require lower initial doses and slow titration."
             }
+          },
+          {
+            "key": "Parenteral Olanzapine",
+            "val": "CRITICAL — Avoid simultaneous parenteral administration with parenteral olanzapine due to risk of fatal respiratory depression and severe hypotension.",
+            "tags": []
           }
         ]
       },
@@ -66215,7 +66225,7 @@
       },
       {
         "label": "Avoid / Cautions",
-        "value": "Unmonitored environments without airway equipment."
+        "value": "Unmonitored environments without airway equipment. Avoid simultaneous parenteral administration with parenteral olanzapine (risk of fatal respiratory depression and severe hypotension)."
       },
       {
         "label": "Key Risks",
@@ -68431,7 +68441,7 @@
           },
           {
             "key": "Maximum Dose",
-            "val": "Max **7 mg/day** (strictly weight-based for children).",
+            "val": "Max **7 mg/day** (strictly weight-tiered: max 4 mg/day for 25–34 kg, max 5 mg/day for 35–49 kg, max 7 mg/day for ≥ 50 kg).",
             "tags": []
           },
           {
@@ -68473,12 +68483,17 @@
         "rows": [
           {
             "key": "ADHD (Children/Adolescents)",
-            "val": "Start **PO** 1 mg **OD** (morning or evening). Titrate by 1 mg/week based on clinical response and weight. Max 7 mg/day.",
+            "val": "Start **PO** 1 mg **OD** (morning or evening). Titrate by 1 mg/week based on clinical response and weight. Strict weight-tier dosing restrictions: max 4 mg/day for 25–34 kg, max 5 mg/day for 35–49 kg, max 7 mg/day for ≥ 50 kg.",
             "tags": []
           },
           {
             "key": "Discontinuation",
             "val": "MANDATORY — Taper the dose down by 1 mg every 3-7 days to prevent hypertensive crisis.",
+            "tags": []
+          },
+          {
+            "key": "Weight-Tier Dosing Limits",
+            "val": "MANDATORY — Maximum recommended daily dose is restricted by weight: 25–34 kg: max 4 mg/day; 35–49 kg: max 5 mg/day; ≥ 50 kg: max 7 mg/day.",
             "tags": []
           }
         ]
@@ -68638,11 +68653,11 @@
       },
       {
         "label": "Usual Dose & Max",
-        "value": "Start **PO** 1 mg **OD** (morning or evening). Titrate by 1 mg/week based on clinical response and weight. Max 7 mg/day."
+        "value": "Start **PO** 1 mg **OD** (morning or evening). Titrate by 1 mg/week based on clinical response and weight. Weight-tiered dose limits: max 4 mg/day for 25–34 kg, max 5 mg/day for 35–49 kg, max 7 mg/day for ≥ 50 kg."
       },
       {
         "label": "Key Indication Doses",
-        "value": "ADHD (Children/Adolescents): Start **PO** 1 mg **OD** (morning or evening). Titrate by 1 mg/week based on clinical response and weight. Max 7 mg/day.  Discontinuation: Taper the dose down by 1 mg every 3-7 days to prevent hypertensive crisis."
+        "value": "ADHD (Children/Adolescents): Start **PO** 1 mg **OD** (morning or evening). Titrate by 1 mg/week based on clinical response and weight. Strict weight-tier maximums: max 4 mg/day (25–34 kg), max 5 mg/day (35–49 kg), max 7 mg/day (≥ 50 kg).  Discontinuation: Taper the dose down by 1 mg every 3-7 days to prevent hypertensive crisis."
       },
       {
         "label": "Best Uses",
@@ -79127,7 +79142,7 @@
         "rows": [
           {
             "key": "Treatment Resistant Schizophrenia",
-            "val": "Start **PO** 12.5 mg ONCE or TWICE daily. Titrate up by 25-50 mg/day as tolerated. Target 300-450 mg/day. Max 900 mg/day.",
+            "val": "Start **PO** 12.5 mg once or twice on day 1, then 25-50 mg increments every 2-3 days as tolerated to avoid fatal collapse, orthostatic hypotension, or seizures. Target 300-450 mg/day. Max 900 mg/day.",
             "tags": []
           },
           {
@@ -79198,6 +79213,11 @@
               "severity": "caution",
               "note": "Clozapine pregnancy row is treated as a source-backed benefit-risk caution, not as an automatic absolute contraindication."
             }
+          },
+          {
+            "key": "Carbamazepine",
+            "val": "CRITICAL — Concurrent use with carbamazepine is absolutely contraindicated (potentiates bone marrow suppression / fatal agranulocytosis risk).",
+            "tags": []
           }
         ]
       },
@@ -79553,11 +79573,11 @@
       },
       {
         "label": "Usual Dose & Max",
-        "value": "Start **PO** 12.5 mg ONCE or TWICE daily. Titrate up by 25-50 mg/day as tolerated. Target 300-450 mg/day. Max 900 mg/day."
+        "value": "Start **PO** 12.5 mg once or twice on day 1, then 25-50 mg increments every 2-3 days as tolerated to avoid fatal collapse, orthostatic hypotension, or seizures. Target 300-450 mg/day. Max 900 mg/day."
       },
       {
         "label": "Key Indication Doses",
-        "value": "Treatment Resistant Schizophrenia: Start **PO** 12.5 mg ONCE or TWICE daily. Titrate up by 25-50 mg/day as tolerated. Target 300-450 mg/day. Max 900 mg/day.  Elderly / Frail: Start **PO** 6.25 - 12.5 mg **NOCTE**. Titrate extremely slowly. Max **200 mg/day** in elderly (extreme seizure and agranulocytosis risk at higher doses).  Missed Dose Rule: If a patient misses exactly 48 HOURS of Clozapine, they lose their tolerance. You CANNOT restart their normal dose (it will cause cardiovascular collapse). You must re-titrate from 12.5 mg."
+        "value": "Treatment Resistant Schizophrenia: Start **PO** 12.5 mg once or twice on day 1, then 25-50 mg increments every 2-3 days as tolerated to avoid fatal collapse, orthostatic hypotension, or seizures. Target 300-450 mg/day. Max 900 mg/day.  Elderly / Frail: Start **PO** 6.25 - 12.5 mg **NOCTE**. Titrate extremely slowly. Max **200 mg/day** in elderly (extreme seizure and agranulocytosis risk at higher doses).  Missed Dose Rule: If a patient misses exactly 48 HOURS of Clozapine, they lose their tolerance. You CANNOT restart their normal dose (it will cause cardiovascular collapse). You must re-titrate from 12.5 mg."
       },
       {
         "label": "Best Uses",
@@ -79565,7 +79585,7 @@
       },
       {
         "label": "Avoid / Cautions",
-        "value": "History of clozapine-induced agranulocytosis or myocarditis. Uncontrolled epilepsy. Paralytic ileus. **Pregnancy** Category C."
+        "value": "History of clozapine-induced agranulocytosis or myocarditis. Uncontrolled epilepsy. Paralytic ileus. **Pregnancy** Category C. Avoid concurrent carbamazepine (bone marrow suppression / fatal agranulocytosis risk)."
       },
       {
         "label": "Key Risks",
@@ -80847,7 +80867,7 @@
     "stats": [
       {
         "label": "Max Dose",
-        "value": "40 mg/week",
+        "value": "400 mg/week",
         "cls": "hi",
         "flag": "hi"
       },
@@ -80882,7 +80902,7 @@
           },
           {
             "key": "Maximum Dose",
-            "val": "Max **40 mg/week** (Usually dosed 20-40 mg every 2-4 weeks).",
+            "val": "Max **100–400 mg/week** (Australian approved maximum ceiling; maintenance is usually dosed 20-40 mg every 2-4 weeks).",
             "tags": []
           },
           {
@@ -80935,7 +80955,7 @@
         "rows": [
           {
             "key": "Schizophrenia Maintenance",
-            "val": "**IM** 20-40 mg every 2 to 4 weeks. Deep gluteal injection (Z-Track method).",
+            "val": "**IM** 20-40 mg every 2 to 4 weeks. Deep gluteal injection (Z-Track method). In severe or resistant cases, dose may be titrated up to Australian approved maximum ceiling of 100-400 mg/week.",
             "tags": []
           },
           {
@@ -81106,7 +81126,7 @@
       },
       {
         "label": "Usual Dose & Max",
-        "value": "**IM** 20-40 mg every 2 to 4 weeks. Deep gluteal injection (Z-Track method). Max **40 mg/week** (Usually dosed 20-40 mg every 2-4 weeks)."
+        "value": "**IM** 20-40 mg every 2 to 4 weeks. Deep gluteal injection (Z-Track method). Maintenance ceiling up to Australian approved max (100–400 mg/week; usually dosed 20-40 mg every 2-4 weeks)."
       },
       {
         "label": "Key Indication Doses",
@@ -81180,12 +81200,12 @@
         "rows": [
           {
             "key": "Overview",
-            "val": "First-Generation Antipsychotic (FGA) depot. Extremely potent D2 antagonist dissolved in sesame oil. Highly effective for treatment-resistant positive symptoms but carries brutal EPS risks.",
+            "val": "First-Generation Antipsychotic (FGA) butyrophenone. Formulations include immediate-release oral (tablets/liquid), immediate-release IM for acute agitation, and long-acting decanoate depot in sesame oil for maintenance. Extremely potent D2 antagonist.",
             "tags": []
           },
           {
             "key": "Maximum Dose",
-            "val": "Max **300 mg** every 4 weeks (Doses > 100 mg are rarely needed and highly toxic).",
+            "val": "Oral IR: max 15-20 mg/day; IM IR: max 10-20 mg/day; Depot decanoate: max 300 mg every 4 weeks.",
             "tags": []
           },
           {
@@ -81237,18 +81257,28 @@
         "type": "dose",
         "rows": [
           {
-            "key": "Schizophrenia",
-            "val": "**IM** 50-100 mg every 4 weeks. Deep gluteal injection.",
+            "key": "Acute Psychosis / Agitation (Oral IR)",
+            "val": "Start **PO** 1-5 mg 2 to 3 times daily. Titrate according to clinical response. Max standard dose 15-20 mg/day. In elderly or frail, start 0.25-0.5 mg OD to BD.",
             "tags": []
           },
           {
-            "key": "Initiation",
-            "val": "Calculate total daily oral dose, multiply by 10-15 to get the monthly depot dose. Requires PO overlap for 2-3 weeks.",
+            "key": "Acute Behavioural Disturbance (IM IR)",
+            "val": "**IM** 2.5-5 mg STAT (0.5-1 mg in elderly/frail). May repeat after 30-60 minutes if necessary (max 10-20 mg/day). Monitor ECG (QTc), vital signs, and EPS; ensure PRN benztropine/benzatropine is charted.",
             "tags": []
           },
           {
-            "key": "Elderly",
-            "val": "MANDATORY — Max 12.5 - 25 mg every 4 weeks. Extremely sensitive to EPS.",
+            "key": "Schizophrenia Maintenance (Depot Decanoate)",
+            "val": "**IM** 50-100 mg every 4 weeks. Deep gluteal injection using Z-track technique. Max 300 mg every 4 weeks.",
+            "tags": []
+          },
+          {
+            "key": "Initiation / Oral-to-Depot Conversion",
+            "val": "Calculate total daily oral dose, multiply by 10-15 to get the monthly depot dose. Requires PO overlap for 2-3 weeks due to slow depot release.",
+            "tags": []
+          },
+          {
+            "key": "Elderly / Delirium",
+            "val": "MANDATORY — Start low (PO 0.25-0.5 mg OD-BD, or IM 0.5-1 mg). Max 12.5-25 mg every 4 weeks for depot. Extremely sensitive to EPS and hypotension.",
             "tags": []
           }
         ]
@@ -81259,12 +81289,17 @@
         "rows": [
           {
             "key": "Brand Names",
-            "val": "Haldol Decanoate",
+            "val": "Serenace (oral/IM), Haldol, Haldol Decanoate (depot)",
+            "tags": []
+          },
+          {
+            "key": "Oral Routes",
+            "val": "Tablets (0.5 mg, 1.5 mg, 5 mg), oral liquid (2 mg/mL). Rapid gastrointestinal absorption; bioavailability ~60%.",
             "tags": []
           },
           {
             "key": "Parenteral",
-            "val": "Ampoules (50 mg/1 mL, 100 mg/1 mL). Thick oil solution.",
+            "val": "Immediate-release ampoules (5 mg/1 mL for IM/IV); Long-acting depot injection (haloperidol decanoate 50 mg/1 mL, 100 mg/1 mL in sesame oil for deep IM gluteal injection only — never IV).",
             "tags": []
           },
           {
@@ -81406,19 +81441,19 @@
     "quick": [
       {
         "label": "Class & Role",
-        "value": "FGA Depot — First-Generation Antipsychotic (FGA) depot."
+        "value": "FGA / Butyrophenone — High-potency First-Generation Antipsychotic available in immediate-release oral, immediate-release IM, and long-acting depot decanoate formulations."
       },
       {
         "label": "Route / Formulation",
-        "value": "Ampoules (50 mg/1 mL, 100 mg/1 mL). Thick oil solution. (Haldol Decanoate)"
+        "value": "Oral tablets (0.5, 1.5, 5 mg), oral liquid (2 mg/mL); immediate-release IM/IV injection (5 mg/1 mL); depot decanoate injection (50 mg/1 mL, 100 mg/1 mL oily solution for deep IM). (Serenace, Haldol, Haldol Decanoate)"
       },
       {
         "label": "Usual Dose & Max",
-        "value": "**IM** 50-100 mg every 4 weeks. Deep gluteal injection. Max **300 mg** every 4 weeks (Doses > 100 mg are rarely needed and highly toxic)."
+        "value": "Oral IR: 1-5 mg 2-3 times daily (max 15-20 mg/day); IM IR: 2.5-5 mg STAT (max 10-20 mg/day); Depot decanoate: IM 50-100 mg every 4 weeks (max 300 mg Q4W). Elderly: start 0.25-0.5 mg oral or 0.5-1 mg IM."
       },
       {
         "label": "Key Indication Doses",
-        "value": "Schizophrenia: **IM** 50-100 mg every 4 weeks. Deep gluteal injection.  Initiation: Calculate total daily oral dose, multiply by 10-15 to get the monthly depot dose. Requires PO overlap for 2-3 weeks.  Elderly: Max 12.5 - 25 mg every 4 weeks. Extremely sensitive to EPS."
+        "value": "Acute Psychosis / Agitation (Oral IR): PO 1-5 mg bd-tds, titrate as needed. Max 15-20 mg/day.  Acute Behavioural Disturbance (IM IR): IM 2.5-5 mg STAT (0.5-1 mg in elderly/frail), repeat after 30-60 min if needed. Max 10-20 mg/day.  Schizophrenia Maintenance (IM Depot): IM 50-100 mg every 4 weeks (deep gluteal Z-track). Max 300 mg Q4W.  Elderly / Delirium: PO 0.25-0.5 mg once or twice daily; max 2-5 mg/day."
       },
       {
         "label": "Best Uses",
@@ -83022,7 +83057,7 @@
               "severity": "danger",
               "match": {
                 "egfr": {
-                  "lt": 15
+                  "lt": 30
                 }
               },
               "note": "Inferred from existing decision-section wording; review before clinical use."
@@ -83135,7 +83170,7 @@
             "val": "CRITICAL — Lithium is 100% renally excreted. Any decline in **eGFR** causes rapid toxic accumulation. Halve the dose if **eGFR** drops below 45. Avoid if **eGFR** < 15. Do NOT use NSAIDs concurrently.",
             "tags": [],
             "patient": {
-              "factors": ["renal", "allergy-nsaid"],
+              "factors": ["renal"],
               "action": "dose-adjust",
               "severity": "danger",
               "match": {
@@ -83162,14 +83197,9 @@
             "val": "CAUTION — Lithium passes into breast milk at 10-50% of maternal serum level. Infant serum monitoring required. Consider weaning if levels cannot be kept low.",
             "tags": [],
             "patient": {
-              "factors": ["lactation", "paediatric"],
+              "factors": ["lactation"],
               "action": "dose-adjust",
               "severity": "caution",
-              "match": {
-                "age": {
-                  "lt": 18
-                }
-              },
               "note": "Inferred from existing decision-section wording; review before clinical use."
             }
           }

@@ -663,7 +663,7 @@ const calculatorFixtures: RawCalculatorFixture[] = [
     scoringNote: "1 point per factor present. Bands are indicative only; act on clinical concern at any score.",
     source: "Patterson et al. 1983",
     caution:
-      "Risk scales have poor predictive value. Use to prompt a structured risk assessment, not to gate disposition decisions.",
+      "Risk scales have poor predictive value. Evidence-based guidelines (including NICE, RANZCP, and Cochrane reviews) strongly recommend against using SAD PERSONS to predict suicide risk or determine admission; comprehensive clinical assessment and personalised safety planning are required.",
     items: [
       { id: "s1", kind: "checkbox", points: 1, text: "Sex — male" },
       { id: "s2", kind: "checkbox", points: 1, text: "Age — under 19 or over 45" },

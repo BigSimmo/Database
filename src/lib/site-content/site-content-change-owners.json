@@ -80,8 +80,8 @@
     ],
     "therapy-compass": [
       "public/therapy-compass-data/**",
-      "public/therapy-compass-data/therapies-index.efb2b0703a124d70.json",
-      "public/therapy-compass-data/therapies.20afe6751f041509.json",
+      "public/therapy-compass-data/therapies-index.b9c93bf2ab1d0516.json",
+      "public/therapy-compass-data/therapies.b06aec9fd5f8877c.json",
       "src/components/therapy-compass/data/generated-assets.ts",
       "src/data/therapy-catalogue-assets.ts",
       "src/lib/therapies.ts",

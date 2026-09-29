@@ -85,7 +85,12 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     kind: "catalogue",
     select: { classes: ["Antipsychotic", "LAI Antipsychotic"] },
   },
-  { id: "nsaids", surfaces: ["nsaids", "nsaid"], kind: "catalogue", select: { subclassIncludes: ["NSAID", "COX-2"] } },
+  {
+    id: "nsaids",
+    surfaces: ["nsaids", "nsaid"],
+    kind: "catalogue",
+    select: { subclassIncludes: ["NSAID", "COX-2"], denySlugs: ["aspirin"] },
+  },
   {
     id: "beta-blockers",
     surfaces: ["beta-blockers", "beta blockers", "beta-blocker", "beta blocker", "non-selective beta-blockers"],
@@ -261,6 +266,18 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     surfaces: ["lithium", "lithium carbonate"],
     kind: "catalogue",
     select: { slugs: ["lithium-carbonate-ir-sr"] },
+  },
+  {
+    id: "valproate",
+    surfaces: ["valproate", "sodium valproate", "valproic acid", "epilim"],
+    kind: "catalogue",
+    select: { slugs: ["sodium-valproate-oral-iv"] },
+  },
+  {
+    id: "nitrates",
+    surfaces: ["nitrates", "nitrate"],
+    kind: "catalogue",
+    select: { slugs: ["glyceryl-trinitrate-gtn"] },
   },
   {
     id: "calcium-channel-blockers",
