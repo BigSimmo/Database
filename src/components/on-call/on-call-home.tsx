@@ -119,7 +119,8 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     () => pinnedNow ?? (mounted ? (tick ?? new Date()) : ON_CALL_SERVER_ANCHOR),
     [pinnedNow, mounted, tick],
   );
-  const rosterShifts = useMemo(() => (shifts.status === "ready" ? shifts.shifts : []), [shifts]);
+  // Roster's example roster (a doctor with no shifts of their own) is never a real shift here.
+  const rosterShifts = useMemo(() => (shifts.status === "ready" && !shifts.sample ? shifts.shifts : []), [shifts]);
   const context = useMemo(() => onCallShiftContext({ shifts: rosterShifts, pick, now }), [rosterShifts, pick, now]);
   useEffect(() => {
     if (pinnedNow || !mounted) return;

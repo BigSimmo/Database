@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { dispatchRosterAlerts, type RosterAlertEvent } from "@/lib/roster/alerts/dispatch";
 import { runAfterResponse, withRosterApi } from "@/lib/roster/team/api";
-import { demoRosterRead } from "@/lib/roster/team/demo-team";
+import { demoRosterCommand, demoRosterRead } from "@/lib/roster/team/demo-team";
 import { rosterInvalidRequest } from "@/lib/roster/team/errors";
 import {
   ROSTER_ALL_READS,
@@ -74,24 +74,35 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function POST(request: Request, context: Context) {
-  return withRosterApi(request, async (client, actorId) => {
-    const serviceId = await serviceIdFrom(context);
-    const action = await parseJsonBody(request, rosterActionSchema, "Check the request and try again.");
-    let before: RosterAlertEvent["before"];
-    if (action.action === "open.decline") {
-      // The SQL clears the claimer on decline, so read it first for the alert. A failed read
-      // never stops the decline itself.
-      try {
-        const manage = await rosterRead(client, actorId, serviceId, "manage");
-        const open = manage.openShifts.find((item) => item.id === action.openShiftId);
-        if (open) before = { claimedBy: open.claimedBy };
-      } catch {
-        before = undefined;
+  return withRosterApi(
+    request,
+    async (client, actorId) => {
+      const serviceId = await serviceIdFrom(context);
+      const action = await parseJsonBody(request, rosterActionSchema, "Check the request and try again.");
+      let before: RosterAlertEvent["before"];
+      if (action.action === "open.decline") {
+        // The SQL clears the claimer on decline, so read it first for the alert. A failed read
+        // never stops the decline itself.
+        try {
+          const manage = await rosterRead(client, actorId, serviceId, "manage");
+          const open = manage.openShifts.find((item) => item.id === action.openShiftId);
+          if (open) before = { claimedBy: open.claimedBy };
+        } catch {
+          before = undefined;
+        }
       }
-    }
-    const result = await rosterCommand(client, actorId, serviceId, action);
-    const event: RosterAlertEvent = { serviceId, actorId, action, result, ...(before ? { before } : {}) };
-    runAfterResponse(() => dispatchRosterAlerts(client, event));
-    return { result };
-  });
+      const result = await rosterCommand(client, actorId, serviceId, action);
+      const event: RosterAlertEvent = { serviceId, actorId, action, result, ...(before ? { before } : {}) };
+      runAfterResponse(() => dispatchRosterAlerts(client, event));
+      return { result };
+    },
+    {
+      // Release held: an example receipt for the sample team. Nothing is saved and no alert is sent.
+      sample: async () => {
+        await serviceIdFrom(context);
+        const action = await parseJsonBody(request, rosterActionSchema, "Check the request and try again.");
+        return { result: demoRosterCommand(action) };
+      },
+    },
+  );
 }

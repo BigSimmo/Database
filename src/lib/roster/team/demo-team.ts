@@ -1,11 +1,15 @@
 import { rosterInvalidRequest } from "@/lib/roster/team/errors";
 import type {
+  RosterAction,
   RosterAssignment,
+  RosterCommandResult,
   RosterGrade,
   RosterReadResult,
   RosterReadWhat,
   RosterTeam,
 } from "@/lib/roster/team/model";
+import { SHIFT_KIND_LABEL, type ShiftKind } from "@/lib/roster/shift-kind";
+import type { OnCallShift } from "@/lib/roster/shifts/model";
 import { addDaysToDate, perthDateOf, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /**
@@ -49,17 +53,21 @@ function hexId(n: number): string {
   return `d0000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 }
 
+/** Days before and after the current Monday that the sample roster covers. */
+const DEMO_DAYS_BEFORE = 21;
+const DEMO_DAYS_AFTER = 42;
+
 function demoAssignments(now: Date): RosterAssignment[] {
   const start = periodStart(now);
   const rows: RosterAssignment[] = [];
-  for (let day = 0; day < 28; day += 1) {
+  for (let day = -DEMO_DAYS_BEFORE; day < DEMO_DAYS_AFTER; day += 1) {
     const date = addDaysToDate(start, day);
     PEOPLE.forEach((person, index) => {
       // Each person works five days in seven, rotating through day, evening and night.
-      if ((day + index) % 7 >= 5) return;
-      const shift = PATTERN[(Math.floor(day / 7) + index) % PATTERN.length];
+      if ((((day + index) % 7) + 7) % 7 >= 5) return;
+      const shift = PATTERN[(((Math.floor(day / 7) + index) % PATTERN.length) + PATTERN.length) % PATTERN.length];
       rows.push({
-        id: hexId(0x1000 + day * 16 + index),
+        id: hexId(0x1000 + (day + DEMO_DAYS_BEFORE) * 16 + index),
         userId: person.userId,
         name: person.name,
         grade: person.grade,
@@ -214,4 +222,99 @@ export function demoRosterRead<W extends RosterReadWhat>(
     },
   };
   return answers[what]() as RosterReadResult<W>;
+}
+
+/**
+ * The sample reader's own shifts (Dr Alex Example's), as a personal roster, so
+ * Today and Shifts have a full example. Same shifts as the sample team shows.
+ */
+export function demoMyShifts(now = new Date()): OnCallShift[] {
+  return demoAssignments(now)
+    .filter((row) => row.userId === DEMO_ME_ID)
+    .map((row) => ({
+      id: `sample-${row.id}`,
+      startsAt: row.startsAt,
+      endsAt: row.endsAt,
+      title: `${SHIFT_KIND_LABEL[row.kind as ShiftKind] ?? row.shiftCode} shift`,
+      location: row.siteName,
+      sourceUid: null,
+      kind: row.kind as ShiftKind,
+      source: "import" as const,
+      seriesId: null,
+      workplace: row.siteName,
+    }));
+}
+
+/** The sample reader's own leave: one week of approved annual leave next month. */
+export function demoRosterLeave(now = new Date()) {
+  const start = addDaysToDate(periodStart(now), 35);
+  return [
+    {
+      id: "d0000000-0000-4000-8000-000000000006",
+      kind: "annual" as const,
+      startsOn: start,
+      endsOn: addDaysToDate(start, 4),
+      status: "approved" as const,
+      serviceId: DEMO_SERVICE_ID,
+    },
+  ];
+}
+
+/** The sample team's publish preview for a period: its current shifts, people and codes. */
+export function demoPublishPreview(from: string, to: string, now = new Date()) {
+  return {
+    freshnessToken: "sample",
+    assignments: demoRosterRead("assignments", { from, to }, now).assignments,
+    changes: { swaps: [], openShifts: [] },
+    people: demoRosterRead("people", {}, now).people,
+    codes: demoRosterRead("maker", {}, now).codes,
+  };
+}
+
+/** An example publish receipt. Nothing is published and nobody is told. */
+export function demoPublishReceipt() {
+  return {
+    publicationId: crypto.randomUUID(),
+    version: 2,
+    swapsCancelled: [],
+    changedUserIds: [],
+    openShiftIds: [],
+    overridesRecorded: [],
+  };
+}
+
+/**
+ * The sample team's answer to a team action while the real-staff release is
+ * held: the receipt a real team would give, so the screen carries on (a swap
+ * shows as sent, a give-away as posted). Nothing is saved, and the next read
+ * shows the sample team unchanged.
+ */
+export function demoRosterCommand(action: RosterAction): RosterCommandResult {
+  const id = crypto.randomUUID();
+  switch (action.action) {
+    case "swap.create":
+      return { ok: true, swapId: id, status: "requested", autoApproved: false };
+    case "swap.accept":
+      return { ok: true, swapId: action.swapId, status: "approved", autoApproved: true };
+    case "swap.approve":
+      return { ok: true, swapId: action.swapId, status: "approved" };
+    case "swap.decline":
+      return { ok: true, swapId: action.swapId, status: "declined" };
+    case "swap.cancel":
+    case "swap.undo":
+      return { ok: true, swapId: action.swapId, status: "cancelled" };
+    case "open.post":
+      return { ok: true, openShiftId: id, status: "open" };
+    case "open.claim":
+      return { ok: true, openShiftId: action.openShiftId, status: "claimed" };
+    case "open.approve":
+      return { ok: true, openShiftId: action.openShiftId, status: "filled" };
+    case "open.decline":
+    case "open.release":
+      return { ok: true, openShiftId: action.openShiftId, status: "open" };
+    case "open.cancel":
+      return { ok: true, openShiftId: action.openShiftId, status: "cancelled" };
+    default:
+      return { ok: true };
+  }
 }
