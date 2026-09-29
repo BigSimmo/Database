@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, FileText, GitCompareArrows, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileText, GitCompareArrows, ShieldAlert } from "lucide-react";
+
+import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import {
   ResultFilterSheet,
@@ -199,9 +201,7 @@ function StreamCard({
         <div className="min-w-0 grid gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-bold text-[color:var(--text-heading)]">{item.title}</h3>
-            <span
-              className={`inline-flex rounded-md border px-2 py-0.5 text-3xs font-extrabold ${statusTone(item.status)}`}
-            >
+            <span className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-bold ${statusTone(item.status)}`}>
               {statusLabel(item.status)}
             </span>
           </div>
@@ -213,16 +213,23 @@ function StreamCard({
           ) : null}
         </div>
         {showSelect ? (
-          <label className="relative z-10 inline-flex min-h-12 min-w-12 shrink-0 cursor-pointer items-center justify-center">
+          <label className="relative z-10 inline-flex size-tap shrink-0 cursor-pointer items-center justify-center rounded-md p-2">
             <span className="sr-only">
               {selected ? `Remove ${item.title} from comparison` : `Add ${item.title} to comparison`}
             </span>
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onToggleSelect}
-              className="h-5 w-5 accent-[color:var(--clinical-accent)]"
-            />
+            <input type="checkbox" checked={selected} onChange={onToggleSelect} className="peer sr-only" />
+            <span
+              data-testid="differential-selection-box"
+              className={cn(
+                "grid size-6 shrink-0 place-items-center rounded-sm border text-transparent transition hover:border-[color:var(--clinical-accent-border)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
+                selected
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                  : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+              )}
+              aria-hidden="true"
+            >
+              <Check aria-hidden="true" className="size-icon-sm stroke-[2.5]" />
+            </span>
           </label>
         ) : null}
       </div>
@@ -232,7 +239,7 @@ function StreamCard({
           {item.matchReasons.map((reason) => (
             <li
               key={`${item.id}:${reason}`}
-              className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2 py-0.5 text-3xs font-bold text-[color:var(--clinical-accent)]"
+              className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2 py-0.5 text-xs font-semibold text-[color:var(--clinical-accent)]"
             >
               {reason}
             </li>
@@ -248,7 +255,7 @@ function StreamCard({
       ) : null}
 
       {isPresentation && item.examples.length > 0 ? (
-        <p className="mt-2 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Safety cues</p>
+        <p className="mt-2 text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Safety cues</p>
       ) : null}
       <ul className="mt-1 flex flex-col gap-1 text-xs leading-6 text-[color:var(--text-muted)]">
         {item.examples.map((example, index) => (
@@ -264,7 +271,7 @@ function StreamCard({
           {item.related.slice(0, 4).map((node) => (
             <span
               key={`${item.id}:${node.slug}`}
-              className={`inline-flex rounded-md border px-2 py-0.5 text-3xs font-bold ${likelihoodTone(node.likelihood)}`}
+              className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold ${likelihoodTone(node.likelihood)}`}
             >
               {node.label}
             </span>
@@ -840,7 +847,8 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
             ) : (
               <button
                 type="button"
-                disabled
+                aria-disabled="true"
+                onClick={ignoreUnavailableActivation}
                 aria-describedby="stream-compare-need-two"
                 className="inline-flex min-h-12 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-extrabold text-[color:var(--text-muted)] opacity-60"
               >

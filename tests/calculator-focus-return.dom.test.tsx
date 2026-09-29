@@ -15,6 +15,7 @@ const navigation = vi.hoisted(() => ({ push: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: navigation.push }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({

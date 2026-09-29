@@ -79,11 +79,30 @@ afterEach(() => vi.unstubAllEnvs());
 
 it("holds real staff team access in production until explicitly enabled", async () => {
   vi.stubEnv("NODE_ENV", "production");
+  // Held: a signed-in reader sees the invented sample team, marked as a sample.
   const held = await GET_TEAMS(new Request("http://x/api/roster/team"));
-  expect(held.status).toBe(503);
-  expect(await held.json()).toMatchObject({ code: "roster_release_held" });
-  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(held.status).toBe(200);
+  const heldBody = await held.json();
+  expect(heldBody).toMatchObject({ sample: true, actorId: "d0000000-0000-4000-8000-0000000000a1" });
+  expect(heldBody.teams[0].name).toMatch(/^Example /);
+  expect(mocks.auth).toHaveBeenCalledTimes(1);
   expect(mocks.rpc).not.toHaveBeenCalled();
+  expect(held.headers.get("Cache-Control")).toBe("private, no-store, max-age=0");
+
+  // Held: a sample team read never touches the database.
+  const heldRead = await GET(readRequest("what=overview"), ctx());
+  expect(heldRead.status).toBe(200);
+  expect(mocks.rpc).not.toHaveBeenCalled();
+
+  // Held: every write is still refused, and nothing reaches the database.
+  const heldWrite = await POST(jsonRequest({ action: "leave.request", from: "2026-10-01", to: "2026-10-02" }), ctx());
+  expect(heldWrite.status).toBe(503);
+  expect(await heldWrite.json()).toMatchObject({ code: "roster_release_held" });
+  expect(mocks.rpc).not.toHaveBeenCalled();
+
+  // Held: a signed-out reader is asked to sign in, not shown the sample.
+  mocks.auth.mockRejectedValueOnce(new (await import("@/lib/supabase/auth")).AuthenticationError());
+  expect((await GET_TEAMS(new Request("http://x/api/roster/team"))).status).toBe(401);
 
   vi.stubEnv("ROSTER_TEAM_RELEASE_ENABLED", "true");
   mocks.rpc.mockResolvedValue({ data: { teams: [] }, error: null });

@@ -11,11 +11,12 @@ afterEach(() => {
 });
 
 const team = { serviceId: "example", name: "Example team", enabled: true, role: "member", grade: "registrar" };
-function mockTeam(enabled = true) {
+function mockTeam(enabled = true, sample = false) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
-      if (url === "/api/roster/team") return Response.json({ actorId: "alex", teams: [{ ...team, enabled }] });
+      if (url === "/api/roster/team")
+        return Response.json({ actorId: "alex", teams: [{ ...team, enabled }], ...(sample ? { sample: true } : {}) });
       if (url.includes("what=overview"))
         return Response.json({
           service: { id: "example", name: "Example team" },
@@ -55,6 +56,17 @@ describe("Roster team journey", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Previous day" }));
     expect(await screen.findByText("from 21:30")).toBeTruthy();
+  });
+  it("labels the sample team served while team rosters are held", async () => {
+    mockTeam(true, true);
+    render(<RosterTeamPage now={new Date("2026-10-16T00:00:00Z")} />);
+    expect((await screen.findByTestId("roster-sample-notice")).textContent).toMatch(/Sample team/);
+  });
+  it("shows no sample label for a real team", async () => {
+    mockTeam();
+    render(<RosterTeamPage now={new Date("2026-10-16T00:00:00Z")} />);
+    expect(await screen.findByRole("heading", { name: "Registrars" })).toBeTruthy();
+    expect(screen.queryByTestId("roster-sample-notice")).toBeNull();
   });
   it("makes no detail reads for an unconfirmed team", async () => {
     mockTeam(false);

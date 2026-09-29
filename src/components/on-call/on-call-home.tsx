@@ -25,6 +25,7 @@ import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { ON_CALL_HOME_ICON, ON_CALL_SECTION_HREFS } from "@/components/on-call/on-call-section-identity";
+import { ON_CALL_SERVER_ANCHOR } from "@/components/on-call/on-call-dates";
 import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { useHospitalHandbook } from "@/components/on-call/use-hospital-handbook";
 import { useRosterShifts } from "@/components/roster/use-roster-shifts";
@@ -97,6 +98,10 @@ function StateModule({ id, label, children }: { id: string; label: string; child
 }
 
 export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
+
   const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut, demoMode } = useOnCallEntries();
   const loadFailed = !loading && isOffline && entries.length === 0;
   const handbook = useHospitalHandbook();
@@ -109,12 +114,15 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // entry's after-hours number), midnight (the reminders' "today"), or the
   // shift changing phase or period. Never on a fixed interval, and never when
   // the caller pinned `now` (a test, or a print view standing on a moment).
-  const [tick, setTick] = useState(() => new Date());
-  const now = pinnedNow ?? tick;
+  const [tick, setTick] = useState<Date | null>(() => pinnedNow ?? null);
+  const now = useMemo(
+    () => pinnedNow ?? (mounted ? (tick ?? new Date()) : ON_CALL_SERVER_ANCHOR),
+    [pinnedNow, mounted, tick],
+  );
   const rosterShifts = useMemo(() => (shifts.status === "ready" ? shifts.shifts : []), [shifts]);
   const context = useMemo(() => onCallShiftContext({ shifts: rosterShifts, pick, now }), [rosterShifts, pick, now]);
   useEffect(() => {
-    if (pinnedNow) return;
+    if (pinnedNow || !mounted) return;
     const delay = Math.min(
       60_000 - (now.getTime() % 60_000),
       msUntilOnCallPeriodChange(now),
@@ -123,7 +131,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     );
     const timer = setTimeout(() => setTick(new Date()), delay);
     return () => clearTimeout(timer);
-  }, [pinnedNow, now, rosterShifts, pick]);
+  }, [pinnedNow, now, rosterShifts, pick, mounted]);
 
   const usual = useOnCallUsual(context.shiftKey);
   const marks = useOnCallCallMarks(now);
@@ -222,6 +230,15 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // row with no phone leaves the reader with nothing to ring.
   const numbersOnScreen = ready && handbookItems.some((item) => item.dial.kind !== "none" && item.dial.kind !== "text");
   const showFirstRun = !loading && !hasEntries && !loadFailed && !(signedOut && handbookAsksSignIn);
+
+  if (!pinnedNow && !mounted) {
+    return (
+      <InformationPageShell testId="on-call-home-main">
+        <h1 className="sr-only">Now</h1>
+        <p role="status">Loading current on-call context…</p>
+      </InformationPageShell>
+    );
+  }
 
   return (
     <>

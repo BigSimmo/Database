@@ -13,6 +13,7 @@ const navigation = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: navigation.push }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
   redirect: navigation.redirect,
 }));
 
@@ -103,6 +104,18 @@ describe("calculator mode routing", () => {
     const exact = await CalculatorsSearchRoute({ searchParams: Promise.resolve({ calculator: "phq9" }) });
     expect(exact.type).toBe(CalculatorsSearchPage);
     expect(exact.props).toMatchObject({ initialQuery: "PHQ-9", initialCalculatorId: "phq9" });
+
+    const fromSearch = await CalculatorsSearchRoute({
+      searchParams: Promise.resolve({ q: "depression", filter: "all", calculator: "phq9" }),
+    });
+    expect(fromSearch.props).toMatchObject({ initialQuery: "depression", initialCalculatorId: "phq9" });
+
+    await expect(
+      CalculatorsSearchRoute({
+        searchParams: Promise.resolve({ query: "depression", filter: "all", calculator: "phq9" }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?filter=all&calculator=phq9&q=depression");
 
     const exactRender = render(exact);
     expect(screen.getAllByRole("dialog", { name: "PHQ-9 calculator" })).toHaveLength(1);

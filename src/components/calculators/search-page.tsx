@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Clock3, History, Info, LayoutGrid, ListChecks, Rows3, Search, Sigma } from "lucide-react";
-import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 
 import {
   ResultFilterSheet,
@@ -46,7 +46,7 @@ import {
   type CalculatorFixture,
 } from "./calculator-fixtures";
 import { CalculatorSheet } from "./calculator-sheet";
-import { calculatorRecordById, calculatorRecordHref, calculatorSearchHref } from "./calculator-routes";
+import { calculatorRecordById } from "./calculator-routes";
 import {
   MetaPill,
   SeverityPill,
@@ -294,6 +294,14 @@ function AboutPanel() {
   );
 }
 
+function useOptionalSearchParams() {
+  try {
+    return useSearchParams();
+  } catch {
+    return null;
+  }
+}
+
 export function CalculatorsSearchPage({
   initialQuery = "",
   initialCalculatorId,
@@ -302,6 +310,7 @@ export function CalculatorsSearchPage({
   initialCalculatorId?: string;
 }) {
   const router = useRouter();
+  const searchParams = useOptionalSearchParams();
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
     subscribeNoop,
@@ -357,15 +366,30 @@ export function CalculatorsSearchPage({
     const calculator = calculatorRecordById(calculatorId);
     if (!calculator) return;
     setOpenId(calculator.id);
-    router.push(calculatorRecordHref(calculator.id));
+    const nextParams = new URLSearchParams(
+      searchParams ? searchParams.toString() : typeof window !== "undefined" ? window.location.search : "",
+    );
+    if (!nextParams.has("q") && query.trim()) {
+      nextParams.set("q", query.trim());
+    }
+    nextParams.set("calculator", calculator.id);
+    router.push("/calculators/search?" + nextParams.toString());
   }
 
-  function closeCalculator() {
-    const href = calculatorSearchHref(query);
+  const closeCalculator = useCallback(() => {
+    const nextParams = new URLSearchParams(
+      searchParams ? searchParams.toString() : typeof window !== "undefined" ? window.location.search : "",
+    );
+    nextParams.delete("calculator");
+    if (!nextParams.has("q") && query.trim()) {
+      nextParams.set("q", query.trim());
+    }
+    const searchString = nextParams.toString();
+    const href = searchString ? `/calculators/search?${searchString}` : "/calculators/search";
     if (activeCalc) queueCalculatorFocusReturn(activeCalc.id, href);
     setOpenId(null);
     router.push(href);
-  }
+  }, [activeCalc, query, router, searchParams]);
 
   // WCAG 2.4.3: return focus to the calculator's tile once the URL change that
   // closed it has committed (no `?calculator=` in the route and no sheet open).
@@ -401,10 +425,7 @@ export function CalculatorsSearchPage({
       if (!isTopmostSheet(calculatorSheetId)) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        const href = calculatorSearchHref(query);
-        queueCalculatorFocusReturn(activeCalc.id, href);
-        setOpenId(null);
-        router.push(href);
+        closeCalculator();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -412,7 +433,7 @@ export function CalculatorsSearchPage({
       window.removeEventListener("keydown", onKey);
       popSheet(calculatorSheetId);
     };
-  }, [activeCalc, calculatorSheetId, query, router]);
+  }, [activeCalc, calculatorSheetId, closeCalculator]);
 
   function toggleDomain(domain: CalculatorDomain) {
     setSelectedDomains((current) => {
@@ -611,6 +632,7 @@ export function CalculatorsSearchPage({
       {activeCalc ? (
         <CalculatorSheet
           calc={activeCalc}
+          sheetId={calculatorSheetId}
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
           onClose={closeCalculator}

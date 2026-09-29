@@ -55,13 +55,14 @@ function mockShifts(shifts: OnCallShift[]) {
 function mockSettings(settings: Record<string, unknown>) {
   routes.set("GET /api/roster/settings", () => Response.json({ settings }));
 }
-function mockTeamWindow(from: string, to: string, dates: string[]) {
+function mockTeamWindow(from: string, to: string, dates: string[], sample = false) {
   const teamId = "22222222-2222-4222-8222-222222222222";
   const actorId = "11111111-1111-4111-8111-111111111111";
   routes.set("GET /api/roster/team", () =>
     Response.json({
       actorId,
       teams: [{ serviceId: teamId, name: "General Medicine", enabled: true, role: "member", grade: "registrar" }],
+      ...(sample ? { sample: true } : {}),
     }),
   );
   const url = `/api/roster/team/${teamId}?what=assignments&from=${from}&to=${to}`;
@@ -113,6 +114,15 @@ describe("Roster Shifts", () => {
     expect(screen.queryByText("No shifts this week")).toBeNull();
     await waitFor(() => expect(fetchCalls(nextUrl, "GET")).toHaveLength(1));
     expect(await screen.findByText("Tue 20 Oct")).toBeInTheDocument();
+  });
+
+  it("never puts a sample team's invented shifts into the doctor's own roster", async () => {
+    mockShifts([]);
+    const url = mockTeamWindow("2026-10-12", "2026-10-18", ["2026-10-13"], true);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    await screen.findByText("No shifts this week");
+    expect(fetchCalls(url, "GET")).toHaveLength(0);
+    expect(screen.queryByText("Tue 13 Oct")).toBeNull();
   });
 
   it("stops going back once the previous week is outside the loaded history", async () => {

@@ -107,7 +107,11 @@ export function useRosterShifts(teamRange?: { from: string; to: string }): Roste
   useEffect(() => {
     if (!actorId || !teamPayload) return;
     const controller = new AbortController();
-    const enabled = (Array.isArray(teamPayload.teams) ? teamPayload.teams : []).filter((team) => team.enabled);
+    // A sample team (release held) is only for looking at: its invented shifts
+    // must never join the reader's own roster.
+    const enabled = teamPayload.sample
+      ? []
+      : (Array.isArray(teamPayload.teams) ? teamPayload.teams : []).filter((team) => team.enabled);
     void Promise.all(
       enabled.map(async (team) => {
         const query = new URLSearchParams({ what: "assignments", from, to });
