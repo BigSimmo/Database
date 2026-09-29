@@ -629,7 +629,7 @@
     "indications": "Best supported for psychosis and schizophrenia, including people at increased risk of psychosis, first and subsequent acute episodes, and the recovery phase when positive or negative symptoms continue to affect distress or function. It is particularly useful when the clinical goal is to reduce distress and improve functioning rather than to “argue away” psychotic experiences. Distress from hallucinations or delusion-like beliefs, threat interpretations, safety behaviours, hopelessness, defeat, secondary depression/anxiety, poor coping with voices, and psychosis-related functional impairment. Reduce distress, improve coping and functioning, reduce secondary depression/anxiety and hopelessness, and help the patient live better with less psychosis-related disruption.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -655,7 +655,7 @@
     "indications": "Strongest use is PTSD. Australian guidelines give a strong recommendation for CPT in adults with PTSD. It is especially useful when maladaptive trauma meanings, guilt, shame, and self-blame are central. Trauma-related stuck points, guilt, shame, overgeneralised danger beliefs, self-blame, mistrust, damaged-self beliefs, and trauma-linked cognitive rigidity. Reduce PTSD symptoms by revising maladaptive trauma appraisals, reducing shame and guilt, and helping the patient develop a more balanced, adaptive understanding of the trauma and its consequences.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": ["Trauma", "Psychosis", "Eating/body image", "Crisis/risk", "Emotional regulation", "CBT", "Micro skill"],
     "aliases": ["CPT"]
   },
@@ -2111,7 +2111,7 @@
     "indications": "Strongest routine use is depression, especially when symptoms are closely linked to bereavement, changing roles, interpersonal conflict, or isolation. NICE includes IPT as a treatment option for both less severe and more severe depression. Interpersonal conflict, unresolved grief, role transitions, social withdrawal, relationship strain, impaired communication, and depression maintained by current relational stress. Reduce depressive symptoms by improving interpersonal functioning, resolving or adapting to the key relationship stressor, and strengthening the patient’s ability to manage future interpersonal difficulties.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2875,7 +2875,7 @@
     "indications": "Strongest use is PTSD in adults. Phoenix Australia gives a strong recommendation for PE in adult PTSD. NICE also includes prolonged exposure therapy within recommended adult trauma-focused CBT interventions. Trauma avoidance, trauma memory distress, fear of reminders, trauma-linked escape behaviour, overestimation of threat, and persistent PTSD symptoms driven by unprocessed trauma memories. Reduce PTSD symptoms by processing trauma memories more fully, reducing avoidance, weakening trauma-linked fear, and restoring behavioural freedom and function.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": ["Mood", "Trauma", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Micro skill"],
     "aliases": ["PE"]
   },
@@ -3233,7 +3233,7 @@
     "indications": "Best-supported psychiatric use is major depressive disorder, particularly treatment-resistant or hard-to-treat depressive episodes. NICE states rTMS is usually considered for depression not responding to antidepressants or when antidepressants are not suitable, and RANZCP recommends it be offered in clinical settings with appropriate protocols, training, and TGA-approved equipment. (NICE) Primarily major depressive disorder, especially episodes not adequately improved with antidepressants or where antidepressants are unsuitable. RANZCP also states it may be offered on a restricted basis for carefully selected patients with schizophrenia who have persistent auditory hallucinations after adequate antipsychotic trials. (RANZCP) Reduce depressive symptoms, improve functioning, and provide a safe non-invasive neuromodulation option when standard pharmacotherapy has failed, been poorly tolerated, or is unsuitable. (RANZCP)",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": ["Mood", "Psychosis", "Crisis/risk", "ACT", "Micro skill"],
     "aliases": []
   },
