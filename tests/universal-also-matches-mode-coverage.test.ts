@@ -71,8 +71,23 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   // CME, for On Call's reason exactly. The file named here is the dashboard the
   // reader actually lands on at `/cme`.
   cme: { file: "src/components/cme/cme-dashboard.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // Teaching, for On Call's reason exactly. The file named here is the
+  // dashboard the reader lands on at `/teaching`.
+  teaching: { file: "src/components/teaching/teaching-today.tsx", mounts: false, because: NO_RESULTS_SURFACE },
   // Psychiatry, for the same reason: its home is a dashboard of links.
   psychiatry: { file: "src/components/psychiatry/psychiatry-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // Admin (mode id `my-work`), likewise: Today is a dashboard of what is due and links.
+  "my-work": { file: "src/components/admin/admin-today-page.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // Roster, for On Call's reason exactly: no result list, resultsSurface "none".
+  // The file named here is Today, the dashboard the reader lands on at `/roster`.
+  roster: { file: "src/components/roster/roster-today-page.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // First Nations, likewise: every page keeps its own in-page search box and
+  // renders through one page renderer.
+  "first-nations": {
+    file: "src/components/first-nations/page-renderer.tsx",
+    mounts: false,
+    because: NO_RESULTS_SURFACE,
+  },
 };
 
 function hasNoResultsSurface(modeId: AppModeId) {
@@ -153,7 +168,7 @@ describe("cross-mode also-matches coverage", () => {
     // The sibling tools-kind borrowers stay on the shared home rather than rendering
     // their results inside the dashboard, so they need no exclusion here. If one of
     // them ever gains an in-dashboard results branch, this list is where to notice.
-    for (const modeId of ["factsheets", "dictionary", "sources", "on-call", "cme"] as const) {
+    for (const modeId of ["factsheets", "dictionary", "sources", "on-call", "cme", "roster"] as const) {
       expect(gate, `${modeId} is not expected to need a dashboard exclusion yet`).not.toContain(
         `searchMode !== "${modeId}"`,
       );

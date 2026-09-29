@@ -55,12 +55,26 @@ const staticRouteRedirects: Record<string, string> = {
   // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
   // thing there, so the query string travels unchanged.
   "/dictionary/browse": "/dictionary/search",
+  // My shifts moved from On Call into its own Roster mode. Old bookmarks and
+  // deep links keep working; old APIs re-export the new ones instead (see
+  // `src/app/api/on-call/shifts/route.ts`).
+  "/on-call/shifts": "/roster/shifts",
+  "/on-call/calendar": "/roster/calendar",
   // The one mockup path that still redirects in production rather than 404ing
   // through `shouldBlockProductionMockups`. `mockups/README.md`, `docs/site-map.md`
   // and the site-map GENERATOR (`scripts/generate-site-map.ts`, which hardcodes the
   // sentence) all name this route by hand, so `sitemap:check` cannot notice the entry
   // going away. Retiring it means moving all four together.
   "/mockups/document-search-command": "/documents/search",
+  // Keep the existing On Call teaching records reachable until a service approves transfer.
+  // Admin mode, update 1 (2026-09-26). My Work became Admin and its home moved to
+  // `/admin`; the two On Call pages Admin received moved with it. The query string
+  // travels, and the browser keeps a `#on-call-entry-<id>` fragment across the 307,
+  // so a bookmarked row still lands on its anchor. Admin adds redirects only for
+  // the pages it received (spec); Roster's PR adds its own beside these.
+  "/my-work": "/admin",
+  "/on-call/compliance": "/admin/renewals",
+  "/on-call/logistics": "/admin/help",
 };
 
 /**

@@ -59,8 +59,8 @@ describe("/api/setup-status", () => {
       formatSupabaseUnavailableError: (error: unknown) => String(error),
     }));
     vi.doMock("@/lib/supabase/project", () => ({
-      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
-      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "PsychSift Production target is configured." }),
+      formatSupabaseProjectCheck: () => "PsychSift Production target is configured.",
     }));
     const { GET } = await import("../src/app/api/setup-status/route");
 
@@ -116,8 +116,8 @@ describe("/api/setup-status", () => {
       formatSupabaseUnavailableError: (error: unknown) => String(error),
     }));
     vi.doMock("@/lib/supabase/project", () => ({
-      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
-      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "PsychSift Production target is configured." }),
+      formatSupabaseProjectCheck: () => "PsychSift Production target is configured.",
     }));
     const { GET } = await import("../src/app/api/setup-status/route");
 
@@ -160,8 +160,8 @@ describe("/api/setup-status", () => {
       formatSupabaseUnavailableError: (error: unknown) => String(error),
     }));
     vi.doMock("@/lib/supabase/project", () => ({
-      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
-      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "PsychSift Production target is configured." }),
+      formatSupabaseProjectCheck: () => "PsychSift Production target is configured.",
     }));
     vi.useFakeTimers({ toFake: ["Date"] });
     let now = Date.parse("2026-09-26T00:00:00Z");
@@ -230,8 +230,8 @@ describe("/api/setup-status", () => {
       formatSupabaseUnavailableError: (error: unknown) => String(error),
     }));
     vi.doMock("@/lib/supabase/project", () => ({
-      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
-      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "PsychSift Production target is configured." }),
+      formatSupabaseProjectCheck: () => "PsychSift Production target is configured.",
     }));
 
     // instrumentation.ts warms through its own copy of the module in a production build.
@@ -278,9 +278,9 @@ describe("/api/setup-status", () => {
     vi.doMock("@/lib/supabase/project", () => ({
       checkSupabaseProjectConfig: () => ({
         status: "warning",
-        detail: 'Set SUPABASE_PROJECT_NAME="Clinical KB Database" in .env.local.',
+        detail: 'Set SUPABASE_PROJECT_NAME="PsychSift Production" in .env.local.',
       }),
-      formatSupabaseProjectCheck: () => 'Set SUPABASE_PROJECT_NAME="Clinical KB Database" in .env.local.',
+      formatSupabaseProjectCheck: () => 'Set SUPABASE_PROJECT_NAME="PsychSift Production" in .env.local.',
     }));
     const { GET } = await import("../src/app/api/setup-status/route");
 

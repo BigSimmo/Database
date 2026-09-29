@@ -5,9 +5,9 @@ import Link from "next/link";
 
 import { cardSurface, focusRing } from "@/components/card-recipes";
 import { cn, textMuted } from "@/components/ui-primitives";
-import { describeRosterChangeCounts, type OnCallShiftsState } from "@/components/on-call/use-on-call-shifts";
-import { describeNextShift } from "@/lib/on-call/shifts/next-shift";
-import { formatPerthDay, perthDateOf } from "@/lib/on-call/shifts/perth-time";
+import { describeRosterChangeCounts, type RosterShiftsState } from "@/components/roster/use-roster-shifts";
+import { describeNextShift } from "@/lib/roster/shifts/next-shift";
+import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 /**
  * The top of the On Call home: the shift on now, or the next one.
@@ -16,7 +16,7 @@ import { formatPerthDay, perthDateOf } from "@/lib/on-call/shifts/perth-time";
  * nothing at all, so the home reads exactly as it did before rosters existed;
  * with no shifts it is one line inviting the import.
  */
-export function OnCallNextShift({ state, now }: { state: OnCallShiftsState; now: Date }) {
+export function OnCallNextShift({ state, now }: { state: RosterShiftsState; now: Date }) {
   if (state.status !== "ready") return null;
   const next = describeNextShift(state.shifts, now);
   const unseenChange =
@@ -29,7 +29,7 @@ export function OnCallNextShift({ state, now }: { state: OnCallShiftsState; now:
   if (!next) {
     return (
       <Link
-        href="/on-call/shifts"
+        href="/roster"
         data-testid="on-call-next-shift-empty"
         className={cn(
           cardSurface,
@@ -49,14 +49,14 @@ export function OnCallNextShift({ state, now }: { state: OnCallShiftsState; now:
   const { shift } = next;
   return (
     <Link
-      href="/on-call/shifts"
+      href="/roster"
       data-testid="on-call-next-shift"
       className={cn(cardSurface, focusRing, "grid min-h-tap gap-1 p-4 no-underline")}
     >
       <span className="flex items-center justify-between gap-3">
         <span
           className={cn(
-            "text-xs font-bold uppercase tracking-wide",
+            "text-xs font-semibold uppercase tracking-wide",
             next.onNow ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
           )}
         >
@@ -64,7 +64,7 @@ export function OnCallNextShift({ state, now }: { state: OnCallShiftsState; now:
         </span>
         <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
       </span>
-      <span className="text-base font-bold text-[color:var(--text-heading)]" data-testid="on-call-next-shift-when">
+      <span className="text-base font-medium text-[color:var(--text-heading)]" data-testid="on-call-next-shift-when">
         {next.when}
       </span>
       <span className="text-sm text-[color:var(--text)]">

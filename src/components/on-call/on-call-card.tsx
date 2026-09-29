@@ -9,6 +9,7 @@ import { OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
 import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
 import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
+import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, textMuted } from "@/components/ui-primitives";
@@ -109,7 +110,7 @@ function formatPrintedAt(now: Date): string {
  * and `tests/mode-nav-addon-slot.dom.test.tsx` holds it to one claimant.
  */
 export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
   // Read the clock once per mount. A `new Date()` default parameter re-reads it
   // on every render, so the printed timestamp and the staleness cut-off could
   // both move underneath a page the owner is in the middle of printing.
@@ -167,6 +168,8 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
           />
         ) : isOffline && entries.length === 0 ? (
           <OnCallLoadFailed reason={loadError} onRetry={retry} />
+        ) : signedOut && entries.length === 0 ? (
+          <OnCallSignedOut icon={Phone} testId="on-call-card-signed-out" />
         ) : groups.length === 0 ? (
           <EmptyState
             icon={Phone}
@@ -175,7 +178,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
             actions={
               <Link
                 href="/on-call/contacts"
-                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
+                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-semibold text-[color:var(--clinical-accent)]"
               >
                 Go to contacts
               </Link>
@@ -197,7 +200,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                   testId={`on-call-card-group-${group.section}`}
                   className="break-inside-avoid border-b border-[color:var(--border)] pb-4 last:border-b-0"
                 >
-                  <h2 className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
+                  <h2 className="text-xs font-semibold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {ON_CALL_SECTION_TITLES[group.section]}
                   </h2>
                   <ul className="mt-2 grid gap-3">
@@ -205,7 +208,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                       const numbers = cardEntryNumbers(entry.details);
                       return (
                         <li key={entry.id} data-testid={`on-call-card-entry-${entry.slug}`}>
-                          <p className="text-sm font-bold text-[color:var(--text-heading)]">{entry.title}</p>
+                          <p className="text-sm font-medium text-[color:var(--text-heading)]">{entry.title}</p>
                           {entry.subtitle ? (
                             <p className="text-xs text-[color:var(--text-muted)]">{entry.subtitle}</p>
                           ) : null}

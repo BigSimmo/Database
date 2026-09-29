@@ -7,15 +7,14 @@ const detail = readFileSync("src/app/api/on-call/entries/[id]/route.ts", "utf8")
 const verify = readFileSync("src/app/api/on-call/entries/[id]/verify/route.ts", "utf8");
 
 describe("On Call entries route", () => {
-  // Reversed deliberately on 2026-09-04: On Call entries are readable by any visitor, so an
-  // anonymous caller now gets the shared set instead of an empty list. What must NOT come back
-  // is the rest of the old contract — the caller still passes the rate limiter first, and
-  // `signedOut` still reports whether there is an account, because the client uses it to decide
-  // whether to offer editing.
-  it("serves the shared entries to an anonymous caller rather than an empty list", () => {
+  // 2026-09-04 opened the shared entries to anonymous callers; 2026-09-26 reverses that: shared
+  // entries are for signed-in users only, so an anonymous caller gets an empty list and
+  // `signedOut: true`, which the client shows its sign-in state on. The caller still passes the
+  // rate limiter first. tests/on-call-entries-route.test.ts runs the handler itself.
+  it("answers an anonymous caller with no entries before reading anything", () => {
     expect(list).toContain("fetchVisibleOnCallEntries");
-    expect(list).not.toMatch(/entries:\s*\[\]/);
-    expect(list).toMatch(/signedOut:\s*!access\.ownerId/);
+    expect(list).toMatch(/if \(!access\.ownerId\) return NextResponse\.json\(\{ entries: \[\], signedOut: true \}\)/);
+    expect(list.indexOf("if (!access.ownerId)")).toBeLessThan(list.indexOf("await fetchVisibleOnCallEntries"));
   });
 
   it("still rate limits every caller before touching the database", () => {
@@ -50,6 +49,15 @@ describe("On Call entries route", () => {
     expect(insertIndex).toBeGreaterThan(0);
     expect(callIndex).toBeLessThan(insertIndex);
   });
+
+  it("refuses an identifier-shaped proof note before writing", () => {
+    expect(list).toContain("adminFreeTextProblem(");
+    const problemIndex = list.indexOf("adminFreeTextProblem(");
+    const insertIndex = list.indexOf('.from("on_call_entries")');
+    expect(problemIndex).toBeGreaterThan(0);
+    expect(insertIndex).toBeGreaterThan(0);
+    expect(problemIndex).toBeLessThan(insertIndex);
+  });
 });
 
 describe("On Call entry [id] route", () => {
@@ -83,6 +91,15 @@ describe("On Call entry [id] route", () => {
     // A single not-found branch fed by the same scoped lookup — no separate existence check
     // that would let a caller distinguish "missing" from "not yours".
     expect(detail.match(/On Call entry not found\./g)?.length).toBe(2);
+  });
+
+  it("refuses an identifier-shaped proof note before writing", () => {
+    expect(detail).toContain("adminFreeTextProblem(");
+    const problemIndex = detail.indexOf("adminFreeTextProblem(");
+    const updateIndex = detail.indexOf('.from("on_call_entries")');
+    expect(problemIndex).toBeGreaterThan(0);
+    expect(updateIndex).toBeGreaterThan(0);
+    expect(problemIndex).toBeLessThan(updateIndex);
   });
 });
 

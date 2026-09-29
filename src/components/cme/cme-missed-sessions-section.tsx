@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { CmeDateField } from "@/components/cme/cme-date-field";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { TextField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, floatingControl, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
+import { cmeSaveErrorText } from "@/lib/cme/load-state";
 import {
   CME_MISSED_SESSION_MINUTES_MAX,
   CME_MISSED_SESSION_MINUTES_MIN,
@@ -107,12 +110,12 @@ function MissedSessionFields({
   return (
     <div className="flex flex-col gap-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextField
+        <CmeDateField
           id={`${idPrefix}-date`}
           label="Date"
-          type="date"
+          today={perthCalendarDate(new Date())}
           value={draft.occurredOn}
-          onChange={(event) => onChange({ ...draft, occurredOn: event.target.value })}
+          onChange={(occurredOn) => onChange({ ...draft, occurredOn })}
           required
         />
         <Select
@@ -210,7 +213,7 @@ export function CmeMissedSessionsSection({
       setAddDraft(EMPTY_DRAFT);
       setAdding(false);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save the missed session.");
+      setMessage(cmeSaveErrorText(error, "Could not save the missed session."));
     } finally {
       setSaving(false);
     }
@@ -230,7 +233,7 @@ export function CmeMissedSessionsSection({
       setSessions((current) => current.map((session) => (session.id === id ? payload.missedSession : session)));
       setEditingId(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save the missed session.");
+      setMessage(cmeSaveErrorText(error, "Could not save the missed session."));
     } finally {
       setBusyId(null);
     }
@@ -244,7 +247,7 @@ export function CmeMissedSessionsSection({
       if (!response.ok) throw new Error(await readErrorMessage(response, "Could not delete the missed session"));
       setSessions((current) => current.filter((session) => session.id !== id));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not delete the missed session.");
+      setMessage(cmeSaveErrorText(error, "Could not delete the missed session."));
     } finally {
       setBusyId(null);
     }
@@ -265,7 +268,7 @@ export function CmeMissedSessionsSection({
       setLinkingId(null);
       setLinkSelection("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not update the replacement link.");
+      setMessage(cmeSaveErrorText(error, "Could not update the replacement link."));
     } finally {
       setBusyId(null);
     }

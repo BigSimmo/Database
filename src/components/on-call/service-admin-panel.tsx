@@ -16,6 +16,7 @@ import {
   type ServiceMember,
   type ServiceRole,
 } from "@/lib/on-call/service-model";
+import { formatOnCallDate, formatOnCallDateTime } from "@/components/on-call/on-call-dates";
 
 type ActionRunner = (action: ServiceAction) => Promise<Record<string, unknown>>;
 
@@ -60,11 +61,9 @@ function MemberRow({ member, onAction }: { readonly member: ServiceMember; reado
     <article className={cn(cardSurface, "grid gap-3 p-4")}>
       <div className="min-w-0">
         <p className="break-all text-sm font-semibold text-[color:var(--text-heading)]">
-          Member {member.id.slice(0, 8)}
+          {member.displayName || `Member ${member.id.slice(-8)}`}
         </p>
-        <p className={cn(textMuted, "mt-0.5 text-xs")}>
-          Joined {new Date(member.joinedAt).toLocaleDateString("en-AU")}
-        </p>
+        <p className={cn(textMuted, "mt-0.5 text-xs")}>Joined {formatOnCallDate(member.joinedAt)}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <FormField label="Role" id={`service-member-${member.id}-role`}>
@@ -127,8 +126,9 @@ export function ServiceAdminPanel({
 }) {
   const [siteName, setSiteName] = useState("");
   const [inviteRole, setInviteRole] = useState<ServiceRole>("member");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [expiresInDays, setExpiresInDays] = useState("3");
-  const [newInvitation, setNewInvitation] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [newInvitation, setNewInvitation] = useState<{ code: string; expiresAt: string; email: string } | null>(null);
   const [busy, setBusy] = useState<"site" | "invite" | string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -148,20 +148,23 @@ export function ServiceAdminPanel({
   }
 
   async function createInvitation() {
-    if (busy) return;
+    const invitedEmail = inviteEmail.trim().toLowerCase();
+    if (busy || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invitedEmail)) return;
     setBusy("invite");
     setError(null);
     setNewInvitation(null);
     try {
       const result = await onAction({
         action: "invitation.create",
-        role: inviteRole,
+        role: detail.membership.role === "admin" ? inviteRole : "member",
         expiresInDays: Number(expiresInDays),
+        invitedEmail,
       });
       if (typeof result.code !== "string" || typeof result.expiresAt !== "string") {
         throw new Error("The invitation was created but its one-time code was not returned.");
       }
-      setNewInvitation({ code: result.code, expiresAt: result.expiresAt });
+      setNewInvitation({ code: result.code, expiresAt: result.expiresAt, email: inviteEmail.trim() });
+      setInviteEmail("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The invitation could not be created.");
     } finally {
@@ -195,50 +198,61 @@ export function ServiceAdminPanel({
   return (
     <section aria-labelledby="service-admin-heading" className="grid gap-5" data-testid="service-admin">
       <div>
-        <h2 id="service-admin-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="service-admin-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           Service administration
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
-          Admins manage sites, invitations and member roles. Invitation codes are shown once after creation.
+          Editors invite members; admins also manage sites and roles. Limits: 5,000 members and 1,000 invitations.
+          Invitation codes are shown once.
         </p>
       </div>
       {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
 
-      <section aria-labelledby="service-sites-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-        <h3 id="service-sites-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
-          Sites
-        </h3>
-        <ul className="grid gap-1 text-sm text-[color:var(--text)]">
-          {detail.sites.map((site) => (
-            <li key={site.id} className="break-words">
-              {site.name}
-            </li>
-          ))}
-        </ul>
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <TextField
-            label="New site name"
-            id="service-new-site"
-            value={siteName}
-            onChange={(event) => setSiteName(event.target.value)}
-          />
-          <Button
-            variant="secondary"
-            icon={Plus}
-            busy={busy === "site"}
-            busyLabel="Adding…"
-            disabled={!siteName.trim() || busy !== null}
-            onClick={() => void addSite()}
-          >
-            Add site
-          </Button>
-        </div>
-      </section>
-
+      {detail.membership.role === "admin" ? (
+        <section aria-labelledby="service-sites-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
+          <h3 id="service-sites-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Sites
+          </h3>
+          <ul className="grid gap-1 text-sm text-[color:var(--text)]">
+            {detail.sites.map((site) => (
+              <li key={site.id} className="break-words">
+                {site.name}
+              </li>
+            ))}
+          </ul>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <TextField
+              label="New site name"
+              id="service-new-site"
+              value={siteName}
+              onChange={(event) => setSiteName(event.target.value)}
+            />
+            <Button
+              variant="secondary"
+              icon={Plus}
+              busy={busy === "site"}
+              busyLabel="Adding…"
+              disabled={!siteName.trim() || busy !== null}
+              onClick={() => void addSite()}
+            >
+              Add site
+            </Button>
+          </div>
+        </section>
+      ) : null}
       <section aria-labelledby="service-invitations-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
-        <h3 id="service-invitations-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-invitations-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Invitations
         </h3>
+        <TextField
+          label="Invitee's email"
+          id="service-invitation-email"
+          type="email"
+          autoComplete="off"
+          hint="Only the person signed in with this email can use the code."
+          value={inviteEmail}
+          onChange={(event) => setInviteEmail(event.target.value)}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Invitation role" id="service-invitation-role">
             {(field) => (
@@ -248,7 +262,7 @@ export function ServiceAdminPanel({
                 onChange={(event) => setInviteRole(event.target.value as ServiceRole)}
                 className={fieldControlPlain}
               >
-                {serviceRoles.map((role) => (
+                {(detail.membership.role === "admin" ? serviceRoles : (["member"] as const)).map((role) => (
                   <option key={role} value={role}>
                     {role[0].toUpperCase() + role.slice(1)}
                   </option>
@@ -277,7 +291,7 @@ export function ServiceAdminPanel({
           variant="primary"
           busy={busy === "invite"}
           busyLabel="Creating…"
-          disabled={busy !== null}
+          disabled={busy !== null || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())}
           onClick={() => void createInvitation()}
         >
           Create invitation
@@ -286,7 +300,8 @@ export function ServiceAdminPanel({
           <InlineNotice tone="neutral">
             <span className="grid min-w-0 gap-2">
               <span>
-                This code is shown once and expires {new Date(newInvitation.expiresAt).toLocaleString("en-AU")}.
+                This invite works only for {newInvitation.email}. This code is shown once and expires{" "}
+                {formatOnCallDateTime(newInvitation.expiresAt)}.
               </span>
               <code className="select-all break-all rounded-sm bg-[color:var(--surface-subtle)] p-2 text-xs">
                 {newInvitation.code}
@@ -314,7 +329,7 @@ export function ServiceAdminPanel({
                   className="grid gap-2 rounded-lg border border-[color:var(--border)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
                   <p className="min-w-0 break-words text-sm text-[color:var(--text)]">
-                    {invitation.role} · {status} · expires {new Date(invitation.expiresAt).toLocaleDateString("en-AU")}
+                    {invitation.role} · {status} · expires {formatOnCallDate(invitation.expiresAt)}
                   </p>
                   {status === "Open" ? (
                     <Button
@@ -334,16 +349,18 @@ export function ServiceAdminPanel({
         </div>
       </section>
 
-      <section aria-labelledby="service-members-heading" className="grid gap-3">
-        <h3 id="service-members-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
-          Members
-        </h3>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {detail.members.map((member) => (
-            <MemberRow key={member.id} member={member} onAction={onAction} />
-          ))}
-        </div>
-      </section>
+      {detail.membership.role === "admin" ? (
+        <section aria-labelledby="service-members-heading" className="grid gap-3">
+          <h3 id="service-members-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Members
+          </h3>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {detail.members.map((member) => (
+              <MemberRow key={member.id} member={member} onAction={onAction} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }

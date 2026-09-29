@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c0058804-6b52-4583-9020-8236261c3d31",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#BSFZ23",
+    "outcome": "Created docs/cme-adoption-contract.md and updated design-system adoption contract to cite dedicated high-contrast, dark mode, and print tests in tests/ui-cme-phone.spec.ts (#BSFZ23).",
+    "baseRowFingerprint": "6fdae01993ff19c96f98224c88893d39eb1b50fcfb89123444127bd788002f53"
+  }
+}

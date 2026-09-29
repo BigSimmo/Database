@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import directoryJson from "@/data/cme/wa-learning-directory.json";
 import {
+  defaultLearningSpecialty,
+  filterLearningItems,
+  groupLearningByMonth,
   isDirectoryStale,
   learningItemLogHref,
   loadLearningDirectory,
   parseLearningDirectory,
+  pastLearningItems,
   unconfirmedLearningItems,
   upcomingLearningItems,
   type LearningDirectoryItem,
@@ -102,6 +106,68 @@ describe("parseLearningDirectory", () => {
         items: [item({ startsOn: "2026-10-10", endsOn: "2026-10-09" })],
       }),
     ).toThrow(/before the start/);
+  });
+
+  it("accepts optional specialties and paired Perth times, rejecting duplicates or an incomplete time", () => {
+    expect(() =>
+      parseLearningDirectory({
+        lastCheckedOn: TODAY_PERTH,
+        items: [item({ specialties: ["psychiatry"], startsAt: "09:30", endsAt: "16:00" })],
+      }),
+    ).not.toThrow();
+    expect(() => parseLearningDirectory({ lastCheckedOn: TODAY_PERTH, items: [item({ startsAt: "09:30" })] })).toThrow(
+      /both start and end times/,
+    );
+    expect(() =>
+      parseLearningDirectory({
+        lastCheckedOn: TODAY_PERTH,
+        items: [item({ specialties: ["psychiatry", "Psychiatry"] })],
+      }),
+    ).toThrow(/unique/);
+  });
+});
+
+describe("Learning filters and groups", () => {
+  const all = item({ id: "all", title: "All doctors", mode: "online", startsOn: "2026-10-01" });
+  const psychiatry = item({ id: "psychiatry", specialties: ["psychiatry"], mode: "both", startsOn: "2026-10-02" });
+  const surgery = item({ id: "surgery", specialties: ["surgery"], mode: "in-person", startsOn: "2026-11-01" });
+
+  it("defaults to psychiatry only for the confirmed RANZCP preset, with All available in one change", () => {
+    expect(defaultLearningSpecialty("au-ranzcp-2026-v1; https://example.org")).toBe("psychiatry");
+    expect(defaultLearningSpecialty("Medical Board baseline")).toBe("all");
+    expect(defaultLearningSpecialty(null)).toBe("all");
+    expect(
+      filterLearningItems([all, psychiatry, surgery], { specialty: "psychiatry", format: "any" }).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["all", "psychiatry"]);
+    expect(filterLearningItems([all, psychiatry, surgery], { specialty: "all", format: "any" })).toHaveLength(3);
+  });
+
+  it("includes mixed-mode events in either format and groups dates by month", () => {
+    expect(
+      filterLearningItems([all, psychiatry, surgery], { specialty: "all", format: "online" }).map((entry) => entry.id),
+    ).toEqual(["all", "psychiatry"]);
+    expect(
+      filterLearningItems([all, psychiatry, surgery], { specialty: "all", format: "in-person" }).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["psychiatry", "surgery"]);
+    expect(
+      groupLearningByMonth([all, psychiatry, surgery]).map((group) => [group.key, group.label, group.items.length]),
+    ).toEqual([
+      ["2026-10", "October 2026", 2],
+      ["2026-11", "November 2026", 1],
+    ]);
+  });
+
+  it("keeps only finished confirmed events in Past, most recent first", () => {
+    const unconfirmed = item({ id: "guess", datesConfirmed: false, startsOn: "2026-01-01" });
+    expect(pastLearningItems([all, psychiatry, surgery, unconfirmed], "2026-11-02").map((entry) => entry.id)).toEqual([
+      "surgery",
+      "psychiatry",
+      "all",
+    ]);
   });
 });
 

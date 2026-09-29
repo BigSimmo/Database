@@ -1,13 +1,17 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
+import { ServiceStructuredFields, emptyCover } from "@/components/on-call/service-structured-fields";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
+import { onCallDot } from "@/components/on-call/kit/recipes";
 import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
+import { handbookEditorWarnings, handbookPlacementLine } from "@/lib/on-call/handbook-editor-checks";
 import {
+  serviceActionSchema,
   serviceContentKinds,
   serviceOrientationPhases,
   serviceSections,
@@ -26,6 +30,8 @@ const sectionLabels: Record<(typeof serviceSections)[number], string> = {
   orientation: "Orientation",
   teaching: "Teaching",
   admin: "Administration",
+  playbook: "Playbook ladder",
+  cover: "Role cover",
 };
 
 const kindLabels: Record<(typeof serviceContentKinds)[number], string> = {
@@ -44,6 +50,16 @@ const phaseLabels: Record<(typeof serviceOrientationPhases)[number], string> = {
 
 type SourceDraft = { label: string; url: string };
 
+/** Warnings about the number get the kit's small amber dot; the rest are plain muted lines (standard Â§3). */
+const DOTTED_WARNINGS = new Set(["number-length", "number-shared"]);
+
+const TITLE_HINT =
+  "Start with a team or place to group it: ICU: Registrar, Ward: 4B, Downtime: …, Emergency: …. Access, food, taxi and security belong in Admin.";
+const BODY_HINT =
+  "Add Also known as: HDU, high dependency on its own line so people can search everyday words. For a number that only works from a hospital phone, add From a mobile: 5550 0000, 55 so readers can call from their own phone. No patient details.";
+const PHONE_HINT =
+  "For switchboard then extension, type the full number, a comma, then the extension: 5550 0000, 4455.";
+
 function initialSources(entry: ServiceEntry | null): SourceDraft[] {
   const sources = entry?.content.sources ?? [];
   return sources.length > 0 ? sources.map((source) => ({ ...source })) : [{ label: "", url: "" }];
@@ -59,6 +75,8 @@ function entryFingerprint(entry: ServiceEntry | null, defaultSiteId: string | nu
     phone: entry?.content.phone ?? "",
     orientationPhase: entry?.content.orientationPhase ?? "first_shift",
     sources: initialSources(entry),
+    steps: entry?.content.steps ?? [],
+    cover: entry?.content.cover ?? emptyCover,
   });
 }
 
@@ -66,11 +84,14 @@ export function ServiceEntryEditor({
   entry,
   sites,
   defaultSiteId,
+  entries = [],
   onSave,
   onCancel,
 }: {
   readonly entry: ServiceEntry | null;
   readonly sites: readonly ServiceSite[];
+  /** The service's entries, for the editor's warnings (a similar team, a shared number). */
+  readonly entries?: readonly ServiceEntry[];
   readonly defaultSiteId: string | null;
   readonly onSave: (action: EntrySaveAction) => Promise<void>;
   readonly onCancel: () => void;
@@ -88,11 +109,28 @@ export function ServiceEntryEditor({
     entry?.content.orientationPhase ?? "first_shift",
   );
   const [sources, setSources] = useState<SourceDraft[]>(() => initialSources(entry));
+  const [steps, setSteps] = useState(entry?.content.steps ?? []);
+  const [cover, setCover] = useState(entry?.content.cover ?? emptyCover);
   const [busy, setBusy] = useState<"draft" | "publish" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const placementId = useId();
+  const warningsId = useId();
+  const placement = handbookPlacementLine({ title, section, kind, siteId: siteId || null, phone });
+  const warnings = title.trim()
+    ? handbookEditorWarnings(
+        { title, section, kind, siteId: siteId || null, phone },
+        {
+          entries,
+          editingId: loadedEntry?.id ?? null,
+          siteName: sites.find((site) => site.id === siteId)?.name ?? null,
+        },
+      )
+    : [];
+
   const dirty =
-    JSON.stringify({ section, kind, siteId, title, body, phone, orientationPhase, sources }) !== initialFingerprint;
+    JSON.stringify({ section, kind, siteId, title, body, phone, orientationPhase, sources, steps, cover }) !==
+    initialFingerprint;
 
   useEffect(() => {
     const nextKey = `${entry?.id ?? "new"}:${entry?.revision ?? 0}`;
@@ -115,9 +153,24 @@ export function ServiceEntryEditor({
       setPhone(entry?.content.phone ?? "");
       setOrientationPhase(entry?.content.orientationPhase ?? "first_shift");
       setSources(initialSources(entry));
+      setSteps(entry?.content.steps ?? []);
+      setCover(entry?.content.cover ?? emptyCover);
       setError(null);
     });
   }, [entry, defaultSiteId, dirty]);
+
+  // Switching entries already asks before discarding; closing the tab or
+  // refreshing did not (ledger #4NSKNS). Hold the browser's own confirm while a
+  // draft is unsaved, and drop it while a save is in flight.
+  useEffect(() => {
+    if (!dirty || busy !== null) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, busy]);
 
   async function submit(publish: boolean) {
     if (busy) return;
@@ -139,7 +192,7 @@ export function ServiceEntryEditor({
     setBusy(publish ? "publish" : "draft");
     setError(null);
     try {
-      await onSave({
+      const parsed = serviceActionSchema.safeParse({
         action: "entry.save",
         ...(loadedEntry ? { entryId: loadedEntry.id, expectedRevision: loadedEntry.revision } : {}),
         siteId: siteId || null,
@@ -151,7 +204,11 @@ export function ServiceEntryEditor({
         sources: cleanSources,
         orientationPhase,
         publish,
+        ...(section === "playbook" ? { steps } : {}),
+        ...(section === "cover" ? { cover } : {}),
       });
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Check the entry fields.");
+      await onSave(parsed.data as EntrySaveAction);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "This entry could not be saved.");
     } finally {
@@ -162,7 +219,7 @@ export function ServiceEntryEditor({
   return (
     <section aria-labelledby="service-entry-editor-heading" className="grid gap-4" data-testid="service-entry-editor">
       <div>
-        <h2 id="service-entry-editor-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="service-entry-editor-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           {loadedEntry ? "Edit handbook entry" : "Add handbook entry"}
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -183,8 +240,13 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={section}
-                onChange={(event) => setSection(event.target.value as EntrySaveAction["section"])}
+                onChange={(event) => {
+                  const next = event.target.value as EntrySaveAction["section"];
+                  setSection(next);
+                  if (next === "playbook" || next === "cover") setKind("clinical");
+                }}
                 className={fieldControlPlain}
               >
                 {serviceSections.map((value) => (
@@ -199,15 +261,18 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={kind}
                 onChange={(event) => setKind(event.target.value as EntrySaveAction["kind"])}
                 className={fieldControlPlain}
               >
-                {serviceContentKinds.map((value) => (
-                  <option key={value} value={value}>
-                    {kindLabels[value]}
-                  </option>
-                ))}
+                {serviceContentKinds
+                  .filter((value) => value !== "operational" || (section !== "playbook" && section !== "cover"))
+                  .map((value) => (
+                    <option key={value} value={value}>
+                      {kindLabels[value]}
+                    </option>
+                  ))}
               </select>
             )}
           </FormField>
@@ -215,6 +280,7 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={siteId}
                 onChange={(event) => setSiteId(event.target.value)}
                 className={fieldControlPlain}
@@ -235,6 +301,7 @@ export function ServiceEntryEditor({
             {(field) => (
               <select
                 id={field.id}
+                aria-describedby={field.describedBy}
                 value={orientationPhase}
                 onChange={(event) => setOrientationPhase(event.target.value as EntrySaveAction["orientationPhase"])}
                 className={fieldControlPlain}
@@ -249,21 +316,41 @@ export function ServiceEntryEditor({
           </FormField>
         ) : null}
 
-        <TextField
-          label="Title"
-          id="service-entry-title"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          required
-        />
-        <FormField
-          label="Service guidance"
-          id="service-entry-body"
-          hint="Keep it general and operational. No patient details."
-        >
+        <div className="grid gap-1">
+          <TextField
+            label="Title"
+            id="service-entry-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            required
+            hint={TITLE_HINT}
+            aria-describedby={warnings.length > 0 ? `${placementId} ${warningsId}` : placementId}
+          />
+          <p id={placementId} className={cn(textMuted, "text-sm")} data-testid="service-entry-placement">
+            {placement}
+          </p>
+          {warnings.length > 0 ? (
+            <ul id={warningsId} className={cn(textMuted, "grid gap-1 text-sm")} data-testid="service-entry-warnings">
+              {warnings.map((warning) => (
+                <li key={warning.id} className="flex items-baseline gap-2" data-warning={warning.id}>
+                  {DOTTED_WARNINGS.has(warning.id) ? (
+                    <span
+                      aria-hidden="true"
+                      data-warning-dot=""
+                      className={cn(onCallDot, "bg-[color:var(--warning)]")}
+                    />
+                  ) : null}
+                  <span className="min-w-0 break-words">{warning.text}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        <FormField label="Service guidance" id="service-entry-body" hint={BODY_HINT}>
           {(field) => (
             <textarea
               id={field.id}
+              aria-describedby={field.describedBy}
               rows={5}
               value={body}
               onChange={(event) => setBody(event.target.value)}
@@ -276,8 +363,10 @@ export function ServiceEntryEditor({
           id="service-entry-phone"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
-          hint="Optional. Label extensions clearly in the entry title or body."
+          hint={PHONE_HINT}
         />
+
+        <ServiceStructuredFields section={section} steps={steps} cover={cover} onSteps={setSteps} onCover={setCover} />
 
         <fieldset className="grid gap-3">
           <legend className="text-sm font-semibold text-[color:var(--text)]">Official sources</legend>
@@ -347,6 +436,10 @@ export function ServiceEntryEditor({
           </InlineNotice>
         )}
 
+        <p className={cn(textMuted, "text-sm")} data-testid="service-entry-save-note">
+          Draft saves do not change the published date. Publishing sets Updated; Still correct records a separate
+          confirmation.
+        </p>
         <div className="grid gap-2 sm:grid-cols-3">
           <Button
             type="submit"

@@ -1,0 +1,219 @@
+# Named staff extension — 27 September 2026
+
+Josh authorised optional named staff in Who’s on and publication to existing PR #3156. Workspace: `C:/Users/joshs/.codex/worktrees/on-call-publication/Database`, branch `codex/on-call-publication`.
+
+- Added optional, trimmed `cover.staffName` (1–80 characters when present), existing cover editor, exact reviewer/confirmation preview, and shared published-cover display. Role-only entries remain valid; names are never inferred from free-text titles.
+- Existing source, independent review, membership/site filtering, revision, withdrawal and clock-window rules remain. Cover times repeat daily until the entry is edited or withdrawn; the editor states this explicitly. Historical handbook revisions retain the name under existing retention; this feature adds no automatic name erasure.
+- Names remain in the private handbook content and in-memory reader state. Local/session storage retains existing IDs and timing metadata; the new regression checks that the name itself is absent. Demonstrations use only fictional names and reserved numbers.
+- New migration `20260927202500_on_call_named_cover.sql` adds the optional field to the existing server validation. Merge applies it to the live clinical database automatically; merge only inside an approved window. No live database call or merge was authorised or performed.
+- Fresh focused local verification: `node scripts/run-vitest.mjs run tests/on-call-stage-c.test.ts tests/on-call-stage-c.dom.test.tsx tests/on-call-service-api.test.ts tests/on-call-use-hospital-handbook.dom.test.tsx tests/on-call-now.dom.test.tsx tests/on-call-call.dom.test.tsx` — **5 files / 69 tests passed**. The final listed call DOM path does not exist and contributed no tests.
+- `node scripts/check-hosted-migration-role.mjs` passed. `npm run check:production-readiness` failed at the existing privacy release register: provider agreements, cross-border basis and notices pending; PHI minimisation partial. These records were not changed.
+- Independent scoped TS/UI/privacy review found no actionable P0–P2 issue. Requested routes: Sol/medium for the bounded SQL implementation and Sol/high for independent UI review; actual runtime model/cost telemetry unavailable. No hosted review or real-service acceptance claimed.
+- Browser verification attempted with `node scripts/run-playwright.mjs tests/ui-on-call-now.spec.ts tests/ui-on-call-service.spec.ts --project=chromium`; the isolated production build remained in compilation for the bounded local run, so browser tests and screenshots are unverified. The temporary dev server also failed readiness and was stopped. No application test failure is inferred from this incomplete build.
+- `node scripts/run-heavy.mjs --npm-script drift:manifest` passed: disposable Postgres replay completed in 127 seconds and generated the manifest. Its only differences are generation time, replay duration, schema checksum and the On Call command definition hash; grants are unchanged. Parent independently confirmed the checksum and four-field diff. No live drift check was run.
+- Independent SQL review confirmed full command/grant parity except optional name validation. Its whitespace-only-name finding was fixed with explicit ECMAScript whitespace trimming and the correction was reviewed.
+- Final added migration/whitespace check attempted: `node scripts/run-vitest.mjs run tests/on-call-named-cover-migration.test.ts tests/on-call-stage-c.test.ts` did not run: `DATABASE_HEAVY_RUN_ADMISSION_BUSY`, held by the separate `roster-followup` task’s locked offline dependency repair. No test assertion failure is inferred. The earlier 69-test result and successful corrected SQL replay remain the available evidence.
+- `npm run format` completed successfully across the repository (exit 0).
+- Publication target: existing PR #3156. Normal ownership, database, formatting and static push guards remain enabled; the PR records their eventual outcome. No merge or deployment is authorised.
+
+This section supersedes historical statements below that named staff is unbuilt or unapproved. Offline handbook storage, real-service two-user isolation, hosting/privacy approval and physical-device acceptance remain separate.
+
+---
+
+# Recovery and publication — 27 September 2026
+
+The previous checkout disappeared before publication. The complete recorded file inventory was restored from the saved edits at the same base commit into `C:/Users/joshs/.codex/worktrees/on-call-publication/Database`, branch `codex/on-call-publication`.
+
+The restored tracked diff matches the recorded 46 files, 622 insertions and 206 deletions. Generated site-map and repository-awareness documents match their recorded Git content hashes. The original screenshots and build cache were not recovered.
+
+The checks below are historical results from before the checkout disappeared. Tests, build, lint and typecheck were not rerun on this recovered checkout for the owner's bare PR publication request. GitHub checks and review remain outstanding. The owner has now authorised committing, pushing and opening the PR; merge, deployment, providers and the separately gated features remain outside that approval.
+
+---
+
+# Current local continuation — 27 September 2026
+
+The original plan below is retained as historical intent. This section supersedes its status claims.
+
+- Workspace: `C:/Users/joshs/.codex/worktrees/on-call-recovery/Database`, branch `codex/on-call-recovery`, base `7e928ae3eb0df5f11c38a055737bb215668ef37b`.
+- The previous `on-call-completion` checkout was no longer available. Its uncommitted Step 1 changes were reconstructed here against current main; the primary checkout was preserved.
+- Stage B #3117 is merged at `ce549810295a16c6ef186fb44d04e5e401f4392e`. Post-merge [live drift run 36294704486](https://github.com/BigSimmo/PsychSift/actions/runs/36294704486) succeeded, including schema drift and migration-history checks. This was inspected during continuation, not rerun.
+- Josh approved local API changes and mocked tests. No new provider calls, migrations, commits, pushes, publication, merge or deployment are authorised by that approval.
+
+## Implemented locally
+
+- Reserved synthetic hospital numbers, one crisis list, connection-only downtime wording and hospital-phone fallback.
+- Existing Roster navigation retained; compatibility pages restore old On Call shifts/calendar bookmarks.
+- Strict ladder, role-cover, hospital-time and confirmation action validation matching the merged SQL. Source/review and revision safeguards remain.
+- Editors can author role-only cover and ordered ladders with optional hospital-set waits, and configure after-hours times. No new treatment instructions or staff-name field.
+- Readers see published ladders, local call timestamps, current cover and both roles within 15 minutes of a recorded changeover. Unknown hours never imply a default period. Who's on is enabled after local editor/time/permission proof.
+- Published and confirmed dates stay separate from draft saves. Still correct targets the displayed published revision and respects reviewer/editor permissions.
+- Now prompts on a roster workplace mismatch without auto-switching; published changes use the end of the latest completed roster shift.
+- Editor invitations offer Member only; success identifies the restricted email, and admin member labels use displayName or Member.
+- Reader filtering prevents a draft moved to this hospital from exposing a published entry belonging to another site.
+
+## Verification and completion
+
+- Focused final batch: 12 files / 203 tests passed in 20.15 seconds. Earlier complementary batch: 15 files passed, with the two failures confined to an accidentally over-broad test assertion; those assertions were repaired and passed in the final batch. Earlier API, editor, governance, cover/time and handbook results remain valid unless their inputs change.
+- Typecheck passed. Focused ESLint identified one test variable name and an unnecessary hook dependency; both were corrected and their focused lint passed.
+- Final diff integrity passed: 23/23 checker self-tests; 16 changed test files, 156 to 179 cases, base `7e928ae3e`.
+- `npm run check:production-readiness` failed at `check:privacy-readiness:release`: OpenAI ZDR/DPA, Railway DPA, APP8 cross-border basis, APP1/APP5 notices pending; PHI minimisation partial. No privacy records were changed to manufacture a pass.
+- `npm run ensure` started the isolated offline demo at `http://localhost:4109`. Interactive app-browser access was blocked by `ERR_BLOCKED_BY_CLIENT`; this is not visual proof.
+- Owning Chromium specs passed: **26 tests in 27.3 seconds**, after an isolated production build: `tests/ui-on-call-now.spec.ts`, `tests/ui-on-call-call.spec.ts`, `tests/ui-on-call-service.spec.ts`. Build cache ID: `on-call-stage-c`.
+- Follow-up review found that the review queue needed to display all structured fields before approval. Added a shared read-only ladder/cover preview to the review queue and handbook, plus a regression for cover titles with prefixes. The direct follow-up batch passed **6 files / 31 tests** in 10.50 seconds, including the new roster prompt/publication-date tests and confirmation permissions.
+- Inspected the generated 390px and 1440px Playbook screenshots: clear hospital context, visible numbers, source dates and keyboard focus, without horizontal overflow. Copies are retained under `.local/on-call-proof/`. Browser assertions also covered widths 320, 390, 639, 768, 1440 and 1920, reduced motion and forced colors.
+- The temporary development server was stopped after the interactive browser blocked access. The browser wrapper owns and cleans up its separate server.
+- Final Manage service browser recheck passed: **8 tests in 12.0 seconds**, including structured cover/ladder review at 320px, after a fresh production build into the existing cache. Final focused ESLint passed for all eight late-change files.
+- Authorised local implementation is complete. Publication, real-service acceptance and the separately gated features below remain outside this completion.
+
+## Remaining boundaries
+
+No offline hospital copy without the exact typed approval sentence in the original plan. No named cover, real staff data, two-user hosted isolation test or hosting acceptance without the separately specified approval. The unused search component remains because deletion was not authorised. Publication and deployment are not performed. Browser emulation does not prove physical devices.
+
+---
+
+# On Call: plan to complete the health-service rebuild
+
+**Written 2026-09-27, after the rebuild merged (#3110).** This is the remaining work, in order,
+with the condition each piece waits on. The full design and task detail are in the build plan
+(round 6), which this plan does not repeat.
+
+## Where it stands
+
+Merged to main:
+
+- **Shared mode kit (#3115).** This is `src/components/mode-kit/`. Every mode imports it.
+- **On Call rebuild (#3110):**
+  - **Now:** the hospital line, the pinned emergency number, the "Right now" panel, Needs you,
+    Your usual, your team and the footer.
+  - **Call:** numbers by department, External lines and Mine. It has "Didn't connect", the
+    fixed-reason report and the hospital-phone switch.
+  - **Refer** and **Find**.
+  - **Manage service:** CSV import with a preview, "What needs checking" and batch publish.
+  - **Who's on:** built, but hidden (`ON_CALL_WHOS_ON_ENABLED=false`).
+  - **Crisis lines:** 000, MHERL and Lifeline show in the client pages' data-loading, signed-out and failure states. The route-level `on-call/loading.tsx` fallback still needs these contacts.
+  - **Device storage:** the device keeps only ids, times, yes/no flags and the reader's team
+    name, and every key is on the sign-out wipe list.
+
+What is not built yet, and why:
+
+| Piece                              | Waits on                                                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| Database drift check after Stage B | #3117 merged; verify the applied database schema against the migration before using it |
+| Offline hospital copy (lane D)     | Owner's typed decision and the privacy-design prerequisites below                      |
+| Stage C features                   | Stage B post-merge drift check                                                         |
+| Names on Who's on                  | The owner's "go ahead with the names" and a privacy review                             |
+
+## Step 1: small follow-ups (no approval needed, one PR)
+
+1. **Demo numbers.** Move the demo handbook and hint numbers (`9000 00xx`, `0400 000 xxx`) into
+   ACMA's reserved fictitious ranges, so no demo number can ring a real service.
+2. **One crisis-line component.** Now and Call each have their own crisis-line component. Merge
+   them into one, so the two lists cannot drift apart.
+3. **Unused search box.** `OnCallSearchBox` is no longer used by any page, because Now has no
+   search (ruling F6). Prefer reusing it where useful. If retirement is chosen, defer deletion of
+   the exported component and its test until `npm run check:dead-code-candidate` permits deletion
+   and the owner gives typed approval. Check the test-removal guard before deleting the test.
+
+Proof: focused Vitest on the touched files, `npm run check:dead-code-candidate` for any proposed
+deletion, then CI.
+
+## Step 2: Shifts and Calendar route move (complete in #3118)
+
+PR #3118 moved the routes to `/roster/shifts` and `/roster/calendar`, removed the old On Call
+navigation rows and pages, and added redirects from the old URLs in `src/proxy.ts`.
+
+## Step 3: Stage B database items (merged in Roster's PR #3117)
+
+On Call adds no migration of its own. Its items travel as file 2 of Roster's combined database PR:
+
+- `published_at` and `last_confirmed_at`, plus an `entry.confirm` action.
+- A full replacement of `on_call_service_command` that keeps the join-order fix. It adds:
+  - the `playbook` and `cover` sections, both forced to `kind in ('clinical','legal')`;
+  - the `steps` and `cover` keys.
+- A reviewer's team scope, so a ladder can only be approved by a reviewer from its own team.
+- A yearly membership recheck.
+- A short hospital notice for each site.
+- The after-hours times for each site, set through `site.update`.
+- The ladder wait on each step (`waitMinutes`, 1 to 120).
+- The `invitation.create` `issuedViaMode` fix.
+
+PR #3117 is merged, and `20260926225309_on_call_service_items.sql` contains these items.
+Before depending on the new schema, record the post-merge database drift result. Do not edit
+the already-applied migration; any further SQL needs a new migration. For future `supabase/`
+PRs, only the owner merges during an approved deployment window; never enable auto-merge,
+because merging applies migrations to the live clinical database within seconds.
+
+**App follow-up once it merges** (a small PR in `service-page.tsx`):
+
+- The invite form asks for the invitee's work email.
+- An editor's invites offer "Member" only.
+- The success message reads "This invite works only for <email>".
+- The member list shows `display_name`, and falls back to "Member".
+- The stated limits become 5,000 members and 1,000 invites.
+
+## Step 4: Stage C (after Stage B post-merge drift check; each item is its own small PR)
+
+1. **Playbook ladders from the handbook.**
+   - Ladders are hospital-wide for the pilot.
+   - Each step shows who, the number and when, and nothing clinical.
+   - Near changeover, both roles show.
+   - A call from a ladder step is marked on the device only ("Called 02:14").
+2. **After-hours times and ladder waits in the UI.** Now and Call switch to after-hours roles and
+   times only when the hospital has set its times. Until then they show nothing extra, as now.
+3. **Roster-site prompt.** When today's rostered site differs from the chosen hospital, Now asks
+   whether to switch.
+4. **Who's on, switched on.**
+   - Editors record `cover` rows in Manage service.
+   - Who's on and Your team read those rows.
+   - Then set `ON_CALL_WHOS_ON_ENABLED = true`.
+5. **"Still correct" button.** It uses `entry.confirm`, and readers then see "Confirmed <date>"
+   beside "Updated <date>".
+6. **"What changed since your last shift"** on Now. It uses `published_at`.
+7. **Share a number, and editor photos.** Only if the pilot asks for them.
+
+## Step 5: offline hospital copy (lane D, blocked)
+
+The owner's typed decision is required but is not sufficient to begin storage. Before building
+the broader offline copy, complete a threat model, privacy review and product decision, define
+the data lifecycle and access expiry, revocation/logout and multi-tab cleanup (including devices
+that remain offline), browser fallback, accessible consent UX, and targeted offline/update tests.
+Keep the existing public-only offline policy in `docs/pwa.md` until those controls are approved
+and implemented. Then obtain the owner's typed decision:
+
+> "I approve keeping a copy of my hospital's published On Call numbers and downtime plan on the
+> phone, for up to 7 days, deleted at sign-out."
+
+Until then:
+
+- the offline page shows the crisis numbers and the Act pack only;
+- Now's Systems down line says the plan needs a connection.
+
+Once those prerequisites and the typed decision are complete, the proposed work is:
+
+- `handbook-offline.ts`, which saves at most 60 items for at most 7 days. Using the existing
+  `onCallHandbookOfflineStorageKey` provides a sign-out wipe, but expiry and revocation while
+  offline also need an enforceable access and cleanup design.
+- A saved-copy block in `offline.html`, inside the one inline script, with the CSP hash
+  recomputed.
+- The kit's number rule, used in place of the page's own number rule.
+- Changes to `docs/pwa.md` and its tests.
+
+Close the route-level crisis-line gap: `src/app/(search-app)/on-call/loading.tsx` currently shows
+only a skeleton. Add 000, MHERL and Lifeline to that loading boundary and cover it with a
+focused route-loading test before treating crisis lines as available in every loading state.
+
+## Step 6: before real staff data
+
+- **P1 #F9HZEG.** Close the two-user staging isolation proof for On Call before any real hospital
+  or staff data goes in.
+- **Pilot hosting.** The pilot still runs on servers in Singapore. Decide whether that is
+  acceptable before real staff data is loaded.
+
+## Always true
+
+- **Approvals.** Josh alone approves any live-database merge, clinical wording, a typed offline
+  sentence, a file deletion or provider spend.
+- **Public repository.** This repository is public, so no patient data and no real hospital
+  numbers go in it.
+- **Design standard.** All work follows design standard v13.3 and the mode kit. Numbers and type
+  are never bold.

@@ -161,13 +161,24 @@ describe("account transitions clear the patient physiology profile (M4)", () => 
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {
     cleanup();
     window.sessionStorage.clear();
     vi.unstubAllEnvs();
+  });
+
+  it("falls back to a local sign-out when the global sign-out throws, so a reload stays signed out", async () => {
+    await mountAuthenticated();
+    authApi.signOut.mockRejectedValueOnce(new Error("lock timeout"));
+    await act(async () => {
+      screen.getByRole("button", { name: "Sign out" }).click();
+    });
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed_out"));
+    expect(authApi.signOut).toHaveBeenCalledTimes(2);
+    expect(authApi.signOut).toHaveBeenLastCalledWith({ scope: "local" });
   });
 
   for (const transition of transitions) {
@@ -209,7 +220,7 @@ describe("account transitions clear favourites pins and last-opened keys (L2)", 
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {
@@ -248,7 +259,7 @@ describe("account transitions clear the legacy Caring Contacts plan-draft key (L
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {
@@ -394,7 +405,7 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
     vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
-    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "PsychSift Production");
   });
 
   afterEach(() => {

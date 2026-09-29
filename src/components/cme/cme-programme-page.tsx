@@ -9,6 +9,7 @@ import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, floatingControl } from "@/components/ui-primitives";
 import { cpdYearBounds, formatCalendarDateLong } from "@/lib/cme/cpd-year";
+import { describeConfirmedSource } from "@/lib/cme/presets";
 import {
   cmeCategoryLabels,
   type CmeCategory,
@@ -105,18 +106,21 @@ function targetRows(requirement: CmeRequirement): TargetRow[] {
         },
       ];
     case "task":
-      return [{ id: requirement.id, label: requirement.label, value: "Required" }];
+      return [{ id: requirement.id, label: requirement.label, value: "1" }];
   }
 }
 
 function TargetRowView({ row }: { row: TargetRow }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+    <div
+      id={`cme-requirement-${row.id}`}
+      className={cn(inPageAnchor, "flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0")}
+    >
       <dt className="min-w-0">
         <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.label}</span>
         {row.meta ? <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">{row.meta}</span> : null}
       </dt>
-      <dd className="shrink-0 text-sm font-bold tabular-nums text-[color:var(--text-heading)]">{row.value}</dd>
+      <dd className="shrink-0 text-sm font-normal tabular-nums text-[color:var(--text-heading)]">{row.value}</dd>
     </div>
   );
 }
@@ -130,10 +134,12 @@ function TargetRowView({ row }: { row: TargetRow }) {
  */
 export function CmeProgrammePage({
   set,
+  title = "Programme",
   onReconfirm,
   onAddCollegeRequirement,
 }: {
   set: CmeRequirementSet;
+  title?: string;
   /** Wired by a future task. Phase 1 has no re-confirmation flow to hand this to yet. */
   onReconfirm?: () => void;
   /** Wired by a future task. Phase 1 has no college-requirement editor yet. */
@@ -157,9 +163,9 @@ export function CmeProgrammePage({
 
   return (
     <>
-      <CmeNavHeader title="Programme" />
+      <CmeNavHeader title={title} />
       <InformationPageShell testId="cme-programme-page">
-        <h1 className="sr-only">Programme</h1>
+        <h1 className="sr-only">{title}</h1>
 
         <section
           id="cme-national-baseline"
@@ -167,8 +173,8 @@ export function CmeProgrammePage({
           className={cn(inPageAnchor, cardSurface, "flex flex-col gap-3 p-4")}
         >
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">The national baseline</h2>
-            <span className="shrink-0 text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+            <h2 className="text-base font-semibold text-[color:var(--text-heading)]">The national baseline</h2>
+            <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
               As you confirmed it
             </span>
           </div>
@@ -196,14 +202,17 @@ export function CmeProgrammePage({
           className={cn(inPageAnchor, cardSurface, "flex flex-col gap-3 p-4")}
         >
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Your college&rsquo;s extras</h2>
+            <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Your college&rsquo;s extras</h2>
             {onAddCollegeRequirement ? (
               <button type="button" onClick={onAddCollegeRequirement} className={floatingControl}>
                 <Plus className="h-4 w-4 shrink-0" aria-hidden />
                 Add
               </button>
             ) : (
-              <Link href={`/cme/setup?year=${set.year}#cme-setup-requirements-heading`} className={floatingControl}>
+              <Link
+                href={`/cme/setup?year=${set.year}&edit=1#cme-setup-requirements-heading`}
+                className={floatingControl}
+              >
                 <Plus className="h-4 w-4 shrink-0" aria-hidden />
                 Add
               </Link>
@@ -233,9 +242,10 @@ export function CmeProgrammePage({
             "flex flex-col gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-4",
           )}
         >
-          <p className="text-sm font-extrabold text-[color:var(--text-heading)]">These are your numbers, not ours</p>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">These are your numbers, not ours</p>
           <p className="break-words text-sm leading-relaxed text-[color:var(--text)]">
-            Confirmed by you on {formatCalendarDateLong(set.confirmedOn)}, against {set.confirmedSource}.
+            Confirmed by you on {formatCalendarDateLong(set.confirmedOn)}, against{" "}
+            {describeConfirmedSource(set.confirmedSource)}.
           </p>
           <p data-testid="cme-no-lookup" className="text-xs leading-relaxed text-[color:var(--text-muted)]">
             The app never looks up a requirement on its own, and it never changes one without you.
@@ -245,7 +255,7 @@ export function CmeProgrammePage({
               Re-confirm against this year&rsquo;s guide
             </button>
           ) : (
-            <Link href={`/cme/setup?year=${set.year}`} className={cn(floatingControl, "w-full")}>
+            <Link href={`/cme/setup?year=${set.year}&edit=1`} className={cn(floatingControl, "w-full")}>
               Re-confirm against this year&rsquo;s guide
             </Link>
           )}

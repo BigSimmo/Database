@@ -7,6 +7,7 @@ import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
 import { activeCmeYearEntries } from "@/lib/cme/export";
+import { describeConfirmedSource } from "@/lib/cme/presets";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet, type CmeYearClose } from "@/lib/cme/types";
 /**
  * The phone's own print screen is the PDF maker: iOS offers Share and Save to
@@ -79,11 +80,11 @@ export function CmeAnnualSummary({
       </div>
 
       <header className="grid gap-1">
-        <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">CPD annual summary — {set.year}</h1>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">CPD annual summary — {set.year}</h1>
         {demoMode ? (
           <p className={cn(textMuted, "text-sm")}>Synthetic demonstration — not a personal CPD record.</p>
         ) : null}
-        <p className="text-sm font-semibold tabular-nums">
+        <p className="text-sm font-normal tabular-nums">
           {active.length} active activities · {status.totalHours} / {set.totalHours} hours · Recorded costs AUD $
           {(costs / 100).toFixed(2)}
         </p>
@@ -91,7 +92,7 @@ export function CmeAnnualSummary({
 
       <section className={cn(cardSurface, "mt-4 grid gap-2 p-4 text-sm")}>
         <p>
-          Targets confirmed {formatCalendarDateLong(set.confirmedOn)}: {set.confirmedSource}
+          Targets confirmed {formatCalendarDateLong(set.confirmedOn)}: {describeConfirmedSource(set.confirmedSource)}
         </p>
         <p className={textMuted}>
           Archived entries are excluded. Formal peer review is a subset of reviewing hours. Source links identify
@@ -135,6 +136,16 @@ export function CmeAnnualSummary({
             {entry.sourceUrl ? <p className="break-all">Learning source: {entry.sourceUrl}</p> : null}
             {entry.documentId ? (
               <p className={textMuted}>Private source document linked; not certified as evidence.</p>
+            ) : null}
+            {(entry.evidenceCount ?? 0) > 0 ? (
+              <p>
+                <Link
+                  href={`/cme/log/${entry.id}#cme-evidence-heading`}
+                  className="font-semibold text-[color:var(--clinical-accent)] underline-offset-2 hover:underline"
+                >
+                  View {entry.evidenceCount} attached {entry.evidenceCount === 1 ? "evidence file" : "evidence files"}
+                </Link>
+              </p>
             ) : null}
           </section>
         ))}

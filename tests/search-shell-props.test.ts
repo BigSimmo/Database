@@ -4,6 +4,12 @@ import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation
 import { searchShellPropsForPathname } from "@/lib/search-shell-props";
 
 describe("searchShellPropsForPathname", () => {
+  it("gives no Admin page the shared composer (spec review 18)", () => {
+    for (const path of ["/admin", "/admin/renewals", "/admin/new-job", "/admin/help"]) {
+      expect(searchShellPropsForPathname(path)).toMatchObject({ initialMode: "my-work", searchComposerVisible: false });
+    }
+  });
+
   it("keeps documents composer visible only on the search route", () => {
     expect(searchShellPropsForPathname("/documents/search")).toMatchObject({
       initialMode: "documents",

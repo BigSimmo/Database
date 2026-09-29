@@ -57,35 +57,58 @@ export function compactUtc(instant: Date): string {
     .replace(/\.\d{3}Z$/, "Z");
 }
 
-export function recurrenceRule(recurrence: CalendarRecurrence): string {
+/**
+ * The repeat rule for a series starting on `startDate` (`YYYY-MM-DD`).
+ *
+ * A monthly series from the 29th, 30th or 31st needs more than `FREQ=MONTHLY`.
+ * RFC 5545 skips a month that lacks the start day, so a bare rule from 31 January
+ * never lands in February, April, June, September or November, while the app
+ * (`addMonthsClamped`) shows those months on their last day. "The last of the
+ * 28th up to the start day that this month has" (`BYMONTHDAY` + `BYSETPOS=-1`)
+ * is that same clamp written as a rule, so the file and the app agree.
+ */
+export function recurrenceRule(recurrence: CalendarRecurrence, startDate?: string): string {
   switch (recurrence) {
     case "weekly":
       return "FREQ=WEEKLY";
     case "fortnightly":
       return "FREQ=WEEKLY;INTERVAL=2";
     case "monthly":
-      return "FREQ=MONTHLY";
+      return `FREQ=MONTHLY${monthEndClamp(startDate)}`;
     case "quarterly":
-      return "FREQ=MONTHLY;INTERVAL=3";
+      return `FREQ=MONTHLY;INTERVAL=3${monthEndClamp(startDate)}`;
   }
 }
 
+function monthEndClamp(startDate: string | undefined): string {
+  const day = Number(startDate?.slice(8, 10));
+  if (!Number.isInteger(day) || day <= 28 || day > 31) return "";
+  const days = Array.from({ length: day - 27 }, (_, index) => 28 + index);
+  return `;BYMONTHDAY=${days.join(",")};BYSETPOS=-1`;
+}
+
 /**
- * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant. Written only
- * when the owner's reminder settings gave the event an alarm, so an event
- * without one is byte-for-byte what it was before alarms existed.
+ * RFC 5545 §3.6.6: a display alarm at an absolute UTC instant, one VALARM
+ * block per instant in `[alarmAt, ...alarmsAt]`. Written only when the event
+ * carries at least one alarm instant, so an event with neither field is
+ * byte-for-byte what it was before either existed.
  */
 function alarmLines(event: CalendarEvent): string[] {
-  if (!event.alarmAt) return [];
-  const instant = new Date(event.alarmAt);
-  if (Number.isNaN(instant.getTime())) return [];
-  return [
-    "BEGIN:VALARM",
-    "ACTION:DISPLAY",
-    `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
-    `DESCRIPTION:${escapeIcsText(event.title)}`,
-    "END:VALARM",
-  ];
+  const instants = [event.alarmAt, ...(event.alarmsAt ?? [])];
+  const lines: string[] = [];
+  for (const value of instants) {
+    if (!value) continue;
+    const instant = new Date(value);
+    if (Number.isNaN(instant.getTime())) continue;
+    lines.push(
+      "BEGIN:VALARM",
+      "ACTION:DISPLAY",
+      `TRIGGER;VALUE=DATE-TIME:${compactUtc(instant)}`,
+      `DESCRIPTION:${escapeIcsText(event.title)}`,
+      "END:VALARM",
+    );
+  }
+  return lines;
 }
 
 function eventLines(event: CalendarEvent, stamp: Date): string[] {
@@ -100,11 +123,21 @@ function eventLines(event: CalendarEvent, stamp: Date): string[] {
       `DTEND;VALUE=DATE:${compactDate(addDays(event.date, 1))}`,
     );
   }
-  if (event.recurrence) lines.push(`RRULE:${recurrenceRule(event.recurrence)}`);
+  if (event.seriesOccurrence) {
+    // Overrides the series occurrence that starts at this same moment (RFC 5545 §3.8.4.4).
+    lines.push(
+      range ? `RECURRENCE-ID:${compactUtc(range.start)}` : `RECURRENCE-ID;VALUE=DATE:${compactDate(event.date)}`,
+    );
+  } else if (event.recurrence) {
+    lines.push(`RRULE:${recurrenceRule(event.recurrence, event.seriesStartDate ?? event.date)}`);
+  }
   lines.push(`SUMMARY:${escapeIcsText(event.title)}`);
+  if (event.status === "cancelled") lines.push("STATUS:CANCELLED");
   if (event.location) lines.push(`LOCATION:${escapeIcsText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeIcsText(event.notes)}`);
-  lines.push(...alarmLines(event));
+  // A cancelled event never rings, whatever reminder settings gave it: an alarm would send a
+  // doctor to an empty room.
+  if (event.status !== "cancelled") lines.push(...alarmLines(event));
   lines.push("END:VEVENT");
   return lines;
 }

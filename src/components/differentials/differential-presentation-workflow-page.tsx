@@ -321,7 +321,7 @@ function DesktopComparisonTable({
 
       <div
         data-testid="differential-comparison-scroll"
-        className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
+        className="polished-scroll @container overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         <table
           aria-label="Differential comparison"
@@ -373,14 +373,20 @@ function DesktopComparisonTable({
                       colSpan={columns.length}
                       className="border-b border-r border-[color:var(--border)] bg-[color:var(--surface-subtle)]/60 px-3 py-3 align-top text-2xs font-semibold leading-normal text-[color:var(--text-muted)]"
                     >
-                      <span className="mb-1 block text-2xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
-                        Applies to the whole presentation
-                      </span>
-                      <ComparisonCellContent
-                        diagnosisLinks={diagnosisLinks}
-                        criterionId={criterion.id}
-                        value={shared}
-                      />
+                      {/* The cell spans every candidate column, so it is far wider
+                          than the visible table and long answers ran off the
+                          right edge. Pin the text beside the criteria column and
+                          wrap it to the visible width of the scroll area. */}
+                      <div className="sticky left-[11rem] max-w-[calc(100cqw-12.5rem)]">
+                        <span className="mb-1 block text-2xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                          Applies to the whole presentation
+                        </span>
+                        <ComparisonCellContent
+                          diagnosisLinks={diagnosisLinks}
+                          criterionId={criterion.id}
+                          value={shared}
+                        />
+                      </div>
                     </td>
                   ) : (
                     columns.map((candidate) => (
@@ -616,13 +622,7 @@ function UrgentDiagnosisLink({ candidate }: { candidate: CandidateView }) {
   );
 }
 
-function ReviewPanel({
-  workflow,
-  diagnosisLinks,
-}: {
-  workflow: DifferentialPresentationWorkflow;
-  diagnosisLinks?: ResolveDiagnosisTermOptions;
-}) {
+function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Review & handoff</h2>
@@ -634,15 +634,6 @@ function ReviewPanel({
           </li>
         ))}
       </ul>
-      {!diagnosisLinks || diagnosisLinks.routableSlugs?.has("delirium") ? (
-        <Link
-          href="/differentials/diagnoses/delirium"
-          className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
-        >
-          View handoff template
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-        </Link>
-      ) : null}
     </section>
   );
 }
@@ -664,11 +655,9 @@ function CopyAfterReviewPanel({ text }: { text: string }) {
  *  separately so it can lead each layout. */
 function ReviewPanels({
   workflow,
-  diagnosisLinks,
   candidates,
 }: {
   workflow: DifferentialPresentationWorkflow;
-  diagnosisLinks?: ResolveDiagnosisTermOptions;
   candidates: CandidateView[];
 }) {
   const selectedCandidates = candidates.filter((candidate) => candidate.selected);
@@ -676,20 +665,14 @@ function ReviewPanels({
     <>
       <SelectedDifferentialsPanel workflow={workflow} candidates={candidates} />
       <HighestUrgencyPanel workflow={workflow} candidates={candidates} />
-      <ReviewPanel workflow={workflow} diagnosisLinks={diagnosisLinks} />
+      <ReviewPanel workflow={workflow} />
       <CopyAfterReviewPanel text={comparisonCopy(workflow, selectedCandidates)} />
-      <SourceStatusPanel workflow={workflow} diagnosisLinks={diagnosisLinks} />
+      <SourceStatusPanel workflow={workflow} />
     </>
   );
 }
 
-function SourceStatusPanel({
-  workflow,
-  diagnosisLinks,
-}: {
-  workflow: DifferentialPresentationWorkflow;
-  diagnosisLinks?: ResolveDiagnosisTermOptions;
-}) {
+function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   const status = workflow.sourceStatus;
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -700,15 +683,6 @@ function SourceStatusPanel({
       </p>
       <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">{status.version}</p>
       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">Last updated: {status.lastUpdated}</p>
-      {!diagnosisLinks || diagnosisLinks.routableSlugs?.has("delirium") ? (
-        <Link
-          href="/differentials/diagnoses/delirium"
-          className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
-        >
-          View details
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-        </Link>
-      ) : null}
     </section>
   );
 }
@@ -1042,13 +1016,13 @@ export function DifferentialPresentationWorkflowPage({
               diagnosisLinks={diagnosisLinks}
             />
             <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
-              <ReviewPanels workflow={workflow} candidates={candidates} diagnosisLinks={diagnosisLinks} />
+              <ReviewPanels workflow={workflow} candidates={candidates} />
             </div>
           </div>
 
           <aside className="hidden min-w-0 gap-4 xl:grid" aria-label="Differential review sidebar">
             <SafetySnapshot workflow={workflow} diagnosisLinks={diagnosisLinks} />
-            <ReviewPanels workflow={workflow} candidates={candidates} diagnosisLinks={diagnosisLinks} />
+            <ReviewPanels workflow={workflow} candidates={candidates} />
           </aside>
         </div>
 

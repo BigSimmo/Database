@@ -29,4 +29,18 @@ describe("resolveModeHomeCanvasClass", () => {
     expect(className).not.toContain("max-sm:justify-center");
     expect(className).toContain("max-w-6xl");
   });
+
+  it("gives forms search results the same wide canvas as services", () => {
+    for (const activeModeResultKind of ["forms", "services"] as const) {
+      expect(
+        resolveModeHomeCanvasClass({
+          activeModeResultKind,
+          centeredModeHome: false,
+          compactMobileModeHome: false,
+          hasAnswer: false,
+          showSharedHome: false,
+        }),
+      ).toContain("max-w-6xl");
+    }
+  });
 });

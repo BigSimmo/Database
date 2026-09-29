@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d933ec56-4f46-444c-ae65-c2171d584871",
+  "createdOn": "2026-09-27",
+  "action": "done",
+  "payload": {
+    "id": "#846DP9",
+    "outcome": "Resolved before this reconciliation: patient-safety-plan.tsx installs a beforeunload listener while isDirty and removes it on cleanup; no plan content is persisted.",
+    "baseRowFingerprint": "0148d160f3d12612937e22c2dc2fe7ababd973bae35cfbd876b9ae137e4f6208"
+  }
+}

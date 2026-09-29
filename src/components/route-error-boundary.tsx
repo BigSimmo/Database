@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { startTransition, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
@@ -21,6 +22,11 @@ export type RouteErrorBoundaryProps = {
   showReload?: boolean;
   /** Minimum-height utility so route segments and the app shell can size differently. */
   minHeightClass?: string;
+  /**
+   * Render as the page's `<main id="main-content">` landmark. Only the root boundary owns it;
+   * nested segment boundaries render inside a shell that already provides that landmark.
+   */
+  landmark?: boolean;
 };
 
 const CHUNK_LOAD_MESSAGE =
@@ -34,6 +40,14 @@ const CHUNK_LOAD_MESSAGE =
 export function isChunkLoadError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   return error.name === "ChunkLoadError" || CHUNK_LOAD_MESSAGE.test(error.message);
+}
+
+function useOptionalRouter() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -51,7 +65,10 @@ export function RouteErrorBoundary({
   logLabel = "Unhandled runtime error captured by boundary:",
   showReload = false,
   minHeightClass = "min-h-[50vh]",
+  landmark = false,
 }: RouteErrorBoundaryProps) {
+  const router = useOptionalRouter();
+  const Container = landmark ? "main" : "div";
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { copied, copyFailed, copyDiagnostics } = useCopyDiagnostics(error);
   const chunkLoad = isChunkLoadError(error);
@@ -66,7 +83,8 @@ export function RouteErrorBoundary({
   }, [error, logLabel]);
 
   return (
-    <div
+    <Container
+      id={landmark ? "main-content" : undefined}
       className={cn(
         "flex flex-col items-center justify-center bg-[color:var(--surface-lux)] px-4 font-sans text-[color:var(--text)] select-none",
         minHeightClass,
@@ -100,7 +118,10 @@ export function RouteErrorBoundary({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className={cn(primaryControl, "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+              className={cn(
+                primaryControl,
+                "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium",
+              )}
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Reload page
@@ -108,8 +129,16 @@ export function RouteErrorBoundary({
           ) : (
             <button
               type="button"
-              onClick={() => reset()}
-              className={cn(primaryControl, "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
+              onClick={() => {
+                startTransition(() => {
+                  router?.refresh();
+                  reset();
+                });
+              }}
+              className={cn(
+                primaryControl,
+                "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium",
+              )}
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Try again
@@ -120,7 +149,7 @@ export function RouteErrorBoundary({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               Reload page
             </button>
@@ -129,17 +158,17 @@ export function RouteErrorBoundary({
           <button
             type="button"
             onClick={copyDiagnostics}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             {copied ? (
-              <Check aria-hidden="true" className="h-4 w-4 text-green-600" />
+              <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--success)]" />
             ) : (
               <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
             )}
-            {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
+            {copied ? "Copied diagnostics" : copyFailed ? "Copy failed — try again" : "Copy diagnostics"}
           </button>
         </div>
       </div>
-    </div>
+    </Container>
   );
 }

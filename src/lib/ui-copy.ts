@@ -62,7 +62,7 @@ export const sharedHomePresentation = {
   },
   differentials: {
     title: "Differential Diagnosis",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Differential diagnosis, clinical presentations, and workups.",
     suggestions: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
   },
   dsm: {
@@ -125,14 +125,37 @@ export const sharedHomePresentation = {
     suggestions: ["after-hours registrar", "acute behavioural disturbance", "ward 4B number"],
   },
   cme: {
-    title: "CME",
+    // "CPD", the RANZCP term; the mode id stays `cme` so no URL or stored key moves.
+    title: "CPD",
     subtitle: "What you have done this year, and what is still short.",
     suggestions: ["peer review group", "journal club", "audit"],
+  },
+  teaching: {
+    title: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+    // Session titles only: nothing personal is ever suggested into a search
+    // that leaves the app (plan contracts §8).
+    suggestions: ["grand round", "journal club", "case conference"],
   },
   psychiatry: {
     title: "Psychiatry",
     subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
     suggestions: ["major depressive disorder", "behavioural activation", "Form 1A"],
+  },
+  "my-work": {
+    title: "Admin",
+    subtitle: "The paperwork around hospital work, with what to start first.",
+    suggestions: ["registration", "leaving", "payroll"],
+  },
+  roster: {
+    title: "Roster",
+    subtitle: "Your own shifts: what's on today, this week and this month.",
+    suggestions: ["night shift hours", "next weekend off", "import my roster"],
+  },
+  "first-nations": {
+    title: "First Nations",
+    subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
+    suggestions: ["Call Aboriginal liaison", "Common mistakes", "Mental Health Act s 81"],
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 

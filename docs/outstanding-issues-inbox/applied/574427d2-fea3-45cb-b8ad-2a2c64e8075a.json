@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "574427d2-fea3-45cb-b8ad-2a2c64e8075a",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call handbook: unsaved entry edits are likely lost on tab close or refresh",
+    "detail": "src/components/on-call/service-page.tsx:386 canLeaveEditor() and service-entry-editor.tsx:101 confirm before in-app entry switches only; neither registers beforeunload. Confidence: likely, not every exit path traced. Next action: confirm the exit paths, then add a beforeunload guard while an entry is being edited (same pattern as src/components/cme/cme-entry-form.tsx:324).",
+    "source": "Design, front-end and test review 2026-09-27 (Claude Code session: web-design-guidelines, frontend-checklist-global, playwright-best-practices, codebase-design skills), re-verified on main a3fee8d1a",
+    "issueUlid": "01M3GMVV2N4NSKNSGDMY61V55Q"
+  }
+}

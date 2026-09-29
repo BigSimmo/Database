@@ -16,6 +16,7 @@ import {
 } from "./lib/cross-tenant-write-probe";
 import { probeCmeEvidenceAndExportIsolation } from "./lib/cross-tenant-cme-evidence-probe";
 import { probeOnCallContentIsolation } from "./lib/cross-tenant-oncall-content-probe";
+import { probeRosterIsolation } from "./lib/cross-tenant-roster-probe";
 
 loadEnvConfig(process.cwd());
 
@@ -518,7 +519,7 @@ async function exerciseTenancyBoundary(args: {
   );
   assertCondition(answerA.answerQualityTier === "source_only", "Staging app is not returning a source-only answer.");
   assertCondition(
-    answerA.fallbackReason === "source_only_offline_mode",
+    answerA.fallbackReasonCode === "provider_offline",
     "Staging app must run with RAG_PROVIDER_MODE=offline for this harness.",
   );
   assertCondition(
@@ -763,6 +764,7 @@ async function main() {
       tokenA: sessionA.token,
       tokenB: sessionB.token,
       userIdB: sessionB.userId,
+      emailB: config.userBEmail,
       marker: fixtureA.marker,
       register,
     });
@@ -789,11 +791,68 @@ async function main() {
       tokenA: sessionA.token,
       tokenB: sessionB.token,
       userIdB: sessionB.userId,
+      emailB: config.userBEmail,
       serviceId: serviceWrites.serviceId,
       siteId: serviceWrites.siteId,
       marker: fixtureA.marker,
     });
     checkpoints.push(...serviceContent.checkpoints);
+
+    // The service created above is already registered for cleanup. Prepare it
+    // as a disposable demo roster team only after all On Call checks finish.
+    const verified = await admin.rpc("on_call_service_set_verified", {
+      p_service_id: serviceWrites.serviceId,
+      p_actor_id: sessionA.userId,
+      p_verified: true,
+      p_is_demo: true,
+    });
+    if (verified.error?.code === "PGRST202") {
+      notExercised.push(
+        "Roster isolation: on_call_service_set_verified is unavailable on staging; no Roster verdict was produced.",
+      );
+    } else if (verified.error) {
+      throw new Error(`Roster probe setup failed at service verification: ${verified.error.code ?? "unknown"}.`);
+    } else {
+      const manager = await admin.rpc("roster_set_manager", {
+        p_service_id: serviceWrites.serviceId,
+        p_user_id: sessionA.userId,
+        p_actor_id: sessionA.userId,
+        p_manager: true,
+      });
+      if (manager.error?.code === "PGRST202") {
+        notExercised.push(
+          "Roster isolation: roster_set_manager is unavailable on staging; no Roster verdict was produced.",
+        );
+      } else if (manager.error) {
+        throw new Error(`Roster probe setup failed at manager assignment: ${manager.error.code ?? "unknown"}.`);
+      } else {
+        const invited = (await writeRequest(
+          sessionA.token,
+          `/api/roster/team/${serviceWrites.serviceId}/invite`,
+          {
+            method: "POST",
+            body: { invitedEmail: config.userBEmail, expiresInDays: 1 },
+          },
+          [200],
+        )) as { path?: unknown };
+        const code =
+          typeof invited.path === "string"
+            ? new URL(invited.path, "https://example.invalid").hash.match(/^#code=([a-f\d]{64})$/i)?.[1]
+            : null;
+        if (!code) throw new Error("Roster probe invitation response had no one-use code in its fragment.");
+        const roster = await probeRosterIsolation({
+          request: writeRequest,
+          tokenA: sessionA.token,
+          tokenB: sessionB.token,
+          serviceIdA: serviceWrites.serviceId,
+          userIdB: sessionB.userId,
+          inviteCodeForB: code,
+        });
+        checkpoints.push(...roster.checkpoints);
+        notExercised.push(...roster.skipped);
+        for (const note of roster.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+      }
+    }
   } catch (error) {
     failure = error;
   }

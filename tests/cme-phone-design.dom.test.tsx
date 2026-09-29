@@ -6,7 +6,7 @@ import { CmeAnnualSummary } from "@/components/cme/cme-annual-summary";
 import { CmeDashboard } from "@/components/cme/cme-dashboard";
 import { CmeEntryPage } from "@/components/cme/cme-entry-page";
 import { CmeNewEntryRoute } from "@/components/cme/cme-new-entry-route";
-import { CmePaceChart, hoursByCategory } from "@/components/cme/cme-progress-visuals";
+import { CmeCategoryBar, CmePaceChart, hoursByCategory } from "@/components/cme/cme-progress-visuals";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
@@ -78,8 +78,13 @@ const ENTRIES: readonly CmeEntry[] = [
 ];
 
 describe("the dashboard's progress picture", () => {
-  it("says each category's hours in words beside the coloured bar, leaving archived entries out", () => {
+  it("keeps the coloured category bar off Today", () => {
     render(<CmeDashboard set={SET} entries={ENTRIES} now={new Date("2026-09-01T02:00:00Z")} />);
+    expect(screen.queryByTestId("cme-category-bar")).toBeNull();
+  });
+
+  it("says each category's hours in words beside the category bar, leaving archived entries out", () => {
+    render(<CmeCategoryBar entries={ENTRIES} targetHours={SET.totalHours} />);
     const legend = within(screen.getByTestId("cme-category-bar")).getByRole("list", { name: "Hours by category" });
     expect(legend).toHaveTextContent("Educational14 h");
     expect(legend).toHaveTextContent("Reviewing7 h");
@@ -100,13 +105,16 @@ describe("the dashboard's progress picture", () => {
   it("draws the pace chart as one described image, not a pile of points", () => {
     render(<CmeDashboard set={SET} entries={ENTRIES} now={new Date("2026-09-01T02:00:00Z")} />);
     const chart = within(screen.getByTestId("cme-pace-chart")).getByRole("img");
-    expect(chart).toHaveAccessibleName(/22\.5 hours logged so far/);
-    expect(chart).toHaveAccessibleName(/behind that pace/);
+    expect(chart).toHaveAccessibleName(
+      "22.5 hours logged so far. An even pace to 50 hours by 31 December would be about 33 by today.",
+    );
+    // Today's point is product blue (module 7); the line stays in the grey-to-ink ramp.
+    expect(screen.getByTestId("cme-pace-chart-end").getAttribute("class")).toContain("--clinical-accent");
   });
 });
 
 describe("the pace chart", () => {
-  it("says ahead when logged hours are above an even pace", () => {
+  it("states the even pace as a number, never as ahead or behind", () => {
     render(
       <CmePaceChart
         entries={[entry({ id: "big", date: "2026-01-05", allocations: [{ category: "educational", hours: 40 }] })]}
@@ -115,11 +123,48 @@ describe("the pace chart", () => {
         todayIndex={60}
       />,
     );
-    expect(screen.getByRole("img")).toHaveAccessibleName(/ahead of that pace/);
+    expect(screen.getByRole("img")).toHaveAccessibleName(
+      "40 hours logged so far. An even pace to 50 hours by 31 December would be about 8 by today.",
+    );
   });
 });
 
 describe("quick log", () => {
+  it("keeps save in the fixed sheet footer and accepts Ctrl+Enter from the form", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ entry: { id: "keyboard-entry" } }), { status: 201 }));
+    render(<CmeQuickLog set={SET} />);
+    await user.click(screen.getByTestId("cme-quick-log-button"));
+    const sheet = await screen.findByTestId("cme-quick-log-sheet");
+    const footer = within(sheet).getByTestId("cme-quick-log-actions");
+    expect(within(footer).getByRole("button", { name: "Save entry" })).toBeInTheDocument();
+    await user.type(within(sheet).getByLabelText(/what was it/i), "Keyboard seminar");
+    await user.click(within(sheet).getByRole("button", { name: "1" }));
+    await user.click(within(sheet).getByRole("button", { name: "Educational" }));
+    await user.type(within(sheet).getByLabelText("Reflection"), "Compared the guidance.");
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).title).toBe("Keyboard seminar");
+  });
+
+  it("keeps an incomplete activity as an account draft from the sheet footer", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ draft: { id: "draft-1" } }), { status: 201 }));
+    render(<CmeQuickLog set={SET} />);
+    await user.click(screen.getByTestId("cme-quick-log-button"));
+    const sheet = await screen.findByTestId("cme-quick-log-sheet");
+    await user.type(within(sheet).getByLabelText(/what was it/i), "Unfinished seminar");
+    await user.click(within(sheet).getByRole("button", { name: "Keep as draft" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith("/api/cme/drafts", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).payload.title).toBe("Unfinished seminar");
+    expect(navigation.push).toHaveBeenCalledWith("/cme/log?tab=finish#cme-drafts");
+  });
+
   it("opens the entry form in a panel, saves with one request, and says it landed", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -130,6 +175,7 @@ describe("quick log", () => {
     await user.click(screen.getByTestId("cme-quick-log-button"));
     const sheet = await screen.findByTestId("cme-quick-log-sheet");
     await user.type(within(sheet).getByLabelText(/what was it/i), "Grand round");
+    await user.click(within(sheet).getByRole("button", { name: "1" }));
     await user.click(within(sheet).getByRole("button", { name: "Educational" }));
     await user.click(within(sheet).getByRole("button", { name: /save entry/i }));
 
@@ -140,6 +186,27 @@ describe("quick log", () => {
     expect(typeof body.requestId).toBe("string");
     expect(navigation.refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("cme-quick-log-sheet")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/cme/entries/new", { method: "DELETE" });
+  });
+
+  it("fills the recent title and hours without saving", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    render(
+      <CmeQuickLog
+        set={SET}
+        entries={[entry({ id: "recent", date: "2026-09-01", title: "Synthetic seminar" })]}
+        nowIso="2026-09-26T02:00:00Z"
+      />,
+    );
+    await user.click(screen.getByTestId("cme-quick-log-button"));
+    const sheet = await screen.findByTestId("cme-quick-log-sheet");
+    await user.click(within(sheet).getByRole("button", { name: /synthetic seminar/i }));
+    expect(within(sheet).getByLabelText(/what was it/i)).toHaveValue("Synthetic seminar");
+    expect(within(sheet).getByRole("button", { name: /save entry/i })).not.toHaveAttribute("aria-disabled", "true");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps the panel open with the reason when the save fails", async () => {
@@ -151,6 +218,7 @@ describe("quick log", () => {
     await user.click(screen.getByTestId("cme-quick-log-button"));
     const sheet = await screen.findByTestId("cme-quick-log-sheet");
     await user.type(within(sheet).getByLabelText(/what was it/i), "Grand round");
+    await user.click(within(sheet).getByRole("button", { name: "1" }));
     await user.click(within(sheet).getByRole("button", { name: "Educational" }));
     await user.click(within(sheet).getByRole("button", { name: /save entry/i }));
     expect(await within(sheet).findByText("The record could not be saved yet.")).toBeInTheDocument();
@@ -179,7 +247,10 @@ describe("log it again", () => {
     render(<CmeNewEntryRoute repeatOf={original} set={SET} />);
     expect(screen.getByTestId("cme-entry-repeat-notice")).toBeInTheDocument();
     expect(screen.getByLabelText(/what was it/i)).toHaveValue("Monthly peer review");
-    expect(screen.getByLabelText("Hours for this activity")).toHaveValue("1.5");
+    expect(within(screen.getByRole("group", { name: "Hours" })).getByRole("button", { name: "1.5" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByRole("button", { name: "Reviewing" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Reflection")).toHaveValue("");
     expect(screen.getByLabelText(/what it cost/i)).toHaveValue("");
@@ -192,10 +263,10 @@ describe("annual summary PDF", () => {
       expect(document.title).toBe("CPD annual summary 2026");
       window.dispatchEvent(new Event("afterprint"));
     });
-    document.title = "Summary | CME";
+    document.title = "Summary | CPD";
     render(<CmeAnnualSummary set={SET} entries={ENTRIES} />);
     screen.getByTestId("cme-summary-save-pdf").click();
     expect(print).toHaveBeenCalledTimes(1);
-    expect(document.title).toBe("Summary | CME");
+    expect(document.title).toBe("Summary | CPD");
   });
 });

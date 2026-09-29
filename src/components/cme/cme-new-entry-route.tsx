@@ -6,12 +6,13 @@ import { useState } from "react";
 import { WaitingOnControls, type WaitingOnValue } from "@/components/cme/cme-drafts-section";
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { CME_NEW_ENTRY_DRAFT_KEY } from "@/lib/account-scoped-browser-state";
 import type { CmeDraft, CmeDraftPayload } from "@/lib/cme/drafts";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+import { perthCalendarDate } from "@/lib/perth-time";
 
-/** One key for every new-entry form, so the quick-log sheet and this page continue the same draft. */
-export const CME_NEW_ENTRY_DRAFT_KEY = "cme-entry-draft:new";
+export { CME_NEW_ENTRY_DRAFT_KEY };
 
 /**
  * Reads the message the API actually sent, so the form shows the reason rather
@@ -52,6 +53,7 @@ export function CmeNewEntryRoute({
   learningPrefill,
   repeatOf,
   set,
+  existingEntries = [],
   demoMode = false,
   resumeDraft = null,
   missedSessionId = null,
@@ -66,6 +68,7 @@ export function CmeNewEntryRoute({
    */
   readonly repeatOf?: CmeEntry | null;
   readonly set?: CmeRequirementSet | null;
+  readonly existingEntries?: readonly CmeEntry[];
   readonly demoMode?: boolean;
   /** A saved draft being continued. Saving the activity deletes it; saving as draft updates it. */
   readonly resumeDraft?: CmeDraft | null;
@@ -83,7 +86,7 @@ export function CmeNewEntryRoute({
     set?.requirements.flatMap((requirement) =>
       requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
     ) ?? [];
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" });
+  const today = perthCalendarDate();
   const initialDate = set && !today.startsWith(`${set.year}-`) ? `${set.year}-01-01` : today;
   const initialEntry = resumeDraft
     ? {
@@ -126,7 +129,7 @@ export function CmeNewEntryRoute({
         };
 
   async function saveEntry(entry: CmeEntryDraft) {
-    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CPD record.");
     const response = await fetch("/api/cme/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -147,7 +150,7 @@ export function CmeNewEntryRoute({
   }
 
   async function saveDraft(payload: CmeDraftPayload) {
-    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save drafts to your private CME record.");
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save drafts to your private CPD record.");
     const response = await fetch(resumeDraft ? `/api/cme/drafts/${resumeDraft.id}` : "/api/cme/drafts", {
       method: resumeDraft ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -159,7 +162,7 @@ export function CmeNewEntryRoute({
       }),
     });
     if (!response.ok) throw new Error(await entrySaveError(response));
-    router.push("/cme/log#cme-drafts");
+    router.push("/cme/log?tab=finish#cme-drafts");
     router.refresh();
   }
 
@@ -175,6 +178,11 @@ export function CmeNewEntryRoute({
         <p data-testid="cme-entry-repeat-notice" className={cn(textMuted, "mt-3 text-sm")}>
           Copied from an earlier entry and dated today. Check the date and hours, and write this occasion&apos;s own
           reflection, before saving.
+        </p>
+      ) : null}
+      {routine ? (
+        <p className={cn(textMuted, "mt-3 text-sm")}>
+          This routine usually takes {routine.usualHours} h. Choose the hours you actually spent before saving.
         </p>
       ) : null}
       {resumeDraft ? (
@@ -200,7 +208,8 @@ export function CmeNewEntryRoute({
         <CmeEntryForm
           onSubmit={saveEntry}
           initialEntry={initialEntry}
-          initialStatedHours={repeatOf ? undefined : routine?.usualHours}
+          existingEntries={existingEntries}
+          initialStatedHours={routine ? null : undefined}
           availableDomains={domains}
           // A continued account draft is not also mirrored to this tab's storage.
           draftStorageKey={resumeDraft ? undefined : CME_NEW_ENTRY_DRAFT_KEY}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0759e306-2713-48f7-84df-5afeb0575a54",
+  "createdOn": "2026-09-27",
+  "action": "update",
+  "payload": {
+    "id": "#5NXQM4",
+    "detail": "DEFERRED 2026-09-27 to a planned session: resolving this is a multi-file redesign of protected search chrome, not a quick fix. src/components/clinical-dashboard/master-search-header.tsx (MasterSearchHeader, about 61 props) is fed by src/components/ClinicalDashboard.tsx (56 props) and src/components/clinical-dashboard/global-search-shell.tsx (40 props). The ClinicalDashboard size itself is already tracked as a monolith in docs/maturity-backlog-workorders.md section X3. Next action: write a short design (codebase-design vocabulary) for a deeper search-session module that owns query, mode and filter state behind a small interface, agree it with the owner, then implement behind docs/search-chrome-behaviour.md with npm run verify:phone-chrome and the static contract tests.",
+    "baseRowFingerprint": "cdd571f284cbe9ece3c1958c7ca7ba4d04fdc1e962fb732eeb65682cbce7434b"
+  }
+}

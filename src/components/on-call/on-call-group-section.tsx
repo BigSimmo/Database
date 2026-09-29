@@ -41,7 +41,7 @@ export function OnCallGroupSection({
         {/* Outside the heading, and hidden from assistive technology: folding
             the count in turns "Wards" into "Wards 3" as the accessible name,
             and the list underneath already carries its own length. */}
-        <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+        <span aria-hidden="true" className="nums text-2xs font-medium text-[color:var(--text-muted)]">
           {count}
         </span>
       </div>

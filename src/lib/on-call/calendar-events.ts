@@ -10,6 +10,9 @@ import { nextTeachingOccurrence } from "@/lib/on-call/teaching-schedule";
  * A session's time is used only when the owner wrote it as a plain 24-hour
  * "HH:MM"; any other wording ("Thursday lunchtime") stays as the event's note
  * on an all-day event, rather than being guessed into a time.
+ *
+ * Teaching sessions now live in Teaching mode; these events are the owner's own On Call
+ * teaching list, shown in Teaching's Week until their team goes live on Teaching.
  */
 
 const FREQUENCY_RECURRENCE: Record<OnCallRecurrenceFrequency, CalendarRecurrence> = {
@@ -35,8 +38,15 @@ export function onCallTeachingEvents(entries: readonly OnCallEntry[], today: str
     const details = parsed.data as EducationDetails;
     if (!details.nextOccurrenceDate) continue;
     const frequency = details.recurrenceRule?.frequency ?? null;
-    const date = nextTeachingOccurrence(details.nextOccurrenceDate, frequency, today);
-    if (!date) continue;
+    const next = nextTeachingOccurrence(details.nextOccurrenceDate, frequency, today);
+    if (!next) continue;
+    // A monthly session starts its series on the owner's own anchor, not on the
+    // rolled-forward date: rolled onto a clamped short month (31 January to
+    // 28 February), the series would repeat on the 28th for ever after while
+    // the Teaching page shows 31 March. `expandEvents` and the alarms already
+    // read a series from any start date. Weekly and fortnightly cannot drift,
+    // so they keep the rolled date and stay clear of the occurrence cap.
+    const date = frequency === "monthly" ? details.nextOccurrenceDate : next;
     const when = details.nextOccurrence?.trim();
     const startTime = when && isValidTime(when) ? when : undefined;
     const notes = [
@@ -53,7 +63,8 @@ export function onCallTeachingEvents(entries: readonly OnCallEntry[], today: str
       recurrence: frequency ? FREQUENCY_RECURRENCE[frequency] : undefined,
       location: details.location,
       notes: notes.length ? notes.join(". ") : undefined,
-      href: "/on-call/education",
+      // Teaching now shows these (spec §8). The id above is unchanged, so subscribers see no gap.
+      href: "/teaching/week",
     });
   }
   return events;
@@ -70,7 +81,9 @@ export function onCallExpiryEvents(entries: readonly OnCallEntry[]): CalendarEve
         date: expiresOn,
         kind: "expiry" as const,
         reminderType: "compliance-dates" as const,
-        href: "/on-call/compliance",
+        // Admin > Renewals, where compliance rows live since Admin update 1. The ICS
+        // feed never writes `href`, so the live calendar feed is unchanged.
+        href: "/admin/renewals",
         notes: "The date you recorded. Confirm it with the issuing body.",
       },
     ];

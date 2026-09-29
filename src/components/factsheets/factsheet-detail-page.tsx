@@ -274,12 +274,14 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                   <Heading>More in {factsheet.category}</Heading>
                   <Link
                     href={`/factsheets/search?category=${encodeURIComponent(factsheet.category)}`}
-                    className="text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)]"
+                    className="inline-flex min-h-tap shrink-0 items-center text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)]"
                   >
                     See all
                   </Link>
                 </div>
-                <div className="grid gap-2.5">
+                {/* minmax(0,1fr): an auto grid track grew to the cards' min-content
+                    width and pushed them 33px past a 320px screen. */}
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
                   {moreInTopic.map((sheet) => {
                     const sheetTheme = categoryTheme(sheet.category);
                     return (
@@ -298,9 +300,14 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                           <span className="block truncate text-sm font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
                             {sheet.title}
                           </span>
-                          <span className="block truncate text-xs text-[color:var(--text-muted)]">{sheet.summary}</span>
+                          <span className="line-clamp-2 text-xs text-[color:var(--text-muted)]">{sheet.summary}</span>
+                          {/* On a phone the read time sits under the summary, so it
+                              does not take width from the title. */}
+                          <span className="mt-0.5 block text-2xs font-bold text-[color:var(--text-muted)] sm:hidden">
+                            {sheet.readTime}
+                          </span>
                         </span>
-                        <span className="shrink-0 text-xs font-bold text-[color:var(--text-muted)]">
+                        <span className="hidden shrink-0 text-xs font-bold text-[color:var(--text-muted)] sm:inline">
                           {sheet.readTime}
                         </span>
                         <ChevronRight
@@ -422,6 +429,50 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           )
         : null}
     </>
+  );
+}
+
+/** "You're not alone" crisis-contact callout shared by the condition and therapy bodies. */
+function FactsheetSupportCallout({
+  as: Tag,
+  support,
+  theme,
+}: {
+  as: "div" | "section";
+  support?: string;
+  theme: ReturnType<typeof categoryTheme>;
+}) {
+  return (
+    <Tag
+      id="factsheet-support"
+      className={cn(inPageAnchor, "flex gap-3.5 rounded-2xl border p-5")}
+      style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
+    >
+      <span
+        className="grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--clinical-accent-contrast)]"
+        style={{ backgroundColor: theme.accent }}
+      >
+        <HeartHandshake className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div>
+        <p className="text-base font-bold text-[color:var(--text-heading)]">You’re not alone</p>
+        <p className="mt-1.5 max-w-[60ch] text-pretty text-sm leading-6 text-[color:var(--text)]">
+          {/* Numbers come from the shared constant, not a second copy:
+              the printed handout builds its crisis line from the same
+              source, so the two cannot drift into different advice. */}
+          {support ? `${support} ` : ""}In Australia you can call{" "}
+          {FACTSHEET_CRISIS_CONTACTS.map((contact, index) => (
+            <span key={contact.number}>
+              <strong className="font-bold">
+                {contact.name} {contact.number}
+              </strong>
+              {index < FACTSHEET_CRISIS_CONTACTS.length - 1 ? ", " : ", or "}
+            </span>
+          ))}
+          <strong className="font-mono">{FACTSHEET_EMERGENCY_NUMBER}</strong> in an emergency.
+        </p>
+      </div>
+    </Tag>
   );
 }
 
@@ -642,36 +693,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <div
-            id="factsheet-support"
-            className={cn(inPageAnchor, "flex gap-3.5 rounded-2xl border p-5")}
-            style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
-          >
-            <span
-              className="grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--clinical-accent-contrast)]"
-              style={{ backgroundColor: theme.accent }}
-            >
-              <HeartHandshake className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-base font-bold text-[color:var(--text-heading)]">You’re not alone</p>
-              <p className="mt-1.5 max-w-[60ch] text-pretty text-sm leading-6 text-[color:var(--text)]">
-                {/* Numbers come from the shared constant, not a second copy:
-                    the printed handout builds its crisis line from the same
-                    source, so the two cannot drift into different advice. */}
-                {factsheet.support} In Australia you can call{" "}
-                {FACTSHEET_CRISIS_CONTACTS.map((contact, index) => (
-                  <span key={contact.number}>
-                    <strong className="font-bold">
-                      {contact.name} {contact.number}
-                    </strong>
-                    {index < FACTSHEET_CRISIS_CONTACTS.length - 1 ? ", " : ", or "}
-                  </span>
-                ))}
-                <strong className="font-mono">{FACTSHEET_EMERGENCY_NUMBER}</strong> in an emergency.
-              </p>
-            </div>
-          </div>
+          <FactsheetSupportCallout as="div" support={factsheet.support} theme={theme} />
         </div>
       );
     case "therapy":
@@ -723,6 +745,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
+          <FactsheetSupportCallout as="section" support={factsheet.support} theme={theme} />
         </div>
       );
     case "procedure":

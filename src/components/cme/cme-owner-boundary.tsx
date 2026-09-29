@@ -1,8 +1,25 @@
 "use client";
-
-import { Fragment, type ReactNode, useEffect, useRef } from "react";
+import { Fragment, type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { CmeOfflineBanner } from "@/components/cme/cme-offline-banner";
 import { useAuthSession } from "@/lib/supabase/client";
+
+function subscribeConnectivity(onStoreChange: () => void) {
+  window.addEventListener("online", onStoreChange);
+  window.addEventListener("offline", onStoreChange);
+  return () => {
+    window.removeEventListener("online", onStoreChange);
+    window.removeEventListener("offline", onStoreChange);
+  };
+}
+
+function getConnectivitySnapshot() {
+  return navigator.onLine;
+}
+
+function getServerConnectivitySnapshot() {
+  return true;
+}
 
 type CmeOwnerBoundaryProps = {
   readonly serverOwnerId: string | null;
@@ -14,6 +31,8 @@ type CmeOwnerBoundaryProps = {
 
 /** A client auth change does not replace cached Server Component children by itself. */
 export function CmeOwnerBoundary({ serverOwnerId, serverAuthVerified, demoMode, children }: CmeOwnerBoundaryProps) {
+  const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
+  const isOffline = !isOnline;
   const auth = useAuthSession();
   const router = useRouter();
   const clientOwnerId = auth.status === "authenticated" ? (auth.session?.user.id ?? null) : null;
@@ -44,7 +63,12 @@ export function CmeOwnerBoundary({ serverOwnerId, serverAuthVerified, demoMode, 
   if (serverAuthVerified && resolved && clientOwnerId === serverOwnerId) {
     // The key comes from the verified SERVER identity, never a new client owner
     // applied to old children. Unmounting also discards the previous owner's drafts.
-    return <Fragment key={serverOwnerId ?? "signed-out"}>{children}</Fragment>;
+    return (
+      <Fragment key={serverOwnerId ?? "signed-out"}>
+        <CmeOfflineBanner />
+        {children}
+      </Fragment>
+    );
   }
 
   const signedOut = auth.status === "signed_out" || auth.status === "expired";
@@ -53,18 +77,20 @@ export function CmeOwnerBoundary({ serverOwnerId, serverAuthVerified, demoMode, 
     <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" data-testid="cme-owner-boundary">
       <p role="status">
         {signedOut
-          ? "Your private CME record is hidden. Sign in to continue."
-          : unavailable
-            ? "Your session could not be verified. Your private CME record is hidden."
-            : "Checking your CME session…"}
+          ? "Your private CPD record is hidden. Sign in to continue."
+          : isOffline
+            ? "You are offline. Connect to view or update your private CPD record."
+            : unavailable
+              ? "Your session could not be verified. Your private CPD record is hidden."
+              : "Checking your CPD session…"}
       </p>
-      {unavailable ? (
+      {isOffline || unavailable ? (
         <button type="button" className="mt-3 min-h-tap underline" onClick={() => window.location.reload()}>
-          Refresh page
+          {isOffline ? "Try again" : "Refresh page"}
         </button>
       ) : auth.status === "authenticated" ? (
         <button type="button" className="mt-3 min-h-tap underline" onClick={() => router.refresh()}>
-          Refresh CME
+          Refresh CPD
         </button>
       ) : null}
     </section>

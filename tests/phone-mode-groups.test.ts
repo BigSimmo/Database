@@ -32,12 +32,28 @@ describe("phone mode groups", () => {
     expect(new Set(groupIds).size).toBe(groupIds.length);
   });
 
-  it("gives On Call and CME areas of their own, after the clinical groups", () => {
+  it("gives On Call, Roster, Admin, First Nations, CPD and Teaching areas of their own, after the clinical groups", () => {
     const groupOf = (modeId: AppModeId) =>
       phoneModeGroups.find((group) => (group.modeIds as readonly AppModeId[]).includes(modeId));
     expect(groupOf("on-call")).toMatchObject({ id: "on-call", label: "On Call", modeIds: ["on-call"] });
-    expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD", modeIds: ["cme"] });
-    expect(phoneModeGroups.map((group) => group.id)).toEqual(["find", "psychiatry", "care", "on-call", "cpd"]);
+    expect(groupOf("roster")).toMatchObject({ id: "roster", label: "Roster", modeIds: ["roster"] });
+    expect(groupOf("my-work")).toMatchObject({ id: "my-work", label: "Admin", modeIds: ["my-work"] });
+    expect(groupOf("first-nations")).toMatchObject({
+      id: "first-nations",
+      label: "First Nations",
+      modeIds: ["first-nations"],
+    });
+    expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD and teaching", modeIds: ["cme", "teaching"] });
+    expect(phoneModeGroups.map((group) => group.id)).toEqual([
+      "find",
+      "psychiatry",
+      "care",
+      "on-call",
+      "roster",
+      "my-work",
+      "first-nations",
+      "cpd",
+    ]);
   });
 
   it("orders modes the way the grouped menus draw them, for arrow-key focus", () => {

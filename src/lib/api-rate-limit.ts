@@ -61,7 +61,10 @@ export type ApiRateLimitBucket =
   | "document_admin"
   | "ingestion_admin"
   | "on_call"
-  | "cme";
+  | "cme"
+  | "teaching"
+  | "teaching_code"
+  | "roster";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -104,6 +107,16 @@ const apiRateLimitDefaults = {
   // CME entry/year reads and writes: an owner's own CPD log and confirmed targets. Same
   // shape as on_call — generous for interactive single-owner use, bounded against abuse.
   cme: { limit: 60, windowSeconds: 60 },
+  // Teaching reads and writes: a doctor's week, logbook and check-ins, and an organiser's
+  // programme. Same shape as on_call and cme.
+  teaching: { limit: 60, windowSeconds: 60 },
+  // Typed six-digit check-in codes can be guessed, so a signed-in doctor gets few attempts.
+  // Scanned codes carry a 128-bit MAC and cannot be guessed; see the anonymous entry below.
+  teaching_code: { limit: 12, windowSeconds: 60 },
+  // Roster own-shift reads/writes: an owner's own imported/hand-added shifts, calendar
+  // links and settings. Same shape as on_call — generous for interactive single-owner
+  // use, bounded against abuse.
+  roster: { limit: 60, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
@@ -119,6 +132,10 @@ const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit:
   // cannot use the public catalog endpoints as a high-volume egress lever, while still
   // leaving ample headroom for legitimate public browsing.
   registry: { limit: 60, windowSeconds: 60 },
+  // Signed-out QR scans and display-screen polling. A lecture theatre on hospital Wi-Fi shares
+  // one network address, and the scanned code cannot be guessed, so this is load protection
+  // only: generous enough for a full room scanning in the same minute.
+  teaching_code: { limit: 300, windowSeconds: 60 },
 };
 
 /**
@@ -208,6 +225,8 @@ const durableApiRateLimitDenyCache = ((
   globalThis as GlobalWithRateLimitFallback
 ).__clinicalKbDurableApiRateLimitDenyCache ??= new Map<string, DurableRateLimitDenyCacheEntry>());
 
+const DURABLE_DENY_CACHE_MAX_ENTRIES = 2000;
+
 function durableDenyCacheKey(identity: string, bucket: string) {
   return `${identity}:${bucket}`;
 }
@@ -247,8 +266,23 @@ function rememberDurableRateLimitDenyCache(identity: string, bucket: string, res
     durableApiRateLimitDenyCache.delete(key);
     return;
   }
+  const now = Date.now();
   const resetAtMs = Date.parse(result.resetAt);
-  if (!Number.isFinite(resetAtMs) || resetAtMs <= Date.now()) return;
+  if (!Number.isFinite(resetAtMs) || resetAtMs <= now) return;
+  // Entries were only ever removed when the same subject came back, so every
+  // limited subject that never returned stayed for the life of the process.
+  // Same ceiling as the in-memory limiter: sweep expired entries, then drop
+  // the oldest. Dropping one is safe: the next request asks the durable limiter.
+  if (durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
+    for (const [cachedKey, cached] of durableApiRateLimitDenyCache) {
+      if (now >= cached.resetAtMs) durableApiRateLimitDenyCache.delete(cachedKey);
+    }
+    while (durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
+      const oldest = durableApiRateLimitDenyCache.keys().next().value;
+      if (oldest === undefined) break;
+      durableApiRateLimitDenyCache.delete(oldest);
+    }
+  }
   durableApiRateLimitDenyCache.set(key, {
     limit: result.limit,
     remaining: result.remaining,
@@ -260,6 +294,11 @@ function rememberDurableRateLimitDenyCache(identity: string, bucket: string, res
 /** Test helper: clear durable deny-cache entries between cases. */
 export function resetDurableRateLimitDenyCacheForTests() {
   durableApiRateLimitDenyCache.clear();
+}
+
+/** Test helper: how many subjects the durable deny cache currently holds. */
+export function durableRateLimitDenyCacheSizeForTests() {
+  return durableApiRateLimitDenyCache.size;
 }
 
 /** @deprecated Use resetDurableRateLimitDenyCacheForTests — name kept for older test imports. */

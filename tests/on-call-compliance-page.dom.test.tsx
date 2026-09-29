@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallComplianceSection } from "@/components/on-call/on-call-compliance-section";
@@ -323,6 +323,23 @@ describe("the privacy claim is made once for the page, or once per row", () => {
     expect(note).not.toHaveTextContent(NOTE_CLAIMS_PRIVACY);
     expect(screen.queryAllByTestId("on-call-private-flag")).toHaveLength(0);
     expect(screen.getByTestId("on-call-compliance-empty")).toBeInTheDocument();
+  });
+
+  it("updates the empty-state copy when connectivity changes while mounted", async () => {
+    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    render(<OnCallComplianceSection entries={[]} now={NOW} />);
+    expect(screen.getByText("No requirements recorded yet")).toBeInTheDocument();
+    onLine.mockReturnValue(false);
+    await act(async () => {
+      window.dispatchEvent(new Event("offline"));
+    });
+    expect(screen.getByText("Personal compliance records need a connection")).toBeInTheDocument();
+    onLine.mockReturnValue(true);
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(screen.getByText("No requirements recorded yet")).toBeInTheDocument();
+    onLine.mockRestore();
   });
 });
 

@@ -5,6 +5,7 @@ import {
   Brain,
   BrainCircuit,
   Calculator,
+  CalendarRange,
   ClipboardCheck,
   ClipboardList,
   Compass,
@@ -17,6 +18,7 @@ import {
   MessagesSquare,
   Network,
   PhoneCall,
+  Presentation,
   Pill,
   Route,
   ScrollText,
@@ -71,6 +73,8 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   phoneCall: PhoneCall,
   graduationCap: GraduationCap,
   brain: Brain,
+  presentation: Presentation,
+  calendarRange: CalendarRange,
 };
 
 /** Component form, for the call sites that still take a `LucideIcon` prop. */

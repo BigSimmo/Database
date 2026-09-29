@@ -22,7 +22,7 @@ import { clickWhenSettled, expectSingleSettledOwner, visibleByTestId } from "./p
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -1346,7 +1346,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-    await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
+    await expect(page.getByTestId("tools-search-results-page").getByTestId("tools-local-search-input")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2102,7 +2102,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
           demoMode: true,
           checks: [
             { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-            { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test project ready." },
+            { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test project ready." },
             { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
             { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search ready." },
             { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -3278,7 +3278,7 @@ test.describe("PsychSift service detail page", () => {
     // mounted on the page behind it — that banner is the save confirmation.
     await actionsTrigger.click();
     await actions.getByRole("button", { name: "Save service" }).click();
-    await expect(page.getByRole("status")).toContainText("Service saved");
+    await expect(page.getByTestId("service-detail-page").getByRole("status")).toContainText("Service saved");
 
     await actionsTrigger.click();
     await expect(actions.getByRole("button", { name: "Remove saved service" })).toBeVisible();

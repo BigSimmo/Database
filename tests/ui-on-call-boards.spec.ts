@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
+import { ON_CALL_IN_HOURS_END_HOUR, isOnCallOutOfHours } from "@/lib/on-call/home-modules";
 import { visibleByTestId } from "./playwright-settlement";
 
 /**
@@ -48,23 +49,20 @@ const DESKTOP = 1280;
 /** This repository's production tap floor, in CSS pixels. */
 const TAP_FLOOR = 48;
 
-test("search opens and focuses the exact contact on a narrow phone", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 844 });
-  await page.goto("/on-call");
-  const result = page.getByTestId("on-call-search-row-demo-ward-one");
+// Now carries no search (ruling F6): the one search box lives on Call.
+test("Call search narrows to the exact contact on a narrow phone", async ({ page }) => {
+  await page.setViewportSize({ width: NARROW, height: BOARD_HEIGHT });
+  await page.goto("/on-call/call");
+  const main = page.getByTestId("on-call-call-main");
+  const status = main.getByRole("status").filter({ hasText: /result/ });
   // Text typed before hydration is dropped (mobile WebKit, release matrix 2026-09-25).
   await expect(async () => {
-    await page.getByRole("searchbox", { name: "Search On Call" }).fill("Demo Ward One");
-    await expect(result).toBeVisible({ timeout: 2_000 });
+    await main.getByRole("searchbox", { name: "Search Call" }).fill("coordination");
+    await expect(status).toHaveText("1 result", { timeout: 2_000 });
   }).toPass({ timeout: 20_000 });
-  const destination = await result.getAttribute("href");
-  expect(destination).toMatch(/^\/on-call\/contacts#on-call-entry-/);
-  await result.click();
-  await expect(page).toHaveURL(new RegExp(`${destination!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
-  const target = page.locator(`[id="${destination!.split("#")[1]}"]`);
-  await expect(target).toBeFocused();
-  await expect(target).toBeInViewport();
-  await expect(target).toContainText("Demo Ward One");
+  await expect(main).toContainText("Example after-hours coordination extension");
+  await expect(main).not.toContainText("Synthetic emergency line");
+  expect(await main.evaluate((el) => el.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 const ROUTES = {
@@ -74,14 +72,17 @@ const ROUTES = {
   referrals: "/on-call/referrals",
   orientation: "/on-call/orientation",
   teaching: "/on-call/education",
-  logistics: "/on-call/logistics",
+  // On Call's Admin (`logistics`) rows and Compliance moved to the Admin mode on
+  // 2026-09-26 (Admin update 1): Admin > Help and Admin > Renewals. The keys keep
+  // their old names so every board that opens them still does.
+  logistics: "/admin/help",
   // A route of its own over rows that are not a section of their own.
   // Compliance is the `logistics` rows carrying `details.kind: "compliance"`,
   // split out because `section` is a database CHECK constraint and a seventh
   // value costs a migration against the live clinical database. It belongs in
   // this list all the same: the chrome loop at the foot of the file opens
   // every entry here, and a page left out of it is a page nothing checks.
-  compliance: "/on-call/compliance",
+  compliance: "/admin/renewals",
   whoIsWho: "/on-call/who-is-who",
 } as const;
 
@@ -92,8 +93,8 @@ const SECTION_LIST_TEST_IDS: Record<string, string> = {
   [ROUTES.referrals]: "on-call-referrals-section",
   [ROUTES.orientation]: "on-call-orientation-section",
   [ROUTES.teaching]: "on-call-education-section",
-  [ROUTES.logistics]: "on-call-logistics-section",
-  [ROUTES.compliance]: "on-call-compliance-section",
+  [ROUTES.logistics]: "admin-help-main",
+  [ROUTES.compliance]: "admin-renewals-main",
   [ROUTES.whoIsWho]: "on-call-who-is-who-section",
 };
 
@@ -121,7 +122,11 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   if (route === ROUTES.home) {
     // Visible owner only: a full load can briefly leave Next's hidden streamed
     // copy of the page in the DOM, which a bare testid counts twice (#093).
-    await expect(visibleByTestId(page, "on-call-home-sections")).toBeVisible({ timeout: 20_000 });
+    // The v6 rebuild replaced Home's tile grid with Now (plan C25); the demo
+    // handbook always pins a synthetic emergency route (`service-demo.ts`), so
+    // that module is the settled signal rather than the hospital line, which
+    // can render before the handbook itself has arrived.
+    await expect(visibleByTestId(page, "on-call-now-emergency")).toBeVisible({ timeout: 20_000 });
     return;
   }
   // The list, not the header: a section page renders a header only when it has
@@ -141,15 +146,25 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
  * moment two headers exist and a strict locator fails on the pair rather than
  * on anything being wrong.
  */
-async function sectionBar(page: Page) {
-  await expect(page.getByTestId("on-call-section-detail-header").first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId("on-call-section-detail-header")).toHaveCount(1, { timeout: 20_000 });
-  return page.getByTestId("on-call-section-section-rail");
+/**
+ * On Call's own section pages render `OnCallSectionNavHeader`, whose header
+ * testid prefix is `on-call-section`. Admin's Help and New job pages render
+ * the different `AdminNavHeader` instead (Admin update 1), whose rail is the
+ * same `InPageNavHeader` component but under its own `admin-section-header`
+ * prefix — a page borrowing Admin's identity must not read as an On Call page
+ * in a test id. Callers on an Admin route pass that prefix.
+ */
+const ADMIN_SECTION_HEADER_PREFIX = "admin-section-header";
+
+async function sectionBar(page: Page, prefix = "on-call-section") {
+  await expect(page.getByTestId(`${prefix}-detail-header`).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId(`${prefix}-detail-header`)).toHaveCount(1, { timeout: 20_000 });
+  return page.getByTestId(`${prefix}-section-rail`);
 }
 
 /** The words the bar is currently showing, in order, excluding More. */
-async function barWords(page: Page) {
-  const bar = await sectionBar(page);
+async function barWords(page: Page, prefix = "on-call-section") {
+  const bar = await sectionBar(page, prefix);
   return bar.evaluate((nav) =>
     Array.from(nav.querySelectorAll("li"))
       .filter((slot) => getComputedStyle(slot).display !== "none" && !slot.classList.contains("mode-nav__more"))
@@ -204,23 +219,6 @@ async function expectNoHorizontalOverflow(page: Page, label: string) {
   ).toBeNull();
 }
 
-/**
- * The number a home tile is currently showing.
- *
- * Read off the tile rather than out of the demo corpus, because the corpus is
- * the one thing a wrong count agrees with. The figure is the only one in a
- * tile and sits in its own `.nums` span beside the glyph; a tile drawn without
- * a count (Who's who) has no such span at all, so this fails by name instead
- * of quietly returning NaN for it.
- */
-async function tileCount(page: Page, key: string) {
-  const badge = visibleByTestId(page, `on-call-home-tile-${key}`).locator("span.nums");
-  await expect(badge, `the ${key} tile carries no count`).toHaveCount(1);
-  const text = ((await badge.textContent()) ?? "").trim();
-  expect(text, `the ${key} tile's count reads "${text}", which is not a number`).toMatch(/^\d+$/);
-  return Number(text);
-}
-
 /** Measures the rendered box, not the class name. */
 async function expectTapFloor(target: Locator, label: string) {
   const box = await target.boundingBox();
@@ -231,22 +229,30 @@ async function expectTapFloor(target: Locator, label: string) {
 }
 
 test.describe("01 Home", () => {
-  test("draws every module the board draws, in the order it draws them", async ({ page }) => {
+  // The v6 rebuild (plan C25) replaced board 01's tile-grid Home with Now: the
+  // hospital line, its pinned emergency route, the dark Right now hero, Your
+  // usual, Your team and the footer group. `docs/on-call/design/mockup-conformance.md`
+  // records each retired element's departure; this block proves what replaced
+  // it actually renders, in the safety order.
+
+  test("draws Now's modules, in the order the page draws them", async ({ page }) => {
     await openBoard(page, ROUTES.home);
 
     const modules = [
-      "on-call-home-call-first",
-      "on-call-home-wards",
-      "on-call-home-pinned-module",
-      "on-call-home-upcoming",
-      "on-call-home-sections",
+      "on-call-now-hospital",
+      "on-call-now-emergency",
+      "on-call-now-right-now",
+      "on-call-home-recent",
+      "on-call-now-team",
+      "on-call-now-footer",
     ];
     for (const id of modules) {
-      await expect(visibleByTestId(page, id), `${id} is drawn on board 01 but does not render`).toBeVisible();
+      await expect(visibleByTestId(page, id), `${id} is drawn on Now but does not render`).toBeVisible();
     }
 
     // Top to bottom in the drawn order. A module that renders in the wrong
-    // place still passes a presence check, and the order is the board.
+    // place still passes a presence check, and the order is the safety order:
+    // hospital, its emergency route, Right now, Your usual, Your team, footer.
     const tops = await Promise.all(
       modules.map(async (id) => (await visibleByTestId(page, id).boundingBox())?.y ?? Number.NaN),
     );
@@ -263,132 +269,26 @@ test.describe("01 Home", () => {
     await expect(page.getByTestId("on-call-now-steps").getByRole("listitem").first()).toBeVisible();
   });
 
-  test("puts two call cards and the switchboard row under Call first", async ({ page }) => {
+  test("answers Right now with the hospital's switchboard, and reaches all roles in one tap", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    const callFirst = page.getByTestId("on-call-home-call-first");
-    const cards = callFirst.locator('[data-testid^="on-call-home-call-"]').filter({ hasNot: page.locator("nothing") });
-    await expect(cards.first()).toBeVisible();
-    await expect(page.getByTestId("on-call-home-switchboard")).toBeVisible();
-    // The drawing's whole argument for this module: one tap rings it.
-    await expect(page.getByTestId("on-call-home-switchboard")).toHaveAttribute("href", /^tel:/);
-    await expectTapFloor(page.getByTestId("on-call-home-switchboard"), "switchboard row");
+    // No hospital has set after-hours times in the demo handbook, so the
+    // switchboard is the answer (v6 figure 03) rather than a team role.
+    const hero = visibleByTestId(page, "on-call-now-right-now");
+    await expect(hero).toContainText("Switchboard");
+    const allRoles = hero.getByRole("link", { name: "All roles" });
+    await expect(allRoles).toHaveAttribute("href", "/on-call/call");
+    await expectTapFloor(allRoles, "Right now's All roles link");
   });
 
-  test("scrolls the ward strip inside itself rather than the page", async ({ page }) => {
+  test("keeps First night and Who do I call now live in the footer group", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    const wards = page.getByTestId("on-call-home-wards");
-    await expect(wards.locator('[data-testid^="on-call-home-ward-"]').first()).toBeVisible();
-    await expectNoHorizontalOverflow(page, "the home with a ward strip on it");
-  });
-
-  test("paints the pinned reminder in the mode's own colour, with an icon and words too", async ({ page }) => {
-    await openBoard(page, ROUTES.home);
-    const pinned = page.getByTestId("on-call-home-pinned");
-    await expect(pinned).toBeVisible();
-    // Colour is never the only signal: the row carries a heading and a glyph.
-    await expect(pinned.locator("svg")).toHaveCount(2);
-    const painted = await pinned.evaluate((node) => getComputedStyle(node).backgroundColor);
-    expect(painted).not.toBe("rgba(0, 0, 0, 0)");
-  });
-
-  test("dates the next teaching session with a weekday, as drawn", async ({ page }) => {
-    await openBoard(page, ROUTES.home);
-    // The row became a date-card strip when recurring sessions landed, so the
-    // card test id moved from `on-call-home-upcoming-` to `on-call-home-teaching-`.
-    // The module id around it is unchanged, and so is what this test is really
-    // asserting: a date a reader can check against a roster, never a countdown.
-    const card = page.getByTestId("on-call-home-upcoming").locator('[data-testid^="on-call-home-teaching-"]').first();
-    await expect(card).toBeVisible();
-    await expect(card).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
-  });
-
-  test("gives every section a tile, and gives Who's who no count", async ({ page }) => {
-    await openBoard(page, ROUTES.home);
-    const tiles = visibleByTestId(page, "on-call-home-sections").locator('[data-testid^="on-call-home-tile-"]');
-    // Eight, and the list underneath is the reason rather than the number.
-    // The grid draws the six STORED sections, then Compliance, then Who's who.
-    // Compliance earned its place by being wired: a tile pointing at
-    // `/on-call/compliance` and carrying a live count of the rows that page
-    // draws. It had neither for a while — it is a view over `logistics`, so
-    // the mode had the page before it had an honest number to put beside it,
-    // and the pill was the only way in.
-    //
-    // THE NUMBER IS NOT THE ASSERTION, and that is the whole point of this
-    // block. Raising a count to match a page nobody wired up is the failure
-    // guarded here, and a bare `toHaveCount` cannot tell that apart from real
-    // work — so the order below names every tile, and a new page has to earn a
-    // name here before the count moves. Adding a name for a route that does
-    // not exist fails the chrome loop at the foot of this file instead.
-    await expect(tiles).toHaveCount(8);
-    expect(
-      await tiles.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid"))),
-      "the tile grid is not the pages it should be, in the order it should draw them",
-    ).toEqual([
-      "on-call-home-tile-contacts",
-      "on-call-home-tile-playbook",
-      "on-call-home-tile-referrals",
-      "on-call-home-tile-orientation",
-      "on-call-home-tile-education",
-      "on-call-home-tile-logistics",
-      // After the stored sections and before Who's who, which is where it
-      // belongs: like the six above it these are things to go and deal with,
-      // and unlike the one below it they are a list rather than an
-      // explanation.
-      "on-call-home-tile-compliance",
-      "on-call-home-tile-who-is-who",
-    ]);
-
-    // Real rather than merely counted: it goes somewhere, it is named, and it
-    // carries a figure. `href` against the route table, so a tile pointing at
-    // a page this file does not know about fails here.
-    const compliance = page.getByTestId("on-call-home-tile-compliance");
-    await expect(compliance).toHaveAttribute("href", ROUTES.compliance);
-    await expect(compliance).toContainText("Compliance");
-    await expect(compliance.locator("span.nums")).toHaveText(/^\d+$/);
-    await expectTapFloor(compliance, "compliance tile");
-
-    // Board 01 draws this one differently and without a number: the others
-    // count things to read, this one explains the ladder.
-    await expect(page.getByTestId("on-call-home-tile-who-is-who")).not.toContainText(/\d/);
-  });
-
-  test("counts Admin and Compliance from the rows each page draws, never from the stored section", async ({ page }) => {
-    // The bug the Compliance tile was worth adding for. Admin and Compliance
-    // are ONE stored section, told apart by `details.kind`, so a count taken
-    // BY SECTION reports the pair's total under `logistics`: an Admin tile
-    // promising rows that live on another page, and no figure at all for the
-    // page they are actually on.
-    //
-    // Both numbers are therefore read off the pages themselves. Literals here
-    // — 18 and 8 in today's demo corpus — would pass again the first time the
-    // two are reconfused, because the same mistake moves the rows and the
-    // tile together. Comparing the tile to what its page renders cannot.
-    await openBoard(page, ROUTES.home);
-    const adminTile = await tileCount(page, "logistics");
-    const complianceTile = await tileCount(page, "compliance");
-
-    await openBoard(page, ROUTES.logistics);
-    const adminRows = await page.locator('[data-testid^="on-call-logistics-row-"]').count();
-    await openBoard(page, ROUTES.compliance);
-    const complianceRows = await page.locator('[data-testid^="on-call-compliance-row-"]').count();
-
-    // An empty page would make every comparison below 0 = 0, which is the one
-    // way this test could pass while proving nothing.
-    expect(adminRows, "the demo corpus draws no Admin rows, so the counts below prove nothing").toBeGreaterThan(0);
-    expect(
-      complianceRows,
-      "the demo corpus draws no Compliance rows, so the counts below prove nothing",
-    ).toBeGreaterThan(0);
-
-    expect(adminTile, "the Admin tile promises a number of rows the Admin page does not draw").toBe(adminRows);
-    expect(complianceTile, "the Compliance tile promises a number of rows the Compliance page does not draw").toBe(
-      complianceRows,
-    );
-    // Stated separately because it is the exact shape of the old defect: the
-    // Admin tile carrying the whole stored section, compliance rows included.
-    expect(adminTile, "the Admin tile is counting the whole `logistics` section again").not.toBe(
-      adminRows + complianceRows,
-    );
+    const footer = visibleByTestId(page, "on-call-now-footer");
+    const firstNight = footer.getByTestId("on-call-home-first-night");
+    await expect(firstNight).toHaveAttribute("href", "/on-call/first-night");
+    await expectTapFloor(firstNight, "First night row");
+    // The literal href the route-reachability guard reads; the click test
+    // above proves the destination actually renders.
+    await expect(footer.getByTestId("on-call-home-call-now")).toHaveAttribute("href", "/on-call/now");
   });
 
   test("puts the page menu in the universal header, and offers no chat there", async ({ page }) => {
@@ -406,8 +306,24 @@ test.describe("01 Home", () => {
 
   test("holds together at the site's narrow width, which the drawing never shows", async ({ page }) => {
     await openBoard(page, ROUTES.home, NARROW);
-    await expect(visibleByTestId(page, "on-call-home-sections")).toBeVisible();
-    await expectNoHorizontalOverflow(page, "the home at 320px");
+    await expect(visibleByTestId(page, "on-call-now-footer")).toBeVisible();
+    await expectNoHorizontalOverflow(page, "Now at 320px");
+  });
+});
+
+test.describe("Coming up — moved off Home to Teaching (plan C25)", () => {
+  test("dates the next teaching session with a weekday, as drawn", async ({ page }) => {
+    // Now (v6) drops the tile grid and, with it, the Coming up module: teaching
+    // sessions now surface only on the Teaching page (`/on-call/education`),
+    // which is where this same corpus and the same weekday assertion now live.
+    await openBoard(page, ROUTES.teaching);
+    // The row became a date-card strip when recurring sessions landed, so the
+    // card test id moved from `on-call-home-upcoming-` to `on-call-home-teaching-`.
+    // The module id around it is unchanged, and so is what this test is really
+    // asserting: a date a reader can check against a roster, never a countdown.
+    const card = page.getByTestId("on-call-home-upcoming").locator('[data-testid^="on-call-home-teaching-"]').first();
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
   });
 });
 
@@ -422,7 +338,7 @@ test.describe("02 More, 03 All modes — the pill owns page switching", () => {
     const sections = page.locator("#app-mode-menu");
     await expect(sections).toBeVisible();
     await expect(sections).toHaveAttribute("aria-label", /On Call pages/);
-    await expect(sections.getByRole("link", { name: "Tonight" })).toBeVisible();
+    await expect(sections.getByRole("link", { name: "Now" })).toBeVisible();
 
     // And never a dead end: the level above is one control away.
     await page.getByTestId("app-mode-popover-back").click();
@@ -479,9 +395,10 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // The pill's accessible name still opens `Mode …` — twelve test files and
     // the shared helper find this control by that prefix — and now says the
     // page as well.
-    const pill = page.getByRole("button", { name: "Mode On Call, page Contacts" });
+    // Contacts is the editor behind Call (kit 1.7), so the pill names Call.
+    const pill = page.getByRole("button", { name: "Mode On Call, page Call" });
     await expect(pill).toBeVisible();
-    await expect(pill).toContainText("Contacts");
+    await expect(pill).toContainText("Call");
     await expect(pill).toContainText("On Call");
 
     // And nothing else on the page paints the name. Measured, not counted by
@@ -538,10 +455,10 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // those words; four source files cite the measurement and nothing proved
     // the pages still obeyed it.
     //
-    // Compliance is also the one page where the bar word and the page heading
-    // differ on purpose — "Blocking" in the bar over a group headed "Stops you
-    // working". The bar word is what has to fit, and the bar is what this
-    // measures, so the two stay independent.
+    // Compliance has since left this list: it became Admin > Renewals
+    // (2026-09-26), a checklist with Checklist / Personal tabs and no section
+    // rail at all, so there is no bar there to measure. Its block at the foot
+    // of this file covers the page it became.
     //
     // What this reaches, and what it does not. Only the slots the band
     // actually renders can be measured: the tail of a longer list is
@@ -552,12 +469,13 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // likewise wait for that band. That is the right boundary rather than a
     // hole: a word folded into the sheet is not in the 48px row and cannot be
     // clipped by it, and the bands that do reveal it are wider ones, with more
-    // room per slot rather than less. Compliance shows all four at 390px.
-    for (const route of [ROUTES.contacts, ROUTES.logistics, ROUTES.orientation, ROUTES.compliance]) {
+    // room per slot rather than less.
+    for (const route of [ROUTES.contacts, ROUTES.logistics, ROUTES.orientation]) {
+      const prefix = route === ROUTES.logistics ? ADMIN_SECTION_HEADER_PREFIX : undefined;
       for (const width of [NARROW, BOARD_WIDTH]) {
         await openBoard(page, route, width);
         const clipped = await (
-          await sectionBar(page)
+          await sectionBar(page, prefix)
         ).evaluate((nav) =>
           Array.from(nav.querySelectorAll("li"))
             .filter((slot) => getComputedStyle(slot).display !== "none")
@@ -629,7 +547,7 @@ test.describe("02 More — the second row is about the page you are on", () => {
     await openBoard(page, ROUTES.referrals);
     await expect(page.getByTestId("on-call-referrals-filters")).toHaveCount(0);
     const groups = page.locator('[data-testid^="on-call-referrals-group-"]');
-    expect(await groups.count()).toBeGreaterThan(1);
+    await expect.poll(() => groups.count()).toBeGreaterThan(1);
 
     // And the bar can now move between them, which the flat list could not.
     expect(await barWords(page)).toContain("Community");
@@ -638,25 +556,25 @@ test.describe("02 More — the second row is about the page you are on", () => {
   test("gives the orientation shelf its groups too", async ({ page }) => {
     await openBoard(page, ROUTES.orientation);
     await expect(page.getByTestId("on-call-orientation-filters")).toHaveCount(0);
-    expect(await page.locator('[data-testid^="on-call-orientation-group-"]').count()).toBeGreaterThan(1);
+    await expect.poll(() => page.locator('[data-testid^="on-call-orientation-group-"]').count()).toBeGreaterThan(1);
   });
 
   test("declares no anchor the page does not render", async ({ page }) => {
-    // Admin, and deliberately only Admin. This re-derives the slug from the
-    // word in the bar, which holds wherever the bar's label and the page's
-    // heading are the same string — every page in the mode except Compliance,
-    // whose bar says "Blocking" over a group anchored at
-    // `stops-you-working`. Pointing this loop at that page would fail on the
-    // one design decision it is meant to protect.
+    // Admin, and deliberately only Admin. Admin's Help page (`/admin/help`)
+    // renders `AdminNavHeader`, whose rail words are `ADMIN_HELP_SECTIONS`'
+    // own labels, and whose anchors are that same list's ids
+    // (`admin-help-support`, `admin-help-guides`, ...) — this re-derives the
+    // slug from the word in the bar and checks it against that `admin-help-`
+    // prefix, which holds for every word this page's rail can show.
     await openBoard(page, ROUTES.logistics);
-    for (const label of await barWords(page)) {
+    for (const label of await barWords(page, ADMIN_SECTION_HEADER_PREFIX)) {
       const slug = label
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
       if (!slug) continue;
-      await expect(page.locator(`#on-call-group-${slug}`), `${label} is offered but absent`).toHaveCount(1);
+      await expect(page.locator(`#admin-help-${slug}`), `${label} is offered but absent`).toHaveCount(1);
     }
   });
 });
@@ -756,7 +674,7 @@ test.describe("07 Playbook", () => {
   test("numbers the escalation ladder and keeps the consultant sentence in full ink", async ({ page }) => {
     await openBoard(page, ROUTES.playbook);
     const steps = page.locator('[data-testid^="on-call-playbook-step-"]');
-    expect(await steps.count()).toBeGreaterThanOrEqual(3);
+    await expect.poll(() => steps.count()).toBeGreaterThanOrEqual(3);
     await expect(steps.first()).toContainText("1.");
     await expect(page.getByText("You are expected to make this call")).toBeVisible();
   });
@@ -837,7 +755,7 @@ test.describe("10 Orientation", () => {
   test("draws both checklists, and a tick greys the step it belongs to", async ({ page }) => {
     await openBoard(page, ROUTES.orientation);
     const checklists = page.locator('[data-testid^="on-call-orientation-checklist-"]');
-    expect(await checklists.count()).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => checklists.count()).toBeGreaterThanOrEqual(2);
 
     const step = page.getByRole("button", { name: /Collect the on-call phone/ });
     await expectTapFloor(step, "checklist step");
@@ -863,135 +781,174 @@ test.describe("10 Orientation", () => {
 });
 
 /**
- * Board 11 is drawn as "Logistics" and the drawing keeps that name. Only the
- * label moved: the page is Admin now, and what it holds moved with the word —
- * leave, rosters, pay, forms and access, with Facilities keeping the parking,
- * food and call-room notes the page was first built for. The section id, the
- * route segment and the database CHECK constraint all still read `logistics`,
- * which is why every testid below does too; renaming them would be a
- * migration against the live clinical database for no functional gain.
+ * Board 11 was drawn as "Logistics". Admin update 1 (2026-09-26) split that
+ * page in two: the rows that expire moved to Compliance
+ * (`test.describe("Compliance", ...)` below), and everything else moved to
+ * Admin's own Help page (boards 09/18/19/25) — crisis lines first, an
+ * in-page "Find in Help" filter, then Support/Guides/Contacts/On site, each
+ * an own or shared `on_call_entries` row placed by category and title rather
+ * than a stored "folder". The route segment (`/admin/help`), the underlying
+ * `logistics` section and its rows' `category` values are unchanged; only the
+ * page that reads them is new, so the assertions below check what that page
+ * actually renders instead of the folder headings it replaced.
  */
-test.describe("11 Admin", () => {
-  test("explains a wholly private group inside the card", async ({ page }) => {
-    await openBoard(page, ROUTES.logistics);
-    const note = page.getByTestId("on-call-logistics-private-note");
-    // Exactly one, because the rule is narrower than "somewhere on Admin": a
-    // note on a MIXED group would claim the visible rows beside it are
-    // withheld too, so only a folder with nothing visible in it gets one.
-    await expect(note).toHaveCount(1);
-    await expect(note).toBeVisible();
-    await expect(note).toContainText(/Only you can see this group/i);
+test.describe("11 Admin: Help", () => {
+  /** Clicks a tab's "Show all" if the demo corpus gave it one, so a row past
+   * the first eight is still found regardless of exactly where it falls. */
+  async function showAll(page: Page, listTestId: string) {
+    const button = page.getByTestId(`${listTestId}-show-all`);
+    if (await button.count()) await button.click();
+  }
 
-    // And Access is that folder — after-hours entry, locked wards, logins,
-    // every row of it personal. Located through the group rather than trusted
-    // to be the only note on the page, so a note that ends up over the wrong
-    // folder fails here instead of passing on a count of one.
-    const access = page.locator('section:has([data-testid="on-call-logistics-group-access"])');
-    await expect(access.getByTestId("on-call-logistics-private-note")).toBeVisible();
+  test("puts crisis lines first, with 000 the only filled emergency control and Lifeline its own number", async ({
+    page,
+  }) => {
+    await openBoard(page, ROUTES.logistics);
+    await expect(page.getByTestId("admin-help-crisis")).toBeVisible();
+    // Quiet red and filled is 000's alone; every other line is an outlined disc.
+    await expect(page.locator('[data-testid$="-emergency-dot"]')).toHaveCount(1);
+    await expect(page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-001-emergency-dot")).toBeVisible();
+    await expect(page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-001-call")).toHaveAttribute("href", "tel:000");
+    // Lifeline rings on its own number, never folded into 000's.
+    const lifeline = page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-005");
+    await expect(lifeline).toContainText("Lifeline");
+    await expect(lifeline).toContainText("13 11 14");
+    await expect(page.getByTestId("admin-help-crisis-SYN-CRISIS-CONTACT-005-call")).toHaveAttribute(
+      "href",
+      "tel:131114",
+    );
   });
 
-  test("groups the plain rows under their folder headings", async ({ page }) => {
+  test("finds a row by an everyday word, without hiding crisis lines", async ({ page }) => {
     await openBoard(page, ROUTES.logistics);
-    // ONE WORD PER CATEGORY, and this block is the record of the measurement
-    // that decided it. `category` is both the page's heading and a slot in a
-    // 48px bar of bare words that truncate rather than fold: "What you can
-    // authorise" measured 165px in that row against a 288px phone and was cut
-    // to "Authorise".
-    //
-    // The folders were then re-cut when Logistics became Admin, and the
-    // measurement is what survived — "Rosters and hours" is Rosters, "Pay and
-    // claims" is Pay, "IT and access" is Access, so "Authorise" itself is no
-    // longer one of them. A phrase reads fine in review and truncates on the
-    // phone this mode is opened on at 3am; if a folder seems to need one, the
-    // answer is a better word, not a wider bar.
-    for (const folder of ["leave", "rosters", "pay", "forms", "access", "facilities"]) {
-      await expect(
-        page.getByTestId(`on-call-logistics-group-${folder}`),
-        `the ${folder} folder has rows in the demo corpus but no heading on the page`,
-      ).toBeVisible();
+    // No microphone on this box: it is a filter over what is already on the
+    // page, never the shared search composer (spec).
+    const filter = page.getByRole("textbox", { name: "Find in Help" });
+    await filter.fill("payslip");
+    const guides = page.getByTestId("admin-help-guides-list");
+    await expect(guides.getByText("Demo payslips and pay queries")).toBeVisible();
+    await expect(guides.getByText("Demo sick leave, and who to tell first")).toHaveCount(0);
+    // Crisis lines are never filtered (spec): they render above this check.
+    await expect(page.getByTestId("admin-help-crisis")).toBeVisible();
+  });
+
+  test("shows the Guides tab's own rows, each with its own provenance line", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    const guides = page.getByTestId("admin-help-guides-list");
+    await showAll(page, "admin-help-guides-list");
+    const row = guides.locator("li", { hasText: "Demo payslips and pay queries" });
+    // The demo corpus has no other account, so every row here is the reader's
+    // own — "Shared by another doctor" only ever appears once a second
+    // account's guide exists, which board 30's long-name case exercises.
+    await expect(row).toContainText(/Yours · Updated/);
+  });
+
+  test("shows the On site tab's rows, and the after-hours line exactly when it applies", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    const onSite = page.getByTestId("admin-help-on-site-list");
+    await showAll(page, "admin-help-on-site-list");
+    await expect(onSite.locator("li", { hasText: "Demo security escort" })).toBeVisible();
+    await expect(onSite.locator("li", { hasText: "Demo after-hours entry" })).toBeVisible();
+    await expect(onSite.locator("li", { hasText: "Demo locked wards" })).toBeVisible();
+
+    // Read in the reader's own zone (spec), so this mirrors the app's own
+    // rule rather than pinning a time of day the suite happens to run at.
+    const afterHours = page.getByTestId("admin-help-on-site-after-hours");
+    if (isOnCallOutOfHours(new Date())) {
+      await expect(afterHours).toContainText(
+        `After hours now · from ${String(ON_CALL_IN_HOURS_END_HOUR).padStart(2, "0")}:00`,
+      );
+    } else {
+      await expect(afterHours).toHaveCount(0);
     }
+  });
+
+  test("keeps New job's login rows off Help entirely", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    // "Demo logins, paging and remote access" is category Access with a login
+    // title, so `adminPlacementForEntry` files it at New job, not here — Help
+    // must never show a row New job already owns.
+    await expect(page.getByText("Demo logins, paging and remote access")).toHaveCount(0);
+  });
+
+  test("shows a workforce role explainer in Contacts, not the desk number New job already shows", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    const contacts = page.getByTestId("admin-help-contacts-list");
+    await showAll(page, "admin-help-contacts-list");
+    const explainer = contacts.locator("li", { hasText: "What medical workforce does" });
+    await expect(explainer).toBeVisible();
+    await expect(explainer).toContainText("No date recorded");
+    // The workforce desk's own number is reused, not duplicated, on New job.
+    await expect(page.getByTestId("admin-help-contacts-list").getByText("Demo medical workforce unit")).toHaveCount(0);
   });
 });
 
 /**
- * Compliance — a page the eleven boards never drew.
+ * Compliance — a page the eleven boards never drew, now Admin > Renewals.
  *
- * It was cut out of Admin after the drawing: the same stored `logistics` rows,
- * told apart by `details.kind`, filed by what happens when one lapses rather
- * than by which folder it lives in. A registration whose expiry can stop
- * someone working had no business sitting among forms and rosters, where
- * nothing is expected to run out.
+ * It was cut out of On Call's Admin after the drawing, and on 2026-09-26
+ * (Admin update 1) it moved again: `/on-call/compliance` redirects to
+ * `/admin/renewals`, which is rebuilt as a checklist of the statewide
+ * Requirements catalogue crossed with the doctor's own recorded dates. It has
+ * no section rail and no consequence bands any more; rows are grouped by
+ * state ("Soonest first", "No end date", "Not recorded yet").
  *
- * With no artboard to check it against, this block checks it against the two
- * things its own source says it must be: bands in worst-first order, and no
- * verdict anywhere on the page.
+ * With no artboard to check it against, this block checks what ships: the
+ * groups in that order with the demo corpus's recorded rows in the first, the
+ * "not a check" line above the list, and a Personal tab that holds only the
+ * reader's own off-catalogue renewals — never a contact or a guide.
  */
 test.describe("Compliance — the view the boards never drew", () => {
-  test("files the requirements under consequence bands, worst first", async ({ page }) => {
+  test("files the requirements under state groups, soonest first", async ({ page }) => {
     await openBoard(page, ROUTES.compliance);
 
-    // Slugs from the rendered HEADING, never from the short word the bar
-    // carries: both sides derive them from `heading`, so shortening a bar slot
-    // can never move an anchor. The last one is a band in its own right and
-    // never folded upwards — no recorded consequence is unknown, not
-    // harmless, and guessing it a band would be the app forming exactly the
-    // judgement this page refuses to form.
-    const bands = [
-      "on-call-compliance-group-stops-you-working",
-      "on-call-compliance-group-stops-part-of-your-work",
-      "on-call-compliance-group-someone-chases-you",
-      "on-call-compliance-group-no-consequence-recorded",
-    ];
-    for (const id of bands) {
-      await expect(page.getByTestId(id), `${id} has rows in the demo corpus but does not render`).toBeVisible();
-    }
+    // The demo corpus links three rows to catalogue items (registration,
+    // indemnity, Working with Children Check), so both groups have rows.
+    const soonest = visibleByTestId(page, "admin-renewals-checklist-group-Soonest first");
+    const notRecorded = visibleByTestId(page, "admin-renewals-checklist-group-Not recorded yet");
+    await expect(soonest, "the demo corpus's recorded rows do not render").toBeVisible();
+    await expect(notRecorded).toBeVisible();
+    await expect(soonest).toContainText("Medical registration renewal");
+    await expect(soonest).toContainText("Working with Children Check");
 
-    // The order is the page's whole argument, so presence alone would pass
-    // with the bands reversed. Every compliance tracker ever built sorts by
-    // date, which puts a lapsed fire-safety module level with a lapsed
-    // registration when only one of them stops you working.
-    const tops = await Promise.all(
-      bands.map(async (id) => (await page.getByTestId(id).boundingBox())?.y ?? Number.NaN),
-    );
-    for (let index = 1; index < tops.length; index += 1) {
-      expect(tops[index], `${bands[index]} is above ${bands[index - 1]}`).toBeGreaterThan(tops[index - 1]!);
-    }
+    // Order is the page's argument: a recorded date to act on comes before
+    // the slots nobody has filled in yet.
+    const [soonestBox, notRecordedBox] = [await soonest.boundingBox(), await notRecorded.boundingBox()];
+    expect(notRecordedBox!.y, "Not recorded yet is above Soonest first").toBeGreaterThan(soonestBox!.y);
   });
 
-  test("says on the page that nothing here is checked with the issuing body", async ({ page }) => {
+  test("says on the page that these are dates the reader entered, not a check", async ({ page }) => {
     await openBoard(page, ROUTES.compliance);
-    const note = page.getByTestId("on-call-compliance-scope-note");
-    await expect(note).toBeVisible();
-    await expect(note).toContainText(/Nothing here is checked with the issuing body/i);
+    const summary = visibleByTestId(page, "admin-renewals-summary");
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText("Dates you entered, not a check");
 
-    // Above the first band, not at the foot of the list. A reader who meets
-    // this sentence after scrolling past their own registration has already
-    // read every date on the way down and believed them. A clinical-governance
-    // review rejected an earlier design for implying the app had checked these
-    // dates, and this sentence in this position is the control that keeps it
-    // rejected — a source-only test cannot tell it from a footnote.
-    const [noteBox, firstBand] = [
-      await note.boundingBox(),
-      await page.getByTestId("on-call-compliance-group-stops-you-working").boundingBox(),
+    // Above the list, not at its foot. A reader who meets this sentence after
+    // scrolling past their own registration has already read every date on the
+    // way down and believed them. A clinical-governance review rejected an
+    // earlier design for implying the app had checked these dates, and this
+    // sentence in this position is the control that keeps it rejected.
+    const [summaryBox, firstGroup] = [
+      await summary.boundingBox(),
+      await visibleByTestId(page, "admin-renewals-checklist-group-Soonest first").boundingBox(),
     ];
-    expect(noteBox!.y, "the scope note has slipped below the first band").toBeLessThan(firstBand!.y);
+    expect(summaryBox!.y, "the 'not a check' line has slipped below the list").toBeLessThan(firstGroup!.y);
   });
 
-  test("gives the bar one word per band while the page keeps the phrase", async ({ page }) => {
+  test("keeps Checklist and Personal tabs, and Personal holds only the reader's own renewals", async ({ page }) => {
     await openBoard(page, ROUTES.compliance);
-    // Four bands and no More at 390px: the bar's four-slot band fires from
-    // 22rem and this container is 358px here. The words are the short bar
-    // labels, cut to one each by the same 165px-against-288px measurement that
-    // cut the Admin folders (board 11 above).
-    expect(await barWords(page)).toEqual(["Blocking", "Partial", "Chased", "Unrecorded"]);
+    await expect(page.getByRole("tab", { name: "Checklist" })).toBeVisible();
+    await page.getByRole("tab", { name: "Personal" }).click();
 
-    // What the bar may not do is drop the sentence. "Blocking" over a
-    // registration renewal does not say what is blocked, so the heading keeps
-    // the phrase and only the navigation slot is shortened — and the anchor
-    // stays with the phrase, which is why the two can differ safely.
-    await expect(page.getByRole("heading", { name: "Stops you working" })).toBeVisible();
-    await expect(page.locator("#on-call-group-stops-you-working")).toHaveCount(1);
-    await expect(page.locator("#on-call-group-blocking")).toHaveCount(0);
+    const personal = visibleByTestId(page, "admin-renewals-personal");
+    await expect(personal).toBeVisible();
+    // A demo compliance row that matches no catalogue item.
+    await expect(personal).toContainText("Demo basic life support module");
+    // Never a row from another On Call section: offering "Renewed" on a
+    // contact or a guide would plant compliance keys that hide it from every
+    // colleague's shared read.
+    await expect(personal.getByText("Demo Ward One")).toHaveCount(0);
+    await expect(personal).not.toContainText("Medical registration renewal");
   });
 });
 

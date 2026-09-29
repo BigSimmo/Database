@@ -169,6 +169,25 @@ export async function fetchOwnerCmeYear(
   return rowToCmeRequirementSet(yearRow, requirementRows ?? []);
 }
 
+/** Year ids for the signed-in owner's cross-year Log, bounded by the supported CPD calendar range. */
+export async function fetchOwnerCmeYears(
+  supabase: AdminClient,
+  ownerId: string,
+): Promise<readonly { id: string; year: number }[]> {
+  if (!ownerId) throw new Error("CME years were requested without an ownerId; refusing to run.");
+  const { data, error } = await supabase
+    .from("cme_years")
+    .select("id, year")
+    .eq("owner_id", ownerId)
+    .order("year", { ascending: false })
+    .limit(102);
+  if (error) throw cmeRepositoryError(error);
+  if ((data?.length ?? 0) > 101) {
+    throw new PublicApiError("The complete CPD year list could not be displayed.", 409);
+  }
+  return (data ?? []).map((row) => ({ id: row.id, year: row.year }));
+}
+
 /** Every logged entry for one owner's CPD year, most recent first. */
 export async function fetchOwnerCmeEntries(
   supabase: AdminClient,
@@ -191,7 +210,7 @@ export async function fetchOwnerCmeEntries(
   if (error) throw cmeRepositoryError(error);
   if (count === null || count === undefined || count !== (data?.length ?? 0) || count > CME_MAX_ENTRIES)
     throw new PublicApiError(
-      "This year exceeds the supported entry limit. A complete record cannot be displayed or exported.",
+      "This year exceeds the supported entry limit. The whole record cannot be displayed or exported.",
       409,
     );
 
@@ -242,7 +261,7 @@ export async function saveCmeEntry(
 ): Promise<CmeEntry> {
   if (!ownerId) throw new Error("Missing CME owner.");
   const parsed = cmeEntryCreateSchema.safeParse(entry);
-  if (!parsed.success) throw new PublicApiError("Invalid CME entry details or allocations.", 400);
+  if (!parsed.success) throw new PublicApiError("Invalid CPD entry details or allocations.", 400);
   const payload = parsed.data;
   const { data, error } = await supabase.rpc("cme_save_entry", {
     p_owner_id: ownerId,
@@ -265,9 +284,13 @@ export function cmeRepositoryError(error: { message: string }): Error {
     ],
     cme_year_open: ["This CPD year is not closed. Edit the activity instead of amending it.", 409],
     cme_close_conflict: ["Your record changed while the year was being closed. Reload and try again.", 409],
+    cme_plan_conflict: ["Your plan changed in another tab. Reload before saving it.", 409],
+    cme_goal_not_found: ["This goal is no longer available. Reload the plan and try again.", 404],
+    cme_goal_limit: ["The next year's plan already has ten goals.", 409],
+    cme_carry_unavailable: ["Goal carry is available from 17 December through January.", 409],
     cme_amendment_reason_invalid: ["Give a reason for this amendment (3 to 1000 characters).", 400],
     cme_year_not_confirmed: ["Confirm your CPD year before saving an entry.", 400],
-    cme_entry_not_found: ["CME entry not found.", 404],
+    cme_entry_not_found: ["CPD entry not found.", 404],
     cme_retry_conflict: [
       "This save request was already used for different details. Reload the saved entry before editing it.",
       409,
@@ -353,7 +376,7 @@ export async function saveCmeRoutine(
         .select("*")
         .single();
   if (result.error) throw cmeRepositoryError(result.error);
-  if (!result.data) throw new PublicApiError("CME routine not found.", 404);
+  if (!result.data) throw new PublicApiError("CPD routine not found.", 404);
   return rowToRoutine(result.data);
 }
 
@@ -400,14 +423,12 @@ export async function assertValidCmeLinkedIds(
   }
 }
 
-/**
- * Stamp `transcribed_at` after a successful clipboard copy. Never clears an
- * already-transcribed entry — copying again refreshes the instant.
- */
-export async function markCmeEntryTranscribed(
+/** Update the copy state of one owner-scoped, editable entry. */
+async function setCmeEntryTranscribed(
   supabase: AdminClient,
   ownerId: string,
   entryId: string,
+  transcribed: boolean,
 ): Promise<CmeEntry> {
   if (!ownerId) throw new Error("A CME entry was transcribed without an ownerId; refusing to run.");
 
@@ -418,7 +439,7 @@ export async function markCmeEntryTranscribed(
     .eq("owner_id", ownerId)
     .maybeSingle();
   if (existingError) throw new Error(existingError.message);
-  if (!existing) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
+  if (!existing) throw new PublicApiError("CPD entry not found.", 404, { code: "cme_entry_not_found" });
 
   if ((existing as Record<string, unknown>).archived_at) throw cmeRepositoryError({ message: "cme_entry_archived" });
   const confirmedYear = await fetchOwnerCmeYear(supabase, ownerId, Number(String(existing.activity_date).slice(0, 4)));
@@ -428,20 +449,20 @@ export async function markCmeEntryTranscribed(
     });
   }
   if (cmeYearConfigurationState(confirmedYear) !== "ready") {
-    throw new PublicApiError("Confirm your complete CPD targets before updating this entry.", 400, {
+    throw new PublicApiError("Confirm all of your CPD targets before updating this entry.", 400, {
       code: "cme_year_not_confirmed",
     });
   }
 
   const { data: updated, error: updateError } = await supabase
     .from("cme_entries")
-    .update({ transcribed_at: new Date().toISOString() })
+    .update({ transcribed_at: transcribed ? new Date().toISOString() : null })
     .eq("id", entryId)
     .eq("owner_id", ownerId)
     .select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)")
     .maybeSingle();
   if (updateError) throw cmeRepositoryError(updateError);
-  if (!updated) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
+  if (!updated) throw new PublicApiError("CPD entry not found.", 404, { code: "cme_entry_not_found" });
 
   const row = updated as Record<string, unknown>;
   const joined = (row.cme_allocations as { category: string; hours: number }[] | undefined) ?? [];
@@ -452,6 +473,24 @@ export async function markCmeEntryTranscribed(
       hours: allocation.hours,
     })),
   );
+}
+
+/** Stamp the copy time after a successful clipboard copy. */
+export async function markCmeEntryTranscribed(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+): Promise<CmeEntry> {
+  return setCmeEntryTranscribed(supabase, ownerId, entryId, true);
+}
+
+/** Undo a copy by clearing its time, subject to the same owner and year checks. */
+export async function clearCmeEntryTranscribed(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+): Promise<CmeEntry> {
+  return setCmeEntryTranscribed(supabase, ownerId, entryId, false);
 }
 
 /**
@@ -468,11 +507,11 @@ export async function replaceCmeAllocations(
 ): Promise<{ readonly written: CmeAllocation[]; readonly prior: CmeAllocation[] }> {
   if (!ownerId) throw new Error("CME allocations were replaced without an ownerId; refusing to run.");
   if (allocations.length === 0) {
-    throw new PublicApiError("A CME entry needs at least one category allocation.", 400);
+    throw new PublicApiError("A CPD entry needs at least one category allocation.", 400);
   }
   const categories = allocations.map((allocation) => allocation.category);
   if (new Set(categories).size !== categories.length) {
-    throw new PublicApiError("A CME entry cannot allocate hours to the same category twice.", 400);
+    throw new PublicApiError("A CPD entry cannot allocate hours to the same category twice.", 400);
   }
 
   const { data: priorRows, error: priorError } = await supabase
@@ -605,7 +644,7 @@ export async function amendClosedCmeEntry(
 ): Promise<CmeEntry> {
   if (!ownerId) throw new Error("Missing CME owner.");
   const parsed = cmeEntryCreateSchema.safeParse(entry);
-  if (!parsed.success) throw new PublicApiError("Invalid CME entry details or allocations.", 400);
+  if (!parsed.success) throw new PublicApiError("Invalid CPD entry details or allocations.", 400);
   const { data, error } = await supabase.rpc("cme_amend_closed_entry", {
     p_owner_id: ownerId,
     p_entry_id: entry.id,

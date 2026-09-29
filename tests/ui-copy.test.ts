@@ -57,7 +57,7 @@ const EXPECTED_MODE_TITLES: Record<
   differentials: {
     sharedTitle: "Differential Diagnosis",
     standaloneTitle: "Differentials",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Differential diagnosis, clinical presentations, and workups.",
   },
   dsm: {
     sharedTitle: "DSM-5 Diagnosis",
@@ -116,14 +116,34 @@ const EXPECTED_MODE_TITLES: Record<
     subtitle: "Your service's numbers, escalation, orientation and teaching.",
   },
   cme: {
-    sharedTitle: "CME",
-    standaloneTitle: "CME",
+    sharedTitle: "CPD",
+    standaloneTitle: "CPD",
     subtitle: "What you have done this year, and what is still short.",
+  },
+  teaching: {
+    sharedTitle: "Teaching",
+    standaloneTitle: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
   },
   psychiatry: {
     sharedTitle: "Psychiatry",
     standaloneTitle: "Psychiatry",
     subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+  },
+  "my-work": {
+    sharedTitle: "Admin",
+    standaloneTitle: "Admin",
+    subtitle: "The paperwork around hospital work, with what to start first.",
+  },
+  roster: {
+    sharedTitle: "Roster",
+    standaloneTitle: "Roster",
+    subtitle: "Your own shifts: what's on today, this week and this month.",
+  },
+  "first-nations": {
+    sharedTitle: "First Nations",
+    standaloneTitle: "First Nations",
+    subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
   },
 };
 
@@ -132,7 +152,7 @@ describe("ui-copy", () => {
     it("covers every declared app mode exactly once", () => {
       const definedModes = Object.keys(sharedHomePresentation) as AppModeId[];
       expect(definedModes.sort()).toEqual([...appModeIds].sort());
-      expect(definedModes).toHaveLength(19);
+      expect(definedModes).toHaveLength(23);
     });
 
     it.each(appModeIds)("provides non-empty title and subtitle for %s", (modeId) => {

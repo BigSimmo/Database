@@ -1,5 +1,7 @@
 "use client";
 
+import { ServiceStructuredPreview } from "@/components/on-call/service-structured-preview";
+
 import { ExternalLink, Pencil } from "lucide-react";
 import { useState } from "react";
 
@@ -8,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import type { ServiceAction, ServiceDetail, ServiceEntry, ServiceReport } from "@/lib/on-call/service-model";
+import { formatOnCallDate } from "@/components/on-call/on-call-dates";
 
 type ActionRunner = (action: ServiceAction) => Promise<Record<string, unknown>>;
 
@@ -66,7 +69,7 @@ function ReviewRow({
   return (
     <article className={cn(cardSurface, "grid gap-3 p-4")}>
       <div>
-        <h4 className="break-words text-sm font-bold text-[color:var(--text-heading)]">{entry.content.title}</h4>
+        <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">{entry.content.title}</h4>
         <p className={cn(textMuted, "mt-0.5 text-xs")}>
           {siteName} · {entry.content.kind} · revision {entry.revision} · {entry.status.replace("_", " ")}
         </p>
@@ -76,6 +79,7 @@ function ReviewRow({
           {entry.content.body}
         </p>
       ) : null}
+      <ServiceStructuredPreview content={entry.content} />
       {entry.content.sources.length > 0 ? (
         <div className="grid gap-1">
           {entry.content.sources.map((source) => (
@@ -181,10 +185,8 @@ function ReportRow({
   return (
     <article className={cn(cardSurface, "grid gap-3 p-4")}>
       <div>
-        <h4 className="break-words text-sm font-bold text-[color:var(--text-heading)]">{entryTitle}</h4>
-        <p className={cn(textMuted, "mt-0.5 text-xs")}>
-          Correction reported {new Date(report.createdAt).toLocaleDateString("en-AU")}
-        </p>
+        <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">{entryTitle}</h4>
+        <p className={cn(textMuted, "mt-0.5 text-xs")}>Correction reported {formatOnCallDate(report.createdAt)}</p>
       </div>
       <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[color:var(--text)]">{report.reason}</p>
       <FormField
@@ -237,7 +239,7 @@ export function ServiceGovernancePanel({
   return (
     <section aria-labelledby="service-governance-heading" className="grid gap-5" data-testid="service-governance">
       <div>
-        <h2 id="service-governance-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+        <h2 id="service-governance-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
           Review and corrections
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -246,7 +248,7 @@ export function ServiceGovernancePanel({
       </div>
 
       <section aria-labelledby="service-review-queue-heading" className="grid gap-3">
-        <h3 id="service-review-queue-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-review-queue-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Editorial queue
         </h3>
         {reviewEntries.length === 0 ? (
@@ -271,7 +273,7 @@ export function ServiceGovernancePanel({
       </section>
 
       <section aria-labelledby="service-corrections-heading" className="grid gap-3">
-        <h3 id="service-corrections-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+        <h3 id="service-corrections-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
           Incorrect-entry reports
         </h3>
         {openReports.length === 0 ? (

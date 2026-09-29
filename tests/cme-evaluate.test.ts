@@ -42,7 +42,7 @@ describe("a combined minimum with a floor in each category", () => {
     ];
     const status = evaluateRequirement(combined, entries);
     expect(status.met).toBe(false);
-    expect(status.summary).toBe("3 hours short in measuring outcomes");
+    expect(status.summary).toBe("3 h to go in measuring outcomes");
   });
 
   it("is met when both the total and both floors are reached", () => {
@@ -61,7 +61,7 @@ describe("a combined minimum with a floor in each category", () => {
     const status = evaluateRequirement(combined, entries);
     expect(status.met).toBe(false);
     expect(status.progress).toEqual({ value: 10, target: 25 });
-    expect(status.summary).toBe("15 hours short");
+    expect(status.summary).toBe("15 h to go");
   });
 });
 
@@ -77,7 +77,46 @@ describe("the other three shapes", () => {
     const entries = [entry("2026-02-01", [{ category: "educational", hours: 15 }])];
     const status = evaluateRequirement(requirement, entries);
     expect(status.met).toBe(true);
-    expect(status.summary).toBe("Met");
+    expect(status.summary).toBe("Reached");
+  });
+
+  it("states a gap as hours to go, with one decimal kept and no plural", () => {
+    const requirement: CmeRequirement = {
+      id: "educational",
+      label: "Educational activities",
+      source: "national",
+      completedOn: null,
+      spec: { shape: "hours-in-category", category: "educational", minimumHours: 12.5 },
+    };
+    expect(
+      evaluateRequirement(requirement, [entry("2026-02-01", [{ category: "educational", hours: 11.5 }])]).summary,
+    ).toBe("1 h to go");
+    expect(
+      evaluateRequirement(requirement, [entry("2026-02-01", [{ category: "educational", hours: 10 }])]).summary,
+    ).toBe("2.5 h to go");
+  });
+
+  it("says Reached, never Met, for every shape that can be reached", () => {
+    const peerReview: CmeRequirement = {
+      id: "peer-review",
+      label: "Formal peer review",
+      source: "college",
+      completedOn: null,
+      spec: { shape: "credited-hours", credit: "formal-peer-review", minimumHours: 1 },
+    };
+    const reviewed = { ...entry("2026-02-01", [{ category: "reviewing", hours: 2 }]), formalPeerReviewHours: 2 };
+    expect(evaluateRequirement(peerReview, [reviewed]).summary).toBe("Reached");
+    const domains: CmeRequirement = {
+      id: "domains",
+      label: "Practice domains",
+      source: "national",
+      completedOn: null,
+      spec: { shape: "activity-count", buckets: ["Professionalism"], minimumPerBucket: 1 },
+    };
+    expect(
+      evaluateRequirement(domains, [entry("2026-02-01", [{ category: "educational", hours: 1 }], ["Professionalism"])])
+        .summary,
+    ).toBe("Reached");
   });
 
   it("counts activities per bucket, not hours", () => {

@@ -1,4 +1,4 @@
-# Disaster recovery runbook — Clinical KB Database
+# Disaster recovery runbook — PsychSift Production
 
 Last rehearsed: 2026-07-07 (schema restore rehearsal against a local Supabase
 Postgres container; the live project `sjrfecxgysukkwxsowpy` was read-only

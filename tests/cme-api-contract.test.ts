@@ -140,12 +140,12 @@ describe("the CME API", () => {
 
 describe("CME entry [id] route", () => {
   it("returns 404 identically for a missing id and an id owned by someone else", () => {
-    expect(detail).toContain("CME entry not found.");
+    expect(detail).toContain("CPD entry not found.");
     // Three not-found branches — the PATCH pre-check, the PATCH update, and the DELETE — each
     // fed by a query already scoped by id AND owner_id on the same chain. None of them ever
     // learns whether the id was missing or just belongs to another owner, so none of them can
     // leak that distinction to the caller as a 403-vs-404 oracle.
-    expect(detail.match(/CME entry not found\./g)?.length).toBe(1);
+    expect(detail.match(/CPD entry not found\./g)?.length).toBe(1);
     expect(detail).toContain("setCmeEntryArchived(supabase, user.id, id");
     expect(repository).toContain("cme_entry_not_found");
   });
@@ -163,6 +163,8 @@ describe("CME entry [id] route", () => {
 
   it("persists transcribed_at through a narrow PATCH and replaces allocations transactionally", () => {
     expect(detail).toMatch(/markCmeEntryTranscribed\(/);
+    expect(detail).toMatch(/clearCmeEntryTranscribed\(/);
+    expect(detail).toMatch(/Object\.keys\(rawBody as object\)\.length === 1/);
     expect(detail).toMatch(/saveCmeEntry\(/);
     expect(repository).toMatch(/rpc\("cme_save_entry"/);
   });

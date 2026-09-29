@@ -36,7 +36,7 @@ the signed cookie and redirects the secret back out of the URL. There is no
 second verification path, deliberately — two would be two things to get wrong.
 
 **Setup, once per deployment.** Generate a secret and set it as the server-only
-Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `Database` service:
+Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `PsychSift` service:
 
 ```bash
 openssl rand -hex 32
@@ -104,8 +104,8 @@ forwarded in a message or copied off a screen; the corpus is the clinical
 library. Do not "simplify" those panels by having them trust the cookie.
 
 What a link holder _can_ read is the prototype content and the repository-derived
-panels: the task ledger, the hazard notes, review state, routes, documentation
-inventory, and the Care Plan prototype. Treat the
+panels: the task ledger, the hazard notes, the clinical sign-off queue, and the
+Care Plan prototype. Treat the
 link accordingly — it is roughly as sensitive as the internal notes themselves.
 
 ## Revoking access

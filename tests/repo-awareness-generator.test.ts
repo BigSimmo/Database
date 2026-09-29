@@ -215,7 +215,8 @@ describe("buildDocumentationSection", () => {
     // Removing the URL strip in `catalogueTargets` makes this red: the bare
     // regex would match `docs/only-external.md` inside the blob URL and mark a
     // document catalogued that the index never lists.
-    const readme = "See the source at https://github.com/BigSimmo/Database/blob/main/docs/only-external.md for detail.";
+    const readme =
+      "See the source at https://github.com/BigSimmo/PsychSift/blob/main/docs/only-external.md for detail.";
     const section = buildDocumentationSection(["docs/only-external.md"], readme);
     expect(section.documents[0].catalogued).toBe(false);
     expect(documentationCounts(section).uncatalogued).toBe(1);

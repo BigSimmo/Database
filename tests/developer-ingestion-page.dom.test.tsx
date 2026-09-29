@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DeveloperIngestionPage from "@/app/mockups/development/ingestion/page";
@@ -8,8 +8,7 @@ import DeveloperIngestionPage from "@/app/mockups/development/ingestion/page";
 // next/navigation's useRouter for its history-aware click handler. Outside an
 // app-router tree that throws "invariant expected app router to be mounted",
 // so every render here needs the router mocked, same as every other panel
-// page test (`developer-test-health-page.dom.test.tsx`,
-// `developer-routes-page.dom.test.tsx`).
+// page test (for example `developer-panel-page-shell.dom.test.tsx`).
 vi.mock("next/navigation", () => ({
   usePathname: () => "/mockups/development/ingestion",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
@@ -330,5 +329,176 @@ describe("developer ingestion page — poll cadence (plan §3, Ruling I1)", () =
       await vi.advanceTimersByTimeAsync(30_000);
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("developer ingestion page — retry on failed jobs (owner panel plan v2 item 4)", () => {
+  const failedJob = {
+    id: "11111111-1111-4111-8111-111111111111",
+    status: "failed",
+    document_id: "doc-1",
+    error_message: "OCR timed out",
+    documents: { title: "Lithium monitoring guideline", file_name: "lithium.pdf" },
+  };
+
+  function failedPayload() {
+    return readyPayload({ jobs: [failedJob, { id: "job-done", status: "completed", document_id: "doc-2" }] });
+  }
+
+  async function renderWithFailedJob() {
+    fetchMock.mockResolvedValueOnce(jsonResponse(failedPayload()));
+    render(<DeveloperIngestionPage />);
+    await screen.findByTestId(`developer-ingestion-job-${failedJob.id}`);
+  }
+
+  function retryCalls() {
+    return fetchMock.mock.calls.filter(([input]) => String(input).includes("/retry"));
+  }
+
+  it("offers Retry on failed jobs only", async () => {
+    await renderWithFailedJob();
+    expect(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`)).toBeInTheDocument();
+    expect(within(screen.getByTestId("developer-ingestion-job-job-done")).queryByRole("button")).toBeNull();
+  });
+
+  it("pressing Retry opens an in-page confirm naming the document and the credit cost, without a browser dialog", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm");
+    await renderWithFailedJob();
+
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+
+    const confirm = screen.getByTestId(`developer-ingestion-retry-confirm-${failedJob.id}`);
+    expect(confirm).toHaveTextContent(
+      "Retry indexing Lithium monitoring guideline? This re-runs indexing for this document and may use OpenAI credit.",
+    );
+    expect(within(confirm).getByRole("button", { name: "Retry indexing" })).toBeEnabled();
+    expect(within(confirm).getByRole("button", { name: "Cancel" })).toBeEnabled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    // Opening the confirm alone must never reach the server.
+    expect(retryCalls()).toHaveLength(0);
+  });
+
+  it("Cancel closes the confirm and sends nothing", async () => {
+    await renderWithFailedJob();
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByTestId(`developer-ingestion-retry-confirm-${failedJob.id}`)).not.toBeInTheDocument();
+    expect(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`)).toBeInTheDocument();
+    expect(retryCalls()).toHaveLength(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirming POSTs once to the job's retry route, same-origin, and disables the buttons while it runs", async () => {
+    await renderWithFailedJob();
+    let resolveRetry: (response: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveRetry = resolve;
+        }),
+    );
+
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+    const confirmButton = screen.getByRole("button", { name: "Retry indexing" });
+    fireEvent.click(confirmButton);
+    // A second press while the first is in flight must not send a second POST.
+    fireEvent.click(confirmButton);
+
+    expect(await screen.findByText("Retrying…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry indexing" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+
+    const calls = retryCalls();
+    expect(calls).toHaveLength(1);
+    const [url, init] = calls[0];
+    expect(url).toBe(`/api/ingestion/jobs/${failedJob.id}/retry`);
+    expect(init?.method).toBe("POST");
+    expect(init?.credentials).toBe("same-origin");
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(failedPayload()));
+    await act(async () => {
+      resolveRetry(jsonResponse({ job: { id: failedJob.id, status: "pending" } }));
+    });
+    await screen.findByTestId(`developer-ingestion-retry-queued-${failedJob.id}`);
+  });
+
+  it("on success shows 'Queued for indexing' on that row and refetches the job list", async () => {
+    await renderWithFailedJob();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ job: { id: failedJob.id, status: "pending" } }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        readyPayload({
+          jobs: [{ ...failedJob, status: "pending", error_message: null }],
+          activeJobCount: 1,
+          hasActiveJobs: false,
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+    fireEvent.click(screen.getByRole("button", { name: "Retry indexing" }));
+
+    const queued = await screen.findByTestId(`developer-ingestion-retry-queued-${failedJob.id}`);
+    expect(queued).toHaveTextContent("Queued for indexing");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(String(fetchMock.mock.calls[2][0])).toBe("/api/ingestion/jobs");
+    // After the refetch the job is pending, so it sits under Active, keeps its
+    // outcome line, and no longer offers Retry.
+    const active = await screen.findByTestId("developer-ingestion-active-list");
+    await waitFor(() =>
+      expect(within(active).getByTestId(`developer-ingestion-job-${failedJob.id}`)).toHaveTextContent(
+        "Queued for indexing",
+      ),
+    );
+    expect(screen.queryByTestId(`developer-ingestion-retry-${failedJob.id}`)).not.toBeInTheDocument();
+  });
+
+  it("401 says an administrator sign-in is needed, not the developer key", async () => {
+    await renderWithFailedJob();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Authentication required." }, 401));
+
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+    fireEvent.click(screen.getByRole("button", { name: "Retry indexing" }));
+
+    expect(await screen.findByTestId(`developer-ingestion-retry-error-${failedJob.id}`)).toHaveTextContent(
+      "Sign in as an administrator to retry. The developer key alone can't change anything.",
+    );
+    // No refetch after a refusal.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("409 shows the server's own reason", async () => {
+    await renderWithFailedJob();
+    const reason = "This job is still being processed by a worker. Wait for it to finish or go stale before retrying.";
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: reason, message: reason, code: "ingestion_job_active" }, 409),
+    );
+
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+    fireEvent.click(screen.getByRole("button", { name: "Retry indexing" }));
+
+    expect(await screen.findByTestId(`developer-ingestion-retry-error-${failedJob.id}`)).toHaveTextContent(reason);
+    // The row offers Retry again after a refusal.
+    expect(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`)).toBeInTheDocument();
+  });
+
+  it("429 asks the reader to wait, and any other failure says 'Retry failed' with the message", async () => {
+    await renderWithFailedJob();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Too many ingestion administration requests." }, 429));
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+    fireEvent.click(screen.getByRole("button", { name: "Retry indexing" }));
+    expect(await screen.findByTestId(`developer-ingestion-retry-error-${failedJob.id}`)).toHaveTextContent(
+      "Too many requests. Try again shortly.",
+    );
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Request failed." }, 500));
+    fireEvent.click(screen.getByTestId(`developer-ingestion-retry-${failedJob.id}`));
+    fireEvent.click(screen.getByRole("button", { name: "Retry indexing" }));
+    await waitFor(() =>
+      expect(screen.getByTestId(`developer-ingestion-retry-error-${failedJob.id}`)).toHaveTextContent(
+        "Retry failed: Request failed.",
+      ),
+    );
   });
 });

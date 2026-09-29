@@ -30,9 +30,22 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // CME reads the owner's own continuing-education entries, already in the
   // browser, so it contributes no cross-entity universal-search domain.
   cme: [],
+  // Teaching holds each service's programme and each doctor's own attendance. It
+  // contributes no cross-entity domain, so no Teaching record is ever searched
+  // from the universal tray.
+  teaching: [],
   // Psychiatry is a landing page for the modes it gathers; each of those keeps
   // its own domains, so the hub contributes none of its own.
   psychiatry: [],
+  // Admin (formerly My Work) keeps the owner's own records and sends nothing to
+  // search; it contributes no search domains either.
+  "my-work": [],
+  // Roster reads the owner's own shifts, already in the browser, so it
+  // contributes no cross-entity universal-search domain.
+  roster: [],
+  // First Nations owns its own in-page search box on every page (standard
+  // §13), not the cross-entity universal search, so it contributes no domains.
+  "first-nations": [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {

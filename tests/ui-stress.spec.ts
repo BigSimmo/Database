@@ -208,7 +208,7 @@ async function mockStressData(page: Page) {
           { id: "env", label: ".env.local configured", status: "ready", detail: "Mocked env ready." },
           {
             id: "project",
-            label: "Clinical KB Database target",
+            label: "PsychSift Production target",
             status: "ready",
             detail: "Mocked Supabase project ready.",
           },

@@ -154,7 +154,11 @@ export function AnswerUtilityActions({
       <div className={cn(chatActionRow, "flex-nowrap")} aria-label="Answer actions">
         <button type="button" onClick={onCopy} className={chatMicroAction} aria-label="Copy answer with source status">
           <Copy aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{copied ? "Copied with sources" : "Copy with sources"}</span>
+          {/* Below 360px (small phones) the full label truncated to "Copy …".
+              The short word keeps the action legible; the accessible name is
+              unchanged. */}
+          <span className="truncate max-[359px]:hidden">{copied ? "Copied with sources" : "Copy with sources"}</span>
+          <span className="hidden max-[359px]:inline">{copied ? "Copied" : "Copy"}</span>
         </button>
         {cpdHref ? (
           <Link
@@ -482,7 +486,9 @@ function clinicalNotesRowsForTab(
       /\b(monitor|screen|level|fbc|anc|metabolic|renal|thyroid|function)\b/i.test(sectionText);
     const hasSafetyText =
       tab === "safety" &&
-      /\b(toxicity|toxic|urgent|caution|contraindication|red flag|escalat|warning|review due)\b/i.test(sectionText);
+      /\b(toxicity|toxic|urgent|caution|contraindication|red flag|escalat(?:e|es|ed|ing|ion|ions)|warning|review due)\b/i.test(
+        sectionText,
+      );
     if (!isVerifySourceReview && !meta.sectionIds.includes(section.id) && !hasMonitoringText) {
       if (!hasSafetyText) continue;
     }

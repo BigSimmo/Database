@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7ed5b14f-4c6f-4f21-88ba-a35bf6e54fd6",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#2AB2NJ",
+    "detail": "UPDATE 2026-09-26 (corrects the earlier update): the #GCB0DV timing probe has run (#T9PRB9), but it cannot answer this row. /api/answer's Server-Timing header has no verification stage (src/lib/server-timing.ts answerServerTimingEntries), and verification_latency_ms is recorded only while RAG_TELEMETRY_EXTENDED is on, so repeating the probe will never show whether verification latency matters. The owner decision to leave the flag off stands. Measuring verification needs one of two things: this flag switched on (a Railway production change that needs the owner's approval), or a verification stage added to Server-Timing first. PRIOR DETAIL: OWNER DECISION 2026-09-26 (Josh, 'all as recommended'): leave RAG_TELEMETRY_EXTENDED off. Revisit after the #GCB0DV timing probe shows whether verification latency matters. PRIOR DETAIL: PR #2056 persisted verification_latency_ms behind RAG_TELEMETRY_EXTENDED (typed, default false) with canary-absence tests. Enabling it is a Railway production env change on the Database service (explicit approval; rollback = set false), gated on a dashboard consumer existing. Do not enable speculatively; do not add unproven fields.",
+    "baseRowFingerprint": "2e5bb5925f7058fb35a50385be25c2b00a42f7fb3230beea23a49361ae7c7442"
+  }
+}

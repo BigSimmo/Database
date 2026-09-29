@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 export const requiredClinicalGovernanceItems = [
   "Source-backed claims still require linked source verification before clinical use",
   "No patient-identifiable document workflow was introduced or expanded without explicit governance approval",
-  "Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`)",
+  "Supabase target remains `PsychSift Production` (`sjrfecxgysukkwxsowpy`)",
   "Service-role keys and private document access remain server-only",
   "Demo/synthetic content remains clearly separated from real clinical sources",
   "Source metadata, review status, and outdated/unknown-source behavior remain conservative",
@@ -276,6 +276,10 @@ const ragRankingPatterns = [
   // The contract-pinning tests are protected too: weakening them is the evasion route.
   /^tests\/(?:rag-fast-path-ordering|ranking-tuning|retrieval-selection|rag-second-stage-ranking|eval-retrieval|rag-imputation-contract)\.test\.ts$/,
 ];
+export const safetyPathLists = Object.freeze({
+  ragRanking: Object.freeze(ragRankingPatterns.map((p) => new RegExp(p.source, p.flags))),
+  clinicalRisk: Object.freeze(clinicalRiskPatterns.map((p) => new RegExp(p.source, p.flags))),
+});
 
 const uiPatterns = [
   /^src\/app\/(?!api\/)/,
@@ -980,7 +984,11 @@ export function evaluatePullRequestPolicy({
   // The summary must be its own prose: content nested under a sub-heading
   // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
   // cannot stand in for the required outcome summary.
-  const summaryDirect = summary.replace(/^[ \t]*#{1,6}[ \t]+\S[^]*$/m, "");
+  // The `Areas touched:` and `RAG impact:` lines that `npm run pr:areas` prints go under Summary
+  // too, but they are metadata, not the outcome: pasting them must not hide an empty Summary.
+  const summaryDirect = summary
+    .replace(/^[ \t]*#{1,6}[ \t]+\S[^]*$/m, "")
+    .replace(/^[ \t]*(?:[-*+][ \t]+)?(?:Areas touched|RAG impact):.*$/gim, "");
   const verification = section(body, "Verification");
   const riskAndRollout = section(body, "Risk and rollout");
   const governance = section(body, "Clinical Governance Preflight");
@@ -1522,6 +1530,23 @@ function selfTest() {
   });
   assert.equal(clinicalBare.ok, true, "a missing governance section must not block the merge");
   assert.match(clinicalBare.warnings.join(" "), /Clinical Governance Preflight/);
+  // The pr:areas lines are metadata: a Summary holding only them is still empty...
+  const summaryWarning = "Complete the `## Summary` section with the outcome and affected area.";
+  const areasOnly = evaluatePullRequestPolicy({
+    title: "docs: tidy the organisation map wording",
+    body: "## Summary\n\nAreas touched: Knowledge and records\n- RAG impact: ???\n\n## Verification\n\n- [x] `npm run verify:pr-local`",
+    headRef: "claude/map-wording",
+    files: ["docs/organisation/README.md"],
+  });
+  assert.ok(areasOnly.warnings.includes(summaryWarning), "pr:areas lines alone must not satisfy the Summary");
+  // ...and alongside real outcome prose they change nothing.
+  const areasWithProse = evaluatePullRequestPolicy({
+    title: "docs: tidy the organisation map wording",
+    body: "## Summary\n\n- Clarify how areas are named.\n\nAreas touched: Knowledge and records\n\n## Verification\n\n- [x] `npm run verify:pr-local`",
+    headRef: "claude/map-wording",
+    files: ["docs/organisation/README.md"],
+  });
+  assert.ok(!areasWithProse.warnings.includes(summaryWarning), "outcome prose beside pr:areas lines is a Summary");
   assert.equal(
     section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
@@ -1737,7 +1762,7 @@ function selfTest() {
   console.error("[pr-policy] self-test passed");
 }
 
-// PR #2814's changed files, exactly as `gh api repos/BigSimmo/Database/pulls/2814/files`
+// PR #2814's changed files, exactly as `gh api repos/BigSimmo/PsychSift/pulls/2814/files`
 // listed them on 2026-09-17 (status, filename). It merged with three applied migrations
 // modified in place, which is the incident the history guard exists for.
 const pr2814FileStatuses = `modified .gitleaksignore

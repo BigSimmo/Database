@@ -71,6 +71,15 @@ function requestBody(call: readonly unknown[]) {
 }
 
 describe("CME capture routes", () => {
+  it("opens confirmed Set up as a read view with a link to its editor", () => {
+    render(<CmeSetupRoute year={2025} set={requirementSet} demoMode={false} />);
+    expect(screen.getByTestId("cme-programme-page")).toHaveTextContent(requirementSet.confirmedSource);
+    expect(screen.getByRole("link", { name: /re-confirm against this year/i })).toHaveAttribute(
+      "href",
+      "/cme/setup?year=2025&edit=1",
+    );
+  });
+
   it("keeps a failed routine draft and retries the same full request before navigating to its actual year", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -79,20 +88,21 @@ describe("CME capture routes", () => {
       .mockResolvedValueOnce(jsonResponse({ entry: { id: ENTRY_ID } }));
 
     render(<CmeNewEntryRoute routine={routine} set={requirementSet} demoMode={false} />);
-    const date = screen.getByLabelText("Date");
+    const date = screen.getByLabelText(/^Date/);
     await user.clear(date);
-    await user.type(date, "2025-09-15");
+    await user.type(date, "15/09/2025");
     const credit = screen.getByLabelText(/formal peer-review credit/i);
     await user.clear(credit);
     await user.type(credit, "1");
     await user.click(screen.getByRole("checkbox", { name: "Professionalism" }));
     await user.type(screen.getByLabelText("Reflection"), "Compared documentation practice with peers.");
     await user.type(screen.getByLabelText(/what it cost/i), "45.50");
+    await user.click(screen.getByRole("button", { name: "1.5" }));
     await user.click(screen.getByRole("button", { name: /save entry/i }));
 
     expect(await screen.findByText("The record could not be saved yet.")).toBeInTheDocument();
     expect(screen.getByLabelText(/what was it/i)).toHaveValue("Monthly peer-review group");
-    expect(screen.getByLabelText("Date")).toHaveValue("2025-09-15");
+    expect(screen.getByLabelText(/^Date/)).toHaveValue("15/09/2025");
     expect(screen.getByLabelText(/formal peer-review credit/i)).toHaveValue("1");
     expect(screen.getByRole("checkbox", { name: "Professionalism" })).toBeChecked();
     expect(navigation.push).not.toHaveBeenCalled();
@@ -120,6 +130,32 @@ describe("CME capture routes", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/cme/entries", expect.objectContaining({ method: "POST" }));
   });
 
+  it("says the doctor is offline when a save cannot reach the server, and keeps every field", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
+
+    render(<CmeNewEntryRoute routine={routine} set={requirementSet} demoMode={false} />);
+    const date = screen.getByLabelText(/^Date/);
+    await user.clear(date);
+    await user.type(date, "15/09/2025");
+    const credit = screen.getByLabelText(/formal peer-review credit/i);
+    await user.clear(credit);
+    await user.type(credit, "1");
+    await user.click(screen.getByRole("checkbox", { name: "Professionalism" }));
+    await user.type(screen.getByLabelText("Reflection"), "Compared documentation practice with peers.");
+    await user.click(screen.getByRole("button", { name: "1.5" }));
+    await user.click(screen.getByRole("button", { name: /save entry/i }));
+
+    expect(await screen.findByText(/offline, so nothing was saved/)).toBeInTheDocument();
+    expect(screen.queryByText(/failed to fetch/i)).toBeNull();
+    expect(screen.getByLabelText(/what was it/i)).toHaveValue("Monthly peer-review group");
+    expect(screen.getByLabelText(/^Date/)).toHaveValue("15/09/2025");
+    expect(screen.getByLabelText(/formal peer-review credit/i)).toHaveValue("1");
+    expect(screen.getByRole("checkbox", { name: "Professionalism" })).toBeChecked();
+    expect(screen.getByLabelText("Reflection")).toHaveValue("Compared documentation practice with peers.");
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
   it("sends a complete edit payload and returns to the edited activity", async () => {
     const user = userEvent.setup();
     const entry: CmeEntry = {
@@ -141,9 +177,9 @@ describe("CME capture routes", () => {
     const title = screen.getByLabelText(/what was it/i);
     await user.clear(title);
     await user.type(title, "Peer-review group — corrected");
-    const date = screen.getByLabelText("Date");
+    const date = screen.getByLabelText(/^Date/);
     await user.clear(date);
-    await user.type(date, "2025-09-16");
+    await user.type(date, "16/09/2025");
     const credit = screen.getByLabelText(/formal peer-review credit/i);
     await user.clear(credit);
     await user.type(credit, "1");
@@ -184,10 +220,12 @@ describe("CME capture routes", () => {
       .mockResolvedValueOnce(jsonResponse({ error: "Confirmation is temporarily unavailable." }, 503))
       .mockResolvedValueOnce(jsonResponse({ year: 2025, requirementSet }));
 
-    render(<CmeSetupRoute year={2025} set={requirementSet} demoMode={false} />);
+    render(<CmeSetupRoute year={2025} set={requirementSet} demoMode={false} editInitially />);
     const source = screen.getByLabelText(/source you checked/i);
     await user.clear(source);
     await user.type(source, "Owner-checked revised 2025 guide");
+    // A legacy free-text source reopens as "Other", which needs the CPD home named before saving.
+    await user.type(screen.getByLabelText(/cpd home name/i), "Owner programme");
     await user.click(screen.getByRole("button", { name: /re-confirm requirements/i }));
 
     expect(await screen.findByText("Confirmation is temporarily unavailable.")).toBeInTheDocument();
@@ -196,13 +234,14 @@ describe("CME capture routes", () => {
 
     await user.click(screen.getByRole("button", { name: /re-confirm requirements/i }));
     await waitFor(() => expect(navigation.refresh).toHaveBeenCalledTimes(1));
+    expect(navigation.push).toHaveBeenCalledWith("/cme/setup?year=2025");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/cme/year", expect.objectContaining({ method: "PUT" }));
     const first = requestBody(fetchMock.mock.calls[0]);
     expect(requestBody(fetchMock.mock.calls[1])).toEqual(first);
     expect(first).toEqual({
       ...requirementSet,
-      confirmedSource: "Owner-checked revised 2025 guide",
+      confirmedSource: "CPD home: Other — Owner programme\nSource checked: Owner-checked revised 2025 guide",
     });
   });
 });

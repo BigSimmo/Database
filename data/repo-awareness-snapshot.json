@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-26"
+    "committed_at": "2026-09-28"
   },
   "routes": {
     "modes": [
@@ -19,7 +19,7 @@
       },
       {
         "id": "cme",
-        "label": "CME",
+        "label": "CPD",
         "home": "/cme",
         "dev_only": false
       },
@@ -60,6 +60,12 @@
         "dev_only": false
       },
       {
+        "id": "first-nations",
+        "label": "First Nations",
+        "home": "/first-nations",
+        "dev_only": false
+      },
+      {
         "id": "forms",
         "label": "Forms",
         "home": "/?mode=forms",
@@ -69,6 +75,12 @@
         "id": "formulation",
         "label": "Formulation",
         "home": "/?mode=formulation",
+        "dev_only": false
+      },
+      {
+        "id": "my-work",
+        "label": "Admin",
+        "home": "/admin",
         "dev_only": false
       },
       {
@@ -90,6 +102,12 @@
         "dev_only": false
       },
       {
+        "id": "roster",
+        "label": "Roster",
+        "home": "/roster",
+        "dev_only": false
+      },
+      {
         "id": "services",
         "label": "Services",
         "home": "/?mode=services",
@@ -105,6 +123,12 @@
         "id": "specifiers",
         "label": "Specifiers",
         "home": "/?mode=specifiers",
+        "dev_only": false
+      },
+      {
+        "id": "teaching",
+        "label": "Teaching",
+        "home": "/teaching",
         "dev_only": false
       },
       {
@@ -157,6 +181,21 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/supervision",
+        "file": "src/app/(search-app)/teaching/supervision/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/shifts",
+        "file": "src/app/(search-app)/roster/shifts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/teaching/teach",
+        "file": "src/app/(search-app)/teaching/teach/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/auth/reset-password",
         "file": "src/app/auth/reset-password/page.tsx",
         "area": "product"
@@ -184,6 +223,16 @@
       {
         "path": "/cme/programme",
         "file": "src/app/(search-app)/cme/programme/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/team",
+        "file": "src/app/(search-app)/roster/team/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/teaching/whats-on",
+        "file": "src/app/(search-app)/teaching/whats-on/page.tsx",
         "area": "product"
       },
       {
@@ -262,6 +311,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/resources/[collectionId]",
+        "file": "src/app/(search-app)/teaching/resources/[collectionId]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/dictionary/[slug]",
         "file": "src/app/(search-app)/dictionary/[slug]/page.tsx",
         "area": "product"
@@ -312,6 +366,11 @@
         "area": "product"
       },
       {
+        "path": "/mockups/development/settings",
+        "file": "src/app/mockups/development/settings/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/on-call/now",
         "file": "src/app/(search-app)/on-call/now/page.tsx",
         "area": "product"
@@ -335,6 +394,11 @@
         "path": "/mockups/universal-search-redesign",
         "file": "src/app/mockups/universal-search-redesign/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/logbook",
+        "file": "src/app/(search-app)/teaching/logbook/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/document-search/source-overlays",
@@ -377,11 +441,6 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/compliance",
-        "file": "src/app/(search-app)/on-call/compliance/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/cme/log/[id]",
         "file": "src/app/(search-app)/cme/log/[id]/page.tsx",
         "area": "product"
@@ -402,9 +461,19 @@
         "area": "mockup"
       },
       {
+        "path": "/first-nations/mental-health",
+        "file": "src/app/(search-app)/first-nations/mental-health/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/therapy-scenario-popup-live",
         "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/roster/settings",
+        "file": "src/app/(search-app)/roster/settings/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/tools-workflow-board",
@@ -442,14 +511,19 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/development/review-state",
-        "file": "src/app/mockups/development/review-state/page.tsx",
-        "area": "mockup"
+        "path": "/admin",
+        "file": "src/app/(search-app)/admin/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/roster",
+        "file": "src/app/(search-app)/roster/page.tsx",
+        "area": "product"
       },
       {
         "path": "/cme/customise",
@@ -467,13 +541,28 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/resources",
+        "file": "src/app/(search-app)/teaching/resources/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/answer-chat-perfected",
         "file": "src/app/mockups/answer-chat-perfected/page.tsx",
         "area": "mockup"
       },
       {
+        "path": "/admin/help",
+        "file": "src/app/(search-app)/admin/help/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/dictionary/topics/[slug]",
         "file": "src/app/(search-app)/dictionary/topics/[slug]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/call",
+        "file": "src/app/(search-app)/on-call/call/page.tsx",
         "area": "product"
       },
       {
@@ -507,6 +596,21 @@
         "area": "mockup"
       },
       {
+        "path": "/first-nations/end-of-life",
+        "file": "src/app/(search-app)/first-nations/end-of-life/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/teaching/feedback",
+        "file": "src/app/(search-app)/teaching/feedback/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/on-the-ward",
+        "file": "src/app/(search-app)/first-nations/on-the-ward/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/reference/colour-coding",
         "file": "src/app/reference/colour-coding/page.tsx",
         "area": "product"
@@ -522,9 +626,9 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/development/documentation",
-        "file": "src/app/mockups/development/documentation/page.tsx",
-        "area": "mockup"
+        "path": "/teaching/c/complete",
+        "file": "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "area": "product"
       },
       {
         "path": "/safety-plan",
@@ -562,6 +666,11 @@
         "area": "mockup"
       },
       {
+        "path": "/roster/requests",
+        "file": "src/app/(search-app)/roster/requests/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/development/on-call-freshness",
         "file": "src/app/mockups/development/on-call-freshness/page.tsx",
         "area": "mockup"
@@ -582,6 +691,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/organise",
+        "file": "src/app/(search-app)/teaching/organise/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/cme/check",
         "file": "src/app/(search-app)/cme/check/page.tsx",
         "area": "product"
@@ -594,6 +708,11 @@
       {
         "path": "/on-call/playbook",
         "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/admin/renewals",
+        "file": "src/app/(search-app)/admin/renewals/page.tsx",
         "area": "product"
       },
       {
@@ -627,6 +746,11 @@
         "area": "product"
       },
       {
+        "path": "/first-nations",
+        "file": "src/app/(search-app)/first-nations/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/differentials/diagnoses",
         "file": "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "area": "product"
@@ -640,6 +764,16 @@
         "path": "/mockups/source-rail-desktop-scroll",
         "file": "src/app/mockups/source-rail-desktop-scroll/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/first-nations/card",
+        "file": "src/app/(search-app)/first-nations/card/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/talking",
+        "file": "src/app/(search-app)/first-nations/talking/page.tsx",
+        "area": "product"
       },
       {
         "path": "/therapy-compass/pathways",
@@ -657,6 +791,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/display/[token]",
+        "file": "src/app/(display)/teaching/display/[token]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/cme/calendar",
         "file": "src/app/(search-app)/cme/calendar/page.tsx",
         "area": "product"
@@ -665,6 +804,11 @@
         "path": "/mockups/privacy-live-signal-perfected",
         "file": "src/app/mockups/privacy-live-signal-perfected/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/import",
+        "file": "src/app/(search-app)/teaching/import/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/sidebar-live",
@@ -702,6 +846,11 @@
         "area": "mockup"
       },
       {
+        "path": "/first-nations/mistakes",
+        "file": "src/app/(search-app)/first-nations/mistakes/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/cme",
         "file": "src/app/(search-app)/cme/page.tsx",
         "area": "product"
@@ -730,6 +879,11 @@
         "path": "/mockups/tools-split-compact-sheet",
         "file": "src/app/mockups/tools-split-compact-sheet/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/teaching/week",
+        "file": "src/app/(search-app)/teaching/week/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/clinical-sign-off-actions",
@@ -804,6 +958,11 @@
       {
         "path": "/differentials/search",
         "file": "src/app/(search-app)/differentials/search/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/admin/new-job/records",
+        "file": "src/app/(search-app)/admin/new-job/records/page.tsx",
         "area": "product"
       },
       {
@@ -897,6 +1056,11 @@
         "area": "product"
       },
       {
+        "path": "/roster/manage",
+        "file": "src/app/(search-app)/roster/manage/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/calculators-search",
         "file": "src/app/mockups/calculators-search/page.tsx",
         "area": "mockup"
@@ -909,6 +1073,11 @@
       {
         "path": "/mockups/care-plan/patients/[patientId]/presentations/[presentationId]",
         "file": "src/app/mockups/care-plan/patients/[patientId]/presentations/[presentationId]/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/roster-teams",
+        "file": "src/app/mockups/development/roster-teams/page.tsx",
         "area": "mockup"
       },
       {
@@ -932,6 +1101,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/session/[id]/check-in",
+        "file": "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/therapy-compass/search",
         "file": "src/app/(search-app)/therapy-compass/search/page.tsx",
         "area": "product"
@@ -940,6 +1114,11 @@
         "path": "/mockups/search-band-directions",
         "file": "src/app/mockups/search-band-directions/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/refer",
+        "file": "src/app/(search-app)/on-call/refer/page.tsx",
+        "area": "product"
       },
       {
         "path": "/psychiatry",
@@ -954,6 +1133,16 @@
       {
         "path": "/specifiers/[slug]",
         "file": "src/app/(search-app)/specifiers/[slug]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/first-nations/family",
+        "file": "src/app/(search-app)/first-nations/family/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/admin/new-job",
+        "file": "src/app/(search-app)/admin/new-job/page.tsx",
         "area": "product"
       },
       {
@@ -977,6 +1166,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/session/[id]",
+        "file": "src/app/(search-app)/teaching/session/[id]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/therapy-recommend-popup-triage",
         "file": "src/app/mockups/therapy-recommend-popup-triage/page.tsx",
         "area": "mockup"
@@ -985,11 +1179,6 @@
         "path": "/specifiers/map",
         "file": "src/app/(search-app)/specifiers/map/page.tsx",
         "area": "product"
-      },
-      {
-        "path": "/mockups/development/test-health",
-        "file": "src/app/mockups/development/test-health/page.tsx",
-        "area": "mockup"
       },
       {
         "path": "/mockups/development/clinical-trust",
@@ -1007,9 +1196,19 @@
         "area": "product"
       },
       {
+        "path": "/teaching",
+        "file": "src/app/(search-app)/teaching/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/document-navigation-perfected",
         "file": "src/app/mockups/document-navigation-perfected/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/whos-on",
+        "file": "src/app/(search-app)/on-call/whos-on/page.tsx",
+        "area": "product"
       },
       {
         "path": "/sources/[sourceId]",
@@ -1025,11 +1224,6 @@
         "path": "/mockups/calculators-bedside-sheet",
         "file": "src/app/mockups/calculators-bedside-sheet/page.tsx",
         "area": "mockup"
-      },
-      {
-        "path": "/on-call/calendar",
-        "file": "src/app/(search-app)/on-call/calendar/page.tsx",
-        "area": "product"
       },
       {
         "path": "/mockups/tools-search-mode",
@@ -1052,18 +1246,33 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/shifts",
-        "file": "src/app/(search-app)/on-call/shifts/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/mockups/phone-mode-sheet-yes",
         "file": "src/app/mockups/phone-mode-sheet-yes/page.tsx",
         "area": "mockup"
       },
       {
+        "path": "/first-nations/going-home",
+        "file": "src/app/(search-app)/first-nations/going-home/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/calendar",
+        "file": "src/app/(search-app)/roster/calendar/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/find",
+        "file": "src/app/(search-app)/on-call/find/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/join",
+        "file": "src/app/(search-app)/roster/join/page.tsx",
         "area": "product"
       },
       {
@@ -1087,6 +1296,11 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/c/[token]",
+        "file": "src/app/(search-app)/teaching/c/[token]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/search-refine-adaptive",
         "file": "src/app/mockups/search-refine-adaptive/page.tsx",
         "area": "mockup"
@@ -1099,11 +1313,6 @@
       {
         "path": "/mockups/care-plan/patients/[patientId]/patient-plan/edit",
         "file": "src/app/mockups/care-plan/patients/[patientId]/patient-plan/edit/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/development/routes",
-        "file": "src/app/mockups/development/routes/page.tsx",
         "area": "mockup"
       },
       {
@@ -1127,8 +1336,8 @@
         "area": "mockup"
       },
       {
-        "path": "/on-call/logistics",
-        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "path": "/first-nations/contacts",
+        "file": "src/app/(search-app)/first-nations/contacts/page.tsx",
         "area": "product"
       },
       {
@@ -1152,12 +1361,22 @@
         "area": "mockup"
       },
       {
+        "path": "/teaching/review",
+        "file": "src/app/(search-app)/teaching/review/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/also-matches-accents",
         "file": "src/app/mockups/also-matches-accents/page.tsx",
         "area": "mockup"
       }
     ],
     "redirects": [
+      {
+        "path": "/my-work",
+        "file": "src/app/(search-app)/my-work/page.tsx",
+        "target": "/admin"
+      },
       {
         "path": "/calculators",
         "file": "src/app/(search-app)/calculators/page.tsx",
@@ -1192,6 +1411,11 @@
         "path": "/dictionary",
         "file": "src/app/(search-app)/dictionary/page.tsx",
         "target": "/?mode=dictionary"
+      },
+      {
+        "path": "/on-call/compliance",
+        "file": "src/app/(search-app)/on-call/compliance/page.tsx",
+        "target": "/admin/renewals"
       },
       {
         "path": "/medications",
@@ -1257,6 +1481,11 @@
         "path": "/dictionary/sources",
         "file": "src/app/(search-app)/dictionary/sources/page.tsx",
         "target": "/sources/search?usedBy=dictionary"
+      },
+      {
+        "path": "/on-call/logistics",
+        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "target": "/admin/help"
       }
     ],
     "api": [
@@ -1273,12 +1502,24 @@
         "file": "src/app/api/health/ready/route.ts"
       },
       {
+        "path": "/api/roster/links/refresh",
+        "file": "src/app/api/roster/links/refresh/route.ts"
+      },
+      {
         "path": "/api/differentials",
         "file": "src/app/api/differentials/route.ts"
       },
       {
         "path": "/api/on-call/demo-content",
         "file": "src/app/api/on-call/demo-content/route.ts"
+      },
+      {
+        "path": "/api/roster/owner/teams",
+        "file": "src/app/api/roster/owner/teams/route.ts"
+      },
+      {
+        "path": "/api/roster/extra-time",
+        "file": "src/app/api/roster/extra-time/route.ts"
       },
       {
         "path": "/api/health",
@@ -1293,8 +1534,16 @@
         "file": "src/app/api/medications/[slug]/route.ts"
       },
       {
+        "path": "/api/roster/leave",
+        "file": "src/app/api/roster/leave/route.ts"
+      },
+      {
         "path": "/api/eval-cases",
         "file": "src/app/api/eval-cases/route.ts"
+      },
+      {
+        "path": "/api/roster/shifts/imports/[id]",
+        "file": "src/app/api/roster/shifts/imports/[id]/route.ts"
       },
       {
         "path": "/api/cme/plan",
@@ -1337,12 +1586,28 @@
         "file": "src/app/api/images/[id]/signed-url/route.ts"
       },
       {
+        "path": "/api/teaching/checkin/open",
+        "file": "src/app/api/teaching/checkin/open/route.ts"
+      },
+      {
         "path": "/api/answer",
         "file": "src/app/api/answer/route.ts"
       },
       {
+        "path": "/api/teaching/depth",
+        "file": "src/app/api/teaching/depth/route.ts"
+      },
+      {
+        "path": "/api/teaching/whats-on",
+        "file": "src/app/api/teaching/whats-on/route.ts"
+      },
+      {
         "path": "/api/upload",
         "file": "src/app/api/upload/route.ts"
+      },
+      {
+        "path": "/api/teaching/resources/services/[serviceId]",
+        "file": "src/app/api/teaching/resources/services/[serviceId]/route.ts"
       },
       {
         "path": "/api/cme/year/close",
@@ -1353,8 +1618,20 @@
         "file": "src/app/api/cme/training/route.ts"
       },
       {
+        "path": "/api/teaching/display/[token]",
+        "file": "src/app/api/teaching/display/[token]/route.ts"
+      },
+      {
+        "path": "/api/roster/alerts/check",
+        "file": "src/app/api/roster/alerts/check/route.ts"
+      },
+      {
         "path": "/api/search/universal",
         "file": "src/app/api/search/universal/route.ts"
+      },
+      {
+        "path": "/api/roster/alerts",
+        "file": "src/app/api/roster/alerts/route.ts"
       },
       {
         "path": "/api/on-call/entries/[id]/verify",
@@ -1371,6 +1648,14 @@
       {
         "path": "/api/registry/records",
         "file": "src/app/api/registry/records/route.ts"
+      },
+      {
+        "path": "/api/roster/workplaces",
+        "file": "src/app/api/roster/workplaces/route.ts"
+      },
+      {
+        "path": "/api/roster/read-file",
+        "file": "src/app/api/roster/read-file/route.ts"
       },
       {
         "path": "/api/calendar/feed/[token]",
@@ -1393,6 +1678,10 @@
         "file": "src/app/api/cme/export/route.ts"
       },
       {
+        "path": "/api/roster/settings",
+        "file": "src/app/api/roster/settings/route.ts"
+      },
+      {
         "path": "/api/account/preferences",
         "file": "src/app/api/account/preferences/route.ts"
       },
@@ -1401,12 +1690,24 @@
         "file": "src/app/api/documents/[id]/reviews/route.ts"
       },
       {
+        "path": "/api/roster/team/[serviceId]/export",
+        "file": "src/app/api/roster/team/[serviceId]/export/route.ts"
+      },
+      {
         "path": "/api/ingestion/jobs/[id]/retry",
         "file": "src/app/api/ingestion/jobs/[id]/retry/route.ts"
       },
       {
+        "path": "/api/teaching/import/read",
+        "file": "src/app/api/teaching/import/read/route.ts"
+      },
+      {
         "path": "/api/documents/[id]/reindex",
         "file": "src/app/api/documents/[id]/reindex/route.ts"
+      },
+      {
+        "path": "/api/roster/links",
+        "file": "src/app/api/roster/links/route.ts"
       },
       {
         "path": "/api/cme/missed/[id]",
@@ -1425,6 +1726,14 @@
         "file": "src/app/api/site-content/publications/route.ts"
       },
       {
+        "path": "/api/teaching/services/[serviceId]",
+        "file": "src/app/api/teaching/services/[serviceId]/route.ts"
+      },
+      {
+        "path": "/api/teaching/cpd/review",
+        "file": "src/app/api/teaching/cpd/review/route.ts"
+      },
+      {
         "path": "/api/cme/entries/[id]/evidence",
         "file": "src/app/api/cme/entries/[id]/evidence/route.ts"
       },
@@ -1441,12 +1750,20 @@
         "file": "src/app/api/setup-status/route.ts"
       },
       {
+        "path": "/api/teaching/services/[serviceId]/depth",
+        "file": "src/app/api/teaching/services/[serviceId]/depth/route.ts"
+      },
+      {
         "path": "/api/cme/drafts",
         "file": "src/app/api/cme/drafts/route.ts"
       },
       {
         "path": "/api/cme/routines/[id]",
         "file": "src/app/api/cme/routines/[id]/route.ts"
+      },
+      {
+        "path": "/api/teaching/checkin/complete",
+        "file": "src/app/api/teaching/checkin/complete/route.ts"
       },
       {
         "path": "/api/calendar/feed",
@@ -1459,6 +1776,10 @@
       {
         "path": "/api/documents/[id]/search",
         "file": "src/app/api/documents/[id]/search/route.ts"
+      },
+      {
+        "path": "/api/roster/team",
+        "file": "src/app/api/roster/team/route.ts"
       },
       {
         "path": "/api/cme/routines",
@@ -1477,12 +1798,28 @@
         "file": "src/app/api/account/favourites/route.ts"
       },
       {
+        "path": "/api/roster/team/[serviceId]",
+        "file": "src/app/api/roster/team/[serviceId]/route.ts"
+      },
+      {
         "path": "/api/ingestion/jobs",
         "file": "src/app/api/ingestion/jobs/route.ts"
       },
       {
         "path": "/api/cme/entries/[id]/evidence/[evidenceId]",
         "file": "src/app/api/cme/entries/[id]/evidence/[evidenceId]/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/remind",
+        "file": "src/app/api/roster/team/[serviceId]/remind/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/invite",
+        "file": "src/app/api/roster/team/[serviceId]/invite/route.ts"
+      },
+      {
+        "path": "/api/teaching/cpd",
+        "file": "src/app/api/teaching/cpd/route.ts"
       },
       {
         "path": "/api/cme/entries/[id]/goal",
@@ -1509,12 +1846,24 @@
         "file": "src/app/api/webhooks/railway/route.ts"
       },
       {
+        "path": "/api/roster/owner/teams/[serviceId]",
+        "file": "src/app/api/roster/owner/teams/[serviceId]/route.ts"
+      },
+      {
         "path": "/api/search",
         "file": "src/app/api/search/route.ts"
       },
       {
+        "path": "/api/roster/shifts",
+        "file": "src/app/api/roster/shifts/route.ts"
+      },
+      {
         "path": "/api/on-call/entries/[id]",
         "file": "src/app/api/on-call/entries/[id]/route.ts"
+      },
+      {
+        "path": "/api/roster/team/[serviceId]/cutoff",
+        "file": "src/app/api/roster/team/[serviceId]/cutoff/route.ts"
       },
       {
         "path": "/api/on-call/services/[serviceId]",
@@ -1525,12 +1874,28 @@
         "file": "src/app/api/cme/missed/route.ts"
       },
       {
+        "path": "/api/teaching",
+        "file": "src/app/api/teaching/route.ts"
+      },
+      {
+        "path": "/api/teaching/resources",
+        "file": "src/app/api/teaching/resources/route.ts"
+      },
+      {
         "path": "/api/local-project-id",
         "file": "src/app/api/local-project-id/route.ts"
       },
       {
+        "path": "/api/cme/plan/carry",
+        "file": "src/app/api/cme/plan/carry/route.ts"
+      },
+      {
         "path": "/api/on-call/services",
         "file": "src/app/api/on-call/services/route.ts"
+      },
+      {
+        "path": "/api/roster/shifts/manual",
+        "file": "src/app/api/roster/shifts/manual/route.ts"
       },
       {
         "path": "/api/documents/images/batch",
@@ -1549,8 +1914,16 @@
         "file": "src/app/api/jobs/route.ts"
       },
       {
+        "path": "/api/roster/team/[serviceId]/publish",
+        "file": "src/app/api/roster/team/[serviceId]/publish/route.ts"
+      },
+      {
         "path": "/api/cme/drafts/[id]",
         "file": "src/app/api/cme/drafts/[id]/route.ts"
+      },
+      {
+        "path": "/api/roster/shifts/manual/[seriesId]",
+        "file": "src/app/api/roster/shifts/manual/[seriesId]/route.ts"
       },
       {
         "path": "/api/ingestion/quality",
@@ -1561,14 +1934,44 @@
   "documentation": {
     "documents": [
       {
+        "path": "docs/superpowers/specs/2026-09-26-cpd-elevation-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-16-withhold-unreliable-differential-bodies.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/developer-area-access.md",
         "section": "root",
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-19-registry-records-is-clinical-risk.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/cme-adoption-contract.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-26-loose-around-pages-and-modes.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/interaction-matrix.md",
         "section": "care-plan",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-04-on-call-readable-by-every-visitor.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
@@ -1623,12 +2026,17 @@
       {
         "path": "docs/prompts/sources-mode-extraction.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mode-aware-clinical-ask-local-handover.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-youth-crisis-wording-shows-both-lines.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/review-findings-2026-08-02.md",
@@ -1638,7 +2046,7 @@
       {
         "path": "docs/on-call/design/2026-09-19-review-and-proposals.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/corpus-health-panel-handover.md",
@@ -1661,6 +2069,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-keep-review-fallback-citations.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/archive/BRANCH_ARCHIVE_20260709.md",
         "section": "archive",
         "catalogued": true
@@ -1676,9 +2089,19 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-26-cpd-elevation.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-08-23-platform-contracts-readiness.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-26-remove-ward-flow-and-caring-contacts.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/audit/repo-audit-2026-07-01.md",
@@ -1696,6 +2119,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-27-evidence-preview-on-by-default.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-23-cme-explicit-capture-only.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/operations-runbook.md",
         "section": "root",
         "catalogued": true
@@ -1703,6 +2136,11 @@
       {
         "path": "docs/archive/operator-decisions-2026-07-06.md",
         "section": "archive",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-overview.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -1719,6 +2157,21 @@
         "path": "docs/dsm5tr-handover-reconciliation-2026-09-16.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-19-brand-sheet-self-hosts-fonts.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-08-31-source-drawer-opens-on-the-passage.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-25-medication-default-sources.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/care-plan/reports/task-7-report.md",
@@ -1751,9 +2204,24 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-13-on-call-section-pages-show-their-groups.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/redesign/08-design-review-prompt.md",
         "section": "redesign",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-26-register-crisis-line-publishers.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-07-answer-matches-line-rests-open.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/rag-injection-threat-model.md",
@@ -1783,7 +2251,7 @@
       {
         "path": "docs/product/2026-09-19-second-recommendations.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/source-review-priority-2026-07-02.md",
@@ -1798,6 +2266,11 @@
       {
         "path": "docs/superpowers/plans/2026-09-25-wa-psychiatry-build.md",
         "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-26-answer-page-direction-b.md",
+        "section": "decisions",
         "catalogued": false
       },
       {
@@ -1821,9 +2294,24 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-c-release-2.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.cloud.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-29-compact-roles-tap-floor-40px.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-08-28-logo-single-colour.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/care-plan/verification-report.md",
@@ -1833,7 +2321,7 @@
       {
         "path": "docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
@@ -1846,9 +2334,19 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-19-therapy-ships-with-review-state-disclosed.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/execution-order.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-failure-alerts-reach-the-owners-phone.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/codex-review-protocol.md",
@@ -1864,6 +2362,16 @@
         "path": "docs/superpowers/plans/2026-09-01-sources-mode.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-site-catalogue-first-publication.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-25-mha-timeline-outside-samd-note.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/rag-improvement/HANDOVER.md",
@@ -1896,6 +2404,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-lapsed-review-date-blocks-only-its-own-edit.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/archive/search-rag-phase-5-source-review-ux.md",
         "section": "archive",
         "catalogued": true
@@ -1908,7 +2421,7 @@
       {
         "path": "docs/design-system/sweep-fix-visible-live-regions.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/FIX-GUIDE.md",
@@ -1926,9 +2439,19 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-17-document-summary-rows-get-their-own-provenance.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-17-pr-description-checks-are-advisory.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/DOCS-SYSTEM.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/reindex-runbook.md",
@@ -1963,7 +2486,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-04-on-call-mode.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/bundle-budget-production-rebaseline-2026-08-18.md",
@@ -1983,7 +2506,7 @@
       {
         "path": "docs/on-call/design/mockup-conformance.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mockup-retirement-policy.md",
@@ -2056,6 +2579,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-25-document-results-show-verdict-words.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/audit/2026-09-16-registry-search-outage.md",
         "section": "audit",
         "catalogued": true
@@ -2103,7 +2631,7 @@
       {
         "path": "docs/site-content-sync-runbook.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
@@ -2116,6 +2644,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-18-specifier-sign-off-rules.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/archive/search-rag-phase-2-answer-plan.md",
         "section": "archive",
         "catalogued": true
@@ -2126,8 +2659,18 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-first-nations-mode-completion.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/launch-operator-runbook.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/organisation/README.md",
+        "section": "organisation",
         "catalogued": true
       },
       {
@@ -2149,6 +2692,16 @@
         "path": "docs/search-chrome-behaviour.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-17-rag-programme-routing-before-length.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-25-strong-support-label-needs-every-claim.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-verified-incremental-delivery.md",
@@ -2191,9 +2744,19 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-25-leave-the-app-update-notice.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/source-governance-refresh-worklist-2026-07-22.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-04-on-call-design-choices.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/prompts/codex-tests-quality-gates-ultra-review.md",
@@ -2201,9 +2764,19 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-18-keep-live-search-memory-settings.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/reports/task-6-brief.md",
         "section": "care-plan",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-22-automated-review-coverage.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/brand/design-handover.md",
@@ -2221,6 +2794,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-last-updated-date-model.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/reports/task-5-brief.md",
         "section": "care-plan",
         "catalogued": true
@@ -2234,6 +2812,11 @@
         "path": "docs/agents/test-deletion-guard.md",
         "section": "agents",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-no-identifiable-patient-information.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/observability-slos.md",
@@ -2261,9 +2844,24 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-17-split-quick-and-full-local-checks.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-08-25-answer-page-direction-a.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/specs/2026-08-05-editable-pin-menu-mockups-design.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-19-docling-shadow-cohort-starts-at-2-percent.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/care-plan/reports/task-11-report.md",
@@ -2291,6 +2889,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-16-squash-is-the-preferred-merge-method.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/no-unchecked-indexed-access-migration-plan.md",
         "section": "root",
         "catalogued": true
@@ -2298,7 +2901,7 @@
       {
         "path": "docs/superpowers/plans/2026-09-20-cme-mode-phase-1.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ci-operations.md",
@@ -2331,6 +2934,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-b-release-1.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/rag-improvement/231-diagnosis-2026-08-22.md",
         "section": "rag-improvement",
         "catalogued": true
@@ -2353,6 +2961,11 @@
       {
         "path": "docs/governance/privacy-completion-drafts-2026-09-13.md",
         "section": "governance",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-01-overdue-sources-inside-evidence-gaps.md",
+        "section": "decisions",
         "catalogued": false
       },
       {
@@ -2373,7 +2986,7 @@
       {
         "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/governance/privacy-closeout-2026-09-01.md",
@@ -2383,6 +2996,11 @@
       {
         "path": "docs/cme/design/cme-design-decisions.md",
         "section": "cme",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-safety-chip-urgent-words-and-drug-passages.md",
+        "section": "decisions",
         "catalogued": false
       },
       {
@@ -2426,6 +3044,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-17-disperse-source-acquisition-records.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/rag-improvement/baseline-record.md",
         "section": "rag-improvement",
         "catalogued": true
@@ -2433,7 +3056,7 @@
       {
         "path": "docs/governance/rag-adaptive-continuation-2026-09-13.md",
         "section": "governance",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/09-ui-primitives-recipes.md",
@@ -2453,7 +3076,7 @@
       {
         "path": "docs/on-call/design/on-call-hub-build-prompt.md",
         "section": "on-call",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/patient-facing-sheets/README.md",
@@ -2476,6 +3099,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-26-prototypes-are-standalone-sandboxes.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/accessibility-acceptance.md",
         "section": "care-plan",
         "catalogued": true
@@ -2484,6 +3112,11 @@
         "path": "docs/audit/ux-accessibility-review-2026-07-07.md",
         "section": "audit",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-clinical-eval-battery-additions.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -2511,6 +3144,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-26-hazard-register-in-developer-hub.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/reports/task-3-brief.md",
         "section": "care-plan",
         "catalogued": true
@@ -2533,7 +3171,7 @@
       {
         "path": "docs/site-content-publication-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
@@ -2544,6 +3182,11 @@
         "path": "docs/codex/documentation-ownership/README.md",
         "section": "codex",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-21-care-plan-memory-only-with-storage-seam.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/archive/search-rag-phase-3-synthesis-output.md",
@@ -2581,6 +3224,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-03-source-only-pill-folded-into-limitations.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/reindex-shadow-harness-design.md",
         "section": "root",
         "catalogued": true
@@ -2589,6 +3237,11 @@
         "path": "docs/medication-lexicon-review-worklist.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-name-instruments-never-score-them.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/pwa.md",
@@ -2604,6 +3257,11 @@
         "path": "docs/superpowers/plans/2026-08-22-developer-hub-phase-2-HANDOFF.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-03-safety-findings-below-the-prose.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/execution-order.md",
@@ -2631,6 +3289,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-27-sidebar-documents-points-at-shared-home.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/rag-improvement/data-flow-register.md",
         "section": "rag-improvement",
         "catalogued": true
@@ -2654,6 +3317,26 @@
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-reindex-approved-after-worker-check.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-16-on-call-overdue-entries-in-developer-hub.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-08-21-developer-hub-first-design.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-08-07-weak-evidence-banner-only-when-it-adds.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/agents/repository-skills-and-issues.md",
@@ -2686,6 +3369,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-family-violence-helpline-leads.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/connected-execution.md",
         "section": "superpowers",
         "catalogued": true
@@ -2694,6 +3382,16 @@
         "path": "docs/ledger-id-scheme-proposal.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-26-keep-uploaded-local-retrieval-fail-closed.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-26-first-nations-mode.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
@@ -2706,6 +3404,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-23-cme-year-close-snapshot.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-25-retire-answer-support-card.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
         "catalogued": true
@@ -2714,6 +3422,11 @@
         "path": "docs/error-tracking.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-17-clinical-risk-covers-database-clients.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/agents-guide.md",
@@ -2729,6 +3442,11 @@
         "path": "docs/superpowers/specs/2026-07-02-triage-security-reliability-design.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-16-differentials-sources-stay-held.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/db-maintenance.md",
@@ -2813,6 +3531,16 @@
       {
         "path": "docs/production-readiness.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-26-doppler-is-not-used.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-08-28-logo-tail-tips-clean-cut.md",
+        "section": "decisions",
         "catalogued": false
       },
       {
@@ -2848,6 +3576,16 @@
       {
         "path": "docs/care-plan/cloud-session.md",
         "section": "care-plan",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-19-escalation-and-monitoring-chip-words.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-on-call-completion.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -2906,8 +3644,28 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-24-answer-tables-fold-into-drawer.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/adr/0001-use-a-shared-local-first-clinical-ask-orchestrator.md",
         "section": "adr",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-21-clinical-ask-shared-local-first-orchestrator.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-17-remove-switched-off-automations.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-a-database.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -2919,6 +3677,11 @@
         "path": "docs/audit/capacity-review.md",
         "section": "audit",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-record-sign-off-questions.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/current-clinical-work-brief.md",
@@ -2946,6 +3709,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-09-visual-baseline-off-pull-requests.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/rag-improvement/COORDINATION.md",
         "section": "rag-improvement",
         "catalogued": true
@@ -2968,7 +3736,7 @@
       {
         "path": "docs/design-system/drift-measurement-2026-09-02.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/governance-incident-runbooks.md",
@@ -2983,7 +3751,7 @@
       {
         "path": "docs/pr-batch-runner.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/branch-cleanup-guide.md",
@@ -2999,6 +3767,11 @@
         "path": "docs/design-system/HANDOVER-2026-08-07.md",
         "section": "design-system",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-16-arm-auto-merge-when-opening-a-pr.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/audit/audit-remediation-plan-2026-07-14.md",
@@ -3036,6 +3809,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/specs/2026-09-26-first-nations-mode-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/phone-chrome-physical-acceptance.md",
         "section": "root",
         "catalogued": true
@@ -3043,6 +3821,11 @@
       {
         "path": "docs/evidence/mha-2014-section-summaries-review.md",
         "section": "evidence",
+        "catalogued": true
+      },
+      {
+        "path": "docs/personal-practice/README.md",
+        "section": "personal-practice",
         "catalogued": true
       },
       {
@@ -3054,6 +3837,11 @@
         "path": "docs/superpowers/specs/2026-08-23-clinical-operations-programme-design.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-07-30-phone-chrome-device-acceptance-not-pursued.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/redesign/07-token-adoption-audit.md",
@@ -3091,6 +3879,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-25-source-tier-order-confirmed.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/archive/operator-apply-july8-batch.md",
         "section": "archive",
         "catalogued": true
@@ -3109,6 +3902,21 @@
         "path": "docs/archive/search-rag-phase-0-baseline.md",
         "section": "archive",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-25-answer-provenance-line.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-build-brief.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-26-register-wa-service-issuers.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/archive/operator-decisions-2026-07-04.md",
@@ -3156,14 +3964,34 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-25-railway-waits-for-ci-once-safe.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/dictionary-editorial-drafts.md",
         "section": "root",
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-25-rkpg-clozapine-guideline-handling.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/GATES.md",
         "section": "design-system",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-13-on-call-section-header-row.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-20-cme-no-guided-reflection.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/prompts/rag-coverage-gate-extraction.md",
@@ -3216,8 +4044,18 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-leave-extended-rag-telemetry-off.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/wiring-conventions.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-status.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {
@@ -3263,7 +4101,7 @@
       {
         "path": "docs/supabase-remediation-closeout-notes.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/clinical-governance.md",
@@ -3306,6 +4144,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-26-organisation-check-warns-on-moves.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/audit/primary-checkout-reconciliation-2026-07-24.md",
         "section": "audit",
         "catalogued": true
@@ -3321,6 +4164,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-24-answer-citation-marks-one-colour.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/site-map.md",
         "section": "root",
         "catalogued": true
@@ -3334,6 +4182,21 @@
         "path": "docs/performance.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-24-compact-citations-kept-for-the-rail.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-plan-d-release-3.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-08-31-governed-caution-below-the-prose.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/audit/performance-image-cwv-audit-2026-08-02.md",
@@ -3361,6 +4224,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-25-unsupported-claims-carry-no-mark.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/audit/gate-consolidation-audit-2026-09-02.md",
         "section": "audit",
         "catalogued": true
@@ -3374,6 +4242,11 @@
         "path": "docs/superpowers/rag-upgrade/LOCAL-CONNECTED-EXECUTION-PROMPT.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-27-favourites-phone-keeps-both-cards.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/rag-behaviour/refuted-approaches.md",
@@ -3399,6 +4272,11 @@
         "path": "docs/prompts/codex-cloud-review/1-codex-full-stack-master-review-prompt.md",
         "section": "prompts",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-25-offline-pocket-pack.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-adaptive-answer.md",
@@ -3431,6 +4309,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-13-mode-identity-colours.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/archive/clinical-chat-ui-phase-checklist.md",
         "section": "archive",
         "catalogued": true
@@ -3439,6 +4322,11 @@
         "path": "docs/prompts/codex-performance-reliability-ultra-review.md",
         "section": "prompts",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-25-care-plan-records-when-patient-part-recorded.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/connected-execution.md",
@@ -3458,6 +4346,11 @@
       {
         "path": "docs/audit/2026-09-20-visual-ux-audit.md",
         "section": "audit",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-25-care-plan-shorter-confidential-footer.md",
+        "section": "decisions",
         "catalogued": false
       },
       {
@@ -3486,6 +4379,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-23-two-favourites-surfaces.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-25-tablet-cross-mode-search-is-intended.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/reports/task-4-brief.md",
         "section": "care-plan",
         "catalogued": true
@@ -3504,6 +4407,11 @@
         "path": "docs/archive/design-qa.md",
         "section": "archive",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-25-care-plan-no-false-joint-authorship.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/staging-tenancy-release-evidence.md",
@@ -3536,6 +4444,26 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-18-gate-b-table-target-is-parity.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-25-calculator-governance-reference-not-linked.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-roster-mode-db-agreement.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-22-accept-24-hour-recovery-point.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
         "catalogued": true
@@ -3544,6 +4472,16 @@
         "path": "docs/care-plan-context.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-03-evidence-preview-excludes-per-document.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-25-differential-badges-name-what-they-count.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/care-plan/sdd-ledger.md",
@@ -3561,9 +4499,24 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-24-clinical-notes-sheet-removed.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/README.md",
+        "section": "decisions",
+        "catalogued": true
+      },
+      {
         "path": "docs/database-remediation-coordination.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-09-17-differential-code-is-clinical-risk.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/design-system/sweep-fix-duration-display.md",
@@ -3596,6 +4549,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-09-16-review-records-move-to-pr-comments.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/clinical-sign-off-how-to.md",
         "section": "root",
         "catalogued": true
@@ -3606,9 +4564,24 @@
         "catalogued": true
       },
       {
+        "path": "docs/decisions/2026-08-22-developer-hub-review-state-panel.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
         "path": "docs/source-acquisition-protocol.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-29-missing-values-two-new-phrases.md",
+        "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/decisions/2026-09-12-mode-pill-opens-the-modes-pages-first.md",
+        "section": "decisions",
+        "catalogued": false
       },
       {
         "path": "docs/framework-dependency-modernization-checklist.md",
@@ -3619,6 +4592,11 @@
         "path": "docs/codex/tests-quality-gates/README.md",
         "section": "codex",
         "catalogued": true
+      },
+      {
+        "path": "docs/decisions/2026-08-18-plain-brief-replies.md",
+        "section": "decisions",
+        "catalogued": false
       }
     ],
     "sections": [
@@ -3660,6 +4638,12 @@
       },
       {
         "name": "on-call"
+      },
+      {
+        "name": "organisation"
+      },
+      {
+        "name": "personal-practice"
       },
       {
         "name": "plans"
@@ -10966,6 +11950,14 @@
         "checks": "Provider-backed GitHub PR inventory via MCP (400 PRs #264-#674, all merged=false); local read-only git: rewritten-main-aware cherry-pick + two-dot tree + branch-only-file novelty sweep vs origin/main e75fad90; adversarial re-check. Remote `git push --delete` attempted (provider-backed write) and DENIED with HTTP 403. No OpenAI/Supabase/live-eval checks."
       },
       {
+        "date": "2026-09-27",
+        "ref": "claude/project-thread-dvyrvn",
+        "head": "593f71702e837f59609176ea488fdbdc671236ad",
+        "scope": "Teaching null permission guards and current-main calendar/navigation integration",
+        "outcome": "Reviewed: no remaining blockers in bounded source review",
+        "checks": "Independent schema guardian inspected exact function-body parity, tenancy/grants, schema mirrors, Roster feed mock, navigation and redirects. Permission regression 3/3; migration-role and immutability passed. No PostgreSQL replay or UI execution; drift manifest awaits CI artifact."
+      },
+      {
         "date": "2026-07-17",
         "ref": "PR #737 / claude/therapy-compass-display-6kisnw",
         "head": "594584dc79d9d6c14018dcce088357a251504d4f",
@@ -11228,6 +12220,14 @@
         "scope": "Production UI CI fix: differentials-home hydration strict-mode",
         "outcome": "FIXED. Hosted Production UI failed solely on `dashboard differentials mode param redirects…`: `getByTestId(differentials-home)` hit 2 nodes (server+client overlap). Applied `expectSingleSettledOwner` before the visibility assert. No product change.",
         "checks": "Focused production Playwright journey PASS 1/1 via `npm run test:e2e` (system Chrome); no provider-backed checks."
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "codex/chat-first-nations-completion-first-nations-completion",
+        "head": "5c5d181eb2c0b17e7de81268d7780ef60407b573",
+        "scope": "PR3155 CI and three existing review findings",
+        "outcome": "Validated all three existing findings; prepared account-transition reset, visible-destination search filtering, canonical crisis verification-date synchronization, and dial-sheet typography repair.",
+        "checks": "GitHub run 36321975569 failed Static PR checks: sameFileTextSmMinusMix at dial-sheet.tsx. Source inspection; regression assertions added. No local tests/build/lint/typecheck run by explicit owner request; follow-up validation delegated to GitHub."
       },
       {
         "date": "2026-07-29",
@@ -14446,6 +15446,14 @@
         "checks": "prettier --check . ; check:outstanding-issues ; docs:check-links ; docs:check-index"
       },
       {
+        "date": "2026-09-27",
+        "ref": "HEAD",
+        "head": "7fc6f20231c1519ca6ca710581cf153243b6b402",
+        "scope": "roster-release2-local-acceptance",
+        "outcome": "Findings: successive-publication swap lineage P1; recipient summary P1; targeted UI/state/privacy P2. Reviewed local uncommitted Release2 and separate DB draft; corrections require bounded verification.",
+        "checks": "Static code and contract review only; no tests, browser, SQL replay or provider checks run. Existing passing evidence not reasserted."
+      },
+      {
         "date": "2026-08-24",
         "ref": "cursor/factsheets-topics-page-ec19 (PR #2333)",
         "head": "7fe94b6198fb8b78674b0b423be57851704f86c7",
@@ -15316,6 +16324,14 @@
         "scope": "stale-checkout P0 regression discovery",
         "outcome": "P0 regressions found in stale file checkouts",
         "checks": "Confirmed affected worker/main.ts and tests/reconciliation-preflight.test.ts; superseded by later remediation and current final review"
+      },
+      {
+        "date": "2026-09-27",
+        "ref": "PR #3120",
+        "head": "88f448ea8514b48b5a51509abafa87a4e448f274",
+        "scope": "PR #3120 plans",
+        "outcome": "Changes recommended: publishing race, privacy wording and stale handoff",
+        "checks": "Reviewed exact PR diff and merged SQL; SAST and Secret Scan passed, CI in progress; no local tests"
       },
       {
         "date": "2026-08-16",

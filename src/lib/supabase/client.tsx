@@ -8,6 +8,7 @@ import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
 import { clearOnCallChecklists } from "@/lib/on-call/checklist-storage-keys";
+import { clearOnCallDeviceState } from "@/lib/on-call/device-state-keys";
 import { clearOnCallRecent } from "@/lib/on-call/recent-storage-keys";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
@@ -86,6 +87,8 @@ function clearAccountScopedBrowserState() {
   // third direction: a tick says "I have collected the on-call phone", which
   // is true of a person and not of the next one to sit down.
   clearOnCallChecklists();
+  // Hospital choice, report and call marks, team, shift pick, offline copy.
+  clearOnCallDeviceState();
   // Component-owned stores this lib module may not import (tests/lib-layering):
   // the unscoped favourites pins / last-opened keys (audit L2) and the legacy
   // plan draft left by the retired Caring Contacts prototype (audit L6).
@@ -483,19 +486,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!client) return;
     invalidateAuthRequests();
+    let remoteSignOutFailed = false;
     try {
-      await client.auth.signOut();
+      const result = await client.auth.signOut();
+      if (result?.error) remoteSignOutFailed = true;
     } catch {
-      setStatus("error");
-      setError("Sign out failed. Please try again.");
-      return;
+      remoteSignOutFailed = true;
     }
+    // A failed global sign-out can leave the persisted session in place; drop it locally so a reload is signed out.
+    if (remoteSignOutFailed) await client.auth.signOut({ scope: "local" }).catch(() => undefined);
     clearAccountScopedBrowserState();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
-    setError(null);
-    setNotice(null);
+    if (remoteSignOutFailed) {
+      setNotice("Signed out on this device. Reconnect to complete server sign-out.");
+    } else {
+      setError(null);
+      setNotice(null);
+    }
   }, [client, invalidateAuthRequests]);
 
   const markSessionExpired = useCallback(() => {

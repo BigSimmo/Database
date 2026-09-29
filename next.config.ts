@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { withSentryConfig } from "@sentry/nextjs/config";
+import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { resolveSentryRelease } from "./src/lib/observability/sentry-release";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
@@ -53,6 +53,10 @@ const nextConfig: NextConfig = {
   // never wires up its listeners.
   allowedDevOrigins: ["127.0.0.1"],
   devIndicators: false,
+  // Roster's file reader imports exceljs, whose zip dependency optionally requires
+  // @aws-sdk/client-s3. Bundling it fails the build on that missing optional module, so the
+  // server loads exceljs from the runtime's production node_modules instead.
+  serverExternalPackages: ["exceljs"],
   experimental: {
     // Default 1 is the safe fallback for a Node-24 webpack WasmHash worker crash
     // seen on constrained local builds (see the webpack hashFunction override
@@ -134,7 +138,7 @@ const nextConfig: NextConfig = {
             value:
               // The one inline script is allowed by its hash only (On Call essentials;
               // tests/pwa-manifest.test.ts recomputes it). It never fetches, so no network source is allowed.
-              `default-src 'none'; script-src 'sha256-WM3278q0h6oMCKXTkAFo3jBdi9H8JLx1nOAqSYxKvTI='; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+              `default-src 'none'; script-src 'sha256-OR1yF53qK4E2zk6TXeI0pyrP7gDiSHvUIFA3ypeGZFA='; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
           },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },

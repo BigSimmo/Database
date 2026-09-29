@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CalendarEvent } from "@/lib/calendar/calendar-event";
+import { expandEvents, type CalendarEvent } from "@/lib/calendar/calendar-event";
 import { toIcs } from "@/lib/calendar/ics";
 import { cmeDeadlineEvents, cmeLoggedEvents, cmeRoutineEvents } from "@/lib/cme/calendar-events";
 import { createAustralianRanzcpPreset } from "@/lib/cme/presets";
@@ -167,7 +167,7 @@ describe("applyReminderAlarms", () => {
     expect(result[0].alarmAt).toBeUndefined();
   });
 
-  it("gives a repeating event the alarm of its next occurrence", () => {
+  it("gives each upcoming occurrence of a repeating event its own absolute alarm, after the unchanged series", () => {
     const weekly: CalendarEvent = {
       id: "routine",
       title: "Journal club",
@@ -177,12 +177,66 @@ describe("applyReminderAlarms", () => {
       reminderType: "cpd-routines",
     };
     // 26 Sep 2026, 08:00 Perth. Occurrences fall on Tuesdays; the next is 29 Sep.
-    const result = applyReminderAlarms(
+    const [series, first, second] = applyReminderAlarms(
       [weekly],
       withAlert("cpd-routines", "at-time"),
       new Date("2026-09-26T00:00:00Z"),
     );
-    expect(result[0].alarmAt).toBe("2026-09-29T01:00:00.000Z");
+    expect(series).toEqual(weekly);
+    expect(first).toMatchObject({ id: "routine", date: "2026-09-29", seriesOccurrence: true });
+    expect(first.recurrence).toBeUndefined();
+    // 09:00 Perth on an all-day date.
+    expect(first.alarmAt).toBe("2026-09-29T01:00:00.000Z");
+    expect(second).toMatchObject({ date: "2026-10-06", alarmAt: "2026-10-06T01:00:00.000Z" });
+  });
+
+  it("never lets repeating series that converge on one day exceed the daily cap", () => {
+    // Four monthly all-day events anchored 28-31 Jan all fall on 28 Feb.
+    const series: CalendarEvent[] = [28, 29, 30, 31].map((day) => ({
+      id: `monthly-${day}`,
+      title: `Monthly ${day}`,
+      date: `2027-01-${day}`,
+      kind: "due",
+      recurrence: "monthly",
+      reminderType: "cpd-routines",
+    }));
+    const result = applyReminderAlarms(
+      series,
+      withAlert("cpd-routines", "at-time", { maxAlertsPerDay: 3 }),
+      new Date("2027-01-01T00:00:00Z"),
+    );
+    expect(result.filter((event) => event.recurrence)).toEqual(series);
+    const perDay = new Map<string, number>();
+    for (const event of result) {
+      if (!event.alarmAt) continue;
+      const day = perthDateKey(new Date(event.alarmAt));
+      perDay.set(day, (perDay.get(day) ?? 0) + 1);
+    }
+    expect(perDay.get("2027-02-28")).toBe(3);
+    expect(Math.max(...perDay.values())).toBeLessThanOrEqual(3);
+    // January's alarms fall on four different days, so all four keep theirs.
+    expect(["2027-01-28", "2027-01-29", "2027-01-30", "2027-01-31"].map((day) => perDay.get(day))).toEqual([
+      1, 1, 1, 1,
+    ]);
+    expect(result.every((event) => !event.recurrence || event.alarmAt === undefined)).toBe(true);
+  });
+
+  it("does not let a cancelled event take a real alarm's place under the daily cap", () => {
+    const cancelled: CalendarEvent = { ...ALL_DAY, id: "cancelled-1", status: "cancelled" };
+    const result = applyReminderAlarms(
+      [cancelled, ALL_DAY],
+      withAlert("cpd-year-end", "at-time", { maxAlertsPerDay: 1 }),
+      EARLY,
+    );
+    expect(result[0].alarmAt).toBeUndefined();
+    expect(result[1].alarmAt).toBeDefined();
+  });
+
+  it("gives a one-off event a single alarm and no occurrence overrides", () => {
+    const result = applyReminderAlarms([TIMED], withAlert("teaching", "1h"), EARLY);
+    expect(result).toHaveLength(1);
+    expect(result[0].alarmAt).toBe("2026-10-10T03:30:00.000Z");
+    expect(result[0].seriesOccurrence).toBeUndefined();
   });
 });
 
@@ -262,6 +316,24 @@ describe("toIcs alarms", () => {
     );
   });
 
+  it("writes a series occurrence as a RECURRENCE-ID override with an absolute alarm and no RRULE", () => {
+    const timed = toIcs(
+      [
+        { ...TIMED, recurrence: "weekly" },
+        { ...TIMED, seriesOccurrence: true, alarmAt: "2026-10-10T03:30:00.000Z" },
+      ],
+      { now },
+    );
+    expect(timed.match(/UID:teaching-1@/g)).toHaveLength(2);
+    expect(timed.match(/RRULE:/g)).toHaveLength(1);
+    expect(timed).toContain("RECURRENCE-ID:20261010T043000Z\r\n");
+    expect(timed).toContain("TRIGGER;VALUE=DATE-TIME:20261010T033000Z");
+    expect(timed).not.toContain("RELATED=START");
+    const allDay = toIcs([{ ...ALL_DAY, seriesOccurrence: true, alarmAt: "2026-10-10T01:00:00.000Z" }], { now });
+    expect(allDay).toContain("RECURRENCE-ID;VALUE=DATE:20261010\r\n");
+    expect(allDay).not.toContain("RRULE:");
+  });
+
   it("writes no alarm for an event without one, or with an unreadable one", () => {
     expect(toIcs([ALL_DAY], { now })).not.toContain("VALARM");
     expect(toIcs([{ ...ALL_DAY, alarmAt: "not a date" }], { now })).not.toContain("VALARM");
@@ -270,6 +342,21 @@ describe("toIcs alarms", () => {
   it("leaves a file with no alarms byte-for-byte as before", () => {
     const withoutType = toIcs([{ ...TIMED, reminderType: undefined }], { now });
     expect(toIcs([TIMED], { now })).toBe(withoutType);
+  });
+
+  it("writes one VALARM per extra alarm instant, and an event without alarms is unchanged", () => {
+    const text = toIcs([{ ...ALL_DAY, alarmAt: "2026-10-09T01:00:00.000Z", alarmsAt: ["2026-09-25T01:00:00.000Z"] }], {
+      now,
+    });
+    expect(text.match(/BEGIN:VALARM/g)).toHaveLength(2);
+    expect(text).toContain(
+      "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20261009T010000Z\r\nDESCRIPTION:End of the CPD year\r\nEND:VALARM\r\n",
+    );
+    expect(text).toContain(
+      "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;VALUE=DATE-TIME:20260925T010000Z\r\nDESCRIPTION:End of the CPD year\r\nEND:VALARM\r\n",
+    );
+    // An event with neither field is unchanged: same byte-for-byte output as before `alarmsAt` existed.
+    expect(toIcs([ALL_DAY], { now })).not.toContain("VALARM");
   });
 });
 
@@ -331,6 +418,37 @@ describe("which reminder governs each calendar event", () => {
       "2026-09-26",
     );
     expect(teaching.map((event) => event.reminderType)).toEqual(["teaching"]);
+
+    // A repeating session keeps the owner's own anchor as the series start, so
+    // a monthly session on the 31st is not re-anchored to the 28th after the
+    // roll-forward lands in February.
+    const monthly = onCallTeachingEvents(
+      [
+        {
+          id: "t2",
+          section: "education",
+          slug: "invented-monthly",
+          title: "Invented monthly",
+          subtitle: null,
+          body: null,
+          details: { nextOccurrenceDate: "2026-01-31", recurrenceRule: { frequency: "monthly" } },
+          linkedDocumentIds: [],
+          tags: [],
+          isPersonal: false,
+          includeOnCard: false,
+          sortOrder: 0,
+          lastVerifiedAt: null,
+        } as OnCallEntry,
+      ],
+      "2026-02-15",
+    );
+    expect(monthly.map((event) => event.date)).toEqual(["2026-01-31"]);
+    expect(expandEvents(monthly, { start: "2026-02-15", end: "2026-05-31" }).map((event) => event.date)).toEqual([
+      "2026-02-28",
+      "2026-03-31",
+      "2026-04-30",
+      "2026-05-31",
+    ]);
     const expiries = onCallExpiryEvents(DEMO_ON_CALL_ENTRIES);
     expect(expiries.length).toBeGreaterThan(0);
     expect(new Set(expiries.map((event) => event.reminderType))).toEqual(new Set(["compliance-dates"]));

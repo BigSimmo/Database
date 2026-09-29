@@ -23,7 +23,11 @@ export type InformationPageMode =
   | "sources"
   | "on-call"
   | "cme"
-  | "psychiatry";
+  | "psychiatry"
+  | "my-work"
+  | "roster"
+  | "first-nations"
+  | "teaching";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -93,6 +97,29 @@ export function isInformationPage(pathname: string): boolean {
   // surface, so its home must not wear a composer. The sections it links to
   // keep their own routes and their own composers.
   if (pathname === "/psychiatry") return true;
+  // Every Admin page owns its in-page navigation and has no search composer.
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
+  // Every Roster route, the mode home included, for On Call's reason exactly:
+  // the mode declares no search surface, so it has no composer on any page.
+  // Its pages also own their in-page header (`InPageNavHeader`, the
+  // DocumentViewer template) rather than the shared mode-nav bar, so being an
+  // information page is also what stops the shell drawing a second bar over
+  // the top. `isSlugDetail` covers the single-segment children (`/roster/shifts`,
+  // `/roster/settings`, `/roster/calendar`) and `/roster` itself is the bare
+  // path rather than a slug detail, so it needs its own test.
+  if (isSlugDetail(pathname, "/roster")) return true;
+  if (pathname === "/roster") return true;
+  // Every First Nations route, the mode home included: the mode owns its own
+  // in-page search box on every page (standard §13), so it has no composer of
+  // the shared kind on any route and this is what keeps the shell from
+  // mounting one.
+  if (pathname === "/first-nations" || pathname.startsWith("/first-nations/")) return true;
+  // Every Teaching route, the mode home included, for On Call's reason: the
+  // mode declares no search surface, so no route may wear a composer. Its
+  // child pages mount their own `InPageNavHeader`
+  // (`teaching/teaching-nav-header.tsx`), which being an information page
+  // also keeps the shell from drawing a second bar over.
+  if (pathname === "/teaching" || pathname.startsWith("/teaching/")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -135,4 +162,8 @@ export const informationPageShellModes = [
   "on-call",
   "cme",
   "psychiatry",
+  "my-work",
+  "roster",
+  "first-nations",
+  "teaching",
 ] as const satisfies readonly InformationPageMode[];

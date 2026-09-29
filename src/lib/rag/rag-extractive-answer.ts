@@ -3770,7 +3770,7 @@ function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading"
 }
 
 const clinicalQuerySignalPattern =
-  /\b(?:lithium|clozapine|acamprosate|naltrexone|sertraline|valproate|antipsychotic|ect|bulimia|anorexia|eating disorder|dose|renal|pregnan|monitor|fbc|anc|qtc|opioid|contraindicat|referral|pathway|patient|clinical|guideline|medication|medicine|prescrib|therapy|treatment)\b/i;
+  /\b(?:lithium|clozapine|acamprosate|naltrexone|sertraline|valproate|antipsychotic|ect|bulimia|anorexia|eating disorder|dose|renal|pregnan(?:t|cy|cies)|monitor|fbc|anc|qtc|opioid|contraindicat(?:e|es|ed|ion|ions)|referral|pathway|patient|clinical|guideline|medication|medicine|prescrib(?:e|es|ed|er|ers|ing)|therapy|treatment)\b/i;
 
 /** Is clearly non clinical unsupported query. */
 function isClearlyNonClinicalUnsupportedQuery(query: string) {
@@ -3828,7 +3828,7 @@ function isFragmentLikeClinicalAnswer(text: string, query: string) {
     // Only apply this fragment gate for general/definition questions, not for clinical intent
     // queries like "What is the maximum dose?" or "What is the QTc threshold?" which produce
     // valid concise fact answers that don't contain definition-style phrasing.
-    !/\b(?:required|requirements?|dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor(?:ing)?|renal|contraindicat|referral|pathway|procedure|process|protocol|workflow|steps?|ect|electroconvulsive|qtc|fbc|anc|wbc|level|levels)\b/i.test(
+    !/\b(?:required|requirements?|dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor(?:ing)?|renal|contraindicat(?:e|es|ed|ion|ions)|referral|pathway|procedure|process|protocol|workflow|steps?|ect|electroconvulsive|qtc|fbc|anc|wbc|level|levels)\b/i.test(
       query,
     ) &&
     // "What is required/needed/involved/included…" and "what is the process/procedure/protocol…"
@@ -3949,7 +3949,7 @@ const incompleteOpeningSentencePattern =
 const sourceHeadingOpeningPattern =
   /^(?:appendix\s+\d+|dosage|dose|dosing|dosage and monitoring|dose table|monitoring|referral criteria|contraindications?|adverse effects?|required actions?|thresholds?|summary|overview|formulations?|available products?|product information|table|figure)\.?$/i;
 const openingSentenceActionPattern =
-  /\b(?:avoid|arrange|be|can|cannot|cease|check|contact|continue|could|discontinue|document|escalate|give|include|includes|included|increase|inform|involves|is|list|lists|may|might|monitor|must|need|needed|needs|notify|provide|provides|recommend|recommends|reduce|refer|repeat|report|required|requires|review|should|start|starts|stop|support|supports|use|uses|was|were|will|withhold|would)\b/i;
+  /\b(?:avoid|arrange|be|can|cannot|cease|check|contact|continue|could|discontinue|document|escalate|give|include|includes|included|increase|inform|involves|is|list|lists|may|might|monitor|must|need|needed|needs|notify|provide|provides|recommend(?:s|ed|ing|ation|ations)?|recommends|reduce|refer|repeat|report|required|requires|review|should|start|starts|stop|support|supports|use|uses|was|were|will|withhold|would)\b/i;
 
 /** First sentence. */
 function firstSentence(value: string) {
@@ -4614,7 +4614,8 @@ function sectionHeadingKind(heading: string): AnswerSectionKind {
   if (/\b(?:monitor|timing|baseline|follow)\b/i.test(heading)) return "monitoring_timing";
   if (/\b(?:threshold|red|amber|withhold|stop|cease)\b/i.test(heading)) return "thresholds";
   if (/\b(?:gap|unsupported|source)\b/i.test(heading)) return "source_gap";
-  if (/\b(?:contraindicat|caution|avoid|risk)\b/i.test(heading)) return "contraindications_cautions";
+  if (/\b(?:contraindicat(?:e|es|ed|ion|ions)|caution|avoid|risk)\b/i.test(heading))
+    return "contraindications_cautions";
   return "required_actions";
 }
 
@@ -4800,7 +4801,7 @@ function deliveredFacetPresent(facet: RagAskedPart, text: string) {
     case "management":
       return (
         hasClinicalActionSignal(text) &&
-        /\b(?:manag\w*|treat\w*|therapy|provide|commence|start|administer|give|use|care)\b/i.test(text)
+        /\b(?:manag\w*|treat\w*|therapy|provide|commence(?:s|d|ment)?|start|administer|give|use|care)\b/i.test(text)
       );
     case "comparison":
       return /\b(?:whereas|compared|unlike|versus|both|difference|similar)\b/i.test(text);

@@ -1,6 +1,6 @@
 "use client";
 
-import { BriefcaseMedical, Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
+import { BriefcaseMedical, Calendar, Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
@@ -123,7 +123,7 @@ export function OnCallPageMenuActions({
       ) : null}
 
       <Link
-        href="/on-call/shifts"
+        href="/roster"
         onClick={() => onNavigate?.()}
         className={inPageActionRowClass}
         data-testid="on-call-page-menu-shifts"
@@ -152,6 +152,25 @@ export function OnCallPageMenuActions({
         </span>
       </Link>
 
+      {/* Your own shift calendar. It carries its own event id so a re-download
+          replaces rather than duplicates an entry; heading to Roster later
+          (see task-10-brief.md), it stays here — the app's existing list of
+          personal pages — until that move happens. */}
+      <Link
+        href="/on-call/calendar"
+        onClick={() => onNavigate?.()}
+        className={inPageActionRowClass}
+        data-testid="on-call-page-menu-calendar"
+      >
+        <Calendar aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="grid gap-0.5">
+          <span>Calendar</span>
+          <span className={cn(textMuted, "text-xs font-normal")}>
+            Teaching sessions and your recorded expiry dates.
+          </span>
+        </span>
+      </Link>
+
       {/* Not a control: an explanation, in the place a reader looks when they
               wonder why something is missing. Making it a toggle would imply a
               private entry can be shown to someone who is not signed in, which is
@@ -159,7 +178,7 @@ export function OnCallPageMenuActions({
       <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-privacy">
         <Lock aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="grid gap-0.5">
-          <span className="font-bold">Private entries are yours alone</span>
+          <span className="font-semibold">Private entries are yours alone</span>
           <span className={cn(textMuted, "text-xs")}>
             An entry marked private is visible only when you are signed in, never on the printed card, and never to
             anyone else.
@@ -170,9 +189,9 @@ export function OnCallPageMenuActions({
       <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-tags">
         <Tag aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="grid gap-0.5">
-          <span className="font-bold">What the home shows</span>
+          <span className="font-semibold">What the home shows</span>
           <span className={cn(textMuted, "text-xs")}>
-            {`Tick "Call first on the home" when editing a contact. Tag a contact "${ON_CALL_HOME_TAGS.switchboard}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home too.`}
+            {`Tick "Call first on the home" on a contact to add it to Your usual. Tag a playbook scenario "${ON_CALL_HOME_TAGS.pinned}" to open it first in Who do I call now.`}
           </span>
         </span>
       </div>
@@ -266,12 +285,10 @@ export function OnCallPageMenu({
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          // The count is in the label, not only in the badge: a screen reader
-          // gets the number without having to reach a decorative dot.
+          // Something is waiting, said in words as well as by the dot, and never
+          // as a number (F15): the list, with its count, is inside the sheet.
           aria-label={
-            notificationCount > 0
-              ? `Open ${title} actions. ${notificationCount} ${notificationCount === 1 ? "item needs" : "items need"} attention.`
-              : `Open ${title} actions`
+            notificationCount > 0 ? `Open ${title} actions. Something needs attention.` : `Open ${title} actions`
           }
           data-testid="on-call-page-menu-trigger"
           className={cn(
@@ -285,14 +302,9 @@ export function OnCallPageMenu({
           {notificationCount > 0 ? (
             <span
               aria-hidden="true"
-              data-testid="on-call-page-menu-notification-count"
-              className={cn(
-                "absolute -right-0.5 -top-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1",
-                "bg-[color:var(--command)] text-3xs font-bold leading-4 text-[color:var(--command-contrast)]",
-              )}
-            >
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
+              data-testid="on-call-page-menu-notification-dot"
+              className="absolute right-1.5 top-1.5 size-2 rounded-full bg-[color:var(--clinical-accent)] ring-2 ring-[color:var(--surface)]"
+            />
           ) : null}
         </button>
       </UniversalHeaderTrailingPortal>

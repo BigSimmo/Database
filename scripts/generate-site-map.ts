@@ -174,13 +174,68 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
   "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/search": "Therapy library search surface.",
-  "/on-call":
-    "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
+  "/on-call": "On Call Now: your shift, checklists, usual numbers and the hospital's emergency line.",
+  "/on-call/whos-on": "Who is rostered on, by team, for yesterday, today and tomorrow.",
+  "/on-call/call":
+    "Your hospital's numbers by area, outside lines and your own numbers, each with the date it was updated.",
+  "/on-call/refer": "How to refer to each service at your hospital, and your own referral notes.",
+  "/on-call/find": "Wards, equipment, manuals and the plan for when systems go down, for your hospital.",
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
   "/psychiatry":
     "Psychiatry dashboard: one card each for DSM-5 Diagnosis, Differentials, Specifiers, Formulation, Therapy and Forms, linking to those modes at their own addresses. A dashboard, not a redirect to the shared search home — Psychiatry has no search results surface.",
+  "/admin":
+    "Admin Today: the next renewal to act on, what needs you, statewide requirements recorded and new-job progress. Admin has no search results surface.",
+  "/admin/renewals":
+    "Statewide requirements alongside the doctor's own recorded dates and personal renewals; dates are not verified with an issuing body.",
+  "/admin/new-job": "Starting and leaving a job, with the doctor's own progress and service contacts.",
+  "/admin/new-job/records": "The doctor's own Admin records to copy or print.",
+  "/admin/help": "Crisis lines, support, guides, contacts and on-site detail with in-page search.",
+  "/my-work": "Compatibility redirect to `/admin`, carrying the query string.",
+  "/on-call/compliance": "Compatibility redirect to `/admin/renewals`, carrying the query string.",
+  "/on-call/logistics": "Compatibility redirect to `/admin/help`, carrying the query string.",
+  "/first-nations":
+    "First Nations Bedside page: the Aboriginal liaison figure for the chosen hospital, the crisis strip (000 and 13YARN), what to do first and links to the eight section pages. A dashboard, not a redirect to the shared search home — First Nations has no search results surface.",
+  "/first-nations/contacts":
+    "First Nations contacts: liaison, community-controlled health services and statewide lines, each with its source and checked date.",
+  "/first-nations/talking":
+    "First Nations Talking: how to open a conversation, words to say aloud and the Mental Health Act s 81 cultural-support provisions.",
+  "/first-nations/family": "First Nations Family: involving family, kin and community in care.",
+  "/first-nations/mental-health": "First Nations Mental health: culturally safe assessment and support.",
+  "/first-nations/on-the-ward": "First Nations On the ward: situation plans for the admission (nothing is saved).",
+  "/first-nations/mistakes": "First Nations Common mistakes: what to avoid and what to do instead.",
+  "/first-nations/going-home": "First Nations Going home: discharge planning, travel support and return to Country.",
+  "/first-nations/end-of-life": "First Nations End of life: Sorry Business and caring for the family.",
+  "/first-nations/card": "First Nations pocket card: the key numbers and prompts on one printable card.",
+  "/teaching":
+    "Teaching's Today: the next session as a summary hero with only the actions that apply (Join and Details, or Scan to check in and Check in without code while it is on), what needs the doctor, and one row to the rest of the week, across every service the doctor belongs to. Signed-out readers can open a made-up demo.",
+  "/teaching/week":
+    "The week: a seven-day rail, Whole service or Presenting, every remaining day grouped, Add to my calendar, the doctor's own teaching list also shown from On Call (edited with On Call's editor) and the service handbook's teaching entries.",
+  "/teaching/logbook":
+    "The doctor's attendance record: this term, hours, sessions not yet in CPD, a weekly chart, and a ledger by month with Log to CPD and a CSV download.",
+  "/teaching/teach":
+    "Presenter preparation, de-identification confirmation, taught-before history and released feedback totals.",
+  "/teaching/supervision":
+    "Private registrar and supervisor records, targets, confirmation and retained corrections with a ten-second Undo window.",
+  "/teaching/feedback": "Tap-only feedback for attended sessions; no free text or responder names in presenter totals.",
+  "/teaching/review":
+    "Explicit selection and hours for weekly personal CPD logging; attendance never awards credit automatically.",
+  "/teaching/import":
+    "Organiser timetable CSV/XLSX preview before explicit import, with no patient details or uploaded slides.",
+  "/teaching/organise":
+    "For a service's organisers: the next 48 hours with clashes named, counts, series, groups, members, invitations, posting a change with a 10-second undo, and the attendance export.",
+  "/teaching/whats-on":
+    "What's on across the doctor's health service: On now leads with Join, a day rail and an All / My level / Online switch, and a plus to add another service's open session to the doctor's own week.",
+  "/teaching/session/[id]":
+    "One session under the in-page header: when and where, a change line when it was moved or cancelled, the phase module (On now, check-in, Log to CPD after it ends), details and materials. A removed session says it is no longer in the programme.",
+  "/teaching/session/[id]/check-in":
+    "The presenter's check-in screen: a QR and its six digits that change every 30 seconds, a draining hairline, Room or Teams, counts, and a link to a shared screen. The code comes down when the connection drops.",
+  "/teaching/c/[token]":
+    "Where a scanned check-in QR lands. It opens the scan and finishes it; signed out, it sends a sign-in link that returns to `/teaching/c/complete`. Not indexed, and sends no referrer.",
+  "/teaching/c/complete": "Finishes a check-in after sign-in, from the claim this browser holds.",
+  "/teaching/display/[token]":
+    "The shared check-in screen for a projector or a Teams share: title, room, the QR, its six digits and a draining hairline. No app chrome and no sign-in.",
   "/cme":
-    "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
+    "CPD dashboard: total hours logged this year against the confirmed targets, a plain-words pace line for the year's end, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CPD has no search results surface.",
   "/cme/log":
     "Every continuing-education activity recorded, grouped by month, with a category filter and a text search box. Each row opens the entry it belongs to.",
   "/cme/log/[id]":
@@ -194,19 +249,13 @@ const routeDescriptions: Record<string, string> = {
   "/cme/plan":
     "The yearly development plan screen. Not yet built in this phase — the page says so plainly, and offers logging the time spent writing the plan as an activity so the hours still count toward the year.",
   "/cme/learning":
-    "A curated list of upcoming Western Australian courses and events for psychiatrists, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
+    "A curated list of upcoming Western Australian courses and events, read from a checked-in data file. Past events drop off by today's Perth date, items with unconfirmed dates sit in their own section, and each item links to the organiser and to a prefilled Log as CPD form.",
   "/cme/programme":
     "The requirement targets confirmed for this year — hours required in each category — and the source document they were confirmed against.",
   "/cme/setup":
     "The one-time setup checklist: confirm this year's requirement targets, set up routines, and the other steps this phase has not built yet.",
   "/cme/customise":
-    "Choose which modules show on the CME dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
-  // The second On Call page that is a view rather than a stored section, and
-  // the second to need a line here for that reason: both are `details.kind`
-  // discriminators over an existing section, so neither has a section title
-  // for the generator to fall back on.
-  "/on-call/compliance":
-    "The requirements a doctor keeps current for themselves, grouped by what lapsing costs. Recorded dates only — never a check with the issuing body.",
+    "Choose which modules show on the CPD dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
   "/tools": "Clinical tools and applications launcher directory.",
   // Mockup routes deliberately carry no curated description here — the developer-gated
   // prototypes (see src/lib/developer-area/headers.ts) have none either — so they render with
@@ -293,8 +342,11 @@ const routeOwnershipRows = [
   ],
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
-  ["CME", "src/app/(search-app)/cme, src/components/cme"],
+  ["CPD", "src/app/(search-app)/cme, src/components/cme"],
   ["Psychiatry", "src/app/(search-app)/psychiatry, src/components/psychiatry"],
+  ["Admin", "src/app/(search-app)/admin, src/components/admin, src/lib/admin"],
+  ["First Nations", "src/app/(search-app)/first-nations, src/components/first-nations, src/lib/first-nations"],
+  ["Teaching", "src/app/(search-app)/teaching, src/app/(display)/teaching, src/components/teaching"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -479,6 +531,10 @@ function renderModeRoutes() {
     "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
     cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
     psychiatry: appModeHomeHref("psychiatry"),
+    "my-work": appModeHomeHref("my-work"),
+    roster: appModeHomeHref("roster"),
+    "first-nations": appModeHomeHref("first-nations"),
+    teaching: appModeHomeHref("teaching"),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -613,7 +669,14 @@ function renderModePageIndex() {
         "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
     {
-      mode: "CME",
+      mode: "On Call",
+      home: appModeHomeHref("on-call"),
+      search: appModeHomeHref("on-call"),
+      detail:
+        'No results page — `resultsSurface: "none"`. `/on-call` is a shift dashboard; section pages include `/on-call/now`, `/on-call/call`, `/on-call/refer`, `/on-call/find`, `/on-call/whos-on`, `/on-call/compliance`, `/on-call/contacts`, and `/on-call/who-is-who`.',
+    },
+    {
+      mode: "CPD",
       home: appModeHomeHref("cme"),
       search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
       detail:
@@ -624,7 +687,35 @@ function renderModePageIndex() {
       home: appModeHomeHref("psychiatry"),
       search: appModeHomeHref("psychiatry"),
       detail:
-        'No results page — `resultsSurface: "none"`, like On Call and CME. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
+        'No results page — `resultsSurface: "none"`, like On Call and CPD. `/psychiatry` is a dashboard of links; the six modes it gathers keep their own routes and searches.',
+    },
+    {
+      mode: "Admin",
+      home: appModeHomeHref("my-work"),
+      search: appModeHomeHref("my-work"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like Psychiatry. `/admin` is Today; `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to Admin pages.',
+    },
+    {
+      mode: "Roster",
+      home: appModeHomeHref("roster"),
+      search: appModeHomeHref("roster"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like On Call. `/roster` Today dashboard, `/roster/shifts` full schedule and month calendar, `/roster/calendar` feed subscribe, and `/roster/settings`.',
+    },
+    {
+      mode: "First Nations",
+      home: appModeHomeHref("first-nations"),
+      search: appModeHomeHref("first-nations"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like My Work. Every page keeps its own in-page search box. `/first-nations` Bedside, then `/contacts`, `/talking`, `/family`, `/mental-health`, `/on-the-ward`, `/mistakes`, `/going-home`, `/end-of-life`, and the `/card` pocket card.',
+    },
+    {
+      mode: "Teaching",
+      home: appModeHomeHref("teaching"),
+      search: appModeHomeHref("teaching"),
+      detail:
+        'No results page — `resultsSurface: "none"`, like CPD. `/teaching` is Today; Week, Logbook and Organise are its other pages; `/teaching/session/[id]` is one session with `/check-in`; `/teaching/c/[token]` is the scan landing; `/teaching/display/[token]` is the chrome-free shared screen.',
     },
   ]);
 }

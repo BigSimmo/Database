@@ -259,7 +259,7 @@ export function DocumentSectionSheet({
       title={documentTitle}
       description={
         active
-          ? `${active.label} · ${Math.max(position, 1)} of ${sections.length} — a chevron marks a section that opens first`
+          ? `${active.label} · section ${Math.max(position, 1)} of ${sections.length}. Sections with a down arrow expand when you open them.`
           : undefined
       }
       closeLabel="Close section list"

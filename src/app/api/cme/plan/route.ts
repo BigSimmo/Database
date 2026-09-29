@@ -34,7 +34,7 @@ export async function PUT(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
     const body = await parseJsonBody(request, cmePlanGoalsSaveSchema, "Check your goals and try again.");
     const year = await fetchOwnerCmeYear(supabase, user.id, body.year);
@@ -43,7 +43,7 @@ export async function PUT(request: Request) {
         code: "cme_year_not_confirmed",
       });
     }
-    const goals = await saveOwnerCmePlanGoals(supabase, user.id, year.id, body.goals);
+    const goals = await saveOwnerCmePlanGoals(supabase, user.id, year.id, body.goals, body.expectedGoals);
     return NextResponse.json({ year: body.year, goals });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

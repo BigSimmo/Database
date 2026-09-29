@@ -10,6 +10,7 @@
 @import "./ckb-v2-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant pointer-fine (@media (pointer: fine));
 
 /*
  * Motion variants are redefined so the in-app Motion preference is authoritative
@@ -255,6 +256,11 @@
      misreads the clamp() value as a font-family list. Call sites that set an
      explicit leading-* utility still win over this default. */
   --text-hero--line-height: 1.12;
+  /* The one display figure on a mode home (mode design standard module 8:
+     36–44px at weight 300, inside the hero summary only). CPD's Today uses it
+     for "32.5" in "32.5 of 50 h". Declared in CLINICAL_TWMERGE_THEME.text too. */
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
 
   /* Named leading steps for the two contexts the stepped scale could not
      express, so neither has to be spelled as an arbitrary value. Tailwind owns
@@ -669,10 +675,10 @@
      it must stay synchronous: letting the reserve hook's 80ms quiet window own
      that transition left every element on the page 49px too high for ~110ms,
      long enough for a tap to press one control and release on another
-     (#CHPC5C). On a COLD load this seed still stands unrefined for the whole
-     quiet window, because that immediate publish is suppressed until the hook
-     has settled once — see `use-phone-overlay-chrome-reserve.ts` for why, and
-     docs/search-chrome-behaviour.md for what closing it would take. */
+     (#CHPC5C). On a COLD load, before the hook has settled, the claiming
+     portal instead writes this seed plus the row's own height inline
+     (`claimPhoneOverlayAddonReserve`), so the reserve is exact from the same
+     commit on every path. */
   --phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h));
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --keyboard-height: 0px;
@@ -1158,6 +1164,224 @@ body {
   }
 }
 
+/* Admin (mode id `my-work`): the existing forms brown as its identity.
+   The explicit values also let the design token contract check contrast. */
+[data-mode-identity="my-work"] {
+  --mode-identity: #7d5a2c;
+  --mode-identity-soft: #f8f4ec;
+  --mode-identity-border: #e8dbc4;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="my-work"] {
+  --mode-identity: #d6bd8a;
+  --mode-identity-soft: #2b2317;
+  --mode-identity-border: #4d4028;
+  --mode-identity-contrast: #1f1810;
+}
+
+@media (forced-colors: active) {
+  [data-mode-identity="my-work"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* Roster: violet. The design record's identity colour (Roster Release 1 plan,
+   Global Constraints). Light ~6.9:1 and dark ~7.2:1 against their own contrast
+   token, both cleared as a FILL (the pill's circle) as well as text, which is
+   why the contrast partner is declared rather than assumed white. Same
+   delivery mechanism as On Call and CME above: the local `--clinical-accent`
+   remap, scoped to the elements carrying the attribute. */
+[data-mode-identity="roster"] {
+  --mode-identity: #634f8f;
+  --mode-identity-soft: #f2eef9;
+  --mode-identity-border: #ddd3ee;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="roster"] {
+  --mode-identity: #b0a0d8;
+  --mode-identity-soft: #241c3a;
+  --mode-identity-border: #3b3054;
+  --mode-identity-contrast: #170f26;
+}
+
+@media (forced-colors: active) {
+  /* Declared as its own rule, as On Call's and CME's are, so a grouped
+     selector cannot stop this from matching an exact-selector read. */
+  [data-mode-identity="roster"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* Teaching: plum, for the pill, the current tab and module icon tiles only.
+   Light #7a3b6e (spec §6). Dark is the calmer #cfa3c6 of v4.2, cleared as a
+   fill under #2a0f24 as well as as text. Buttons, links and selection stay
+   product colours (`--primary`), which this block does not remap. The hero's
+   colours are the mode kit's `--surface-summary*`. The QR pair is not
+   redefined for dark: a camera needs dark modules on a light quiet zone. */
+[data-mode-identity="teaching"] {
+  --mode-identity: #7a3b6e;
+  --mode-identity-soft: #f8eff6;
+  --mode-identity-border: #ead6e5;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+
+  --teaching-segment-on: var(--surface-lux);
+  --teaching-segment-line: var(--border);
+  --teaching-qr-light: #ffffff;
+  --teaching-qr-dark: #000000;
+}
+
+.dark [data-mode-identity="teaching"] {
+  --mode-identity: #cfa3c6;
+  --mode-identity-soft: #2a1d27;
+  --mode-identity-border: #45303f;
+  --mode-identity-contrast: #2a0f24;
+
+  --teaching-segment-on: var(--surface-lux);
+  --teaching-segment-line: #3a434c;
+}
+
+@media (forced-colors: active) {
+  /* Its own rule: the token test reads each block by its exact selector. */
+  [data-mode-identity="teaching"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+    --teaching-segment-on: Canvas;
+    --teaching-segment-line: CanvasText;
+  }
+}
+
+/* The live dot's one pulse (LiveLabel). The kit's state label has no live
+   tone; components apply it under `motion-safe:` only. */
+@keyframes teaching-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--success) 0%, transparent);
+  }
+}
+
+/* Mode summary surface (mode design standard v13.3 §4).
+   ------------------------------------------------------------------
+   The dark "Right now" panel a mode home may build its hero from; every mode
+   reuses these rather than inventing its own dark card. Read through the
+   `modeSummary*` recipes in `src/components/mode-kit/recipes.ts`.
+   Light: the graphite command fill with its own light ink (16.5:1) and muted
+   ink (7.8:1). Dark: the raised lux surface with the ordinary dark text, so the
+   panel lifts instead of inverting. The aliases resolve on <html>, like the
+   mode identity block above. */
+:root {
+  --surface-summary: var(--command);
+  --surface-summary-ink: #f5f7f7;
+  --surface-summary-muted: #a4adb7;
+  --surface-summary-line: rgb(255 255 255 / 12%);
+}
+
+.dark {
+  --surface-summary: var(--surface-lux);
+  --surface-summary-ink: var(--text);
+  --surface-summary-muted: var(--text-muted);
+  --surface-summary-line: var(--border);
+}
+
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --surface-summary: Canvas;
+    --surface-summary-ink: CanvasText;
+    --surface-summary-muted: CanvasText;
+    --surface-summary-line: CanvasText;
+  }
+}
+
+/* First Nations: olive (mode design standard v13.1 §3). Light 6.1:1 on white,
+   dark 9.0:1 on a dark card, disc glyph 9.4:1. Used only on the pill, the
+   current tab, module icon tiles, the hero's day track and quotation accents.
+   Pinned by tests/first-nations-mode-colour.test.ts. */
+[data-mode-identity="first-nations"] {
+  --mode-identity: #4d6b2f;
+  --mode-identity-soft: #f2f5ee;
+  --mode-identity-border: #dce4d2;
+  --mode-identity-contrast: #ffffff;
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="first-nations"] {
+  --mode-identity: #b5c98c;
+  --mode-identity-soft: #232b1d;
+  --mode-identity-border: #3a4730;
+  --mode-identity-contrast: #172009;
+}
+
+/* On the hero summary panel the mode colour uses its dark value in both themes (v13.3). */
+[data-mode-identity="first-nations"].fn-on-summary {
+  --mode-identity: #b5c98c;
+}
+
+@media (forced-colors: active) {
+  [data-mode-identity="first-nations"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
+/* The one display figure on the First Nations hero (standard §1: 36 px at 300). */
+.fn-display-36 {
+  font-size: 2.25rem;
+  line-height: var(--leading-display);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Serif accent: words to say aloud, quoted law, the Acknowledgement. */
+.fn-voice {
+  font-family: var(--font-fn-serif), ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* CPD's hero bar fill (Today's hero summary, the hero's one graphic).
+   The dashboard is not inside [data-mode-identity="cme"] (only the pill and
+   the rail carry it), so the fill cannot read --mode-identity. The summary panel is
+   dark in both themes, so both themes take CPD's dark-theme indigo, as the
+   standard says for the mode colour on a hero: 7.3:1 on the light panel and
+   6.7:1 on the dark one; 5.1:1 and 5.4:1 against the bar's track
+   (--surface-summary-line). */
+:root {
+  --cme-hero-fill: #97a3df;
+}
+
 @layer base {
   /* Interactive element defaults */
   button,
@@ -1621,6 +1845,17 @@ summary::-webkit-details-marker {
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text-muted);
   font-weight: 800;
+}
+
+/* DSM mobile compare strip adapts to footer scroll-hide transitions */
+.dsm-mobile-compare-strip {
+  transition: transform var(--duration-quick) var(--ease-out-soft);
+}
+
+@media (max-width: 1023px) {
+  .dsm-mobile-compare-strip[data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + var(--safe-area-bottom, 0px) + 2rem));
+  }
 }
 
 /* Medication surfaces: Patient details sits above the search pill in the dock,
@@ -3488,7 +3723,6 @@ summary::-webkit-details-marker {
   }
 }
 
-/* Safe-area helpers for notches and home indicators */
 @utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
@@ -3499,6 +3733,19 @@ summary::-webkit-details-marker {
 
 @utility pb-safe-2 {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Global PWA notices sit above the phone composer and home indicator without
@@ -5312,6 +5559,16 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
    --mobile-composer-reserve (hero ↔ dock) must snap — those clear the marker
    immediately. DocumentViewer keeps its own Tailwind duration classes. */
 @media (max-width: 639px) {
+  /* The top reserve must snap in the frame it changes (#CHPC5C). The initial
+     `transition-property` is `all`, and the reduced-motion rules give every
+     element a 0.01ms duration, so without this a portal's cold-load claim of
+     `--phone-overlay-chrome-h` started a padding-top transition that painted
+     the old value for one frame: every tap target 49px too high, then back.
+     The reserve-transitioning rule below is more specific and still animates
+     padding-bottom when it applies. */
+  [data-testid="mobile-composer-reserve-pad"] {
+    transition-property: none;
+  }
   #main-content[data-reserve-transitioning="true"] {
     will-change: padding-bottom;
     transition: padding-bottom var(--duration-slow) var(--ease-out-soft);

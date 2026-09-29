@@ -13,8 +13,27 @@
  * Keep it free of imports. Anything added here is added to every page.
  */
 
-export const onCallEntryCacheStorageKey = "clinical-kb-on-call-entries-cache";
+export const onCallEntryCacheStorageKey = "clinical-kb-on-call-entries-cache-v2";
 export const onCallEntryCacheChangedEvent = "clinical-kb-on-call-entries-cache-changed";
+
+/**
+ * Keys this cache was kept under before, removed wherever the cache is read or
+ * cleared. The unversioned copy was written while the shared read still carried
+ * other accounts' Teaching entries and colleagues' contact names, and it could
+ * sit on a device for seven days; renaming the key makes every device drop it
+ * rather than keep showing what the server no longer sends (2026-09-26).
+ * `public/offline.html` reads only the current key.
+ */
+const legacyOnCallEntryCacheStorageKeys = ["clinical-kb-on-call-entries-cache"] as const;
+
+export function removeLegacyOnCallEntryCaches(): void {
+  if (typeof window === "undefined") return;
+  try {
+    for (const key of legacyOnCallEntryCacheStorageKeys) window.localStorage.removeItem(key);
+  } catch {
+    // Storage blocked: nothing can be read from it either.
+  }
+}
 
 /**
  * Whether the cache currently holds the example corpus put there by a preview
@@ -72,6 +91,7 @@ export function peekOnCallEntrySessionEpoch(): number {
 export function clearOnCallEntryCache(): void {
   onCallEntrySessionEpoch += 1;
   if (typeof window === "undefined") return;
+  removeLegacyOnCallEntryCaches();
   try {
     window.localStorage.removeItem(onCallEntryCacheStorageKey);
     // The preview marker describes the cache that just went, so it goes too.

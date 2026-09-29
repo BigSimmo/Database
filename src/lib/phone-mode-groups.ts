@@ -3,7 +3,7 @@ import type { AppModeId } from "@/lib/app-modes";
 /**
  * How the phone mode sheet groups the app's modes.
  *
- * A nineteen-item flat list is unusable on a phone, so the sheet groups it,
+ * A twenty-one-item flat list is unusable on a phone, so the sheet groups it,
  * and the desktop menu uses the same groups whenever it is not filtered. That makes
  * this a *second* list of mode ids, and a mode missing from every group here is
  * silently dropped from the sheet — `satisfies readonly AppModeId[]` constrains
@@ -36,10 +36,10 @@ export const phoneModeGroups = [
     hint: "Medication, calculators, reference",
     modeIds: ["prescribing", "calculators", "tools", "factsheets", "dictionary"],
   },
-  // The groups above are the Clinical area. On Call and CPD are areas of their
-  // own rather than the tail of "Care", so the urgent screen is not buried at
-  // the bottom of the clinical list. A My Work area joins them once it has a
-  // home page of its own.
+  // The groups above are the Clinical area. On Call, Admin, First Nations and
+  // CPD are areas of their own rather than the tail of "Care", so the urgent
+  // screen is not buried at the bottom of the clinical list, and the paperwork
+  // that used to crowd it has a home of its own.
   {
     id: "on-call",
     label: "On Call",
@@ -47,10 +47,30 @@ export const phoneModeGroups = [
     modeIds: ["on-call"],
   },
   {
+    id: "roster",
+    label: "Roster",
+    hint: "Your own shifts",
+    modeIds: ["roster"],
+  },
+  {
+    id: "my-work",
+    label: "Admin",
+    hint: "Paperwork, deadlines and checks",
+    modeIds: ["my-work"],
+  },
+  // Teaching sits beside CPD: the sessions a doctor attends and the record
+  // they log them to are one area of work (spec §5).
+  {
+    id: "first-nations",
+    label: "First Nations",
+    hint: "Culturally safe care",
+    modeIds: ["first-nations"],
+  },
+  {
     id: "cpd",
-    label: "CPD",
-    hint: "Learning and evidence",
-    modeIds: ["cme"],
+    label: "CPD and teaching",
+    hint: "Learning, teaching and evidence",
+    modeIds: ["cme", "teaching"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;

@@ -233,6 +233,19 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "sources", "on-call"],
     remoteSearchEnabled: false,
   },
+  teaching: {
+    // Session titles only, and never the remote index: nothing personal
+    // (logbook, attendance, supervision, members) is ever part of a query
+    // (plan contracts §8).
+    examples: [...sharedHomePresentation.teaching.suggestions],
+    suggestions: [
+      { text: "grand round", meta: "Sessions" },
+      { text: "journal club", meta: "Sessions" },
+      { text: "case conference", meta: "Sessions" },
+    ],
+    crossModes: ["cme", "on-call", "documents"],
+    remoteSearchEnabled: false,
+  },
   psychiatry: {
     // Psychiatry is a dashboard of links to the sections it gathers, each of
     // which keeps its own search, so its command panel must not query the
@@ -244,6 +257,44 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
       { text: "Form 1A", meta: "Forms" },
     ],
     crossModes: ["dsm", "therapy-compass", "forms"],
+    remoteSearchEnabled: false,
+  },
+  "my-work": {
+    // Admin (formerly My Work) reads the owner's own records, already in the
+    // browser, so its command panel must not query the remote index. Nothing
+    // from Admin goes to search (spec).
+    examples: [...sharedHomePresentation["my-work"].suggestions],
+    suggestions: [
+      { text: "registration", meta: "Renewals" },
+      { text: "leaving", meta: "New job" },
+      { text: "payroll", meta: "Help" },
+    ],
+    crossModes: ["on-call", "cme", "documents"],
+    remoteSearchEnabled: false,
+  },
+  roster: {
+    // Roster reads the owner's own shifts, already in the browser — see the
+    // mode definition in src/lib/app-modes.ts — so its command panel must not
+    // query the remote index.
+    examples: [...sharedHomePresentation.roster.suggestions],
+    suggestions: [
+      { text: "night shift hours", meta: "Hours" },
+      { text: "next weekend off", meta: "Today" },
+      { text: "import my roster", meta: "Shifts" },
+    ],
+    crossModes: ["my-work", "on-call", "cme"],
+    remoteSearchEnabled: false,
+  },
+  "first-nations": {
+    // The mode owns its own in-page search box on every page (standard §13),
+    // so its command panel must not query the remote index either.
+    examples: [...sharedHomePresentation["first-nations"].suggestions],
+    suggestions: [
+      { text: "Call Aboriginal liaison", meta: "Bedside" },
+      { text: "Common mistakes", meta: "On the ward" },
+      { text: "Mental Health Act s 81", meta: "Talking" },
+    ],
+    crossModes: ["on-call", "services", "forms"],
     remoteSearchEnabled: false,
   },
 };

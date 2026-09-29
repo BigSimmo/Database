@@ -83,7 +83,7 @@ describe("On Call page menu: notifications", () => {
     // not grow an empty "Needs attention" heading for it.
     render(<OnCallPageMenu view="contacts" entryCount={3} />);
 
-    expect(screen.queryByTestId("on-call-page-menu-notification-count")).toBeNull();
+    expect(screen.queryByTestId("on-call-page-menu-notification-dot")).toBeNull();
     fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
     expect(screen.queryByTestId("on-call-notifications-list")).toBeNull();
     expect(screen.queryByTestId("on-call-notifications-empty")).toBeNull();
@@ -93,29 +93,32 @@ describe("On Call page menu: notifications", () => {
     render(<OnCallPageMenu view="home" notifications={[]} onAdd={vi.fn()} />);
 
     // No badge: an empty list is not something to interrupt anyone about.
-    expect(screen.queryByTestId("on-call-page-menu-notification-count")).toBeNull();
+    expect(screen.queryByTestId("on-call-page-menu-notification-dot")).toBeNull();
 
     fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
     expect(screen.getByTestId("on-call-notifications-empty")).toBeTruthy();
   });
 
-  it("carries the count in the badge and in the accessible name", () => {
+  it("marks waiting items with an 8px product-blue dot and never a count (F15)", () => {
     render(<OnCallPageMenu view="home" notifications={[NOTIFICATION]} />);
 
-    expect(screen.getByTestId("on-call-page-menu-notification-count").textContent).toBe("1");
-    // Singular: "1 items need attention" would be the first thing a screen
-    // reader user hears about this hub.
+    const dot = screen.getByTestId("on-call-page-menu-notification-dot");
+    expect(dot.textContent).toBe("");
+    expect(dot.className).toMatch(/size-2\b/);
+    expect(dot.className).toMatch(/--clinical-accent\)/);
+    // The accessible name says something is waiting, without a number; the
+    // list itself, with its count, stays inside the sheet.
     expect(screen.getByTestId("on-call-page-menu-trigger").getAttribute("aria-label")).toBe(
-      "Open On Call actions. 1 item needs attention.",
+      "Open On Call actions. Something needs attention.",
     );
   });
 
-  it("caps the badge at 9+ but keeps the true count in the accessible name", () => {
+  it("keeps the count out of the badge and the name however many are waiting", () => {
     const many = Array.from({ length: 12 }, (_, index) => notification(index));
     render(<OnCallPageMenu view="home" notifications={many} />);
 
-    expect(screen.getByTestId("on-call-page-menu-notification-count").textContent).toBe("9+");
-    expect(screen.getByTestId("on-call-page-menu-trigger").getAttribute("aria-label")).toContain("12 items need");
+    expect(screen.getByTestId("on-call-page-menu-notification-dot").textContent).toBe("");
+    expect(screen.getByTestId("on-call-page-menu-trigger").getAttribute("aria-label")).not.toMatch(/\d/);
   });
 
   it("lists each notification, pointing a compliance item at the Compliance view", () => {
@@ -125,8 +128,9 @@ describe("On Call page menu: notifications", () => {
     const row = screen.getByTestId("on-call-notification-compliance-date-passed");
     expect(row.textContent).toContain("Basic life support");
     // Compliance is a VIEW over the logistics section, so a notification about
-    // a requirement must not land on the Logistics list it is filed under.
-    expect(row.getAttribute("href")).toMatch(/^\/on-call\/compliance#on-call-entry-/);
+    // a requirement must not land on the Logistics list it is filed under. The
+    // view lives at Admin > Renewals since Admin update 1 (2026-09-26).
+    expect(row.getAttribute("href")).toMatch(/^\/admin\/renewals#on-call-entry-/);
   });
 
   it("sends a plain section entry to its own section", () => {
@@ -161,8 +165,9 @@ describe("On Call page menu: notifications", () => {
     );
     fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
 
+    // Admin > Renewals since Admin update 1; the Admin page it is filed under is Admin > Help.
     expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toMatch(
-      /^\/on-call\/compliance#on-call-entry-/,
+      /^\/admin\/renewals#on-call-entry-/,
     );
   });
 
