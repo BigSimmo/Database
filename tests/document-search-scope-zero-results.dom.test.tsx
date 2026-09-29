@@ -178,6 +178,16 @@ describe("documents zero-result state when retrieval degraded", () => {
     expect(screen.queryByText(/no matches for/i)).not.toBeInTheDocument();
   });
 
+  it("treats a failed search request the same way, instead of saying no matches", () => {
+    // The whole /api/search request failed (for example a 503), so there is no scope summary at
+    // all; the empty list used to read as "No matches ... check the spelling".
+    render(<DocumentSearchResultsPanel {...baseProps} searchFailed scopeFilters={{}} />);
+
+    expect(screen.getByText(/search could not complete/i)).toBeInTheDocument();
+    expect(screen.queryByText(/check the spelling/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no matches for/i)).not.toBeInTheDocument();
+  });
+
   it("outranks the filtered-to-zero copy, which also asserts a real zero", () => {
     render(
       <DocumentSearchResultsPanel

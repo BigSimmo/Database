@@ -7,6 +7,16 @@ import { loadEnvConfig } from "@next/env";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "../src/lib/supabase/database.types";
+import { probeCmeAndOnCallIsolation } from "./lib/cross-tenant-records-probe";
+import {
+  CROSS_TENANT_CME_YEAR,
+  probeCmeWriteIsolation,
+  probeOnCallServiceWriteIsolation,
+  type WriteProbeCreated,
+} from "./lib/cross-tenant-write-probe";
+import { probeCmeEvidenceAndExportIsolation } from "./lib/cross-tenant-cme-evidence-probe";
+import { probeOnCallContentIsolation } from "./lib/cross-tenant-oncall-content-probe";
+import { probeRosterIsolation } from "./lib/cross-tenant-roster-probe";
 
 loadEnvConfig(process.cwd());
 
@@ -509,7 +519,7 @@ async function exerciseTenancyBoundary(args: {
   );
   assertCondition(answerA.answerQualityTier === "source_only", "Staging app is not returning a source-only answer.");
   assertCondition(
-    answerA.fallbackReason === "source_only_offline_mode",
+    answerA.fallbackReasonCode === "provider_offline",
     "Staging app must run with RAG_PROVIDER_MODE=offline for this harness.",
   );
   assertCondition(
@@ -545,6 +555,7 @@ async function cleanup(
   fixtures: Fixture[],
   userIds: string[],
   startedAt: string,
+  records: WriteProbeCreated[] = [],
 ) {
   if (!admin || !config) return [];
   const errors: string[] = [];
@@ -579,6 +590,22 @@ async function cleanup(
     await attempt("delete document_pages", admin.from("document_pages").delete().in("document_id", ids));
     await attempt("delete documents", admin.from("documents").delete().in("id", ids));
   }
+  // Disposable CME and On Call records from the write probe. Entries go before their year; the
+  // year row is only registered when the probe created it, so a real CPD year is never removed.
+  const cmeEntryIds = records.flatMap((record) => (record.kind === "cme-entry" ? [record.id] : []));
+  if (cmeEntryIds.length > 0) {
+    await attempt("delete cme_entries", admin.from("cme_entries").delete().in("id", cmeEntryIds));
+  }
+  if (records.some((record) => record.kind === "cme-year") && userIds[0]) {
+    await attempt(
+      "delete cme_years",
+      admin.from("cme_years").delete().eq("owner_id", userIds[0]).eq("year", CROSS_TENANT_CME_YEAR),
+    );
+  }
+  const serviceIds = records.flatMap((record) => (record.kind === "on-call-service" ? [record.id] : []));
+  if (serviceIds.length > 0) {
+    await attempt("delete on_call_services", admin.from("on_call_services").delete().in("id", serviceIds));
+  }
   const storagePaths = fixtures.map((fixture) => fixture.storagePath);
   if (storagePaths.length > 0) {
     await attempt("delete storage fixtures", admin.storage.from(config.documentBucket).remove(storagePaths));
@@ -591,6 +618,7 @@ function writeEvidence(args: {
   runId: string;
   startedAt: string;
   checkpoints: string[];
+  notExercised: string[];
   cleanupErrors: string[];
   error: unknown;
   deployedCommitSha: string | null;
@@ -614,6 +642,8 @@ function writeEvidence(args: {
     deployedCommitSha: args.deployedCommitSha,
     workflowRunUrl: args.config?.workflowRunUrl ?? null,
     checkpoints: args.checkpoints,
+    // Surfaces the harness could not exercise for want of fixture data. Not a pass for them.
+    notExercised: args.notExercised,
     cleanup: args.cleanupErrors.length === 0 ? "passed" : "failed",
     cleanupErrors: args.cleanupErrors,
     error: errorMessage,
@@ -627,7 +657,9 @@ async function main() {
   const startedAt = new Date().toISOString();
   const runId = randomUUID();
   const checkpoints: string[] = [];
+  const notExercised: string[] = [];
   const fixtures: Fixture[] = [];
+  const createdRecords: WriteProbeCreated[] = [];
   const userIds: string[] = [];
   let config: HarnessConfig | null = null;
   let clientA: AppClient | null = null;
@@ -696,11 +728,136 @@ async function main() {
       tokenB: sessionB.token,
       checkpoints,
     });
+
+    // CME and On Call (audit F17): read-only, using records user A already owns.
+    const records = await probeCmeAndOnCallIsolation({
+      request: (token, path, expected) => requestJson(config!, token, path, {}, expected),
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+    });
+    checkpoints.push(...records.checkpoints);
+    notExercised.push(...records.skipped);
+    for (const note of records.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+
+    // CME and On Call writes, invitations and revocation, on disposable records user A creates.
+    const writeRequest = (token: string, path: string, init: { method?: string; body?: unknown }, expected: number[]) =>
+      requestJson(
+        config!,
+        token,
+        path,
+        { method: init.method, body: init.body === undefined ? undefined : JSON.stringify(init.body) },
+        expected,
+      );
+    const register = (created: WriteProbeCreated) => createdRecords.push(created);
+    const cmeWrites = await probeCmeWriteIsolation({
+      request: writeRequest,
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+      marker: fixtureA.marker,
+      register,
+    });
+    checkpoints.push(...cmeWrites.checkpoints);
+    notExercised.push(...cmeWrites.skipped);
+    for (const note of cmeWrites.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+    const serviceWrites = await probeOnCallServiceWriteIsolation({
+      request: writeRequest,
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+      userIdB: sessionB.userId,
+      emailB: config.userBEmail,
+      marker: fixtureA.marker,
+      register,
+    });
+    checkpoints.push(...serviceWrites.checkpoints);
+
+    // Evidence and export on the disposable CME entry; skipped with the write probe's own note
+    // when user A already had a CPD year and no disposable entry was created.
+    if (cmeWrites.entryId) {
+      const cmeEvidence = await probeCmeEvidenceAndExportIsolation({
+        request: writeRequest,
+        tokenA: sessionA.token,
+        tokenB: sessionB.token,
+        entryId: cmeWrites.entryId,
+        marker: fixtureA.marker,
+        year: CROSS_TENANT_CME_YEAR,
+      });
+      checkpoints.push(...cmeEvidence.checkpoints);
+      notExercised.push(...cmeEvidence.skipped);
+      for (const note of cmeEvidence.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+    }
+    // Content, reports and orientation on the same disposable service, which B has just left.
+    const serviceContent = await probeOnCallContentIsolation({
+      request: writeRequest,
+      tokenA: sessionA.token,
+      tokenB: sessionB.token,
+      userIdB: sessionB.userId,
+      emailB: config.userBEmail,
+      serviceId: serviceWrites.serviceId,
+      siteId: serviceWrites.siteId,
+      marker: fixtureA.marker,
+    });
+    checkpoints.push(...serviceContent.checkpoints);
+
+    // The service created above is already registered for cleanup. Prepare it
+    // as a disposable demo roster team only after all On Call checks finish.
+    const verified = await admin.rpc("on_call_service_set_verified", {
+      p_service_id: serviceWrites.serviceId,
+      p_actor_id: sessionA.userId,
+      p_verified: true,
+      p_is_demo: true,
+    });
+    if (verified.error?.code === "PGRST202") {
+      notExercised.push(
+        "Roster isolation: on_call_service_set_verified is unavailable on staging; no Roster verdict was produced.",
+      );
+    } else if (verified.error) {
+      throw new Error(`Roster probe setup failed at service verification: ${verified.error.code ?? "unknown"}.`);
+    } else {
+      const manager = await admin.rpc("roster_set_manager", {
+        p_service_id: serviceWrites.serviceId,
+        p_user_id: sessionA.userId,
+        p_actor_id: sessionA.userId,
+        p_manager: true,
+      });
+      if (manager.error?.code === "PGRST202") {
+        notExercised.push(
+          "Roster isolation: roster_set_manager is unavailable on staging; no Roster verdict was produced.",
+        );
+      } else if (manager.error) {
+        throw new Error(`Roster probe setup failed at manager assignment: ${manager.error.code ?? "unknown"}.`);
+      } else {
+        const invited = (await writeRequest(
+          sessionA.token,
+          `/api/roster/team/${serviceWrites.serviceId}/invite`,
+          {
+            method: "POST",
+            body: { invitedEmail: config.userBEmail, expiresInDays: 1 },
+          },
+          [200],
+        )) as { path?: unknown };
+        const code =
+          typeof invited.path === "string"
+            ? new URL(invited.path, "https://example.invalid").hash.match(/^#code=([a-f\d]{64})$/i)?.[1]
+            : null;
+        if (!code) throw new Error("Roster probe invitation response had no one-use code in its fragment.");
+        const roster = await probeRosterIsolation({
+          request: writeRequest,
+          tokenA: sessionA.token,
+          tokenB: sessionB.token,
+          serviceIdA: serviceWrites.serviceId,
+          userIdB: sessionB.userId,
+          inviteCodeForB: code,
+        });
+        checkpoints.push(...roster.checkpoints);
+        notExercised.push(...roster.skipped);
+        for (const note of roster.skipped) console.warn(`CROSS_TENANT_NOT_EXERCISED: ${note}`);
+      }
+    }
   } catch (error) {
     failure = error;
   }
 
-  const cleanupErrors = await cleanup(admin, config, fixtures, userIds, startedAt);
+  const cleanupErrors = await cleanup(admin, config, fixtures, userIds, startedAt, createdRecords);
   await Promise.allSettled([
     clientA?.auth.signOut() ?? Promise.resolve(),
     clientB?.auth.signOut() ?? Promise.resolve(),
@@ -710,6 +867,7 @@ async function main() {
     runId,
     startedAt,
     checkpoints,
+    notExercised,
     cleanupErrors,
     error: failure,
     deployedCommitSha,

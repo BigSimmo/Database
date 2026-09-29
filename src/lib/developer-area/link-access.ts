@@ -12,9 +12,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  *
  * The owner asked for a Developer Section that does not ask him to sign in, and
  * the two obvious answers were both wrong. Deleting `DeveloperAreaGate` would
- * publish the task ledger, the hazard notes, and the Ward Flow / Care Plan /
- * Caring Contact prototypes to anyone who visits `psychiatry.tools` — that is
- * exactly #L30, reintroduced deliberately. Keeping only the Supabase sign-in
+ * publish the task ledger, the hazard notes, and the Care Plan prototype to
+ * anyone who visits `psychiatry.tools` — that is exactly #L30, reintroduced
+ * deliberately. Keeping only the Supabase sign-in
  * leaves the magic-link round trip he asked to be rid of.
  *
  * So this is a third credential, alongside the administrator claim and never

@@ -47,24 +47,39 @@ export type Database = {
   };
   public: {
     Tables: {
+      teaching_calendar_optins: {
+        Row: { service_id: string; user_id: string; created_at: string };
+        Insert: { service_id: string; user_id: string; created_at?: string };
+        Update: { service_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
       on_call_services: {
         Row: {
-          id: string;
-          name: string;
-          created_by: string | null;
           created_at: string;
+          created_by: string | null;
+          id: string;
+          is_demo: boolean;
+          name: string;
+          verified_at: string | null;
+          verified_by: string | null;
         };
         Insert: {
-          id?: string;
-          name: string;
-          created_by?: string | null;
           created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_demo?: boolean;
+          name: string;
+          verified_at?: string | null;
+          verified_by?: string | null;
         };
         Update: {
-          id?: string;
-          name?: string;
-          created_by?: string | null;
           created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_demo?: boolean;
+          name?: string;
+          verified_at?: string | null;
+          verified_by?: string | null;
         };
         Relationships: [];
       };
@@ -88,65 +103,74 @@ export type Database = {
       };
       on_call_service_members: {
         Row: {
-          service_id: string;
-          user_id: string;
-          role: string;
           clinical_reviewer: boolean;
+          display_name: string | null;
           joined_at: string;
           revoked_at: string | null;
-        };
-        Insert: {
+          role: string;
           service_id: string;
           user_id: string;
-          role: string;
+        };
+        Insert: {
           clinical_reviewer?: boolean;
+          display_name?: string | null;
           joined_at?: string;
           revoked_at?: string | null;
+          role: string;
+          service_id: string;
+          user_id: string;
         };
         Update: {
-          service_id?: string;
-          user_id?: string;
-          role?: string;
           clinical_reviewer?: boolean;
+          display_name?: string | null;
           joined_at?: string;
           revoked_at?: string | null;
+          role?: string;
+          service_id?: string;
+          user_id?: string;
         };
         Relationships: [];
       };
       on_call_service_invitations: {
         Row: {
+          created_at: string;
+          expires_at: string;
           id: string;
+          invited_email: string | null;
+          issued_by: string | null;
+          issued_via_mode: string | null;
+          revoked_at: string | null;
+          role: string;
           service_id: string;
           token_hash: string;
-          role: string;
-          issued_by: string | null;
-          expires_at: string;
-          created_at: string;
-          revoked_at: string | null;
           used_at: string | null;
           used_by: string | null;
         };
         Insert: {
+          created_at?: string;
+          expires_at: string;
           id?: string;
+          invited_email?: string | null;
+          issued_by?: string | null;
+          issued_via_mode?: string | null;
+          revoked_at?: string | null;
+          role: string;
           service_id: string;
           token_hash: string;
-          role: string;
-          issued_by?: string | null;
-          expires_at: string;
-          created_at?: string;
-          revoked_at?: string | null;
           used_at?: string | null;
           used_by?: string | null;
         };
         Update: {
+          created_at?: string;
+          expires_at?: string;
           id?: string;
+          invited_email?: string | null;
+          issued_by?: string | null;
+          issued_via_mode?: string | null;
+          revoked_at?: string | null;
+          role?: string;
           service_id?: string;
           token_hash?: string;
-          role?: string;
-          issued_by?: string | null;
-          expires_at?: string;
-          created_at?: string;
-          revoked_at?: string | null;
           used_at?: string | null;
           used_by?: string | null;
         };
@@ -2515,6 +2539,273 @@ export type Database = {
         };
         Relationships: [];
       };
+      calendar_feed_tokens: {
+        Row: {
+          created_at: string;
+          last_used_at: string | null;
+          owner_id: string;
+          token_hash: string;
+        };
+        Insert: {
+          created_at?: string;
+          last_used_at?: string | null;
+          owner_id: string;
+          token_hash: string;
+        };
+        Update: {
+          created_at?: string;
+          last_used_at?: string | null;
+          owner_id?: string;
+          token_hash?: string;
+        };
+        Relationships: [];
+      };
+      cme_training_periods: {
+        Row: {
+          created_at: string;
+          ends_on: string | null;
+          fte: number;
+          id: string;
+          kind: "stage" | "rotation" | "break";
+          label: string;
+          owner_id: string;
+          starts_on: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          ends_on?: string | null;
+          fte?: number;
+          id?: string;
+          kind: "stage" | "rotation" | "break";
+          label: string;
+          owner_id: string;
+          starts_on: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          ends_on?: string | null;
+          fte?: number;
+          id?: string;
+          kind?: "stage" | "rotation" | "break";
+          label?: string;
+          owner_id?: string;
+          starts_on?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      cme_training_milestones: {
+        Row: {
+          completed_on: string | null;
+          created_at: string;
+          due_fte_months: number | null;
+          due_kind: "fte-months" | "date";
+          due_on: string | null;
+          id: string;
+          label: string;
+          owner_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          completed_on?: string | null;
+          created_at?: string;
+          due_fte_months?: number | null;
+          due_kind: "fte-months" | "date";
+          due_on?: string | null;
+          id?: string;
+          label: string;
+          owner_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          completed_on?: string | null;
+          created_at?: string;
+          due_fte_months?: number | null;
+          due_kind?: "fte-months" | "date";
+          due_on?: string | null;
+          id?: string;
+          label?: string;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      cme_missed_sessions: {
+        Row: {
+          created_at: string;
+          id: string;
+          kind: "teaching" | "supervision";
+          minutes_lost: number;
+          occurred_on: string;
+          owner_id: string;
+          reason: string | null;
+          replacement_entry_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          kind: "teaching" | "supervision";
+          minutes_lost: number;
+          occurred_on: string;
+          owner_id: string;
+          reason?: string | null;
+          replacement_entry_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          kind?: "teaching" | "supervision";
+          minutes_lost?: number;
+          occurred_on?: string;
+          owner_id?: string;
+          reason?: string | null;
+          replacement_entry_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [{
+          foreignKeyName: "cme_missed_sessions_replacement_owner_fk";
+          columns: ["replacement_entry_id", "owner_id"];
+          isOneToOne: false;
+          referencedRelation: "cme_entries";
+          referencedColumns: ["id", "owner_id"];
+        }];
+      };
+      cme_entry_drafts: {
+        Row: {
+          created_at: string;
+          follow_up_on: string | null;
+          id: string;
+          owner_id: string;
+          payload: Json;
+          updated_at: string;
+          waiting_note: string | null;
+          waiting_on: "supervisor" | "workforce" | null;
+        };
+        Insert: {
+          created_at?: string;
+          follow_up_on?: string | null;
+          id?: string;
+          owner_id: string;
+          payload: Json;
+          updated_at?: string;
+          waiting_note?: string | null;
+          waiting_on?: "supervisor" | "workforce" | null;
+        };
+        Update: {
+          created_at?: string;
+          follow_up_on?: string | null;
+          id?: string;
+          owner_id?: string;
+          payload?: Json;
+          updated_at?: string;
+          waiting_note?: string | null;
+          waiting_on?: "supervisor" | "workforce" | null;
+        };
+        Relationships: [];
+      };
+      on_call_shifts: {
+        Row: {
+          created_at: string;
+          ends_at: string;
+          id: string;
+          kind: string | null;
+          location: string | null;
+          owner_id: string;
+          series_id: string | null;
+          source: string;
+          source_uid: string | null;
+          starts_at: string;
+          title: string;
+          updated_at: string;
+          workplace: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          ends_at: string;
+          id?: string;
+          kind?: string | null;
+          location?: string | null;
+          owner_id: string;
+          series_id?: string | null;
+          source?: string;
+          source_uid?: string | null;
+          starts_at: string;
+          title: string;
+          updated_at?: string;
+          workplace?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          ends_at?: string;
+          id?: string;
+          kind?: string | null;
+          location?: string | null;
+          owner_id?: string;
+          series_id?: string | null;
+          source?: string;
+          source_uid?: string | null;
+          starts_at?: string;
+          title?: string;
+          updated_at?: string;
+          workplace?: string | null;
+        };
+        Relationships: [];
+      };
+      on_call_shift_imports: {
+        Row: {
+          added: number;
+          changed: number;
+          changes: Json;
+          file_name: string | null;
+          format: string;
+          id: string;
+          imported_at: string;
+          owner_id: string;
+          removed: number;
+          seen_at: string | null;
+          window_end: string;
+          window_start: string;
+          workplace: string | null;
+        };
+        Insert: {
+          added?: number;
+          changed?: number;
+          changes?: Json;
+          file_name?: string | null;
+          format: string;
+          id?: string;
+          imported_at?: string;
+          owner_id: string;
+          removed?: number;
+          seen_at?: string | null;
+          window_end: string;
+          window_start: string;
+          workplace?: string | null;
+        };
+        Update: {
+          added?: number;
+          changed?: number;
+          changes?: Json;
+          file_name?: string | null;
+          format?: string;
+          id?: string;
+          imported_at?: string;
+          owner_id?: string;
+          removed?: number;
+          seen_at?: string | null;
+          window_end?: string;
+          window_start?: string;
+          workplace?: string | null;
+        };
+        Relationships: [];
+      };
       cme_plan_goals: {
         Row: {
           created_at: string;
@@ -2550,6 +2841,27 @@ export type Database = {
           referencedRelation: "cme_years";
           referencedColumns: ["id", "owner_id"];
         }];
+      };
+      cme_plan_goal_carries: {
+        Row: { created_at: string; owner_id: string; source_goal_id: string; target_goal_id: string | null };
+        Insert: { created_at?: string; owner_id: string; source_goal_id: string; target_goal_id?: string | null };
+        Update: { created_at?: string; owner_id?: string; source_goal_id?: string; target_goal_id?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "cme_plan_goal_carries_source_owner_fk";
+            columns: ["source_goal_id", "owner_id"];
+            isOneToOne: true;
+            referencedRelation: "cme_plan_goals";
+            referencedColumns: ["id", "owner_id"];
+          },
+          {
+            foreignKeyName: "cme_plan_goal_carries_target_owner_fk";
+            columns: ["target_goal_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "cme_plan_goals";
+            referencedColumns: ["id", "owner_id"];
+          },
+        ];
       };
       cme_entry_goals: {
         Row: {
@@ -3625,6 +3937,786 @@ export type Database = {
       site_content_release_receipts: GeneratedTable<{
         receipt_id: string; release_id: string; receipt_kind: string; recovery_readiness_digest: string; receipt: Json; created_at: string;
       }, "receipt_id" | "release_id" | "receipt_kind" | "recovery_readiness_digest" | "receipt">;
+      admin_leave_balances: {
+        Row: {
+          amount: number;
+          as_of: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          owner_id: string;
+          source_note: string | null;
+          unit: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          as_of: string;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          owner_id: string;
+          source_note?: string | null;
+          unit: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          as_of?: string;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          owner_id?: string;
+          source_note?: string | null;
+          unit?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      admin_settings: {
+        Row: {
+          after_shift_asked_until: string | null;
+          after_shift_prompt: boolean;
+          created_at: string;
+          level: string | null;
+          owner_id: string;
+          pay_fortnight_start: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          after_shift_asked_until?: string | null;
+          after_shift_prompt?: boolean;
+          created_at?: string;
+          level?: string | null;
+          owner_id: string;
+          pay_fortnight_start?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          after_shift_asked_until?: string | null;
+          after_shift_prompt?: boolean;
+          created_at?: string;
+          level?: string | null;
+          owner_id?: string;
+          pay_fortnight_start?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      extra_time_records: {
+        Row: {
+          claim_paid_on: string | null;
+          claim_reference: string | null;
+          claim_sent_on: string | null;
+          claim_status: string;
+          created_at: string;
+          ended_at: string | null;
+          id: string;
+          kind: string;
+          owner_id: string;
+          reason: string | null;
+          started_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          claim_paid_on?: string | null;
+          claim_reference?: string | null;
+          claim_sent_on?: string | null;
+          claim_status?: string;
+          created_at?: string;
+          ended_at?: string | null;
+          id?: string;
+          kind: string;
+          owner_id: string;
+          reason?: string | null;
+          started_at: string;
+          updated_at?: string;
+        };
+        Update: {
+          claim_paid_on?: string | null;
+          claim_reference?: string | null;
+          claim_sent_on?: string | null;
+          claim_status?: string;
+          created_at?: string;
+          ended_at?: string | null;
+          id?: string;
+          kind?: string;
+          owner_id?: string;
+          reason?: string | null;
+          started_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      on_call_service_member_events: {
+        Row: {
+          actor_id: string | null;
+          at: string;
+          event: string;
+          id: number;
+          mode: string | null;
+          service_id: string;
+          user_id: string | null;
+        };
+        Insert: {
+          actor_id?: string | null;
+          at?: string;
+          event: string;
+          id?: number;
+          mode?: string | null;
+          service_id: string;
+          user_id?: string | null;
+        };
+        Update: {
+          actor_id?: string | null;
+          at?: string;
+          event?: string;
+          id?: number;
+          mode?: string | null;
+          service_id?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_assignments: {
+        Row: {
+          ends_at: string;
+          grade: string | null;
+          id: string;
+          kind: string;
+          publication_id: string;
+          roster_name: string | null;
+          service_id: string;
+          shift_code: string;
+          site_id: string | null;
+          starts_at: string;
+          superseded_at: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          ends_at: string;
+          grade?: string | null;
+          id?: string;
+          kind: string;
+          publication_id: string;
+          roster_name?: string | null;
+          service_id: string;
+          shift_code: string;
+          site_id?: string | null;
+          starts_at: string;
+          superseded_at?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          ends_at?: string;
+          grade?: string | null;
+          id?: string;
+          kind?: string;
+          publication_id?: string;
+          roster_name?: string | null;
+          service_id?: string;
+          shift_code?: string;
+          site_id?: string | null;
+          starts_at?: string;
+          superseded_at?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_calendar_links: {
+        Row: {
+          created_at: string;
+          id: string;
+          last_error: string | null;
+          last_fetched_at: string | null;
+          owner_id: string;
+          updated_at: string;
+          url: string;
+          workplace: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          last_fetched_at?: string | null;
+          owner_id: string;
+          updated_at?: string;
+          url: string;
+          workplace?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          last_fetched_at?: string | null;
+          owner_id?: string;
+          updated_at?: string;
+          url?: string;
+          workplace?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_change_agreements: {
+        Row: {
+          agreed_at: string;
+          change_id: number;
+          user_id: string;
+        };
+        Insert: {
+          agreed_at?: string;
+          change_id: number;
+          user_id: string;
+        };
+        Update: {
+          agreed_at?: string;
+          change_id?: number;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      roster_changes: {
+        Row: {
+          actor_id: string | null;
+          agreement_required: boolean;
+          at: string;
+          change: Json;
+          draft_id: string | null;
+          id: number;
+          service_id: string;
+          source: string;
+          target: string;
+          undo: Json | null;
+          undone_at: string | null;
+          undone_by: string | null;
+        };
+        Insert: {
+          actor_id?: string | null;
+          agreement_required?: boolean;
+          at?: string;
+          change: Json;
+          draft_id?: string | null;
+          id?: number;
+          service_id: string;
+          source: string;
+          target: string;
+          undo?: Json | null;
+          undone_at?: string | null;
+          undone_by?: string | null;
+        };
+        Update: {
+          actor_id?: string | null;
+          agreement_required?: boolean;
+          at?: string;
+          change?: Json;
+          draft_id?: string | null;
+          id?: number;
+          service_id?: string;
+          source?: string;
+          target?: string;
+          undo?: Json | null;
+          undone_at?: string | null;
+          undone_by?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_draft_assignments: {
+        Row: {
+          draft_id: string;
+          ends_at: string;
+          grade: string | null;
+          id: string;
+          kind: string;
+          roster_name: string | null;
+          shift_code: string;
+          site_id: string | null;
+          starts_at: string;
+          user_id: string | null;
+        };
+        Insert: {
+          draft_id: string;
+          ends_at: string;
+          grade?: string | null;
+          id?: string;
+          kind: string;
+          roster_name?: string | null;
+          shift_code: string;
+          site_id?: string | null;
+          starts_at: string;
+          user_id?: string | null;
+        };
+        Update: {
+          draft_id?: string;
+          ends_at?: string;
+          grade?: string | null;
+          id?: string;
+          kind?: string;
+          roster_name?: string | null;
+          shift_code?: string;
+          site_id?: string | null;
+          starts_at?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_drafts: {
+        Row: {
+          based_on_publication_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          period_end: string;
+          period_start: string;
+          service_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          based_on_publication_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          period_end: string;
+          period_start: string;
+          service_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          based_on_publication_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          period_end?: string;
+          period_start?: string;
+          service_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      roster_leave: {
+        Row: {
+          created_at: string;
+          ends_on: string;
+          id: string;
+          kind: string;
+          owner_id: string;
+          service_id: string | null;
+          starts_on: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          ends_on: string;
+          id?: string;
+          kind: string;
+          owner_id: string;
+          service_id?: string | null;
+          starts_on: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          ends_on?: string;
+          id?: string;
+          kind?: string;
+          owner_id?: string;
+          service_id?: string | null;
+          starts_on?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      roster_member_roles: {
+        Row: {
+          grade: string | null;
+          granted_at: string;
+          granted_by: string | null;
+          revoked_at: string | null;
+          role: string;
+          roster_name: string | null;
+          rotation_ends_on: string | null;
+          service_id: string;
+          user_id: string;
+        };
+        Insert: {
+          grade?: string | null;
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          role?: string;
+          roster_name?: string | null;
+          rotation_ends_on?: string | null;
+          service_id: string;
+          user_id: string;
+        };
+        Update: {
+          grade?: string | null;
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          role?: string;
+          roster_name?: string | null;
+          rotation_ends_on?: string | null;
+          service_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      roster_open_shifts: {
+        Row: {
+          assignment_id: string | null;
+          claimed_at: string | null;
+          claimed_by: string | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          ends_at: string;
+          id: string;
+          kind: string;
+          min_grade: string | null;
+          posted_by: string | null;
+          service_id: string;
+          shift_code: string;
+          site_id: string | null;
+          starts_at: string;
+          status: string;
+          urgent: boolean;
+        };
+        Insert: {
+          assignment_id?: string | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          ends_at: string;
+          id?: string;
+          kind: string;
+          min_grade?: string | null;
+          posted_by?: string | null;
+          service_id: string;
+          shift_code: string;
+          site_id?: string | null;
+          starts_at: string;
+          status?: string;
+          urgent?: boolean;
+        };
+        Update: {
+          assignment_id?: string | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          ends_at?: string;
+          id?: string;
+          kind?: string;
+          min_grade?: string | null;
+          posted_by?: string | null;
+          service_id?: string;
+          shift_code?: string;
+          site_id?: string | null;
+          starts_at?: string;
+          status?: string;
+          urgent?: boolean;
+        };
+        Relationships: [];
+      };
+      roster_publication_seen: {
+        Row: {
+          publication_id: string;
+          seen_at: string;
+          user_id: string;
+        };
+        Insert: {
+          publication_id: string;
+          seen_at?: string;
+          user_id: string;
+        };
+        Update: {
+          publication_id?: string;
+          seen_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      roster_publications: {
+        Row: {
+          id: string;
+          kind: string;
+          period_end: string;
+          period_start: string;
+          published_at: string;
+          published_by: string | null;
+          service_id: string;
+          source_name: string | null;
+          version: number;
+        };
+        Insert: {
+          id?: string;
+          kind?: string;
+          period_end: string;
+          period_start: string;
+          published_at?: string;
+          published_by?: string | null;
+          service_id: string;
+          source_name?: string | null;
+          version: number;
+        };
+        Update: {
+          id?: string;
+          kind?: string;
+          period_end?: string;
+          period_start?: string;
+          published_at?: string;
+          published_by?: string | null;
+          service_id?: string;
+          source_name?: string | null;
+          version?: number;
+        };
+        Relationships: [];
+      };
+      roster_shift_codes: {
+        Row: {
+          code: string;
+          ends: string | null;
+          kind: string;
+          label: string | null;
+          service_id: string;
+          starts: string | null;
+        };
+        Insert: {
+          code: string;
+          ends?: string | null;
+          kind: string;
+          label?: string | null;
+          service_id: string;
+          starts?: string | null;
+        };
+        Update: {
+          code?: string;
+          ends?: string | null;
+          kind?: string;
+          label?: string | null;
+          service_id?: string;
+          starts?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_staffing_needs: {
+        Row: {
+          grade: string | null;
+          id: string;
+          kind: string;
+          needed: number;
+          on_date: string | null;
+          service_id: string;
+          site_id: string | null;
+          weekday: number | null;
+        };
+        Insert: {
+          grade?: string | null;
+          id?: string;
+          kind: string;
+          needed: number;
+          on_date?: string | null;
+          service_id: string;
+          site_id?: string | null;
+          weekday?: number | null;
+        };
+        Update: {
+          grade?: string | null;
+          id?: string;
+          kind?: string;
+          needed?: number;
+          on_date?: string | null;
+          service_id?: string;
+          site_id?: string | null;
+          weekday?: number | null;
+        };
+        Relationships: [];
+      };
+      roster_swaps: {
+        Row: {
+          accepted_at: string | null;
+          auto_approved: boolean;
+          cancel_reason: string | null;
+          counterparty_id: string;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          expires_at: string;
+          give_assignment_id: string;
+          id: string;
+          needs_manager_because: string | null;
+          requester_id: string;
+          service_id: string;
+          status: string;
+          take_assignment_id: string | null;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          auto_approved?: boolean;
+          cancel_reason?: string | null;
+          counterparty_id: string;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          expires_at: string;
+          give_assignment_id: string;
+          id?: string;
+          needs_manager_because?: string | null;
+          requester_id: string;
+          service_id: string;
+          status?: string;
+          take_assignment_id?: string | null;
+        };
+        Update: {
+          accepted_at?: string | null;
+          auto_approved?: boolean;
+          cancel_reason?: string | null;
+          counterparty_id?: string;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          expires_at?: string;
+          give_assignment_id?: string;
+          id?: string;
+          needs_manager_because?: string | null;
+          requester_id?: string;
+          service_id?: string;
+          status?: string;
+          take_assignment_id?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_publication_protections: {
+        Row: {
+          id: string;
+          service_id: string;
+          swap_id: string | null;
+          open_shift_id: string | null;
+          give_assignment_id: string;
+          take_assignment_id: string | null;
+          overridden_at: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          swap_id?: string | null;
+          open_shift_id?: string | null;
+          give_assignment_id: string;
+          take_assignment_id?: string | null;
+          overridden_at?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          swap_id?: string | null;
+          open_shift_id?: string | null;
+          give_assignment_id?: string;
+          take_assignment_id?: string | null;
+          overridden_at?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_team_settings: {
+        Row: {
+          ai_helper_consented_at: string | null;
+          ai_helper_consented_by: string | null;
+          next_cutoff_on: string | null;
+          pay_fortnight_anchor: string | null;
+          rules: Json;
+          rules_source: string | null;
+          service_id: string;
+          swap_approval: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          ai_helper_consented_at?: string | null;
+          ai_helper_consented_by?: string | null;
+          next_cutoff_on?: string | null;
+          pay_fortnight_anchor?: string | null;
+          rules?: Json;
+          rules_source?: string | null;
+          service_id: string;
+          swap_approval?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          ai_helper_consented_at?: string | null;
+          ai_helper_consented_by?: string | null;
+          next_cutoff_on?: string | null;
+          pay_fortnight_anchor?: string | null;
+          rules?: Json;
+          rules_source?: string | null;
+          service_id?: string;
+          swap_approval?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      roster_unavailability: {
+        Row: {
+          created_at: string;
+          kind: string;
+          on_date: string;
+          service_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          kind: string;
+          on_date: string;
+          service_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          kind?: string;
+          on_date?: string;
+          service_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      web_push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          endpoint: string;
+          id: string;
+          last_used_at: string | null;
+          owner_id: string;
+          p256dh: string;
+        };
+        Insert: {
+          auth: string;
+          created_at?: string;
+          endpoint: string;
+          id?: string;
+          last_used_at?: string | null;
+          owner_id: string;
+          p256dh: string;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          endpoint?: string;
+          id?: string;
+          last_used_at?: string | null;
+          owner_id?: string;
+          p256dh?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       document_strict_gate_status: {
@@ -3652,8 +4744,79 @@ export type Database = {
       };
     };
     Functions: {
+      calendar_feed_rotate: { Args: { p_owner_id: string; p_token_hash: string }; Returns: undefined };
+      calendar_feed_revoke: { Args: { p_owner_id: string }; Returns: undefined };
+      calendar_feed_owner: { Args: { p_token_hash: string }; Returns: string | null };
+      on_call_shifts_replace: {
+        Args: {
+          p_owner_id: string;
+          p_window_start: string;
+          p_window_end: string;
+          p_format: string;
+          p_shifts: Json;
+          p_changes: Json;
+          p_added: number;
+          p_changed: number;
+          p_removed: number;
+        };
+        Returns: string;
+      };
+      roster_own_shifts_replace: {
+        Args: {
+          p_owner_id: string;
+          p_window_start: string;
+          p_window_end: string;
+          p_format: string;
+          p_workplace: string | null;
+          p_file_name: string | null;
+          p_shifts: Json;
+          p_changes: Json;
+          p_added: number;
+          p_changed: number;
+          p_removed: number;
+        };
+        Returns: string;
+      };
+      roster_read: {
+        Args: { p_actor_id: string; p_service_id: string | null; p_what: string; p_payload?: Json };
+        Returns: Json;
+      };
+      roster_command: {
+        Args: { p_actor_id: string; p_service_id: string; p_action: string; p_payload?: Json };
+        Returns: Json;
+      };
+      roster_set_cutoff: {
+        Args: { p_actor_id: string; p_service_id: string; p_cutoff: string | null };
+        Returns: Json;
+      };
+      roster_publish_preview: {
+        Args: { p_actor_id: string; p_service_id: string; p_from: string; p_to: string };
+        Returns: Json;
+      };
+      roster_publish: {
+        Args: { p_actor_id: string; p_service_id: string; p_expected_token: string; p_payload: Json };
+        Returns: Json;
+      };
+      roster_set_manager: {
+        Args: { p_service_id: string; p_user_id: string; p_actor_id: string; p_manager: boolean };
+        Returns: Json;
+      };
+      on_call_service_set_verified: {
+        Args: { p_service_id: string; p_actor_id: string; p_verified: boolean; p_is_demo: boolean };
+        Returns: Json;
+      };
+      service_member_active: { Args: { p_service_id: string; p_user_id: string }; Returns: boolean };
+      roster_can_invite: { Args: { p_service_id: string; p_user_id: string }; Returns: boolean };
       cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
       cme_save_plan_goals: { Args: { p_owner_id: string; p_year_id: string; p_goals: Json }; Returns: Json };
+      cme_save_plan_goals_checked: {
+        Args: { p_owner_id: string; p_year_id: string; p_goals: Json; p_expected_goals: Json };
+        Returns: Json;
+      };
+      cme_carry_plan_goal: {
+        Args: { p_owner_id: string; p_source_year: number; p_goal_id: string };
+        Returns: Json;
+      };
       cme_set_entry_goal: { Args: { p_owner_id: string; p_entry_id: string; p_goal_id: string | null }; Returns: Json };
       cme_set_entry_archived: { Args: { p_owner_id: string; p_entry_id: string; p_archived: boolean }; Returns: Json };
       cme_evidence_counts: { Args: { p_owner_id: string; p_year: number }; Returns: Json };
@@ -3664,6 +4827,14 @@ export type Database = {
       cme_guard_evidence_insert: { Args: never; Returns: unknown };
       cme_guard_archived_entry: { Args: never; Returns: unknown };
       on_call_service_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_depth_command: { Args: { p_actor_id: string; p_service_id: string; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_whats_on_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_platform_command: { Args: { p_platform_actor_id: string; p_service_id: string; p_action: string; p_payload: Json }; Returns: Json };
+      teaching_checkin_open: { Args: { p_token: string; p_claim_hash: string }; Returns: Json };
+      teaching_display_code: { Args: { p_link_hash: string }; Returns: Json };
+      teaching_feed_events: { Args: { p_owner_id: string; p_from: string; p_to: string }; Returns: Json };
+      cme_save_teaching_entry: { Args: { p_owner_id: string; p_occurrence_id: string; p_hours: number; p_request_id: string }; Returns: Json };
       cme_close_year: {
         Args: { p_owner_id: string; p_year_id: string; p_evaluation: Json; p_shortfall_note?: string | null };
         Returns: Json;
@@ -3895,6 +5066,29 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      consume_anonymous_rate_limits_atomic: {
+        Args: {
+          p_bucket: string;
+          p_ceiling_bucket: string | null;
+          p_ceiling_key: string | null;
+          p_ceiling_limit: number | null;
+          p_ceiling_window_seconds: number | null;
+          p_global_key: string;
+          p_global_limit: number;
+          p_global_window_seconds: number;
+          p_subject_key: string;
+          p_subject_limit: number;
+          p_subject_window_seconds: number;
+        };
+        Returns: {
+          limit_value: number;
+          limited: boolean;
+          remaining: number;
+          reset_at: string;
+          retry_after_seconds: number;
+          scope: string | null;
+        }[];
+      };
       consume_summary_rate_limits_atomic: {
         Args: {
           p_answer_limit: number;
@@ -4028,7 +5222,6 @@ export type Database = {
         }[];
       };
       invoke_indexing_v3_agent: { Args: { p_limit?: number }; Returns: number };
-      invoke_ingestion_worker: { Args: { p_limit?: number }; Returns: number };
       request_indexing_v3_enrichment: {
         Args: { p_document_id: string; p_owner_id: string };
         Returns: { job_id?: string; ok?: boolean };

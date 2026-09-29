@@ -1,6 +1,6 @@
 # Operator guidance: Supabase preview-branch compute cap (#9X40BT)
 
-This document records the operator configuration and cost-containment policy for Supabase preview branches on project `sjrfecxgysukkwxsowpy` (`Clinical KB Database`).
+This document records the operator configuration and cost-containment policy for Supabase preview branches on project `sjrfecxgysukkwxsowpy` (`PsychSift Production`).
 
 ## 1. Problem context & cost boundary
 

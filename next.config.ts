@@ -16,6 +16,14 @@ const requestedTsConfigPath = process.env.NEXT_TSCONFIG_PATH?.trim();
 if (requestedTsConfigPath && !/^\.next-playwright\/[a-z0-9-]+\/tsconfig\.json$/i.test(requestedTsConfigPath)) {
   throw new Error("NEXT_TSCONFIG_PATH must be an owned .next-playwright/<run-id>/tsconfig.json file.");
 }
+// CI's isolated offline builds (the shared Playwright build and the Lighthouse build) skip
+// Next's post-build TypeScript pass. Their tsconfig covers the whole repo, so the pass repeated
+// the full-repo check the Static PR checks job already runs (~60-90 s on a runner), and every
+// browser and Lighthouse lane is gated on that job's result by `PR required`. All three
+// conditions must hold, so a production or local build (no owned tsconfig, no offline mode, or
+// no CI) always type-checks, and `npm run build` in the Build job keeps its own check.
+const skipIsolatedCiTypecheck =
+  Boolean(requestedTsConfigPath) && process.env.PLAYWRIGHT_OFFLINE_MODE === "true" && process.env.CI === "true";
 
 // Static (non-CSP) headers for every route. The nonce'd CSP is emitted per
 // request from src/proxy.ts; both derive their runtime flags from the same helper.
@@ -32,12 +40,23 @@ async function withOptionalBundleAnalyzer(config: NextConfig): Promise<NextConfi
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: shouldEnableSentrySourceMapUpload(),
   distDir: requestedDistDir || ".next",
-  ...(requestedTsConfigPath ? { typescript: { tsconfigPath: requestedTsConfigPath } } : {}),
+  ...(requestedTsConfigPath
+    ? {
+        typescript: {
+          tsconfigPath: requestedTsConfigPath,
+          ...(skipIsolatedCiTypecheck ? { ignoreBuildErrors: true } : {}),
+        },
+      }
+    : {}),
   // Playwright and some local tooling hit the dev server via 127.0.0.1; without
   // this, Next blocks HMR/client hydration from that host and phone scroll-hide
   // never wires up its listeners.
   allowedDevOrigins: ["127.0.0.1"],
   devIndicators: false,
+  // Roster's file reader imports exceljs, whose zip dependency optionally requires
+  // @aws-sdk/client-s3. Bundling it fails the build on that missing optional module, so the
+  // server loads exceljs from the runtime's production node_modules instead.
+  serverExternalPackages: ["exceljs"],
   experimental: {
     // Default 1 is the safe fallback for a Node-24 webpack WasmHash worker crash
     // seen on constrained local builds (see the webpack hashFunction override
@@ -117,7 +136,9 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+              // The one inline script is allowed by its hash only (On Call essentials;
+              // tests/pwa-manifest.test.ts recomputes it). It never fetches, so no network source is allowed.
+              `default-src 'none'; script-src 'sha256-OR1yF53qK4E2zk6TXeI0pyrP7gDiSHvUIFA3ypeGZFA='; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
           },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },

@@ -51,7 +51,17 @@ export type RagAliasInput = {
   owner_id?: string | null;
 };
 
-const ragAliasCache = new Map<string, { expiresAt: number; aliases: RagAliasInput[] }>();
+type RagAliasCache = Map<string, { expiresAt: number; aliases: RagAliasInput[] }>;
+
+/**
+ * Held on `globalThis` because the bundler gives each server layer its own copy of this module: a
+ * production build loads it once for `instrumentation.ts` and again for the route handlers (the same
+ * split #3053 found for the catalogue record cache). A module-level map would let the startup warm
+ * fill a cache no search ever reads. Entries, TTL and bounds are unchanged.
+ */
+const ragAliasCacheKey = Symbol.for("psychsift.ragAliasCache");
+const ragAliasCache: RagAliasCache = ((globalThis as { [ragAliasCacheKey]?: RagAliasCache })[ragAliasCacheKey] ??=
+  new Map());
 
 /** Normalize retrieval variant. */
 export function normalizeRetrievalVariant(value: string) {
@@ -272,7 +282,7 @@ export function buildRetrievalQueryVariants(
   }
   if (
     /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
-    /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
+    /\b(?:risk|red\s*zone|red|urgent|escalat(?:e|es|ed|ing|ion|ions)|next step)\b/i.test(query)
   ) {
     addVariant("risk flow");
     // websearch_to_tsquery ANDs every term, so the previous "red zone risk flow"

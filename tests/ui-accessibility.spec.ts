@@ -7,7 +7,7 @@ import { visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -257,6 +257,13 @@ test.describe("PsychSift accessibility coverage", () => {
     await modeButton.click();
     await expect(modeMenu).toBeVisible();
     await expect(modeButton).toHaveAttribute("aria-expanded", "true");
+    // Opening moves focus into "Find a mode" one animation frame later. Under load WebKit
+    // ran that frame after the Shift+Tab below, so the keypress left the search field,
+    // landed back on the trigger inside the wrapper, and the menu stayed open. Let the
+    // deferred focus land first so the keypress starts from the trigger as intended.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
 
     await modeButton.press("Shift+Tab");
     await expect(modeButton).not.toBeFocused();

@@ -1,7 +1,7 @@
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
@@ -10,10 +10,12 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
-import { jsonError } from "@/lib/http";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { jsonError, PublicApiError } from "@/lib/http";
+import { logger } from "@/lib/logger";
+import { publicCatalogueAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import { deriveGovernanceColumns, type RegistryRecordKind } from "@/lib/registry-records";
+import { projectServiceRecordForClient } from "@/lib/registry-client-contract";
 import {
   catalogueListFallbackBudgetMs,
   catalogueListScope,
@@ -50,7 +52,8 @@ const registryListQuerySchema = z.object({
   q: z
     .string()
     .trim()
-    .max(200)
+    // Matches the Answer/Documents search bound (api/search), so a pasted vignette searches instead of failing.
+    .max(2000)
     .optional()
     .transform((value) => (value ? value : undefined)),
   limit: queryInteger({ fallback: 100, min: 1, max: 200 }),
@@ -166,8 +169,17 @@ function publicRegistryPayload(kind: RegistryRecordKind, q: string | undefined, 
 }
 
 export async function GET(request: Request) {
+  let requestedKind: RegistryRecordKind | null = null;
+  let requestedQ: string | undefined;
+  let requestedLimit = 100;
+  let requestedView: RegistryListView = "full";
+
   try {
     const { kind, q, limit, view } = parseRequestQuery(request, registryListQuerySchema, "Invalid registry query.");
+    requestedKind = kind;
+    requestedQ = q;
+    requestedLimit = limit;
+    requestedView = view;
 
     if (isDemoMode() || isLocalNoAuthMode()) {
       return await registryResponse(
@@ -179,11 +191,13 @@ export async function GET(request: Request) {
       );
     }
 
-    // Anonymous callers still resolve access + rate limit: publicAccessContext skips the
+    // Anonymous callers still resolve access + rate limit: publicCatalogueAccessContext skips the
     // Supabase auth round-trip for requests with no session cookie/bearer, but every caller
     // (authenticated or not) must pass the registry limiter before we serve the full catalog.
+    // Invalid/expired credentials fall back to anonymous so a stale PWA cookie cannot blank the
+    // public Services/Forms corpus with "Could not load …".
     const supabase = createAdminClient();
-    const access = await publicAccessContext(request, supabase);
+    const access = await publicCatalogueAccessContext(request, supabase);
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -253,9 +267,19 @@ export async function GET(request: Request) {
         ];
       },
     });
-    const records = canonical.records.map((entry) => entry.record);
+    const records = canonical.records.map((entry) => projectServiceRecordForClient(entry.record) as ServiceRecord);
+    // List clients historically accepted only sourceStatus + validationStatus. Canonical
+    // governance also carries lastReviewedAt/reviewDueAt (often null). Emit only the two
+    // status fields so a stale installed PWA that still rejects the review-date keys can
+    // parse a healthy live response; the newer client parser accepts both shapes.
     const governanceBySlug = Object.fromEntries(
-      canonical.records.map((entry) => [entry.record.slug, entry.governance]),
+      canonical.records.map((entry, index) => [
+        records[index]?.slug ?? entry.record.slug,
+        {
+          sourceStatus: entry.governance.sourceStatus,
+          validationStatus: entry.governance.validationStatus,
+        },
+      ]),
     );
     return await registryResponse(
       {
@@ -281,6 +305,33 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
+    }
+    if (error instanceof PublicApiError || error instanceof ZodError) {
+      return jsonError(error);
+    }
+    if (requestedKind) {
+      logger.error("Registry catalogue setup failed; serving bundled records", {
+        catalogue_kind: requestedKind,
+        failure: error instanceof Error ? error.name : typeof error,
+      });
+      const seedRecords = requestedKind === "form" ? formRecords : serviceRecords;
+      const governance = Object.fromEntries(
+        seedRecords.map((record) => {
+          const derived = deriveGovernanceColumns(record);
+          return [record.slug, { sourceStatus: derived.source_status, validationStatus: derived.validation_status }];
+        }),
+      );
+      return await registryResponse(
+        {
+          ...registryListPayload(requestedKind, seedRecords, governance, requestedQ, requestedLimit, requestedView),
+          publicAccess: true,
+          degraded: true,
+        },
+        {
+          request,
+          fixture: false,
+        },
+      );
     }
     return jsonError(error);
   }

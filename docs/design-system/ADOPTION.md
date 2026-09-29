@@ -169,6 +169,13 @@ addition to the three original signals, never a replacement — deriving from th
 would lose the stale-and-ungrounded case, which the projection collapses to `stale_evidence`.
 Pinned by `tests/answer-support-priority.dom.test.tsx`.
 
+**Retired 2026-09-25 (#51975R).** The card this paragraph describes left the answer surface on
+2026-08-31, and `answerSupportPriority()` and `AnswerSupportSummaryCard` were deleted with their
+five pinning cases once nothing called them. The grounding caution now reaches the reader through
+the answer-limitations chip and its panel (`RetrievalStateBanner`, the governed
+`VerificationNotice` wording) and the support chip's degraded level. The paragraph above is kept
+as the record of the adoption decision.
+
 ### 2.6 answer — controller, last
 
 ```text
@@ -179,8 +186,9 @@ src/components/ClinicalDashboard.tsx        (answer orchestration only)
 ```
 
 `answer-result-surface.tsx` was missing from this list when it was first written and is added
-here rather than silently edited: it is the module that calls `answerSupportPriority()` and
-owns the inline support card, so the answer surface cannot be adopted without it.
+here rather than silently edited: it is the module that called `answerSupportPriority()` and
+owned the inline support card (both retired, see §2.5), so the answer surface cannot be adopted
+without it.
 
 Adopts `AnswerCard` + `AnswerState` + `VerificationNotice` + `RetrievalStateBanner`, with
 `DateDisplay` / `MissingValue` for absent fields, and wires `onCopy` to
@@ -309,7 +317,9 @@ held with the wave's prep material; the files are the contract here.
 **The load-bearing pin for `#207`** is the live "Review source match" assertion on
 `answer-support-card` in `tests/ui-smoke.spec.ts`. It must still pass after the answer surface
 adopts `AnswerCard`; if adoption moves the caution to a new carrier, the pin moves with it in
-the same commit and the new assertion is at least as strong.
+the same commit and the new assertion is at least as strong. (That move happened on 2026-08-31:
+the pin now asserts the card is absent and that the limitations chip and the support chip's
+`data-support` carry the caution instead. The card's code was deleted on 2026-09-25, #51975R.)
 
 ---
 
@@ -357,12 +367,12 @@ product exclusions; the only route-only dispositions are the documented legacy-r
 surfaces. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
 Registered public components: 55
-Declared product roots: 120
+Declared product roots: 156
 Roots with a literal `.ckb-v2` opt-in: 1
-Roots inheriting `.ckb-v2` from the global `<html>`: 119
-Production surfaces observed under v2: 15/15
+Roots inheriting `.ckb-v2` from the global `<html>`: 155
+Production surfaces observed under v2: 14/14
 Dynamic `ckb-v2` constructions: 0
-Declared production page routes: 112/112
+Declared production page routes: 148/148
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
@@ -371,7 +381,7 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
 | ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
 | `root-shell-and-settings`          | shared-shell    |      3 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `catalogues-forms-and-info`        | owned           |     58 |    58 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `catalogues-forms-and-info`        | owned           |    105 |   105 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `differentials`                    | owned           |      7 |     7 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `formulation`                      | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `specifiers`                       | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
@@ -380,7 +390,6 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
 | `favourites`                       | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `tools-and-calculators`            | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `caring-contacts-workspace`        | owned           |     11 |    11 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `privacy-safety-and-reference`     | owned           |      4 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `answers-shared`                   | shared-shell    |      0 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |

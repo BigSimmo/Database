@@ -44,7 +44,7 @@ const expectedPresentations = [
   {
     modeId: "differentials",
     title: "Differential Diagnosis",
-    subtitle: "Match your catalogue to your library.",
+    subtitle: "Differential diagnosis, clinical presentations, and workups.",
     iconClass: "lucide-brain-circuit",
   },
   {
@@ -67,7 +67,7 @@ const expectedPresentations = [
   },
   {
     modeId: "prescribing",
-    title: "Medication Guidance",
+    title: "Medication Reference",
     subtitle: "Medication dosing and safety.",
     iconClass: "lucide-pill",
   },
@@ -116,9 +116,39 @@ const expectedPresentations = [
   },
   {
     modeId: "cme",
-    title: "CME",
+    title: "CPD",
     subtitle: "What you have done this year, and what is still short.",
     iconClass: "lucide-graduation-cap",
+  },
+  {
+    modeId: "teaching",
+    title: "Teaching",
+    subtitle: "This week's sessions, check-in and your attendance record.",
+    iconClass: "lucide-presentation",
+  },
+  {
+    modeId: "psychiatry",
+    title: "Psychiatry",
+    subtitle: "Diagnosis, specifiers, formulation, therapy and forms.",
+    iconClass: "lucide-brain",
+  },
+  {
+    modeId: "my-work",
+    title: "Admin",
+    subtitle: "The paperwork around hospital work, with what to start first.",
+    iconClass: "lucide-clipboard-list",
+  },
+  {
+    modeId: "roster",
+    title: "Roster",
+    subtitle: "Your own shifts: what's on today, this week and this month.",
+    iconClass: "lucide-calendar-range",
+  },
+  {
+    modeId: "first-nations",
+    title: "First Nations",
+    subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
+    iconClass: "lucide-users",
   },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;

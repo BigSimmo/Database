@@ -2,7 +2,7 @@
 
 import { CalendarCheck } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -16,6 +16,7 @@ import { cn, eyebrowText, floatingControl, textMuted } from "@/components/ui-pri
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { msUntilNextOnCallLocalDay } from "@/lib/on-call/local-date";
 import { buildOnCallReviewQueue, type OnCallReviewItem } from "@/lib/on-call/review-queue";
 
 /**
@@ -28,9 +29,14 @@ import { buildOnCallReviewQueue, type OnCallReviewItem } from "@/lib/on-call/rev
  * edit it where it lives.
  */
 export function OnCallCheckPage({ now: nowProp }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, loadError, retry, cachedAt, demoMode } = useOnCallEntries();
-  const mountedAt = useMemo(() => new Date(), []);
-  const now = nowProp ?? mountedAt;
+  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut, demoMode } = useOnCallEntries();
+  const [tick, setTick] = useState(() => new Date());
+  const now = nowProp ?? tick;
+  useEffect(() => {
+    if (nowProp) return;
+    const timer = setTimeout(() => setTick(new Date()), msUntilNextOnCallLocalDay(now));
+    return () => clearTimeout(timer);
+  }, [nowProp, now]);
   const queue = useMemo(() => buildOnCallReviewQueue(entries, now), [entries, now]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +51,15 @@ export function OnCallCheckPage({ now: nowProp }: { now?: Date } = {}) {
       const updated = (payload as { entry?: OnCallEntry } | null)?.entry;
       if (updated) cacheOnCallEntries(entries.map((existing) => (existing.id === updated.id ? updated : existing)));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Could not confirm this entry.");
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isFetchError = failure instanceof TypeError && failure.message.toLowerCase().includes("fetch");
+      setError(
+        isOffline || isFetchError
+          ? "You are offline. Connect to confirm this entry."
+          : failure instanceof Error
+            ? failure.message
+            : "Could not confirm this entry.",
+      );
     } finally {
       setPending(null);
     }
@@ -84,11 +98,31 @@ export function OnCallCheckPage({ now: nowProp }: { now?: Date } = {}) {
           />
         ) : isOffline && entries.length === 0 ? (
           <OnCallLoadFailed reason={loadError} onRetry={retry} />
+        ) : entries.length === 0 ? (
+          // No entries is not the same as nothing due: there was nothing to
+          // assess, so this must never read as though a check happened.
+          <EmptyState
+            icon={CalendarCheck}
+            title={signedOut ? "Sign in to see your checks" : "No entries yet"}
+            body={
+              signedOut
+                ? "Your own contacts and entries, and when each was last checked, show here once you sign in."
+                : "Add contacts and other entries to On Call. Anything due for a check will then be listed here."
+            }
+            testId="on-call-check-no-entries"
+          />
+        ) : queue.assessed === 0 ? (
+          <EmptyState
+            icon={CalendarCheck}
+            title="Nothing here for you to check"
+            body="None of these entries is one you can confirm. Compliance records are kept on Compliance instead."
+            testId="on-call-check-none-assessed"
+          />
         ) : queue.total === 0 ? (
           <EmptyState
             icon={CalendarCheck}
-            title="Nothing needs checking"
-            body="Every entry of yours was checked in the last year, and none comes due in the next 30 days."
+            title="Nothing due for a check"
+            body={`${queue.assessed === 1 ? "Your one entry was" : `All ${queue.assessed} of your entries were`} checked in the last twelve months, and none comes due in the next 30 days.`}
             testId="on-call-check-empty"
           />
         ) : (

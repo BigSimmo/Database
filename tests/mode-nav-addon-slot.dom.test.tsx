@@ -68,8 +68,13 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/on-call/referrals")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/orientation")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/education")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/on-call/logistics")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/who-is-who")).toBe(true);
+    // On Call's Admin page moved to Admin > Help (Admin update 1). Admin's three
+    // sub-pages mount `AdminNavHeader`; its Today page mounts none.
+    expect(isHeaderAddonSlotOwnedRoute("/admin/help")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/admin/renewals")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/admin/new-job")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/admin")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/card")).toBe(true);
     // The mode home is a dashboard now, not a redirect stub, and it mounts the
     // rail like every other page in the mode.
@@ -77,13 +82,43 @@ describe("header addon slot ownership", () => {
     // `/on-call/search` no longer exists — the mode declares no search surface —
     // so nothing claims it.
     expect(isHeaderAddonSlotOwnedRoute("/on-call/search")).toBe(false);
-    // CME claims the slot on exactly the two pages that mount `CmeNavHeader`.
-    // Its other routes mount no header of their own, so they must stay out.
+    // CPD's five page families claim the slot through their own tab row or read header.
     expect(isHeaderAddonSlotOwnedRoute("/cme/programme")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/cme/setup")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/cme")).toBe(false);
-    expect(isHeaderAddonSlotOwnedRoute("/cme/log")).toBe(false);
-    expect(isHeaderAddonSlotOwnedRoute("/cme/routines")).toBe(false);
+    for (const pathname of [
+      "/cme",
+      "/cme/check",
+      "/cme/log",
+      "/cme/routines",
+      "/cme/plan",
+      "/cme/calendar",
+      "/cme/training",
+      "/cme/learning",
+    ]) {
+      expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
+    }
+    expect(isHeaderAddonSlotOwnedRoute("/cme/new")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/summary")).toBe(false);
+    // Every First Nations route claims the slot: the mode home and every
+    // section mount `FirstNationsNavHeader` themselves.
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/contacts")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/talking")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/family")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/mental-health")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/on-the-ward")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/mistakes")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/going-home")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/end-of-life")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/first-nations/card")).toBe(true);
+    // Teaching claims the slot on exactly the two pages that mount
+    // `TeachingNavHeader`. Its four top pages use the pages sheet instead.
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/session/11111111-1111-4111-8111-111111111111")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/session/11111111-1111-4111-8111-111111111111/check-in")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/week")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/organise")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/teaching/c/complete")).toBe(false);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
@@ -149,9 +184,31 @@ describe("header addon slot ownership", () => {
       "/on-call/referrals",
       "/on-call/orientation",
       "/on-call/education",
-      "/on-call/logistics",
+      "/admin/renewals",
+      "/admin/new-job",
+      "/admin/help",
       "/cme/programme",
       "/cme/setup",
+      "/cme",
+      "/cme/check",
+      "/cme/log",
+      "/cme/routines",
+      "/cme/plan",
+      "/cme/calendar",
+      "/cme/training",
+      "/cme/learning",
+      "/first-nations",
+      "/first-nations/contacts",
+      "/first-nations/talking",
+      "/first-nations/family",
+      "/first-nations/mental-health",
+      "/first-nations/on-the-ward",
+      "/first-nations/mistakes",
+      "/first-nations/going-home",
+      "/first-nations/end-of-life",
+      "/first-nations/card",
+      "/teaching/session/11111111-1111-4111-8111-111111111111",
+      "/teaching/session/11111111-1111-4111-8111-111111111111/check-in",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -297,11 +354,15 @@ describe("header addon slot ownership", () => {
     // hooks (`useInPageSectionNav`).
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
+      // Admin's Renewals, New job and Help pages share one `*-nav-header.tsx`
+      // sibling (Admin update 1), registered as the three `/admin/*` sub-routes.
+      "src/components/admin/admin-nav-header.tsx",
       "src/components/clinical-dashboard/medication-nav-header.tsx",
       // CME's Programme and Setup pages share one `*-nav-header.tsx` sibling
       // (`cmeSections` is a superset the header narrows per render), so the
       // whole mode's claim is registered in this one file.
       "src/components/cme/cme-nav-header.tsx",
+      "src/components/cme/cme-page-tabs.tsx",
       "src/components/developer-area/developer-hub-nav-header.tsx",
       "src/components/dictionary/dictionary-catalogue-pages.tsx",
       "src/components/dictionary/dictionary-term-page.tsx",
@@ -310,6 +371,8 @@ describe("header addon slot ownership", () => {
       "src/components/dsm/dsm-diagnosis-nav-header.tsx",
       "src/components/dsm/dsm-differential-considerations-page.tsx",
       "src/components/factsheets/factsheet-nav-header.tsx",
+      // First Nations' own header, mounted on the mode home and every section.
+      "src/components/first-nations/first-nations-nav-header.tsx",
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
       // On Call now follows the sibling convention exactly: both its headers —
@@ -323,12 +386,15 @@ describe("header addon slot ownership", () => {
       // menu goes to the universal header's TRAILING slot, which is a different
       // host and not this one.
       "src/components/on-call/on-call-nav-header.tsx",
+      // Roster manage owns its own header for the manager surface.
+      "src/components/roster/manage/roster-manage-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
       // The source record has no section index, so it renders the header's
       // breadcrumb shape (back, title) straight from the Server Component page
       // and needs no `*-nav-header.tsx` sibling to carry hooks or icons.
       "src/components/sources/sources-pages.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
+      "src/components/teaching/teaching-nav-header.tsx",
       "src/components/therapy-compass/therapy-record-nav-header.tsx",
     ]);
   });

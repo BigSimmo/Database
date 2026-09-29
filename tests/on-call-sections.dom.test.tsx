@@ -154,6 +154,28 @@ describe("OnCallPlaybookSection", () => {
     expect(within(card).queryByTestId(`on-call-playbook-no-guideline-${ACUTE_AGITATION.slug}`)).toBeNull();
   });
 
+  it("displays Unknown cleanly when a linked guideline has no recorded review date", () => {
+    const unreviewedGuideline: OnCallLinkedDocument = {
+      id: "aaaaaaaa-0000-0000-0000-000000000009",
+      title: "Draft Aggression Policy",
+      date: null,
+    };
+    const entryWithUnreviewed = {
+      ...ACUTE_AGITATION,
+      linkedDocumentIds: [unreviewedGuideline.id],
+    };
+    render(
+      <OnCallPlaybookSection
+        entries={[entryWithUnreviewed]}
+        documents={{ [unreviewedGuideline.id]: unreviewedGuideline }}
+        now={NOW}
+      />,
+    );
+    const card = screen.getByTestId("on-call-playbook-card-acute-agitation");
+    const link = within(card).getByRole("link", { name: /Draft Aggression Policy/ });
+    expect(link).toHaveTextContent("Unknown");
+  });
+
   // Regression, 2026-09-24: while the linked documents were still loading,
   // every card said its guideline was "unavailable" and sat under Unlinked.
   it("says a linked guideline is loading, not unavailable, while the lookup runs", () => {
@@ -297,7 +319,11 @@ const JOURNAL_CLUB = entry("education", {
   id: "ffffffff-0000-0000-0000-000000000001",
   slug: "journal-club",
   title: "Journal club",
-  details: { nextOccurrence: "2026-09-10T08:00:00.000Z", topics: ["Clozapine monitoring"] },
+  details: {
+    nextOccurrence: "08:00",
+    nextOccurrenceDate: "2026-09-10",
+    topics: ["Clozapine monitoring"],
+  },
 });
 
 const GRAND_ROUNDS = entry("education", {
@@ -305,7 +331,8 @@ const GRAND_ROUNDS = entry("education", {
   slug: "grand-rounds",
   title: "Grand rounds",
   details: {
-    nextOccurrence: "2026-10-01T08:00:00.000Z",
+    nextOccurrence: "08:00",
+    nextOccurrenceDate: "2026-10-01",
     recordingUrl: "https://example-hospital-intranet.test/recordings/grand-rounds",
     topics: [],
   },
@@ -365,6 +392,19 @@ describe("OnCallEducationSection", () => {
     expect(recordingLink).toHaveAttribute("rel", "noopener noreferrer");
     expect(recordingLink.querySelector("svg")).not.toBeNull();
     expect(recordingLink).toHaveTextContent(/opens in a new tab/i);
+  });
+
+  it("never draws a stored javascript: recording link", () => {
+    const unsafe = entry("education", {
+      id: "ffffffff-0000-0000-0000-000000000006",
+      slug: "unsafe-recording",
+      title: "Unsafe recording",
+      details: { recordingUrl: "javascript:alert(1)", topics: [] },
+    });
+    render(<OnCallEducationSection entries={[unsafe]} now={NOW} />);
+    const card = screen.getByTestId("on-call-education-card-unsafe-recording");
+    expect(within(card).queryByRole("link", { name: /watch recording/i })).toBeNull();
+    expect(card.innerHTML).not.toContain("javascript:");
   });
 
   it("rolls a recurring session forward instead of printing a date that has gone by", () => {
@@ -456,8 +496,61 @@ describe("OnCallLogisticsSection", () => {
 
     const card = screen.getByText("Journal club").closest("article");
     expect(card).not.toBeNull();
-    // Both: the rolled-forward date, and the time nobody else knows.
+    // Both: the rolled-forward date, and the time nobody else knows (with redundant day name stripped).
     expect(card).toHaveTextContent(/Sep 2026/);
-    expect(card).toHaveTextContent("Thursday 1pm");
+    expect(card).toHaveTextContent("1pm");
+    expect(card).not.toHaveTextContent("Thursday 1pm");
+  });
+
+  it("keeps schedule qualifiers beside the computed date", () => {
+    const session = entry("education", {
+      id: "55555555-5555-4555-8555-555555555557",
+      slug: "term-journal-club",
+      title: "Term journal club",
+      details: {
+        nextOccurrence: "Thursday 1pm, weeks 1–10",
+        nextOccurrenceDate: "2026-09-17",
+        topics: [],
+      },
+    });
+    const termSession = entry("education", {
+      id: "55555555-5555-4555-8555-555555555558",
+      slug: "term-cme-session",
+      title: "Term CME session",
+      details: { nextOccurrence: "Thursday noon during term", nextOccurrenceDate: "2026-09-17", topics: [] },
+    });
+    render(<OnCallEducationSection entries={[session, termSession]} now={new Date("2026-09-16T00:00:00.000Z")} />);
+    const card = screen.getByText("Term journal club").closest("article");
+    expect(card).toHaveTextContent("1pm, weeks 1–10");
+    expect(card).not.toHaveTextContent("Thursday 1pm");
+    expect(screen.getByText("Term CME session").closest("article")).toHaveTextContent("noon during term");
+  });
+
+  it("strips stale relative phrases from the Next badge when a date is present", () => {
+    const sessionWithRelative = {
+      id: "55555555-5555-4555-8555-555555555556",
+      slug: "cme-meeting",
+      section: "education",
+      title: "CME meeting",
+      subtitle: null,
+      body: null,
+      details: {
+        nextOccurrence: "Later this month",
+        nextOccurrenceDate: "2026-09-24",
+        topics: [],
+      },
+      linkedDocumentIds: [],
+      tags: [],
+      isPersonal: false,
+      includeOnCard: false,
+      sortOrder: 0,
+      lastVerifiedAt: new Date("2026-09-01T00:00:00.000Z").toISOString(),
+    } as unknown as OnCallEntry;
+
+    render(<OnCallEducationSection entries={[sessionWithRelative]} now={new Date("2026-09-16T00:00:00.000Z")} />);
+    const card = screen.getByText("CME meeting").closest("article");
+    expect(card).not.toBeNull();
+    expect(card).toHaveTextContent("Thu 24 Sep 2026");
+    expect(card).not.toHaveTextContent("Later this month");
   });
 });

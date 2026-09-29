@@ -180,7 +180,7 @@ export function DocumentViewDensityToggle({
       <ListCollapse aria-hidden="true" className="h-4 w-4 shrink-0" />
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-bold">{compact ? "Condensed view" : "Full view"}</span>
-        <span className="block truncate text-3xs font-semibold opacity-75">
+        <span className="block truncate text-3xs font-semibold">
           {compact ? "Long sections collapsed" : "All indexed text shown"}
         </span>
       </span>
@@ -259,7 +259,7 @@ export function DocumentSectionSheet({
       title={documentTitle}
       description={
         active
-          ? `${active.label} · ${Math.max(position, 1)} of ${sections.length} — a chevron marks a section that opens first`
+          ? `${active.label} · section ${Math.max(position, 1)} of ${sections.length}. Sections with a down arrow expand when you open them.`
           : undefined
       }
       closeLabel="Close section list"

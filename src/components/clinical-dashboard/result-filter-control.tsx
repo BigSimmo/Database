@@ -1,7 +1,17 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type Ref,
+  type RefObject,
+} from "react";
 
 import { usePhoneMedia } from "@/components/compare/use-phone-media";
 import { Sheet } from "@/components/ui/sheet";
@@ -220,7 +230,9 @@ export function ResultFilterTrigger({
   testId: string;
   open: boolean;
   activeCount: number;
-  onToggle: () => void;
+  /** Receives the click, so a caller rendering two triggers can tell which one
+      opened the panel and return focus to it on close. */
+  onToggle: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   /** Pointer tooltip, e.g. "Filter services". The accessible name comes from the
       visible label plus the state note below, so this is decoration. */
   title: string;
@@ -1047,6 +1059,7 @@ export function ResultFilterSheet({
       than three facet groups); a sheet that never does can omit it. */
   chromeResetKey = "",
   anchorRef,
+  returnFocusRef,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1075,6 +1088,14 @@ export function ResultFilterSheet({
    * which is what keeps this additive.
    */
   anchorRef?: RefObject<HTMLElement | null>;
+  /**
+   * The control that opened the sheet, read when it closes. Focus returns here
+   * even when the opening click did not focus the control (Safari), where the
+   * previously focused element would be <body> (#M3XZV0). The caller must keep
+   * this component mounted while closed: `Sheet` skips its restore when it
+   * unmounts, so a sheet rendered only while open never returns focus.
+   */
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   // Hooks run unconditionally — the empty-groups early return happens below,
   // after every hook the render needs has already been declared.
@@ -1135,7 +1156,10 @@ export function ResultFilterSheet({
     });
   };
 
-  if (groups.length === 0 && !scope) return null;
+  // Only an OPEN sheet with nothing to show bails out. A closed one still
+  // renders `<Sheet open={false}>`, which draws nothing but stays mounted, so a
+  // caller that keeps this mounted gets focus returned on close (#M3XZV0).
+  if (open && groups.length === 0 && !scope) return null;
 
   const facetGroups = groups.filter(isFacetGroup);
   const totalFacetOptions = facetGroups.reduce((total, group) => total + group.options.length, 0);
@@ -1400,6 +1424,7 @@ export function ResultFilterSheet({
       placement="responsive-right"
       id={panelId}
       testId={testId}
+      returnFocusRef={returnFocusRef}
       headerActions={headerActionsNode}
       footer={footerNode}
     >

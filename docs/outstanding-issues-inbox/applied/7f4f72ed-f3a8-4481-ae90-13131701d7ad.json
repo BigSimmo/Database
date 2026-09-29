@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7f4f72ed-f3a8-4481-ae90-13131701d7ad",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#1TKG71",
+    "outcome": "Updated On Call playbook linked documents to extract clinical review date from document metadata instead of falling back to file modification timestamp updated_at (#1TKG71).",
+    "baseRowFingerprint": "ad9ec961e3fc7e06087744182c06cf2078e6c4c8ab204652c74f7b1a4559ea75"
+  }
+}

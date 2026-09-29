@@ -83,14 +83,19 @@ function sentences(...parts: (string | null | undefined)[]): string {
  */
 export function mechanismReviewState(mechanism: {
   reviewStatus?: string | null;
+  reviewedBy?: string | null;
   sourceStatus?: string | null;
   sourceConfidence?: string | null;
 }): FormulationReviewState {
-  if (isFormulationSignedOffStatus(mechanism.reviewStatus)) {
+  const reviewer = trimmed(mechanism.reviewedBy);
+  // An unnamed sign-off is not a sign-off, for a mechanism as for a concept.
+  if (isFormulationSignedOffStatus(mechanism.reviewStatus) && reviewer) {
     return {
       reviewed: true,
       label: REVIEWED_LABEL,
-      detail: sentences("A clinician has reviewed this record", mechanism.sourceStatus, mechanism.sourceConfidence),
+      // The record's own source wording is left out once it is signed: it was written
+      // before review ("named clinical confirmation pending") and would contradict the badge.
+      detail: sentences(`Reviewed by ${reviewer}`),
     };
   }
 

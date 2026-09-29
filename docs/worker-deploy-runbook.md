@@ -235,7 +235,7 @@ the client publishable key (build-time, app bundle only) or
 | `SUPABASE_SERVICE_ROLE_KEY` | **critical** | admin client; RLS is service-role-only                 |
 | `OPENAI_API_KEY`            | **critical** | embeddings + image captioning; probed at startup       |
 | `SUPABASE_PROJECT_REF`      | low          | pins `check:supabase-project` (`sjrfecxgysukkwxsowpy`) |
-| `SUPABASE_PROJECT_NAME`     | low          | `Clinical KB Database`                                 |
+| `SUPABASE_PROJECT_NAME`     | low          | `PsychSift Production`                                 |
 
 **Defaulted — override only to tune; safe values ship in `src/lib/env.ts`:**
 
@@ -254,6 +254,7 @@ the client publishable key (build-time, app bundle only) or
   annotated list.
 - `PYTHON_BIN=python` — do not set a Windows `TESSERACT_CMD` path; the container
   resolves both from the venv/PATH.
+- Automated pre-deploy migration gate (see §0.1): `DEPLOY_MIGRATION_GATE=enforce` (blocks deploy if migrations are pending; default `report` logs status without blocking; emergency bypass `off`; poll settings: `DEPLOY_MIGRATION_GATE_POLL_S=20`, `DEPLOY_MIGRATION_GATE_MAX_WAIT_S=600`).
 
 ### Shadow extraction mode (packet B4 — docling, default OFF)
 
@@ -325,10 +326,10 @@ duration of the docling run (up to 120 s) before the final metadata merge and
 ### 3.2 Preconditions before enabling
 
 1. **The running image must be built from `main` at or after PR #2170 (`5437c309f`).** That
-   build adds the second venv `/opt/docling-venv` (from the Gate B lab's hashed lock,
-   `docling==2.120.2`, CPU-only torch), bakes docling's models into `/opt/docling-models`,
-   and sets `WORKER_DOCLING_PYTHON_BIN`, `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1`
-   and `HF_HUB_OFFLINE=1`. On an older image that variable is unset and **every** cohort
+   build adds the second venv `/opt/docling-venv` (from the Gate B lab's hashed lock: docling
+   at the version pinned in `eval/docling/requirements.txt`, CPU-only torch), bakes docling's
+   models into `/opt/docling-models`, and sets `WORKER_DOCLING_PYTHON_BIN`,
+   `DOCLING_ARTIFACTS_PATH`, `TORCHDYNAMO_DISABLE=1` and `HF_HUB_OFFLINE=1`. On an older image that variable is unset and **every** cohort
    document records `runtime_unavailable` while legacy indexing continues normally.
 2. **Memory headroom of roughly 1.5 GiB above the worker's current peak — measured 2026-08-21
    and comfortably satisfied.** Gate B measured docling peak RSS **1,504,313,344 B (~1.40 GiB)**
@@ -352,7 +353,7 @@ duration of the docling run (up to 120 s) before the final metadata merge and
    that matters most, because a container OOM kill during the docling window is the one failure
    the fail-open code cannot catch: the index is already committed, but the job would sit
    `processing` until the 45-minute stale reclaim (`WORKER_STALE_AFTER_MINUTES`) and burn an
-   attempt. **How to re-check:** Railway → project `Database` → `worker` service → **Metrics**,
+   attempt. **How to re-check:** Railway → project `PsychSift` → `worker` service → **Metrics**,
    memory across a busy ingest window.
 
    One caveat on the cost model in §3.4: Gate B measured 9–19 s/doc on **2 CPUs**, and this
@@ -442,7 +443,7 @@ outside the Gate B authorisation, and they are the cap this section exists to st
 ### 3.5 Enabling
 
 1. Work through every precondition in §3.2 first.
-2. On the Railway `worker` service (project `Database`, production environment) set:
+2. On the Railway `worker` service (project `PsychSift`, production environment) set:
 
    ```text
    WORKER_DOCUMENT_EXTRACTOR_MODE=shadow

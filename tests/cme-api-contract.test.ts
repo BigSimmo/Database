@@ -140,12 +140,12 @@ describe("the CME API", () => {
 
 describe("CME entry [id] route", () => {
   it("returns 404 identically for a missing id and an id owned by someone else", () => {
-    expect(detail).toContain("CME entry not found.");
+    expect(detail).toContain("CPD entry not found.");
     // Three not-found branches — the PATCH pre-check, the PATCH update, and the DELETE — each
     // fed by a query already scoped by id AND owner_id on the same chain. None of them ever
     // learns whether the id was missing or just belongs to another owner, so none of them can
     // leak that distinction to the caller as a 403-vs-404 oracle.
-    expect(detail.match(/CME entry not found\./g)?.length).toBe(1);
+    expect(detail.match(/CPD entry not found\./g)?.length).toBe(1);
     expect(detail).toContain("setCmeEntryArchived(supabase, user.id, id");
     expect(repository).toContain("cme_entry_not_found");
   });
@@ -163,6 +163,8 @@ describe("CME entry [id] route", () => {
 
   it("persists transcribed_at through a narrow PATCH and replaces allocations transactionally", () => {
     expect(detail).toMatch(/markCmeEntryTranscribed\(/);
+    expect(detail).toMatch(/clearCmeEntryTranscribed\(/);
+    expect(detail).toMatch(/Object\.keys\(rawBody as object\)\.length === 1/);
     expect(detail).toMatch(/saveCmeEntry\(/);
     expect(repository).toMatch(/rpc\("cme_save_entry"/);
   });
@@ -333,5 +335,31 @@ describe("CME complete year confirmation schema", () => {
       { requirements: undefined },
     ])
       expect(cmeYearConfirmSchema.safeParse({ ...validBody, ...change }).success).toBe(false);
+  });
+});
+
+describe("finishing a draft and replacing a missed session from the entry POST", () => {
+  const minimal = {
+    date: "2026-01-15",
+    title: "Journal club",
+    allocations: [{ category: "reviewing" as const, hours: 1 }],
+  };
+  const id = "7f3c1a52-3c0e-4b8a-9a55-2f6b0a1d9c11";
+
+  it("accepts an optional draft and missed-session id, and only as uuids", () => {
+    expect(cmeEntryCreateSchema.safeParse({ ...minimal, draftId: id, missedSessionId: id }).success).toBe(true);
+    expect(cmeEntryCreateSchema.safeParse({ ...minimal, draftId: "not-a-uuid" }).success).toBe(false);
+    expect(cmeEntryCreateSchema.safeParse({ ...minimal, missedSessionId: "not-a-uuid" }).success).toBe(false);
+  });
+
+  it("deletes the draft and links the missed session only after the entry is saved, owner-scoped", () => {
+    const insertAt = list.indexOf("await insertCmeEntry(");
+    expect(insertAt).toBeGreaterThan(-1);
+    expect(list.indexOf("deleteOwnerCmeDraft(supabase, user.id, body.draftId)")).toBeGreaterThan(insertAt);
+    expect(
+      list.indexOf("setOwnerCmeMissedSessionReplacement(supabase, user.id, body.missedSessionId, created.id)"),
+    ).toBeGreaterThan(insertAt);
+    // A failed follow-up never undoes or fails the save.
+    expect(list).toContain("Promise.allSettled(");
   });
 });

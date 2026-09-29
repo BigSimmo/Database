@@ -1,5 +1,7 @@
 import { expect, test } from "playwright/test";
 
+import { expectSingleSettledOwner } from "./playwright-settlement";
+
 /**
  * 19 September 2026, 10:00 Perth. Every figure the CME screens derive from
  * "now" — days remaining, the pace projection, which year an entry falls in —
@@ -22,9 +24,10 @@ const FROZEN = new Date("2026-09-19T02:00:00Z");
  * The original visual reference routes. Setup and routines additionally have
  * responsive journey coverage below now that they are functional screens.
  */
-export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/programme"] as const;
+// `/cme/programme` is now only a redirect to Set up, so the baseline measures Set up itself.
+export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/setup"] as const;
 
-const CME_CORE_ROUTES = [...CME_BASELINE_ROUTES, "/cme/setup", "/cme/routines", "/cme/summary?year=2026"] as const;
+const CME_CORE_ROUTES = [...CME_BASELINE_ROUTES, "/cme/routines", "/cme/summary?year=2026"] as const;
 
 const CLINICAL_STATUS_CLASS =
   /\b(?:bg|text|border|ring|fill|stroke)-(?:red|amber|green|orange|rose|emerald|yellow)-[0-9]/;
@@ -44,13 +47,13 @@ test.describe("CME on a phone", () => {
   test("the dashboard leads with position, pace and one action", async ({ page }) => {
     await page.goto("/cme");
     await expect(page.locator("#main-content")).toBeVisible();
-    // `toContainText`, not `toHaveText`: the testid sits on the wrapping <p>,
-    // whose full text is "32.5of 50 hours logged" — the figure plus its own
-    // muted "of N hours logged" sibling span, with no space between them in
-    // markup. An exact-text match would pin that whole sentence instead of
-    // the one figure this assertion is actually about.
+    // `toContainText`, not `toHaveText`: the testid now sits on a hero span
+    // whose text is "32.5 of 50 h" — the figure plus its own muted "of N h"
+    // sibling text. An exact-text match would pin that whole sentence instead
+    // of the one figure this assertion is actually about.
     await expect(page.getByTestId("cme-total-hours")).toContainText("32.5");
-    await expect(page.getByTestId("cme-pace-sentence")).toContainText("by 31 December");
+    await expect(page.getByTestId("cme-pace-sentence")).toContainText("About 1.2 h a week reaches 50 h by 31 Dec");
+    await expect(page.getByTestId("cme-hero-season")).toHaveText("Year ends 31 Dec 2026, in 15 weeks");
     await expect(page.getByTestId("cme-next-action")).toBeVisible();
   });
 
@@ -131,12 +134,20 @@ test.describe("CME core screens at phone widths", () => {
     await page.getByRole("button", { name: "Log 1.0 h for Demo journal club", exact: true }).click();
     await expect(page).toHaveURL(/\/cme\/new\?routine=/);
     await expect(page.getByLabel("What was it", { exact: false })).toHaveValue("Demo journal club");
-    await expect(page.getByLabel("Hours for this activity", { exact: true })).toHaveValue("1");
+    // The routine's usual hours are shown, not assumed: the doctor chooses the hours actually spent.
+    await expect(page.getByText("This routine usually takes 1 h.")).toBeVisible();
+    const oneHour = page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true });
+    await expect(oneHour).toHaveAttribute("aria-pressed", "false");
+    await oneHour.click();
+    await expect(oneHour).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Educational", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Save entry", exact: true })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     await expect(page.getByTestId("cme-entry-demo-notice")).toContainText("Saving is available only");
   });
 
@@ -149,6 +160,11 @@ test.describe("CME core screens at phone widths", () => {
       .getByRole("link", { name: "2025", exact: true })
       .click();
     await expect(page).toHaveURL(/year=2025/);
+    await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
+    await page.getByRole("navigation", { name: "Log tabs" }).getByRole("link", { name: "Routines" }).click();
+    await expect(page).toHaveURL(/\/cme\/routines\?year=2025/);
+    await page.getByRole("navigation", { name: "Log tabs" }).getByRole("link", { name: "Activities" }).click();
+    await expect(page).toHaveURL(/\/cme\/log\?year=2025/);
     await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
     await page
       .getByRole("navigation", { name: "Select year" })
@@ -197,7 +213,8 @@ test.describe("CME core screens at phone widths", () => {
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await page.goto("/cme/setup");
     await expect(page.locator("#main-content")).toBeVisible();
-    const control = page.locator("#main-content").getByRole("button").first();
+    // Set up opens on its read view, whose first control is a link (Edit), not a button.
+    const control = page.locator("#main-content").locator("a[href], button").first();
     await control.focus();
     await expect(control).toBeFocused();
     await expect(control).toBeInViewport();
@@ -210,7 +227,7 @@ test.describe("CME annual records and explicit learning handoff", () => {
   test("prints the whole selected year with black text and no controls or clipping ancestors", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
     await page.goto("/cme/summary?year=2026");
-    const summary = page.getByTestId("cme-annual-summary");
+    const summary = await expectSingleSettledOwner(page.getByTestId("cme-annual-summary"));
     await expect(summary.getByRole("heading", { level: 1 })).toContainText("2026");
     await expect(summary).toContainText("47 active activities");
     await page.emulateMedia({ media: "print" });
@@ -218,6 +235,17 @@ test.describe("CME annual records and explicit learning handoff", () => {
     const printControls = summary.locator(".cme-print-controls");
     await expect(printControls).toHaveCount(2);
     for (const control of await printControls.all()) await expect(control).toBeHidden();
+    // WebKit can hide print controls before its print color cascade has painted.
+    // Keep the all-black requirement, then inspect the settled print geometry.
+    await expect
+      .poll(() =>
+        summary.evaluate((root) => [
+          ...new Set(
+            [...root.querySelectorAll<HTMLElement>("h1,h2,h3,p,li")].map((node) => getComputedStyle(node).color),
+          ),
+        ]),
+      )
+      .toEqual(["rgb(0, 0, 0)"]);
     const printLayout = await summary.evaluate((root) => {
       const ancestors = [];
       for (let parent = root.parentElement; parent; parent = parent.parentElement) {
@@ -267,6 +295,13 @@ test.describe("CME annual records and explicit learning handoff", () => {
     await expect(page.getByTestId("cme-annual-summary")).toHaveCount(0);
   });
 
+  test("opens the current year's summary when no year is given", async ({ page }) => {
+    await page.goto("/cme/summary");
+    const summary = page.getByTestId("cme-annual-summary");
+    await expect(summary.getByRole("heading", { level: 1 })).toContainText("2026");
+    await expect(page.getByText("Choose a valid year from your CPD log.")).toHaveCount(0);
+  });
+
   test("teaching handoff prefills only title and source until duration and categories are confirmed", async ({
     page,
   }) => {
@@ -284,16 +319,40 @@ test.describe("CME annual records and explicit learning handoff", () => {
       "https://example.org/synthetic-teaching",
     );
     await expect(page.getByText("Opening this form does not record an activity.", { exact: false })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(writes).toEqual([]);
-    await page.getByLabel("Hours for this activity", { exact: true }).fill("1");
+    await page.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true }).click();
     await page.getByRole("button", { name: "Educational", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Save entry", exact: true })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(writes).toEqual([]);
   });
 });
 
 test.describe("CME phone design", () => {
+  test("opening a Today figure explains its source without shifting the page", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/cme");
+    const main = page.locator("#main-content");
+    await expect(main).toBeVisible();
+    const before = await main.boundingBox();
+    await page.getByTestId("cme-hero-summary").getByRole("button").click();
+    const sheet = page.getByTestId("cme-today-detail-sheet");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByTestId("cme-today-detail-total")).toContainText("saved activities");
+    await expect(sheet.getByText(/This app does not independently certify it/)).toBeVisible();
+    const after = await main.boundingBox();
+    expect(after?.x).toBe(before?.x);
+    expect(after?.width).toBe(before?.width);
+    await page.keyboard.press("Escape");
+    await expect(sheet).not.toBeVisible();
+  });
+
   test("the Log button opens a quick panel over the dashboard without recording anything", async ({ page }) => {
     const writes: string[] = [];
     page.on("request", (request) => {
@@ -301,13 +360,17 @@ test.describe("CME phone design", () => {
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/cme");
-    await expect(page.getByTestId("cme-category-bar").filter({ visible: true })).toBeVisible();
+    await expect(page.getByTestId("cme-hero-summary").filter({ visible: true })).toBeVisible();
     await page.getByTestId("cme-quick-log-button").click();
     const sheet = page.getByTestId("cme-quick-log-sheet");
     await expect(sheet.getByLabel("What was it", { exact: false })).toBeVisible();
     await sheet.getByLabel("What was it", { exact: false }).fill("Synthetic grand round");
+    await sheet.getByRole("group", { name: "Hours" }).getByRole("button", { name: "1", exact: true }).click();
     await sheet.getByRole("button", { name: "Educational", exact: true }).click();
-    await expect(sheet.getByRole("button", { name: "Save entry", exact: true })).toBeEnabled();
+    await expect(sheet.getByRole("button", { name: "Save entry", exact: true })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(writes).toEqual([]);
   });
 
@@ -326,8 +389,9 @@ test.describe("CME phone design", () => {
     await page.getByTestId("cme-year-check-link").filter({ visible: true }).click();
     await expect(page).toHaveURL(/\/cme\/check\?year=2026/);
     const check = page.getByTestId("cme-year-check");
-    await expect(check.getByRole("heading", { level: 1 })).toHaveText(/\d+ of \d+ ready/);
+    await expect(check.getByRole("heading", { level: 1 })).toHaveText(/\d+ of \d+ done/);
     await expect(check.getByTestId("cme-check-row-total")).toBeVisible();
+    await expect(check.getByTestId("cme-check-row-evidence")).toContainText("Not checked");
     await expect(check.getByTestId("cme-check-row-copied")).toBeVisible();
   });
 
@@ -336,6 +400,7 @@ test.describe("CME phone design", () => {
     await page.goto("/cme/calendar");
     const calendar = page.getByTestId("cme-calendar-view");
     await expect(calendar.getByRole("heading", { level: 2 })).toHaveText("September 2026");
+    await expect(calendar.getByRole("list", { name: "What the marks mean" })).toBeVisible();
     await calendar.getByRole("button", { name: "Next month" }).click();
     await expect(calendar.getByRole("heading", { level: 2 })).toHaveText("October 2026");
     const width = await page.evaluate(() => document.documentElement.scrollWidth);

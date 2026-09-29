@@ -13,6 +13,7 @@ import {
   saveCmeEntry,
   fetchOwnerCmeYear,
   markCmeEntryTranscribed,
+  clearCmeEntryTranscribed,
 } from "@/lib/cme/repository";
 import { cmeEntryAmendSchema, cmeEntryUpdateSchema } from "@/lib/cme/schemas";
 import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
@@ -30,10 +31,10 @@ const cmeEntryRouteParamsSchema = z.object({ id: z.string().uuid() });
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
-    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CME entry id.");
+    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CPD entry id.");
 
     if (isDemoMode()) {
-      return publicErrorResponse("CME entries cannot be edited in demo mode.", 400, {
+      return publicErrorResponse("CPD entries cannot be edited in demo mode.", 400, {
         code: "demo_mode_unavailable",
       });
     }
@@ -50,28 +51,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     // Accepted bodies (plus `{ "archived": boolean }`, handled below):
-    // 1. `{ "transcribed": true }` — stamp transcribed_at after a successful clipboard copy.
+    // 1. `{ "transcribed": boolean }` — stamp or clear transcribed_at for Copy next / Undo.
     // 2. A full-replace `cmeEntryUpdateSchema` body (every create field required), so a partial
     //    edit cannot silently blank reflection/cost/links via create-schema defaults.
     let rawBody: unknown;
     try {
       rawBody = await request.json();
     } catch {
-      return publicErrorResponse("Invalid CME entry.", 400);
+      return publicErrorResponse("Invalid CPD entry.", 400);
     }
-    const markTranscribed =
+    const copyStateBody =
       rawBody !== null &&
       typeof rawBody === "object" &&
       !Array.isArray(rawBody) &&
       Object.keys(rawBody as object).length === 1 &&
-      (rawBody as { transcribed?: unknown }).transcribed === true;
+      typeof (rawBody as { transcribed?: unknown }).transcribed === "boolean";
 
-    if (markTranscribed) {
-      const entry = await markCmeEntryTranscribed(supabase, user.id, id);
+    if (copyStateBody) {
+      const entry = (rawBody as { transcribed: boolean }).transcribed
+        ? await markCmeEntryTranscribed(supabase, user.id, id)
+        : await clearCmeEntryTranscribed(supabase, user.id, id);
       return NextResponse.json({ entry });
     }
 
@@ -87,7 +90,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (rawBody !== null && typeof rawBody === "object" && !Array.isArray(rawBody) && "amendmentReason" in rawBody) {
       const amendment = cmeEntryAmendSchema.safeParse(rawBody);
       if (!amendment.success) {
-        return publicErrorResponse("Invalid CME amendment. A reason of 3 to 1000 characters is required.", 400);
+        return publicErrorResponse("Invalid CPD amendment. A reason of 3 to 1000 characters is required.", 400);
       }
       const { amendmentReason, ...fields } = amendment.data;
       await assertValidCmeLinkedIds(supabase, user.id, {
@@ -118,7 +121,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const parsed = cmeEntryUpdateSchema.safeParse(rawBody);
-    if (!parsed.success) return publicErrorResponse("Invalid CME entry.", 400);
+    if (!parsed.success) return publicErrorResponse("Invalid CPD entry.", 400);
     const body = parsed.data;
 
     // `transcribed` is not part of a full replace — read it off the existing row and carry
@@ -130,7 +133,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .eq("owner_id", user.id)
       .maybeSingle();
     if (existingError) throw new Error(existingError.message);
-    if (!existingRow) return publicErrorResponse("CME entry not found.", 404, { code: "cme_entry_not_found" });
+    if (!existingRow) return publicErrorResponse("CPD entry not found.", 404, { code: "cme_entry_not_found" });
 
     const targetYear = Number(body.date.slice(0, 4));
     const yearRow = await fetchOwnerCmeYear(supabase, user.id, targetYear);
@@ -177,10 +180,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
-    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CME entry id.");
+    const { id } = parseRouteParams({ id: rawId }, cmeEntryRouteParamsSchema, "Invalid CPD entry id.");
 
     if (isDemoMode()) {
-      return publicErrorResponse("CME entries cannot be deleted in demo mode.", 400, {
+      return publicErrorResponse("CPD entries cannot be deleted in demo mode.", 400, {
         code: "demo_mode_unavailable",
       });
     }
@@ -197,7 +200,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
+      return rateLimitJsonResponse("CPD requests are rate limited. Try again shortly.", rateLimit);
     }
 
     // Retain records and evidence; the legacy DELETE endpoint now archives reversibly.

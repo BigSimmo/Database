@@ -1,6 +1,7 @@
 import { expect, test } from "playwright/test";
 
 import { STYLE_EFFECT_CONTRACTS } from "./helpers/style-contracts";
+import { visibleByTestId } from "./playwright-settlement";
 
 /**
  * Rendered-effect contracts for the unlayered classes in `globals.css` (ledger #094).
@@ -326,7 +327,8 @@ test.describe("visible focus outline (Gate 3)", () => {
     // shared composer, which the classifier deliberately excludes as
     // "composer", so a field can never be found there regardless of budget.
     await page.goto("/specifiers/builder", { waitUntil: "domcontentloaded" });
-    await page.getByTestId("specifier-builder-base").waitFor({ state: "visible", timeout: 20_000 });
+    // Next streaming can leave a hidden twin of the page root (#093), which trips strict mode on a bare testid.
+    await visibleByTestId(page, "specifier-builder-base").waitFor({ state: "visible", timeout: 20_000 });
 
     const readFocusable = () =>
       page.evaluate(() => {

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "18813ea0-6563-4a9d-9920-bacc88fe76b0",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "scripts/stamp-service-worker.mjs runs in the production build but is missing from Railway's app watch patterns, so a change to it alone never redeploys the site",
+    "detail": "package.json build:internal runs node scripts/stamp-service-worker.mjs, which rewrites public/sw.js per release (see the Dockerfile runner-stage comment). railway.app.json watchPatterns lists the other build scripts individually (guard-next-build.mjs, check-client-bundle-secrets.mjs, check-upload-limit-parity.mjs, run-heavy.mjs) but not this one. Next action: add /scripts/stamp-service-worker.mjs to railway.app.json watchPatterns, and consider a static test that every script the build:internal chain invokes is watched.",
+    "source": "Latency, network, Railway and wiring review 2026-09-27 (Claude Code session claude/repo-latency-network-review-zcqd5c), offline code read against main 7f8312f2c; no provider access",
+    "issueUlid": "01M3GND33T23Q7097NSKEER770"
+  }
+}

@@ -241,10 +241,8 @@ describe("retrieval hydration tenancy", () => {
 
     expect(first.map((row) => row.id)).toEqual(["public-chunk"]);
     expect(second.map((row) => row.id)).toEqual(["public-chunk"]);
-    expect(supabase.from.mock.calls.map(([table]) => table)).toEqual([
-      "document_chunks",
-      "documents",
-      "document_chunks",
-    ]);
+    // Two round trips, not three: the scope read returns the full chunk rows, which are used only
+    // after the document gate passes.
+    expect(supabase.from.mock.calls.map(([table]) => table)).toEqual(["document_chunks", "documents"]);
   });
 });

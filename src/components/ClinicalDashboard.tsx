@@ -95,6 +95,7 @@ import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { AnswerCrisisBanner } from "@/components/clinical-dashboard/answer-crisis-banner";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -179,7 +180,7 @@ import {
   classifyAnswerError,
   createAnswerRequestWatchdog,
   generateQuerySuggestions,
-  isRetryableError,
+  shouldRetryFailedAttempt,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
   createSearchRequestDeadline,
@@ -223,6 +224,7 @@ import {
 } from "@/lib/private-search-scope";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
+import { hasCrisisWording } from "@/lib/crisis-wording";
 import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-deferred-registry-search";
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
@@ -1592,6 +1594,7 @@ function ClinicalDashboardContent({
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
       modeSearch.kind === "forms" ||
+      modeSearch.kind === "services" ||
       modeSearch.kind === "favourites" ||
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
@@ -1776,11 +1779,12 @@ function ClinicalDashboardContent({
   ) {
     let lastError: unknown;
     for (let attempt = 0; attempt <= searchRetryCount; attempt += 1) {
+      const attemptStartedAt = Date.now();
       try {
         return await operation();
       } catch (error) {
         lastError = error;
-        if (!isRetryableError(error) || attempt >= searchRetryCount) break;
+        if (!shouldRetryFailedAttempt(error, Date.now() - attemptStartedAt) || attempt >= searchRetryCount) break;
 
         const message = progressForRetry(attempt + 1);
         onProgress(message);
@@ -1902,16 +1906,27 @@ function ClinicalDashboardContent({
     if (modeSearch.resultKind !== "answer") {
       setQuery(trimmedQuery);
     }
-    if (modeSearch.kind !== "tools") setModeSearchSubmitted(true, trimmedQuery);
+    if (targetMode !== "tools") setModeSearchSubmitted(true, trimmedQuery);
     if (isDifferentialsMode) clearModeResultState();
 
-    if (modeSearch.kind === "tools") {
+    if (targetMode === "tools") {
       setLoading(false);
       setAnswerProgress(null);
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Tools filtered from the composer." });
       return;
+    }
+    if (modeSearch.kind === "tools") {
+      const destination = appModeHomeHref(targetMode, { query: trimmedQuery, run: true });
+      if (!isDashboardModeHref(destination)) {
+        setLoading(false);
+        setAnswerProgress(null);
+        setError(null);
+        rememberRecentQuery(trimmedQuery);
+        router.push(destination);
+        return;
+      }
     }
     if (modeSearch.kind === "favourites") {
       setLoading(false);
@@ -2058,8 +2073,8 @@ function ClinicalDashboardContent({
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) {
-          if (isAnswerRequest) onAnswerProgress({ stage: "retrieving", message: "Trying keyword-based search..." });
-          else onProgress("Trying keyword-based search...");
+          if (isAnswerRequest) onAnswerProgress({ stage: "retrieving", message: "Trying keyword-based search…" });
+          else onProgress("Trying keyword-based search…");
         }
 
         try {
@@ -3509,7 +3524,7 @@ function ClinicalDashboardContent({
                 ) : error ? (
                   <EmptyState
                     icon={CircleAlert}
-                    title="Answer unavailable"
+                    title={activeModeResultKind === "answer" ? "Answer unavailable" : "Search unavailable"}
                     body={error}
                     live="assertive"
                     tone="danger"
@@ -3543,6 +3558,12 @@ function ClinicalDashboardContent({
                       ) : undefined
                     }
                   />
+                ) : null}
+
+                {activeModeResultKind === "answer" &&
+                (loading || answer) &&
+                hasCrisisWording(answerLifecycle.query ?? latestAnswerQuery) ? (
+                  <AnswerCrisisBanner />
                 ) : null}
 
                 {searchMode !== "prescribing" &&
@@ -3632,7 +3653,7 @@ function ClinicalDashboardContent({
                       router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
                     }}
                   />
-                ) : activeModeResultKind === "tools" ? (
+                ) : searchMode === "tools" ? (
                   <ToolsHub query={query} desktopComposerSlotId={desktopHomeComposerSlotId} />
                 ) : activeModeResultKind === "favourites" && favouritesAccessible ? (
                   <FavouritesHub
@@ -3647,7 +3668,9 @@ function ClinicalDashboardContent({
                   />
                 ) : activeModeResultKind === "favourites" ? (
                   <FavouritesGuestGate onOpenAccountSetup={() => openAccountSetup("favourites")} />
-                ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
+                ) : activeModeResultKind === "documents" ||
+                  activeModeResultKind === "services" ||
+                  activeModeResultKind === "forms" ? (
                   searchMode === "prescribing" ? (
                     <MedicationPrescribingWorkspace
                       query={query}
@@ -3691,6 +3714,7 @@ function ClinicalDashboardContent({
                         onDocumentFiltersApply={searchMode === "documents" ? handleDocumentFiltersApply : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
+                        searchFailed={searchMode === "documents" && Boolean(error) && errorKind !== "no-results"}
                       />
                     </>
                   )

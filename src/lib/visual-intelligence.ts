@@ -99,7 +99,7 @@ export type RankedVisualCandidate = VisualCandidateInput & {
 };
 
 const clinicalSignalPattern =
-  /\b(?:dose|mg|mcg|mmol|anc|fbc|wbc|monitor|threshold|withhold|cease|stop|urgent|review|risk|escalat|flowchart|algorithm|action|route|im\b|po\b|medication|clozapine|lithium|observations?|checklist)\b/i;
+  /\b(?:dose|mg|mcg|mmol|anc|fbc|wbc|monitor|threshold|withhold|cease|stop|urgent|review|risk|escalat(?:e|es|ed|ing|ion|ions)|flowchart|algorithm|action|route|im\b|po\b|medication|clozapine|lithium|observations?|checklist)\b/i;
 const adminSignalPattern =
   /\b(?:authori[sz]ed|approval|version|effective date|review date|amendment|document owner|references?|bibliography|legislation|associated documents?)\b/i;
 const supportedColumnRoles = new Set([

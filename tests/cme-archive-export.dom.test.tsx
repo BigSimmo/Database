@@ -55,8 +55,12 @@ describe("Archive, annual record and learning journeys", () => {
     expect(screen.getByRole("button", { name: "Copy for your CPD home" })).toBeDisabled();
     expect(screen.getByText("Evidence view only")).toBeInTheDocument();
     expect(screen.getByText(/2 hours recorded · excluded from totals/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Restore entry" }));
+    expect(screen.getByRole("button", { name: "Undo archive" }).closest('[role="status"]')).toHaveTextContent(
+      "Activity archived.",
+    );
+    await user.click(screen.getByRole("button", { name: "Undo archive" }));
     await screen.findByRole("button", { name: "Archive entry" });
+    expect(screen.queryByRole("button", { name: "Undo archive" })).toBeNull();
     expect(JSON.parse(String(fetcher.mock.calls[2][1]?.body))).toEqual({ archived: false });
   });
   it("closed year retains evidence viewing and disables both archive and restore", () => {
@@ -79,7 +83,7 @@ describe("Archive, annual record and learning journeys", () => {
         entries={[
           { ...entry, sourceUrl: "/learning", evidenceCount: 0 },
           { ...entry, id: "b", title: "With evidence", evidenceCount: 1 },
-          { ...entry, id: "c", title: "Archived record", archivedAt: "now" },
+          { ...entry, id: "c", title: "Archived record", archivedAt: "now", evidenceCount: 0 },
         ]}
       />,
     );
@@ -98,7 +102,7 @@ describe("Archive, annual record and learning journeys", () => {
     expect(screen.getByDisplayValue("Handbook learning")).toBeInTheDocument();
     expect(screen.getByDisplayValue("/on-call/handbook")).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^save entry$/i })).toHaveAttribute("aria-disabled", "true");
   });
   it("prints the selected year only and invokes the browser print action", async () => {
     const user = userEvent.setup();
@@ -118,5 +122,12 @@ describe("Archive, annual record and learning journeys", () => {
     expect(screen.getByText(/1 active activities/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save as PDF" }));
     expect(print).toHaveBeenCalledOnce();
+  });
+  it("links attached certificates through the private activity page", () => {
+    render(<CmeAnnualSummary set={set} entries={[{ ...entry, evidenceCount: 2 }]} />);
+    expect(screen.getByRole("link", { name: "View 2 attached evidence files" })).toHaveAttribute(
+      "href",
+      `/cme/log/${entry.id}#cme-evidence-heading`,
+    );
   });
 });

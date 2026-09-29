@@ -197,8 +197,8 @@ const TYPE_BUDGET: Record<string, number> = {
   unclear: 4,
 };
 
-// Audit L20: constant-time secret comparison. This function runs with
-// verify_jwt=false, so the shared secret is the ONLY auth gate; a plain !==
+// Audit L20: constant-time secret comparison. The platform gateway checks the
+// login token (verify_jwt=true) and this shared secret is the second gate; a plain !==
 // short-circuits on the first mismatching character and leaks match length
 // via response timing. Hashing both sides to fixed-length digests and
 // XOR-comparing removes the content-dependent timing signal.
@@ -219,10 +219,7 @@ async function timingSafeSecretEqual(candidate: string, expected: string): Promi
 
 async function authorizeRequest(req: Request): Promise<Response | null> {
   if (!AGENT_SECRET) {
-    return Response.json(
-      { ok: false, error: "INDEXING_V3_AGENT_SECRET is required when JWT verification is disabled" },
-      { status: 500 },
-    );
+    return Response.json({ ok: false, error: "INDEXING_V3_AGENT_SECRET is required" }, { status: 500 });
   }
 
   const authorization = req.headers.get("authorization") ?? "";

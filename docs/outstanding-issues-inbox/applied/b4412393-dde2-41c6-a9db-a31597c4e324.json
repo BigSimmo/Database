@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b4412393-dde2-41c6-a9db-a31597c4e324",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#FE8BFA",
+    "outcome": "Already fixed on main: tests/ward-release-band-day-boundary.test.ts dropped the 'as unknown as BedRelease' cast on 2026-09-02 (see its own header comment); tests/fixture-type-casts.test.ts now guards against the pattern. Closed as stale in the 2026-09-25 ledger sweep.",
+    "baseRowFingerprint": "345e3321c4b3d59f14808504951b4d4efb85b3d258560dc0d21c78f9a4d51bdf"
+  }
+}

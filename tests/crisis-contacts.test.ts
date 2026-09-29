@@ -22,7 +22,7 @@ describe("crisis-contacts", () => {
     ]);
   });
 
-  it("keeps the four original WA numbers unchanged, verified 2026-08-20", () => {
+  it("keeps the four original WA numbers unchanged with their recorded verification dates", () => {
     const original = WA_CRISIS_CONTACTS.slice(0, 4);
     expect(original.map((contact) => ({ name: contact.name, telephoneDisplay: contact.telephoneDisplay }))).toEqual([
       { name: "Emergency services", telephoneDisplay: "000" },
@@ -31,12 +31,12 @@ describe("crisis-contacts", () => {
       { name: "Rurallink", telephoneDisplay: "1800 552 002" },
     ]);
     for (const contact of original) {
-      expect(contact.verifiedOn).toBe("2026-08-20");
+      expect(contact.verifiedOn).toBe(contact.id === "SYN-CRISIS-CONTACT-001" ? "2026-08-20" : "2026-09-27");
       expect(contact.sourceUrl).toMatch(/^https:\/\//);
     }
   });
 
-  it("adds Lifeline, Suicide Call Back Service and 13YARN, each verified today with an official source", () => {
+  it("keeps Lifeline, Suicide Call Back Service and 13YARN with official sources and recorded checks", () => {
     const added = WA_CRISIS_CONTACTS.slice(4);
     expect(added.map((contact) => ({ name: contact.name, telephoneDisplay: contact.telephoneDisplay }))).toEqual([
       { name: "Lifeline", telephoneDisplay: "13 11 14" },
@@ -44,15 +44,15 @@ describe("crisis-contacts", () => {
       { name: "13YARN (for Aboriginal and Torres Strait Islander people)", telephoneDisplay: "13 92 76" },
     ]);
     for (const contact of added) {
-      expect(contact.verifiedOn).toBe("2026-09-25");
+      expect(contact.verifiedOn).toBe(contact.id === "SYN-CRISIS-CONTACT-007" ? "2026-09-27" : "2026-09-25");
       expect(contact.sourceUrl).toMatch(/^https:\/\//);
       expect(contact.isEmergencyService).toBe(false);
     }
   });
 
   it("uses the owner-authorised wording for Lifeline and 13YARN (Ruling [144])", () => {
-    // The exact patient-visible sentence authorised in
-    // src/lib/caring-contacts/message-rules.ts:117 is
+    // The exact patient-visible sentence the owner authorised (Ruling [144], first
+    // written for the since-retired Caring Contacts prototype's message rules) is
     // "If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76." —
     // these two numbers must match that sentence exactly.
     const lifeline = WA_CRISIS_CONTACTS.find((contact) => contact.name === "Lifeline");

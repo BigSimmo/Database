@@ -75,6 +75,66 @@ describe("readSiteContentRecordsCached", () => {
     expect(second.rows).toEqual(first.rows);
   });
 
+  it("keeps render-only medication search rows apart from the full governance rows", async () => {
+    const time = clock();
+    const renderRead = vi.fn(async () => [
+      {
+        initialized: true,
+        render_payload: { slug: "published" },
+        snapshot: { state: "current", releaseId: "11111111-1111-5111-8111-111111111111" },
+      },
+    ]);
+    const fullRead = vi.fn(async () => rows("current"));
+
+    const search = await readSiteContentRecordsCached({
+      kind: "medication",
+      slug: null,
+      projection: "render",
+      read: renderRead,
+      now: time.now,
+    });
+    const list = await readSiteContentRecordsCached({
+      kind: "medication",
+      slug: null,
+      projection: "full",
+      read: fullRead,
+      now: time.now,
+    });
+    const repeat = await readSiteContentRecordsCached({
+      kind: "medication",
+      slug: null,
+      projection: "render",
+      read: renderRead,
+      now: time.now,
+    });
+
+    expect(search.rows[0]).not.toHaveProperty("record");
+    expect(list.rows[0]).toHaveProperty("record");
+    expect(renderRead).toHaveBeenCalledTimes(1);
+    expect(fullRead).toHaveBeenCalledTimes(1);
+    expect(repeat.age).toBe("fresh");
+  });
+
+  it("shares one cache across separately loaded copies of the module", async () => {
+    // A production build loads this module once for instrumentation.ts and again for the route
+    // handlers; the startup warm only helps if both copies read the same entries.
+    const time = clock();
+    const read = vi.fn(async () => rows("current"));
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+
+    vi.resetModules();
+    const otherCopy = await import("@/lib/site-content/site-content-record-cache");
+    const fromOtherCopy = await otherCopy.readSiteContentRecordsCached({
+      kind: "form",
+      slug: null,
+      read,
+      now: time.now,
+    });
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(fromOtherCopy.age).toBe("fresh");
+  });
+
   it("holds the fresh window, then refreshes once past it", async () => {
     const time = clock();
     const read = vi.fn(async () => rows("current"));

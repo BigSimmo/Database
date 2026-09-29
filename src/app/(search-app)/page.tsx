@@ -40,7 +40,10 @@ export async function generateMetadata({ searchParams }: HomeProps): Promise<Met
   const requestedMode = firstSearchParam(params.mode);
   const mode = isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
-  return { title: sharedHomeDocumentTitle(mode) };
+  // Every `/?mode=<id>` variant renders this same home page, so they all name `/` as canonical
+  // rather than competing as duplicates (audit F26). Set per page, never in the root layout,
+  // where it would point every route at the home page.
+  return { title: sharedHomeDocumentTitle(mode), alternates: { canonical: "/" } };
 }
 
 export default async function Home({ searchParams }: HomeProps) {

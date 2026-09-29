@@ -22,8 +22,10 @@ import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-
 import { answerInstructions, adaptiveAnswerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
+  applyMemoryBoostArtifacts,
   callVersionedRetrievalRpc,
   createChunkLoadCache,
+  loadMemoryBoostArtifacts,
   memoryCardChunkScore,
   mergeSearchResults,
   recordHybridRpcError,
@@ -32,7 +34,6 @@ import {
   searchIndexUnitCandidates,
   searchTableFactCandidates,
   searchTextChunkCandidates,
-  withMemoryBoostedCandidates,
   type MemoryCardCache,
 } from "@/lib/rag/rag-candidate-sources";
 export {
@@ -273,6 +274,7 @@ import {
   createSearchTiming,
   finishSearch,
   measureSearchPhase,
+  startRerankClock,
   type SearchTiming,
 } from "@/lib/rag/rag-search-timing";
 import { planGovernedCandidateSearch, routeGovernedSearch } from "@/lib/rag/rag-governed-search";
@@ -608,10 +610,13 @@ function inferAnswerSectionKind(
   const text = `${heading} ${body}`.toLowerCase();
   if (/\b(?:gap|unsupported|not contain|not enough|missing|unclear)\b/.test(text)) return "source_gap";
   if (/\b(?:compare|comparison|versus|difference|conflict)\b/.test(text)) return "comparison";
-  if (/\b(?:contraindicat|caution|avoid|interaction)\b/.test(text)) return "contraindications_cautions";
-  if (/\b(?:risk|escalat|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text)) return "escalation_risk";
+  if (/\b(?:contraindicat(?:e|es|ed|ion|ions)|caution|avoid|interaction)\b/.test(text))
+    return "contraindications_cautions";
+  if (/\b(?:risk|escalat(?:e|es|ed|ing|ion|ions)|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text))
+    return "escalation_risk";
   if (/\b(?:threshold|cutoff|cut-off|anc|fbc|wbc|below|above|range|score)\b/.test(text)) return "thresholds";
-  if (/\b(?:dose|dosing|dosage|mg|mcg|route|oral|im\b|po\b|medication|prescrib)\b/.test(text)) return "medication_dose";
+  if (/\b(?:dose|dosing|dosage|mg|mcg|route|oral|im\b|po\b|medication|prescrib(?:e|es|ed|er|ers|ing))\b/.test(text))
+    return "medication_dose";
   if (/\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|blood test|level|review interval)\b/.test(text))
     return "monitoring_timing";
   if (/\b(?:document|form|record|audit|consent|register)\b/.test(text)) return "documentation";
@@ -798,6 +803,40 @@ function candidateMetadataExpansionTerms(query: string, candidates: SearchResult
       .map((term) => term.value),
     limit,
   );
+}
+
+/**
+ * Starts a retrieval lane early with its own scratch telemetry, so a lane whose result is later
+ * discarded (an earlier fast path returned) cannot mark the search degraded or change its telemetry.
+ */
+function startSpeculativeRetrieval<T>(run: (laneTelemetry: SearchTelemetry) => Promise<T>) {
+  const laneTelemetry = {} as SearchTelemetry;
+  const startedAt = Date.now();
+  let settledAt: number | null = null;
+  const promise = run(laneTelemetry).finally(() => {
+    settledAt = Date.now();
+  });
+  // Consumed later or deliberately discarded; either way a rejection must not go unhandled.
+  promise.catch(() => undefined);
+  return {
+    promise,
+    telemetry: laneTelemetry,
+    durationMs: () => (settledAt ?? Date.now()) - startedAt,
+  };
+}
+
+/** Copies the only fields the candidate-source lanes write into the request's telemetry. */
+function mergeSpeculativeLaneTelemetry(telemetry: SearchTelemetry, laneTelemetry: SearchTelemetry) {
+  if (laneTelemetry.hybrid_rpc_errors) {
+    telemetry.hybrid_rpc_errors = { ...(telemetry.hybrid_rpc_errors ?? {}), ...laneTelemetry.hybrid_rpc_errors };
+  }
+  if (laneTelemetry.text_variant_rpc_calls) {
+    telemetry.text_variant_rpc_calls = {
+      ...(telemetry.text_variant_rpc_calls ?? {}),
+      ...laneTelemetry.text_variant_rpc_calls,
+    };
+  }
+  if (laneTelemetry.text_variant_early_exit) telemetry.text_variant_early_exit = true;
 }
 
 /** Expand clinical query with candidate metadata. */
@@ -1342,6 +1381,58 @@ async function searchChunksWithTiming(
   let embeddingStartedAt = 0;
 
   let textFastResults: SearchResult[] = [];
+  // Table-fact and document-lookup retrieval depend only on the query, never on the text lane's
+  // results, so once the text lane has not answered on its own they start and run alongside memory
+  // and visual hydration instead of after them (each lane is several Singapore-to-Sydney round
+  // trips). They are not started before the first text fast-path decision, so a query that text
+  // answers outright pays no extra database work. Their results are still consumed at the same
+  // points and in the same merge order below, so ranking is unchanged.
+  const independentLanes: {
+    tableFacts: ReturnType<
+      typeof startSpeculativeRetrieval<Awaited<ReturnType<typeof searchTableFactCandidates>>>
+    > | null;
+    documentLookup: ReturnType<typeof startSpeculativeRetrieval<SearchResult[]>> | null;
+  } = { tableFacts: null, documentLookup: null };
+  let independentLanesStarted = false;
+  const startIndependentLanes = () => {
+    if (independentLanesStarted) return;
+    independentLanesStarted = true;
+    if (
+      queryClassification.queryClass === "table_threshold" ||
+      queryClassification.queryClass === "medication_dose_risk"
+    ) {
+      independentLanes.tableFacts = startSpeculativeRetrieval((laneTelemetry) =>
+        searchTableFactCandidates({
+          supabase,
+          query: retrievalQuery,
+          queryVariants,
+          ownerId: args.ownerId,
+          accessScope: args.accessScope,
+          documentIds: documentFilterList,
+          allowGlobalSearch: args.allowGlobalSearch,
+          matchCount: Math.min(candidateCount, 48),
+          telemetry: laneTelemetry,
+          cache: chunkLoadCache,
+          signal: args.signal,
+        }),
+      );
+    }
+    if (shouldAttemptDocumentLookupFastPath(queryClassification.queryClass, queryAnalysis)) {
+      independentLanes.documentLookup = startSpeculativeRetrieval((laneTelemetry) =>
+        searchDocumentLookupFastPath({
+          supabase,
+          query: args.query,
+          queryVariants,
+          ownerId: args.ownerId,
+          accessScope: args.accessScope,
+          documentIds: documentFilterList,
+          matchCount: candidateCount,
+          telemetry: laneTelemetry,
+          signal: args.signal,
+        }),
+      );
+    }
+  };
   const textRpcStartedAt = Date.now();
   const textData = await searchTextChunkCandidates({
     supabase,
@@ -1364,7 +1455,7 @@ async function searchChunksWithTiming(
   });
 
   if (textData.length) {
-    const rerankStartedAt = Date.now();
+    const rerankElapsedMs = startRerankClock(searchTiming);
     const textCandidates = await measureSearchPhase(searchTiming, "metadata_hydration", () =>
       attachDocumentRankingMetadata(
         supabase,
@@ -1387,7 +1478,7 @@ async function searchChunksWithTiming(
     const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
     if (!args.forceEmbedding && shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
       textFastResults = await measureSearchPhase(searchTiming, "visual_hydration", () =>
-        attachPageVisualEvidence(supabase, baseTextResults, args.signal),
+        attachPageVisualEvidence(supabase, baseTextResults, args.signal, documentRankingMetadataCache),
       );
       textFastResults = applySecondStageRerankIfNeeded({
         queryClass: queryClassification.queryClass,
@@ -1395,7 +1486,7 @@ async function searchChunksWithTiming(
         telemetry,
         topK: args.topK ?? 8,
       });
-      telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+      telemetry.rerank_latency_ms += rerankElapsedMs();
       markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       textFastResults = await applySemanticRerankOnce(textFastResults);
@@ -1404,11 +1495,11 @@ async function searchChunksWithTiming(
       return finishSearch(searchTiming, { results: textFastResults, telemetry });
     }
 
-    const memoryBoost = await measureSearchPhase(searchTiming, "memory_hydration", () =>
-      withMemoryBoostedCandidates({
+    startIndependentLanes();
+    const memoryArtifacts = await measureSearchPhase(searchTiming, "memory_hydration", () =>
+      loadMemoryBoostArtifacts({
         supabase,
         query: retrievalQuery,
-        candidates: textCandidates,
         ownerId: args.ownerId,
         accessScope: args.accessScope,
         documentIds: documentFilterList,
@@ -1416,6 +1507,7 @@ async function searchChunksWithTiming(
         cardCache: memoryCardCache,
       }),
     );
+    const memoryBoost = applyMemoryBoostArtifacts(retrievalQuery, textCandidates, memoryArtifacts);
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
     telemetry.memory_top_score = Math.max(
       telemetry.memory_top_score ?? 0,
@@ -1433,7 +1525,7 @@ async function searchChunksWithTiming(
       telemetry,
     });
     textFastResults = await measureSearchPhase(searchTiming, "visual_hydration", () =>
-      attachPageVisualEvidence(supabase, textFastResults, args.signal),
+      attachPageVisualEvidence(supabase, textFastResults, args.signal, documentRankingMetadataCache),
     );
     textFastResults = applySecondStageRerankIfNeeded({
       queryClass: queryClassification.queryClass,
@@ -1441,7 +1533,7 @@ async function searchChunksWithTiming(
       telemetry,
       topK: args.topK ?? 8,
     });
-    telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+    telemetry.rerank_latency_ms += rerankElapsedMs();
 
     const boostedTextFastPath = decideTextFastPath(args.query, textFastResults, queryClassification.queryClass);
     if (!args.forceEmbedding && boostedTextFastPath.returnFastPath) {
@@ -1454,27 +1546,18 @@ async function searchChunksWithTiming(
     }
   }
 
-  if (
-    queryClassification.queryClass === "table_threshold" ||
-    queryClassification.queryClass === "medication_dose_risk"
-  ) {
-    const tableFactStartedAt = Date.now();
-    const tableFactCandidates = await searchTableFactCandidates({
-      supabase,
-      query: retrievalQuery,
-      queryVariants,
-      ownerId: args.ownerId,
-      accessScope: args.accessScope,
-      documentIds: documentFilterList,
-      allowGlobalSearch: args.allowGlobalSearch,
-      matchCount: Math.min(candidateCount, 48),
-      telemetry,
-      cache: chunkLoadCache,
-      signal: args.signal,
-    });
+  startIndependentLanes();
+  const speculativeTableFacts = independentLanes.tableFacts;
+  const speculativeDocumentLookup = independentLanes.documentLookup;
+  if (speculativeTableFacts) {
+    const tableFactWaitStartedAt = Date.now();
+    const tableFactCandidates = await speculativeTableFacts.promise;
     throwIfAborted(args.signal);
-    const tableFactLatencyMs = Date.now() - tableFactStartedAt;
-    telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
+    mergeSpeculativeLaneTelemetry(telemetry, speculativeTableFacts.telemetry);
+    // Only the time this request actually waited is on the critical path; the lane's own duration
+    // stays on its layer record.
+    telemetry.supabase_rpc_latency_ms += Date.now() - tableFactWaitStartedAt;
+    const tableFactLatencyMs = speculativeTableFacts.durationMs();
     recordRetrievalLayer(telemetry, "table_facts", tableFactCandidates.length, {
       latencyMs: tableFactLatencyMs,
       topScore: layerTopScore(tableFactCandidates),
@@ -1484,29 +1567,20 @@ async function searchChunksWithTiming(
     }
   }
 
-  if (shouldAttemptDocumentLookupFastPath(queryClassification.queryClass, queryAnalysis)) {
-    const documentLookupStartedAt = Date.now();
-    const documentLookupData = await searchDocumentLookupFastPath({
-      supabase,
-      query: args.query,
-      queryVariants,
-      ownerId: args.ownerId,
-      accessScope: args.accessScope,
-      documentIds: documentFilterList,
-      matchCount: candidateCount,
-      telemetry,
-      signal: args.signal,
-    });
+  if (speculativeDocumentLookup) {
+    const documentLookupWaitStartedAt = Date.now();
+    const documentLookupData = await speculativeDocumentLookup.promise;
     throwIfAborted(args.signal);
-    const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
-    telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;
+    mergeSpeculativeLaneTelemetry(telemetry, speculativeDocumentLookup.telemetry);
+    telemetry.supabase_rpc_latency_ms += Date.now() - documentLookupWaitStartedAt;
+    const documentLookupLatencyMs = speculativeDocumentLookup.durationMs();
     recordRetrievalLayer(telemetry, "document_lookup", documentLookupData.length, {
       latencyMs: documentLookupLatencyMs,
       topScore: layerTopScore(documentLookupData as SearchResult[]),
     });
 
     if (documentLookupData.length > 0) {
-      const rerankStartedAt = Date.now();
+      const rerankElapsedMs = startRerankClock(searchTiming);
       const memoryBoost = await hydrateCandidatesWithMetadataAndMemory({
         supabase,
         query: args.query,
@@ -1547,6 +1621,7 @@ async function searchChunksWithTiming(
             telemetry,
           }),
           args.signal,
+          documentRankingMetadataCache,
         ),
       );
       documentLookupResults = applySecondStageRerankIfNeeded({
@@ -1555,7 +1630,7 @@ async function searchChunksWithTiming(
         telemetry,
         topK: args.topK ?? 8,
       });
-      telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+      telemetry.rerank_latency_ms += rerankElapsedMs();
 
       const documentLookupFastPath = decideTextFastPath(
         args.query,
@@ -1764,7 +1839,7 @@ async function searchChunksWithTiming(
   );
 
   if (!hybridError) {
-    const rerankStartedAt = Date.now();
+    const rerankElapsedMs = startRerankClock(searchTiming);
     const merged = args.forceEmbedding ? vectorCandidates : mergeSearchResults(vectorCandidates, textFastResults);
     const memoryBoost = await hydrateCandidatesWithMetadataAndMemory({
       supabase,
@@ -1797,6 +1872,7 @@ async function searchChunksWithTiming(
           telemetry,
         }),
         args.signal,
+        documentRankingMetadataCache,
       ),
     );
     results = applySecondStageRerankIfNeeded({
@@ -1805,7 +1881,7 @@ async function searchChunksWithTiming(
       telemetry,
       topK: args.topK ?? 8,
     });
-    telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+    telemetry.rerank_latency_ms += rerankElapsedMs();
     telemetry.retrieval_strategy = "hybrid";
     results = await applySemanticRerankOnce(results);
     recordSearchScoreTelemetry(telemetry, results);
@@ -1850,7 +1926,7 @@ async function searchChunksWithTiming(
     topScore: layerTopScore(resultSets.flat()),
   });
 
-  const rerankStartedAt = Date.now();
+  const rerankElapsedMs = startRerankClock(searchTiming);
   const fallbackVectorCandidates = mergeSearchResults(
     mergeSearchResults(resultSets.flat(), embeddingFieldCandidates),
     indexUnitCandidates,
@@ -1888,6 +1964,7 @@ async function searchChunksWithTiming(
         telemetry,
       }),
       args.signal,
+      documentRankingMetadataCache,
     ),
   );
   results = applySecondStageRerankIfNeeded({
@@ -1896,7 +1973,7 @@ async function searchChunksWithTiming(
     telemetry,
     topK: args.topK ?? 8,
   });
-  telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+  telemetry.rerank_latency_ms += rerankElapsedMs();
   telemetry.retrieval_strategy = "vector_fallback";
   results = await applySemanticRerankOnce(results);
   recordSearchScoreTelemetry(telemetry, results);

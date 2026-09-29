@@ -22,6 +22,11 @@ export const appModeIds = [
   "sources",
   "on-call",
   "cme",
+  "teaching",
+  "psychiatry",
+  "my-work",
+  "roster",
+  "first-nations",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -526,7 +531,7 @@ export const appModeDefinitions = [
   },
   {
     id: "cme",
-    label: "CME",
+    label: "CPD",
     description: "Your continuing education: what you have done, and what is still short",
     href: "/cme",
     search: {
@@ -537,20 +542,160 @@ export const appModeDefinitions = [
       kind: "tools",
       placeholder: "Search your log — a meeting, an audit, a course...",
       inputAriaLabel: "Search your continuing education log",
-      submitIdleLabel: "CME",
-      submitBusyLabel: "CME",
+      submitIdleLabel: "CPD",
+      submitBusyLabel: "CPD",
       submitAriaLabel: "Search your continuing education log",
       emptyTitle: "Search your continuing education log",
       readyTitle: "Find an activity, a certificate or a reflection",
       progressLabel: "Searching your log.",
       resultKind: "tools",
-      resultHeading: "CME",
+      resultHeading: "CPD",
       // No results page. `/cme` is a dashboard and there is no `/cme/search`:
       // a retargeted composer would accept a query and land the reader on a
       // page that ignores it.
       resultsSurface: "none",
-      statusLabel: "CME",
+      statusLabel: "CPD",
       nextStep: "Open an entry",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "teaching",
+    label: "Teaching",
+    description: "Your hospital's teaching: this week's sessions, check-in and your attendance record",
+    href: "/teaching",
+    search: {
+      // Teaching searches nothing personal. Text typed in the main search bar
+      // leaves the app (it is sent for answer generation), so this mode points
+      // the placeholder at session titles only, and no logbook, attendance,
+      // supervision or member data is ever part of a query (plan contracts §8).
+      // It borrows the benign "tools" command kind, as CPD and On Call do.
+      kind: "tools",
+      placeholder: "Find a session by title: grand round, journal club...",
+      inputAriaLabel: "Find a teaching session by title",
+      submitIdleLabel: "Teaching",
+      submitBusyLabel: "Teaching",
+      submitAriaLabel: "Find a teaching session by title",
+      emptyTitle: "Find a teaching session",
+      readyTitle: "Find a session by its title",
+      progressLabel: "Opening Teaching.",
+      resultKind: "tools",
+      resultHeading: "Teaching",
+      // No results page. `/teaching` is a dashboard, like `/cme`.
+      resultsSurface: "none",
+      statusLabel: "Teaching",
+      nextStep: "Open a session",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "psychiatry",
+    label: "Psychiatry",
+    description: "Diagnosis, specifiers, formulation, therapy and Mental Health Act forms in one place",
+    href: "/psychiatry",
+    search: {
+      // Psychiatry is a landing page that gathers existing modes; it has no
+      // catalogue of its own, so it borrows the benign "tools" command kind,
+      // as On Call and CME do.
+      kind: "tools",
+      placeholder: "Open a psychiatry section...",
+      inputAriaLabel: "Open a psychiatry section",
+      submitIdleLabel: "Psychiatry",
+      submitBusyLabel: "Psychiatry",
+      submitAriaLabel: "Open a psychiatry section",
+      emptyTitle: "Choose a psychiatry section",
+      readyTitle: "Diagnosis, formulation, therapy and forms",
+      progressLabel: "Opening the section.",
+      resultKind: "tools",
+      resultHeading: "Psychiatry",
+      // No results page. `/psychiatry` is a dashboard of links to the
+      // sections it gathers, each of which keeps its own search.
+      resultsSurface: "none",
+      statusLabel: "Psychiatry",
+      nextStep: "Open a section",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "my-work",
+    label: "Admin",
+    description: "The paperwork around hospital work: renewals, starting and leaving a job, and where to get help",
+    href: "/admin",
+    search: {
+      // Admin has no catalogue of its own; it borrows the benign "tools" kind, as Psychiatry does.
+      kind: "tools",
+      placeholder: "Open an Admin page...",
+      inputAriaLabel: "Open an Admin page",
+      submitIdleLabel: "Admin",
+      submitBusyLabel: "Admin",
+      submitAriaLabel: "Open an Admin page",
+      emptyTitle: "Choose an Admin page",
+      readyTitle: "Today, renewals, new job and help",
+      progressLabel: "Opening the page.",
+      resultKind: "tools",
+      resultHeading: "Admin",
+      // No results page. `/admin` is Today: what to start, what is coming up, what is next.
+      resultsSurface: "none",
+      statusLabel: "Admin",
+      nextStep: "Open a page",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "roster",
+    label: "Roster",
+    description: "Your own shifts: imported, or added by hand, with Today, Shifts and Settings",
+    href: "/roster",
+    search: {
+      // Roster reads the owner's own shifts, already in the browser — a local
+      // catalogue, like On Call and CME — so it borrows the benign "tools"
+      // command kind rather than adding a search kind that would have to be
+      // threaded through universal search.
+      kind: "tools",
+      placeholder: "Search your shifts...",
+      inputAriaLabel: "Search your own roster",
+      submitIdleLabel: "Roster",
+      submitBusyLabel: "Roster",
+      submitAriaLabel: "Search your own roster",
+      emptyTitle: "Search your own roster",
+      readyTitle: "Find a shift, a workplace or a calendar link",
+      progressLabel: "Searching your shifts.",
+      resultKind: "tools",
+      resultHeading: "Roster",
+      // No results page. `/roster` is a dashboard (Today), and there is no
+      // `/roster/search`: a retargeted composer would accept a query and land
+      // the reader on a page that ignores it.
+      resultsSurface: "none",
+      statusLabel: "Roster",
+      nextStep: "Open Today, Shifts or Settings",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "first-nations",
+    label: "First Nations",
+    description: "Culturally safe care for Aboriginal and Torres Strait Islander patients",
+    href: "/first-nations",
+    search: {
+      // The mode owns its own in-page search box on every page (standard §13),
+      // so the shared composer must not query the remote index for it.
+      kind: "tools",
+      placeholder: "Search First Nations",
+      inputAriaLabel: "Search First Nations",
+      submitIdleLabel: "First Nations",
+      submitBusyLabel: "First Nations",
+      submitAriaLabel: "Search First Nations",
+      emptyTitle: "Choose a First Nations page",
+      readyTitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients",
+      progressLabel: "Opening the page.",
+      resultKind: "tools",
+      resultHeading: "First Nations",
+      // No results page. The mode home and every section keep their own
+      // in-page search box; a retargeted composer would accept a query and
+      // land the reader on a page that ignores it.
+      resultsSurface: "none",
+      statusLabel: "First Nations",
+      nextStep: "Open a page",
       badgeLabel: null,
     },
   },
@@ -594,6 +739,11 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "calculators",
   "on-call",
   "cme",
+  "teaching",
+  "psychiatry",
+  "my-work",
+  "roster",
+  "first-nations",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

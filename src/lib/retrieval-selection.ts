@@ -327,7 +327,7 @@ function hasExactVisualTableEvidence(result: SearchResult) {
 }
 
 function hasRiskSignal(text: string) {
-  return /\b(?:risk|red zone|red|amber|high risk|matrix|urgent|escalat)\b/.test(text);
+  return /\b(?:risk|red zone|red|amber|high risk|matrix|urgent|escalat(?:e|es|ed|ing|ion|ions))\b/.test(text);
 }
 
 function signalMatchesText(signal: string, text: string) {
@@ -345,7 +345,9 @@ function signalMatchesText(signal: string, text: string) {
     case "flowchart_or_pathway":
       return /\b(?:flowchart|flow chart|algorithm|pathway|matrix)\b/.test(text);
     case "next_step_or_action":
-      return /\b(?:next step|step after|action|urgent|escalat|senior|review|red zone)\b/.test(text);
+      return /\b(?:next step|step after|action|urgent|escalat(?:e|es|ed|ing|ion|ions)|senior|review|red zone)\b/.test(
+        text,
+      );
     case "risk":
       return hasRiskSignal(text);
     case "red_zone":
@@ -528,7 +530,8 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     normalizedQuery,
   );
   const asksRiskFlowchart =
-    asksFlowchart && /\b(?:risk|red zone|red|amber|high|urgent|escalat|matrix)\b/.test(normalizedQuery);
+    asksFlowchart &&
+    /\b(?:risk|red zone|red|amber|high|urgent|escalat(?:e|es|ed|ing|ion|ions)|matrix)\b/.test(normalizedQuery);
   const asksPatientEducation =
     /\b(?:active community|community patients?|community pts?|patient education|patient information)\b/.test(
       normalizedQuery,

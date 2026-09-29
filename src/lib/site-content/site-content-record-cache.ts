@@ -132,12 +132,24 @@ type Inflight = {
   background: boolean;
 };
 
-const entries = new Map<string, CacheEntry>();
-const inflight = new Map<string, Inflight>();
+/**
+ * Held on `globalThis` because the bundler gives each server layer its own copy of this module: a
+ * production build has one copy for `instrumentation.ts` and another for the route handlers
+ * (checked 2026-09-26, `next build --webpack`). Module-level maps would let the startup warm fill a
+ * cache no request ever reads.
+ */
+const processCacheKey = Symbol.for("psychsift.siteContentRecordCache");
+type ProcessCache = { entries: Map<string, CacheEntry>; inflight: Map<string, Inflight> };
+const processCache = ((globalThis as { [processCacheKey]?: ProcessCache })[processCacheKey] ??= {
+  entries: new Map(),
+  inflight: new Map(),
+});
+const entries = processCache.entries;
+const inflight = processCache.inflight;
 
 /** `kind` is a fixed control-plane enum, so a literal separator cannot collide with a slug. */
-function cacheKey(kind: string, slug: string | null) {
-  return `${kind}::${slug ?? ""}`;
+function cacheKey(kind: string, slug: string | null, projection: "full" | "render") {
+  return `${kind}::${slug ?? ""}::${projection}`;
 }
 
 /**
@@ -283,12 +295,14 @@ function startFlight(key: string, read: Read, now: () => number, background: boo
 export async function readSiteContentRecordsCached(input: {
   kind: string;
   slug: string | null;
+  /** A render-only search read must never populate a full list's governance cache. */
+  projection?: "full" | "render";
   signal?: AbortSignal;
   read: Read;
   now?: () => number;
 }): Promise<{ rows: SiteContentRecordRows; age: SiteContentRecordCacheAge }> {
   const now = input.now ?? Date.now;
-  const key = cacheKey(input.kind, input.slug);
+  const key = cacheKey(input.kind, input.slug, input.projection ?? "full");
 
   const cached = entries.get(key);
   if (cached) {

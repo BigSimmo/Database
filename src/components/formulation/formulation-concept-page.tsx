@@ -232,7 +232,7 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
                   <p className={eyebrowText}>Evidence</p>
                 </div>
                 <div className="p-4">
-                  <EvidenceList evidence={record.evidence} />
+                  <EvidenceList evidence={record.evidence} reviewed={reviewState.reviewed} />
                 </div>
               </section>
             ) : null}

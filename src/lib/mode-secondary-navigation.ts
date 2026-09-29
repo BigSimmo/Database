@@ -6,6 +6,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { ON_CALL_ADMIN_ROWS_HREF, ON_CALL_WHOS_ON_ENABLED } from "@/lib/on-call/feature-flags";
 import { SOURCE_METHOD_ROUTE } from "@/lib/sources/rating-method";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
@@ -14,6 +15,16 @@ export type ModeSecondaryNavigationEntry = {
   label: string;
   shortLabel?: string;
   href?: string;
+  /**
+   * Which part of the mode's pages sheet the entry sits in. Absent means the
+   * mode's own pages; "tools" and "more" draw under their own headings below
+   * them (On Call only, kit 1.7).
+   */
+  group?: "tools" | "more";
+  /** "editors": shown in the pages sheet only to a reader who can edit (F24). */
+  audience?: "editors";
+  /** Registered and routed, but left out of the pages sheet (a page behind a flag). */
+  hidden?: boolean;
 };
 
 /**
@@ -115,61 +126,108 @@ export const modeSecondaryNavigationRegistry = {
   // does. `docs/superpowers/specs/2026-09-04-on-call-mode-design.md` §8.3 always
   // intended this ("On Call joins the adopted-nav set with a density profile").
   //
-  // Tonight is the mode home, and it leads because it is the page a shift opens.
-  // Contacts and Playbook follow because they are the two the rail must still
-  // show at 390px; everything after them folds into More, which is the shape the
-  // mockup draws (docs/on-call/design/prototypes/on-call-screens.html, board 02).
+  // The six shift pages lead (kit 1.7): Now is the mode home and the page a
+  // shift opens; Who's on, Call, Playbook, Refer and Find follow in the order a
+  // night uses them. Two tools sit under their own heading, and the pages that
+  // are moving out to their own modes sit under More until each sibling mode's
+  // build removes its row with a redirect.
   //
   // No `count` on any entry, deliberately. `ModeNavItem.count` is documented as
-  // "state, not size" — a fill like 3/4, never a catalogue total — so the
-  // mockup's `Contacts 42` does not belong here. The counts live where they read
-  // as size: the More sheet and the home's section tiles.
+  // "state, not size" — a fill like 3/4, never a catalogue total.
   //
   // The pocket card is a destination rather than an action because it is a real
   // route with a real URL, and a `ModeNavItem` takes an href by design so deep
   // links, back and prefetch keep working.
   "on-call": [
-    { id: "tonight", label: "Tonight", href: "/on-call" },
-    { id: "contacts", label: "Contacts", href: "/on-call/contacts" },
+    { id: "now", label: "Now", href: "/on-call" },
+    // Routed and built, but left out of the sheet until the owner turns it on.
+    { id: "whoson", label: "Who's on", href: "/on-call/whos-on", hidden: !ON_CALL_WHOS_ON_ENABLED },
+    { id: "call", label: "Call", href: "/on-call/call" },
     { id: "playbook", label: "Playbook", href: "/on-call/playbook" },
-    { id: "referrals", label: "Referrals", href: "/on-call/referrals" },
-    { id: "orientation", label: "Orientation", href: "/on-call/orientation" },
-    // Label only. The stored section id, the route segment and the database
-    // check constraint all stay `education`; renaming them is a migration for no
-    // functional gain (`ON_CALL_SECTION_TITLES` carries the same decision).
-    { id: "teaching", label: "Teaching", href: "/on-call/education" },
-    // Label only, as Teaching above: the stored section id, the route segment
-    // and the database check constraint all stay `logistics`.
-    { id: "logistics", label: "Admin", href: "/on-call/logistics" },
+    { id: "refer", label: "Refer", href: "/on-call/refer" },
+    { id: "find", label: "Find", href: "/on-call/find" },
+    { id: "card", label: "Pocket card", href: "/on-call/card", group: "tools" },
+    // The invited multi-clinician service handbook, shown to editors only (F24).
+    { id: "service", label: "Manage service", href: "/on-call/service", group: "tools", audience: "editors" },
+    // Moving out: each sibling mode's build removes its own row with a redirect.
     // Compliance is a VIEW over the `logistics` section, discriminated by
-    // `details.kind` — not a seventh section, which would cost a migration
-    // against the live clinical database. See src/lib/on-call/compliance.ts.
-    { id: "compliance", label: "Compliance", href: "/on-call/compliance" },
-    { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
-    { id: "service", label: "Service", href: "/on-call/service" },
-    { id: "card", label: "Pocket card", href: "/on-call/card" },
+    // `details.kind` (src/lib/on-call/compliance.ts). "Admin" and "Teaching" are
+    // labels only: the stored section ids, route segments and database check
+    // constraints stay `logistics` and `education`.
+    { id: "compliance", label: "Compliance", href: "/on-call/compliance", group: "more" },
+    { id: "logistics", label: "Admin", href: ON_CALL_ADMIN_ROWS_HREF, group: "more" },
+    { id: "teaching", label: "Teaching", href: "/on-call/education", group: "more" },
+    { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who", group: "more" },
+    { id: "orientation", label: "Orientation checklists", href: "/on-call/orientation", group: "more" },
   ],
-  // CME's destinations. Like On Call's, they are registered here so the mode
-  // pill's section level can open them, but CME is deliberately absent from
+  // CPD's five pages. Older /cme/* addresses remain routed and map to their
+  // owning page below. Like On Call's, they are registered so the mode
+  // pill's section level can open them, but CPD is deliberately absent from
   // `MODE_NAV_ADOPTED_MODES` below: no page mounts the shared bar, because the
   // pill already opens exactly these and a rail repeating them would be two
   // controls doing one job.
   //
-  // "This year" leads because the dashboard is the page the mode is judged by.
-  // "Set up" is last and is the only entry not named in the mode's plan: it is
-  // here because `/cme/setup` is a real screen with no other inbound link, and
-  // an unreachable route is an orphan (`tests/route-reachability.test.ts`).
-  // `/cme/customise` is NOT here — it is reached from the dashboard's own
-  // "Customise" control, which is where the owner is when they want it.
+  // Today leads because the dashboard is the page the mode is judged by.
+  // Year check, Routines, Calendar, Training and Programme are tabs reached
+  // from their parent pages. Customise and the annual summary stay secondary.
   cme: [
-    { id: "year", label: "This year", href: "/cme" },
+    { id: "year", label: "Today", href: "/cme" },
     { id: "log", label: "Log", href: "/cme/log" },
-    { id: "check", label: "Year check", href: "/cme/check" },
-    { id: "calendar", label: "Calendar", href: "/cme/calendar" },
-    { id: "routines", label: "Routines", href: "/cme/routines" },
     { id: "plan", label: "Plan", href: "/cme/plan" },
-    { id: "programme", label: "Programme", href: "/cme/programme" },
+    { id: "learning", label: "Learning", href: "/cme/learning" },
     { id: "setup", label: "Set up", href: "/cme/setup" },
+  ],
+  // Teaching's pages, for the mode pill's page list, like CME's. Teaching is
+  // absent from `MODE_NAV_ADOPTED_MODES`: the pill already opens these, so no
+  // page mounts the shared bar. Organise is hidden from the pill for anyone
+  // who is not an organiser or admin (`src/lib/teaching/page-visibility.ts`);
+  teaching: [
+    { id: "today", label: "Today", href: "/teaching" },
+    { id: "week", label: "Week", href: "/teaching/week" },
+    { id: "whats-on", label: "What's on", href: "/teaching/whats-on" },
+    { id: "resources", label: "Resources", href: "/teaching/resources" },
+    { id: "logbook", label: "Logbook", href: "/teaching/logbook" },
+    { id: "teach", label: "Teach", href: "/teaching/teach" },
+    { id: "supervision", label: "Supervision", href: "/teaching/supervision" },
+    { id: "organise", label: "Organise", href: "/teaching/organise" },
+  ],
+  // Psychiatry's home is itself the list of sections it gathers, and each
+  // section keeps its own navigation, so the hub registers no destinations.
+  psychiatry: [],
+  // Admin keeps the internal mode id for existing preferences and links.
+  "my-work": [
+    { id: "admin-today", label: "Today", href: "/admin" },
+    { id: "renewals", label: "Renewals", href: "/admin/renewals" },
+    { id: "new-job", label: "New job", href: "/admin/new-job" },
+    { id: "help", label: "Help", href: "/admin/help" },
+  ],
+  // Roster's pages, registered so the mode pill's section sheet can open them.
+  // Manage is deliberately absent: this registry is the same for everyone and
+  // non-managers must not see it, so managers reach /roster/manage from a row
+  // on Today and on Settings. Like On Call and CME, Roster is absent from
+  // `MODE_NAV_ADOPTED_MODES`, so no shared rail is mounted. Its pages carry no
+  // in-page navigation header either: the mode pill's section sheet is how a
+  // reader moves between its pages.
+  roster: [
+    { id: "today", label: "Today", href: "/roster" },
+    { id: "shifts", label: "Shifts", href: "/roster/shifts" },
+    { id: "team", label: "Team", href: "/roster/team" },
+    { id: "requests", label: "Requests", href: "/roster/requests" },
+    { id: "settings", label: "Settings", href: "/roster/settings" },
+  ],
+  // First Nations, spec §3 order. The pages sheet's group headings ("At the
+  // bedside", "During the stay", "Leaving hospital") wait for the shared pages
+  // sheet to support groups (On Call's rebuild).
+  "first-nations": [
+    { id: "first-nations-bedside", label: "Bedside", href: "/first-nations" },
+    { id: "first-nations-contacts", label: "Contacts", href: "/first-nations/contacts" },
+    { id: "first-nations-talking", label: "Talking", href: "/first-nations/talking" },
+    { id: "first-nations-family", label: "Family", href: "/first-nations/family" },
+    { id: "first-nations-mental-health", label: "Mental health", href: "/first-nations/mental-health" },
+    { id: "first-nations-on-the-ward", label: "On the ward", href: "/first-nations/on-the-ward" },
+    { id: "first-nations-mistakes", label: "Common mistakes", href: "/first-nations/mistakes" },
+    { id: "first-nations-going-home", label: "Going home", href: "/first-nations/going-home" },
+    { id: "first-nations-end-of-life", label: "End of life", href: "/first-nations/end-of-life" },
   ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
@@ -205,9 +263,9 @@ export const MODE_NAV_ADOPTED_MODES = [
   "therapy-compass",
   "dictionary",
   "sources",
-  // On Call is deliberately absent. Its nine destinations stay registered
+  // On Call is deliberately absent. Its thirteen destinations stay registered
   // below — the mode pill's section level reads them — but no page mounts the
-  // shared bar, because the pill already opens exactly those nine and a rail
+  // shared bar, because the pill already opens exactly those pages and a rail
   // repeating them was two controls doing one job. The section pages carry the
   // in-page header instead, whose list is the current page's own groups.
 ] as const satisfies readonly AppModeId[];
@@ -225,6 +283,54 @@ export function modeSecondaryNavigationEntries(modeId: AppModeId): readonly Mode
 /** Count of registry entries that carry an href (eligible ModeNav slots). */
 export function routedModeSecondaryNavigationCount(modeId: AppModeId): number {
   return modeSecondaryNavigationEntries(modeId).filter((entry) => Boolean(entry.href)).length;
+}
+
+const ON_CALL_ACTIVE_IDS: Readonly<Record<string, string>> = {
+  "/on-call": "now",
+  "/on-call/whos-on": "whoson",
+  "/on-call/call": "call",
+  "/on-call/contacts": "call",
+  "/on-call/playbook": "playbook",
+  "/on-call/now": "playbook",
+  "/on-call/refer": "refer",
+  "/on-call/referrals": "refer",
+  "/on-call/find": "find",
+  "/on-call/card": "card",
+  "/on-call/service": "service",
+  "/on-call/compliance": "compliance",
+  "/on-call/logistics": "logistics",
+  "/on-call/education": "teaching",
+  "/on-call/who-is-who": "whoswho",
+  "/on-call/orientation": "orientation",
+};
+
+/**
+ * Split a mode's entries into its own pages, its tools and the pages moving
+ * out. Order within each group is the registry's. Modes that set no `group`
+ * come back entirely in `main`.
+ */
+export function groupModeSecondaryNavigationEntries<T extends ModeSecondaryNavigationEntry>(
+  entries: readonly T[],
+): { main: T[]; tools: T[]; more: T[] } {
+  return {
+    main: entries.filter((entry) => !entry.group),
+    tools: entries.filter((entry) => entry.group === "tools"),
+    more: entries.filter((entry) => entry.group === "more"),
+  };
+}
+
+/**
+ * The entries a pages sheet shows this reader: drops `hidden` entries, and
+ * `audience: "editors"` entries when `isEditor` is false. On Call passes
+ * `readOnCallEditorFlag()`, which is true while the role is still unknown and
+ * false only for a known non-editor (review S3); the page does the real gating.
+ * The routes stay registered either way, so the pill still names the page.
+ */
+export function visibleModeSecondaryNavigationEntries<T extends ModeSecondaryNavigationEntry>(
+  entries: readonly T[],
+  { isEditor }: { readonly isEditor: boolean },
+): T[] {
+  return entries.filter((entry) => !entry.hidden && (entry.audience !== "editors" || isEditor));
 }
 
 /**
@@ -302,33 +408,60 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     return null;
   }
   if (modeId === "on-call") {
-    if (pathname === "/on-call/contacts") return "contacts";
-    if (pathname === "/on-call/playbook") return "playbook";
-    if (pathname === "/on-call/referrals") return "referrals";
-    if (pathname === "/on-call/orientation") return "orientation";
-    if (pathname === "/on-call/education") return "teaching";
-    if (pathname === "/on-call/logistics") return "logistics";
-    if (pathname === "/on-call/compliance") return "compliance";
-    if (pathname === "/on-call/who-is-who") return "whoswho";
-    if (pathname === "/on-call/service") return "service";
-    if (pathname === "/on-call/card") return "card";
-    // Exact match only. `/on-call` is the mode home now rather than a redirect
-    // stub, and a prefix test here would mark Tonight current on every section
-    // route as well as its own.
-    if (pathname === "/on-call") return "tonight";
-    return null;
+    // Exact paths only (kit 1.7): a prefix test would mark Now current on every
+    // route, and `/on-call/whos-on/x` is no page of its own. The two editors
+    // (Contacts, Referrals) light the page that replaced them, and the "Who do
+    // I call now?" picker lights Playbook, whose question it answers.
+    return ON_CALL_ACTIVE_IDS[pathname] ?? null;
   }
   if (modeId === "cme") {
-    if (pathname === "/cme/log") return "log";
-    if (pathname === "/cme/check") return "check";
-    if (pathname === "/cme/calendar") return "calendar";
-    if (pathname === "/cme/routines") return "routines";
-    if (pathname === "/cme/plan") return "plan";
-    if (pathname === "/cme/programme") return "programme";
-    if (pathname === "/cme/setup") return "setup";
+    if (
+      pathname === "/cme/log" ||
+      pathname.startsWith("/cme/log/") ||
+      pathname === "/cme/routines" ||
+      pathname === "/cme/new"
+    )
+      return "log";
+    if (pathname === "/cme/check") return "year";
+    if (pathname === "/cme/training" || pathname === "/cme/calendar" || pathname === "/cme/plan") return "plan";
+    if (pathname === "/cme/learning") return "learning";
+    if (pathname === "/cme/programme" || pathname === "/cme/setup") return "setup";
     // Exact match only, for the same reason On Call's home is: a prefix test
-    // here would mark This year current on every CME route as well as its own.
+    // here would mark Today current on every CPD route as well as its own.
     if (pathname === "/cme") return "year";
+    return null;
+  }
+  if (modeId === "teaching") {
+    // Exact match only, as for On Call and CME: a prefix test would mark
+    // Today current on every Teaching route as well as its own.
+    if (pathname === "/teaching") return "today";
+    if (pathname === "/teaching/week") return "week";
+    if (pathname === "/teaching/whats-on") return "whats-on";
+    if (pathname === "/teaching/resources" || pathname.startsWith("/teaching/resources/")) return "resources";
+    if (pathname === "/teaching/teach") return "teach";
+    if (pathname === "/teaching/supervision") return "supervision";
+    if (pathname === "/teaching/review" || pathname === "/teaching/feedback") return "logbook";
+    if (pathname === "/teaching/import") return "organise";
+    if (pathname === "/teaching/logbook") return "logbook";
+    if (pathname === "/teaching/organise") return "organise";
+    return null;
+  }
+  if (modeId === "my-work") {
+    if (pathname === "/admin/renewals") return "renewals";
+    if (pathname === "/admin/new-job" || pathname === "/admin/new-job/records") return "new-job";
+    if (pathname === "/admin/help") return "help";
+    if (pathname === "/admin") return "admin-today";
+    return null;
+  }
+  if (modeId === "roster") {
+    if (pathname === "/roster/shifts") return "shifts";
+    if (pathname === "/roster/team") return "team";
+    if (pathname === "/roster/requests") return "requests";
+    if (pathname === "/roster/settings") return "settings";
+    // Exact match only, for the same reason On Call's and CME's homes are: a
+    // prefix test here would mark Today current on every Roster route as well
+    // as its own.
+    if (pathname === "/roster") return "today";
     return null;
   }
   // Every mode with destinations has a branch above; the rest register none, so
@@ -388,6 +521,9 @@ export function isModeSecondaryNavigationRoute(params: {
   }
   if (modeId === "sources") {
     return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
+  }
+  if (modeId === "roster") {
+    return ["/roster/shifts", "/roster/team", "/roster/requests", "/roster/settings"].includes(pathname);
   }
   return false;
 }

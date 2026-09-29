@@ -280,6 +280,11 @@ describe("site content producer registry", () => {
     expect(catalogueOnlySpecifier).toBeDefined();
     expect(specifierCatalogItems().some((item) => item.slug === catalogueOnlySpecifier.slug)).toBe(true);
     expect(publicSpecifierRecordBySlug(catalogueOnlySpecifier.slug)).toMatchObject({ source: "catalogue" });
+    // Relabelling a catalogue row must not move its public route: the slug derives from the
+    // review rowKey, so the olfactory "absent insight" row keeps its original key and URL.
+    expect(
+      publicSpecifierRecordBySlug("specifier-icd-olfactory-reference-disorder-insight-with-absent-insight"),
+    ).toMatchObject({ source: "catalogue" });
     expect(siteContentProducerForMode("specifiers")?.routeBuilder(curatedSpecifier!.slug)).toBe(
       "/specifiers/with-anxious-distress",
     );
@@ -323,6 +328,16 @@ describe("site content producer registry", () => {
       expect.objectContaining({ modeId: "sources", reason: "corpus_consumer", permanent: true, reviewed: true }),
       expect.objectContaining({ modeId: "on-call", reason: "private_user_state", permanent: true, reviewed: true }),
       expect.objectContaining({ modeId: "cme", reason: "private_user_state", permanent: true, reviewed: true }),
+      expect.objectContaining({ modeId: "psychiatry", reason: "operational_chrome", permanent: true, reviewed: true }),
+      expect.objectContaining({ modeId: "my-work", reason: "private_user_state", permanent: true, reviewed: true }),
+      expect.objectContaining({ modeId: "roster", reason: "private_user_state", permanent: true, reviewed: true }),
+      expect.objectContaining({
+        modeId: "first-nations",
+        reason: "operational_chrome",
+        permanent: true,
+        reviewed: true,
+      }),
+      expect.objectContaining({ modeId: "teaching", reason: "private_user_state", permanent: true, reviewed: true }),
     ]);
     expect(siteContentModeCoverage([...appModeIds, "future-mode"])).toEqual({
       complete: false,

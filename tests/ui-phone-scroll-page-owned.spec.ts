@@ -13,7 +13,7 @@ import {
   readPageOwnedFooterGeometry,
 } from "./helpers/phone-scroll";
 import { readPrimaryScrollAndDomGeometry } from "./playwright-scroll";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 /**
  * Page-owned phone chrome: the document viewer's own composer, the standalone
@@ -26,6 +26,34 @@ import { expectSingleSettledOwner } from "./playwright-settlement";
 
 test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
+});
+
+test("DSM compare strip follows the shared phone scroll-hide state", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/dsm/search?q=depression&ids=major-depressive-disorder,bipolar-ii-disorder");
+
+  const strip = page.locator(".dsm-mobile-compare-strip");
+  await expect(strip).toBeVisible({ timeout: 20_000 });
+  await addPhoneScrollRunway(page);
+  const visible = await strip.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, transform: getComputedStyle(element).transform };
+  });
+  expect(visible.transform, "the compare strip starts in its visible position").toBe("none");
+
+  await dragScrollUntilHidden(page, 720, 24);
+  await expectChromeHidden(page, page.getByTestId("universal-header-collapse"), "DSM compare-strip hide");
+  const hidden = await strip.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, transform: getComputedStyle(element).transform };
+  });
+  expect(hidden.transform, "DSM compare strip must translate with phone chrome").not.toBe("none");
+  expect(hidden.top, "hidden compare strip must move below its visible position").toBeGreaterThan(visible.top);
+
+  await dragScrollBy(page, -48, 12);
+  await expect(page.getByTestId("universal-header-collapse")).not.toHaveAttribute("data-scroll-hidden", "true");
+  await expect.poll(() => strip.evaluate((element) => getComputedStyle(element).transform)).toBe("none");
 });
 
 test("phone browser results use document scrolling so Safari can minimize its browser chrome", async ({ page }) => {
@@ -120,6 +148,10 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await page.getByRole("button", { name: "Open document actions" }).click();
     await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
     await expect(composer).toBeVisible({ timeout: 20_000 });
+    // Opening search moves focus into its input two animation frames later. Headless WebKit
+    // runs frames only when something asks for one, so without this wait that deferred focus
+    // lands during the drag below and steals focus from the section trigger it is pinning.
+    await expect(composer.locator("input")).toBeFocused();
     await expect(content).toHaveAttribute("data-phone-scroll-owner", expectedOwner);
     await expect(content).toHaveAttribute("data-phone-footer-owner", "document-viewer");
     await expect(collapse).toHaveAttribute("data-phone-motion", "overlay");
@@ -920,7 +952,9 @@ test("calculator results stay usable across the responsive and accessibility mat
   ]) {
     await page.emulateMedia(media);
     await gotoPhoneSurface(page, "/calculators?q=depression&run=1", 112);
-    await expect(page.getByTestId("calculators-search-page")).toBeVisible();
-    await expect(page.getByTestId("calculators-filter-trigger-phone")).toBeVisible();
+    // Visible owner only: each loop pass re-navigates, and a hidden streaming
+    // copy of the page root (#093) can briefly remain.
+    await expect(visibleByTestId(page, "calculators-search-page")).toBeVisible();
+    await expect(visibleByTestId(page, "calculators-filter-trigger-phone")).toBeVisible();
   }
 });

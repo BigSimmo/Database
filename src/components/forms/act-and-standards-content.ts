@@ -1,6 +1,7 @@
 import chiefPsychiatristStandards from "../../../data/chief-psychiatrist-standards.json";
 import formsActSectionCues from "../../../data/forms-act-section-cues.json";
 import mhaSections from "../../../data/mha-2014-sections.json";
+import { signedOffReviewer } from "@/lib/forms-reference-sign-off";
 import { safeCanonicalSourceUrl } from "@/lib/sources/source-url-policy";
 
 /**
@@ -96,8 +97,13 @@ export type ChiefPsychiatristStandard = {
   summary: string;
   /** Only a governed https URL; anything else renders no link. */
   sourceUrl: string | null;
-  /** True only when status, reviewer and review date are all recorded. */
+  /**
+   * True only for a complete, well-formed `npm run clinical:review` sign-off (status,
+   * named reviewer, real UTC timestamp and content pin) on non-Indigenous content.
+   */
   reviewed: boolean;
+  /** The signing reviewer's public name when `reviewed`; otherwise null. */
+  reviewedBy: string | null;
 };
 
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -119,13 +125,15 @@ export function parseChiefPsychiatristStandards(value: unknown): ChiefPsychiatri
     const title = text(entry.title);
     const summary = text(entry.summary);
     if (!id || !title || !summary) return [];
+    const reviewedBy = signedOffReviewer(entry, [title, summary]);
     return [
       {
         id,
         title,
         summary,
         sourceUrl: safeCanonicalSourceUrl(text(entry.sourceUrl) || null),
-        reviewed: entry.status === "reviewed" && Boolean(text(entry.reviewedBy)) && Boolean(text(entry.reviewedAt)),
+        reviewed: reviewedBy !== null,
+        reviewedBy,
       },
     ];
   });

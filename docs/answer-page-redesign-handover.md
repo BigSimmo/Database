@@ -10,6 +10,12 @@ created for it, the shield tile and `--answer-message-gutter` are gone, and
 `AnswerProgressStepper` no longer exists. Read what follows as the record of a completed build,
 not a plan. §12.6's "Not yet in production" line is stale in the same way and for the same
 reason.
+
+**Retired 2026-09-25 (#51975R):** `AnswerSupportSummaryCard` and `answerSupportPriority`, named
+below as they stood during the build, were deleted. The card left the answer surface on
+2026-08-31 and nothing called either afterwards, yet their behaviour kept being cited as a live
+clinical rule. Every mention of them below is history, not a description of the shipped surface.
+
 **Design lives at:** `/mockups/answer-chat-perfected` (the design to build) and
 `/mockups/answer-chat-redesign` (the three-way comparison it was chosen from).
 **Owner decision on record:** direction A — numbered marks in the prose, one source

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1afc0008-8b4d-462b-96a3-cacce8f1256e",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#7VQ5RC",
+    "outcome": "Closed by the owner on 2026-09-26. Control: the RkPG clozapine document caution (src/lib/document-cautions.ts, live since PR #3021) shows on every answer citing the document, stating that page 16 appears to give neutrophil thresholds (1.5 and 0.5 x10^9/L) as WBC and pointing to the WA Clozapine Monitoring Form. The document stays searchable and stays excluded from the medication clozapine WA reference panel (owner ruling 2026-09-25). The decision is now listed on the Developer Hub hazard page under 'Known errors in source documents'. Nobody on this side has opened the original PDF; correcting the source is for its RkPG document owner. Clozapine eval cases were not relaxed.",
+    "baseRowFingerprint": "296f48cc725179be7ea409dbf1cbf596108fa9246bfc8685ee320813f732c8a9"
+  }
+}

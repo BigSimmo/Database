@@ -17,7 +17,7 @@ and are specified here.
 flowchart TB
     user["Clinician (browser / PWA)"]
     subgraph railway["Railway — Southeast Asia (Singapore)"]
-        app["app tier: Next.js 16 (Dockerfile)<br/>service Database → psychiatry.tools"]
+        app["app tier: Next.js 16 (Dockerfile)<br/>service PsychSift → psychiatry.tools"]
         worker["ingestion worker (Dockerfile.worker)<br/>parse · OCR · chunk · embed"]
     end
     subgraph supabase["Supabase — ap-southeast-2 (Sydney)"]
@@ -41,16 +41,16 @@ flowchart TB
 
 The app↔Supabase path is public internet fronted by Supabase's CDN (Supabase is not on
 Railway's private network — see §2.1). Both Railway services deploy from
-`BigSimmo/Database` on pushes to `main`.
+`BigSimmo/PsychSift` on pushes to `main`.
 
 ## 1. Current state (what runs today)
 
-- **Live on Railway.** Project **`Database`** (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`),
+- **Live on Railway.** Project **`PsychSift`** (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`),
   environment `production` (`6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4`), region
   **Southeast Asia (`asia-southeast1-eqsg3a`, Singapore)** — the closest Railway
   region to the Supabase project. Two services from this one repo, both connected
-  to the `BigSimmo/Database` GitHub repo and auto-deploying on pushes to `main`:
-  - **`Database`** — the Next.js app tier (`Dockerfile`), serving the custom domain
+  to the `BigSimmo/PsychSift` GitHub repo and auto-deploying on pushes to `main`:
+  - **`PsychSift`** — the Next.js app tier (`Dockerfile`), serving the custom domain
     **`https://psychiatry.tools`**, one warm replica, Railway healthcheck path
     `/api/health/ready`, restart-on-failure.
   - **`worker`** — the ingestion worker (`Dockerfile.worker`), one always-on
@@ -60,7 +60,7 @@ Railway's private network — see §2.1). Both Railway services deploy from
   services, but has **zero active deployments** (last activity 2026-07-14, all
   `REMOVED`) and its generated domain `app-production-68ebf.up.railway.app` returns 404. It is not production. Do not `railway link` a worktree to it — deploys sent
   there go nowhere. Retiring it is an open operator decision.
-- **Database/auth/storage:** live Supabase project `Clinical KB Database`
+- **Database/auth/storage:** live Supabase project `PsychSift Production`
   (`sjrfecxgysukkwxsowpy`), region **ap-southeast-2 (Sydney)**, Postgres 17,
   ~2,000 indexed documents / ~69k chunks. RLS is service-role-only; the app
   layer is the ownership boundary. Supabase is a managed external service — it is
@@ -72,6 +72,49 @@ Railway's private network — see §2.1). Both Railway services deploy from
 - **Known failure mode:** silent degradation. Hybrid retrieval RPCs once died
   quietly while the app kept serving from fallbacks. Every topology decision
   below biases toward _loud_ failure and standing guards.
+
+### Production release controls (checked 2026-09-27)
+
+The active GitHub `Protections` ruleset (18011271) targets `main` and
+`release/**`, requires a PR, an up-to-date branch, and the GitHub Actions
+checks `Gitleaks`, `PR required`, `PR policy`, and `PR mergeability`. Its required
+approval count is **zero**; Code Owners review and approval of the most recent
+push are **off**. `Owner approval` is not a required check. These are merge
+controls, not an independent production deployment approval.
+
+The GitHub `Database / production` environment names BigSimmo as its only
+required reviewer, but permits self-review and administrator bypass and has no
+environment secrets. Only `authenticated-live-tests.yml` currently attaches a
+job to it; the recovery jobs use repository secrets. Neither the Railway app
+nor the worker deploy passes through this GitHub environment. Its
+`Protected branches only` selector also reports that no repository branch
+protection rules are set, so it permits all branches; do not infer that the
+ruleset restricts this environment's jobs.
+
+Both production Railway services source `BigSimmo/Database` at `main` with
+`source.checkSuites: false`. Their GitHub autodeploys can therefore start
+without waiting for the post-merge GitHub Actions verdict. The app and worker
+hold their own Railway runtime variables. Railway's **Wait for CI** setting
+would wait for _every GitHub Actions check suite_ on the pushed commit, rather
+than only the required `PR required` job. Both services successfully deployed
+`a3fee8d1a88b` on 2026-09-27, while that commit's main CI run 36295647367
+failed unit coverage and Firefox/WebKit lanes (issue #3099). Follow the owner decision in
+`docs/decisions/2026-09-25-railway-waits-for-ci-once-safe.md` before enabling
+it. Even when enabled, Wait for CI is a quality gate, not a second person's
+approval and not a gate on manual Railway deploys.
+
+To add actual human approval to a GitHub-initiated production deploy, first
+provide an independent reviewer and configure the environment to prevent
+self-review and administrator bypass. Move _only the credential needed for
+that deploy_ from repository scope to the environment, then put the deploy job
+behind `environment: Database / production`; verify a waiting approval and a
+rejected run before relying on it. Railway's own autodeploy and manual deploy
+permissions must be changed and tested separately. Do not attach the whole
+scheduled read-only reaper or autopilot job to the environment: their apply
+paths require separate gated jobs, after the existing disabled switches and
+destructive-path defects have been addressed. Merging migrations still applies
+them via the separate Supabase integration; the merge itself is their release
+decision (see `AGENTS.md` `# Supabase project safety`).
 
 ## 2. App tier
 
@@ -289,7 +332,7 @@ the app and ingestion worker merely to exist, including PRs opened by agents.
 
 #### Verified review and containment, 2026-09-22
 
-The live Railway project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`)
+The live Railway project `PsychSift` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`)
 had automatic PR Environments enabled, **production** selected as its base,
 bot previews enabled, and Focused PR Environments disabled. Opening the
 documentation-only PR #2987 started both app and worker builds. Its worker
@@ -311,7 +354,7 @@ auto-deploy disabled. No preview environment was manually deleted; Railway remov
 An attempted extra containment step exposed a CLI scope trap: Railway CLI 5.27.0
 `service source disconnect --environment <preview>` disconnected the shared
 service source, including production. The environment selector did not isolate
-that mutation. Both production sources were restored to `BigSimmo/Database` on
+that mutation. Both production sources were restored to `BigSimmo/PsychSift` on
 `main`. Reconnection also attached `main` auto-deploy triggers to the retained
 preview; both were disabled using each preview service's dashboard **Disable**
 control. Global PR-environment creation and existing service auto-deploy triggers
@@ -641,30 +684,10 @@ Rules:
 - `npm run check:supabase-project` runs after any Supabase env change (repo
   rule), and the eval canary runs it before every scheduled eval.
 
-**`CARING_CONTACTS_DATABASE_URL` — the Caring Contacts workspace's own database.** The
-synthetic Caring Contacts prototype (`src/lib/caring-contacts-server/`) reads exactly one
-variable, in `config.ts`, and it is **not** in `src/lib/env.ts`: unset or blank means the
-in-memory demo store (what the demo and the offline suites use); set means every workspace
-read and write goes to that Postgres database. Only the app tier reads it — Railway service
-`Database` in production, `app` in staging — and the `worker` never does. It is set on no
-deployment today and is absent from the Railway expectations in `scripts/check-env-parity.mjs`,
-because the workspace is locked in production until enterprise sign-on exists
-(`isCaringContactsDemoEnabled`, `src/lib/caring-contacts-server/session.ts`). Two guards make
-misconfiguration fail closed rather than reach the clinical database: the process refuses a
-URL that names the pinned PsychSift project ref, and one that is byte-identical to
-`SUPABASE_DB_URL` or `DATABASE_URL` (`assertNotClinicalKbProject`, run in both `store.ts` and
-`pool.ts`). One prerequisite is not enforced by code: the login role in the URL must be a
-member of `caring_contacts_app`, because migration `0001` grants that membership only to the
-role that ran the migration, and every transaction begins with `set local role
-caring_contacts_app` — a non-member role fails there and the workspace returns 500s. CI's
-`caring-contacts-db` job sets the variable to its throwaway container (`postgres@127.0.0.1:54329`),
-which is both migrator and login role, so it never meets that gap. `.env.example` carries the
-commented entry so `npm run check:env-parity` knows the name.
-
 ## 5. Staging environment
 
 - **A second, dedicated Supabase project** (same org, ap-southeast-2) — not a
-  branch of production. `Clinical KB Staging` was provisioned and migrated on
+  branch of production. `PsychSift Staging` was provisioned and migrated on
   2026-07-19. Rationale: staging must absorb soak tests, destructive
   ingestion experiments, and migration rehearsal without any shared compute,
   pooling, or the production auth 10-connection cap; per-environment keys fall
@@ -675,7 +698,7 @@ commented entry so `npm run check:env-parity` knows the name.
   (`npm run samples`) are sufficient for load-shape realism; do not copy
   clinical production documents into staging.
 - One staging `app` container and **no staging worker**. The active Railway
-  `Database` project has a `staging` environment pinned to Singapore with
+  `PsychSift` project has a `staging` environment pinned to Singapore with
   `RAG_PROVIDER_MODE=offline`, isolated Supabase credentials, and no OpenAI key.
   This keeps release proofs deterministic and prevents staging ingestion from
   draining or mutating production data. See `docs/staging-setup.md` for the
@@ -696,7 +719,7 @@ commented entry so `npm run check:env-parity` knows the name.
   deliberately does not push to a registry; Railway builds the
   deployable image itself from the tree on deploy, after the standard gates
   (`verify` + `ui-smoke` + the clinical governance preflight where relevant).
-- **Deploy:** `railway up --service Database` / `--service worker` (or the
+- **Deploy:** `railway up --service PsychSift` / `--service worker` (or the
   connected GitHub source) builds and releases. Per-service watch patterns skip
   docs, tests, and CI-only commits while retaining every runtime, dependency,
   Docker, and service-config input. Railway does a rolling app deploy and marks

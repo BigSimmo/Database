@@ -20,7 +20,7 @@ export type NormalizeAccessibleTableOptions = {
 // Words that indicate a table carries dose/threshold/monitoring data, where a
 // mis-paired cell is clinically dangerous.
 const CLINICAL_TABLE_SIGNAL =
-  /\b(dose|dosage|mg|mcg|microgram|titrat|threshold|anc|fbc|wbc|neutrophil|level|mmol|range|monitor|withhold|cease|maximum|max\b|min\b|interval|weekly|daily|frequency)\b/i;
+  /\b(dose|dosage|mg|mcg|microgram|titrat(?:e|es|ed|ing|ion|ions)|threshold|anc|fbc|wbc|neutrophil|level|mmol|range|monitor|withhold|cease|maximum|max\b|min\b|interval|weekly|daily|frequency)\b/i;
 
 function rowsLookClinical(header: string[], body: string[][]): boolean {
   const sample = [header.join(" "), ...body.slice(0, 6).map((row) => row.join(" "))].join(" ");

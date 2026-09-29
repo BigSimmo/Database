@@ -1,3 +1,8 @@
+import { dateKeyToUtcMillis, isValidTime, utcMillisToDateKey } from "@/lib/calendar/date-keys";
+import type { ReminderType } from "@/lib/reminders/settings-model";
+
+export { dateKeyToUtcMillis, isValidTime, utcMillisToDateKey };
+
 /**
  * One shape for every dated thing the app can put on a calendar: a CME routine
  * coming due, the end of the CPD year, an On Call teaching session, a
@@ -37,10 +42,33 @@ export type CalendarEvent = {
   readonly kind: CalendarEventKind;
   /** Repeats from `date` onwards. */
   readonly recurrence?: CalendarRecurrence;
+  /** Original date of a repeated series, retained when this event is an expanded occurrence. */
+  readonly seriesStartDate?: string;
   readonly location?: string;
   readonly notes?: string;
   /** An in-app page about this event, if there is one. */
   readonly href?: string;
+  /**
+   * Which reminder setting governs this event's calendar alert, set by the
+   * builder that made it. Absent means the event never alerts.
+   */
+  readonly reminderType?: ReminderType;
+  /** Absolute alarm instant (ISO, UTC), written as a VALARM. Set by `applyReminderAlarms`. */
+  readonly alarmAt?: string;
+  /**
+   * Set on one occurrence of a repeating series that carries its own alarm. A
+   * calendar file writes it as an override of that occurrence (RFC 5545
+   * RECURRENCE-ID, same UID, no RRULE), so each alarm is absolute and counted
+   * against the daily cap. Set only by `applyReminderAlarms`.
+   */
+  readonly seriesOccurrence?: true;
+  /**
+   * A cancelled occurrence. It stays in exports and feeds so a calendar that already holds it
+   * updates it rather than keeping it: it is written with STATUS:CANCELLED and never with an alarm.
+   */
+  readonly status?: "cancelled";
+  /** Further absolute alarm instants (ISO, UTC), one VALARM each. Set only by Admin's one-off renewal file. */
+  readonly alarmsAt?: readonly string[];
 };
 
 /**
@@ -69,22 +97,7 @@ export const calendarRecurrenceLabels: Record<CalendarRecurrence, string> = {
   quarterly: "Every three months",
 };
 
-const DATE_KEY = /^(\d{4})-(\d{2})-(\d{2})$/;
-const TIME_KEY = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const DAY_MS = 86_400_000;
-
-/** UTC midnight for a real `YYYY-MM-DD`, or null (30 February is not a date). */
-export function dateKeyToUtcMillis(date: string): number | null {
-  const match = DATE_KEY.exec(date);
-  if (!match) return null;
-  const millis = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return utcMillisToDateKey(millis) === date ? millis : null;
-}
-
-export function utcMillisToDateKey(millis: number): string {
-  const date = new Date(millis);
-  return `${String(date.getUTCFullYear()).padStart(4, "0")}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
-}
 
 export function addDays(date: string, days: number): string {
   const millis = dateKeyToUtcMillis(date);
@@ -101,10 +114,6 @@ export function addMonthsClamped(date: string, months: number): string {
   const month = anchor.getUTCMonth() + months;
   const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   return utcMillisToDateKey(Date.UTC(year, month, Math.min(anchor.getUTCDate(), lastDay)));
-}
-
-export function isValidTime(time: string): boolean {
-  return TIME_KEY.test(time);
 }
 
 /** The event's start and end as UTC instants (all-day events: null). */
@@ -131,6 +140,33 @@ function occurrenceAfter(anchor: string, recurrence: CalendarRecurrence, index: 
   }
 }
 
+/**
+ * The index of the last occurrence at or before `rangeStart`, or 0. Solved
+ * rather than counted, so a series that began years ago still reaches the range
+ * inside the cap below. For months it steps back one period, because clamping
+ * can put an occurrence a few days earlier than the month count suggests.
+ */
+function firstIndexNear(anchor: string, recurrence: CalendarRecurrence, rangeStart: string): number {
+  const anchorMillis = dateKeyToUtcMillis(anchor);
+  const startMillis = dateKeyToUtcMillis(rangeStart);
+  if (anchorMillis === null || startMillis === null || startMillis <= anchorMillis) return 0;
+  switch (recurrence) {
+    case "weekly":
+    case "fortnightly": {
+      const step = recurrence === "weekly" ? 7 : 14;
+      return Math.floor((startMillis - anchorMillis) / (step * DAY_MS));
+    }
+    case "monthly":
+    case "quarterly": {
+      const a = new Date(anchorMillis);
+      const b = new Date(startMillis);
+      const months = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+      const step = recurrence === "monthly" ? 1 : 3;
+      return Math.max(0, Math.floor(months / step) - 1);
+    }
+  }
+}
+
 /** Safety cap: a weekly series over a year is 53; nothing a page shows needs more. */
 const MAX_OCCURRENCES_PER_EVENT = 400;
 
@@ -150,10 +186,17 @@ export function expandEvents(
       if (event.date >= range.start && event.date <= range.end) result.push({ ...event, occurrenceKey: event.id });
       continue;
     }
-    for (let index = 0; index < MAX_OCCURRENCES_PER_EVENT; index += 1) {
+    const first = firstIndexNear(event.date, event.recurrence, range.start);
+    for (let index = first; index < first + MAX_OCCURRENCES_PER_EVENT; index += 1) {
       const date = occurrenceAfter(event.date, event.recurrence, index);
       if (date > range.end) break;
-      if (date >= range.start) result.push({ ...event, date, occurrenceKey: `${event.id}@${date}` });
+      if (date >= range.start)
+        result.push({
+          ...event,
+          date,
+          seriesStartDate: event.seriesStartDate ?? event.date,
+          occurrenceKey: `${event.id}@${date}`,
+        });
     }
   }
   return result.sort(compareEvents);

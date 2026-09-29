@@ -107,7 +107,13 @@ function testIdMatchers(): { literals: Set<string>; patterns: RegExp[]; stems: s
   const literals = new Set<string>();
   const patterns: RegExp[] = [];
   const stems = new Set<string>();
-  for (const dir of ["src/components/on-call", "src/components/mode-nav"]) {
+  // `on-call/now` is read alongside the top-level folder because board 01
+  // Home IS Now (v6 rebuild, plan C25): its safety-order modules — the
+  // hospital line's emergency pin, Right now, the footer group — are its own
+  // testids, and a `built` claim about the page a reader actually opens
+  // should be provable, not routed around as a `deviation` the way
+  // `on-call-home-recent` was before this folder was read.
+  for (const dir of ["src/components/on-call", "src/components/on-call/now", "src/components/mode-nav"]) {
     for (const file of readdirSync(new URL(`../${dir}`, import.meta.url))) {
       if (!/\.tsx?$/.test(file)) continue;
       const source = read(`${dir}/${file}`);
@@ -230,11 +236,14 @@ describe("On Call mockup conformance ledger", () => {
     // stops it rendering fails there rather than passing here.
     const spec = read(BOARD_SPEC_PATH);
     const loadBearing = [
-      "on-call-home-call-first",
-      "on-call-home-wards",
-      "on-call-home-pinned",
+      // Board 01 Home is Now (v6 rebuild, plan C25): the tile grid, Call first,
+      // the ward strip and the pinned reminder left the page, so their testids
+      // no longer belong here — these are Now's own safety-order modules.
+      "on-call-now-hospital",
+      "on-call-now-emergency",
+      "on-call-now-right-now",
+      "on-call-now-footer",
       "on-call-home-upcoming",
-      "on-call-home-sections",
       "on-call-page-menu-trigger",
       "on-call-page-menu-order",
       "on-call-contacts-group-needs-checking",
@@ -245,7 +254,12 @@ describe("On Call mockup conformance ledger", () => {
       "on-call-orientation-group-",
       "on-call-private-flag",
       "on-call-playbook-group-no-guideline",
-      "on-call-logistics-private-note",
+      // "on-call-logistics-private-note" stood here until Admin update 1
+      // (Task 1, 2026-09-26) moved board 11's content to Admin > Help
+      // (`/admin/help`): every element that board drew is now a `deviation`
+      // row in `docs/on-call/design/mockup-conformance.md`, so this file no
+      // longer needs a browser proof for it. Admin's own build owns proving
+      // its rows render, not On Call's board ledger.
       "on-call-orientation-checklist-",
       // The second header row. It replaced the shared rail, then came back AS a
       // bar — pointed at this page's groups rather than at the mode's routes.

@@ -1,23 +1,14 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  isCaringContactsToolListed,
+  psychiatricMedicareBillingItems,
   rankToolRecords,
   toolCatalogRecordById,
   toolCatalogRecords,
   toolCatalogRecordsForSession,
 } from "../src/lib/tools-catalog";
-import { isCaringContactsDemoEnabled } from "../src/lib/caring-contacts-server/session";
 import { appModeHomeHref, type AppModeId } from "../src/lib/app-modes";
 import { smartSearchExpansions } from "../src/lib/smart-search-intent";
 import { tools as mockupToolFixtures } from "../src/components/tools-page-mockups/tool-fixtures";
-
-// `session.ts` is server-only and reads the demo role cookie; the catalogue test only needs
-// its production-lock predicate, so the cookie store is stubbed the way its own suite does.
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({ get: () => undefined, set: () => undefined })),
-}));
 
 describe("tools catalog", () => {
   it("has unique ids and the launcher staples", () => {
@@ -61,11 +52,6 @@ describe("tools catalog", () => {
       expect(toolCatalogRecordById(toolId).href).toBe(`/?mode=${modeId}`);
     }
   });
-
-  // Ward Flow is deliberately absent from this catalogue — see
-  // tests/ward-flow-sandbox.test.ts, which asserts no entry's href starts with
-  // "/ward-management" or "/mockups/ward-flow" (the old and new sandbox paths).
-  // A test here asserting it WAS reachable would fight that guard directly.
 
   it("ranks title matches above keyword-only matches", () => {
     const matches = rankToolRecords("forms");
@@ -138,78 +124,45 @@ describe("tools catalog", () => {
       expect(fixture.sourceBacked).toBe(record.sourceBacked);
     }
   });
-});
 
-describe("the Caring Contacts card follows the workspace's production lock", () => {
-  const allSessions = [
-    { authenticated: false, demoMode: false },
-    { authenticated: true, demoMode: false },
-    { authenticated: true, demoMode: true },
-  ] as const;
-  const caringContactsListed = (session: (typeof allSessions)[number]) =>
-    toolCatalogRecordsForSession(session).some((tool) => tool.id === "caring-contacts");
+  it("explicitly states Consultant Psychiatrist Item 291 and Item 293 billing rules", () => {
+    const item291 = psychiatricMedicareBillingItems["291"];
+    expect(item291).toBeDefined();
+    expect(item291.referralRequirement).toMatch(/general practitioner|GP/i);
+    expect(item291.frequencyRestriction).toMatch(/12-month/i);
+    expect(item291.ongoingManagementRule).toMatch(/billing condition, not a treatment ban/i);
+    expect(item291.ongoingManagementRule).not.toMatch(/statutor/i);
+    expect(item291.ongoingManagementRule).toMatch(/referring GP/i);
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
+    const item293 = psychiatricMedicareBillingItems["293"];
+    expect(item293).toBeDefined();
+    expect(item293.description).toMatch(/review of (?:a )?management plan.*291/i);
+    expect(item293.referralRequirement).toMatch(/GP/i);
+    expect(item293.frequencyRestriction).toMatch(/12-month/i);
+    expect(item293.ongoingManagementRule).toMatch(/ongoing management remains with the referring GP/i);
+
+    const carePlans = toolCatalogRecordById("care-plans");
+    expect(carePlans.detail).toContain("Item 291");
+    expect(carePlans.detail).toContain("Item 293");
+    expect(carePlans.detail).toMatch(/12-month restriction/i);
+    expect(carePlans.detail).toMatch(/billing condition/i);
+    expect(carePlans.detail).not.toMatch(/statutory prohibition/i);
+    expect(carePlans.checkFirst).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/291.*12-month/i),
+        expect.stringMatching(/291 billing condition/i),
+      ]),
+    );
   });
 
-  it("is offered outside production, whatever the flags say", () => {
-    for (const environment of ["development", "test"]) {
-      vi.stubEnv("NODE_ENV", environment);
-      vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "");
-      vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "");
-      expect(isCaringContactsToolListed()).toBe(true);
-      for (const session of allSessions) expect(caringContactsListed(session)).toBe(true);
-    }
-  });
+  it("finds care plans via MBS 291 and Medicare billing keywords", () => {
+    const matches291 = rankToolRecords("291");
+    expect(matches291[0]?.tool.id).toBe("care-plans");
 
-  it("is hidden from every production session, so the launcher never offers a card whose route is a 404", () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "");
-    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "");
-    expect(isCaringContactsToolListed()).toBe(false);
-    for (const session of allSessions) {
-      expect(caringContactsListed(session)).toBe(false);
-      expect(rankToolRecords("caring contacts", 10, [], session).map((match) => match.tool.id)).not.toContain(
-        "caring-contacts",
-      );
-    }
-    // The record itself stays in the catalogue: the mockup fixtures and the category
-    // identity registry still resolve it, and the workspace journey still reaches it.
-    expect(toolCatalogRecordById("caring-contacts").href).toBe("/caring-contacts");
-  });
+    const matches293 = rankToolRecords("293");
+    expect(matches293[0]?.tool.id).toBe("care-plans");
 
-  it("keeps the isolated Playwright production server's entry point", () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
-    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "true");
-    expect(isCaringContactsToolListed()).toBe(true);
-    for (const session of allSessions) expect(caringContactsListed(session)).toBe(true);
-  });
-
-  it("agrees with isCaringContactsDemoEnabled in every environment a server can actually start in", () => {
-    // The catalogue is rendered by client components, so it can only read what the client
-    // bundle inlines: NODE_ENV and NEXT_PUBLIC_DEMO_MODE. PLAYWRIGHT_OFFLINE_MODE never reaches
-    // the browser. The one combination the two predicates could disagree on -- production with
-    // NEXT_PUBLIC_DEMO_MODE=true but no Playwright offline flag -- is a process
-    // `src/instrumentation.ts` refuses to start, pinned below, so no server ever serves it.
-    const instrumentation = readFileSync(path.join(process.cwd(), "src/instrumentation.ts"), "utf8");
-    expect(instrumentation).toContain("demo mode is enabled in a production build");
-
-    for (const environment of ["development", "test", "production"] as const) {
-      for (const offline of [undefined, "true"]) {
-        for (const demo of [undefined, "true"]) {
-          const refusedByInstrumentation = environment === "production" && demo === "true" && offline !== "true";
-          if (refusedByInstrumentation) continue;
-          vi.stubEnv("NODE_ENV", environment);
-          vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", demo ?? "");
-          vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", offline ?? "");
-          const runtime = { PLAYWRIGHT_OFFLINE_MODE: offline, NEXT_PUBLIC_DEMO_MODE: demo };
-          const enabled = isCaringContactsDemoEnabled(environment, runtime);
-          expect(isCaringContactsToolListed(), `${environment} offline=${offline} demo=${demo}`).toBe(enabled);
-          for (const session of allSessions) expect(caringContactsListed(session)).toBe(enabled);
-        }
-      }
-    }
+    const matchesBilling = rankToolRecords("medicare billing 291");
+    expect(matchesBilling[0]?.tool.id).toBe("care-plans");
   });
 });

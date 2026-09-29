@@ -1,9 +1,13 @@
 "use client";
 
+import { ServiceStructuredPreview } from "@/components/on-call/service-structured-preview";
+
 import { Clipboard, ExternalLink, Flag, NotebookPen, Pencil, Phone, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { ServiceSiteHours } from "@/components/on-call/service-site-hours";
+import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import { HandbookResourceCatalogue } from "@/components/on-call/handbook-resource-catalogue";
 import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
@@ -12,12 +16,22 @@ import { Button, buttonFaceClass } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { InlineNotice, cn, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
-import { onCallTelHref } from "@/lib/on-call/home-modules";
+import { resolveHandbookPhone, spokenOnCallNumber } from "@/lib/on-call/number-resolver";
 import type { ServiceAction, ServiceDetail, ServiceEntry } from "@/lib/on-call/service-model";
+import { formatOnCallDate } from "@/components/on-call/on-call-dates";
 
 type ReportAction = Extract<ServiceAction, { action: "report.create" }>;
 
-const handbookGroups = ["contacts", "referrals", "resources", "documentation", "teaching", "admin"] as const;
+const handbookGroups = [
+  "contacts",
+  "referrals",
+  "resources",
+  "documentation",
+  "teaching",
+  "admin",
+  "playbook",
+  "cover",
+] as const;
 const groupLabels: Record<(typeof handbookGroups)[number], string> = {
   contacts: "Local contacts",
   referrals: "Local referrals",
@@ -25,6 +39,8 @@ const groupLabels: Record<(typeof handbookGroups)[number], string> = {
   documentation: "Documentation",
   teaching: "Teaching",
   admin: "Service administration",
+  playbook: "Hospital playbook",
+  cover: "Role cover",
 };
 
 function humanStatus(status: ServiceEntry["status"]): string {
@@ -34,9 +50,7 @@ function humanStatus(status: ServiceEntry["status"]): string {
 
 function updateLabel(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? "Review date unavailable"
-    : `Updated ${new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "short", year: "numeric" }).format(date)}`;
+  return Number.isNaN(date.getTime()) ? "Review date unavailable" : `Draft saved ${formatOnCallDate(date)}`;
 }
 
 function learningHref(entry: ServiceEntry): string | null {
@@ -51,19 +65,21 @@ function ServiceEntryCard({
   canEdit,
   onEdit,
   onReport,
+  onConfirm,
 }: {
   readonly entry: ServiceEntry;
   readonly siteName: string;
   readonly canEdit: boolean;
   readonly onEdit: () => void;
   readonly onReport: (action: ReportAction) => Promise<void>;
+  readonly onConfirm?: () => Promise<unknown>;
 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const learning = learningHref(entry);
-  const callHref = onCallTelHref(entry.content.phone);
+  const dial = resolveHandbookPhone(entry.content.phone);
 
   async function submitReport() {
     if (!reason.trim() || busy) return;
@@ -74,7 +90,27 @@ function ServiceEntryCard({
       setReason("");
       setReportOpen(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "This correction could not be reported.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (cause instanceof TypeError && cause.message.includes("fetch"))
+      ) {
+        setError("You are offline. Connect to send a correction.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "This correction could not be reported.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm() {
+    if (!onConfirm || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onConfirm();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not confirm this entry.");
     } finally {
       setBusy(false);
     }
@@ -90,7 +126,7 @@ function ServiceEntryCard({
       <div className="grid gap-3">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h4 className="break-words text-sm font-bold text-[color:var(--text-heading)]">
+            <h4 className="break-words text-sm font-medium text-[color:var(--text-heading)]">
               <a
                 href={`#${onCallEntryAnchorId(entry.id)}`}
                 className={cn(focusRing, "inline-flex min-h-tap items-center break-words")}
@@ -104,7 +140,8 @@ function ServiceEntryCard({
               </a>
             </h4>
             <p className={cn(textMuted, "mt-0.5 break-words text-xs")}>
-              {siteName} · {humanStatus(entry.status)} · {updateLabel(entry.updatedAt)}
+              {siteName} · {humanStatus(entry.status)}
+              {entry.revision !== entry.publishedRevision ? ` · ${updateLabel(entry.updatedAt)}` : ""}
             </p>
           </div>
           {canEdit ? (
@@ -114,44 +151,58 @@ function ServiceEntryCard({
           ) : null}
         </div>
 
+        <ServiceStructuredPreview content={entry.content} />
+        <OnCallUpdatedLine updatedAt={entry.publishedAt ?? null} lastConfirmedAt={entry.lastConfirmedAt} />
+        {onConfirm ? (
+          <Button variant="secondary" busy={busy} onClick={() => void confirm()}>
+            Still correct
+          </Button>
+        ) : null}
+        {error && !reportOpen ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
         {entry.content.body ? (
           <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[color:var(--text)]">
             {entry.content.body}
           </p>
         ) : null}
-        {entry.content.phone ? (
-          <div className="flex min-h-tap min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)]">
-            {callHref ? (
+        {dial.kind !== "none" ? (
+          <div className="flex min-h-tap min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-[color:var(--text)]">
+            {dial.tel ? (
               <a
-                href={callHref}
+                href={dial.tel}
+                aria-label={`Call ${entry.content.title}, ${spokenOnCallNumber(dial.display)}`}
                 className={cn(buttonFaceClass({ variant: "primary", size: "sm" }), focusRing, "min-w-0 no-underline")}
               >
                 <Phone aria-hidden="true" className="size-icon-sm shrink-0" />
-                <span className="nums break-all">Call {entry.content.phone}</span>
+                <span className="nums break-all font-normal">Call {dial.display}</span>
               </a>
             ) : (
-              <>
-                <span className="nums min-w-0 flex-1 break-all">Extension {entry.content.phone}</span>
-                <OnCallCopyNumber
-                  value={entry.content.phone}
-                  label={`Copy extension for ${entry.content.title}`}
-                  testId={`service-entry-${entry.id}-copy-phone`}
-                />
-              </>
+              <span className="nums min-w-0 flex-1 break-all font-normal">
+                {dial.display}
+                {dial.route === "hospital-phone" ? (
+                  <span className={cn(textMuted, "ml-2 text-xs")}>From a hospital phone</span>
+                ) : null}
+              </span>
             )}
+            {dial.copy ? (
+              <OnCallCopyNumber
+                value={dial.copy}
+                label={`${dial.route === "hospital-phone" ? "Copy extension" : "Copy number"} for ${entry.content.title}`}
+                testId={`service-entry-${entry.id}-copy-phone`}
+              />
+            ) : null}
           </div>
         ) : null}
 
         {entry.content.kind !== "operational" && entry.reviewedAt && entry.publishedRevision === entry.revision ? (
           <p className={cn(textMuted, "break-words text-xs")}>
-            Reviewed {new Date(entry.reviewedAt).toLocaleDateString("en-AU")}
+            Reviewed {formatOnCallDate(entry.reviewedAt)}
             {entry.reviewedBy ? ` · reviewer ${entry.reviewedBy.slice(0, 8)}` : ""}
           </p>
         ) : null}
 
         {entry.content.sources.length > 0 ? (
           <div className="grid gap-1.5">
-            <p className={cn(textMuted, "text-2xs font-bold uppercase tracking-kicker")}>Source links</p>
+            <p className={cn(textMuted, "text-2xs font-semibold uppercase tracking-kicker")}>Source links</p>
             {entry.content.sources.map((source) => (
               <a
                 key={`${source.url}:${source.label}`}
@@ -201,6 +252,7 @@ function ServiceEntryCard({
               {(field) => (
                 <textarea
                   id={field.id}
+                  aria-describedby={field.describedBy}
                   rows={3}
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
@@ -306,7 +358,7 @@ export function ServiceHandbook({
     <section aria-labelledby="service-handbook-heading" className="grid gap-5" data-testid="service-handbook">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="service-handbook-heading" className="text-lg font-bold text-[color:var(--text-heading)]">
+          <h2 id="service-handbook-heading" className="text-lg font-semibold text-[color:var(--text-heading)]">
             Service handbook
           </h2>
           <p className={cn(textMuted, "mt-1 text-sm leading-6")}>
@@ -320,6 +372,17 @@ export function ServiceHandbook({
         ) : null}
       </div>
 
+      {canEdit && selectedSiteId
+        ? detail.sites
+            .filter((site) => site.id === selectedSiteId)
+            .map((site) => (
+              <ServiceSiteHours
+                key={`${site.id}:${site.afterHoursStart}:${site.afterHoursEnd}`}
+                site={site}
+                onAction={onAction}
+              />
+            ))
+        : null}
       <form
         role="search"
         className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
@@ -332,6 +395,7 @@ export function ServiceHandbook({
           {(field) => (
             <input
               id={field.id}
+              aria-describedby={field.describedBy}
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -349,7 +413,7 @@ export function ServiceHandbook({
         const groupEntries = entries.filter((entry) => entry.content.section === group);
         return (
           <section key={group} aria-labelledby={`service-${group}-heading`} className="grid gap-2">
-            <h3 id={`service-${group}-heading`} className="text-sm font-bold text-[color:var(--text-heading)]">
+            <h3 id={`service-${group}-heading`} className="text-sm font-semibold text-[color:var(--text-heading)]">
               {groupLabels[group]}
             </h3>
             {groupEntries.length > 0 ? (
@@ -363,6 +427,19 @@ export function ServiceHandbook({
                     }
                     canEdit={canEdit}
                     onEdit={() => onEdit(entry)}
+                    onConfirm={
+                      entry.status !== "withdrawn" &&
+                      entry.publishedContent &&
+                      entry.publishedRevision === entry.revision &&
+                      (entry.publishedContent.kind === "operational" ? canEdit : detail.membership.clinicalReviewer)
+                        ? () =>
+                            onAction({
+                              action: "entry.confirm",
+                              entryId: entry.id,
+                              publishedRevision: entry.publishedRevision!,
+                            })
+                        : undefined
+                    }
                     onReport={async (action) => {
                       await onAction(action);
                     }}
@@ -380,7 +457,7 @@ export function ServiceHandbook({
 
       <section aria-labelledby="blank-note-structures-heading" className={cn(cardSurface, "grid gap-3 p-4")}>
         <div>
-          <h3 id="blank-note-structures-heading" className="text-sm font-bold text-[color:var(--text-heading)]">
+          <h3 id="blank-note-structures-heading" className="text-sm font-semibold text-[color:var(--text-heading)]">
             Blank documentation structures
           </h3>
           <p className={cn(textMuted, "mt-1 text-xs leading-5")}>

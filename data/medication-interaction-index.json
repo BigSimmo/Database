@@ -722,6 +722,7 @@
             "lurasidone",
             "methadone",
             "midazolam",
+            "moclobemide",
             "morphine-ir-iv",
             "morphine-sr-mr",
             "nitrazepam",
@@ -2751,7 +2752,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs (e.g., phenelzine). Since metaraminol releases endogenous norepinephrine, MAOIs prevent its breakdown, causing lethal hypertensive crisis."
@@ -2771,6 +2772,7 @@
             "dosulepin",
             "doxepin",
             "imipramine",
+            "moclobemide",
             "nortriptyline",
             "phenelzine",
             "tranylcypromine"
@@ -6581,6 +6583,7 @@
             "escitalopram",
             "fluoxetine",
             "fluvoxamine",
+            "moclobemide",
             "paroxetine",
             "phenelzine",
             "sertraline",
@@ -6938,7 +6941,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs (Fatal hypertensive crisis)."
@@ -6952,7 +6955,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs (Fatal hypertensive crisis). Must wait 14 days after stopping MAOI."
@@ -7017,7 +7020,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs (Hypertensive crisis)."
@@ -7040,7 +7043,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs (Fatal hypertensive crisis)."
@@ -7540,7 +7543,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tramadol-ir", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol (Serotonin Syndrome)."
@@ -7616,6 +7619,7 @@
             "escitalopram",
             "fluoxetine",
             "fluvoxamine",
+            "moclobemide",
             "paroxetine",
             "phenelzine",
             "sertraline",
@@ -7644,7 +7648,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tramadol-ir", "tranylcypromine"],
           "termIds": ["maois", "st-johns-wort"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol, St John's Wort (Serotonin Syndrome)."
@@ -7667,7 +7671,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tramadol-ir", "tranylcypromine"],
           "termIds": ["alcohol", "maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol (Serotonin Syndrome). Additive CNS depression with alcohol."
@@ -7735,7 +7739,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tramadol-ir", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol (Fatal Serotonin Syndrome)."
@@ -7848,7 +7852,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tramadol-ir", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol (Serotonin Syndrome)."
@@ -7907,6 +7911,7 @@
             "escitalopram",
             "fluoxetine",
             "fluvoxamine",
+            "moclobemide",
             "paroxetine",
             "phenelzine",
             "sertraline",
@@ -7949,7 +7954,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tramadol-ir", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol (Serotonin Syndrome)."
@@ -8024,7 +8029,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tranylcypromine"],
           "termIds": ["maois"],
           "resolved": true,
           "note": "CRITICAL — MAOIs (Fatal hypertensive crisis)."
@@ -8047,7 +8052,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tapentadol-sr", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tapentadol-sr", "tramadol-ir", "tranylcypromine"],
           "termIds": ["maois", "st-johns-wort"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol, Tapentadol, St John's Wort. Massive risk of Serotonin Syndrome (hyperthermia, clonus, rigidity, death)."
@@ -8117,7 +8122,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
+          "counterparties": ["moclobemide", "phenelzine", "tramadol-ir", "tranylcypromine"],
           "termIds": ["maois", "st-johns-wort"],
           "resolved": true,
           "note": "CRITICAL — MAOIs, Tramadol, St John's Wort. Extreme risk of Serotonin Syndrome."

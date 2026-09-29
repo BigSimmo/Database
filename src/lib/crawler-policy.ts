@@ -14,7 +14,7 @@ export const PUBLIC_APP_ROBOTS_METADATA = {
 
 /**
  * Restrictive robots for surfaces that must stay out of search results:
- * synthetic demos (Caring Contacts), prototype mockups, and similar
+ * synthetic demos, prototype mockups, and similar
  * non-product pages. Offline/error static documents keep their own noindex
  * meta in markup or response headers.
  */
@@ -47,7 +47,7 @@ function publicSitemapUrl(): string | undefined {
 /**
  * The app-wide robots.txt. Compliant crawlers may fetch application routes so
  * they can observe per-route robots metadata (including noindex on private/demo
- * surfaces such as Caring Contacts and the developer mockups).
+ * surfaces such as the developer mockups).
  *
  * A public-only sitemap is advertised here. The sitemap lists ONLY the canonical
  * public surface — the shared home (`/`) and the public-knowledge tool landing

@@ -22,7 +22,7 @@ import path from "node:path";
  */
 const npmRunScript = (line) =>
   line.match(
-    /^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)(?:\s+--\s+--merge-reports=[\w./-]+(?:\s+--reporter=default)?)?\s*(?:#.*)?$/,
+    /^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)(?:\s+--\s+(?:--merge-reports=[\w./-]+(?:\s+--reporter=default)?|--concurrency=\d+))?\s*(?:#.*)?$/,
   )?.[1];
 
 /** A `run: |` or `run: >` block opener; its body is the following more-indented lines. */

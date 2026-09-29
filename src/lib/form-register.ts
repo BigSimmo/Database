@@ -6,9 +6,9 @@
  * { FormAvailability }` from `@/lib/form-ranker` — a TYPE-ONLY import, erased by the compiler,
  * so it emits no `require`/`import` and pulls nothing into any bundle at runtime. It must stay
  * that way: a single value import here would undo the whole reason the file exists. It was split
- * out of `form-catalog.ts` on 2026-08-24 so that Ward Flow — whose surfaces are `"use client"`
- * components — can be a single source of official titles without dragging
- * `data/forms-catalog.json` (174 KB) and `data/forms-pdf-manifest.json` (17 KB) into the ward
+ * out of `form-catalog.ts` on 2026-08-24 so that the since-retired Ward Flow prototype — whose
+ * surfaces were `"use client"` components — could read official titles from one source without
+ * dragging `data/forms-catalog.json` (174 KB) and `data/forms-pdf-manifest.json` (17 KB) into a
  * client bundle. `form-catalog.ts` builds module-level `Map`s and arrays from both JSON files at
  * import time, so those side effects cannot be tree-shaken away by importing one named export
  * from it. `form-catalog.ts` imports and re-exports what is here; **there is still exactly one
@@ -195,8 +195,7 @@ export function formPageHref(code: string): string {
  * The official title for a form code, or `null` when the register does not list that code.
  *
  * `null` is a real answer and callers must render it as such — the bare code, never a
- * substituted or locally-invented title. Ward Flow's `legalFormName` is built on exactly that
- * contract.
+ * substituted or locally-invented title.
  */
 export function formTitleForCode(code: string) {
   const normalized = normalizeCode(code);

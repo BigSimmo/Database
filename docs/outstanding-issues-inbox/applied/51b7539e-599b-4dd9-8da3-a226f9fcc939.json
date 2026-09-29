@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "51b7539e-599b-4dd9-8da3-a226f9fcc939",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#E6142T",
+    "detail": "UPDATE 2026-09-25 (PR C, rebuilt on main after PR #3019): Part 1 (PWA update notice overlap) is CLOSED by owner ruling 2026-09-25: leave the notice where it is. Part 2 (services mode nouns in modeSearchWords) REMAINS OPEN and was deliberately not shipped, because on main it has no observable effect: modeSearchWords in src/lib/smart-search-intent.ts is read only by smartSearchContentTerms, which is called only for calculators, factsheets and dictionary (calculator-filters.ts, factsheets-data.ts, dictionary.ts). The services ranker (src/lib/service-ranker.ts) and universal search call smartSearchExpansions, which returns curated rule terms only and never reads modeSearchWords, so adding service/services/pathway(s)/program/referral there changes no services result. It becomes meaningful only if services search starts consuming smartSearchContentTerms (e.g. a required-term filter, which owner decision 18 excluded from PR C). NEXT: close as won't-fix, or keep it parked until such a consumer exists.",
+    "baseRowFingerprint": "ada020946aa9954cafe7a3fd8d7d63816e2415184d14b0f1dc4a02edc7ee4c29"
+  }
+}

@@ -150,10 +150,15 @@ describe("prior adaptive answer turn", () => {
     expect(leadSourceRows).toHaveLength(2);
     expect(leadSourceRows[0]?.tagName).toBe("A");
     expect(leadSourceRows[0]).toHaveAttribute("href", "/documents/doc-section-only?page=9&chunk=chunk-section-only");
-    expect(leadSourceRows[0]).toHaveAccessibleName(/Source 1: Section-only source/i);
+    // This turn carries an unsupported section, so its render trust is weak and the
+    // answer state is `ungrounded`: under the conservative refusal definition
+    // (#Z9NS6H, owner approval 2026-09-28) the rail frames its rows as searched.
+    expect(screen.getByTestId("answer-source-rail-heading")).toHaveTextContent("Documents searched");
+    expect(leadSourceRows[0]).toHaveAccessibleName(/Also found: Section-only source/i);
+    expect(leadSourceRows[0]).not.toHaveAccessibleName(/Direct|Partial/);
     expect(leadSourceRows[1]?.tagName).toBe("A");
     expect(leadSourceRows[1]).toHaveAttribute("href", "/documents/doc-prior?page=7&chunk=chunk-prior");
-    expect(leadSourceRows[1]).toHaveAccessibleName(/Source 2: Prior source/i);
+    expect(leadSourceRows[1]).toHaveAccessibleName(/Also found: Prior source/i);
     expect(
       screen.getByText("Prior source difference").closest('[data-testid="adaptive-answer-section"]'),
     ).toContainElement(screen.getByRole("button", { name: /Section-only source, p\. 9/i }));
@@ -248,7 +253,9 @@ describe("prior adaptive answer turn", () => {
     ]);
     sourceRows.forEach((row, index) => {
       expect(row.tagName).toBe("A");
-      expect(row).toHaveAccessibleName(new RegExp(`Source ${index + 1}: ${wholeAnswerOrder[index]!.title}`));
+      // Low confidence is an `ungrounded` answer state, so the conservative refusal
+      // definition (#Z9NS6H) frames every row as searched; order is unchanged.
+      expect(row).toHaveAccessibleName(new RegExp(`Also found: ${wholeAnswerOrder[index]!.title}`));
     });
     expect(
       screen.getByText("Prior section-only difference").closest('[data-testid="adaptive-answer-section"]'),

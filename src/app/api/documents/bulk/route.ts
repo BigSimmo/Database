@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
@@ -156,7 +157,8 @@ function hasProtectedSourceGovernance(metadataValue: unknown) {
     disposition === "locally_reviewed" ||
     disposition === "approved" ||
     disposition === BMJ_THIRD_PARTY_ATTESTATION_BASIS ||
-    evidence.basis === BMJ_THIRD_PARTY_ATTESTATION_BASIS
+    evidence.basis === BMJ_THIRD_PARTY_ATTESTATION_BASIS ||
+    hasWaDocumentControlEndorsement(metadata)
   );
 }
 

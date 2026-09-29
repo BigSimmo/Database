@@ -71,13 +71,35 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // the bare path, not a slug detail.
   if (isSlugDetail(pathname, "/on-call")) return true;
   if (pathname === "/on-call") return true;
-  // CME's two pages that mount `CmeNavHeader` (`cme/cme-nav-header.tsx`), which
-  // is an `InPageNavHeader`. Named exactly rather than by prefix or slug test:
-  // the mode's other routes — the dashboard, the log, one entry, the form,
-  // routines, the plan and customise — mount no header of their own, and
-  // claiming the slot for a route that never fills it is the same error in the
-  // other direction. Both named routes are `isInformationPage`, which is the
-  // agreement `tests/mode-nav-addon-slot.dom.test.tsx` checks route for route.
+  // CPD's read views mount CmeNavHeader. The four other page families mount
+  // CmePageTabs through the same collapse portal. Detail, form and secondary
+  // routes do not claim the slot.
   if (pathname === "/cme/programme" || pathname === "/cme/setup") return true;
+  if (
+    [
+      "/cme",
+      "/cme/check",
+      "/cme/log",
+      "/cme/routines",
+      "/cme/plan",
+      "/cme/calendar",
+      "/cme/training",
+      "/cme/learning",
+    ].includes(pathname)
+  )
+    return true;
+  // Every First Nations route mounts `FirstNationsNavHeader`
+  // (`first-nations/first-nations-nav-header.tsx`), an `InPageNavHeader`, for
+  // the mode's own reason: it is an information page on every route (see
+  // `isInformationPage`), so `PageSecondaryNavigation` returns null before the
+  // mode branch and the shell could never draw a bar for it.
+  if (pathname === "/first-nations" || isSlugDetail(pathname, "/first-nations")) return true;
+  // Teaching's session page and the presenter's check-in screen mount
+  // `TeachingNavHeader` (`teaching/teaching-nav-header.tsx`, the document-viewer
+  // shape). Named exactly: the four top pages use the pages sheet, and the scan
+  // landing mounts no header. Every Teaching route is `isInformationPage`.
+  if (/^\/teaching\/session\/[^/]+(?:\/check-in)?$/.test(pathname)) return true;
+  // Admin subpages mount AdminNavHeader; Admin Today has no page-owned header.
+  if (pathname.startsWith("/admin/")) return true;
   return false;
 }

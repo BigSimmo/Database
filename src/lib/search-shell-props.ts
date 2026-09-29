@@ -109,6 +109,28 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "cme", desktopSearchPlacement: "hero" };
   }
 
+  if (pathname === "/psychiatry") {
+    return { initialMode: "psychiatry", desktopSearchPlacement: "hero" };
+  }
+
+  // Admin has no search surface, and its pages never wear the shared composer or its
+  // microphone (spec review 18). Help's "Find in Help" is an in-page filter, not a composer.
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return { initialMode: "my-work", desktopSearchPlacement: "hero", searchComposerVisible: false };
+  }
+
+  if (pathname.startsWith("/roster")) {
+    return { initialMode: "roster", desktopSearchPlacement: "hero" };
+  }
+
+  if (pathname === "/first-nations" || pathname.startsWith("/first-nations/")) {
+    return { initialMode: "first-nations", desktopSearchPlacement: "hero" };
+  }
+
+  if (pathname === "/teaching" || pathname.startsWith("/teaching/")) {
+    return { initialMode: "teaching", desktopSearchPlacement: "hero" };
+  }
+
   if (pathname.startsWith("/dictionary")) {
     // `/dictionary/sources` is a read-only governance page — the source method,
     // the authority hierarchy, the index and the review cadence. Nothing on it

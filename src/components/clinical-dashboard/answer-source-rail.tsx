@@ -60,6 +60,7 @@ export function AnswerSourceRail({
   onOpenSource,
   activeIndex = null,
   compact = false,
+  isRefusal = false,
 }: {
   sources: AnswerSourceRow[];
   query?: string;
@@ -68,6 +69,7 @@ export function AnswerSourceRail({
   /** Card the drawer is currently showing. */
   activeIndex?: number | null;
   compact?: boolean;
+  isRefusal?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rowListId = useId();
@@ -95,7 +97,12 @@ export function AnswerSourceRail({
   // Collapsed: one chip carrying the count, expanded on tap. The cards below are
   // the same cards either way, so nothing is unreachable in compact mode.
   const collapsed = compact && !expanded;
-  const citedCount = sources.filter((source) => source.cited !== false).length;
+  // A refusal's rows were searched, not relied on: every card drops its number for
+  // the uncited em-dash badge, so no card claims to support an answer that was not
+  // given. Indexes are unchanged, so the drawer still opens the row that was tapped.
+  const rows = isRefusal ? sources.map((source) => ({ ...source, cited: false })) : sources;
+  const citedCount = rows.filter((source) => source.cited !== false).length;
+  const isSearchOnly = isRefusal || citedCount === 0;
 
   return (
     <section data-testid="answer-source-rail" aria-label="Sources behind this answer" className="min-w-0">
@@ -110,7 +117,11 @@ export function AnswerSourceRail({
         >
           <span className={sourceCapsule}>
             <Layers className="h-3 w-3 shrink-0" aria-hidden />
-            {display.showLabelText ? <span className="min-w-0 truncate">{display.label}</span> : null}
+            {isSearchOnly ? (
+              <span className="min-w-0 truncate">Documents searched</span>
+            ) : display.showLabelText ? (
+              <span className="min-w-0 truncate">{display.label}</span>
+            ) : null}
             {display.showCountBadge ? <span className={sourceCapsuleCountBadge}>{sources.length}</span> : null}
             <ChevronDown
               className={cn("h-3 w-3 shrink-0 transition-transform", expanded && "rotate-180")}
@@ -130,11 +141,13 @@ export function AnswerSourceRail({
             textMuted,
           )}
         >
-          <span>Cited documents</span>
+          <span>{isSearchOnly ? "Documents searched" : "Cited documents"}</span>
           <span className="nums font-normal normal-case tracking-normal">
-            {citedCount === sources.length
-              ? `${sources.length} cited`
-              : `${citedCount} cited · ${sources.length - citedCount} also found`}
+            {isSearchOnly
+              ? `${sources.length} searched`
+              : citedCount === sources.length
+                ? `${sources.length} cited`
+                : `${citedCount} cited · ${sources.length - citedCount} also found`}
           </span>
         </p>
       )}
@@ -149,7 +162,7 @@ export function AnswerSourceRail({
             ref={scroller}
             id={rowListId}
             role="list"
-            aria-label="Cited documents"
+            aria-label={isSearchOnly ? "Documents searched" : "Cited documents"}
             // `snap-proximity`, not `snap-mandatory`. A card left half-scrolled reads as clipped
             // rather than as scrollable — the second card ends mid-word, which looks like a
             // layout fault instead of an invitation. Snapping settles each card to the left edge
@@ -157,7 +170,7 @@ export function AnswerSourceRail({
             // mandatory fights momentum scrolling on iOS and can strand a reader between cards.
             className="flex snap-x snap-proximity gap-1.5 overflow-x-auto overscroll-x-contain pb-1 pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {sources.map((source, index) => (
+            {rows.map((source, index) => (
               <div key={`${source.id}:${index}`} role="listitem" className="flex-none snap-start">
                 <AnswerSourceCard
                   source={source}
@@ -165,6 +178,7 @@ export function AnswerSourceRail({
                   active={activeIndex === index}
                   query={query}
                   onOpenSource={onOpenSource}
+                  searchOnly={isRefusal}
                 />
               </div>
             ))}
@@ -373,12 +387,15 @@ function AnswerSourceCard({
   active,
   query,
   onOpenSource,
+  searchOnly = false,
 }: {
   source: AnswerSourceRow;
   index: number;
   active: boolean;
   query?: string;
   onOpenSource?: (index: number) => void;
+  /** The card belongs to a refusal, so it must not be announced as Direct/Partial support. */
+  searchOnly?: boolean;
 }) {
   const stale = source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated";
   const cited = source.cited !== false;
@@ -435,7 +452,7 @@ function AnswerSourceCard({
         data-testid="answer-source-rail-row"
         onClick={() => query && logSourceOpen(query, source)}
         className={cn(cardClass, "border-[color:var(--border)]")}
-        aria-label={`${cardLabel(source, index)} — open source`}
+        aria-label={`${cardLabel(source, index, searchOnly)} — open source`}
       >
         {body}
       </Link>
@@ -456,7 +473,7 @@ function AnswerSourceCard({
           ? "border-[color:var(--clinical-accent)] shadow-[var(--e1)]"
           : "border-[color:var(--border)] hover:border-[color:var(--border-strong)]",
       )}
-      aria-label={`${cardLabel(source, index)} — open source detail`}
+      aria-label={`${cardLabel(source, index, searchOnly)} — open source detail`}
     >
       {body}
     </button>
@@ -469,13 +486,16 @@ function AnswerSourceCard({
  * screen reader would hear the title and page but never that the document is
  * outdated or that it only partly supports the answer.
  */
-function cardLabel(source: AnswerSourceRow, index: number) {
+function cardLabel(source: AnswerSourceRow, index: number, searchOnly = false) {
   return [
     `${sourceSpokenName(source, index)}: ${cleanDisplayTitle(source.title)}`,
     `page ${source.pageNumber ?? "not available"}`,
-    sourceSupportLabel(source),
+    // A refusal's card was searched, not relied on, so it carries no support grade.
+    searchOnly ? null : sourceSupportLabel(source),
     sourceStatusShortLabel(source.metadata),
-  ].join(", ");
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 const cardClass =

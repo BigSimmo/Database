@@ -13,6 +13,7 @@ import { isDemoMode } from "@/lib/env";
 import { createOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { jsonError, publicErrorResponse } from "@/lib/http";
+import { adminFreeTextProblem } from "@/lib/on-call/free-text-guard";
 import {
   ON_CALL_SECTIONS,
   onCallDetailsSchemaFor,
@@ -72,12 +73,12 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("On Call requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    // On Call is a shared reference surface: an anonymous caller gets the shared entries rather
-    // than an empty list. Deliberate owner decision (2026-09-04) — see the visibility note on
-    // fetchSharedOnCallEntries. `signedOut` still reports whether the caller has an account,
-    // because the client uses it to decide whether editing is offered, not whether to render.
+    // Shared entries are readable by any signed-in user; an anonymous caller gets none (owner
+    // decision 2026-09-26, reversing the 2026-09-04 anonymous read — see the visibility note on
+    // fetchSharedOnCallEntries). `signedOut: true` is what the client shows its sign-in state on.
+    if (!access.ownerId) return NextResponse.json({ entries: [], signedOut: true });
     const entries = await fetchVisibleOnCallEntries(supabase, access.ownerId, { section });
-    return NextResponse.json({ entries, signedOut: !access.ownerId });
+    return NextResponse.json({ entries, signedOut: false });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
@@ -125,6 +126,8 @@ export async function POST(request: Request) {
     if (!parsedDetails.success) {
       return publicErrorResponse("Invalid On Call entry details.", 400);
     }
+    const problem = adminFreeTextProblem({ ...parsedEntry.data, details: parsedDetails.data });
+    if (problem) return publicErrorResponse(problem, 400, { code: "free_text_identifier" });
 
     const entry = onCallEntrySchema.parse({
       ...parsedEntry.data,

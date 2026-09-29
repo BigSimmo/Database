@@ -118,9 +118,16 @@
       "id": "catalogues-forms-and-info",
       "disposition": "owned",
       "routes": [
+        "src/app/(display)/teaching/display/[token]/page.tsx",
+        "src/app/(search-app)/admin/help/page.tsx",
+        "src/app/(search-app)/admin/new-job/page.tsx",
+        "src/app/(search-app)/admin/new-job/records/page.tsx",
+        "src/app/(search-app)/admin/page.tsx",
+        "src/app/(search-app)/admin/renewals/page.tsx",
         "src/app/(search-app)/cme/calendar/page.tsx",
         "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
+        "src/app/(search-app)/cme/learning/page.tsx",
         "src/app/(search-app)/cme/log/[id]/page.tsx",
         "src/app/(search-app)/cme/log/page.tsx",
         "src/app/(search-app)/cme/new/page.tsx",
@@ -130,6 +137,7 @@
         "src/app/(search-app)/cme/routines/page.tsx",
         "src/app/(search-app)/cme/setup/page.tsx",
         "src/app/(search-app)/cme/summary/page.tsx",
+        "src/app/(search-app)/cme/training/page.tsx",
         "src/app/(search-app)/dictionary/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/compare/page.tsx",
@@ -147,26 +155,42 @@
         "src/app/(search-app)/factsheets/page.tsx",
         "src/app/(search-app)/factsheets/search/page.tsx",
         "src/app/(search-app)/factsheets/topics/page.tsx",
+        "src/app/(search-app)/first-nations/card/page.tsx",
+        "src/app/(search-app)/first-nations/contacts/page.tsx",
+        "src/app/(search-app)/first-nations/end-of-life/page.tsx",
+        "src/app/(search-app)/first-nations/family/page.tsx",
+        "src/app/(search-app)/first-nations/going-home/page.tsx",
+        "src/app/(search-app)/first-nations/mental-health/page.tsx",
+        "src/app/(search-app)/first-nations/mistakes/page.tsx",
+        "src/app/(search-app)/first-nations/on-the-ward/page.tsx",
+        "src/app/(search-app)/first-nations/page.tsx",
+        "src/app/(search-app)/first-nations/talking/page.tsx",
         "src/app/(search-app)/forms/[slug]/page.tsx",
         "src/app/(search-app)/forms/act/page.tsx",
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
-        "src/app/(search-app)/on-call/calendar/page.tsx",
+        "src/app/(search-app)/my-work/page.tsx",
+        "src/app/(search-app)/on-call/call/page.tsx",
         "src/app/(search-app)/on-call/card/page.tsx",
         "src/app/(search-app)/on-call/check/page.tsx",
         "src/app/(search-app)/on-call/compliance/page.tsx",
         "src/app/(search-app)/on-call/contacts/page.tsx",
         "src/app/(search-app)/on-call/education/page.tsx",
+        "src/app/(search-app)/on-call/find/page.tsx",
         "src/app/(search-app)/on-call/first-night/page.tsx",
         "src/app/(search-app)/on-call/logistics/page.tsx",
         "src/app/(search-app)/on-call/now/page.tsx",
         "src/app/(search-app)/on-call/orientation/page.tsx",
         "src/app/(search-app)/on-call/page.tsx",
         "src/app/(search-app)/on-call/playbook/page.tsx",
+        "src/app/(search-app)/on-call/refer/page.tsx",
         "src/app/(search-app)/on-call/referrals/page.tsx",
         "src/app/(search-app)/on-call/service/page.tsx",
         "src/app/(search-app)/on-call/who-is-who/page.tsx",
+        "src/app/(search-app)/on-call/whos-on/page.tsx",
+        "src/app/(search-app)/psychiatry/page.tsx",
+        "src/app/(search-app)/roster/calendar/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
         "src/app/(search-app)/services/search/page.tsx",
@@ -175,7 +199,30 @@
         "src/app/(search-app)/sources/page.tsx",
         "src/app/(search-app)/sources/publishers/page.tsx",
         "src/app/(search-app)/sources/search/page.tsx",
-        "src/app/(search-app)/sources/topics/page.tsx"
+        "src/app/(search-app)/sources/topics/page.tsx",
+        "src/app/(search-app)/teaching/c/[token]/page.tsx",
+        "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "src/app/(search-app)/teaching/feedback/page.tsx",
+        "src/app/(search-app)/teaching/import/page.tsx",
+        "src/app/(search-app)/teaching/logbook/page.tsx",
+        "src/app/(search-app)/teaching/organise/page.tsx",
+        "src/app/(search-app)/teaching/page.tsx",
+        "src/app/(search-app)/teaching/resources/[collectionId]/page.tsx",
+        "src/app/(search-app)/teaching/resources/page.tsx",
+        "src/app/(search-app)/teaching/review/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/check-in/page.tsx",
+        "src/app/(search-app)/teaching/session/[id]/page.tsx",
+        "src/app/(search-app)/teaching/supervision/page.tsx",
+        "src/app/(search-app)/teaching/teach/page.tsx",
+        "src/app/(search-app)/teaching/week/page.tsx",
+        "src/app/(search-app)/teaching/whats-on/page.tsx",
+        "src/app/(search-app)/roster/page.tsx",
+        "src/app/(search-app)/roster/shifts/page.tsx",
+        "src/app/(search-app)/roster/settings/page.tsx",
+        "src/app/(search-app)/roster/team/page.tsx",
+        "src/app/(search-app)/roster/requests/page.tsx",
+        "src/app/(search-app)/roster/manage/page.tsx",
+        "src/app/(search-app)/roster/join/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -184,11 +231,11 @@
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": ["tests/ui-style-contract.spec.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": ["tests/ckb-v2-token-contract.test.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "compact320": {
           "status": "passed",
@@ -196,7 +243,7 @@
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": ["tests/global-v2-activation.test.ts", "tests/ui-cme-phone.spec.ts"]
         },
         "browser": {
           "status": "passed",
@@ -537,54 +584,6 @@
         "files": []
       },
       "sanctionedSpecialPatterns": ["ToolsSearchResultsPage", "CalculatorsSearchPage"]
-    },
-    {
-      "id": "caring-contacts-workspace",
-      "disposition": "owned",
-      "routes": [
-        "src/app/caring-contacts/page.tsx",
-        "src/app/caring-contacts/patients/page.tsx",
-        "src/app/caring-contacts/patients/[patientId]/page.tsx",
-        "src/app/caring-contacts/plans/new/page.tsx",
-        "src/app/caring-contacts/schedule/page.tsx",
-        "src/app/caring-contacts/templates/page.tsx",
-        "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
-        "src/app/caring-contacts/guidance/page.tsx",
-        "src/app/caring-contacts/reports/page.tsx",
-        "src/app/caring-contacts/team/page.tsx",
-        "src/app/caring-contacts/intake/page.tsx"
-      ],
-      "routeRoots": true,
-      "roots": [],
-      "permittedComponentFamilies": [],
-      "expectedShellState": "v2",
-      "proof": {
-        "dark": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "forcedColours": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "compact320": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "print": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        },
-        "browser": {
-          "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
-        }
-      },
-      "baseline": {
-        "status": "not-committed",
-        "files": []
-      },
-      "sanctionedSpecialPatterns": ["CaringContactsShell"]
     },
     {
       "id": "privacy-safety-and-reference",

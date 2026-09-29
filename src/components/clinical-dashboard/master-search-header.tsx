@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
@@ -87,8 +88,26 @@ import {
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
 import { modeSectionIcon } from "@/components/mode-nav/mode-nav-icons";
-import { activeModeSecondaryNavigationId, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
-import { phoneModeGroups } from "@/lib/phone-mode-groups";
+import {
+  modePagesCheckClass,
+  modePagesGroupHeadingClass,
+  modePagesGroupHintClass,
+  modePagesIconClass,
+  modePagesIconStroke,
+  modePagesLabelClass,
+  modePagesRowClass,
+  modePagesSheetTitleClass,
+  modePagesTileClass,
+} from "@/components/clinical-dashboard/mode-pages-sheet-classes";
+import {
+  activeModeSecondaryNavigationId,
+  groupModeSecondaryNavigationEntries,
+  modeSecondaryNavigationEntries,
+  visibleModeSecondaryNavigationEntries,
+} from "@/lib/mode-secondary-navigation";
+import { readOnCallEditorFlag, subscribeOnCallEditorFlag } from "@/lib/on-call/device-state-keys";
+import { modePageVisible, useTeachingRoles } from "@/lib/teaching/page-visibility";
+import { orderByPhoneModeGroups, phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
 import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
@@ -159,8 +178,9 @@ function documentScopeMeta(document: ClinicalDocument) {
   const title = documentScopeTitle(document).toLowerCase();
   const fileName = document.file_name;
   const fileBase = fileName.replace(/\.pdf$/i, "").toLowerCase();
-  if (fileBase === title || fileBase.startsWith(title)) return `${document.page_count ?? "?"} pages`;
-  return `${fileName} · ${document.page_count ?? "?"} pages`;
+  const pages = document.page_count === 1 ? "1 page" : `${document.page_count ?? "?"} pages`;
+  if (fileBase === title || fileBase.startsWith(title)) return pages;
+  return `${fileName} · ${pages}`;
 }
 
 export function MasterSearchHeader({
@@ -351,6 +371,10 @@ export function MasterSearchHeader({
     authenticated: canAccessFavourites,
     demoMode: false,
   });
+  // The mode menu draws modes under their group headings, so its keyboard
+  // order (the index each row is registered at, and what Arrow Up/Down, Home
+  // and End walk) must be that same drawn order, not registry order.
+  const modeMenuOptions = orderByPhoneModeGroups(visibleAppModeOptions);
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
   // The trigger names the route the user is viewing. Session filtering still
@@ -405,9 +429,9 @@ export function MasterSearchHeader({
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const normalizedModeMenuQuery = modeMenuQuery.trim().toLowerCase();
   const desktopModeMenuOptions = normalizedModeMenuQuery
-    ? visibleAppModeOptions.filter((mode) => mode.label.toLowerCase().includes(normalizedModeMenuQuery))
-    : visibleAppModeOptions;
-  const activeModeMenuOptions = usesPhoneSearchLayout ? visibleAppModeOptions : desktopModeMenuOptions;
+    ? modeMenuOptions.filter((mode) => mode.label.toLowerCase().includes(normalizedModeMenuQuery))
+    : modeMenuOptions;
+  const activeModeMenuOptions = usesPhoneSearchLayout ? modeMenuOptions : desktopModeMenuOptions;
   const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
   const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
   // SSR and first paint assume a declared home slot is media-eligible so the
@@ -555,9 +579,24 @@ export function MasterSearchHeader({
    * id: a mode with a search surface already has somewhere its pages are listed
    * and a composer the pill must keep pointing at.
    */
-  const modeOwnPages =
-    selectedAppMode.search.resultsSurface === "none" ? modeSecondaryNavigationEntries(selectedAppMode.id) : [];
+  const teachingRoles = useTeachingRoles();
+  const modeOwnPages = useMemo(
+    () =>
+      selectedAppMode.search.resultsSurface === "none"
+        ? modeSecondaryNavigationEntries(selectedAppMode.id).filter((entry) =>
+            modePageVisible(selectedAppMode.id, entry.id, teachingRoles),
+          )
+        : [],
+    [selectedAppMode, teachingRoles],
+  );
   const modeOwnPagesAvailable = modeOwnPages.length > 0;
+  /**
+   * Whether the pages sheet offers "Manage service": true for an editor, and
+   * while the role is still unknown (S3), false only once the hub's own
+   * handbook read has seen a non-editor. Read from the device, so the sheet
+   * needs no fetch of its own (F24). False on the server.
+   */
+  const onCallEditor = useSyncExternalStore(subscribeOnCallEditorFlag, readOnCallEditorFlag, () => false);
   /**
    * Which of this mode's pages the reader is on, when the pill lists pages.
    *
@@ -1021,7 +1060,7 @@ export function MasterSearchHeader({
 
   const selectedModeIndex = Math.max(
     0,
-    visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
+    modeMenuOptions.findIndex((mode) => mode.id === selectedAppMode.id),
   );
 
   useEffect(() => {
@@ -1111,8 +1150,8 @@ export function MasterSearchHeader({
 
   function openModeMenuWithFocus(index: number) {
     closeModeSurfaces();
-    const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
-    const highlighted = visibleAppModeOptions[nextIndex];
+    const nextIndex = (index + modeMenuOptions.length) % modeMenuOptions.length;
+    const highlighted = modeMenuOptions[nextIndex];
     if (highlighted) prefetchModeSelection(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setModeMenuQuery("");
@@ -1133,7 +1172,7 @@ export function MasterSearchHeader({
     // zero (leaving focus stuck on the trigger) or wraps every index to 0
     // (focusing whatever renders first in the *next* render's full list,
     // not the mode this call actually targets). `nextIndex` above is already
-    // a valid position in the unfiltered `visibleAppModeOptions`, which is
+    // a valid position in the unfiltered `modeMenuOptions`, which is
     // exactly what the query reset guarantees `activeModeMenuOptions` will
     // equal once React commits it — so focus directly by that index instead
     // of re-deriving it against a list that hasn't caught up yet.
@@ -1168,7 +1207,7 @@ export function MasterSearchHeader({
       closeModeMenu();
       return;
     }
-    const highlighted = visibleAppModeOptions[selectedModeIndex];
+    const highlighted = modeMenuOptions[selectedModeIndex];
     if (highlighted) prefetchModeSelection(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setModeMenuQuery("");
@@ -1391,6 +1430,8 @@ export function MasterSearchHeader({
     const active = currentPathname === entry.href;
     const Icon = modeSectionIcon(entry.id);
     if (!Icon) return null;
+    // The pages level is on the 48/52 rule (kit 1.7); the "Choose mode" level
+    // above keeps its own rows. Recipes in `mode-pages-sheet-classes.ts`.
     return (
       <Link
         key={entry.id}
@@ -1398,9 +1439,13 @@ export function MasterSearchHeader({
         onClick={dismissModeMenu}
         aria-current={active ? "page" : undefined}
         data-testid={`app-mode-section-${entry.id}`}
-        className={cn(modeMenuRowClass(active), "no-underline")}
+        className={modePagesRowClass(active)}
       >
-        {renderModeMenuRowContent({ icon: Icon, label: entry.label, active })}
+        <span aria-hidden="true" className={modePagesTileClass(active)}>
+          <Icon aria-hidden="true" className={modePagesIconClass} strokeWidth={modePagesIconStroke} />
+        </span>
+        <span className={modePagesLabelClass}>{entry.label}</span>
+        {active ? <Check aria-hidden="true" className={modePagesCheckClass} strokeWidth={2} /> : null}
       </Link>
     );
   }
@@ -1415,9 +1460,44 @@ export function MasterSearchHeader({
    * places, which is what stops it feeling like a dead end.
    */
   function renderModeSectionLevel() {
+    // Hidden pages and editor-only pages leave the sheet; the pill still names
+    // them when one is open, because `modeOwnPages` itself is unfiltered.
+    const { main, tools, more } = groupModeSecondaryNavigationEntries(
+      visibleModeSecondaryNavigationEntries(modeOwnPages, { isEditor: onCallEditor }),
+    );
     return (
-      <div data-testid="app-mode-section-list" className="grid gap-1 pt-1">
-        {modeOwnPages.map((entry) => renderModeSectionOption(entry))}
+      <div data-testid="app-mode-section-list" className="grid pt-1">
+        <div className="grid">{main.map((entry) => renderModeSectionOption(entry))}</div>
+        {tools.length > 0 ? (
+          <section
+            role="group"
+            aria-labelledby="app-mode-section-tools-heading"
+            data-testid="app-mode-section-group-tools"
+            className="mt-1.5 grid gap-1 border-t border-[color:var(--border)] pt-2"
+          >
+            <h3 id="app-mode-section-tools-heading" className={modePagesGroupHeadingClass}>
+              Tools
+            </h3>
+            <div className="grid">{tools.map((entry) => renderModeSectionOption(entry))}</div>
+          </section>
+        ) : null}
+        {more.length > 0 ? (
+          <section
+            role="group"
+            aria-labelledby="app-mode-section-more-heading"
+            aria-describedby="app-mode-section-more-hint"
+            data-testid="app-mode-section-group-more"
+            className="mt-1.5 grid gap-1 border-t border-[color:var(--border)] pt-2"
+          >
+            <h3 id="app-mode-section-more-heading" className={modePagesGroupHeadingClass}>
+              More
+            </h3>
+            <p id="app-mode-section-more-hint" className={modePagesGroupHintClass}>
+              Moving to their own modes
+            </p>
+            <div className="grid">{more.map((entry) => renderModeSectionOption(entry))}</div>
+          </section>
+        ) : null}
         <div className="mt-1.5 border-t border-[color:var(--border)] pt-1.5">
           <button
             type="button"
@@ -2633,19 +2713,19 @@ export function MasterSearchHeader({
                 // one is the only place the mode is named once the big line
                 // stops naming it.
                 <>
-                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                  <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {activeModePage.label}
                   </span>
-                  <span className="block truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--clinical-accent)]">
+                  <span className="block truncate text-2xs font-semibold uppercase leading-3 tracking-eyebrow text-[color:var(--clinical-accent)]">
                     {selectedAppMode.label}
                   </span>
                 </>
               ) : (
                 <>
-                  <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
+                  <span className="hidden truncate text-2xs font-semibold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
                     Mode
                   </span>
-                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                  <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {selectedAppMode.label}
                   </span>
                 </>
@@ -2679,7 +2759,7 @@ export function MasterSearchHeader({
                 >
                   <ArrowLeft aria-hidden="true" className="size-icon-md" />
                 </button>
-                <h2 className="min-w-0 truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+                <h2 className={cn(modePagesSheetTitleClass, "min-w-0 break-words text-[color:var(--text-heading)]")}>
                   {`${selectedAppMode.label} pages`}
                 </h2>
               </div>
@@ -2854,7 +2934,9 @@ export function MasterSearchHeader({
           contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
           bodyClassName="bg-[color:var(--surface-lux)] px-2.5 pb-2 pt-0.5"
           headerClassName="bg-[color:var(--surface-lux)] px-4 pb-3 pt-1.5"
-          titleClassName="tracking-[var(--tracking-display)]"
+          titleClassName={
+            modeSheetView === "sections" ? modePagesSheetTitleClass : "tracking-[var(--tracking-display)]"
+          }
           closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition-colors duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border motion-reduce:transition-none"
         >
           {modeSheetView === "sections" ? (
@@ -2863,7 +2945,7 @@ export function MasterSearchHeader({
             <div ref={phoneModeMenuListRef} id="app-mode-menu" role="menu" aria-label="Choose app mode">
               {phoneModeGroups.map((group) => {
                 const groupModes = group.modeIds.flatMap((modeId) => {
-                  const mode = visibleAppModeOptions.find((candidate) => candidate.id === modeId);
+                  const mode = modeMenuOptions.find((candidate) => candidate.id === modeId);
                   return mode ? [mode] : [];
                 });
                 if (groupModes.length === 0) return null;
@@ -2893,7 +2975,7 @@ export function MasterSearchHeader({
                       {groupModes.map((mode) =>
                         renderModeMenuOption(
                           mode,
-                          visibleAppModeOptions.findIndex((candidate) => candidate.id === mode.id),
+                          modeMenuOptions.findIndex((candidate) => candidate.id === mode.id),
                         ),
                       )}
                     </div>

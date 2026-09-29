@@ -1,0 +1,70 @@
+"use client";
+
+import { useEffect } from "react";
+
+import { phoneMediaQuery } from "@/components/clinical-dashboard/use-hide-on-scroll";
+
+function visibleDockTop() {
+  const viewportBottom = window.visualViewport?.height ?? window.innerHeight;
+  for (const layer of document.querySelectorAll<HTMLElement>(".phone-footer-layer")) {
+    const style = getComputedStyle(layer);
+    if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) continue;
+    const top = layer.getBoundingClientRect().top;
+    if (top < viewportBottom - 1) return top;
+  }
+  return null;
+}
+
+/**
+ * Re-reveal `target` when it sits under a visible dock or past either viewport edge. The dock
+ * line is the visible dock's top, or the viewport bottom while the dock is scroll-hidden.
+ * Measuring the margin band instead nudged WebKit, which had already revealed the control and
+ * let the dock scroll-hide; the nudge scrolled back up and brought the dock over it again.
+ */
+function revealIfCovered(target: HTMLElement) {
+  const rect = target.getBoundingClientRect();
+  const floor = visibleDockTop() ?? window.visualViewport?.height ?? window.innerHeight;
+  if (rect.bottom > floor + 1 || rect.top < 0) {
+    target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+}
+
+/**
+ * Phone focus targets inside `.phone-scroll-surface` carry a `scroll-margin-block-end` equal to
+ * the fixed bottom dock (globals.css), so a Tab stop is revealed above the dock rather than under
+ * it. Chromium and WebKit honour that margin when focus scrolls. Firefox only scrolls a focused
+ * control that it judges not visible, and it judges visibility on the control inflated by its
+ * scroll margins — so a control partly under the dock, or even wholly below the viewport while
+ * the dock is scroll-hidden (the top margin pulls the inflated box back on screen), is left where
+ * it is. `scrollIntoView` honours scroll-margin in every engine, so re-reveal a control that the
+ * visible dock covers or that sits off screen.
+ *
+ * The reveal runs synchronously inside `focusin`, so no frame ever paints the control covered and
+ * nothing that reads layout straight after the key press sees the uncorrected position. A second
+ * check one frame later catches an engine focus scroll that lands after `focusin`. Engines that
+ * already cleared the dock never reach `scrollIntoView`. Pointer focus (not `:focus-visible`) is
+ * left alone so a tap or click is never scrolled away between press and release.
+ */
+export function PhoneFocusClearance() {
+  useEffect(() => {
+    const phone = window.matchMedia(phoneMediaQuery);
+    const onFocusIn = (event: FocusEvent) => {
+      if (!phone.matches) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.closest(".phone-scroll-surface")) return;
+      // Keyboard focus only. A press focuses its control on pointerdown, before the release that
+      // makes the click; scrolling there moves the control out from under the pointer, so the
+      // release lands elsewhere and the click (a form submit, say) never happens.
+      if (!target.matches(":focus-visible")) return;
+      revealIfCovered(target);
+      window.requestAnimationFrame(() => {
+        if (document.activeElement !== target) return;
+        revealIfCovered(target);
+      });
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+
+  return null;
+}

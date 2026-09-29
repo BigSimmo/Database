@@ -29,8 +29,8 @@ import { describe, expect, it } from "vitest";
  *    opposite failure mode from a page claiming a floor it cannot fill exactly. Invariant 24
  *    is about page-fill floors only. The matchers use a negative lookbehind so `max-h-` and
  *    `max-height:` cannot match through their `h-`/`height` tail.
- * 2. Mockups are design scratch and 404 in production, so `src/app/mockups/**`,
- *    `*-mockups.tsx` and `src/components/caring-contacts/mockups/**` are skipped outright.
+ * 2. Mockups are design scratch and 404 in production, so `src/app/mockups/**`
+ *    and `*-mockups.tsx` are skipped outright.
  * 3. Comments are stripped before matching (block comments and whole-line `//`), because
  *    invariant 24 is discussed in prose in at least seven places -- `global-search-shell.tsx`,
  *    `mode-home-canvas.ts`, `mode-home-template.tsx`, `globals.css` -- and a guard that goes
@@ -46,11 +46,7 @@ const SCANNED_EXTENSIONS = [".ts", ".tsx", ".css"];
 
 /** Design scratch: not production surface, and exempt from the wiring/reachability gates too. */
 function isDesignScratch(relativePath: string): boolean {
-  return (
-    relativePath.startsWith("src/app/mockups/") ||
-    relativePath.startsWith("src/components/caring-contacts/mockups/") ||
-    path.basename(relativePath).endsWith("-mockups.tsx")
-  );
+  return relativePath.startsWith("src/app/mockups/") || path.basename(relativePath).endsWith("-mockups.tsx");
 }
 
 // Blank out comments while preserving line numbers, so offence reports stay locatable.
@@ -155,17 +151,6 @@ const EXEMPTIONS: Exemption[] = [
     match: "height: calc(100dvh - var(--space-2))",
     count: 1,
     reason: "mockup-only rail subtracting its own known margins, not a chrome estimate",
-  },
-  {
-    // Ward Flow specimen. `WardModeWorkspace` is imported only by `src/app/mockups/ward-flow/**`
-    // and tests -- no production route reaches it -- so this is design scratch whose stylesheet
-    // happens to sit outside a mockups path. Left as-is rather than converted: changing a
-    // specimen's layout buys no production behaviour and the Ward Flow tree is governed by a
-    // phase plan with unchecked tasks.
-    file: "src/components/ward-management/ward-management-modes.module.css",
-    match: "min-height: calc(100dvh - 4.25rem)",
-    count: 1,
-    reason: "mockup-only Ward Flow specimen, no production route imports it",
   },
 ];
 

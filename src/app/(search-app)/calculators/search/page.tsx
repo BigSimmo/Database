@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { CalculatorsSearchPage } from "@/components/calculators";
-import {
-  CALCULATOR_RECORD_PARAM,
-  calculatorRecordById,
-  calculatorRecordHref,
-} from "@/components/calculators/calculator-routes";
+import { CALCULATOR_RECORD_PARAM, calculatorRecordById } from "@/components/calculators/calculator-routes";
 
 export const metadata: Metadata = {
   title: "Search clinical calculators | PsychSift",
@@ -60,10 +56,20 @@ export default async function CalculatorsSearchRoute({ searchParams }: { searchP
   if (selectedCalculator) {
     const isCanonicalSelection =
       typeof resolvedSearchParams[CALCULATOR_RECORD_PARAM] === "string" &&
-      Object.keys(resolvedSearchParams).length === 1;
-    if (!isCanonicalSelection) redirect(calculatorRecordHref(selectedCalculator.id));
+      resolvedSearchParams[CALCULATOR_RECORD_PARAM] === selectedCalculator.id &&
+      resolvedSearchParams.query === undefined;
+    if (!isCanonicalSelection) {
+      const canonicalSearchParams = toURLSearchParams(resolvedSearchParams);
+      canonicalSearchParams.set(CALCULATOR_RECORD_PARAM, selectedCalculator.id);
+      if (query) canonicalSearchParams.set("q", query);
+      canonicalSearchParams.delete("query");
+      redirect(`/calculators/search?${canonicalSearchParams.toString()}`);
+    }
     return (
-      <CalculatorsSearchPage initialQuery={selectedCalculator.abbrev} initialCalculatorId={selectedCalculator.id} />
+      <CalculatorsSearchPage
+        initialQuery={query || selectedCalculator.abbrev}
+        initialCalculatorId={selectedCalculator.id}
+      />
     );
   }
 

@@ -9,9 +9,10 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError, publicErrorResponse } from "@/lib/http";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { publicCatalogueAccessContext } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
 import { deriveGovernanceColumns, normalizeRegistrySlug } from "@/lib/registry-records";
+import { projectServiceRecordForClient } from "@/lib/registry-client-contract";
 import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
@@ -72,10 +73,10 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     }
 
     // Anonymous callers still resolve access + rate limit before we serve the seed detail:
-    // publicAccessContext skips the Supabase auth round-trip when there's no session cookie/bearer,
+    // publicCatalogueAccessContext skips the Supabase auth round-trip when there's no session cookie/bearer,
     // but every caller must pass the registry limiter (M4/C1 — no anonymous bypass).
     const supabase = createAdminClient();
-    const access = await publicAccessContext(request, supabase);
+    const access = await publicCatalogueAccessContext(request, supabase);
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -103,7 +104,12 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     const payload = canonical.records.map((entry) => preferBundledFormRecord(kind, entry, { activeReleaseId }))[0];
     if (!payload) return notFoundResponse(normalizedSlug);
     return registryResponse(
-      { ...payload, publicAccess: true, sharedCatalog: true },
+      {
+        ...payload,
+        record: projectServiceRecordForClient(payload.record) as ServiceRecord,
+        publicAccess: true,
+        sharedCatalog: true,
+      },
       { request, fixture: canonical.source === "seed_uninitialized" },
     );
   } catch (error) {

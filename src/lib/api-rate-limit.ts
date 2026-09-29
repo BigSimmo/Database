@@ -61,7 +61,10 @@ export type ApiRateLimitBucket =
   | "document_admin"
   | "ingestion_admin"
   | "on_call"
-  | "cme";
+  | "cme"
+  | "teaching"
+  | "teaching_code"
+  | "roster";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -104,6 +107,16 @@ const apiRateLimitDefaults = {
   // CME entry/year reads and writes: an owner's own CPD log and confirmed targets. Same
   // shape as on_call — generous for interactive single-owner use, bounded against abuse.
   cme: { limit: 60, windowSeconds: 60 },
+  // Teaching reads and writes: a doctor's week, logbook and check-ins, and an organiser's
+  // programme. Same shape as on_call and cme.
+  teaching: { limit: 60, windowSeconds: 60 },
+  // Typed six-digit check-in codes can be guessed, so a signed-in doctor gets few attempts.
+  // Scanned codes carry a 128-bit MAC and cannot be guessed; see the anonymous entry below.
+  teaching_code: { limit: 12, windowSeconds: 60 },
+  // Roster own-shift reads/writes: an owner's own imported/hand-added shifts, calendar
+  // links and settings. Same shape as on_call — generous for interactive single-owner
+  // use, bounded against abuse.
+  roster: { limit: 60, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
@@ -119,6 +132,10 @@ const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit:
   // cannot use the public catalog endpoints as a high-volume egress lever, while still
   // leaving ample headroom for legitimate public browsing.
   registry: { limit: 60, windowSeconds: 60 },
+  // Signed-out QR scans and display-screen polling. A lecture theatre on hospital Wi-Fi shares
+  // one network address, and the scanned code cannot be guessed, so this is load protection
+  // only: generous enough for a full room scanning in the same minute.
+  teaching_code: { limit: 300, windowSeconds: 60 },
 };
 
 /**
@@ -208,6 +225,8 @@ const durableApiRateLimitDenyCache = ((
   globalThis as GlobalWithRateLimitFallback
 ).__clinicalKbDurableApiRateLimitDenyCache ??= new Map<string, DurableRateLimitDenyCacheEntry>());
 
+const DURABLE_DENY_CACHE_MAX_ENTRIES = 2000;
+
 function durableDenyCacheKey(identity: string, bucket: string) {
   return `${identity}:${bucket}`;
 }
@@ -247,8 +266,23 @@ function rememberDurableRateLimitDenyCache(identity: string, bucket: string, res
     durableApiRateLimitDenyCache.delete(key);
     return;
   }
+  const now = Date.now();
   const resetAtMs = Date.parse(result.resetAt);
-  if (!Number.isFinite(resetAtMs) || resetAtMs <= Date.now()) return;
+  if (!Number.isFinite(resetAtMs) || resetAtMs <= now) return;
+  // Entries were only ever removed when the same subject came back, so every
+  // limited subject that never returned stayed for the life of the process.
+  // Same ceiling as the in-memory limiter: sweep expired entries, then drop
+  // the oldest. Dropping one is safe: the next request asks the durable limiter.
+  if (durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
+    for (const [cachedKey, cached] of durableApiRateLimitDenyCache) {
+      if (now >= cached.resetAtMs) durableApiRateLimitDenyCache.delete(cachedKey);
+    }
+    while (durableApiRateLimitDenyCache.size >= DURABLE_DENY_CACHE_MAX_ENTRIES) {
+      const oldest = durableApiRateLimitDenyCache.keys().next().value;
+      if (oldest === undefined) break;
+      durableApiRateLimitDenyCache.delete(oldest);
+    }
+  }
   durableApiRateLimitDenyCache.set(key, {
     limit: result.limit,
     remaining: result.remaining,
@@ -260,6 +294,11 @@ function rememberDurableRateLimitDenyCache(identity: string, bucket: string, res
 /** Test helper: clear durable deny-cache entries between cases. */
 export function resetDurableRateLimitDenyCacheForTests() {
   durableApiRateLimitDenyCache.clear();
+}
+
+/** Test helper: how many subjects the durable deny cache currently holds. */
+export function durableRateLimitDenyCacheSizeForTests() {
+  return durableApiRateLimitDenyCache.size;
 }
 
 /** @deprecated Use resetDurableRateLimitDenyCacheForTests — name kept for older test imports. */
@@ -399,6 +438,125 @@ async function consumeAnonymousGenerationCeiling(args: {
 }
 
 /**
+ * The anonymous subject, global and (for generation buckets) aggregate-ceiling checks in ONE database
+ * round trip, in the same order and with the same stop-at-first-denial accounting as the serial calls
+ * below. Each serial call crossed from the app's region to the database's, so an anonymous answer
+ * used to spend ~1.4 s here. Returns null when the function is unavailable or returns an unreadable
+ * row, so the caller falls back to the serial path and its existing unavailable handling.
+ */
+async function consumeAnonymousRateLimitsAtomic(args: {
+  supabase: SupabaseAdmin;
+  subjectKey: string;
+  bucket: ApiRateLimitBucket;
+  limit: number;
+  windowSeconds: number;
+  globalKey: string;
+  globalLimit: number;
+  globalWindowSeconds: number;
+}): Promise<ApiRateLimitResult | null> {
+  const withCeiling = isAnonymousGenerationBucket(args.bucket);
+  const { data, error } = await args.supabase.rpc("consume_anonymous_rate_limits_atomic", {
+    p_subject_key: args.subjectKey,
+    p_bucket: args.bucket,
+    p_subject_limit: args.limit,
+    p_subject_window_seconds: args.windowSeconds,
+    p_global_key: args.globalKey,
+    p_global_limit: args.globalLimit,
+    p_global_window_seconds: args.globalWindowSeconds,
+    p_ceiling_key: withCeiling ? ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY : null,
+    p_ceiling_bucket: withCeiling ? ANONYMOUS_GENERATION_CEILING_BUCKET : null,
+    p_ceiling_limit: withCeiling ? ANONYMOUS_GENERATION_CEILING.limit : null,
+    p_ceiling_window_seconds: withCeiling ? ANONYMOUS_GENERATION_CEILING.windowSeconds : null,
+  });
+  if (error) return null;
+  const row = parseRateLimitRow(data) as (RateLimitRpcRow & { scope?: string | null }) | null;
+  if (!row || typeof row.limited !== "boolean") return null;
+  const denyingScope = row.limited ? row.scope : null;
+  if (row.limited && denyingScope !== "subject" && denyingScope !== "global" && denyingScope !== "ceiling") return null;
+
+  const fallbackWindowSeconds =
+    denyingScope === "ceiling"
+      ? ANONYMOUS_GENERATION_CEILING.windowSeconds
+      : denyingScope === "global"
+        ? args.globalWindowSeconds
+        : args.windowSeconds;
+  const result: ApiRateLimitResult = {
+    limited: row.limited,
+    limit: Number(row.limit_value ?? args.limit),
+    remaining: Number(row.remaining ?? 0),
+    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? fallbackWindowSeconds)),
+    resetAt: String(row.reset_at ?? new Date(Date.now() + fallbackWindowSeconds * 1000).toISOString()),
+  };
+  if (denyingScope === "ceiling") {
+    rememberDurableRateLimitDenyCache(
+      ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY,
+      ANONYMOUS_GENERATION_CEILING_BUCKET,
+      result,
+    );
+    return { ...result, scope: "anonymous_generation_ceiling" };
+  }
+  rememberDurableRateLimitDenyCache(denyingScope === "global" ? args.globalKey : args.subjectKey, args.bucket, result);
+  return result;
+}
+
+type SubjectRateLimitArgs = {
+  supabase: SupabaseAdmin;
+  subject: RateLimitSubject;
+  bucket: ApiRateLimitBucket;
+  limit?: number;
+  windowSeconds?: number;
+  allowInMemoryFallbackOnUnavailable?: boolean;
+};
+
+/**
+ * The "registry" bucket guards the read-only catalogue routes (medication, differential and
+ * service lists and details, and the universal typeahead, whose document lane is lexical only).
+ * They serve public reference data that is usually already in memory and carry no provider cost,
+ * so waiting a cross-region round trip for the durable limiter before each one is pure latency.
+ *
+ * For them the durable consume still runs for every request, so the shared count is exactly what
+ * it was, but the response does not wait for it. Enforcement comes from two places instead:
+ * a subject the durable limiter has already denied is refused from the deny cache before any work,
+ * and a per-instance limiter with the same limit and window refuses a burst on this instance before
+ * the durable denial arrives. Across instances a flooding caller can get at most about one round
+ * trip's worth of extra requests on each instance before its denial is cached.
+ *
+ * Tied to the deny cache: when that is off (the default under Vitest), every registry request
+ * waits for the durable result as before.
+ */
+function deferRegistryDurableConsume(bucket: ApiRateLimitBucket) {
+  return bucket === "registry" && durableDenyCacheEnabled();
+}
+
+function consumeRegistryRateLimitDeferred(args: SubjectRateLimitArgs): ApiRateLimitResult {
+  const identity = args.subject.kind === "owner" ? args.subject.ownerId : args.subject.subjectKey;
+  // While a durable denial is cached the awaited path makes no RPC either, so neither does this.
+  const denied = tryReadDurableRateLimitDenyCache(identity, args.bucket);
+  if (denied) return denied;
+  const defaults =
+    args.subject.kind === "owner"
+      ? apiRateLimitDefaults[args.bucket]
+      : (anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket]);
+  // Counted durably for every request that reaches here, served or refused, as the awaited path
+  // counts it; a denial it returns is cached for this subject's next request.
+  void consumeSubjectApiRateLimitDurable(args).catch((error: unknown) => {
+    sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_FALLBACK, {
+      bucket: args.bucket,
+      backend: "deferred",
+      fallback: false,
+      code: error instanceof PublicApiError ? error.details?.code : undefined,
+    });
+  });
+  // Its own key, so the durable path's in-memory fallback never double-counts on this instance.
+  return consumeInMemoryApiRateLimit({
+    ownerId: identity,
+    bucket: `${args.bucket}:served`,
+    limit: args.limit ?? defaults.limit,
+    windowSeconds: args.windowSeconds ?? defaults.windowSeconds,
+  });
+}
+
+/**
  * Applies an API rate limit to an owner or anonymous subject.
  *
  * Anonymous requests to answer and document upload buckets are constrained by
@@ -413,14 +571,12 @@ async function consumeAnonymousGenerationCeiling(args: {
  * @param args.allowInMemoryFallbackOnUnavailable - Whether local fallback may be used when the durable limiter is unavailable.
  * @returns The computed rate-limit outcome.
  */
-export async function consumeSubjectApiRateLimit(args: {
-  supabase: SupabaseAdmin;
-  subject: RateLimitSubject;
-  bucket: ApiRateLimitBucket;
-  limit?: number;
-  windowSeconds?: number;
-  allowInMemoryFallbackOnUnavailable?: boolean;
-}): Promise<ApiRateLimitResult> {
+export async function consumeSubjectApiRateLimit(args: SubjectRateLimitArgs): Promise<ApiRateLimitResult> {
+  if (deferRegistryDurableConsume(args.bucket)) return consumeRegistryRateLimitDeferred(args);
+  return consumeSubjectApiRateLimitDurable(args);
+}
+
+async function consumeSubjectApiRateLimitDurable(args: SubjectRateLimitArgs): Promise<ApiRateLimitResult> {
   const allowInMemoryFallbackOnUnavailable = mustFailClosedOnLimiterUnavailable(args.bucket)
     ? false
     : args.allowInMemoryFallbackOnUnavailable;
@@ -525,6 +681,20 @@ export async function consumeSubjectApiRateLimit(args: {
   const cachedGlobalDenial = tryReadDurableRateLimitDenyCache(globalKey, args.bucket);
   if (cachedGlobalDenial) return cachedGlobalDenial;
 
+  const atomicResult = await consumeAnonymousRateLimitsAtomic({
+    supabase: args.supabase,
+    subjectKey: args.subject.subjectKey,
+    bucket: args.bucket,
+    limit,
+    windowSeconds,
+    globalKey,
+    globalLimit: globalDefaults.limit,
+    globalWindowSeconds: globalDefaults.windowSeconds,
+  });
+  if (atomicResult) return atomicResult;
+
+  // The one-round-trip function was unavailable (for example before its migration applied), so
+  // make the same checks as separate calls. Their own unavailable handling applies unchanged.
   const subjectResult = await consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
   if (subjectResult.limited) return subjectResult;
   const globalResult = await consumeAnonymousLimit(globalKey, globalDefaults.limit, globalDefaults.windowSeconds);

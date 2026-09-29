@@ -2,6 +2,7 @@ import type { CalendarEvent, CalendarRecurrence } from "@/lib/calendar/calendar-
 import { formatRoutineHours, type CmeRoutine, type CmeRoutineCadence } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
+import { isRanzcpHome } from "@/lib/cme/home-choice";
 import { addDays } from "@/lib/calendar/calendar-event";
 
 /**
@@ -21,7 +22,7 @@ const CADENCE_RECURRENCE: Record<CmeRoutineCadence, CalendarRecurrence> = {
 
 /** RANZCP's 2026 program guide keeps each year's claim open until 1 March of the following year. */
 export function cmeReportingCloseDate(set: CmeRequirementSet): string | null {
-  return /ranzcp/i.test(set.confirmedSource) ? `${set.year + 1}-03-01` : null;
+  return isRanzcpHome(set.confirmedSource) ? `${set.year + 1}-03-01` : null;
 }
 
 export function cmeDeadlineEvents(set: CmeRequirementSet): CalendarEvent[] {
@@ -31,6 +32,7 @@ export function cmeDeadlineEvents(set: CmeRequirementSet): CalendarEvent[] {
       title: `You can close your ${set.year} CPD year from today`,
       date: addDays(`${set.year}-12-31`, -(CME_CLOSE_WINDOW_DAYS - 1)),
       kind: "deadline",
+      reminderType: "cpd-year-end",
       href: `/cme/summary?year=${set.year}`,
       notes: "Check each entry against your records, then open your annual summary.",
     },
@@ -39,6 +41,7 @@ export function cmeDeadlineEvents(set: CmeRequirementSet): CalendarEvent[] {
       title: `End of the ${set.year} CPD year`,
       date: `${set.year}-12-31`,
       kind: "deadline",
+      reminderType: "cpd-year-end",
       href: `/cme/check?year=${set.year}`,
       notes: "Activities after today count toward next year.",
     },
@@ -50,6 +53,7 @@ export function cmeDeadlineEvents(set: CmeRequirementSet): CalendarEvent[] {
       title: `Last day to finish your ${set.year} claim in MyCPD`,
       date: reporting,
       kind: "deadline",
+      reminderType: "cpd-year-end",
       href: `/cme/log?year=${set.year}&copy=todo`,
       notes: "RANZCP keeps the previous year's claim open until 1 March. Confirm the date with your CPD home.",
     });
@@ -65,6 +69,7 @@ export function cmeRoutineEvents(routines: readonly CmeRoutine[]): CalendarEvent
       title: routine.title,
       date: routine.nextDue!,
       kind: "due" as const,
+      reminderType: "cpd-routines" as const,
       recurrence: CADENCE_RECURRENCE[routine.cadence],
       href: "/cme/routines",
       notes: `Usually ${formatRoutineHours(routine.usualHours)} of CPD.`,

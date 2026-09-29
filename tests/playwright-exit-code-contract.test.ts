@@ -20,11 +20,7 @@ import { describe, expect, it } from "vitest";
  */
 const RUNNER = readFileSync("scripts/run-playwright.mjs", "utf8");
 
-const DOCS_THAT_DESCRIBE_THE_CONTRACT = [
-  "AGENTS.md",
-  "docs/development-speed-playbook.md",
-  "docs/ward-flow-phase-5-handover.md",
-];
+const DOCS_THAT_DESCRIBE_THE_CONTRACT = ["AGENTS.md", "docs/development-speed-playbook.md"];
 
 describe("run-playwright.mjs exit-code contract", () => {
   it("reserves a distinct exit code for admission contention", () => {
@@ -54,7 +50,7 @@ describe("guidance describing that contract stays true to it", () => {
     const text = readFileSync(path, "utf8");
 
     // A document is allowed - encouraged - to QUOTE the stale claim in order to
-    // correct it, and two of these do exactly that. So the test forbids an
+    // correct it, and some documents do exactly that. So the test forbids an
     // unrefuted assertion, not any mention. Each occurrence must sit near a
     // refutation; a bare restatement fails.
     const CLAIM = /exits 0 (?:both )?when tests fail/gi;

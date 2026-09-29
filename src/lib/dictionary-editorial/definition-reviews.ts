@@ -34,6 +34,12 @@ export type DictionaryDefinitionReview = {
   applyAutomatically: false;
   publicationAllowed: false;
   reviewer: null;
+  /**
+   * Written by `npm run clinical:review -- --kind dictionary` when a clinician signs off a
+   * proposed rewrite; absent until then. It records the sign-off only: it does not apply the
+   * wording to the live dictionary, and `applyAutomatically` / `publicationAllowed` stay false.
+   */
+  clinicalApproval?: DictionaryDefinitionClinicalApproval;
   provenance: {
     document: string;
     documentSha256: string;
@@ -43,6 +49,73 @@ export type DictionaryDefinitionReview = {
     rawBlockSha256: string;
   };
 };
+
+export type DictionaryDefinitionClinicalApproval = {
+  status: "approved";
+  reviewer: string;
+  /** UTC ISO timestamp of the sign-off. */
+  reviewedAt: string;
+  /** SHA-256 (64 hex) of the review content the clinician signed. */
+  reviewedContentSha256: string;
+};
+
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+/**
+ * Why a `clinicalApproval` value is malformed, or null when it is a complete approval.
+ * Fails closed: anything other than status "approved", a non-empty reviewer, a parseable ISO
+ * timestamp and a 64-hex pin is a defect, never a partial sign-off.
+ */
+export function definitionReviewApprovalDefect(approval: unknown): string | null {
+  if (typeof approval !== "object" || approval === null || Array.isArray(approval)) {
+    return "clinicalApproval must be an object";
+  }
+  const record = approval as Record<string, unknown>;
+  const allowed = new Set(["status", "reviewer", "reviewedAt", "reviewedContentSha256"]);
+  const unknownKey = Object.keys(record).find((key) => !allowed.has(key));
+  if (unknownKey) return `clinicalApproval has an unexpected field "${unknownKey}"`;
+  if (record.status !== "approved") return 'clinicalApproval.status must be "approved"';
+  if (typeof record.reviewer !== "string" || !record.reviewer.trim()) {
+    return "clinicalApproval.reviewer must name the clinician";
+  }
+  if (
+    typeof record.reviewedAt !== "string" ||
+    !ISO_TIMESTAMP.test(record.reviewedAt) ||
+    !Number.isFinite(Date.parse(record.reviewedAt))
+  ) {
+    return "clinicalApproval.reviewedAt must be an ISO timestamp";
+  }
+  if (typeof record.reviewedContentSha256 !== "string" || !SHA256_HEX.test(record.reviewedContentSha256)) {
+    return "clinicalApproval.reviewedContentSha256 must be a 64-character lowercase hex SHA-256";
+  }
+  return null;
+}
+
+/** True only for a review carrying a complete, well-formed clinical approval. */
+export function isDefinitionReviewClinicallyApproved(
+  review: Pick<DictionaryDefinitionReview, "clinicalApproval">,
+): boolean {
+  return review.clinicalApproval !== undefined && definitionReviewApprovalDefect(review.clinicalApproval) === null;
+}
+
+/**
+ * True when the live wording is exactly this review's clinically approved proposal: the
+ * rewrite has been applied (by `scripts/apply-dictionary-rewrites.ts`). Deliberately derived
+ * rather than recorded: the review keeps its `baselineWording` (the sign-off pin covers it)
+ * and gains no "applied" field, so the live dictionary itself is the record that it happened.
+ * An unapproved review whose proposal somehow went live is not "applied" — it stays a conflict.
+ */
+export function isDefinitionReviewApplied(
+  review: Pick<DictionaryDefinitionReview, "clinicalApproval" | "proposedWording">,
+  liveWording: string,
+): boolean {
+  return (
+    review.proposedWording !== null &&
+    isDefinitionReviewClinicallyApproved(review) &&
+    liveWording === review.proposedWording
+  );
+}
 
 export const dictionaryDefinitionReviews: readonly DictionaryDefinitionReview[] = (
   reviewData as { reviews: readonly DictionaryDefinitionReview[] }
@@ -58,7 +131,8 @@ export const dictionaryDefinitionReviews: readonly DictionaryDefinitionReview[] 
 export type DictionaryDefinitionReconciliation = {
   reviewId: string;
   entrySlug: string;
-  outcome: "actionable" | "no_change_proposed" | "conflict" | "missing_entry";
+  /** `applied` — the live wording is the review's clinically approved proposal. */
+  outcome: "actionable" | "applied" | "no_change_proposed" | "conflict" | "missing_entry";
   /** Present only when the live entry was found, so a conflict can be read. */
   liveWording: string | null;
   reason: string;
@@ -72,11 +146,12 @@ function sha256(value: string): string {
  * Reconcile every review against the dictionary as it stands now.
  *
  * Deliberately returns a decision per review rather than applying anything: all 96
- * reviews carry `applyAutomatically: false`, and none of them has a named reviewer.
+ * reviews carry `applyAutomatically: false`. A `clinicalApproval` records a sign-off of the
+ * proposed wording; it does not change this decision or apply anything either.
  */
 export function reconcileDefinitionReviews(
   reviews: readonly DictionaryDefinitionReview[] = dictionaryDefinitionReviews,
-  entries: readonly DictionaryEntry[] = dictionaryEntries,
+  entries: readonly Pick<DictionaryEntry, "slug" | "definition">[] = dictionaryEntries,
 ): readonly DictionaryDefinitionReconciliation[] {
   const bySlug = new Map(entries.map((entry) => [entry.slug, entry]));
   return reviews.map((review) => {
@@ -91,6 +166,15 @@ export function reconcileDefinitionReviews(
       };
     }
     if (sha256(entry.definition) !== review.baselineWordingSha256) {
+      if (isDefinitionReviewApplied(review, entry.definition)) {
+        return {
+          reviewId: review.id,
+          entrySlug: review.entrySlug,
+          outcome: "applied" as const,
+          liveWording: entry.definition,
+          reason: "The live definition is the clinically approved proposed wording. Nothing further to apply.",
+        };
+      }
       return {
         reviewId: review.id,
         entrySlug: review.entrySlug,
@@ -137,6 +221,13 @@ export function dictionaryDefinitionReviewIssues(
     if (review.reviewer !== null) issues.push(`${review.id}: reviewer must stay null until a person signs off`);
     if (review.proposedWording !== null && !review.proposedWording.trim()) {
       issues.push(`${review.id}: proposedWording must be null rather than blank`);
+    }
+    if (review.clinicalApproval !== undefined) {
+      const defect = definitionReviewApprovalDefect(review.clinicalApproval);
+      if (defect) issues.push(`${review.id}: ${defect}`);
+      if (review.proposedWording === null) {
+        issues.push(`${review.id}: clinicalApproval is only recorded against a proposed rewrite`);
+      }
     }
   }
   return issues;

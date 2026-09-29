@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b1305954-1d47-44f3-9385-03dc624309b8",
+  "createdOn": "2026-09-27",
+  "action": "done",
+  "payload": {
+    "id": "#5K1788",
+    "outcome": "Resolved before this reconciliation: the cited On Call components use the shared formatOnCallDate formatter, which converts timestamps to Australia/Perth before rendering; verified against the current PR head.",
+    "baseRowFingerprint": "0a71468a59149159113a8de062ff2d44b99e178e72ba33b321f9938f3a7e30b8"
+  }
+}

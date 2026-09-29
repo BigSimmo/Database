@@ -27,27 +27,30 @@ describe("Clinical Ask provider rate limits", () => {
     "applies an anonymous global ceiling for %s",
     async (bucket) => {
       vi.stubEnv("NODE_ENV", "production");
-      const rpc = vi
-        .fn()
-        .mockResolvedValueOnce({
-          data: { limited: false, limit_value: 4, remaining: 3, retry_after_seconds: 60, reset_at: "2099-01-01" },
-          error: null,
-        })
-        .mockResolvedValueOnce({
-          data: { limited: true, limit_value: 20, remaining: 0, retry_after_seconds: 60, reset_at: "2099-01-01" },
-          error: null,
-        });
+      // Caller quota allowed, the all-anonymous quota for this bucket denied, in one round trip.
+      const rpc = vi.fn().mockResolvedValueOnce({
+        data: {
+          scope: "global",
+          limited: true,
+          limit_value: 20,
+          remaining: 0,
+          retry_after_seconds: 60,
+          reset_at: "2099-01-01",
+        },
+        error: null,
+      });
       const result = await consumeSubjectApiRateLimit({
         supabase: { rpc } as never,
         subject: { kind: "anonymous", subjectKey: "anon:subject" },
         bucket,
       });
       expect(result.limited).toBe(true);
-      expect(rpc).toHaveBeenNthCalledWith(
-        2,
-        "consume_api_subject_rate_limit",
+      expect(rpc).toHaveBeenCalledTimes(1);
+      expect(rpc).toHaveBeenCalledWith(
+        "consume_anonymous_rate_limits_atomic",
         expect.objectContaining({
-          p_subject_key: `anon:${bucket}:global`,
+          p_subject_key: "anon:subject",
+          p_global_key: `anon:${bucket}:global`,
         }),
       );
     },

@@ -1,12 +1,20 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { BellOff, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 import { onCallEntryHref } from "@/components/on-call/on-call-entry-view";
 import { focusOnCallEntryFromHash } from "@/components/on-call/on-call-page-anchors";
+import { Button } from "@/components/ui/button";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
-import { type OnCallNotification } from "@/lib/on-call/notifications";
+import { onCallNotificationReminderType, type OnCallNotification } from "@/lib/on-call/notifications";
+import { REMINDER_TYPES, type ReminderType } from "@/lib/reminders/settings";
+
+/** What a snooze button names, in running text. */
+const SNOOZE_NOUNS: Partial<Record<ReminderType, string>> = {
+  "compliance-dates": "compliance dates",
+  "on-call-checks": "On Call checks",
+};
 
 /**
  * What this hub is asking its owner to deal with.
@@ -43,12 +51,22 @@ import { type OnCallNotification } from "@/lib/on-call/notifications";
 export function OnCallNotificationsPanel({
   notifications,
   onNavigate,
+  onSnooze,
 }: {
   notifications: readonly OnCallNotification[];
   /** Closes the sheet the list lives in, so a tap does not leave it open over
    *  the page it just navigated to. */
   onNavigate?: () => void;
+  /**
+   * Hides one reminder type for a week (Settings, Notifications, Reminders
+   * shows it and can resume it). One button per type in the list, because a
+   * snooze covers the type, not a single row. Omitted: no buttons.
+   */
+  onSnooze?: (type: ReminderType) => void;
 }) {
+  const presentTypes = REMINDER_TYPES.filter((type) =>
+    notifications.some((notification) => onCallNotificationReminderType(notification.kind) === type),
+  );
   return (
     <section aria-labelledby="on-call-notifications-heading" className="grid gap-2">
       <h3 id="on-call-notifications-heading" className={eyebrowText}>
@@ -88,6 +106,16 @@ export function OnCallNotificationsPanel({
           ))}
         </ul>
       )}
+
+      {onSnooze && presentTypes.length > 0 ? (
+        <div className="flex flex-wrap gap-2" data-testid="on-call-notifications-snooze">
+          {presentTypes.map((type) => (
+            <Button key={type} variant="ghost" size="sm" icon={BellOff} onClick={() => onSnooze(type)}>
+              {`Snooze ${SNOOZE_NOUNS[type] ?? type} for a week`}
+            </Button>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

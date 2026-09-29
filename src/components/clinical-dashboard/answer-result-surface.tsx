@@ -9,7 +9,7 @@ import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
+import { answerIsRefusal, answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
 import {
   answerUsesAdaptiveMainSurface,
@@ -45,6 +45,7 @@ import type {
   ClientSearchResult,
 } from "@/lib/answer-client-payload";
 import { type AppModeId } from "@/lib/app-modes";
+import { cmeLearningFromRailHref } from "@/lib/cme/learning-source";
 import { extractSafetyFindings, groupSafetyFindingsByKind } from "@/lib/clinical-safety";
 import type { EvidenceSummary } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
@@ -202,16 +203,21 @@ function StagedAnswerResultSurfaceImpl({
       ),
     [bestSource, citedSourceIds, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
   );
+  // The first cited source, never the question: see `cmeLearningFromRailHref`.
+  const cpdHref = cmeLearningFromRailHref(railSources);
   // `trust` already distinguishes these; until now only a conditionally-rendered
   // side card ever showed the difference, so a "medium" answer - which includes
   // the case of a high-risk claim resting on unreviewed-authority evidence - read
   // exactly like a fully verified one. Wording lives in AnswerCard.
+  // The word follows `supportLabelTrust`, which differs from `trust` only when a high-trust
+  // answer has claims not all direct on approved or locally reviewed sources, or none at all
+  // (#WGMB4Z decision 17): it then reads "Supported". Strong and supported share one tone.
   const answerSupport: AnswerSupportStrength =
-    renderModel.trust === "high"
+    renderModel.supportLabelTrust === "high"
       ? "strong"
-      : renderModel.trust === "medium"
+      : renderModel.supportLabelTrust === "medium"
         ? "supported"
-        : renderModel.trust === "low"
+        : renderModel.supportLabelTrust === "low"
           ? "limited"
           : "unassessed";
   const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
@@ -286,6 +292,7 @@ function StagedAnswerResultSurfaceImpl({
     () => answerStateForAnswer({ answer, sources, weakEvidence }),
     [answer, sources, weakEvidence],
   );
+  const refusalAnswer = answerIsRefusal({ answer, answerState });
 
   // Built once so both arms of the `ready` / degraded split below stay identical.
   // The split exists only because `AnswerCardProps` discriminates on `state` to make
@@ -559,6 +566,7 @@ function StagedAnswerResultSurfaceImpl({
         onOpenRailSource={openSourceFromRail}
         openSourceIndex={openSourceIndex}
         showCopyAction={false}
+        isRefusal={refusalAnswer}
         copied={copiedAnswer}
         onCopy={onCopyAnswer}
       />
@@ -652,6 +660,7 @@ function StagedAnswerResultSurfaceImpl({
             <AnswerUtilityActions
               copied={copiedAnswer}
               onCopy={onCopyAnswer}
+              cpdHref={cpdHref}
               pendingFeedback={pendingFeedback}
               onSubmitFeedback={onSubmitFeedback}
             />
@@ -741,9 +750,9 @@ function StagedAnswerResultSurfaceImpl({
             // `iconTilePremium`: that recipe carries the clinical-accent border and
             // background, so appending `text-…` recoloured only the glyph — the sheet
             // opened with an amber shield sitting in a blue tile while the card that
-            // opens it drew an amber one. This matches `AnswerSupportSummaryCard`'s
-            // tile exactly, so the colour the design assigns to the icon tile is the
-            // same on both sides of the tap.
+            // opens it drew an amber one. This matched the retired answer support
+            // card's tile exactly (#51975R), so the colour the design assigns to the
+            // icon tile is the same on both sides of the tap.
             headerLeading={
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
                 <ShieldAlert aria-hidden="true" className="h-3.5 w-3.5" />

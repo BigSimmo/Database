@@ -160,6 +160,8 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
       ["Source type", titleCase(entry.sourceType)],
       ["Published", dateOrNull(entry.publicationDate)],
       ["Reviewed", dateOrNull(entry.reviewDate)],
+      // A publisher's update stamp: its own event, never shown as published or reviewed.
+      ["Last updated", dateOrNull(entry.lastUpdatedDate ?? null)],
       ["Expires", dateOrNull(entry.expiryDate)],
     ] as [string, string | null][]
   ).filter((row): row is [string, string] => Boolean(row[1]));

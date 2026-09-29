@@ -17,7 +17,7 @@
    landed on the element, and nothing failed.
 
    It was not hypothetical. Five hundred and fifty-three utilities across the mockup
-   tree were inert this way. In Caring Contacts alone it was the block and panel
+   tree were inert this way. In one retired prototype alone it was the block and panel
    spacing, every custom `grid-cols`, the hero type scale, the eyebrow tracking, the
    phone dock's `min-h` and both wide table `min-w`s. A utility survived only by
    coincidence: if production happened to use the identical string, production's copy
@@ -36,15 +36,15 @@
      both together               0 inert
 
    They cover different files. A directory entry reaches a tree whose files are named
-   plainly — `caring-contacts/mockups/product-pages.tsx` is not itself named for a
+   plainly — `care-plan/mockups/operations-pages.tsx` is not itself named for a
    mockup, so no file-shape glob finds it. A file glob reaches the mockups that live
    loose beside production components, where there is no directory to name: 34 of them
    sit directly in `src/components`, and they were the largest single block of the 553.
 
    Neither list is decorative, so do not prune one because the other looks like it
-   covers the same ground. `tests/mockup-utility-emission.test.ts` compiles this sheet
-   and fails if any mockup utility stops being emitted, which is what makes the numbers
-   above a standing check rather than a note about one afternoon. */
+   covers the same ground. The compile-and-compare test that pinned this sheet scanned
+   only the retired Caring Contacts prototype and was removed with it on 2026-09-26, so
+   the numbers above are now a record, not a standing check. */
 @source "../../components/**/*mockup*";
 @source "../../components/*-mockup.tsx";
 @source "../../components/*-mockups.tsx";
@@ -53,7 +53,6 @@
 @source "../../components/*/*-mockup-page.tsx";
 @source "../../components/calculator-mockups";
 @source "../../components/care-plan/mockups";
-@source "../../components/caring-contacts/mockups";
 @source "../../components/favourites-phone-perfected-mockups";
 @source "../../components/settings-search-mockups";
 @source "../../components/therapy-navigation-mockups";

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2aea5452-146c-4ffd-9f5c-f03b0944c459",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#Q80S8B",
+    "outcome": "Fixed in 17af3941f (dl > div now holds only dt/dd in colour-coding and source-method reference and the service referral table); pinned by tests/reference-definition-lists.dom.test.tsx and tests/service-detail-page.dom.test.tsx.",
+    "baseRowFingerprint": "cd66ba9ca6246115ba749c84b8fe6f5b4cbbb356f288d6ca33a3e5ec74cb44be"
+  }
+}

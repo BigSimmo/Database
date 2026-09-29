@@ -13,19 +13,23 @@ export type ServiceUrgentIntent =
   | "suicide_aftercare"
   | "suicide_postvention";
 
-const CRISIS = /\b(?:suicid\w*|crisis|acute|unsafe|self[- ]?harm|mental health emergency)\b/i;
+// `self[- ]?harm\w*` so "self harming", "self-harmed" and "selfharm" are all crisis wording.
+const CRISIS = /\b(?:suicid\w*|crisis|acute|unsafe|self[- ]?harm\w*|mental health emergency)\b/i;
 const IMMEDIATE_DANGER =
   /\b(?:actively suicidal|immediate danger|life[- ]?threatening|severe injury|overdose|about to (?:kill|harm)|cannot keep (?:myself|them|him|her|the patient) safe|emergency (?:now|in progress)|strangl\w*|chok(?:ing|ed)?|can[’']?t breathe|cannot breathe)\b/i;
-const CHILD_OR_YOUTH =
-  /\b(?:child|teen(?:ager)?|adolescent|young person|(?:[0-9]|1[0-7])\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
+// Wording that says the person is under 18: CAMHS Crisis Connect alone.
+const CHILD =
+  /\b(?:child(?:ren)?|kids?|teen(?:ager)?s?|adolescents?|(?:[0-9]|1[0-7])\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
+// Owner decision 15 (Josh, 2026-09-25): plain youth wording does not say whether the person is
+// under or over 18, so a youth crisis pins both CAMHS Crisis Connect and the adult MHERL line,
+// CAMHS first. Explicit under-18 wording (CHILD) in the same query settles the age: CAMHS alone.
+const YOUTH = /\b(?:youths?|young (?:person|people))\b/i;
 const REGIONAL_WA =
   /\b(?:regional|rural|remote|bunbury|albany|geraldton|kalgoorlie|karratha|broome|port hedland|esperance|great southern|pilbara|kimberley|south west|wheatbelt|mid west|goldfields|kununurra|busselton|carnarvon|northam|derby|newman|katanning|merredin|exmouth)\b/i;
 // Keyword-only signal. A stated clock time is judged separately, by
 // `detectClockTimeUrgency` below — a bare "pm" match here previously misclassified
 // genuine business-hours times such as "2pm" as after-hours.
 const AFTER_HOURS_KEYWORDS = /\b(?:after[- ]?hours|tonight|overnight|weekend|public holiday)\b/i;
-const METRO_OR_PEEL = /\b(?:perth|metro(?:politan)?|peel|mandurah)\b/i;
-const ADULT = /\b(?:adult|18\s*[- ]?\s*(?:year|yr)s?[- ]?old|[2-9][0-9]\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
 const AFTERCARE =
   /(?:\baftercare\b.*\bsuicid\w*\b|\bsuicid\w*\b.*\baftercare\b|\bdischarg\w*\b.*\b(?:suicide attempt|suicidal crisis)\b|\b(?:suicide attempt|suicidal crisis)\b.*\bdischarg\w*\b)/i;
 const POSTVENTION =
@@ -168,10 +172,14 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
   const crisis = CRISIS.test(clean);
   const immediateDanger = IMMEDIATE_DANGER.test(clean);
   const postvention = POSTVENTION.test(clean);
-  const childOrYouth = CHILD_OR_YOUTH.test(clean);
+  const child = CHILD.test(clean);
+  const youthAnyAge = !child && YOUTH.test(clean);
+  const acuteCrisis = crisis && !postvention && !AFTERCARE.test(clean);
 
-  if (immediateDanger) intents.push("emergency");
-  if (crisis && childOrYouth) intents.push("camhs_crisis");
+  if (immediateDanger || (acuteCrisis && !child && !youthAnyAge && !REGIONAL_WA.test(clean))) {
+    intents.push("emergency");
+  }
+  if (crisis && (child || youthAnyAge)) intents.push("camhs_crisis");
   if (ABORIGINAL.test(clean) && crisis) intents.push("aboriginal_crisis");
   if (FAMILY_VIOLENCE_NAMED.test(clean) || FAMILY_VIOLENCE_DESCRIBED.test(clean)) intents.push("family_violence");
   if (SEXUAL_ASSAULT.test(clean)) intents.push("sexual_assault");
@@ -188,7 +196,7 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
       intents.push("regional_after_hours");
     }
   }
-  if (crisis && !childOrYouth && (ADULT.test(clean) || METRO_OR_PEEL.test(clean))) {
+  if (acuteCrisis && !child) {
     intents.push("adult_metro_crisis");
   }
   if (AOD_TERMS.test(clean) && AOD_URGENCY.test(clean)) intents.push("aod_urgent");
@@ -229,6 +237,24 @@ const TAG_MATCHERS: Record<ServiceUrgentIntent, RegExp[]> = {
   suicide_postvention: [/postvention/i, /bereavement.*suicid/i, /support after suicide/i],
 };
 
+// Intents that pin an ordered list of named records rather than a single first match. Each
+// matcher resolves to its first usable record in catalogue order (skipping any record already
+// pinned), and the pins keep this order. When none of them resolves, the intent falls back to
+// the single title/tag match above.
+//
+// Owner decision (Josh, 2026-09-26): a family-violence search shows WA's own 24-hour Women's
+// Domestic Violence Helpline first, with the national 1800RESPECT line straight after it.
+// Both are named explicitly by title so catalogue order or tag overlap can never decide which
+// one leads, or push 1800RESPECT out of the results.
+const PINNED_TITLE_SEQUENCES: Partial<Record<ServiceUrgentIntent, readonly RegExp[]>> = {
+  family_violence: [/^Women[’']?s Domestic Violence Helpline$/i, /^1800RESPECT$/i],
+  adult_metro_crisis: [/Mental Health Emergency Response Line|\bMHERL\b/i, /^Lifeline WA$/i],
+};
+
+// Score step between successive pins of one intent. Every pin of an intent must stay above the
+// next intent's first pin (a step of 1 below), so a sequence may hold at most ten titles.
+const PIN_SEQUENCE_SCORE_STEP = 0.1;
+
 function serviceIsCurrentlyUsable(service: ServiceRecord, intent: ServiceUrgentIntent): boolean {
   const status = service.verification?.availabilityStatus;
   if (status && status !== "active") {
@@ -256,6 +282,31 @@ function findFirstUsable(records: readonly ServiceRecord[], intent: ServiceUrgen
   });
 }
 
+/** The usable records named by an intent's pinned title sequence, in sequence order, skipping
+ * records already pinned. Empty when the intent has no sequence or none of it is usable. */
+function findPinnedSequence(
+  records: readonly ServiceRecord[],
+  intent: ServiceUrgentIntent,
+  seen: ReadonlySet<string>,
+): ServiceRecord[] {
+  const sequence = PINNED_TITLE_SEQUENCES[intent] ?? [];
+  const picked: ServiceRecord[] = [];
+  const pickedSlugs = new Set<string>();
+  for (const pattern of sequence) {
+    const service = records.find(
+      (candidate) =>
+        !seen.has(candidate.slug) &&
+        !pickedSlugs.has(candidate.slug) &&
+        serviceIsCurrentlyUsable(candidate, intent) &&
+        pattern.test(candidate.title),
+    );
+    if (!service) continue;
+    pickedSlugs.add(service.slug);
+    picked.push(service);
+  }
+  return picked;
+}
+
 /** The active WACHS regional record whose `catchments` cover the given region name
  * (e.g. "Kimberley"), or undefined if none is active/usable. */
 function findRegionalDaytimeUsable(records: readonly ServiceRecord[], region: string): ServiceRecord | undefined {
@@ -266,6 +317,26 @@ function findRegionalDaytimeUsable(records: readonly ServiceRecord[], region: st
   );
 }
 
+function normalizeForNameMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Usable records whose full title the query spells out ("13YARN crisis support" names 13YARN).
+ * Titles shorter than five characters are ignored so a stray token cannot claim the lead. */
+function findExplicitlyNamedServices(records: readonly ServiceRecord[], query: string): ServiceRecord[] {
+  const normalizedQuery = ` ${normalizeForNameMatch(query)} `;
+  return records.filter((service) => {
+    const title = normalizeForNameMatch(service.title ?? "");
+    if (title.replace(/ /g, "").length < 5) return false;
+    if (!normalizedQuery.includes(` ${title} `)) return false;
+    const status = service.verification?.availabilityStatus;
+    return !status || status === "active";
+  });
+}
+
 export function rankServiceUrgentRoutes(records: readonly ServiceRecord[], query: string): ServiceSearchMatch[] {
   const intents = detectServiceUrgentIntents(query);
   if (intents.length === 0) return [];
@@ -273,20 +344,38 @@ export function rankServiceUrgentRoutes(records: readonly ServiceRecord[], query
   const seen = new Set<string>();
   const matches: ServiceSearchMatch[] = [];
 
-  intents.forEach((intent, index) => {
-    const service =
-      intent === "regional_daytime"
-        ? (() => {
-            const region = detectWaRegionForDaytime(query.trim());
-            return region ? findRegionalDaytimeUsable(records, region) : undefined;
-          })()
-        : findFirstUsable(records, intent);
-    if (!service || seen.has(service.slug)) return;
+  // A query that names a service keeps that service first. Crisis wording in the same query
+  // still pins every urgent route straight after it, so naming a service never removes help;
+  // it only stops a generic word ("crisis", "acute") from demoting the service asked for.
+  for (const service of findExplicitlyNamedServices(records, query)) {
+    if (seen.has(service.slug)) continue;
     seen.add(service.slug);
-    matches.push({
-      service,
-      score: 1_000_000 - index,
-      reasons: ["urgent route", intent.replace(/_/g, " ")],
+    matches.push({ service, score: 1_000_001, reasons: ["urgent route", "named service"] });
+  }
+
+  intents.forEach((intent, index) => {
+    const sequence = findPinnedSequence(records, intent, seen);
+    const services =
+      sequence.length > 0
+        ? sequence
+        : [
+            intent === "regional_daytime"
+              ? (() => {
+                  const region = detectWaRegionForDaytime(query.trim());
+                  return region ? findRegionalDaytimeUsable(records, region) : undefined;
+                })()
+              : findFirstUsable(records, intent),
+          ];
+    services.forEach((service, position) => {
+      if (!service || seen.has(service.slug)) return;
+      seen.add(service.slug);
+      matches.push({
+        service,
+        // The first pin keeps the intent's score of 1_000_000 - index; later pins of the same
+        // intent step down by a fraction so they stay above the next intent's pins.
+        score: 1_000_000 - index - position * PIN_SEQUENCE_SCORE_STEP,
+        reasons: ["urgent route", intent.replace(/_/g, " ")],
+      });
     });
   });
 

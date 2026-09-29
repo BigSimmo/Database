@@ -18,7 +18,8 @@ vi.mock("next/navigation", () => ({
 afterEach(cleanup);
 
 const CLINICAL_STATUS_CLASS = /\b(?:bg|text|border|ring)-(?:red|amber|green|orange|rose|emerald|yellow)-/;
-const TAP_TARGET_CLASS = /\bmin-h-(?:12|tap)\b/;
+// 48 px, or 52 px for a two-line grouped-list row (the kit's min-h-13): both at or above the 48 px floor.
+const TAP_TARGET_CLASS = /\bmin-h-(?:12|13|tap)\b/;
 
 /**
  * `DEMO_CME_ENTRIES` (Task 3) gives every entry a single allocation and
@@ -91,6 +92,20 @@ function noClinicalStatusColour(container: HTMLElement) {
 }
 
 describe("Log", () => {
+  it("shows unfinished records in the To finish address, apart from activities", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} initialTab="finish" />);
+    expect(screen.getByTestId("cme-log-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("cme-log-row-fx-1")).toBeNull();
+    expect(screen.queryByTestId("cme-log-search")).toBeNull();
+    expect(screen.queryByTestId("cme-quick-log-button")).toBeNull();
+  });
+  it("says so when a saved activity could not be linked to its missed session", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} justSaved missedLinkFailed />);
+    expect(screen.getByTestId("cme-log-missed-unlinked")).toHaveTextContent(
+      "could not be linked to the missed session",
+    );
+  });
+
   it("shows a year tab per year the log holds data for", () => {
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
     const tabs = screen.getByTestId("cme-log-year-tabs");
@@ -124,22 +139,67 @@ describe("Log", () => {
     expect(screen.queryByText("RANZCP WA Branch training day")).toBeNull();
   });
 
-  it("marks only the entry that came from a routine with a Routine pill", () => {
-    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
-    const routineRow = screen.getByTestId("cme-log-row-fx-2").closest("li");
-    const plainRow = screen.getByTestId("cme-log-row-fx-1").closest("li");
-    expect(routineRow).not.toBeNull();
-    expect(plainRow).not.toBeNull();
-    expect(within(routineRow as HTMLElement).getByText("Routine")).toBeInTheDocument();
-    expect(within(plainRow as HTMLElement).queryByText("Routine")).toBeNull();
+  it("starts a category deep link already filtered and exposes the same choice in the filter sheet", async () => {
+    const user = userEvent.setup();
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} initialCategory="measuring" />);
+    expect(screen.getByText("Peer review group — September")).toBeInTheDocument();
+    expect(screen.queryByText("Journal club — treatment-resistant depression")).toBeNull();
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    const sheet = screen.getByTestId("cme-log-filter-sheet");
+    expect(within(sheet).getByRole("button", { name: /measuring outcomes/i })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(sheet).getByRole("button", { name: /educational activities/i }));
+    expect(screen.getByText("Journal club — treatment-resistant depression")).toBeInTheDocument();
   });
 
-  it("labels a linked document as a source link, not as evidence", () => {
-    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
-    const linkedRow = screen.getByTestId("cme-log-row-fx-2").closest("li");
-    expect(linkedRow).not.toBeNull();
-    expect(within(linkedRow as HTMLElement).getByText("Source link")).toBeInTheDocument();
-    expect(within(linkedRow as HTMLElement).queryByText("Evidence")).toBeNull();
+  it("shows cross-year records only when the owner-scoped all-years read is available", async () => {
+    const user = userEvent.setup();
+    render(
+      <CmeLogPage
+        entries={fixtureEntries.filter((entry) => entry.date.startsWith("2026"))}
+        allYearsEntries={fixtureEntries}
+        set={fixtureSet}
+      />,
+    );
+    expect(screen.queryByText("Audit — discharge planning review")).toBeNull();
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    await user.click(screen.getByRole("button", { name: /all years · 4/i }));
+    expect(screen.getByText("Audit — discharge planning review")).toBeInTheDocument();
+  });
+
+  it("keeps the selected year available when the cross-year read fails", async () => {
+    const user = userEvent.setup();
+    render(<CmeLogPage entries={fixtureEntries.slice(0, 3)} set={fixtureSet} allYearsFailed />);
+    expect(screen.getByText("All years could not be loaded. This year is still available.")).toBeInTheDocument();
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    expect(within(screen.getByTestId("cme-log-filter-sheet")).queryByRole("button", { name: /all years/i })).toBeNull();
+  });
+
+  it("copies the next uncopied activity and can undo its copied status", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    stubClipboard(writeText);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ entry: { transcribed: true } }), { status: 200 }));
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} initialAttention="copy" />);
+    await user.click(screen.getByTestId("cme-log-copy-next"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("Journal club — treatment-resistant depression"));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ transcribed: true });
+    await user.click(within(screen.getByTestId("cme-log-copy-done")).getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ transcribed: false });
+    fetchMock.mockRestore();
+    removeClipboard();
+  });
+
+  it("keeps a row to what is known or missing: no routine chip, source link, copied tick or evidence count", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} today="2026-09-26" />);
+    const row = screen.getByTestId("cme-log-row-fx-2").closest("li") as HTMLElement;
+    expect(within(row).queryByText("Routine")).toBeNull();
+    expect(within(row).queryByText("Source link")).toBeNull();
+    expect(within(row).queryByText("Copied")).toBeNull();
+    expect(row).not.toHaveTextContent(/evidence file/i);
   });
 
   it("links every row to its own entry screen", () => {
@@ -171,6 +231,24 @@ describe("Log", () => {
     expect(interactive.length).toBeGreaterThan(0);
     const short = interactive.filter((node) => !TAP_TARGET_CLASS.test(node.className));
     expect(short.map((node) => node.textContent?.trim() || node.getAttribute("aria-label"))).toEqual([]);
+  });
+
+  it("lists only activities known to have no evidence under Missing evidence", () => {
+    const counted: CmeEntry = {
+      ...fixtureEntries[0]!,
+      id: "counted-none",
+      title: "Demo counted none",
+      evidenceCount: 0,
+    };
+    const unknown: CmeEntry = {
+      ...fixtureEntries[0]!,
+      id: "never-counted",
+      title: "Demo never counted",
+      evidenceCount: undefined,
+    };
+    render(<CmeLogPage entries={[counted, unknown]} set={fixtureSet} initialAttention="evidence" />);
+    expect(screen.getByText("Demo counted none")).toBeInTheDocument();
+    expect(screen.queryByText("Demo never counted")).not.toBeInTheDocument();
   });
 });
 
@@ -313,5 +391,77 @@ describe("One entry", () => {
     expect(interactive.length).toBeGreaterThan(0);
     const short = interactive.filter((node) => !TAP_TARGET_CLASS.test(node.className));
     expect(short.map((node) => node.textContent?.trim() || node.getAttribute("aria-label"))).toEqual([]);
+  });
+});
+
+describe("Log rows, grouped by month", () => {
+  const TODAY = "2026-09-26";
+
+  it("puts each month in one hairline list under its header, with a light total", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} today={TODAY} />);
+    const september = screen.getByTestId("cme-log-month-2026-09");
+    expect(within(september).getAllByRole("list")).toHaveLength(1);
+    expect(within(september).getAllByRole("listitem")).toHaveLength(2);
+    const total = within(september).getByText("2.5 h");
+    expect(total.textContent).toBe("2.5 h");
+    expect(total.className).toMatch(/\bfont-normal\b/);
+    expect(total.className).toMatch(/\bnormal-case\b/);
+    // The total sits beside the eyebrow, never inside it, so it can never inherit uppercase.
+    expect(within(september).getByRole("heading", { level: 2 })).not.toHaveTextContent("2.5");
+  });
+
+  it("reads a row as its title, then the day and category, with the hours at one decimal", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} today={TODAY} />);
+    const row = screen.getByTestId("cme-log-row-fx-3").closest("li") as HTMLElement;
+    expect(row).toHaveTextContent("RANZCP WA Branch training day");
+    expect(row).toHaveTextContent("Sat 22 Aug");
+    expect(row).toHaveTextContent("Educational activities");
+    expect(row.textContent).toContain("5.0 h");
+    const journal = screen.getByTestId("cme-log-row-fx-1").closest("li") as HTMLElement;
+    expect(journal).toHaveTextContent("Wed 16 Sep");
+    expect(journal.textContent).toContain("1.0 h");
+  });
+
+  it("says No certificate only when the log has counted none, never when the count is unknown", () => {
+    const entries: CmeEntry[] = [
+      { ...fixtureEntries[0]!, id: "none", evidenceCount: 0 },
+      { ...fixtureEntries[1]!, id: "some", evidenceCount: 2 },
+      { ...fixtureEntries[2]!, id: "unknown" },
+    ];
+    render(<CmeLogPage entries={entries} set={fixtureSet} today={TODAY} />);
+    const none = screen.getByTestId("cme-log-row-none").closest("li") as HTMLElement;
+    expect(none).toHaveTextContent("No certificate");
+    // The kit's state label: grey words after a small dot, never a filled chip.
+    expect(none.querySelector("[data-state-dot]")).not.toBeNull();
+    expect(screen.getByTestId("cme-log-row-some").closest("li")).not.toHaveTextContent("No certificate");
+    expect(screen.getByTestId("cme-log-row-unknown").closest("li")).not.toHaveTextContent("No certificate");
+  });
+
+  it("adds the year to a date only when it is not this year", () => {
+    render(
+      <CmeLogPage
+        entries={fixtureEntries.filter((entry) => entry.date.startsWith("2025"))}
+        set={{ ...fixtureSet, year: 2025 }}
+        navigationYears={[2026, 2025]}
+        today={TODAY}
+      />,
+    );
+    expect(screen.getByTestId("cme-log-row-fx-4").closest("li")).toHaveTextContent("Mon 3 Nov 2025");
+  });
+
+  it("leaves the floating Log as the page's one dark button", () => {
+    const { container } = render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} today={TODAY} />);
+    const dark = [...container.querySelectorAll<HTMLElement>("button, a[href]")].filter((node) =>
+      node.className.includes("bg-[color:var(--command)]"),
+    );
+    expect(dark.map((node) => node.getAttribute("data-testid"))).toEqual(["cme-quick-log-button"]);
+  });
+
+  it("keeps 48 px clear under the last row for the floating + Log (spec §5)", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} today={TODAY} />);
+    // The button sits max(16 px, the home indicator) off the bottom and is 48 px tall; 6rem more is those 48 px plus 48 px clear.
+    expect(screen.getByTestId("cme-log-page").className).toContain(
+      "pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)]",
+    );
   });
 });

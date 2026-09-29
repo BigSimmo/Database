@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e6969dc0-4ec4-465d-b667-43f930b5f3ea",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#03ARD6",
+    "outcome": "Fixed in 22202f6eb (collapsed rail shows an unpinned active mode, including Calculators and Favourites, as one aria-current item; More modes no longer lit); pinned by tests/collapsed-rail-active-mode.dom.test.tsx.",
+    "baseRowFingerprint": "6f578bd83546454ce11e76de80ee5719ccbf6b29a06bea137757320360411b10"
+  }
+}

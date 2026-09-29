@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { appModeIds, type AppModeId } from "@/lib/app-modes";
-import { phoneModeGroups } from "@/lib/phone-mode-groups";
+import { orderByPhoneModeGroups, phoneModeGroups } from "@/lib/phone-mode-groups";
 
 /**
  * The phone mode sheet renders a grouped list rather than the flat
@@ -30,5 +30,37 @@ describe("phone mode groups", () => {
     for (const modeId of groupedModeIds) expect(appModeIds).toContain(modeId);
     const groupIds = phoneModeGroups.map((group) => group.id);
     expect(new Set(groupIds).size).toBe(groupIds.length);
+  });
+
+  it("gives On Call, Roster, Admin, First Nations, CPD and Teaching areas of their own, after the clinical groups", () => {
+    const groupOf = (modeId: AppModeId) =>
+      phoneModeGroups.find((group) => (group.modeIds as readonly AppModeId[]).includes(modeId));
+    expect(groupOf("on-call")).toMatchObject({ id: "on-call", label: "On Call", modeIds: ["on-call"] });
+    expect(groupOf("roster")).toMatchObject({ id: "roster", label: "Roster", modeIds: ["roster"] });
+    expect(groupOf("my-work")).toMatchObject({ id: "my-work", label: "Admin", modeIds: ["my-work"] });
+    expect(groupOf("first-nations")).toMatchObject({
+      id: "first-nations",
+      label: "First Nations",
+      modeIds: ["first-nations"],
+    });
+    expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD and teaching", modeIds: ["cme", "teaching"] });
+    expect(phoneModeGroups.map((group) => group.id)).toEqual([
+      "find",
+      "psychiatry",
+      "care",
+      "on-call",
+      "roster",
+      "my-work",
+      "first-nations",
+      "cpd",
+    ]);
+  });
+
+  it("orders modes the way the grouped menus draw them, for arrow-key focus", () => {
+    const registryOrder = appModeIds.map((id) => ({ id }));
+    expect(orderByPhoneModeGroups(registryOrder).map((mode) => mode.id)).toEqual(groupedModeIds);
+    // A session that hides some modes keeps the drawn order for the rest.
+    const someModes = (["cme", "psychiatry", "forms", "answer"] as const).map((id) => ({ id }));
+    expect(orderByPhoneModeGroups(someModes).map((mode) => mode.id)).toEqual(["answer", "psychiatry", "forms", "cme"]);
   });
 });

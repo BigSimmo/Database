@@ -252,6 +252,15 @@ export function isRetryableError(error: unknown) {
   return isRetryableMessage(searchError.message);
 }
 
+// A request that took this long before failing is not retried. Retrying it would make the reader
+// wait the same long time again, twice, before seeing the error: a slow server-side failure (for
+// example a search that ran into its time limit) is not the brief blip retries exist for.
+export const searchRetrySlowFailureMs = 8_000;
+
+export function shouldRetryFailedAttempt(error: unknown, attemptDurationMs: number) {
+  return attemptDurationMs < searchRetrySlowFailureMs && isRetryableError(error);
+}
+
 export function sleep(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
@@ -282,8 +291,8 @@ export function answerPayloadIsUsable(payload: AnswerPayload) {
 }
 
 export function progressForRetry(attempt: number) {
-  if (attempt <= 1) return "Retrying...";
-  return `Retrying... (${Math.min(attempt, searchRetryCount)}/${searchRetryCount})`;
+  if (attempt <= 1) return "Retrying…";
+  return `Retrying… (${Math.min(attempt, searchRetryCount)}/${searchRetryCount})`;
 }
 
 // Inactivity window for an in-flight search/answer request. The answer stream

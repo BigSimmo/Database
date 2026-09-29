@@ -59,6 +59,9 @@ import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
 import { runWorkerLoop } from "./run-loop";
 import type { JobDocument, JobRow } from "./types";
 
+/** Upper bound on the fatal-exit alert, so a stalled webhook cannot delay the exit and restart. */
+const FAILURE_WEBHOOK_TIMEOUT_MS = 5_000;
+
 const supabase = createAdminClient();
 const workerId = `${os.hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
 const progressUpdateState = new Map<string, { updatedAt: number; progress: number; stage: string }>();
@@ -2031,6 +2034,9 @@ async function processJob(job: JobRow) {
       // B4: aggregate numbers only; absent (not null) outside shadow mode / the cohort so a
       // legacy-mode run never touches an earlier shadow record on the row.
       ...(shadowExtraction ? { shadow_extraction: shadowExtraction } : {}),
+      // Audit F04: which reader produced these pages, so a parser defect can be traced to the
+      // documents it touched. A document without this key was extracted before it was recorded.
+      ...(extracted?.extractor ? { extraction_provenance: { ...extracted.extractor, recorded_at: indexedAt } } : {}),
     };
 
     await updateDocument(job.document_id, job.documents.owner_id, {
@@ -2141,6 +2147,8 @@ main().catch(async (error) => {
         body: JSON.stringify({
           text: `CRITICAL: PsychSift worker ${abort ? "aborted" : "stopped unexpectedly"}. Error: ${error instanceof Error ? error.message : String(error)}`,
         }),
+        // Bounded so a stalled endpoint cannot hold the exit, and with it Railway's restart.
+        signal: AbortSignal.timeout(FAILURE_WEBHOOK_TIMEOUT_MS),
       });
     } catch (webhookError) {
       console.error("Failed to dispatch worker failure webhook", safeErrorLogDetails(webhookError));

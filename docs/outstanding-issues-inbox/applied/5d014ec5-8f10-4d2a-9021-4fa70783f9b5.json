@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "5d014ec5-8f10-4d2a-9021-4fa70783f9b5",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5c9b0bb2-7381-48a1-ac89-bd28bf8458bf",
+    "reason": "Detail named the render trust cap; owner decision 17 made the change label only. Re-added with corrected wording."
+  }
+}

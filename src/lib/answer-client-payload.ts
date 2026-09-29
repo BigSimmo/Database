@@ -9,6 +9,7 @@ import {
 } from "@/lib/answer-client-fields";
 export type { ClientRelatedDocument } from "@/lib/answer-client-fields";
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
+import { hasWaDocumentControlEndorsement } from "@/lib/clinical-validation-basis";
 import { isRagFallbackReasonCode, publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
 import type {
   BestSourceRecommendation,
@@ -22,6 +23,7 @@ import type {
   SafetyWarning,
   SearchResult,
   SearchScopeSummary,
+  SupportedClaim,
 } from "@/lib/types";
 
 export type ClientDocumentMatch = Omit<DocumentMatch, "labels"> & { labels: ClientDocumentLabel[] };
@@ -102,6 +104,7 @@ const answerFieldPolicy = {
   retrievalDiagnostics: "server",
   retrievalGateBlocked: "client",
   authorityTrustCapRequired: "client",
+  strongSupportLabelCapped: "client",
   modelUsed: "server",
   routingMode: "client",
   routingReason: "server",
@@ -239,6 +242,7 @@ export type ClientRagAnswerPayload = ClientAnswerFields &
     degradedMode?: ClientDegradedMode;
     retrievalGateBlocked?: boolean;
     authorityTrustCapRequired?: boolean;
+    strongSupportLabelCapped?: boolean;
   };
 
 const scopeSummaryMaxChars = 300;
@@ -705,7 +709,8 @@ export function projectClientAnswerPayload(value: unknown, strict = false): Clie
   if (value.fallbackReasonCode != null && !isRagFallbackReasonCode(value.fallbackReasonCode)) return null;
   if (
     (value.retrievalGateBlocked !== undefined && typeof value.retrievalGateBlocked !== "boolean") ||
-    (value.authorityTrustCapRequired !== undefined && typeof value.authorityTrustCapRequired !== "boolean")
+    (value.authorityTrustCapRequired !== undefined && typeof value.authorityTrustCapRequired !== "boolean") ||
+    (value.strongSupportLabelCapped !== undefined && typeof value.strongSupportLabelCapped !== "boolean")
   )
     return null;
   if (strict && (!value.citations.every(isClientCitation) || !value.sources.every(isClientSearchResult))) return null;
@@ -828,6 +833,9 @@ export function projectClientAnswerPayload(value: unknown, strict = false): Clie
   if (typeof value.authorityTrustCapRequired === "boolean") {
     projected.authorityTrustCapRequired = value.authorityTrustCapRequired;
   }
+  if (typeof value.strongSupportLabelCapped === "boolean") {
+    projected.strongSupportLabelCapped = value.strongSupportLabelCapped;
+  }
   if (quoteCards !== undefined) projected.quoteCards = quoteCards;
   if (value.bestSource !== undefined) projected.bestSource = bestSource;
   if (safetyWarnings !== undefined) projected.safetyWarnings = safetyWarnings;
@@ -887,6 +895,39 @@ export function trimSourceForClient(source: SearchResult): ClientSearchResult {
   return projected;
 }
 
+/**
+ * Owner decision point (#JYH1FH, 2026-09-26; recommended option): a WA document-control
+ * endorsement (`unverified` plus the `wa_document_control_endorsement` basis) is NOT reviewed
+ * authority for the render-trust cap or the "Strong support" wording, so those treat it like any
+ * unverified source. Setting this to `true` is the whole change if the owner decides otherwise.
+ */
+const WA_ENDORSEMENT_COUNTS_AS_REVIEWED_AUTHORITY: boolean = false;
+
+/** Whether the chunk a claim rests on has reviewed authority (approved or locally reviewed). */
+function chunkHasReviewedAuthority(answer: RagAnswer, chunkId: string): boolean {
+  const authority = answer.evidenceAssessments?.[chunkId]?.authority;
+  if (authority === "approved" || authority === "locally_reviewed") return true;
+  if (!WA_ENDORSEMENT_COUNTS_AS_REVIEWED_AUTHORITY || authority !== "unverified") return false;
+  const source = answer.sources.find((candidate) => candidate.id === chunkId);
+  return hasWaDocumentControlEndorsement(source?.source_metadata);
+}
+
+/** True when every claim is directly supported, and every chunk it rests on has reviewed authority. */
+function claimsHaveReviewedDirectSupport(answer: RagAnswer, claims: SupportedClaim[]): boolean {
+  return claims.every(
+    (claim) =>
+      claim.supportStatus === "direct" &&
+      claim.supportingChunkIds.length > 0 &&
+      claim.supportingChunkIds.every((chunkId) => chunkHasReviewedAuthority(answer, chunkId)),
+  );
+}
+
+/**
+ * Render-trust cap: lowers trust to "medium", which also trims quote cards, related
+ * documents, tables and source/row counts. Only high-risk claims are gated unless
+ * NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is exactly "true"; no gated claims means no cap.
+ * The all-claims owner rule (#WGMB4Z) does NOT live here - see strongSupportLabelCapped.
+ */
 export function authorityTrustCapRequired(answer: RagAnswer): boolean {
   if (answer.authorityTrustCapRequired === true) return true;
   const capAllClaims = process.env.NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS === "true";
@@ -894,15 +935,23 @@ export function authorityTrustCapRequired(answer: RagAnswer): boolean {
     ? (answer.supportedClaims ?? [])
     : (answer.supportedClaims ?? []).filter((claim) => claim.riskClass === "high_risk");
   if (gatedClaims.length === 0) return false;
-  return !gatedClaims.every(
-    (claim) =>
-      claim.supportStatus === "direct" &&
-      claim.supportingChunkIds.length > 0 &&
-      claim.supportingChunkIds.every((chunkId) => {
-        const authority = answer.evidenceAssessments?.[chunkId]?.authority;
-        return authority === "approved" || authority === "locally_reviewed";
-      }),
-  );
+  return !claimsHaveReviewedDirectSupport(answer, gatedClaims);
+}
+
+/**
+ * Label-only cap on the words "Strong support" (#WGMB4Z, owner decisions 3, 10 and 17,
+ * 2026-09-25). Every claim must be direct on approved or locally reviewed authority, and an
+ * answer with no assessed claims is capped, so the displayed word says "Supported" at most.
+ * It changes the word only: render trust, quote cards, related documents, tables, source
+ * counts and styling stay with authorityTrustCapRequired. An explicit
+ * NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS="false" opts out, so the word follows trust as before.
+ */
+function strongSupportLabelCapped(answer: RagAnswer): boolean {
+  if (answer.strongSupportLabelCapped === true) return true;
+  if (process.env.NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS === "false") return false;
+  const claims = answer.supportedClaims ?? [];
+  if (claims.length === 0) return true;
+  return !claimsHaveReviewedDirectSupport(answer, claims);
 }
 
 function directSupportingBestSource(answer: RagAnswer): BestSourceRecommendation | null {
@@ -964,6 +1013,7 @@ export function toClientAnswerPayload(answer: RagAnswer): ClientRagAnswerPayload
     bestSource,
     retrievalGateBlocked: answer.retrievalGateBlocked === true || answer.retrievalDiagnostics?.gateStatus === "blocked",
     authorityTrustCapRequired: authorityTrustCapRequired(answer),
+    strongSupportLabelCapped: strongSupportLabelCapped(answer),
     ...(answer.scope ? { scope: toClientSearchScopeSummary(answer.scope, answer.scope.queryMode) } : {}),
   });
   if (!projected) throw new TypeError("Cannot project an invalid answer for the client.");

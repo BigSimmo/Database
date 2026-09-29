@@ -239,6 +239,19 @@ describe("matchesBrowseQuery", () => {
   it("excludes a row nothing in the group matches", () => {
     expect(matchesBrowseQuery(perinatal!, "electroconvulsive")).toBe(false);
   });
+
+  it("ignores punctuation in the query", () => {
+    expect(matchesBrowseQuery(perinatal!, "perinatal?")).toBe(true);
+  });
+
+  it("matches from the start of a word, not from inside one", () => {
+    // "tics" used to find "statistics" and "ethics" as substrings.
+    const statistics = deriveTopicBrowseSummaries([
+      sourceEntry({ id: "src_stats", title: "Mental health statistics and ethics" }),
+    ])[0];
+    expect(matchesBrowseQuery(statistics, "tics")).toBe(false);
+    expect(matchesBrowseQuery(statistics, "stat")).toBe(true);
+  });
 });
 
 describe("sortBrowseSummaries", () => {

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ce91d4a9-da35-429a-99e1-cd5982348159",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#HXC4D4",
+    "detail": "PARTLY FIXED 2026-09-25 in eb55cf1a2: (a) use-universal-search.ts now reports a query over 200 characters as a distinct too-long state (no fetch), and a non-OK or network failure as an error that is never cached; aborted requests stay silent. The command surface shows a one-line notice for each (pinned by tests/use-universal-search-stream.dom.test.tsx and tests/universal-search-command-notice.dom.test.tsx). The API route is unchanged. The single-character half was dropped earlier (the client never sends a query under 2 characters). STILL OPEN: (b) the Serum creatinine NumberField rejects 1.02 with 'Enter 15-3000.' - the only numeric field whose range message carries no unit (CrCl says mL/min, QTc says ms). 1.02 is an ordinary mg/dL value and the bound shown is the umol/L one.",
+    "baseRowFingerprint": "071bc8a113922516e0643b47f01d9a2b27d7c625a9a668812755ae8a0ec21620"
+  }
+}

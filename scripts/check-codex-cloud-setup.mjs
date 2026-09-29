@@ -934,7 +934,7 @@ export function validateCodexCloudSetup() {
   }
   for (const [pattern, message] of [
     [/expectedIdentity = "BigSimmo"/, "GitHub shell acceptance must pin the intended identity."],
-    [/repository = "BigSimmo\/Database"/, "GitHub shell acceptance must pin the intended repository."],
+    [/repository = "BigSimmo\/PsychSift"/, "GitHub shell acceptance must pin the intended repository."],
     [
       /requiredScopes = new Set\(\["repo", "workflow", "read:org", "gist"\]\)/,
       "GitHub shell acceptance must require the complete gh login and Actions scope set.",
@@ -1094,7 +1094,7 @@ export function validateCodexCloudSetup() {
   requireMatch(
     errors,
     patDelete,
-    /https:\/\/github\.com\/BigSimmo\/Database\.git/,
+    /https:\/\/github\.com\/BigSimmo\/PsychSift\.git/,
     "PAT deletion helper must require the credential-free origin.",
   );
   requireMatch(errors, guide, /bash scripts\/setup-codex-cloud\.sh/, "The guide must provide the setup command.");

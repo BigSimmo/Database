@@ -1,5 +1,4 @@
 import { appModeHomeHref, canAccessFavouritesMode } from "@/lib/app-modes";
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
 // Canonical Tools dataset. Previously duplicated between the live launcher
@@ -35,7 +34,6 @@ export type ToolCatalogId =
   | "safety-plan"
   | "calculators"
   | "monitoring"
-  | "caring-contacts"
   | "favourites";
 
 export type ToolCatalogRecord = {
@@ -57,6 +55,76 @@ export type ToolCatalogRecord = {
   checkFirst: string[];
   neededInput: string[];
   output: string;
+};
+
+/**
+ * Consultant Psychiatrist Medicare Benefits Schedule (MBS) billing item references.
+ *
+ * MBS billing rules and clinical governance notes:
+ * - Item 291: Comprehensive assessment and preparation of a management plan by a consultant
+ *   psychiatrist for a patient referred by a general practitioner.
+ *   Key rules:
+ *   1. GP Referral: Must be referred by a general practitioner who will manage the patient,
+ *      specifically requesting an assessment and management plan under Item 291.
+ *   2. 12-Month Restriction: Payable only once in any 12-month period for a patient.
+ *   3. Ongoing-management billing condition: Item 291 is claimable only where the referring GP,
+ *      not the psychiatrist, will provide ongoing management. It is an MBS eligibility condition,
+ *      not a legal bar on the psychiatrist treating the patient; if the psychiatrist is to take on
+ *      ongoing care, Item 291 is not the item to claim (check the current MBS descriptor).
+ *
+ * - Item 293: Review of a management plan by a consultant psychiatrist.
+ *   Key rules:
+ *   1. Review of Item 291 Plan: Review of the management plan previously prepared under Item 291
+ *      by the consultant psychiatrist (or another psychiatrist in the same group practice).
+ *   2. GP Referral: Initiated at the request of the treating GP to formally review the management plan.
+ *   3. 12-Month Restriction: Payable once in a 12-month period following an Item 291 plan.
+ *   4. GP Ongoing Management: Ongoing management remains with the referring GP; the psychiatrist
+ *      provides an updated management plan to support the GP rather than assuming continuing treatment.
+ */
+export type PsychiatricBillingItem = {
+  item: string;
+  title: string;
+  description: string;
+  referralRequirement: string;
+  frequencyRestriction: string;
+  ongoingManagementRule: string;
+  rules: string[];
+};
+
+export const psychiatricMedicareBillingItems: Record<"291" | "293", PsychiatricBillingItem> = {
+  "291": {
+    item: "291",
+    title: "Consultant Psychiatrist Assessment and Management Plan",
+    description:
+      "Assessment and preparation of a management plan by a consultant psychiatrist for a patient referred by a general practitioner.",
+    referralRequirement:
+      "Referral must be from a general practitioner who will manage the patient, explicitly requesting an assessment and management plan under Item 291.",
+    frequencyRestriction: "Payable only once in any 12-month period for a patient (12-month restriction).",
+    ongoingManagementRule:
+      "Billing condition, not a treatment ban: Item 291 is claimable only where the referring GP will provide ongoing management (care remains with the referring GP). It does not prohibit the psychiatrist from treating the patient; if the psychiatrist is to take on ongoing care, Item 291 is not the appropriate item. Check the current MBS descriptor.",
+    rules: [
+      "Referral must be from a general practitioner requesting the preparation of a management plan.",
+      "Payable only once in any 12-month period (12-month restriction).",
+      "Billing condition: claimable only where the referring GP will provide ongoing management; it is not a prohibition on the psychiatrist treating the patient.",
+    ],
+  },
+  "293": {
+    item: "293",
+    title: "Consultant Psychiatrist Review of Management Plan",
+    description:
+      "Review of a management plan previously prepared under Item 291 by the consultant psychiatrist (or another psychiatrist in the same group practice).",
+    referralRequirement:
+      "Requires a referral from the treating GP requesting a formal review of the patient's progress and the existing Item 291 management plan.",
+    frequencyRestriction: "Payable once in any 12-month period following an Item 291 management plan.",
+    ongoingManagementRule:
+      "Ongoing management remains with the referring GP; the psychiatrist reviews and updates the management plan rather than assuming ongoing treatment.",
+    rules: [
+      "Review of a management plan previously prepared under Item 291.",
+      "Initiated upon GP referral requesting review of the management plan.",
+      "Restricted to once in any 12-month period.",
+      "Ongoing management remains with the referring GP.",
+    ],
+  },
 };
 
 /**
@@ -264,18 +332,45 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     id: "care-plans",
     title: "Care plans",
     description: "Generate care-plan guidance with monitoring and follow-up prompts.",
-    bestFor: "Care-planning guidance",
-    detail: "Generate care-plan structure, review milestones, monitoring needs, and follow-up tasks.",
+    bestFor: "Care-planning guidance and MBS 291/293 management plans",
+    detail:
+      "Generate care-plan structure, review milestones, monitoring needs, and follow-up tasks. Covers MBS psychiatric management plans: Item 291 (GP referral required, 12-month restriction, billing condition that the referring GP provides ongoing management, not a treatment ban) and Item 293 (GP-referred review of Item 291 management plan, 12-month restriction).",
     href: "/?mode=answer&q=care%20plan&focus=1",
     area: "care",
     status: "ready",
     sourceBacked: true,
     highYield: true,
     actionLabel: "Open",
-    keywords: ["care plan", "management", "follow-up", "monitoring"],
-    checkFirst: ["Goals of care", "Review date", "Monitoring responsibilities"],
-    neededInput: ["Diagnosis or working problem", "Current plan", "Follow-up timeframe"],
-    output: "Care-plan structure, review points, and monitoring prompts.",
+    keywords: [
+      "care plan",
+      "management",
+      "follow-up",
+      "monitoring",
+      "291",
+      "293",
+      "item 291",
+      "item 293",
+      "mbs",
+      "mbs 291",
+      "mbs 293",
+      "medicare",
+      "medicare billing",
+      "psychiatrist management plan",
+    ],
+    checkFirst: [
+      "Goals of care",
+      "Review date",
+      "Monitoring responsibilities",
+      "MBS 291 12-month restriction and GP referral",
+      "MBS 291 billing condition: referring GP provides ongoing management",
+    ],
+    neededInput: [
+      "Diagnosis or working problem",
+      "Current plan",
+      "Follow-up timeframe",
+      "GP referral details and prior 291/293 billing dates",
+    ],
+    output: "Care-plan structure, review points, monitoring prompts, and MBS 291/293 compliance guidance.",
   },
   {
     id: "safety-plan",
@@ -362,26 +457,6 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     output: "Monitoring schedule, thresholds, and review prompts.",
   },
   {
-    // The one card that is the front door to a standalone workspace. Caring Contacts owns
-    // its own navigation once you are inside it, so this catalogue entry is the only place
-    // the host application names it — see docs/codebase-index.md.
-    id: "caring-contacts",
-    title: "Caring Contacts",
-    description: "A synthetic demonstration of caring-contact follow-up after a hospital stay.",
-    bestFor: "Seeing how caring-contact follow-up is coordinated",
-    detail:
-      "A working demonstration built on invented patients and invented numbers. Nothing in it is ever sent to a real number, and none of it is patient data.",
-    href: CARING_CONTACTS_ROUTES.today,
-    area: "coordination",
-    status: "ready",
-    sourceBacked: false,
-    actionLabel: "Open",
-    keywords: ["caring contacts", "follow-up", "aftercare", "discharge", "coordination", "demonstration"],
-    checkFirst: ["Everything shown is invented", "No message is ever sent", "Not a clinical record"],
-    neededInput: ["Nothing — the workspace carries its own synthetic examples"],
-    output: "A demonstration workspace showing how caring-contact follow-up is coordinated.",
-  },
-  {
     id: "favourites",
     title: "Saved workflows",
     mobileTitle: "Saved",
@@ -439,43 +514,12 @@ export function toolCatalogRecordById(id: string): ToolCatalogRecord {
 }
 
 /**
- * Whether the Caring Contacts card may be offered at all.
- *
- * The workspace behind it fails closed in production (`isCaringContactsDemoEnabled`,
- * src/lib/caring-contacts-server/session.ts): every route 404s until enterprise sign-on
- * exists, with one exception for the isolated Playwright production server. Offering
- * the card there would put an "Open" button on the live launcher whose target is a
- * dead link on a suicide-prevention surface, so the card follows the same lock.
- *
- * It cannot call that predicate: the module is server-only, and the catalogue is
- * rendered by client components, which see only what the client bundle inlines —
- * `NODE_ENV` and `NEXT_PUBLIC_DEMO_MODE`. `PLAYWRIGHT_OFFLINE_MODE` never reaches the
- * browser, and reading it here would make the server and the client disagree about
- * the list. The two predicates still agree everywhere a server can start: a production
- * process carrying `NEXT_PUBLIC_DEMO_MODE=true` without the Playwright offline flag is
- * refused by `src/instrumentation.ts`. Pinned by tests/tools-catalog.test.ts.
- *
- * Both reads must stay as literal `process.env.NAME` member expressions — that is
- * what Next inlines into the client bundle; an indirection reads `undefined` there.
- */
-export function isCaringContactsToolListed(
-  environment: string | undefined = process.env.NODE_ENV,
-  demoMode: string | undefined = process.env.NEXT_PUBLIC_DEMO_MODE,
-): boolean {
-  if (environment !== "production") return true;
-  return demoMode === "true";
-}
-
-/**
  * The catalogue as a given session may see it: account-scoped Favourites / Saved
- * workflows are hidden from guests, and the Caring Contacts card is hidden wherever
- * its workspace is locked (see `isCaringContactsToolListed`).
+ * workflows are hidden from guests.
  */
 export function toolCatalogRecordsForSession(options: { authenticated: boolean; demoMode: boolean }) {
   const favouritesAllowed = canAccessFavouritesMode(options);
-  const caringContactsListed = isCaringContactsToolListed();
   return toolCatalogRecords.filter((tool) => {
-    if (tool.id === "caring-contacts") return caringContactsListed;
     if (favouritesAllowed) return true;
     return tool.id !== "favourites" && !tool.href.startsWith("/favourites");
   });

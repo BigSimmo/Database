@@ -2,7 +2,7 @@ import { expect, test, type Page } from "playwright/test";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "project", label: "PsychSift Production target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
@@ -54,6 +54,16 @@ test("submitted root search keeps its query and hides the phone suggestion ticke
     await expect(header).toBeVisible();
   }).toPass({ timeout: 30_000 });
 
-  await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue("lithium");
+  // Once the answer lands the composer becomes an empty follow-up draft box and the
+  // submitted query moves into the thread as its question bubble (ClinicalDashboard
+  // clears it on completion). Reading the composer's value raced that completion: it
+  // passed only while the answer was still pending, so wait for the settled thread.
+  await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+  await expect(page.getByTestId("user-question-bubble")).toContainText("lithium");
+  const composer = page.locator('[data-testid="global-search-input"]:visible');
+  await expect(composer).toHaveCount(1);
+  await expect(composer).toHaveValue("");
+  await expect(composer).toHaveAttribute("placeholder", "Ask a follow-up...");
   await expect(page.getByTestId("smart-search-phone-ticker")).toBeHidden();
 });

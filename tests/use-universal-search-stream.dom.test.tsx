@@ -202,6 +202,81 @@ describe("useUniversalSearch NDJSON integration", () => {
  * "no matches" for a question nobody answered — the same silent-absence failure as the outage that
  * prompted all of this, one layer up.
  */
+describe("useUniversalSearch too-long and failed requests (#HXC4D4)", () => {
+  function render(query: string) {
+    return renderHook(({ q }) => useUniversalSearch({ query: q, enabled: true, contextMode: "answer" }), {
+      initialProps: { q: query },
+    });
+  }
+
+  it("reports a too-long query without fetching, rather than a silent empty result", async () => {
+    const { result } = render("x".repeat(201));
+    await startDebouncedRequest();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current).toMatchObject({ groups: [], loading: false, tooLong: true });
+    expect(result.current.error).toBeUndefined();
+  });
+
+  it("still searches a query of exactly 200 characters", async () => {
+    fetchMock.mockReturnValue(new Promise<Response>(() => undefined));
+    const { result } = render("x".repeat(200));
+    await startDebouncedRequest();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.tooLong).toBeFalsy();
+  });
+
+  it("reports a non-OK response as an error, and never caches it", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    const { result, rerender } = render("lithium");
+    await startDebouncedRequest();
+    await flushStream();
+
+    expect(result.current).toMatchObject({ groups: [], loading: false });
+    // Nothing retries the same query on its own, so the notice must not promise it.
+    expect(result.current.error).toBe("Could not load matches from other areas. Edit the search to try again.");
+    expect(result.current.tooLong).toBeFalsy();
+
+    // Leave and come back to the same query: an error is not a cached answer, so it
+    // refetches, and the old error does not stand in for the new request meanwhile.
+    fetchMock.mockReturnValue(new Promise<Response>(() => undefined));
+    rerender({ q: "lithium carbonate" });
+    await startDebouncedRequest();
+    rerender({ q: "lithium" });
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.loading).toBe(true);
+    await startDebouncedRequest();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("reports a network failure as an error", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const { result } = render("lithium");
+    await startDebouncedRequest();
+    await flushStream();
+
+    expect(result.current.error).toBeTruthy();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("stays silent when a superseded request is aborted", async () => {
+    fetchMock.mockImplementation((_url, init) => {
+      const signal = (init as RequestInit | undefined)?.signal;
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      });
+    });
+    const { result, rerender } = render("lithium");
+    await startDebouncedRequest();
+    rerender({ q: "lithium toxicity" });
+    await flushStream();
+
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.loading).toBe(true);
+  });
+});
+
 describe("groupIsWorthShowing", () => {
   const group = (overrides: Partial<UniversalSearchGroup> = {}): UniversalSearchGroup => ({
     kind: "forms",

@@ -9,6 +9,7 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallChecklist } from "@/components/on-call/on-call-checklist";
 import { onCallEntryHref } from "@/components/on-call/on-call-entry-view";
 import { OnCallToolNavHeader } from "@/components/on-call/on-call-nav-header";
+import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
@@ -100,7 +101,7 @@ function checklistOf(entry: OnCallEntry): readonly { text: string; note?: string
 }
 
 export function OnCallFirstNightPage() {
-  const { entries } = useOnCallEntries();
+  const { entries, isOffline, cachedAt, loadError } = useOnCallEntries();
   const induction = useMemo(() => inductionEntries(entries), [entries]);
 
   return (
@@ -108,6 +109,7 @@ export function OnCallFirstNightPage() {
       <OnCallToolNavHeader title="First night" testIdPrefix="on-call-first-night" />
       <InformationPageShell testId="on-call-first-night-main" width="narrow">
         <h1 className="sr-only">First night</h1>
+        {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
         <p className={cn(textMuted, "text-sm")}>
           A short path for your first on-call shifts. Tick things off as you go; ticks stay on this device only.
         </p>

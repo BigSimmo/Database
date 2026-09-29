@@ -4,10 +4,10 @@
   overflow: hidden;
   /* No named ladder rung covers the 0-40 in-page band (src/app/globals.css's
      z-index ladder starts at --z-raised: 10, next at --z-chrome: 60). These
-     are local, honestly-scoped custom properties (the same pattern
-     src/components/ward-management/** already uses for this exact band) --
-     not a `var(--z-sidebar-*, N)` wrapper around a shared-sounding token
-     that was never defined in globals.css. */
+     are local, honestly-scoped custom properties (the same pattern the
+     retired Ward Flow prototype used for this exact band) -- not a
+     `var(--z-sidebar-*, N)` wrapper around a shared-sounding token that was
+     never defined in globals.css. */
   --sidebar-z-backdrop: 20;
   --sidebar-z-rail: 30;
   --sidebar-z-flyout: 50;

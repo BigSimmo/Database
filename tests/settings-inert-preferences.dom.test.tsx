@@ -31,7 +31,7 @@ vi.mock("@/components/account-data-provider", () => ({
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 
 const CLINICAL_NOTE = "Saved on this device; not yet used in answers.";
-const NOTIFICATIONS_NOTE = "Saved on this device; notifications are not available yet.";
+const NOTIFICATIONS_NOTE = "Saved on this device; these three are not sent yet. The Reminders controls below work now.";
 const NOT_YET_ACTIVE_TEXT = "Not active yet";
 
 const CLINICAL_ROWS = ["settings-row-jurisdiction", "settings-row-default-population", "settings-row-answer-style"];

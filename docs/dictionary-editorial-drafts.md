@@ -19,7 +19,7 @@ into the published entries would lose the distinction that makes them worth havi
 | ------------------ | ---------------------------------------------- | ----------------------------------------------------- |
 | Sense drafts       | `src/data/dictionary-sense-drafts.json`        | 333 records, all pending approval                     |
 | Definition reviews | `src/data/dictionary-definition-reviews.json`  | 96 verdicts, 28 with proposed wording, none applied   |
-| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 18 admitted as ledger candidates, 40 held |
+| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 26 admitted as ledger candidates, 32 held |
 
 The typed readers are in `src/lib/dictionary-editorial/`. Re-import with
 `node scripts/import-dictionary-handover.mjs --package <dir>`; `--check` proves the committed files
@@ -73,16 +73,23 @@ identity may not.
 Numeric-leading tokens (`4AT`, `15L`) file under a single `#` bucket in an A–Z index rather than
 per-digit buckets.
 
-## Definition reviews are reconciled, never applied
+## Definition reviews are reconciled, and applied only after owner approval
 
 Each review records the wording it was written against and a SHA-256 of it.
-`reconcileDefinitionReviews` compares that hash to the live entry and returns one of four outcomes:
+`reconcileDefinitionReviews` compares that hash to the live entry and returns one of five outcomes:
 
 - `actionable` — baseline matches, the proposal is ready for sign-off (28 reviews)
 - `no_change_proposed` — a verdict with no rewrite (68 reviews)
 - `conflict` — the live wording has changed since the review; a person decides, and the reviewed text
   is **not** restored
 - `missing_entry` — the slug moved and the crosswalk needs re-checking
+- `applied` — the owner approved the rewrite (`npm run clinical:review -- --kind dictionary-rewrite`)
+  and the live wording now equals the approved proposal
+
+A rewrite reaches the live dictionary only through `npm run dictionary:apply-rewrites -- --write`,
+and only when its approval is well formed, its sign-off pin is current and its baseline still
+matches the live entry. Anything stale, conflicted or ambiguous stops the whole run and changes
+nothing. Without `--write` it only reports.
 
 As at 2026-09-16 all 96 baselines matched the live definitions exactly: no conflicts, no missing
 entries.
@@ -164,26 +171,34 @@ updated and review dates are different events and none was substituted for anoth
 - **NG225** — 2022-09-07; **CG103** — 2010-07-28; **Australian Prescriber** — 2019-04-01.
 - **Healthdirect ×7, WA Health consent** — review dates, under the model above.
 
-A page stamped only `Last updated` stays held. An update is a third event, and the register has no
-field for it — the WA Chief Psychiatrist's Mental Health Act page is the case in point.
+A page stamped only `Last updated` is recorded under the third date model below, never as a
+publication or a review.
 
-### The third date event, which the register still cannot hold
+### The third date event: `last_updated`
 
-A page stamped only `Last updated` stays held, and after 35 publisher reads that turns out to be a
-larger category than it first looked. The WA Chief Psychiatrist's Mental Health Act page says
-`Last updated: 5 December 2025`; the Royal Children's Hospital MSE guideline says
+A page stamped only `Last updated` was held until 2026-09-26, and after 35 publisher reads that
+turned out to be a larger category than it first looked. The WA Chief Psychiatrist's Mental Health
+Act page says `Last updated: 5 December 2025`; the Royal Children's Hospital MSE guideline says
 `Last updated December 2024`; AIHW's suicide and self-harm monitoring says `Updated 14 Aug 2026`.
 
 An update is a **third event**. It is not a publication and it is not a review: a page can be updated
-for a data refresh, a broken link or a typo without anyone reviewing the clinical content. The
-register has `publicationDate` and `reviewDate` and no field for this, so these records cannot be
-admitted without asserting a check that nobody performed.
+for a data refresh, a broken link or a typo without anyone reviewing the clinical content.
 
-The statements are banked verbatim in `establishedUpdateStatement` so the reading is not repeated,
-and a test keeps them out of both date fields. Whether the register should carry an update event is
-an owner decision, and a wider one than the review-date model: `ClinicalSourceReferenceInput` has no
-update field either, so the catalogue projection would have to grow one rather than quietly folding
-an update into `reviewDate`.
+**Owner decision, 2026-09-26:** the register may carry a publisher's update stamp for a continuously
+maintained page, provided it is only ever shown and recorded as "last updated". The ledger therefore
+has a third date model, `last_updated`, with its own field `lastUpdatedDate` (same precision rules:
+month precision is the first of the month, year precision the first of January). A `last_updated`
+record must leave both `publicationDate` and `reviewDate` null, and `lastUpdatedDate` is refused on
+any other date model. The catalogue carries the field through to `/sources`, where it is labelled
+"Last updated" and never "Published" or "Reviewed".
+
+The statements stay banked verbatim in `establishedUpdateStatement`. Five sources whose only
+obstacle was the stamp (plus, at most, a placeholder version, replaced by the publisher's own update
+statement) were admitted as candidates: AIHW's ambulance-attendances and glossary pages, the Mental
+Health Advocacy Service, the Mental Health Emergency Response Line and the Chief Psychiatrist's
+Mental Health Act page. Three stamped sources stay held on other grounds: the RCH MSE guideline,
+the Aboriginal Health Liaison Service page and the PSOLIS page are all on hosts outside
+`GOVERNED_SOURCE_HOSTS`.
 
 **A dated edition is different from a maintained hub.** AIHW's 2025 prisons health report carries a
 release date (27 Aug 2026) and is admitted; AIHW's monitoring hubs carry only an update stamp and are
@@ -227,7 +242,7 @@ do not invent an abbreviation.
 
 | Count | Obstacle                                                                                                                   | Whose call                                          |
 | ----- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 19    | Host absent from `GOVERNED_SOURCE_HOSTS`, including `meteor.aihw.gov.au`                                                   | Owner — widening host policy is never a side effect |
+| 15    | Host absent from `GOVERNED_SOURCE_HOSTS` (the three METEOR records moved to a page read when it was added, 2026-09-28)     | Owner — widening host policy is never a side effect |
 | 17    | Publisher now registered; no publication or review date has been established                                               | Needs a page read                                   |
 | 4     | Publisher page returned HTTP 403 to this session (four AIHW pages; AIHW is registered, so the date is all that is missing) | Needs a browser read                                |
 | 4     | Publisher field is a description, not an agency (see above)                                                                | Needs the actual publisher                          |

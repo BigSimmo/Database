@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { catalogToServiceRecord } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot } from "@/lib/service-catalog";
-import { detectClockTimeUrgency, detectServiceUrgentIntents } from "@/lib/service-urgent-routing";
+import {
+  detectClockTimeUrgency,
+  detectServiceUrgentIntents,
+  rankServiceUrgentRoutes,
+} from "@/lib/service-urgent-routing";
 import { rankServiceRecords } from "@/lib/service-ranker";
 import { serviceRecords } from "@/lib/services";
 import { serviceCatalogTags } from "@/lib/service-facets";
@@ -22,6 +26,72 @@ describe("services safety routing", () => {
     );
     expect(detectServiceUrgentIntents("bereaved after my brother died by suicide")).toContain("suicide_postvention");
     expect(detectServiceUrgentIntents("bereaved after my brother died by suicide")).not.toContain("suicide_aftercare");
+  });
+
+  it("routes plain youth crisis wording to CAMHS Crisis Connect and MHERL (owner decision 15)", () => {
+    // "Youth", "young person" and "young people" do not say whether the person is under or over
+    // 18, so both the CAMHS and the adult crisis line are pinned, CAMHS first.
+    for (const query of [
+      "youth crisis",
+      "youth self harm",
+      "youths suicidal",
+      "young person suicidal",
+      "suicidal young people",
+    ]) {
+      expect(detectServiceUrgentIntents(query), query).toEqual(["camhs_crisis", "adult_metro_crisis"]);
+      expect(titles(query, 12).slice(0, 2), query).toEqual([
+        "CAMHS Crisis Connect",
+        "Mental Health Emergency Response Line (MHERL)",
+      ]);
+    }
+  });
+
+  it("routes explicit under-18 wording to CAMHS Crisis Connect alone, even when youth is also named", () => {
+    for (const query of [
+      "kid self harm",
+      "kids suicidal",
+      "child crisis",
+      "children self harm",
+      "teen suicidal",
+      "teens in crisis",
+      "suicidal teenager",
+      "teenagers suicidal",
+      "adolescent crisis",
+      "adolescents suicidal",
+      "16 year old self harm",
+      "youth and child crisis",
+      "suicidal teen youth",
+      "young person aged 15-year-old suicidal",
+    ]) {
+      expect(detectServiceUrgentIntents(query), query).toEqual(["camhs_crisis"]);
+      const pinned = rankServiceRecords(serviceRecords, query, 12, [], true)
+        .filter(({ reasons }) => reasons.includes("urgent route"))
+        .map(({ service }) => service.title);
+      expect(pinned, query).toEqual(["CAMHS Crisis Connect"]);
+      expect(titles(query, 12)[0], query).toBe("CAMHS Crisis Connect");
+    }
+  });
+
+  it("treats every self-harm word form as crisis wording", () => {
+    for (const form of ["self harm", "self-harm", "selfharm", "self harming", "self-harmed", "selfharming"]) {
+      expect(detectServiceUrgentIntents(`young person ${form}`), form).toEqual(["camhs_crisis", "adult_metro_crisis"]);
+      expect(detectServiceUrgentIntents(`child ${form}`), form).toEqual(["camhs_crisis"]);
+      expect(detectServiceUrgentIntents(`aboriginal man ${form}`), form).toContain("aboriginal_crisis");
+    }
+    // Only the self-harm words themselves: "harm" alone, or harm to others, is not crisis wording.
+    expect(detectServiceUrgentIntents("child harm reduction")).toEqual([]);
+  });
+
+  it("keeps main's other urgent routes pinned alongside a youth crisis", () => {
+    expect(detectServiceUrgentIntents("aboriginal youth suicide")).toEqual([
+      "camhs_crisis",
+      "aboriginal_crisis",
+      "adult_metro_crisis",
+    ]);
+    expect(detectServiceUrgentIntents("youth overdose crisis")).toEqual(
+      expect.arrayContaining(["emergency", "camhs_crisis", "adult_metro_crisis", "aod_urgent"]),
+    );
+    expect(detectServiceUrgentIntents("youth overdose crisis")[0]).toBe("emergency");
   });
 
   it("pins the immediate emergency, CAMHS crisis and regional after-hours routes for a clear youth crisis", () => {
@@ -67,9 +137,38 @@ describe("Aboriginal, AOD, family violence and sexual assault urgent routing", (
     expect(titles("drunk and wants detox advice", 8).slice(0, 3)).toContain("Alcohol and Drug Support Line");
   });
 
-  it("pins 1800RESPECT for a family violence query", () => {
+  it("pins the Women's Domestic Violence Helpline first and 1800RESPECT second for a family violence query", () => {
+    // Owner decision (Josh, 2026-09-26): WA's own 24-hour helpline leads, 1800RESPECT straight after.
     expect(detectServiceUrgentIntents("partner hitting her")).toContain("family_violence");
-    expect(titles("partner hitting her", 8).slice(0, 3)).toContain("1800RESPECT");
+    const resultTitles = titles("partner hitting her", 8);
+    expect(resultTitles[0]).toBe("Women's Domestic Violence Helpline");
+    expect(resultTitles[1]).toBe("1800RESPECT");
+    expect(resultTitles.slice(0, 3)).toContain("1800RESPECT");
+
+    const urgent = rankServiceUrgentRoutes(serviceRecords, "partner hitting her");
+    expect(urgent.map(({ service }) => service.title)).toEqual(["Women's Domestic Violence Helpline", "1800RESPECT"]);
+    expect(urgent[0].score).toBeGreaterThan(urgent[1].score);
+  });
+
+  it("still pins 1800RESPECT first when the Women's Domestic Violence Helpline is unusable", () => {
+    const withoutHelpline = serviceRecords.filter((service) => service.title !== "Women's Domestic Violence Helpline");
+    expect(withoutHelpline.length).toBe(serviceRecords.length - 1);
+    const resultTitles = rankServiceRecords(withoutHelpline, "partner hitting her", 8, [], true).map(
+      ({ service }) => service.title,
+    );
+    expect(resultTitles[0]).toBe("1800RESPECT");
+    expect(resultTitles).not.toContain("Women's Domestic Violence Helpline");
+  });
+
+  it("keeps both family violence pins below an earlier emergency pin", () => {
+    const urgent = rankServiceUrgentRoutes(serviceRecords, "partner strangling her, can't breathe");
+    expect(urgent.map(({ service }) => service.title).slice(0, 3)).toEqual([
+      "Emergency services",
+      "Women's Domestic Violence Helpline",
+      "1800RESPECT",
+    ]);
+    const scores = urgent.map(({ score }) => score);
+    expect([...scores].sort((a, b) => b - a)).toEqual(scores);
   });
 
   it("pins SARC for a recent sexual assault query", () => {
@@ -313,4 +412,21 @@ describe("canonical records that must not merge into a legacy entry", () => {
       expect(serviceCatalogTags(record).substance_flags, `${record.slug} substance flags`).toHaveLength(1);
     }
   });
+});
+
+describe("general crisis queries pin 000, MHERL, and Lifeline without demographic/location constraints", () => {
+  it.each(["crisis", "suicide", "suicidal", "mental health emergency", "self harm"])(
+    "pins Emergency services, MHERL, and Lifeline for %j",
+    (query) => {
+      const intents = detectServiceUrgentIntents(query);
+      expect(intents).toEqual(["emergency", "adult_metro_crisis"]);
+
+      const resultTitles = titles(query, 8);
+      expect(resultTitles.slice(0, 3)).toEqual([
+        "Emergency services",
+        "Mental Health Emergency Response Line (MHERL)",
+        "Lifeline WA",
+      ]);
+    },
+  );
 });

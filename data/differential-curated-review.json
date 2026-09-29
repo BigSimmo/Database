@@ -1,0 +1,75 @@
+{
+  "description": "Clinician sign-off for the locally authored differential overlays in src/lib/differential-curated.ts. One row per overlay; written only by npm run clinical:review. The content pin covers the whole overlay entry for the slug.",
+  "entries": [
+    {
+      "slug": "neuroleptic-malignant-syndrome",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "serotonin-toxicity",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "delirium",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "hypoactive-delirium",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "clozapine-specific-adverse-effects-toxicity",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "alcohol-withdrawal",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "catatonia-in-mood-disorder",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "postpartum-psychosis",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "akathisia",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    },
+    {
+      "slug": "lithium-physiological-withdrawal-tremor",
+      "status": "drafted",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "reviewedContentSha256": null
+    }
+  ]
+}

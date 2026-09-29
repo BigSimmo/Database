@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "9aa79ce2-2131-4578-82cc-f423cefadb07",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "218f0c7d-be5b-48fc-a7a7-d4911dec88a6",
+    "reason": "Superseded by 2bc98534-c5f6-46ee-9926-d1e89e54999e, which carries this OWNER RULING text verbatim together with the owner-agreed p16 handling update; both targeted #7VQ5RC from the same base row."
+  }
+}

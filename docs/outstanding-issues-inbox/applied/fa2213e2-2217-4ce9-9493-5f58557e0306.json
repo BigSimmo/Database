@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fa2213e2-2217-4ce9-9493-5f58557e0306",
+  "createdOn": "2026-09-27",
+  "action": "done",
+  "payload": {
+    "id": "#TN4PMR",
+    "outcome": "Aligned the Olfactory Reference Disorder ICD-11 6B22 / DSM-5-TR pairing and the insight specifier label across Category 6 and Category 20 in data/specifiers-content.json, keeping the original rowKey so the public slug is unchanged. PR #3146.",
+    "baseRowFingerprint": "dd2d67265705b866ce5d3af56dd55e5f2b6f7270e58e8b829a6533fe25b0bea0"
+  }
+}

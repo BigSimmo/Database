@@ -34,7 +34,7 @@ const lineNoisePatterns: RegExp[] = [
 const clinicalUnitLinePattern = /^(?:mg|mcg|µg|ug|g|kg|ml|l|iu|u|mmol|%)$/i;
 const maxImageContextItemsPerPage = 3;
 const highYieldSectionPattern =
-  /\b(?:medicat|dose|dosage|dosing|administer|titrate|threshold|cut[\s-]?off|withhold|cease|stop|monitor|baseline|fbc|anc|neutrophil|level|risk|red flag|urgent|escalat|contraindicat|caution|toxicity|required|must|criteria|observation)\b/i;
+  /\b(?:medicat(?:e|ed|ion|ions)|dose|dosage|dosing|administer|titrate|threshold|cut[\s-]?off|withhold|cease|stop|monitor|baseline|fbc|anc|neutrophil|level|risk|red flag|urgent|escalat(?:e|es|ed|ing|ion|ions)|contraindicat(?:e|es|ed|ion|ions)|caution|toxicity|required|must|criteria|observation)\b/i;
 const narrativeSectionPattern =
   /\b(?:background|introduction|purpose|scope|principles|overview|rationale|references|bibliography|definitions)\b/i;
 const boilerplateSynopsisPattern =

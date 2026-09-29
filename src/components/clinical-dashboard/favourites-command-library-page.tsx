@@ -38,6 +38,7 @@ import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setu
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, EmptyState, fieldControlPlain } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
+import { FAVOURITE_EXAMPLES_NOTICE, FavouriteExampleTag } from "@/components/clinical-dashboard/favourite-example-tag";
 import {
   favouriteItems as prototypeFavouriteItems,
   favouriteSets as prototypeFavouriteSets,
@@ -95,6 +96,8 @@ export type FavouriteItem = {
   contentKey?: string;
   setId?: string | null;
   sortOrder?: number;
+  /** A demo-mode fixture, not something this clinician saved. Shown with an "Example" tag. */
+  example?: boolean;
 };
 
 type FavouriteSet = {
@@ -207,6 +210,7 @@ function toCommandItem(
   favouriteMetadata: ReadonlyMap<string, AccountFavourite>,
   setById: ReadonlyMap<string, AccountFavouriteSet>,
   demoMode: boolean = false,
+  example: boolean = false,
 ): FavouriteItem {
   const type =
     item.type === "sources" && item.primaryAction === "Run"
@@ -252,6 +256,7 @@ function toCommandItem(
     contentKey,
     setId: metadata?.setId ?? null,
     sortOrder: metadata?.sortOrder ?? 0,
+    example,
   };
 }
 
@@ -354,6 +359,10 @@ function MiniIconTile({
   );
 }
 
+function ExampleTag({ item }: { item: FavouriteItem }) {
+  return item.example ? <FavouriteExampleTag /> : null;
+}
+
 function SmallChip({ children, appearance }: { children: React.ReactNode; appearance: ChipAppearance }) {
   return (
     <Chip size="compact" appearance={appearance}>
@@ -382,6 +391,7 @@ function ContinueStrip({ item, onOpen }: { item: FavouriteItem; onOpen: (item: F
                 <p className="min-w-0 text-sm-minus font-bold leading-snug text-[color:var(--text-heading)]">
                   {item.title}
                 </p>
+                <ExampleTag item={item} />
               </div>
               <p className="mt-0.5 text-2xs font-medium leading-snug text-[color:var(--text-muted)]">
                 {item.set} · last opened {item.lastUsed}
@@ -608,6 +618,11 @@ function FavouriteMobileCard({
         <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
           {item.title}
         </h3>
+        {item.example ? (
+          <div className="mt-1">
+            <ExampleTag item={item} />
+          </div>
+        ) : null}
         <p className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
           {item.description}
         </p>
@@ -722,7 +737,12 @@ function FavouritesDashboardBand({
                   {item.type}
                 </Chip>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">{item.title}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="min-w-0 truncate text-sm font-bold text-[color:var(--text-heading)]">
+                      {item.title}
+                    </span>
+                    <ExampleTag item={item} />
+                  </span>
                   <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
                     {item.set} · {item.lastUsed}
                   </span>
@@ -939,6 +959,7 @@ function FavouritesTable({
                           <span className="line-clamp-1 min-w-0 text-sm-minus font-bold text-[color:var(--text-heading)]">
                             {item.title}
                           </span>
+                          <ExampleTag item={item} />
                         </span>
                         <span className="mt-0.5 line-clamp-1 text-2xs font-medium text-[color:var(--text-muted)]">
                           {item.description}
@@ -954,8 +975,11 @@ function FavouritesTable({
                         stretchedRowLinkClass,
                       )}
                     >
-                      <span className="line-clamp-1 block text-sm-minus font-bold text-[color:var(--text-heading)]">
-                        {item.title}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="line-clamp-1 block min-w-0 text-sm-minus font-bold text-[color:var(--text-heading)]">
+                          {item.title}
+                        </span>
+                        <ExampleTag item={item} />
                       </span>
                       <span className="mt-0.5 line-clamp-1 block text-2xs font-medium text-[color:var(--text-muted)]">
                         {item.description}
@@ -1303,6 +1327,13 @@ function ItemWorkspace({
   );
 }
 
+// Server snapshots must be referentially stable: a fresh object per call makes
+// React warn that getServerSnapshot is uncached and can loop during hydration.
+const EMPTY_LAST_OPENED_SNAPSHOT: Record<string, number> = {};
+const EMPTY_PINNED_SNAPSHOT: Set<string> = new Set<string>();
+const getEmptyLastOpenedSnapshot = () => EMPTY_LAST_OPENED_SNAPSHOT;
+const getEmptyPinnedSnapshot = () => EMPTY_PINNED_SNAPSHOT;
+
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
   const auth = useAuthSession();
@@ -1335,9 +1366,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const lastOpenedMap = useSyncExternalStore(
     subscribeFavouritesStorage,
     loadFavouriteLastOpened,
-    () => ({}) as Record<string, number>,
+    getEmptyLastOpenedSnapshot,
   );
-  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, () => new Set<string>());
+  const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, getEmptyPinnedSnapshot);
   const favouriteMetadata = useMemo(
     () =>
       new Map(
@@ -1350,10 +1381,16 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     [accountData?.favouriteSets],
   );
   const items = useMemo(
-    () =>
-      [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map((item) =>
+    () => [
+      // Fixtures are tagged by where they came from, not by id, so a saved item can
+      // never inherit the Example tag by sharing an id with a fixture.
+      ...(demoMode ? prototypeFavouriteItems : []).map((item) =>
+        toCommandItem(item, lastOpenedMap, pinnedIds, favouriteMetadata, setById, demoMode, true),
+      ),
+      ...savedRegistryFavourites.map((item) =>
         toCommandItem(item, lastOpenedMap, pinnedIds, favouriteMetadata, setById, demoMode),
       ),
+    ],
     [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds, favouriteMetadata, setById],
   );
   // Demo prototypes live outside the hook. If they are the only items while a
@@ -1675,6 +1712,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               <p className="nums text-sm font-medium text-[color:var(--text-muted)]">
                 {items.length} {items.length === 1 ? "item" : "items"}
               </p>
+              {items.some((item) => item.example) ? (
+                <p className="text-sm font-medium text-[color:var(--text-muted)]">{FAVOURITE_EXAMPLES_NOTICE}</p>
+              ) : null}
             </header>
 
             {!demoMode && auth.status === "authenticated" ? (
@@ -1793,6 +1833,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 <button
                   type="button"
                   aria-pressed={viewMode === "recent"}
+                  aria-label="Recently used"
                   onClick={() => setViewMode((current) => (current === "recent" ? "all" : "recent"))}
                   className={cn(
                     "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold sm:min-h-10",
@@ -1803,7 +1844,12 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                   )}
                 >
                   <Clock className="h-3.5 w-3.5" aria-hidden />
-                  Recently used
+                  {/* The phone count line is shared with this toggle and the
+                      filter trigger; the full label squeezed the scope word to
+                      "Al…" at 320–390px (audit VUX-18). The accessible name
+                      stays "Recently used" at every width. */}
+                  <span className="sm:hidden">Recent</span>
+                  <span className="hidden sm:inline">Recently used</span>
                 </button>
               }
               appliedFilters={appliedFilters}

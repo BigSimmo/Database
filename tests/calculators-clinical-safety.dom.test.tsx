@@ -177,7 +177,9 @@ describe("completion is not inferred from a partial score", () => {
    * L7: the internal governance record is attached to every calculator's
    * sourceIds and was rendered in the same "Sources:" line as a validation
    * study. It is provenance, not clinical evidence, so it must be labelled
-   * separately while keeping its link.
+   * separately. Owner decision 2026-09-25 (#XSZ4XV part 1): it is shown as plain
+   * text, not a link — its target is a private engineering record a clinician
+   * cannot open.
    */
   it("separates the internal governance record from the clinical sources line", () => {
     const calc = fixture("phq9");
@@ -197,7 +199,8 @@ describe("completion is not inferred from a partial score", () => {
       node.textContent?.startsWith("Governance reference:"),
     );
     expect(provenanceLine?.textContent).toContain(governance!.title);
-    expect(screen.getByRole("link", { name: governance!.title })).toHaveAttribute("href", governance!.url);
+    expect(screen.queryByRole("link", { name: governance!.title })).toBeNull();
+    expect(container.querySelector(`a[href="${governance!.url}"]`)).toBeNull();
   });
 
   it("renders a completed clinical consideration with its source link", () => {

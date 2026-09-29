@@ -1,8 +1,9 @@
 "use client";
 
 import { CalendarPlus, ChevronLeft, ChevronRight, Download, Repeat } from "lucide-react";
-import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
+import { Checkbox } from "@/components/ui/choice";
 import { Sheet } from "@/components/ui/sheet";
 import { ExternalTextLink, TextLink } from "@/components/ui/link";
 import { cardSurface } from "@/components/card-recipes";
@@ -19,13 +20,16 @@ import {
 import { icsFileName, toIcs } from "@/lib/calendar/ics";
 import { monthGrid, monthGridRange, monthKeyOf, shiftMonth, WEEKDAY_SHORT_LABELS } from "@/lib/calendar/month-grid";
 import { googleCalendarUrl, outlookCalendarUrl } from "@/lib/calendar/provider-links";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { applyReminderAlarms, type ReminderSettings } from "@/lib/reminders/settings";
 
 /**
  * A phone-first month calendar with the day's list underneath.
  *
  * The grid is for finding a day; the list under it is where the meaning is.
- * Each dot's colour names a kind of event, and every event in the list says its
- * kind in words too, so nothing depends on telling colours apart.
+ * Each mark names a kind of event (by colour in the default "dot" style, by a
+ * grey shape in the "shape" style CPD uses), and every event in the list says
+ * its kind in words too, so nothing depends on telling marks apart.
  *
  * Swipe the grid sideways, or use the arrows, to change month. Every event can
  * be added to the owner's own calendar: as a file (nothing leaves the device),
@@ -41,6 +45,44 @@ const KIND_DOT: Record<CalendarEventKind, string> = {
   expiry: "bg-[color:var(--tone-rose)]",
   other: "bg-[color:var(--tone-slate)]",
 };
+
+/**
+ * How events are marked in the grid, the legend and the day's list.
+ *
+ * "dot" (the default, and On Call's look) is a small dot whose colour names the
+ * kind. "shape" is CPD's, from mode design standard module 7: grey marks told
+ * apart by shape instead of colour (a dot for Logged, a ring for Due, a
+ * diamond for Deadline), with the kind in words in the legend and the list.
+ */
+export type CalendarMarkStyle = "dot" | "shape";
+
+type CalendarMarkShape = "dot" | "ring" | "diamond";
+
+const KIND_SHAPE: Record<CalendarEventKind, CalendarMarkShape> = {
+  logged: "dot",
+  due: "ring",
+  deadline: "diamond",
+  teaching: "dot",
+  expiry: "diamond",
+  other: "dot",
+};
+
+/** 8 px shapes in `currentColor`. The diamond is a 6 px square turned 45°, about 8 px corner to corner. */
+const SHAPE_CLASS: Record<CalendarMarkShape, string> = {
+  dot: "size-2 rounded-full bg-current forced-colors:bg-[CanvasText]",
+  ring: "size-2 rounded-full border-2 border-current forced-colors:border-[CanvasText]",
+  diamond: "size-1.5 rotate-45 bg-current forced-colors:bg-[CanvasText]",
+};
+
+/** The grey every shape is drawn in: 6.2:1 on a light card, 7.5:1 on a dark one. */
+const SHAPE_INK = "text-[color:var(--text-muted)]";
+
+function ShapeMark({ kind, className }: { kind: CalendarEventKind; className?: string }) {
+  const shape = KIND_SHAPE[kind];
+  return (
+    <span aria-hidden="true" data-mark={shape} className={cn("inline-block shrink-0", SHAPE_CLASS[shape], className)} />
+  );
+}
 
 const WEEKDAY_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 const MONTHS_LONG = [
@@ -73,8 +115,15 @@ function monthLabel(monthKey: string): string {
   return `${MONTHS_LONG[month - 1]} ${year}`;
 }
 
-function downloadIcs(events: readonly CalendarEvent[], name: string) {
-  const blob = new Blob([toIcs(events, { name })], { type: "text/calendar;charset=utf-8" });
+/**
+ * The file carries a calendar alarm on an event only when the owner turned
+ * that reminder's "Phone calendar alert" on in Settings; with the defaults it
+ * is exactly the file it always was.
+ */
+function downloadIcs(events: readonly CalendarEvent[], name: string, reminders: ReminderSettings) {
+  const now = new Date();
+  const withAlarms = applyReminderAlarms(events, reminders, now);
+  const blob = new Blob([toIcs(withAlarms, { name, now })], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -83,6 +132,35 @@ function downloadIcs(events: readonly CalendarEvent[], name: string) {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * What an expiry becomes in a downloaded file when the owner keeps its name
+ * private. A calendar a file lands in is often shared with family or a PA, and
+ * "Police check expires" or a health-screening title says more than a date.
+ */
+const PLAIN_EXPIRY_TITLE = "Expiry date";
+
+/** The events that go in the downloaded file, after the owner's choices. */
+function selectDownloadEvents(
+  events: readonly CalendarEvent[],
+  excludedKinds: ReadonlySet<CalendarEventKind>,
+  plainExpiryTitles: boolean,
+): CalendarEvent[] {
+  return events
+    .filter((event) => !excludedKinds.has(event.kind))
+    .map((event) =>
+      plainExpiryTitles && event.kind === "expiry"
+        ? {
+            id: event.id,
+            date: event.date,
+            kind: event.kind,
+            title: PLAIN_EXPIRY_TITLE,
+            ...(event.startTime ? { startTime: event.startTime } : {}),
+            ...(event.recurrence ? { recurrence: event.recurrence } : {}),
+          }
+        : event,
+    );
 }
 
 /** Kinds present in the events, in a fixed order, for the legend. */
@@ -101,12 +179,42 @@ export type CalendarViewProps = {
   /** Series to export with "Add all". Defaults to every event given. */
   readonly exportEvents?: readonly CalendarEvent[];
   readonly testId?: string;
+  /** "dot" (default, unchanged) or "shape" (grey dot, ring and diamond). See `CalendarMarkStyle`. */
+  readonly markStyle?: CalendarMarkStyle;
+  /** Reports the displayed month after arrows, swipes, or an adjacent-day selection. */
+  readonly onMonthChange?: (month: string) => void;
+  /** Optional wording for the upcoming events list; the month follows this prefix. */
+  readonly laterHeadingPrefix?: string;
 };
 
-export function CalendarView({ events, today, exportName, exportEvents, testId = "calendar-view" }: CalendarViewProps) {
+export function CalendarView({
+  events,
+  today,
+  exportName,
+  exportEvents,
+  testId = "calendar-view",
+  markStyle = "dot",
+  onMonthChange,
+  laterHeadingPrefix = "Later in",
+}: CalendarViewProps) {
+  const { preferences } = useAppPreferences();
+  const reminders = preferences.reminders;
   const [month, setMonth] = useState(() => monthKeyOf(today));
+  useEffect(() => {
+    onMonthChange?.(month);
+  }, [month, onMonthChange]);
   const [selected, setSelected] = useState(today);
   const [sheetEvent, setSheetEvent] = useState<CalendarEvent | null>(null);
+  // When the day turns over on an open page, a reader still looking at "today"
+  // follows it to the new day; one who picked another day keeps their place.
+  const [shownToday, setShownToday] = useState(today);
+  if (shownToday !== today) {
+    setShownToday(today);
+    if (selected === shownToday) {
+      setSelected(today);
+      setMonth(monthKeyOf(today));
+    }
+  }
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
 
@@ -120,6 +228,21 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
   const selectedEvents = byDay.get(selected) ?? [];
   const laterThisMonth = visible.filter((event) => event.date > selected && monthKeyOf(event.date) === month);
   const kinds = legendKinds(events);
+  const downloadSource = exportEvents ?? events;
+  const downloadKinds = legendKinds(downloadSource);
+  const [excludedKinds, setExcludedKinds] = useState<ReadonlySet<CalendarEventKind>>(() => new Set());
+  const [plainExpiryTitles, setPlainExpiryTitles] = useState(true);
+  const downloadEvents = selectDownloadEvents(downloadSource, excludedKinds, plainExpiryTitles);
+  const includesExpiry = downloadKinds.includes("expiry") && !excludedKinds.has("expiry");
+
+  function toggleKind(kind: CalendarEventKind, include: boolean) {
+    setExcludedKinds((current) => {
+      const next = new Set(current);
+      if (include) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  }
 
   function goToMonth(next: string) {
     setMonth(next);
@@ -207,6 +330,12 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
                     aria-pressed={isSelected}
                     aria-label={`${dayLabel(day.date)}${isToday ? ", today" : ""}${
                       dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""
+                    }${
+                      markStyle === "shape" && dayEvents.length
+                        ? `: ${legendKinds(dayEvents)
+                            .map((kind) => calendarEventKindLabels[kind])
+                            .join(", ")}`
+                        : ""
                     }`}
                     onClick={() => {
                       if (!day.inMonth) setMonth(monthKeyOf(day.date));
@@ -229,14 +358,24 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
                     >
                       {Number(day.date.slice(8))}
                     </span>
-                    <span className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
-                      {dayEvents.slice(0, 3).map((event) => (
-                        <span
-                          key={event.occurrenceKey}
-                          className={cn("size-1.5 rounded-full forced-colors:bg-[CanvasText]", KIND_DOT[event.kind])}
-                        />
-                      ))}
-                    </span>
+                    {markStyle === "shape" ? (
+                      <span className={cn("flex h-2 items-center gap-1", SHAPE_INK)} aria-hidden="true">
+                        {legendKinds(dayEvents)
+                          .slice(0, 3)
+                          .map((kind) => (
+                            <ShapeMark key={kind} kind={kind} />
+                          ))}
+                      </span>
+                    ) : (
+                      <span className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
+                        {dayEvents.slice(0, 3).map((event) => (
+                          <span
+                            key={event.occurrenceKey}
+                            className={cn("size-1.5 rounded-full forced-colors:bg-[CanvasText]", KIND_DOT[event.kind])}
+                          />
+                        ))}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -244,7 +383,16 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
           ))}
         </div>
 
-        {kinds.length > 0 ? (
+        {kinds.length > 0 && markStyle === "shape" ? (
+          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1" aria-label="What the marks mean">
+            {kinds.map((kind) => (
+              <li key={kind} className={cn(textMuted, "flex items-center gap-1.5 text-sm")}>
+                <ShapeMark kind={kind} />
+                {calendarEventKindLabels[kind]}
+              </li>
+            ))}
+          </ul>
+        ) : kinds.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1" aria-label="What the dots mean">
             {kinds.map((kind) => (
               <li key={kind} className={cn(textMuted, "flex items-center gap-1.5 text-xs")}>
@@ -267,6 +415,7 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
               <CalendarEventRow
                 key={event.occurrenceKey}
                 event={event}
+                markStyle={markStyle}
                 onAdd={(target) => {
                   returnFocus.current = target;
                   setSheetEvent(event);
@@ -281,13 +430,16 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
 
       {laterThisMonth.length ? (
         <div data-testid={`${testId}-later`}>
-          <h3 className={eyebrowText}>Later in {monthLabel(month).split(" ")[0]}</h3>
+          <h3 className={eyebrowText}>
+            {laterHeadingPrefix} {monthLabel(month).split(" ")[0]}
+          </h3>
           <ul className="mt-2 flex flex-col gap-2">
             {laterThisMonth.slice(0, 8).map((event) => (
               <CalendarEventRow
                 key={event.occurrenceKey}
                 event={event}
                 showDate
+                markStyle={markStyle}
                 onAdd={(target) => {
                   returnFocus.current = target;
                   setSheetEvent(event);
@@ -301,14 +453,42 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
       <div className={cn(cardSurface, "flex flex-col gap-2 p-4")}>
         <p className="text-sm font-semibold text-[color:var(--text)]">Put these in your own calendar</p>
         <p className={cn(textMuted, "text-sm")}>
-          Downloads one calendar file with every date above, repeats included. Open it on your phone or computer to add
-          them to Apple, Google or Outlook. The file is made on this device; nothing is sent anywhere.
+          Downloads one calendar file with the dates you choose, repeats included. Open it on your phone or computer to
+          add them to Apple, Google or Outlook. The file is made on this device; nothing is sent anywhere.
         </p>
+        <p className={cn(textMuted, "text-sm")} data-testid={`${testId}-export-snapshot`}>
+          It is a one-off copy of today&apos;s dates. If a date changes here later, the copy in your calendar does not
+          change with it; download a new file to catch up.
+        </p>
+        {downloadKinds.length > 1 ? (
+          <fieldset className="flex flex-col" data-testid={`${testId}-export-kinds`}>
+            <legend className="text-sm font-semibold text-[color:var(--text)]">What goes in the file</legend>
+            {downloadKinds.map((kind) => (
+              <Checkbox
+                key={kind}
+                label={calendarEventKindLabels[kind]}
+                checked={!excludedKinds.has(kind)}
+                onChange={(change) => toggleKind(kind, change.currentTarget.checked)}
+                data-testid={`${testId}-export-kind-${kind}`}
+              />
+            ))}
+          </fieldset>
+        ) : null}
+        {includesExpiry ? (
+          <Checkbox
+            label="Keep what each expiry is for private"
+            description={`The file says "${PLAIN_EXPIRY_TITLE}" instead of the item's name. Your calendar may be shared with others.`}
+            checked={plainExpiryTitles}
+            onChange={(change) => setPlainExpiryTitles(change.currentTarget.checked)}
+            data-testid={`${testId}-export-plain-expiry`}
+          />
+        ) : null}
         <button
           type="button"
           data-testid={`${testId}-export`}
           className={cn(floatingControl, "self-start")}
-          onClick={() => downloadIcs(exportEvents ?? events, exportName)}
+          disabled={downloadEvents.length === 0}
+          onClick={() => downloadIcs(downloadEvents, exportName, reminders)}
         >
           <Download aria-hidden="true" className="size-icon-sm" />
           Download calendar file
@@ -324,7 +504,7 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
         returnFocusRef={returnFocus}
         testId={`${testId}-add-sheet`}
       >
-        {sheetEvent ? <AddToCalendarOptions event={sheetEvent} /> : null}
+        {sheetEvent ? <AddToCalendarOptions event={sheetEvent} reminders={reminders} /> : null}
       </Sheet>
     </section>
   );
@@ -333,15 +513,21 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
 function CalendarEventRow({
   event,
   showDate = false,
+  markStyle,
   onAdd,
 }: {
   event: CalendarEvent;
   showDate?: boolean;
+  markStyle: CalendarMarkStyle;
   onAdd: (target: HTMLElement) => void;
 }) {
   return (
     <li className={cn(cardSurface, "flex items-start gap-3 p-3")} data-kind={event.kind}>
-      <span aria-hidden="true" className={cn("mt-1.5 size-2.5 shrink-0 rounded-full", KIND_DOT[event.kind])} />
+      {markStyle === "shape" ? (
+        <ShapeMark kind={event.kind} className={cn("mt-1.5", SHAPE_INK)} />
+      ) : (
+        <span aria-hidden="true" className={cn("mt-1.5 size-2.5 shrink-0 rounded-full", KIND_DOT[event.kind])} />
+      )}
       <div className="min-w-0 flex-1">
         <p className={cn(eyebrowText)}>
           {calendarEventKindLabels[event.kind]}
@@ -379,13 +565,13 @@ function CalendarEventRow({
   );
 }
 
-function AddToCalendarOptions({ event }: { event: CalendarEvent }) {
+function AddToCalendarOptions({ event, reminders }: { event: CalendarEvent; reminders: ReminderSettings }) {
   return (
     <div className="flex flex-col gap-3 pb-2">
       <button
         type="button"
         className={cn(floatingControl, "justify-start")}
-        onClick={() => downloadIcs([event], event.title)}
+        onClick={() => downloadIcs([event], event.title, reminders)}
         data-testid="calendar-add-file"
       >
         <Download aria-hidden="true" className="size-icon-sm" />

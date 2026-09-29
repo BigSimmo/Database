@@ -225,6 +225,34 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
 
+      # Lint and Typecheck were ~3 of this job's ~5 minutes, re-checking every file from cold on
+      # every run because both caches live in places a fresh runner never has. Both tools already
+      # run incrementally locally; this carries their caches between runs. Neither can skip a
+      # changed file: ESLint re-lints any file whose content hash changed (`--cache-strategy
+      # content` in lint:internal; the default mtime strategy misses on every fresh checkout),
+      # and tsc re-checks everything a changed file can affect. Custom rules, config, Node and
+      # dependency versions are in the key with no fallback across them, because ESLint's own
+      # cache key does not see rule code. The gate-receipt store in node_modules/.cache is NOT
+      # cached, so a restored cache can never let a receipt skip either step.
+      - name: Resolve incremental typecheck cache path
+        id: static-cache
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: >-
+          node --input-type=module -e "import path from 'node:path'; import { typescriptBuildInfoPath } from
+          './scripts/test-cache-path.mjs'; console.log('tsc=' + path.dirname(typescriptBuildInfoPath(process.cwd())));"
+          >> "$GITHUB_OUTPUT"
+
+      - name: Restore incremental lint and typecheck caches
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            node_modules/.cache/eslint
+            ${{ steps.static-cache.outputs.tsc }}
+          key: static-incremental-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json', 'eslint.config.mjs', 'eslint-rules/**', 'tsconfig.json', 'tsconfig.typecheck.json') }}-${{ github.sha }}
+          restore-keys: |
+            static-incremental-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json', 'eslint.config.mjs', 'eslint-rules/**', 'tsconfig.json', 'tsconfig.typecheck.json') }}-
+
       - name: Runtime alignment
         run: npm run check:runtime
 
@@ -347,6 +375,12 @@ jobs:
       - name: Check docs links
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run docs:check-links
+
+      # Owner decisions index (docs/decisions/README.md). A malformed entry is a docs-only change,
+      # so it runs in the docs lane too, not only inside the unit suite a docs change never reaches.
+      - name: Decisions index
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:decisions
 
       - name: Dependency and duplicate-export hygiene
         if: needs.changes.outputs.static_heavy_changed == 'true'
@@ -475,19 +509,54 @@ jobs:
       # governance:release chain, so a control rename, a gutted proof test or the
       # register's own reviewExpiresAt lapsing produced no PR signal. Needs the
       # fetch-depth 0 checkout above for the reviewedCommit ancestry checks; the
-      # script says so and skips only those on a shallow clone. Note: this step
-      # goes red on reviewExpiresAt until the register is re-reviewed — by design.
+      # script says so and skips only those on a shallow clone. An expired
+      # reviewExpiresAt is strict on manual, release-branch and local runs; on a PR,
+      # in the merge queue or on a push to main it warns unless the change edits
+      # that expired entry or touches a path it covers, and the weekly
+      # organisation report raises it (REVIEW_DATE_MODE, owner decisions 2026-09-26).
       - name: Clinical hazard-controls register
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:clinical-hazard-controls
+        env:
+          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 'pr' || 'strict' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
 
+      # Four ESLint workers: measured 134 s serial vs 69 s at four on a cold cache, identical
+      # output. Nothing here is type-aware, so the workers do not each build a TypeScript program,
+      # and the content-strategy cache still applies. Static PR checks gate every browser lane
+      # (`needs: static-pr`) and sometimes finish after the Playwright build, so this can sit on
+      # the critical path. CI only: local runs share the machine under the heavy-run lock.
       - name: Lint
         if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run lint
+        run: npm run lint -- --concurrency=4
 
       - name: Typecheck
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run typecheck
+
+      # Organisation map (docs/organisation/README.md). Deliberately unconditional and last:
+      # a map-only PR is docs-light and a workflow-only PR sets no scope predicate, yet either
+      # can break the map. It blocks only map breakage this change introduced (never inherited
+      # findings, never a date); files not yet placed are warnings in the job summary.
+      - name: Organisation map
+        if: ${{ !cancelled() }}
+        env:
+          ORGANISATION_CHECK_MODE: ci
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: npm run check:organisation
+
+      # Instruction guards (docs/organisation/README.md): a retired rule restated in a live
+      # instruction file, or AGENTS.md/CLAUDE.md growing past their size budget. Judges only
+      # what this change adds, so it never blames a PR for main's own state or for the date.
+      - name: Instruction guards
+        if: ${{ !cancelled() }}
+        env:
+          INSTRUCTIONS_CHECK_MODE: ci
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: npm run check:instructions
 
   safety:
     name: Safety and config checks
@@ -534,6 +603,10 @@ jobs:
 
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci
+        env:
+          REVIEW_DATE_MODE: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && 'pr' || 'strict' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
 
       # Fixtures for executable changes; full offline contracts (includes
       # fixtures) when retrieval/answer surfaces change. Recognised docs and
@@ -601,8 +674,15 @@ jobs:
   coverage:
     name: Unit coverage
     needs: [changes, coverage-shards]
+    # `!cancelled()`, not `always()`: this job must still run when a partition FAILS, so it can
+    # report that failure, but it has nothing to say about a run that was cancelled. With
+    # `always()` it booked a runner, reinstalled dependencies and merged reports on every
+    # superseded run, and the next push's run (same concurrency group) waited for it:
+    # ~1.5 minutes per re-push, measured on run 36218035845 (2026-09-26). Skipping here cannot
+    # turn anything green: `pr-required` keeps `always()` and fails an in-scope coverage result
+    # of `skipped` exactly as it fails `failure`.
     if: >
-      always() && needs.changes.result == 'success' &&
+      !cancelled() && needs.changes.result == 'success' &&
       needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -757,7 +837,7 @@ jobs:
   # would spend runners without shortening the critical path.
 
   # One isolated Next production build shared by PR UI Playwright lanes.
-  # Historically each of ui-critical-fast / ui-critical shards / ward journeys
+  # Historically each of ui-critical-fast / ui-critical shards
   # cold-built (~83% of UI wall clock). Build once here; consumers set
   # PLAYWRIGHT_REUSE_BUILD=true with the same PLAYWRIGHT_BUILD_ROOT_ID.
   ui-playwright-build:
@@ -774,8 +854,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
+      # Node and dependencies only, not setup-ui-e2e: this job builds and uploads, it never
+      # launches a browser, so the Chromium download and apt-get install-deps (and their
+      # occasional mirror hang) stay off the critical path. run-playwright.mjs skips its
+      # browser preflight when PLAYWRIGHT_BUILD_ONLY=true; every consumer lane still runs it.
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
 
       - name: Build isolated Next app for Playwright
         env:
@@ -868,8 +952,8 @@ jobs:
     # The browser lanes also wait for `static-pr`, and are skipped when it fails. Measured on
     # PR runs of 2026-09-25, static-pr and the Playwright build finish within seconds of each
     # other (5.2m/5.2m, 5.4m/5.3m, 4.4m/5.0m), so on a green run this waits for nothing. On a
-    # red one it stops about 30 runner-minutes of browser tests (three shards, the critical
-    # subset and the Ward Flow lane) from running against a head that already has to be pushed
+    # red one it stops about 30 runner-minutes of browser tests (three shards and the critical
+    # subset) from running against a head that already has to be pushed
     # again — a lint, typecheck, format, snapshot or contract failure. The browser verdict is
     # not lost, only deferred to the fixing push, which reruns every lane. `pr-required` stays
     # red on the static failure itself and reports these lanes as skipped-because-static.
@@ -950,69 +1034,6 @@ jobs:
 
   # Quarantined production tests and mockup-only journeys share one advisory
   # install/server without weakening the required production-ui job above.
-  # The seven Ward Flow browser journeys, and this lane BLOCKS.
-  #
-  # They live in the `chromium-mockups` project, which `test:e2e:pr` excludes with
-  # `--grep-invert @mockup`, so the only other lane running them is `ui-advisory`
-  # below — and that carries `continue-on-error: true`. A broken ward journey was
-  # therefore executed, reported, and passed anyway; nothing in the repository could
-  # go red because of them. Not hypothetical: MERGE 01-03 (2026-09-05) turned five
-  # ward routes into redirect stubs, these journeys went red, and the drift sat
-  # unnoticed for a day because no required check could see it.
-  #
-  # They are kept separate from `ui-advisory` rather than by removing its
-  # `continue-on-error`, because that lane also runs `@quarantine` — tests that are
-  # quarantined precisely because they are flaky, and which must stay non-blocking.
-  # None of the seven is quarantined and all seven are tagged `@mockup`; checked
-  # against `tests/flake-ledger.json`, which holds one entry and it is not a ward spec.
-  #
-  # ENABLED 2026-09-06 by owner decision. Until then this job was gated behind
-  # `vars.WARD_JOURNEYS_BLOCKING`, a repository variable that was never set, so it
-  # always skipped. That gate existed for a real reason — an already-red lane made
-  # blocking stops every UI pull request in the REPOSITORY, a blast radius entirely
-  # outside Ward Flow — and it was to be lifted only with a green run in hand. That
-  # run: `npm run test:e2e:ward-journeys` at 42c4dec, `3 skipped, 71 passed`. The
-  # three skips are the parked morning-page pair (see `tests/ui-ward-morning.spec.ts`)
-  # and one inconclusive forced-colours probe; none is a failure.
-  #
-  # ⚠️ The `pr-required` aggregate carries the matching `require_success` entry and
-  # its condition mirrors this `if:` exactly. The two have to move together; a future
-  # edit to one is an edit to both.
-  ui-ward-journeys:
-    name: Ward Flow browser journeys
-    # Also waits for static-pr: see the note on ui-critical above.
-    needs: [changes, static-pr, ui-playwright-build]
-    if: >
-      needs.changes.outputs.ui_changed == 'true' &&
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
-      github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
-
-      - name: Download shared Playwright Next build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: playwright-next-build-${{ github.run_id }}
-          path: .next-playwright/ci-${{ github.run_id }}
-
-      - name: Ward Flow journeys (blocking)
-        env:
-          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
-          PLAYWRIGHT_REUSE_BUILD: "true"
-        run: npm run test:e2e:ward-journeys
-
-      - name: Classify exact failed test identities
-        if: failure()
-        run: node scripts/classify-playwright-failures.mjs
-
   ui-advisory:
     name: Advisory UI
     needs: changes
@@ -1444,43 +1465,6 @@ jobs:
             | sort -u \
             | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
 
-  caring-contacts-db:
-    name: Caring Contacts database
-    needs: changes
-    if: >
-      (needs.changes.outputs.db_changed == 'true' ||
-       needs.changes.outputs.static_heavy_changed == 'true') &&
-      github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449
-        env:
-          # This database exists only for this isolated runner job. Trust auth
-          # avoids committing a credential-shaped test literal.
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 54329:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Run Caring Contacts Database & RLS Tests
-        env:
-          CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres
-        run: npm run caring-contacts:db:test
-
   pr-required:
     name: PR required
     needs:
@@ -1495,10 +1479,8 @@ jobs:
         ui-playwright-build,
         ui-critical-fast,
         ui-critical,
-        ui-ward-journeys,
         lighthouse-budget,
         db-reset-verify,
-        caring-contacts-db,
       ]
     # #095: keep `if: always()` — a skipped required check counts as PASSING
     # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
@@ -1536,10 +1518,8 @@ jobs:
           UI_BUILD_RESULT: ${{ needs.ui-playwright-build.result }}
           UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
-          WARD_JOURNEYS_RESULT: ${{ needs.ui-ward-journeys.result }}
           LIGHTHOUSE_RESULT: ${{ needs.lighthouse-budget.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
-          CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}
         run: |
           set -euo pipefail
 
@@ -1601,15 +1581,15 @@ jobs:
           require_success "changes" "$CHANGES_RESULT"
           require_success "static-pr" "$STATIC_RESULT"
 
-          # The browser lanes (production-ui-critical, production-ui, ward-flow-journeys) need
+          # The browser lanes (production-ui-critical, production-ui) need
           # static-pr, so GitHub skips them whenever static-pr did not succeed. That failure is
           # already recorded just above and keeps this aggregate red, so their skip is accepted
-          # here rather than reported as three more "result was skipped" failures that describe
+          # here rather than reported as two more "result was skipped" failures that describe
           # nothing about the diff. Any lane that did run and failed is still recorded as a failure.
           static_blocked=false
           if [ "$STATIC_RESULT" != "success" ]; then static_blocked=true; fi
 
-          # safety/coverage/build/ui-critical*/db-reset-verify/caring-contacts-db additionally skip on draft PRs
+          # safety/coverage/build/ui-critical*/db-reset-verify additionally skip on draft PRs
           # (see their own job `if:` conditions) to stop draft pushes from booking a full heavy
           # CI matrix. PR_DRAFT is folded into the same "was this job in scope" check as the
           # *_CHANGED flags so a draft PR reports skipped-and-fine here instead of a false
@@ -1668,23 +1648,6 @@ jobs:
             require_skipped_or_success "production-ui" "$UI_RESULT"
           fi
 
-          # The seven Ward Flow browser journeys. Required here as well as blocking in their own
-          # job: without an entry in this aggregate a failing lane is reported and merged past,
-          # which is the same hole `continue-on-error: true` left. Gated to match that job's own
-          # `if:` exactly — pull_request|merge_group, ui_changed, not draft — so an out-of-scope run reports
-          # skipped-and-fine rather than a false "result was skipped" failure.
-          # ⚠️ This mirrors the job's own `if:` exactly. The two conditions have to move together;
-          # a future edit to one is an edit to both. Both carried a leading
-          # `WARD_JOURNEYS_BLOCKING` term until 2026-09-06, when the lane was enabled and the term
-          # was dropped from both in one commit — see that job's own comment for the green run it
-          # was lifted against.
-          # The static_blocked term mirrors the job's `needs: static-pr`, as above.
-          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && [ "$static_blocked" != "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
-            require_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
-          else
-            require_skipped_or_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
-          fi
-
           # Mirror lighthouse-budget's own `if:` for PR/merge_group: when perf is in
           # scope (or opt-in label) and skip label is absent, require success. The skip
           # label remains an explicit escape hatch. Drafts without the opt-in label stay
@@ -1703,12 +1666,6 @@ jobs:
             require_success "db-reset-verify" "$DB_RESULT"
           else
             require_skipped_or_success "db-reset-verify" "$DB_RESULT"
-          fi
-
-          if { [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; } && [ "$PR_DRAFT" != "true" ]; then
-            require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
-          else
-            require_skipped_or_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
           fi
 
           # A real break is always the headline. Every failure is listed, not just the first, and a
@@ -1755,7 +1712,7 @@ jobs:
             if [ "$COVERAGE_CHANGED" = "true" ]; then draft_suppressed+=("coverage"); fi
             if [ "$BUILD_CHANGED" = "true" ]; then draft_suppressed+=("build"); fi
             if [ "$UI_CHANGED" = "true" ]; then
-              draft_suppressed+=("production-ui-critical" "production-ui" "ward-flow-journeys")
+              draft_suppressed+=("production-ui-critical" "production-ui")
             fi
             # Mirrors lighthouse-budget's own `if:`. Its schedule/workflow_dispatch arms cannot
             # fire on a pull_request, and its push+lockfile arm needs `event_name == push`, so on
@@ -1774,9 +1731,6 @@ jobs:
               draft_suppressed+=("lighthouse-budget")
             fi
             if [ "$DB_CHANGED" = "true" ]; then draft_suppressed+=("db-reset-verify"); fi
-            if [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
-              draft_suppressed+=("caring-contacts-db")
-            fi
             if [ ${#draft_suppressed[@]} -gt 0 ]; then
               echo "::warning title=Draft PR - heavy scope did not run::In scope for this diff but" \
                 "NOT run, because the PR is a draft: ${draft_suppressed[*]}. A green 'PR required'" \
@@ -1845,10 +1799,30 @@ jobs:
           - { engine: firefox, project: firefox, shard: 3, total: 3 }
           - { engine: webkit, project: webkit, shard: 1, total: 2 }
           - { engine: webkit, project: webkit, shard: 2, total: 2 }
-          - { engine: webkit, project: mobile-webkit, shard: 1, total: 2 }
-          - { engine: webkit, project: mobile-webkit, shard: 2, total: 2 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 2 }
-          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 2 }
+          # The iPhone projects run FIVE shards. At two, shard 2 took 29-30 min
+          # against the 30-minute --global-timeout (run 36156676861), and
+          # mobile-pwa-standalone left 146 tests unrun. At three it still timed
+          # out (runs 36210366372, 36214387379): 55 min of iPhone tests split
+          # 14.6 / 29.9 / 10.5 min, because `--shard` cuts by test COUNT in
+          # alphabetical file order and, with `fullyParallel: false`, a whole file
+          # goes to the shard its first test falls in. The adjacent phone-scroll
+          # family (~13.4 min) and ui-smoke (~10.8 min) landed together.
+          # Four shards leaves them together (26 min); five separates them
+          # (max ~16 min from the same per-file timings, ~22 min worst case when
+          # the suite grows or shrinks by 40-60 tests). Six is worse than five.
+          # Re-measure from the release-ui-timings artifacts before changing
+          # this; a duration-aware split like scripts/playwright-pr-shards.mjs is
+          # the durable fix. Every test still runs, one worker, zero retries.
+          - { engine: webkit, project: mobile-webkit, shard: 1, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 2, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 3, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 4, total: 5 }
+          - { engine: webkit, project: mobile-webkit, shard: 5, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 3, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 4, total: 5 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 5, total: 5 }
 
     steps:
       - name: Checkout
@@ -1939,7 +1913,7 @@ jobs:
             # Fail-safe path for perf/lockfile-only or otherwise skipped UI proof:
             # this is where the complete project set has to be accounted for.
             case "$ENGINE" in
-              chromium) PROJECTS="--project=chromium --project=chromium-mockups --project=chromium-caring-contacts-seeded" ;;
+              chromium) PROJECTS="--project=chromium --project=chromium-mockups" ;;
               firefox)  PROJECTS="--project=firefox" ;;
               webkit)   PROJECTS="--project=$BROWSER_PROJECT" ;;
               *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
@@ -2081,6 +2055,23 @@ jobs:
                 .map(([name, value]) => `- \`${name}\`: ${value}`);
             }
 
+            // Route the alert to a person, not only a label (#TN512M): GitHub notifies an issue's
+            // assignee on their phone, for the opening and for every later comment. Best-effort, so
+            // a refused assignment can never cost the alert itself.
+            const alertAssignee = context.repo.owner;
+            async function assignAlert(issueNumber) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [alertAssignee],
+                });
+              } catch (error) {
+                core.warning(`Could not assign @${alertAssignee} to #${issueNumber}: ${error.message}`);
+              }
+            }
+
             const { data: open } = await github.rest.issues.listForRepo({ owner, repo, state: "open", labels: label });
             const owned = (issue) => String(issue.body ?? "").includes(MARKER) || issue.title === title;
             const existing = open.find(owned) ?? null;
@@ -2146,8 +2137,35 @@ jobs:
                 issue_number: existing.number,
                 body: `Still failing as of ${now} — ${runUrl}`,
               });
+              await assignAlert(existing.number);
               core.warning(`CI on main is failing; updated #${existing.number}.`);
             } else {
-              const created = await github.rest.issues.create({ owner, repo, title, labels: [label], body });
-              core.warning(`CI on main is failing; opened #${created.data.number}.`);
+              // Reopen the most recent issue this job closed rather than opening a new one per red
+              // spell (owner decision, 2026-09-26: main flips red and green often, and 25 issues in a
+              // day was noise). Marker-only match, so it never reopens an issue a person wrote.
+              const { data: closed } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: "closed",
+                labels: label,
+                sort: "updated",
+                direction: "desc",
+                per_page: 20,
+              });
+              const previous = closed.find((issue) => !issue.pull_request && String(issue.body ?? "").includes(MARKER)) ?? null;
+              if (previous) {
+                await github.rest.issues.update({ owner, repo, issue_number: previous.number, state: "open", title, body });
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: previous.number,
+                  body: `Failing again as of ${now} — ${runUrl}`,
+                });
+                await assignAlert(previous.number);
+                core.warning(`CI on main is failing; reopened #${previous.number}.`);
+              } else {
+                const created = await github.rest.issues.create({ owner, repo, title, labels: [label], body });
+                await assignAlert(created.data.number);
+                core.warning(`CI on main is failing; opened #${created.data.number}.`);
+              }
             }

@@ -219,8 +219,26 @@ describe("reviewedContentSha256", () => {
 });
 
 describe("recordKinds", () => {
-  it("registers form, section and timeframe against their data files", () => {
-    expect(Object.keys(recordKinds).sort()).toEqual(["form", "section", "timeframe"]);
+  it("registers every sign-off kind against its data file", () => {
+    expect(Object.keys(recordKinds).sort()).toEqual([
+      "cultural-note",
+      "dictionary-rewrite",
+      "differential",
+      "form",
+      "formulation-concept",
+      "formulation-guide",
+      "formulation-mechanism",
+      "section",
+      "service",
+      "source",
+      "specifier",
+      "standard",
+      "timeframe",
+    ]);
+    expect(recordKinds.differential.path).toBe("data/differential-curated-review.json");
+    expect(recordKinds["formulation-guide"].path).toBe("src/data/formulation-concepts.json");
+    expect(recordKinds["formulation-concept"].path).toBe("src/data/formulation-concepts.json");
+    expect(recordKinds["formulation-mechanism"].path).toBe("src/data/formulation-content.json");
     expect(recordKinds.form.path).toBe("data/forms-content-review.json");
     expect(recordKinds.section.path).toBe("data/mha-2014-sections.json");
     expect(recordKinds.timeframe.path).toBe("data/mha-timeframes.json");
@@ -236,7 +254,14 @@ describe("recordKinds", () => {
       "The clinical meaning is correct.",
       "It is safe to show this as reviewed.",
     ]);
-    for (const kind of Object.values(recordKinds)) expect(kind.checklist).toBe(SIGN_OFF_QUESTIONS);
+    // A source record carries no clinical wording, so its kind asks source-appropriate questions.
+    for (const kind of Object.values(recordKinds) as unknown as Array<{
+      kind: string;
+      checklist: readonly unknown[];
+    }>) {
+      if (kind.kind === "source") expect(kind.checklist).toHaveLength(3);
+      else expect(kind.checklist).toBe(SIGN_OFF_QUESTIONS);
+    }
   });
 
   it("walks forms in the recommended order, then catalogue order, skipping signed ones", () => {
@@ -628,7 +653,7 @@ describe("conductClinicalReview", () => {
 
 describe("review-clinical-record CLI", () => {
   it("has no batch, yes or answer flags", () => {
-    for (const flag of ["--yes", "-y", "--batch", "--all", "--answers"]) {
+    for (const flag of ["--yes", "-y", "--all", "--answers"]) {
       expect(() => parseClinicalReviewArgs([flag])).toThrow(/Unknown option/);
     }
     expect(() => parseClinicalReviewArgs(["--code", "3C", "--code", "10B"])).toThrow(/once/);
@@ -636,6 +661,14 @@ describe("review-clinical-record CLI", () => {
     expect(parseClinicalReviewArgs(["--write", "--walk", "--kind", "form"])).toMatchObject({ walk: true });
     expect(() => parseClinicalReviewArgs(["--walk", "--kind", "form"])).toThrow(/--write/);
     expect(() => parseClinicalReviewArgs(["--write", "--walk", "--kind", "form", "--code", "3C"])).toThrow(/--code/);
+    expect(parseClinicalReviewArgs(["--pack", "--kind", "form"])).toMatchObject({ pack: true, kind: "form" });
+    expect(() => parseClinicalReviewArgs(["--pack"])).toThrow(/--kind/);
+    expect(() => parseClinicalReviewArgs(["--pack", "--write", "--kind", "form"])).toThrow(/--pack/);
+    expect(() => parseClinicalReviewArgs(["--batch", "--kind", "form"])).toThrow(/--write/);
+    expect(() => parseClinicalReviewArgs(["--write", "--batch", "--walk", "--kind", "form"])).toThrow(/--batch/);
+    expect(() => parseClinicalReviewArgs(["--write", "--walk", "--kind", "form", "--exclude", "3C"])).toThrow(
+      /--exclude/,
+    );
   });
 
   it("refuses --write --walk without an interactive TTY and exits non-zero", () => {

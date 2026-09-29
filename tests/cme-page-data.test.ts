@@ -8,14 +8,20 @@ const mocks = vi.hoisted(() => ({
   entry: vi.fn(),
   routines: vi.fn(),
   evidenceCounts: vi.fn(),
+  certificateEntryIds: vi.fn(),
   planGoals: vi.fn(),
   entryGoals: vi.fn(),
+  trainingPeriods: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ isDemoMode: mocks.demo }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: mocks.server }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
-vi.mock("@/lib/cme/evidence-repository", () => ({ fetchCmeEvidenceCounts: mocks.evidenceCounts }));
+vi.mock("@/lib/cme/evidence-repository", () => ({
+  fetchCmeEvidenceCounts: mocks.evidenceCounts,
+  fetchCmeCertificateEntryIds: mocks.certificateEntryIds,
+}));
+vi.mock("@/lib/cme/training-repository", () => ({ fetchOwnerTrainingPeriods: mocks.trainingPeriods }));
 // Plan goals are read beside the entries; an empty plan leaves every assertion below unchanged.
 vi.mock("@/lib/cme/plan-goals-repository", () => ({
   fetchOwnerCmePlanGoals: mocks.planGoals,
@@ -42,8 +48,10 @@ beforeEach(() => {
   mocks.routines.mockResolvedValue([]);
   mocks.entry.mockResolvedValue(null);
   mocks.evidenceCounts.mockResolvedValue({});
+  mocks.certificateEntryIds.mockResolvedValue(new Set());
   mocks.planGoals.mockResolvedValue([]);
   mocks.entryGoals.mockResolvedValue({});
+  mocks.trainingPeriods.mockResolvedValue([]);
 });
 describe("CME page state is honest and owner-scoped", () => {
   it("distinguishes signed-out from unconfigured", async () => {
@@ -100,8 +108,8 @@ describe("CME page state is honest and owner-scoped", () => {
     const data = await loadCmeEntryPageData("old-entry");
     expect(data.state).toBe("unconfigured");
     expect(data.set).toEqual(legacy);
-    expect(data.entries).toEqual([{ ...historicalEntry, evidenceCount: 0 }]);
-    expect(data.entry).toEqual({ ...historicalEntry, evidenceCount: 0 });
+    expect(data.entries).toEqual([{ ...historicalEntry, evidenceCount: 0, certificateCount: 0 }]);
+    expect(data.entry).toEqual({ ...historicalEntry, evidenceCount: 0, certificateCount: 0 });
     expect(data.routines).toEqual([{ id: "routine" }]);
     expect(data.year).toBe(2024);
   });
@@ -114,7 +122,7 @@ describe("CME page state is honest and owner-scoped", () => {
       const data = await loadCmePageData(2026);
       expect(data.state).toBe("unconfigured");
       expect(data.set).toEqual(stored);
-      expect(data.entries).toEqual([{ id: "existing-entry", evidenceCount: 0 }]);
+      expect(data.entries).toEqual([{ id: "existing-entry", evidenceCount: 0, certificateCount: 0 }]);
     },
   );
   it("does not present corrupted requirement data as a clean setup opportunity", async () => {
@@ -152,7 +160,75 @@ describe("CME page state is honest and owner-scoped", () => {
     const data = await loadCmePageData(2026);
     expect(data.entries.map((entry) => entry.evidenceCount)).toEqual([0, 2]);
     expect(mocks.evidenceCounts).toHaveBeenCalledWith({}, "owner", 2026);
+    mocks.certificateEntryIds.mockResolvedValue(new Set(["certificate"]));
+    expect((await loadCmePageData(2026)).entries.map((entry) => entry.certificateCount)).toEqual([0, 1]);
     mocks.evidenceCounts.mockRejectedValue(new Error("Unavailable"));
     expect((await loadCmePageData(2026)).state).toBe("unavailable");
+  });
+  it("reads the year's entries, evidence counts and plan goals side by side, not one after another", async () => {
+    mocks.year.mockResolvedValue({ id: "year", ...createAustralianRanzcpPreset(2026, "2026-01-02") });
+    const entriesRead: { release?: () => void } = {};
+    mocks.entries.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          entriesRead.release = () => resolve([{ id: "entry" }]);
+        }),
+    );
+    const loading = loadCmePageData(2026);
+    await vi.waitFor(() => expect(mocks.entries).toHaveBeenCalled());
+    // Each read crosses Singapore -> Sydney; these must not wait for the entry list.
+    expect(mocks.evidenceCounts).toHaveBeenCalled();
+    expect(mocks.planGoals).toHaveBeenCalled();
+    expect(mocks.entryGoals).not.toHaveBeenCalled();
+    entriesRead.release?.();
+    const data = await loading;
+    expect(data.state).toBe("ready");
+    expect(mocks.entryGoals).toHaveBeenCalledWith({}, "owner", ["entry"]);
+  });
+  it("loads optional training and next-year context only for the verified owner", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-28T02:00:00Z"));
+    try {
+      const current = { id: "year-2026", ...createAustralianRanzcpPreset(2026, "2026-01-02") };
+      const next = { id: "year-2027", ...createAustralianRanzcpPreset(2027, "2027-01-02") };
+      mocks.year.mockImplementation(async (_admin: unknown, _owner: string, year: number) =>
+        year === 2026 ? current : next,
+      );
+      mocks.planGoals.mockImplementation(async (_admin: unknown, _owner: string, id: string) =>
+        id === "year-2027" ? [{ id: "next-goal", goal: "Continue learning" }] : [],
+      );
+      mocks.trainingPeriods.mockResolvedValue([
+        { id: "stage", kind: "stage", label: "Stage 2", startsOn: "2026-01-01", endsOn: "2026-12-31" },
+      ]);
+      const data = await loadCmePageData(2026, { trainingPosition: true, nextYear: true });
+      expect(data.state).toBe("ready");
+      expect(data.trainingPosition?.stage?.label).toBe("Stage 2");
+      expect(data.nextYearConfirmed).toBe(true);
+      expect(data.nextYearGoals?.map((goal) => goal.id)).toEqual(["next-goal"]);
+      expect(mocks.trainingPeriods).toHaveBeenCalledWith({}, "owner");
+      expect(mocks.year).toHaveBeenCalledWith({}, "owner", 2027);
+      expect(mocks.planGoals).toHaveBeenCalledWith({}, "owner", "year-2027");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("keeps optional read failures distinct from missing next-year records", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-28T02:00:00Z"));
+    try {
+      const current = { id: "year-2026", ...createAustralianRanzcpPreset(2026, "2026-01-02") };
+      mocks.year.mockImplementation(async (_admin: unknown, _owner: string, year: number) => {
+        if (year === 2026) return current;
+        throw new Error("next year unavailable");
+      });
+      mocks.trainingPeriods.mockRejectedValue(new Error("training unavailable"));
+      const data = await loadCmePageData(2026, { trainingPosition: true, nextYear: true });
+      expect(data.state).toBe("ready");
+      expect(data.trainingPosition).toBeNull();
+      expect(data.nextYearConfirmed).toBeNull();
+      expect(data.nextYearGoals).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

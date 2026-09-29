@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { publicReviewerAttributionProblem } from "./therapy-review-contract.mjs";
+import { INDIGENOUS_CONTENT_RULE, indigenousContentTerm } from "./indigenous-content.mjs";
+import { signOffKindModules } from "./signoff-kinds/index.mjs";
 
 /**
  * The contract behind `npm run clinical:review`: how the clinical owner attests one
@@ -39,6 +41,34 @@ import { publicReviewerAttributionProblem } from "./therapy-review-contract.mjs"
  *              without rewriting it also breaks the pin).
  *   timeframe  every non-review field of the entry: id, formCodes, trigger, section,
  *              quote, duration and anchor.
+ *
+ * Four more kinds keep their review state in the record's own native fields, so the app
+ * reads a sign-off with no second file to consult. The tool works on a flat *view* of each
+ * record (`view`), and writes a sign-off back into the native shape (`unview`):
+ *
+ *   formulation-guide      src/data/formulation-concepts.json  `guides`, review in `review`
+ *   formulation-mechanism  src/data/formulation-content.json   `mechanisms`, `reviewStatus`
+ *   formulation-concept    src/data/formulation-concepts.json  `concepts`, review in `review`
+ *   differential           data/differential-curated-review.json, one row per locally
+ *                          authored overlay in src/lib/differential-curated.ts
+ *
+ *   specifier              data/specifiers-content.json, every item with a written
+ *                          definition plus the universal specifiers; review in `review`
+ *   dictionary-rewrite     src/data/dictionary-definition-reviews.json, the reviews that
+ *                          propose new wording; approval in `clinicalApproval`
+ *
+ *   specifier      the item's label and definition (or the universal's title and
+ *                  description) with the category, disorder, ICD-11 context and group it
+ *                  sits in, and its source status and source family.
+ *   dictionary-rewrite  the entry, the current wording and its hash, the proposed wording,
+ *                  the verdict, rationale and citation. Approving it does not change the
+ *                  live dictionary; applying approved wording is a separate step.
+ *   formulation-*  every field of the record except its review state. `searchTerms` is
+ *                  included: guide search terms reach the public site-content body. A
+ *                  mechanism also pins the `sourceLibrary` entries its `sources` ids
+ *                  resolve to, because the page renders their titles and links.
+ *   differential   the review row's slug PLUS the whole authored overlay entry for that
+ *                  slug, read from src/lib/differential-curated.ts.
  *
  * The runtime rule is unchanged: `formContentReviewStatus` in src/lib/form-catalog.ts
  * still needs status + reviewedBy + reviewedAt. The pin is enforced by the offline
@@ -332,6 +362,252 @@ function catalogForms(catalog) {
 const withoutMetadata = (record) =>
   Object.fromEntries(Object.entries(record).filter(([key]) => !REVIEW_METADATA_KEYS.includes(key)));
 
+/**
+ * The `sourceLibrary` entries a mechanism's `sources` ids resolve to. The mechanism page
+ * renders their titles and links, so a library edit must break the mechanism's pin too.
+ * An id the library does not hold is pinned as null, which is what the page shows: nothing.
+ */
+function resolvedMechanismSources(record, context) {
+  const library = context?.sourceLibrary;
+  if (!isPlainRecord(library)) {
+    throw new TypeError(
+      "A mechanism sign-off needs the Formulation sourceLibrary (src/data/formulation-content.json).",
+    );
+  }
+  const ids = Array.isArray(record.sources) ? record.sources : [];
+  return ids.map((id) => (isPlainRecord(library[id]) ? library[id] : null));
+}
+
+/** The native pending value becomes `drafted`; anything unrecognised stays as-is and fails validation. */
+const nativeStatusToView = (status) => (status === "clinical_review_required" ? "drafted" : status);
+
+function assertNoViewCollision(native, reserved, label) {
+  for (const key of REVIEW_METADATA_KEYS) {
+    if (!reserved.includes(key) && Object.hasOwn(native, key)) {
+      throw new Error(`${label} ${native?.id ?? ""} already has a "${key}" field; the sign-off view would hide it.`);
+    }
+  }
+}
+
+/** Concepts and guide modules: the review lives in a nested `review` object. */
+function formulationRecordView(native) {
+  if (!isPlainRecord(native)) return native;
+  assertNoViewCollision(native, [], "Formulation record");
+  const { review, ...content } = native;
+  const nested = isPlainRecord(review) ? review : {};
+  return {
+    ...content,
+    status: nativeStatusToView(nested.status),
+    reviewedBy: nested.reviewer ?? null,
+    reviewedAt: nested.reviewedAt ?? null,
+    reviewedContentSha256: nested.reviewedContentSha256 ?? null,
+  };
+}
+
+function formulationRecordUnview(view, native) {
+  return {
+    ...native,
+    review: {
+      ...(isPlainRecord(native.review) ? native.review : {}),
+      status: view.status,
+      reviewer: view.reviewedBy,
+      reviewedAt: view.reviewedAt,
+      reviewedContentSha256: view.reviewedContentSha256,
+    },
+  };
+}
+
+/** Mechanisms: `reviewStatus` is the native status; the attestation sits beside it. */
+function formulationMechanismView(native) {
+  if (!isPlainRecord(native)) return native;
+  assertNoViewCollision(native, ["reviewedBy", "reviewedAt", "reviewedContentSha256"], "Formulation mechanism");
+  const { reviewStatus, reviewedBy, reviewedAt, reviewedContentSha256, ...content } = native;
+  return {
+    ...content,
+    status: nativeStatusToView(reviewStatus),
+    reviewedBy: reviewedBy ?? null,
+    reviewedAt: reviewedAt ?? null,
+    reviewedContentSha256: reviewedContentSha256 ?? null,
+  };
+}
+
+function formulationMechanismUnview(view, native) {
+  return {
+    ...native,
+    reviewStatus: view.status,
+    reviewedBy: view.reviewedBy,
+    reviewedAt: view.reviewedAt,
+    reviewedContentSha256: view.reviewedContentSha256,
+  };
+}
+
+function curatedOverlay(context, slug) {
+  const curated = context?.curated;
+  if (!isPlainRecord(curated)) {
+    throw new TypeError("A differential sign-off needs the authored overlays (src/lib/differential-curated.ts).");
+  }
+  const entry = curated[slug];
+  if (!isPlainRecord(entry))
+    throw new Error(`Differential ${slug} has no authored overlay in src/lib/differential-curated.ts.`);
+  return entry;
+}
+
+// The four kinds below are marked optional only so the report can run against a partial
+// checkout or a test fixture; tests/clinical-signoff-kinds.test.ts requires every real file.
+
+/** Every specifier record, flattened, with the context a reader sees it in. */
+function specifierRecords(document) {
+  const views = [];
+  for (const universal of document?.universalSpecifiers ?? []) {
+    views.push(specifierView(universal, { kind: "universal" }));
+  }
+  for (const category of document?.categories ?? []) {
+    for (const disorder of category.disorders ?? []) {
+      for (const group of disorder.groups ?? []) {
+        for (const item of group.items ?? []) {
+          views.push(
+            specifierView(item, {
+              kind: "item",
+              categoryName: category.name,
+              disorderName: disorder.name,
+              icd11Context: disorder.icd11Context,
+              groupLabel: group.label,
+            }),
+          );
+        }
+      }
+    }
+  }
+  return views;
+}
+
+/**
+ * Only records with real text can be signed: an item whose definition is still the
+ * "pending clinician verification" placeholder, or needs none, reads as `pending`.
+ */
+function specifierView(native, placement) {
+  const review = isPlainRecord(native.review) ? native.review : {};
+  const signable = placement.kind === "universal" || native.definitionStatus === "defined";
+  const status =
+    review.clinicianReviewStatus === "clinician-reviewed"
+      ? "reviewed"
+      : review.clinicianReviewStatus === "clinician-review-pending"
+        ? signable
+          ? "drafted"
+          : "pending"
+        : review.clinicianReviewStatus;
+  const content =
+    placement.kind === "universal"
+      ? { title: native.title, description: native.description }
+      : { label: native.label, definition: native.definition ?? null, definitionStatus: native.definitionStatus };
+  return {
+    id: review.rowKey,
+    ...placement,
+    ...content,
+    sourceVerificationStatus: review.sourceVerificationStatus ?? null,
+    sourceFamily: review.sourceFamily ?? null,
+    status,
+    reviewedBy: review.reviewedBy ?? null,
+    reviewedAt: review.reviewedAt ?? null,
+    reviewedContentSha256: review.reviewedContentSha256 ?? null,
+  };
+}
+
+function signSpecifierReview(review, view) {
+  return {
+    ...review,
+    clinicianReviewStatus: "clinician-reviewed",
+    reviewedBy: view.reviewedBy,
+    reviewedAt: view.reviewedAt,
+    reviewedContentSha256: view.reviewedContentSha256,
+  };
+}
+
+function writeSpecifierReview(document, view) {
+  let found = 0;
+  const sign = (native) => {
+    if (native?.review?.rowKey !== view.id) return native;
+    found += 1;
+    return { ...native, review: signSpecifierReview(native.review, view) };
+  };
+  const categories = (document.categories ?? []).map((category) => ({
+    ...category,
+    disorders: (category.disorders ?? []).map((disorder) => ({
+      ...disorder,
+      groups: (disorder.groups ?? []).map((group) => ({ ...group, items: (group.items ?? []).map(sign) })),
+    })),
+  }));
+  const universalSpecifiers = (document.universalSpecifiers ?? []).map(sign);
+  if (found !== 1) throw new Error(`Specifier ${view.id} matched ${found} records in data/specifiers-content.json.`);
+  const items = categories.flatMap((category) =>
+    category.disorders.flatMap((disorder) => disorder.groups.flatMap((group) => group.items)),
+  );
+  const pending = items.filter((item) => item?.review?.clinicianReviewStatus !== "clinician-reviewed").length;
+  const stats = isPlainRecord(document.stats)
+    ? { ...document.stats, itemsPendingClinicianReview: pending }
+    : document.stats;
+  return { ...document, stats, universalSpecifiers, categories };
+}
+
+/** A definition review proposing new wording can be approved; one without a proposal cannot. */
+function dictionaryRewriteView(native) {
+  if (!isPlainRecord(native)) return native;
+  // The handover's own `reviewer` slot stays as imported; the approval lives in clinicalApproval.
+  const { clinicalApproval, ...rest } = native;
+  const approval = isPlainRecord(clinicalApproval) ? clinicalApproval : {};
+  const status = !native.proposedWording
+    ? "pending"
+    : approval.status === "approved"
+      ? "reviewed"
+      : approval.status === undefined
+        ? "drafted"
+        : approval.status;
+  return {
+    ...rest,
+    status,
+    reviewedBy: approval.reviewer ?? null,
+    reviewedAt: approval.reviewedAt ?? null,
+    reviewedContentSha256: approval.reviewedContentSha256 ?? null,
+  };
+}
+
+function dictionaryRewriteUnview(view, native) {
+  return {
+    ...native,
+    clinicalApproval: {
+      status: "approved",
+      reviewer: view.reviewedBy,
+      reviewedAt: view.reviewedAt,
+      reviewedContentSha256: view.reviewedContentSha256,
+    },
+  };
+}
+
+const DICTIONARY_REWRITE_ATTESTED = Object.freeze([
+  "id",
+  "entrySlug",
+  "title",
+  "category",
+  "verdict",
+  "baselineWording",
+  "baselineWordingSha256",
+  "proposedWording",
+  "disposition",
+  "rationale",
+  "legacyCitation",
+]);
+
+const FORMULATION_RECORD_KIND = {
+  path: "src/data/formulation-concepts.json",
+  optional: true,
+  idField: "id",
+  statuses: Object.freeze(["drafted", "reviewed"]),
+  checklist: SIGN_OFF_QUESTIONS,
+  view: formulationRecordView,
+  unview: formulationRecordUnview,
+  attested: (record) => withoutMetadata(record),
+};
+
 export const recordKinds = Object.freeze({
   form: Object.freeze({
     kind: "form",
@@ -377,6 +653,86 @@ export const recordKinds = Object.freeze({
     checklist: SIGN_OFF_QUESTIONS,
     attested: (record) => withoutMetadata(record),
   }),
+  differential: Object.freeze({
+    kind: "differential",
+    noun: "Differential",
+    heading: "Differentials (locally authored overlays)",
+    path: "data/differential-curated-review.json",
+    collectionKey: "entries",
+    optional: true,
+    idField: "slug",
+    statuses: Object.freeze(["drafted", "reviewed"]),
+    checklist: SIGN_OFF_QUESTIONS,
+    attested: (record, context) => ({ ...withoutMetadata(record), curated: curatedOverlay(context, record.slug) }),
+  }),
+  "formulation-guide": Object.freeze({
+    ...FORMULATION_RECORD_KIND,
+    kind: "formulation-guide",
+    noun: "Guide",
+    heading: "Formulation guide modules",
+    collectionKey: "guides",
+  }),
+  "formulation-mechanism": Object.freeze({
+    kind: "formulation-mechanism",
+    noun: "Mechanism",
+    heading: "Formulation mechanisms",
+    path: "src/data/formulation-content.json",
+    collectionKey: "mechanisms",
+    optional: true,
+    idField: "id",
+    statuses: Object.freeze(["drafted", "reviewed"]),
+    checklist: SIGN_OFF_QUESTIONS,
+    view: formulationMechanismView,
+    unview: formulationMechanismUnview,
+    attested: (record, context) => ({
+      ...withoutMetadata(record),
+      resolvedSources: resolvedMechanismSources(record, context),
+    }),
+  }),
+  "formulation-concept": Object.freeze({
+    ...FORMULATION_RECORD_KIND,
+    kind: "formulation-concept",
+    noun: "Concept",
+    heading: "Formulation concepts",
+    collectionKey: "concepts",
+  }),
+  specifier: Object.freeze({
+    kind: "specifier",
+    noun: "Specifier",
+    heading: "Specifiers (with written definitions)",
+    path: "data/specifiers-content.json",
+    collectionKey: "categories",
+    idField: "id",
+    optional: true,
+    statuses: Object.freeze(["pending", "drafted", "reviewed"]),
+    checklist: SIGN_OFF_QUESTIONS,
+    records: specifierRecords,
+    write: writeSpecifierReview,
+    attested: (record) => withoutMetadata(record),
+  }),
+  "dictionary-rewrite": Object.freeze({
+    kind: "dictionary-rewrite",
+    noun: "Rewrite",
+    heading: "Dictionary definition rewrites",
+    path: "src/data/dictionary-definition-reviews.json",
+    collectionKey: "reviews",
+    idField: "id",
+    optional: true,
+    statuses: Object.freeze(["pending", "drafted", "reviewed"]),
+    checklist: SIGN_OFF_QUESTIONS,
+    view: dictionaryRewriteView,
+    unview: dictionaryRewriteUnview,
+    attested: (record) => pick(record, DICTIONARY_REWRITE_ATTESTED),
+  }),
+  // Kinds defined in ./signoff-kinds/*.mjs, with the standard questions unless they set their own.
+  ...Object.fromEntries(
+    signOffKindModules.flatMap((kindModule) =>
+      Object.entries(kindModule.kinds).map(([name, kind]) => [
+        name,
+        Object.freeze({ checklist: SIGN_OFF_QUESTIONS, ...kind, kind: name }),
+      ]),
+    ),
+  ),
 });
 
 function resolveKind(kind) {
@@ -390,14 +746,19 @@ function resolveKind(kind) {
 export const recordId = (record, kind) => String(record?.[resolveKind(kind).idField] ?? "").trim();
 export const sameRecordId = (left, right) => normalizeCode(left) === normalizeCode(right);
 
-/** The records inside a kind's data file. Timeframes may be a bare array or `{ entries }`. */
+/**
+ * The records inside a kind's data file, as the flat view every other function here
+ * works on. Timeframes may be a bare array or `{ entries }`. Kinds with native review
+ * fields (Formulation) are translated by their `view`.
+ */
 export function collectionOf(kind, document) {
   const resolved = resolveKind(kind);
+  if (resolved.records) return resolved.records(document);
   const records = Array.isArray(document) ? document : document?.[resolved.collectionKey];
   if (!Array.isArray(records)) {
     throw new Error(`${resolved.path} must hold a "${resolved.collectionKey}" array.`);
   }
-  return records;
+  return resolved.view ? records.map(resolved.view) : records;
 }
 
 /** Exactly what a sign-off of this record attests (and therefore what the pin covers). */
@@ -460,6 +821,12 @@ export function reviewProblems(records, kind, { now = new Date(), ...context } =
       continue;
     }
 
+    const indigenous = indigenousContentIn(record, resolved, context);
+    if (indigenous) {
+      problems.push(
+        `${label}: signed off, but contains Indigenous content ("${indigenous}"); ${INDIGENOUS_CONTENT_RULE}. Return it to drafted.`,
+      );
+    }
     const attributionProblem = reviewerAttributionProblem(record.reviewedBy);
     if (attributionProblem) problems.push(`${label}: ${attributionProblem}`);
     const timestampProblem = utcTimestampProblem(record.reviewedAt, now);
@@ -488,9 +855,27 @@ export function reviewProblems(records, kind, { now = new Date(), ...context } =
   return problems;
 }
 
+/**
+ * The Indigenous term in what a sign-off of this record would attest, or null. Such a record
+ * is never offered, never signable and, if found signed, reported as a problem.
+ */
+export function indigenousContentIn(record, kind, context = {}) {
+  let content;
+  try {
+    content = attestedContent(record, kind, context);
+  } catch {
+    content = record;
+  }
+  return indigenousContentTerm(content);
+}
+
 /** A record may be signed when it is drafted, or when its earlier sign-off has gone stale. */
 export function signOffEligibilityProblem(record, kind, context = {}) {
   const resolved = resolveKind(kind);
+  const indigenous = indigenousContentIn(record, resolved, context);
+  if (indigenous) {
+    return `${resolved.noun} ${recordId(record, resolved)} contains Indigenous content ("${indigenous}"); ${INDIGENOUS_CONTENT_RULE}.`;
+  }
   if (record?.status === "drafted") return null;
   if (record?.status === "reviewed" && recordPinState(record, resolved, context) === "stale") return null;
   if (record?.status === "reviewed") {
@@ -509,8 +894,9 @@ export function signOffQueue(kind, records, context = {}) {
   const resolved = resolveKind(kind);
   const waiting = records.filter(
     (record) =>
-      record?.status === "drafted" ||
-      (record?.status === "reviewed" && recordPinState(record, resolved, context) === "stale"),
+      (record?.status === "drafted" ||
+        (record?.status === "reviewed" && recordPinState(record, resolved, context) === "stale")) &&
+      !indigenousContentIn(record, resolved, context),
   );
   if (resolved.kind !== "form") return waiting.map((record) => recordId(record, resolved));
   // Forms: the highest-consequence clocks first, then the rest in catalogue order.
@@ -553,11 +939,14 @@ export function finalizeClinicalReview(record, kind, { reviewedBy, reviewedAt, c
 /** Replace one record in its data file's document, keeping derived counts consistent. */
 export function applyClinicalReview(document, kind, reviewed) {
   const resolved = resolveKind(kind);
-  const records = collectionOf(resolved, document);
+  if (resolved.write) return resolved.write(document, reviewed);
+  const records = Array.isArray(document) ? document : document?.[resolved.collectionKey];
+  if (!Array.isArray(records)) throw new Error(`${resolved.path} must hold a "${resolved.collectionKey}" array.`);
   const id = recordId(reviewed, resolved);
   const index = records.findIndex((record) => sameRecordId(recordId(record, resolved), id));
   if (index === -1) throw new Error(`${resolved.noun} ${id} is not in ${resolved.path}.`);
-  const nextRecords = records.map((record, position) => (position === index ? reviewed : record));
+  const written = resolved.unview ? resolved.unview(reviewed, records[index]) : reviewed;
+  const nextRecords = records.map((record, position) => (position === index ? written : record));
   if (Array.isArray(document)) return nextRecords;
 
   const next = { ...document, [resolved.collectionKey]: nextRecords };

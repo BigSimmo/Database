@@ -28,9 +28,17 @@ function componentSource(file: string): string {
 }
 
 describe("mechanismReviewState", () => {
-  it("reads the shipped corpus as awaiting review", () => {
-    for (const mechanism of formulationContent.mechanisms) {
+  it("reads the shipped corpus as awaiting review unless the tool signed it off", () => {
+    // npm run clinical:review writes reviewStatus "reviewed" with a named reviewer and a
+    // content pin (kept current by tests/clinical-signoff-kinds.test.ts); nothing else may.
+    for (const mechanism of formulationContent.mechanisms as Array<Record<string, unknown>>) {
       const state = mechanismReviewState(mechanism);
+      if (mechanism.reviewStatus === "reviewed") {
+        expect(String(mechanism.reviewedBy ?? "").trim()).toBeTruthy();
+        expect(mechanism.reviewedContentSha256).toMatch(/^[a-f0-9]{64}$/);
+        expect(state.reviewed).toBe(true);
+        continue;
+      }
       expect(state.reviewed).toBe(false);
       expect(state.label).toBe(AWAITING);
       expect(state.detail).toContain("No clinician has signed off");
@@ -48,9 +56,16 @@ describe("mechanismReviewState", () => {
   });
 
   it("recognises the repository's own signed-off value", () => {
-    const state = mechanismReviewState({ reviewStatus: "reviewed" });
+    const state = mechanismReviewState({ reviewStatus: "reviewed", reviewedBy: "Dr A. Example" });
     expect(state.reviewed).toBe(true);
     expect(state.label).toBe(REVIEWED);
+    expect(state.detail).toBe("Reviewed by Dr A. Example.");
+  });
+
+  it("does not honour a mechanism sign-off that names no reviewer", () => {
+    for (const reviewedBy of [undefined, null, "", "   "]) {
+      expect(mechanismReviewState({ reviewStatus: "reviewed", reviewedBy }).reviewed).toBe(false);
+    }
   });
 
   it("fails closed on anything it does not recognise", () => {
@@ -72,11 +87,17 @@ describe("mechanismReviewState", () => {
 });
 
 describe("conceptReviewState", () => {
-  it("reads every shipped concept and guide as awaiting review", () => {
+  it("reads every shipped concept and guide as awaiting review unless the tool signed it off", () => {
     const records = [...formulationConcepts.concepts, ...formulationConcepts.guides];
     expect(records.length).toBeGreaterThan(0);
     for (const record of records) {
       const state = conceptReviewState(record);
+      const review = record.review as Record<string, unknown>;
+      if (review.status === "reviewed") {
+        expect(review.reviewedContentSha256).toMatch(/^[a-f0-9]{64}$/);
+        expect(state.reviewed).toBe(true);
+        continue;
+      }
       expect(state.reviewed).toBe(false);
       expect(state.label).toBe(AWAITING);
     }

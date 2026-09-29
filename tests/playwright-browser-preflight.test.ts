@@ -16,7 +16,6 @@ describe("playwright browser preflight", () => {
     const configuredProjects = [
       playwrightProjectNames.chromium,
       playwrightProjectNames.chromiumMockups,
-      playwrightProjectNames.chromiumCaringContactsSeeded,
       playwrightProjectNames.firefox,
       playwrightProjectNames.webkit,
       playwrightProjectNames.mobileWebkit,

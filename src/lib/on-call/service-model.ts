@@ -9,6 +9,8 @@ export const serviceSections = [
   "orientation",
   "teaching",
   "admin",
+  "playbook",
+  "cover",
 ] as const;
 export const serviceContentKinds = ["operational", "clinical", "legal"] as const;
 export const serviceOrientationPhases = ["before_start", "first_shift", "first_week", "ongoing", "leaving"] as const;
@@ -16,6 +18,29 @@ const uuid = z.string().uuid();
 const name = z.string().trim().min(1).max(160);
 const revision = z.number().int().positive();
 const rotation = z.string().trim().min(1).max(100);
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const serviceCoverGrades = ["intern", "resident", "registrar", "fellow", "consultant", "other"] as const;
+export const serviceStepSchema = z
+  .object({
+    order: z.number().int().positive(),
+    whoToCall: name,
+    when: name,
+    phone: z.string().trim().min(1).max(80).optional(),
+    hours: z.enum(["any", "in-hours", "after-hours"]).optional(),
+    waitMinutes: z.number().int().min(1).max(120).optional(),
+  })
+  .strict();
+export const serviceCoverSchema = z
+  .object({
+    staffName: z.string().trim().min(1).max(80).optional(),
+    grade: z.enum(serviceCoverGrades),
+    team: z.string().trim().min(1).max(80).optional(),
+    window: z
+      .object({ start: clockTime, end: clockTime })
+      .strict()
+      .refine((value) => value.start !== value.end, "Cover start and end must differ."),
+  })
+  .strict();
 
 /** Links confer no document permissions and never invoke a source fetch. */
 export const serviceSourceSchema = z
@@ -51,6 +76,16 @@ export const serviceContentSchema = z
     phone: z.string().trim().max(80).default(""),
     sources: z.array(serviceSourceSchema).max(12),
     orientationPhase: z.enum(serviceOrientationPhases).default("first_shift"),
+    steps: z
+      .array(serviceStepSchema)
+      .min(1)
+      .max(20)
+      .refine(
+        (steps) => new Set(steps.map((step) => step.order)).size === steps.length,
+        "Step orders must be different.",
+      )
+      .optional(),
+    cover: serviceCoverSchema.optional(),
   })
   .strict();
 export type ServiceContent = z.infer<typeof serviceContentSchema>;
@@ -70,9 +105,19 @@ export const serviceActionSchema = z
     z.object({ action: z.literal("site.create"), name }).strict(),
     z
       .object({
+        action: z.literal("site.update"),
+        siteId: uuid,
+        afterHoursStart: clockTime.nullable(),
+        afterHoursEnd: clockTime.nullable(),
+      })
+      .strict(),
+    z.object({ action: z.literal("entry.confirm"), entryId: uuid, publishedRevision: revision }).strict(),
+    z
+      .object({
         action: z.literal("invitation.create"),
         role: z.enum(serviceRoles),
         expiresInDays: z.number().int().min(1).max(7),
+        invitedEmail: z.string().trim().toLowerCase().max(320).pipe(z.email()),
       })
       .strict(),
     z.object({ action: z.literal("invitation.revoke"), invitationId: uuid }).strict(),
@@ -114,7 +159,19 @@ export const serviceActionSchema = z
       .strict(),
   ])
   .superRefine((value, ctx) => {
+    if (
+      value.action === "site.update" &&
+      ((value.afterHoursStart === null) !== (value.afterHoursEnd === null) ||
+        (value.afterHoursStart !== null && value.afterHoursStart === value.afterHoursEnd))
+    )
+      ctx.addIssue({ code: "custom", message: "Set two different times, or clear both.", path: ["afterHoursEnd"] });
     if (value.action !== "entry.save") return;
+    if ((value.section === "playbook" || value.section === "cover") && value.kind === "operational")
+      ctx.addIssue({ code: "custom", message: "Ladders and cover require independent review.", path: ["kind"] });
+    if ((value.section === "playbook") !== (value.steps !== undefined))
+      ctx.addIssue({ code: "custom", message: "Only playbook entries require ladder steps.", path: ["steps"] });
+    if ((value.section === "cover") !== (value.cover !== undefined))
+      ctx.addIssue({ code: "custom", message: "Only cover entries require a role and time window.", path: ["cover"] });
     if (Boolean(value.entryId) !== Boolean(value.expectedRevision))
       ctx.addIssue({ code: "custom", message: "Editing requires the loaded revision.", path: ["expectedRevision"] });
     if (value.kind !== "operational" && value.sources.length === 0)
@@ -126,8 +183,8 @@ export const serviceActionSchema = z
   });
 export type ServiceAction = z.infer<typeof serviceActionSchema>;
 export type ServiceRole = (typeof serviceRoles)[number];
-export type ServiceSite = { id: string; name: string };
-export type ServiceMembership = { role: ServiceRole; clinicalReviewer: boolean };
+export type ServiceSite = { id: string; name: string; afterHoursStart?: string | null; afterHoursEnd?: string | null };
+export type ServiceMembership = { role: ServiceRole; clinicalReviewer: boolean; displayName?: string | null };
 export type ServiceSummary = ServiceMembership & { id: string; name: string; sites: ServiceSite[] };
 export type ServiceEntry = {
   id: string;
@@ -141,6 +198,8 @@ export type ServiceEntry = {
   reviewedAt: string | null;
   reviewComment: string;
   updatedAt: string;
+  publishedAt?: string | null;
+  lastConfirmedAt?: string | null;
 };
 export type ServiceMember = ServiceMembership & { id: string; joinedAt: string };
 export type ServiceInvitation = {
@@ -149,6 +208,8 @@ export type ServiceInvitation = {
   expiresAt: string;
   revokedAt: string | null;
   usedAt: string | null;
+  invitedEmail?: string | null;
+  issuedViaMode?: string | null;
 };
 export type ServiceReport = {
   id: string;

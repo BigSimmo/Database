@@ -21,6 +21,9 @@ describe("PWA manifest and public bootstrap resources", () => {
     });
     // Splash/install canvas uses the brand light background. theme_color stays
     // on viewport.themeColor / meta theme-color so light/dark can update at runtime.
+    expect(appManifest.categories).toEqual(
+      expect.arrayContaining(["medical", "productivity", "utilities", "education"]),
+    );
     expect(appManifest.background_color).toBe(APP_THEME_COLORS.light);
     expect(appManifest).not.toHaveProperty("theme_color");
     expect(appManifest.name).toBeTruthy();
@@ -61,6 +64,12 @@ describe("PWA manifest and public bootstrap resources", () => {
     // home with Medication preselected, not the Medication Start-here surface.
     const medicationShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "Medication");
     expect(medicationShortcut?.url).toBe("/medications?focus=1");
+
+    const onCallShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "On Call");
+    expect(onCallShortcut?.url).toBe("/on-call?focus=1");
+
+    const cmeShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "CME");
+    expect(cmeShortcut?.url).toBe("/cme?focus=1");
   });
 
   it("declares conservative launch and display fallbacks", () => {
@@ -77,13 +86,40 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(appManifest).not.toHaveProperty("protocol_handlers");
   });
 
-  it("ships a script-free, generic offline document with an explicit privacy boundary", () => {
+  it("ships a generic offline document with an explicit privacy boundary and one hash-pinned script", () => {
     const offlineHtml = readFileSync(join(process.cwd(), "public", "offline.html"), "utf8");
+    const nextConfig = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
 
-    expect(offlineHtml).not.toMatch(/<script\b/i);
+    // Exactly one script, inline, with no src: nothing is loaded from anywhere.
+    const scripts = [...offlineHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+    expect(scripts).toHaveLength(1);
+    const [, attributes, body] = scripts[0];
+    expect(attributes.trim()).toBe("");
+    // The offline CSP allows that script by its hash and nothing else runs.
+    const hash = createHash("sha256").update(body).digest("base64");
+    expect(nextConfig).toContain(`script-src 'sha256-${hash}'`);
+    expect(nextConfig).not.toMatch(/source: "\/offline\.html"[\s\S]{0,600}connect-src/);
+    // It reads the On Call copy the app already keeps, and only reads it: no
+    // network, no writes, no markup parsing.
+    expect(body).toContain('"clinical-kb-on-call-entries-cache-v2"');
+    for (const forbidden of [
+      /\bfetch\s*\(/,
+      /XMLHttpRequest/,
+      /sendBeacon/,
+      /\bsetItem\s*\(/,
+      /\bremoveItem\s*\(/,
+      /innerHTML|outerHTML|insertAdjacentHTML|document\.write/,
+      /\beval\s*\(|new Function/,
+      /indexedDB|caches\./,
+    ]) {
+      expect(body, `offline script must not use ${forbidden}`).not.toMatch(forbidden);
+    }
+    expect(body).toMatch(/isPersonal !== true/);
+
     expect(offlineHtml).toMatch(/private clinical documents/i);
     expect(offlineHtml).toMatch(/does not store or\s+replay/i);
     expect(offlineHtml).toMatch(/queries, answers, documents, uploads, signed URLs, or API responses/i);
+    expect(offlineHtml).toMatch(/never your\s+personal entries/i);
   });
 
   it("keeps offline browser chrome and surfaces on the canonical v2 palette", () => {
@@ -155,8 +191,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-09-25-v2",
-      offlineHtmlSha256: "5bda5ea78ece0b2c7829fe3e9a985d932326d00e311b10920bca5d5d97fdce23",
+      cacheVersion: "2026-09-28-v2",
+      offlineHtmlSha256: "d1ac1abdb766f55da039aae73078b49ca727d479efc4acd9e56ab7a3de78f097",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "832c26ec-019d-4e23-b12d-9503982e7c85",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Fiona Stanley Mother and Baby Unit service record contradicts itself: 'Not emergency/crisis service' but tagged 'Crisis / urgent'",
+    "detail": "Record: data/services-snapshot.json, services[] id S115, 'Mother and Baby Mental Health Unit (Fiona Stanley Hospital)' (slug mother-and-baby-mental-health-unit-fiona-stanley-hospital). Its exclusions and exclusion_rejection_criteria fields both say 'Not emergency/crisis service', but tags.acuity_flags lists crisis_high (with high, moderate, supportive), and tags.age_groups lists older_adult and youth (with adult, mixed) for a mother-and-baby unit. src/lib/service-catalog-mapper.ts turns crisis_high into the red 'Crisis / urgent' status chip, the services 'Crisis / urgent' acuity filter (src/lib/service-facets.ts) matches it, and the flag is flattened into the record's search text, so services search, universal search and Clinical Ask services evidence match it on 'crisis' queries (checked offline on main 2026-09-25: it ranks #9 for 'psychosis crisis' and 'perinatal crisis', and #1 for 'mother baby crisis', where main's Best-fit check in src/lib/service-best-fit.ts passes because the flattened text carries every query word, so it can be badged Best fit on a crisis query). Urgent routing (src/lib/service-urgent-routing.ts) does not pin it: its matchers do not read crisis_high. The same record is copied into the registry baseline in supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql and supabase/schema.sql, and so may be in the live registry. Owner (Josh) to decide the correct acuity and age groups and correct the source record; never edit the applied migration. No code change.",
+    "source": "PR C review 2026-09-25 (rebuilt on main after PR #3019)",
+    "issueUlid": "01M3CT3N704WSEG4Y1KADTB1V2"
+  }
+}

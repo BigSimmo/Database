@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "de975cc7-5ee6-42a0-aa01-e7358e3732f8",
+  "createdOn": "2026-09-26",
+  "action": "done",
+  "payload": {
+    "id": "#CNCAFV",
+    "outcome": "Resolved 2026-09-26 in two parts. PR #3019: the Best fit badge shows only when every non-stopword query token matches the record. PR #3040 (merged 103513f2d): src/lib/service-ranker.ts now drops services whose only match is a generic word (disorder, mental health, clinic, service) once any service matches the specific part of the query (distinctive term or its condition family, specific synonym, typo match, whole phrase or contact number). Measured offline: 'panic disorder' 24 -> 4 results (the anxiety services, no eating-disorder record), 'eating disorder' 25 -> 12, 'youth mental health' 207 -> 94; generic-only queries and the typo 'anxeity' unchanged; urgent routes stay pinned. src/lib/catalog-search.ts was not changed. Pinned by tests/service-ranker-coverage.test.ts.",
+    "baseRowFingerprint": "baa235d6670c893bfe66d8a76d5266756adedf817b2d10f236d8f450b10cb8cf"
+  }
+}

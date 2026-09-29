@@ -61,6 +61,13 @@ export type DifferentialCuratedEntry = {
    * Only set this with a `contentNote` saying why, which a test enforces.
    */
   generatedBodyUnreliable?: true;
+  /**
+   * The clinician sign-off, attached server-side from
+   * `data/differential-curated-review.json` by `getDifferentialDetailContext`.
+   * Never written into an entry below: the sign-off pins these entries, so an entry
+   * cannot carry its own attestation.
+   */
+  review?: { reviewedBy: string; reviewedAt: string };
 };
 
 export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {

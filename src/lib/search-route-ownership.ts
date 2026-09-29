@@ -19,6 +19,12 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "sources",
   "tools",
   "calculators",
+  "on-call",
+  "cme",
+  "psychiatry",
+  "my-work",
+  "roster",
+  "first-nations",
 ]);
 
 /**
@@ -50,6 +56,19 @@ export const standaloneModeHomePaths = [
   // a body, and the mode declares no search surface, so without it the mode pill
   // would retarget a composer CME has nowhere to send.
   "/cme",
+  // Psychiatry's dashboard of section links, for the same reason again.
+  "/psychiatry",
+  // Admin's Today page, for the same reason again.
+  "/admin",
+  // Roster's dashboard (Today), for the same reason: it declares no search
+  // surface, so without it the mode pill would retarget a composer Roster has
+  // nowhere to send.
+  "/roster",
+  // First Nations' home, for the same reason again: no results surface, so
+  // without it the mode pill would retarget a composer this mode never reads.
+  "/first-nations",
+  // Teaching's dashboard, for the same reason again.
+  "/teaching",
 ] as const;
 
 /**
@@ -101,6 +120,26 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // the reader on a page that ignores it.
     case "cme":
       return "/cme";
+    // The Psychiatry dashboard at `/psychiatry`, on the same reasoning: it is a
+    // page of links to the sections it gathers, with no results surface.
+    case "psychiatry":
+      return "/psychiatry";
+    // Admin's Today page has no search results surface.
+    case "my-work":
+      return "/admin";
+    // The Roster dashboard (Today) at `/roster`, on the same reasoning as On
+    // Call above: no results surface, so a retargeted composer would accept a
+    // query and land the reader on a page that ignores it.
+    case "roster":
+      return "/roster";
+    // The First Nations dashboard at `/first-nations`, on the same reasoning:
+    // no results surface, so a retargeted composer would accept a query and
+    // land the reader on a page that ignores it.
+    case "first-nations":
+      return "/first-nations";
+    // The Teaching dashboard at `/teaching`, likewise with no results surface.
+    case "teaching":
+      return "/teaching";
     default:
       return null;
   }
@@ -165,6 +204,11 @@ const alwaysStandaloneShellPathPrefixes = [
   "/tools",
   "/on-call",
   "/cme",
+  "/psychiatry",
+  "/admin",
+  "/roster",
+  "/first-nations",
+  "/teaching",
 ] as const;
 
 /**

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "239e7762-2633-43a1-a36c-b1d8e7dbb2b8",
+  "createdOn": "2026-09-26",
+  "action": "update",
+  "payload": {
+    "id": "#GCB0DV",
+    "detail": "OWNER APPROVED 2026-09-26 (Josh, 'all as recommended'): one run of 'node scripts/probe-answer-timing.mjs --allow-provider' (a few cents of OpenAI credit). It cannot run from a Claude cloud session: the egress proxy refuses psychiatry.tools (CONNECT 403, checked 2026-09-26), so it must run from the owner's computer in Perth, which is also the measurement that matters. If generation dominates, the work is #231 and #100 Phase 2; if first byte dominates, it is delivery and #016. PRIOR DETAIL: owner reported 2026-09-18 15-45 s to something readable on every question. PRs #2849/#2855 fixed only the catalogue read path, not /api/answer. Production is not stale; catalogue latency is fixed. Last figures on file: retrieval ~1 s fast / ~6.7 s hybrid, generation ~19 s (#231); delivery is structurally uncached (layout headers()/cookies(), page connection(), no CDN, sw.js network-only navigations); app declared in Railway Singapore with Supabase in Sydney (145-340 ms round trip), live region unverified. Do not raise answerRouteBudgetMs and do not weaken a clinical gate.",
+    "baseRowFingerprint": "adb893a6344a109d173151eb54ed36be1e5b04fc012d2908e0d76726bb19c13a"
+  }
+}

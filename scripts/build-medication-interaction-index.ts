@@ -239,6 +239,14 @@ function main(): void {
         const termIds = new Set<string>();
         const requiredGroups: string[][] = [];
         let sawClassifiableTerm = false;
+        // A lexicon surface that is the source drug's own name (moclobemide is
+        // both a catalogue drug and a surface of the MAOI class term) is the row
+        // talking about itself, not naming a counterparty. Matching it would
+        // turn moclobemide's "Cimetidine (doubles moclobemide levels)" row into
+        // a class-wide MAOI interaction. Other drugs' rows still expand it.
+        const ownSurfaces = new Set(
+          drugSurfaces.filter(({ slug }) => slug === record.slug).map(({ surface }) => surface.toLowerCase()),
+        );
 
         for (const segment of segments) {
           const segmentTermIds = new Set<string>();
@@ -247,6 +255,7 @@ function main(): void {
           for (const { surface, term } of LEXICON_SURFACES_BY_LENGTH) {
             if (!mentions(segment, surface)) continue;
             if (term.sourceDenySlugs?.includes(record.slug)) continue;
+            if (ownSurfaces.has(surface.toLowerCase())) continue;
             if (consumed.some((taken) => taken.includes(surface))) continue;
             consumed.push(surface);
             segmentTermIds.add(term.id);

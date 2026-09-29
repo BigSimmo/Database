@@ -28,6 +28,11 @@ export const pinnableSidebarModeIds = [
   "sources",
   "on-call",
   "cme",
+  "teaching",
+  "psychiatry",
+  "my-work",
+  "roster",
+  "first-nations",
 ] as const satisfies readonly AppModeId[];
 
 const changeEvent = "clinical-kb-sidebar-pins-change";

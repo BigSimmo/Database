@@ -8,7 +8,12 @@ import { createSearchRequestDeadline } from "@/components/clinical-dashboard/sea
 import { ModeHomeMain } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsSearchRequestBody } from "@/lib/differentials-search-request";
-import { readSearchNavigationContext } from "@/lib/search-navigation-context";
+import {
+  appendSearchNavigationContext,
+  readSearchNavigationContext,
+  searchNavigationContextSignature,
+} from "@/lib/search-navigation-context";
+import { useAuthSession } from "@/lib/supabase/client";
 import type { DocumentMatch } from "@/lib/types";
 
 type DifferentialsHomePageProps = {
@@ -20,14 +25,29 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamString = searchParams.toString();
+  const { authorizationHeader, authEpoch, session } = useAuthSession();
+  const authIdentity = `${authEpoch}:${session?.user.id ?? "anonymous"}`;
   const routedSearchContext = useMemo(
     () => readSearchNavigationContext(new URLSearchParams(searchParamString)),
     [searchParamString],
   );
+  const { queryMode, scopeFilters } = routedSearchContext;
+  const contextSignature = useMemo(() => searchNavigationContextSignature(routedSearchContext), [routedSearchContext]);
+  const navigationParams = useMemo(
+    () => appendSearchNavigationContext(new URLSearchParams(), routedSearchContext),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contextSignature],
+  );
+
   const trimmedQuery = query.trim();
   const [loading, setLoading] = useState(false);
-  const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
-  const [evidenceQuery, setEvidenceQuery] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<{ identity: string; matches: DocumentMatch[]; query: string | null }>(
+    () => ({ identity: authIdentity, matches: [], query: null }),
+  );
+  // The previous owner's evidence is hidden on the very render that changes auth identity.
+  const documentMatches = evidence.identity === authIdentity ? evidence.matches : [];
+  const evidenceQuery = evidence.identity === authIdentity ? evidence.query : null;
+  const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const searchRequestSeqRef = useRef(0);
   const searchAbortRef = useRef<AbortController | null>(null);
 
@@ -38,7 +58,8 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       const requestId = ++searchRequestSeqRef.current;
 
       setLoading(true);
-      setEvidenceQuery(null);
+      setEvidence({ identity: authIdentity, matches: [], query: null });
+      setSetupWarning(null);
       // This page had only a bare AbortController, which fires on unmount or supersede and never
       // on a stuck request. `/api/search` has no server-side deadline, so a request that never
       // settled left `finally` unreached and this page spinning on "Searching…" indefinitely —
@@ -48,36 +69,47 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       try {
         const response = await fetch("/api/search", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(differentialsSearchRequestBody(new URLSearchParams(searchParamString), normalized)),
+          headers: {
+            "Content-Type": "application/json",
+            ...authorizationHeader,
+          },
+          body: JSON.stringify(differentialsSearchRequestBody(navigationParams, normalized)),
           signal: deadline.signal,
         });
 
         if (requestId !== searchRequestSeqRef.current) return;
         if (!response.ok) {
-          setDocumentMatches([]);
+          setEvidence({ identity: authIdentity, matches: [], query: null });
+          if (typeof navigator !== "undefined" && !navigator.onLine) {
+            setSetupWarning(
+              "You are offline. Showing reviewed catalogue results; source search requires a connection.",
+            );
+          }
           return;
         }
 
         const payload = (await response.json()) as { documentMatches?: DocumentMatch[] };
         if (requestId !== searchRequestSeqRef.current) return;
-        setEvidenceQuery(normalized);
-        setDocumentMatches(payload.documentMatches ?? []);
+        setEvidence({ identity: authIdentity, matches: payload.documentMatches ?? [], query: normalized });
       } catch (error) {
         // A timeout is OUR abort, not the caller's, so it must not be swallowed as one: it clears
         // the spinner and empties the evidence list rather than leaving stale matches on screen.
-        // It is not yet distinguishable from "no sources found" in this page's UI; giving it its
-        // own message needs a prop through DifferentialsHome and belongs in deliberate UI work.
         if (!deadline.timedOut && (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")))
           return;
         if (requestId !== searchRequestSeqRef.current) return;
-        setDocumentMatches([]);
+        setEvidence({ identity: authIdentity, matches: [], query: null });
+        const isOffline =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          (error instanceof TypeError && error.message.includes("fetch"));
+        if (isOffline) {
+          setSetupWarning("You are offline. Showing reviewed catalogue results; source search requires a connection.");
+        }
       } finally {
         deadline.cancel();
         if (requestId === searchRequestSeqRef.current) setLoading(false);
       }
     },
-    [searchParamString],
+    [authIdentity, authorizationHeader, navigationParams],
   );
 
   useEffect(() => {
@@ -93,19 +125,30 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
     };
   }, [autoRunSearch, trimmedQuery, runSearch]);
 
+  useEffect(() => () => searchAbortRef.current?.abort(), []);
+
   const navigateToSearch = useCallback(
     (nextQuery: string) => {
+      const normalized = nextQuery.trim();
+      if (!normalized) return;
+      if (normalized.toLowerCase() === trimmedQuery.toLowerCase() && autoRunSearch) {
+        searchAbortRef.current?.abort();
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        void runSearch(normalized, controller.signal);
+        return;
+      }
       router.push(
         appModeHomeHref("differentials", {
-          query: nextQuery,
+          query: normalized,
           run: true,
           focus: true,
-          queryMode: routedSearchContext.queryMode,
-          scopeFilters: routedSearchContext.scopeFilters,
+          queryMode,
+          scopeFilters,
         }),
       );
     },
-    [router, routedSearchContext.queryMode, routedSearchContext.scopeFilters],
+    [autoRunSearch, queryMode, router, runSearch, scopeFilters, trimmedQuery],
   );
 
   // Submitted searches mount the tall SearchResultsView. Results must top-align
@@ -120,6 +163,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         searchSubmitted={autoRunSearch}
         documentMatches={documentMatches}
         evidenceQuery={evidenceQuery}
+        setupWarning={setupWarning}
         onRunSearch={navigateToSearch}
       />
     </ModeHomeMain>

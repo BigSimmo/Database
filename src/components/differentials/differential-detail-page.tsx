@@ -49,7 +49,7 @@ import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cleanDifferentialItem,
   curatedContentNote,
-  curatedProvenanceLabel,
+  curatedProvenanceFor,
   doNowStepsAreCurated,
   detailTabCounts,
   differentialGroupLabel,
@@ -606,18 +606,32 @@ function PhoneDoNow({ record, curated }: { record: DifferentialRecord; curated: 
           {differentialGroupScopeNote(record)}
         </p>
       )}
-      <ol className="mt-2 grid gap-2">
-        {steps.map((step, index) => (
-          <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
-            <span className="nums mt-0.5 grid h-5 w-5 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xs font-extrabold text-[color:var(--clinical-accent)]">
-              {index + 1}
-            </span>
-            <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
-          </li>
-        ))}
-      </ol>
       {authored ? (
-        <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceLabel}</p>
+        <ol className="mt-2 grid gap-2">
+          {steps.map((step, index) => (
+            <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+              <span className="nums mt-0.5 grid h-5 w-5 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xs font-extrabold text-[color:var(--clinical-accent)]">
+                {index + 1}
+              </span>
+              <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <ul className="mt-2 grid gap-2">
+          {steps.map((step) => (
+            <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+              <span
+                className="mt-2 grid h-2 w-2 place-self-center rounded-full bg-[color:var(--clinical-accent)]"
+                aria-hidden
+              />
+              <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {authored ? (
+        <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceFor(curated)}</p>
       ) : null}
     </section>
   );
@@ -922,7 +936,7 @@ function FooterStatus({
           className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-4 py-3 text-xs leading-5 text-[color:var(--text-muted)]"
         >
           This record carries locally authored content alongside the exported source material. It is marked &ldquo;
-          {curatedProvenanceLabel}&rdquo; wherever it appears, and is not an extract from an indexed source.
+          {curatedProvenanceFor(curated)}&rdquo; wherever it appears, and is not an extract from an indexed source.
         </p>
       ) : null}
     </div>

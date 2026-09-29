@@ -41,7 +41,6 @@
     "scratch/**",
     "supabase/functions/**",
     "worktrees/**",
-    "scripts/archive/**",
-    "docs/ward-flow/control/evidence/**"
+    "scripts/archive/**"
   ]
 }

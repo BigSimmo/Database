@@ -63,7 +63,8 @@ const CLINICAL_STATUS_CLASS =
  * `min-h-11` — that is the known `ui-smoke` flake the brief calls out by
  * name, and it is 44px, one token short of the floor this mode holds to.
  */
-const TAP_TARGET_CLASS = /\b(?:min-h-(?:12|tap)|size-(?:12|tap))\b/;
+// min-h-13 is the kit's two-line grouped-list row (52 px), above the 48 px floor.
+const TAP_TARGET_CLASS = /\b(?:min-h-(?:12|13|tap)|size-(?:12|tap))\b/;
 
 function hasTapTarget(className: string): boolean {
   if (TAP_TARGET_CLASS.test(className)) return true;
@@ -231,7 +232,7 @@ describe("CME visual contract", () => {
   describe("the pace projection", () => {
     it("is stated as a sentence tied to the year's end date, once the rate means something", () => {
       render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={DEMO_CME_INSTANT} />);
-      expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent(/At this rate, .* by 31 December/);
+      expect(screen.getByTestId("cme-pace-sentence")).toHaveTextContent(/About 1\.2 h a week reaches 50 h by 31 Dec/);
     });
 
     it("says nothing at all — no sentence, no mark — before 28 days have elapsed", () => {

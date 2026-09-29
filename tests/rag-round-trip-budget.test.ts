@@ -129,6 +129,9 @@ async function answerWithCountedClient(query: string, textSources: SearchResult[
 }
 
 afterEach(() => {
+  // The rag_aliases cache lives on globalThis (shared with the startup warm), so resetting
+  // modules no longer empties it; clear it so each scenario counts its own alias read.
+  (globalThis as { [key: symbol]: Map<string, unknown> | undefined })[Symbol.for("psychsift.ragAliasCache")]?.clear();
   vi.restoreAllMocks();
   vi.resetModules();
   vi.unstubAllEnvs();
@@ -263,13 +266,13 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
  * not derived from first principles — it is what the path does today. See the
  * file header before changing it.
  *
- * The 13 break down as:
+ * The 12 break down as:
  *
  *   from:rag_aliases                        1
  *   rpc:match_document_chunks_text_v2       3
  *   rpc:get_related_document_metadata_v2    2
  *   from:document_index_quality             1
- *   from:document_images                    3
+ *   from:document_images                    2
  *   rpc:match_document_table_facts_text_v2  3
  *
  * It was 14 until the counter moved from construction to execution (Codex P2,
@@ -285,5 +288,9 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
  * repeated across branches while `rag.ts` already parallelises three RPCs
  * elsewhere. This budget does not endorse the count; it stops it growing
  * unnoticed and gives `#101` a number to improve against.
+ *
+ * 13 -> 12 on 2026-09-26: a later page-image hydration in the same search now reuses the
+ * rows an earlier, un-truncated read already returned for the same pages (per-search
+ * cache in `attachPageVisualEvidence`), so `document_images` went from 3 reads to 2.
  */
-const OFFLINE_SINGLE_SOURCE_ROUND_TRIPS = 13;
+const OFFLINE_SINGLE_SOURCE_ROUND_TRIPS = 12;
