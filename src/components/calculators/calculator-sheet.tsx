@@ -76,6 +76,11 @@ export function CalculatorSheet({
     if (sheetId && dialogRef.current) {
       updateSheetRoot(sheetId, dialogRef.current);
     }
+    return () => {
+      if (sheetId) {
+        updateSheetRoot(sheetId, null);
+      }
+    };
   }, [sheetId]);
 
   // Save the opener, move focus into the dialog, and restore on close.
