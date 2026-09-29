@@ -42,10 +42,13 @@ export function FavouriteActionsSheet({
   onCopyCitation,
   onMove,
   onRemove,
+  returnFocusTarget,
 }: {
   item: FavouriteItem;
   open: boolean;
   onClose: () => void;
+  /** The control focus goes back to when the sheet closes, such as the row's actions button. */
+  returnFocusTarget?: () => HTMLElement | null;
   canMutate: boolean;
   onOpen: (item: FavouriteItem) => void;
   onTogglePin: (item: FavouriteItem) => void;
@@ -66,6 +69,7 @@ export function FavouriteActionsSheet({
       headerLeading={<FavouriteTypeTile item={item} size="lg" />}
       description={[item.type, item.set, isSourceBacked(item) ? "Source-backed" : ""].filter(Boolean).join(" · ")}
       closeLabel="Close actions"
+      resolveReturnFocusTarget={returnFocusTarget}
       testId="favourite-actions-sheet"
       bodyClassName="p-2 sm:p-3"
     >
@@ -158,9 +162,11 @@ export function FavouriteMoveSheet({
   onClose,
   onPick,
   onNewSet,
+  returnFocusTarget,
 }: {
   items: FavouriteItem[];
   open: boolean;
+  returnFocusTarget?: () => HTMLElement | null;
   sets: AccountFavouriteSet[];
   canCreateSet: boolean;
   onClose: () => void;
@@ -171,7 +177,14 @@ export function FavouriteMoveSheet({
   const currentSetId = single ? (single.setId ?? null) : undefined;
   const title = single ? `Move ${single.title}` : `Move ${items.length} favourites`;
   return (
-    <Sheet open={open} onClose={onClose} title={title} closeLabel="Close move" bodyClassName="p-2 sm:p-3">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={title}
+      closeLabel="Close move"
+      resolveReturnFocusTarget={returnFocusTarget}
+      bodyClassName="p-2 sm:p-3"
+    >
       <ChoiceList>
         {sets.map((set) => (
           <button key={set.id} type="button" className={actionRow} onClick={() => onPick(set.id)}>
@@ -218,9 +231,11 @@ export function FavouriteSetNameSheet({
   movingCount,
   onClose,
   onChoose,
+  returnFocusTarget,
 }: {
   mode: "create" | "rename";
   open: boolean;
+  returnFocusTarget?: () => HTMLElement | null;
   availableNames: readonly FavouriteSetName[];
   /** Favourites that will move into a newly created set. */
   movingCount: number;
@@ -234,6 +249,7 @@ export function FavouriteSetNameSheet({
       title={mode === "create" ? "New set" : "Rename set"}
       description={setNamesNote}
       closeLabel={mode === "create" ? "Close new set" : "Close rename"}
+      resolveReturnFocusTarget={returnFocusTarget}
       bodyClassName="p-2 sm:p-3"
     >
       {availableNames.length === 0 ? (

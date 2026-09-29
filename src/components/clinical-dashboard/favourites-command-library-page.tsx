@@ -18,7 +18,7 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -704,7 +704,12 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [mode, setMode] = useState<PageMode>("browse");
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<FavouriteSheetState>(null);
+  // Sheets stay mounted and close through `open`, so the shared Sheet can hand
+  // focus back to the control that opened it (it skips that on unmount).
+  const [sheetContent, setSheetContent] = useState<FavouriteSheetState>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetOriginRef = useRef<HTMLElement | null>(null);
+  const sheet = sheetOpen ? sheetContent : null;
   const [confirmRemoveIds, setConfirmRemoveIds] = useState<string[] | null>(null);
   const [reorderPending, setReorderPending] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -780,6 +785,21 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     setMode("browse");
     setSelectedIds(new Set());
   }
+
+  function openSheet(next: Exclude<FavouriteSheetState, null>) {
+    const active = document.activeElement;
+    // Remember the row control, not a button inside a sheet being replaced.
+    if (active instanceof HTMLElement && !active.closest('[role="dialog"]')) sheetOriginRef.current = active;
+    setSheetContent(next);
+    setSheetOpen(true);
+  }
+
+  function closeSheet() {
+    setSheetOpen(false);
+  }
+
+  // Stable on purpose: the Sheet reads this in its open effect's dependencies.
+  const returnFocusToOrigin = useCallback(() => sheetOriginRef.current, []);
 
   function handleOpen(item: FavouriteItem) {
     recordFavouriteOpened(item.id);
@@ -918,7 +938,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   async function chooseSetName(name: FavouriteSetName) {
     if (!accountData) return;
     const current = sheet;
-    setSheet(null);
+    closeSheet();
     if (current?.kind === "rename-set") {
       const renamed = await accountData.renameFavouriteSet(current.set.id, name);
       if (renamed) {
@@ -955,9 +975,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       handleOpen(item);
       setSelectedItemId(item.id);
     },
-    onShowActions: (item: FavouriteItem) => setSheet({ kind: "actions", item }),
+    onShowActions: (item: FavouriteItem) => openSheet({ kind: "actions", item }),
     onTogglePin: (item: FavouriteItem) => void togglePin([item]),
-    onMove: (item: FavouriteItem) => setSheet({ kind: "move", items: [item] }),
+    onMove: (item: FavouriteItem) => openSheet({ kind: "move", items: [item] }),
     onRemove: (item: FavouriteItem) => removeItems([item]),
     onToggleSelected: (item: FavouriteItem) =>
       setSelectedIds((current) => {
@@ -1232,7 +1252,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                   if (mode === "reorder") setMode("browse");
                   setOpenSwipeId(null);
                 }}
-                onNewSet={canCreateSet ? () => setSheet({ kind: "new-set", items: [] }) : undefined}
+                onNewSet={canCreateSet ? () => openSheet({ kind: "new-set", items: [] }) : undefined}
               />
             ) : null}
 
@@ -1286,7 +1306,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 items={quickLaunch}
                 hasPinnableItems={mutableCount > 0}
                 onOpen={handleOpen}
-                onShowActions={(item) => setSheet({ kind: "actions", item })}
+                onShowActions={(item) => openSheet({ kind: "actions", item })}
               />
             ) : null}
 
@@ -1305,7 +1325,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 }
                 onRename={
                   accountSetForChip && availableSetNames.length > 0
-                    ? () => setSheet({ kind: "rename-set", set: accountSetForChip })
+                    ? () => openSheet({ kind: "rename-set", set: accountSetForChip })
                     : undefined
                 }
               />
@@ -1409,48 +1429,51 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
           count={selectedTargets.length}
           onDone={leaveSpecialMode}
           onPin={() => void togglePin(selectedTargets)}
-          onMove={() => setSheet({ kind: "move", items: selectedTargets })}
+          onMove={() => openSheet({ kind: "move", items: selectedTargets })}
           onRemove={() => setConfirmRemoveIds(selectedTargets.map((item) => item.id))}
         />
       ) : null}
 
-      {sheet?.kind === "actions" ? (
+      {sheetContent?.kind === "actions" ? (
         <FavouriteActionsSheet
-          item={libraryItems.find((item) => item.id === sheet.item.id) ?? sheet.item}
-          open
-          onClose={() => setSheet(null)}
-          canMutate={canMutate(sheet.item)}
+          item={libraryItems.find((item) => item.id === sheetContent.item.id) ?? sheetContent.item}
+          open={sheetOpen}
+          returnFocusTarget={returnFocusToOrigin}
+          onClose={() => closeSheet()}
+          canMutate={canMutate(sheetContent.item)}
           onOpen={handleOpen}
           onTogglePin={(item) => void togglePin([item])}
           onCopyCitation={copyFavouriteCitation}
-          onMove={(item) => setSheet({ kind: "move", items: [item] })}
+          onMove={(item) => openSheet({ kind: "move", items: [item] })}
           onRemove={(item) => removeItems([item])}
         />
       ) : null}
-      {sheet?.kind === "move" ? (
+      {sheetContent?.kind === "move" ? (
         <FavouriteMoveSheet
-          items={sheet.items}
-          open
+          items={sheetContent.items}
+          open={sheetOpen}
+          returnFocusTarget={returnFocusToOrigin}
           sets={accountSets}
           canCreateSet={canCreateSet}
-          onClose={() => setSheet(null)}
+          onClose={() => closeSheet()}
           onPick={(setId) => {
-            const targets = sheet.items;
-            setSheet(null);
+            const targets = sheetContent.items;
+            closeSheet();
             void moveItems(targets, setId).then(() => {
               if (targets.length > 1) leaveSpecialMode();
             });
           }}
-          onNewSet={() => setSheet({ kind: "new-set", items: sheet.items })}
+          onNewSet={() => openSheet({ kind: "new-set", items: sheetContent.items })}
         />
       ) : null}
-      {sheet?.kind === "new-set" || sheet?.kind === "rename-set" ? (
+      {sheetContent?.kind === "new-set" || sheetContent?.kind === "rename-set" ? (
         <FavouriteSetNameSheet
-          mode={sheet.kind === "new-set" ? "create" : "rename"}
-          open
+          mode={sheetContent.kind === "new-set" ? "create" : "rename"}
+          open={sheetOpen}
+          returnFocusTarget={returnFocusToOrigin}
           availableNames={availableSetNames}
-          movingCount={sheet.kind === "new-set" ? sheet.items.length : 0}
-          onClose={() => setSheet(null)}
+          movingCount={sheetContent.kind === "new-set" ? sheetContent.items.length : 0}
+          onClose={() => closeSheet()}
           onChoose={(name) => void chooseSetName(name)}
         />
       ) : null}
