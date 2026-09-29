@@ -18,7 +18,7 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -68,7 +68,7 @@ import {
   isSourceBacked,
   matchesFavouriteSearch,
   pickContinueItem,
-  quickLaunchHasRoom,
+  QUICK_LAUNCH_LIMIT,
   quickLaunchItems,
   UNSORTED_SET_NAME,
   type FavouriteItem,
@@ -95,6 +95,9 @@ import { useAuthSession } from "@/lib/supabase/client";
 export type { FavouriteItem } from "@/components/favourites/favourites-view-model";
 
 type PageMode = "browse" | "select" | "reorder";
+
+// Long enough for a keyboard or screen-reader user to reach Undo in the toast.
+const UNDO_TOAST_MS = 10_000;
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -233,7 +236,9 @@ function toCommandItem(
             ? "therapy"
             : undefined;
   const contentKey = contentType ? item.id.slice(item.id.indexOf(":") + 1) : undefined;
-  const metadata = contentType && contentKey ? favouriteMetadata.get(`${contentType}:${contentKey}`) : undefined;
+  // An example must never borrow a real saved item's set, pin or last-opened time.
+  const metadata =
+    !example && contentType && contentKey ? favouriteMetadata.get(`${contentType}:${contentKey}`) : undefined;
   const persistedOpened = parseTimestamp(metadata?.lastOpenedAt);
   const localOpened = lastOpenedMap[item.id] ?? null;
   const recordedOpened =
@@ -608,6 +613,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       },
     [toastApi],
   );
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
   const hydrated = useSyncExternalStore(
     subscribeNoop,
     () => true,
@@ -626,6 +634,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     demoMode,
   });
   const authSettled = auth.status !== "loading";
+  const accountIdentity = auth.status === "authenticated" ? (auth.session?.user?.id ?? "signed-in") : "signed-out";
   const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
   const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const {
@@ -668,9 +677,78 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   // Remove is held back until its Undo message closes, so a removed row hides
   // here at once while the account still holds it.
   const [pendingRemovalIds, setPendingRemovalIds] = useState<ReadonlySet<string>>(() => new Set());
+  const pendingRemovalsRef = useRef(new Map<string, { items: FavouriteItem[]; toastId: string | null }>());
+  const removalCounterRef = useRef(0);
+  const accountDataRef = useRef(accountData);
+  const toastRef = useRef<ToastApi | null>(null);
+  useEffect(() => {
+    accountDataRef.current = accountData;
+  }, [accountData]);
+
+  // Settles one held-back removal exactly once: `cancel` (Undo, or the account
+  // changed) keeps the favourite; `commit` deletes it through the account that
+  // is current now. Refs only, so it is safe from effects and stale closures.
+  const settleRemoval = useCallback((key: string, outcome: "commit" | "cancel") => {
+    const entry = pendingRemovalsRef.current.get(key);
+    if (!entry) return;
+    pendingRemovalsRef.current.delete(key);
+    const ids = entry.items.map((item) => item.id);
+    const release = () => setPendingRemovalIds((current) => new Set([...current].filter((id) => !ids.includes(id))));
+    const account = accountDataRef.current;
+    if (outcome === "cancel" || !account) {
+      release();
+      return;
+    }
+    void Promise.all(
+      entry.items.map((item) =>
+        item.contentType && item.contentKey
+          ? account.setFavourite(item.contentType, item.contentKey, false).catch(() => false)
+          : Promise.resolve(false),
+      ),
+    )
+      .then((results) => {
+        const failed = results.filter((removed) => !removed).length;
+        if (failed > 0) {
+          toastRef.current?.push({
+            tone: "danger",
+            title: failed === 1 ? "1 favourite could not be removed" : `${failed} favourites could not be removed`,
+            body: "It is still saved. Check your connection and try again.",
+          });
+        }
+      })
+      .finally(release);
+  }, []);
+
+  // Leaving the page, or closing the tab, commits what is waiting: the message
+  // said it was removed, so it must not quietly reappear on the next visit.
+  useEffect(() => {
+    const flush = () => {
+      for (const [key, entry] of [...pendingRemovalsRef.current]) {
+        settleRemoval(key, "commit");
+        if (entry.toastId) toastRef.current?.dismiss(entry.toastId);
+      }
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [settleRemoval]);
   const libraryItems = useMemo(
     () => items.filter((item) => !pendingRemovalIds.has(item.id)),
     [items, pendingRemovalIds],
+  );
+
+  // A different account (or signing out) must never inherit this account's
+  // pending removals: keep the favourites and drop the messages.
+  useEffect(
+    () => () => {
+      for (const [key, entry] of [...pendingRemovalsRef.current]) {
+        settleRemoval(key, "cancel");
+        if (entry.toastId) toastRef.current?.dismiss(entry.toastId);
+      }
+    },
+    [accountIdentity, settleRemoval],
   );
 
   // Demo prototypes live outside the hook. If they are the only items while a
@@ -753,6 +831,13 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const groups = groupForView(filteredItems, view, now);
   const quickLaunch = quickLaunchItems(libraryItems);
   const continueItem = pickContinueItem(libraryItems);
+  const listAnnouncementKey = `${[...effectiveSelectedSets].sort().join("|")}::${view}`;
+  const lastAnnouncementKeyRef = useRef(listAnnouncementKey);
+  useEffect(() => {
+    if (lastAnnouncementKeyRef.current === listAnnouncementKey) return;
+    lastAnnouncementKeyRef.current = listAnnouncementKey;
+    announce(`Showing ${filteredItems.length} ${filteredItems.length === 1 ? "favourite" : "favourites"}.`);
+  }, [listAnnouncementKey, filteredItems.length]);
   const showLaunchpad = !searching && activeFilterCount === 0 && effectiveMode === "browse";
 
   const canMutate = (item: FavouriteItem) =>
@@ -766,8 +851,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     : 0;
 
   const selectedItem = selectedItemId
-    ? (items.find((item) => item.id === selectedItemId) ??
-      (selectedItemSnapshot?.id === selectedItemId ? selectedItemSnapshot : null))
+    ? (libraryItems.find((item) => item.id === selectedItemId) ??
+      (selectedItemSnapshot?.id === selectedItemId && !pendingRemovalIds.has(selectedItemId)
+        ? selectedItemSnapshot
+        : null))
     : null;
 
   function clearSearch() {
@@ -788,8 +875,14 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
   function openSheet(next: Exclude<FavouriteSheetState, null>) {
     const active = document.activeElement;
-    // Remember the row control, not a button inside a sheet being replaced.
-    if (active instanceof HTMLElement && !active.closest('[role="dialog"]')) sheetOriginRef.current = active;
+    // Remember the row control, not a button inside a sheet being replaced. A
+    // swipe-tray button is hidden behind the row once it closes, so hand focus
+    // back to that row's visible actions button instead.
+    if (active instanceof HTMLElement && !active.closest('[role="dialog"]')) {
+      sheetOriginRef.current = active.closest("[data-swipe-tray]")
+        ? (active.closest("li")?.querySelector<HTMLElement>("[data-row-actions]") ?? active)
+        : active;
+    }
     setSheetContent(next);
     setSheetOpen(true);
   }
@@ -799,18 +892,18 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   }
 
   // Stable on purpose: the Sheet reads this in its open effect's dependencies.
-  const returnFocusToOrigin = useCallback(() => sheetOriginRef.current, []);
+  // After Remove the origin row is gone, so fall back to the page heading.
+  const returnFocusToOrigin = useCallback(
+    () =>
+      sheetOriginRef.current?.isConnected ? sheetOriginRef.current : document.getElementById("favourites-page-heading"),
+    [],
+  );
 
   function handleOpen(item: FavouriteItem) {
     recordFavouriteOpened(item.id);
-    if (item.contentType && item.contentKey) {
+    if (!item.example && item.contentType && item.contentKey) {
       void accountData?.recordFavouriteOpen(item.contentType, item.contentKey);
     }
-  }
-
-  async function handleRemoveNow(item: FavouriteItem) {
-    if (!item.contentType || !item.contentKey) return false;
-    return accountData?.setFavourite(item.contentType, item.contentKey, false) ?? false;
   }
 
   async function handleMoveNow(item: FavouriteItem, setId: string | null) {
@@ -823,46 +916,51 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     return accountData?.reorderFavourite(item.contentType, item.contentKey, direction === -1 ? "up" : "down") ?? false;
   }
 
+  async function setItemPinned(item: FavouriteItem, pinned: boolean) {
+    if (canMutate(item) && accountData) {
+      const saved = await accountData.setFavouritePinned(item.contentType!, item.contentKey!, pinned);
+      // Clear an older browser-only pin only once the account has confirmed.
+      if (saved && !pinned && pinnedIds.has(item.id)) toggleFavouritePinnedId(item.id);
+      return saved;
+    }
+    // Examples, and items the account cannot hold, pin in this browser only.
+    if (pinnedIds.has(item.id) !== pinned) toggleFavouritePinnedId(item.id);
+    return true;
+  }
+
   async function togglePin(targets: FavouriteItem[]) {
-    const mutable = targets.filter(canMutate);
-    if (mutable.length === 0 || !accountData) return;
-    const unpin = mutable.every((item) => item.pinned);
+    if (targets.length === 0) return;
+    const unpin = targets.every((item) => item.pinned);
     if (unpin) {
-      const results = await Promise.all(
-        mutable.map(async (item) => {
-          // An older phone-only pin lives in this browser; clear it as well.
-          if (pinnedIds.has(item.id)) toggleFavouritePinnedId(item.id);
-          return accountData.setFavouritePinned(item.contentType!, item.contentKey!, false);
-        }),
-      );
+      const results = await Promise.all(targets.map((item) => setItemPinned(item, false)));
+      const failed = results.filter((saved) => !saved).length;
       toast.push(
-        results.every(Boolean)
+        failed === 0
           ? {
               tone: "success",
-              title: mutable.length === 1 ? "Removed from quick launch" : `${mutable.length} removed from quick launch`,
+              title: targets.length === 1 ? "Removed from quick launch" : `${targets.length} removed from quick launch`,
             }
           : {
               tone: "danger",
-              title: "Quick launch could not be updated",
+              title: `${failed} could not be removed from quick launch`,
               body: "Check your connection and try again.",
             },
       );
       return;
     }
-    const toAdd = mutable.filter((item) => !item.pinned);
-    const room = Math.max(0, 4 - libraryItems.filter((item) => item.pinned).length);
-    if (!quickLaunchHasRoom(libraryItems) || room === 0) {
+    const toAdd = targets.filter((item) => !item.pinned);
+    const room = QUICK_LAUNCH_LIMIT - libraryItems.filter((item) => item.pinned).length;
+    if (room <= 0) {
       toast.push({ tone: "warning", title: "Quick launch is full", body: "Remove one of the four first." });
       return;
     }
     const adding = toAdd.slice(0, room);
-    const results = await Promise.all(
-      adding.map((item) => accountData.setFavouritePinned(item.contentType!, item.contentKey!, true)),
-    );
-    if (!results.every(Boolean)) {
+    const results = await Promise.all(adding.map((item) => setItemPinned(item, true)));
+    const failed = results.filter((saved) => !saved).length;
+    if (failed > 0) {
       toast.push({
         tone: "danger",
-        title: "Quick launch could not be updated",
+        title: `${failed} could not be added to quick launch`,
         body: "Check your connection and try again.",
       });
       return;
@@ -877,20 +975,34 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   async function moveItems(targets: FavouriteItem[], setId: string | null) {
     const mutable = targets.filter(canMutate).filter((item) => (item.setId ?? null) !== setId);
     if (mutable.length === 0) return;
-    const previous = mutable.map((item) => [item, item.setId ?? null] as const);
     const results = await Promise.all(mutable.map((item) => handleMoveNow(item, setId)));
+    const moved = mutable.filter((_, index) => results[index]);
+    const failed = mutable.length - moved.length;
     const setName = setId ? (setById.get(setId)?.name ?? "the set") : UNSORTED_SET_NAME;
-    if (!results.every(Boolean)) {
+    if (moved.length === 0) {
       toast.push({ tone: "danger", title: "Could not move", body: "Check your connection and try again." });
       return;
     }
+    const previous = moved.map((item) => [item, item.setId ?? null] as const);
     toast.push({
-      tone: "success",
-      title: `${mutable.length === 1 ? "Moved" : `Moved ${mutable.length}`} to ${setName}`,
+      tone: failed > 0 ? "warning" : "success",
+      title: `${moved.length === 1 ? "Moved" : `Moved ${moved.length}`} to ${setName}`,
+      body: failed > 0 ? `${failed} could not be moved. Check your connection and try again.` : undefined,
+      duration: UNDO_TOAST_MS,
       action: {
         label: "Undo",
         onAction: () => {
-          void Promise.all(previous.map(([item, originalSetId]) => handleMoveNow(item, originalSetId)));
+          void Promise.all(previous.map(([item, originalSetId]) => handleMoveNow(item, originalSetId))).then(
+            (undone) => {
+              if (!undone.every(Boolean)) {
+                toast.push({
+                  tone: "danger",
+                  title: "Could not undo the move",
+                  body: "Check your connection and move it back from its menu.",
+                });
+              }
+            },
+          );
         },
       },
     });
@@ -899,34 +1011,30 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   function removeItems(targets: FavouriteItem[]) {
     const mutable = targets.filter(canMutate);
     if (mutable.length === 0) return;
-    const ids = mutable.map((item) => item.id);
-    setPendingRemovalIds((current) => new Set([...current, ...ids]));
+    const key = `removal-${(removalCounterRef.current += 1)}`;
+    pendingRemovalsRef.current.set(key, { items: mutable, toastId: null });
+    setPendingRemovalIds((current) => new Set([...current, ...mutable.map((item) => item.id)]));
     setOpenSwipeId(null);
-    const release = () => setPendingRemovalIds((current) => new Set([...current].filter((id) => !ids.includes(id))));
-    toast.push({
+    const toastId = toast.push({
       tone: "info",
       title: mutable.length === 1 ? `Removed ${mutable[0]!.title}` : `Removed ${mutable.length} favourites`,
-      action: { label: "Undo", onAction: release },
-      onClose: (reason) => {
-        if (reason === "action") return;
-        void Promise.all(mutable.map(handleRemoveNow)).then((results) => {
-          release();
-          if (!results.every(Boolean)) {
-            toast.push({
-              tone: "danger",
-              title: "Could not remove",
-              body: "The favourite is still saved. Check your connection and try again.",
-            });
-          }
-        });
-      },
+      duration: UNDO_TOAST_MS,
+      action: { label: "Undo", onAction: () => settleRemoval(key, "cancel") },
+      onClose: (reason) => settleRemoval(key, reason === "action" ? "cancel" : "commit"),
     });
+    const entry = pendingRemovalsRef.current.get(key);
+    if (entry) entry.toastId = toastId;
   }
 
   async function reorderItem(item: FavouriteItem, direction: -1 | 1) {
     setReorderPending(true);
     try {
       const moved = await handleReorder(item, direction);
+      window.requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>(`[data-reorder-id="${CSS.escape(item.id)}"][data-direction="${direction}"]`)
+          ?.focus({ preventScroll: true });
+      });
       announce(
         moved ? `${item.title} moved ${direction === -1 ? "up" : "down"}.` : `${item.title} could not be moved.`,
       );
@@ -1194,7 +1302,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 above the fold. The heading is not a hero. */}
             <header data-testid="favourites-command-library" className="flex min-w-0 items-end justify-between gap-3">
               <div className="min-w-0">
-                <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                <h1
+                  id="favourites-page-heading"
+                  tabIndex={-1}
+                  className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl"
+                >
                   {sharedHomePresentation.favourites.title}
                 </h1>
                 <p className="nums mt-1 text-sm font-medium text-[color:var(--text-muted)]">{summary}</p>
@@ -1417,7 +1529,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               setSelectedItemSnapshot(null);
             }}
             onMove={handleMoveNow}
-            onRemove={handleRemoveNow}
+            // Same held-back removal with Undo as everywhere else on the page.
+            onRemove={async (item) => {
+              removeItems([item]);
+              return true;
+            }}
             onReorder={handleReorder}
             onOpen={handleOpen}
           />
@@ -1428,7 +1544,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         <FavouritesSelectBar
           count={selectedTargets.length}
           onDone={leaveSpecialMode}
-          onPin={() => void togglePin(selectedTargets)}
+          onPin={() => {
+            void togglePin(selectedTargets);
+            leaveSpecialMode();
+          }}
           onMove={() => openSheet({ kind: "move", items: selectedTargets })}
           onRemove={() => setConfirmRemoveIds(selectedTargets.map((item) => item.id))}
         />
@@ -1436,6 +1555,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
       {sheetContent?.kind === "actions" ? (
         <FavouriteActionsSheet
+          // A new item gets a fresh sheet, so "Copied" never carries over.
+          key={sheetContent.item.id}
           item={libraryItems.find((item) => item.id === sheetContent.item.id) ?? sheetContent.item}
           open={sheetOpen}
           returnFocusTarget={returnFocusToOrigin}

@@ -41,7 +41,7 @@ export function FavouritesSetChips({
       role="group"
       aria-label="Filter by set"
       data-testid="favourites-set-chips"
-      className="-mx-4 flex gap-1 overflow-x-auto px-3 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
+      className="-mx-4 flex gap-1 overflow-x-auto px-3 py-1.5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
     >
       <ChoiceChip
         pressed={selectedSets.size === 0}

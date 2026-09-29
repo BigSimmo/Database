@@ -175,7 +175,7 @@ describe("favourites page actions", () => {
     await user.click(screen.getByRole("button", { name: "Select" }));
     await user.click(screen.getByRole("button", { name: "Select Service crisis-team" }));
     await user.click(screen.getByRole("button", { name: "Select Service perinatal" }));
-    const bar = screen.getByRole("toolbar", { name: "Selected favourites" });
+    const bar = screen.getByRole("group", { name: "Selected favourites" });
     expect(within(bar).getByText("2 selected")).toBeInTheDocument();
     await user.click(within(bar).getByRole("button", { name: "Move" }));
     await user.click(
@@ -207,7 +207,10 @@ describe("favourites page actions", () => {
     );
     expect(screen.getByTestId("favourites-set-bar")).toHaveTextContent("Ward round");
     await user.click(screen.getByRole("button", { name: "Reorder" }));
-    expect(screen.getByRole("button", { name: "Move Service crisis-team up" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move Service crisis-team up" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     await act(async () => {
       await user.click(screen.getByRole("button", { name: "Move Service crisis-team down" }));
     });

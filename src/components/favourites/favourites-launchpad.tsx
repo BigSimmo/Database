@@ -74,6 +74,7 @@ function QuickLaunchTile({
   // click that follows a long press must not also open the item.
   const hold = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
   const firedRef = useRef(false);
+  const pointerTypeRef = useRef("mouse");
 
   function cancel() {
     if (hold.current) clearTimeout(hold.current.timer);
@@ -83,7 +84,9 @@ function QuickLaunchTile({
   return (
     <Link
       href={item.href}
+      draggable={false}
       onPointerDown={(event: PointerEvent<HTMLAnchorElement>) => {
+        pointerTypeRef.current = event.pointerType;
         if (event.button > 0) return;
         firedRef.current = false;
         cancel();
@@ -93,6 +96,10 @@ function QuickLaunchTile({
           timer: setTimeout(() => {
             hold.current = null;
             firedRef.current = true;
+            // Swallow only the click this press produces, never a later tap or Enter.
+            setTimeout(() => {
+              firedRef.current = false;
+            }, 800);
             onShowActions(item);
           }, 500),
         };
@@ -106,6 +113,8 @@ function QuickLaunchTile({
       onPointerCancel={cancel}
       onPointerLeave={cancel}
       onContextMenu={(event) => {
+        // On a desktop the right-click menu (open in new tab) stays native.
+        if (pointerTypeRef.current !== "touch") return;
         event.preventDefault();
         cancel();
         onShowActions(item);

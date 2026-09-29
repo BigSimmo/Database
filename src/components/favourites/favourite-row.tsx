@@ -28,12 +28,15 @@ function RowBody({
   view,
   showSet,
   time,
+  metaId,
 }: {
   item: FavouriteItem;
   view: FavouritesView;
   showSet: boolean;
   /** Recent view only: when it was last opened, first on the meta line. */
   time: string;
+  /** Lets the row's control describe itself with this line, which its label would otherwise hide. */
+  metaId?: string;
 }) {
   const lead = view === "type" ? item.description : item.type;
   return (
@@ -46,7 +49,10 @@ function RowBody({
           </span>
           {item.example ? <FavouriteExampleTag /> : null}
         </span>
-        <span className="flex min-w-0 items-center gap-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
+        <span
+          id={metaId}
+          className="flex min-w-0 items-center gap-1 truncate text-xs font-medium text-[color:var(--text-muted)]"
+        >
           {item.pinned ? (
             <>
               <Pin
@@ -128,6 +134,9 @@ export function FavouriteRow({
     revealWidth: SWIPE_TRAY_WIDTH,
   });
   const time = mode === "browse" && view === "recent" ? recentTimeLabel(item.openedAt, now) : "";
+  const metaId = `favourite-meta-${item.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  // The row clips its swipe tray, so focus outlines sit inside the edge.
+  const insetFocus = "focus-visible:-outline-offset-2";
 
   return (
     <li data-testid={`favourite-row-${item.id}`} className="relative isolate overflow-hidden">
@@ -188,13 +197,22 @@ export function FavouriteRow({
           workspaceSelected && "xl:bg-[color:var(--clinical-accent-soft)]",
         )}
       >
-        {mode === "select" ? (
+        {mode === "select" && !canMutate ? (
+          <div className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-9">
+            <RowBody item={item} view={view} showSet={showSet} time={time} metaId={metaId} />
+          </div>
+        ) : mode === "select" ? (
           <button
             type="button"
             aria-pressed={selected}
             aria-label={`Select ${item.title}`}
+            aria-describedby={metaId}
             onClick={() => onToggleSelected(item)}
-            className={cn("flex min-h-16 min-w-0 flex-1 items-center gap-3 rounded-md py-2 text-left", focusRing)}
+            className={cn(
+              "flex min-h-16 min-w-0 flex-1 items-center gap-3 rounded-md py-2 text-left",
+              focusRing,
+              insetFocus,
+            )}
           >
             <span
               aria-hidden="true"
@@ -207,11 +225,11 @@ export function FavouriteRow({
             >
               <Check className="size-icon-xs" strokeWidth={3} aria-hidden="true" />
             </span>
-            <RowBody item={item} view={view} showSet={showSet} time={time} />
+            <RowBody item={item} view={view} showSet={showSet} time={time} metaId={metaId} />
           </button>
         ) : mode === "reorder" ? (
           <div className="flex min-w-0 flex-1 items-center gap-3 py-2">
-            <RowBody item={item} view={view} showSet={showSet} time={time} />
+            <RowBody item={item} view={view} showSet={showSet} time={time} metaId={metaId} />
           </div>
         ) : (
           <>
@@ -222,27 +240,32 @@ export function FavouriteRow({
               type="button"
               onClick={() => onSelectForWorkspace(item)}
               aria-pressed={workspaceSelected}
+              aria-describedby={metaId}
               className={cn(
                 "hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex",
                 "flex-1 gap-3 py-2",
                 focusRing,
+                insetFocus,
               )}
             >
-              <RowBody item={item} view={view} showSet={showSet} time={time} />
+              <RowBody item={item} view={view} showSet={showSet} time={time} metaId={metaId} />
             </button>
             <Link
               href={item.href}
               onClick={() => onOpen(item)}
               aria-label={`Open ${item.title}`}
+              aria-describedby={metaId}
+              draggable={false}
               className={cn(
                 "block min-w-0 max-w-full rounded-md text-left xl:hidden",
                 "flex-1 py-2",
                 focusRing,
+                insetFocus,
                 stretchedRowLinkClass,
               )}
             >
               <span className="flex min-w-0 items-center gap-3">
-                <RowBody item={item} view={view} showSet={showSet} time={time} />
+                <RowBody item={item} view={view} showSet={showSet} time={time} metaId={metaId} />
               </span>
             </Link>
           </>
@@ -253,10 +276,16 @@ export function FavouriteRow({
             <button
               type="button"
               aria-label={`Move ${item.title} up`}
-              disabled={!reorder.canMoveUp || reorder.pending}
-              onClick={() => reorder.onMove(item, -1)}
+              // aria-disabled, not disabled: a disabled button drops keyboard
+              // focus to the page, and the moved row's button must keep it.
+              aria-disabled={!reorder.canMoveUp || reorder.pending}
+              data-reorder-id={item.id}
+              data-direction={-1}
+              onClick={() => {
+                if (reorder.canMoveUp && !reorder.pending) reorder.onMove(item, -1);
+              }}
               className={cn(
-                "grid size-tap place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)]",
+                "grid size-tap place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] aria-disabled:text-[color:var(--disabled)]",
                 focusRing,
               )}
             >
@@ -265,10 +294,14 @@ export function FavouriteRow({
             <button
               type="button"
               aria-label={`Move ${item.title} down`}
-              disabled={!reorder.canMoveDown || reorder.pending}
-              onClick={() => reorder.onMove(item, 1)}
+              aria-disabled={!reorder.canMoveDown || reorder.pending}
+              data-reorder-id={item.id}
+              data-direction={1}
+              onClick={() => {
+                if (reorder.canMoveDown && !reorder.pending) reorder.onMove(item, 1);
+              }}
               className={cn(
-                "grid size-tap place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)]",
+                "grid size-tap place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] aria-disabled:text-[color:var(--disabled)]",
                 focusRing,
               )}
             >
@@ -281,6 +314,7 @@ export function FavouriteRow({
           <button
             type="button"
             data-no-swipe
+            data-row-actions
             aria-haspopup="dialog"
             aria-label={`More actions for ${item.title}`}
             onClick={() => {
@@ -290,6 +324,7 @@ export function FavouriteRow({
             className={cn(
               "relative z-10 grid size-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
+              insetFocus,
             )}
           >
             <MoreHorizontal className="size-icon-md" aria-hidden="true" />

@@ -49,6 +49,8 @@ export function FavouritesList({
 }) {
   return (
     <div className="grid gap-4" data-testid="favourites-list">
+      {/* Keeps the h3 group headings in a proper outline when Quick launch is hidden. */}
+      <h2 className="sr-only">Saved favourites</h2>
       {groups.map((group) => (
         <section
           key={group.id}
@@ -122,7 +124,7 @@ export function FavouritesSelectBar({
   );
   return (
     <div
-      role="toolbar"
+      role="group"
       aria-label="Selected favourites"
       data-testid="favourites-select-bar"
       className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[var(--z-chrome)] mx-auto flex max-w-lg items-center gap-1.5 rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--e4)]"
@@ -147,7 +149,7 @@ export function FavouritesSelectBar({
         onClick={onPin}
         className={cn(action, "bg-[color:var(--surface-inset)] text-[color:var(--text-heading)]")}
       >
-        <Pin className="size-icon-sm" aria-hidden="true" />
+        <Pin className="size-icon-sm max-[359px]:hidden" aria-hidden="true" />
         Pin
       </button>
       <button
@@ -156,7 +158,7 @@ export function FavouritesSelectBar({
         onClick={onMove}
         className={cn(action, "bg-[color:var(--surface-inset)] text-[color:var(--text-heading)]")}
       >
-        <Folder className="size-icon-sm" aria-hidden="true" />
+        <Folder className="size-icon-sm max-[359px]:hidden" aria-hidden="true" />
         Move
       </button>
       <button
@@ -164,7 +166,7 @@ export function FavouritesSelectBar({
         disabled={none}
         onClick={onRemove}
         aria-label={none ? "Remove selected" : `Remove ${count} selected`}
-        className={cn(action, "bg-[color:var(--danger-soft)] text-[color:var(--danger)]")}
+        className={cn(action, "min-w-tap justify-center bg-[color:var(--danger-soft)] text-[color:var(--danger)]")}
       >
         <Trash2 className="size-icon-sm" aria-hidden="true" />
       </button>

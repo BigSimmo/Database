@@ -49,6 +49,7 @@ export function FavouriteActionsSheet({
   onClose: () => void;
   /** The control focus goes back to when the sheet closes, such as the row's actions button. */
   returnFocusTarget?: () => HTMLElement | null;
+  /** Saved account items can be moved and removed; examples cannot. Anything can be pinned. */
   canMutate: boolean;
   onOpen: (item: FavouriteItem) => void;
   onTogglePin: (item: FavouriteItem) => void;
@@ -89,19 +90,18 @@ export function FavouriteActionsSheet({
           <ActionIcon icon={ExternalLink} className="text-[color:var(--clinical-accent)]" />
           {actionLabel}
         </Link>
-        {canMutate ? (
-          <button
-            type="button"
-            className={actionRow}
-            onClick={() => {
-              onTogglePin(item);
-              onClose();
-            }}
-          >
-            <ActionIcon icon={item.pinned ? PinOff : Pin} />
-            {item.pinned ? "Remove from quick launch" : "Add to quick launch"}
-          </button>
-        ) : null}
+        {/* Pinning works for every item: saved ones on the account, others in this browser. */}
+        <button
+          type="button"
+          className={actionRow}
+          onClick={() => {
+            onTogglePin(item);
+            onClose();
+          }}
+        >
+          <ActionIcon icon={item.pinned ? PinOff : Pin} />
+          {item.pinned ? "Remove from quick launch" : "Add to quick launch"}
+        </button>
         <button
           type="button"
           className={actionRow}
@@ -134,7 +134,7 @@ export function FavouriteActionsSheet({
           </>
         ) : (
           <p className="px-2 pb-2 pt-1 text-sm text-[color:var(--text-muted)]">
-            This is an example. Save your own favourites to pin, move or remove them.
+            This is an example. Save your own favourites to move them into sets or remove them.
           </p>
         )}
         <span className="sr-only" role="status" aria-live="polite">

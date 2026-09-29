@@ -41,6 +41,7 @@ export function useSwipeRow({
   const offset = dragOffset ?? restingOffset;
 
   function onPointerDown(event: PointerEvent<HTMLElement>) {
+    swallowNextClick.current = false;
     if (!enabled || event.button > 0 || !event.isPrimary) return;
     if ((event.target as HTMLElement).closest("[data-no-swipe]")) return;
     gesture.current = {
@@ -80,7 +81,14 @@ export function useSwipeRow({
     const current = gesture.current;
     gesture.current = null;
     if (!current || current.pointerId !== event.pointerId || !current.claimed) return;
-    swallowNextClick.current = true;
+    // Only a pointerup is followed by a click. A cancelled gesture has none, so
+    // it must not leave a flag that eats the next real tap.
+    if (event.type === "pointerup") {
+      swallowNextClick.current = true;
+      window.setTimeout(() => {
+        swallowNextClick.current = false;
+      }, 0);
+    }
     const shouldOpen = (dragOffset ?? restingOffset) < -revealWidth * 0.4;
     setDragOffset(null);
     if (shouldOpen !== open) onOpenChange(shouldOpen);
