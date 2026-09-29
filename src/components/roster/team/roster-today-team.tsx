@@ -9,6 +9,7 @@ import type { RosterTeam } from "@/lib/roster/team/model";
 import type { RosterDisplayShift } from "@/lib/roster/team/team-view";
 import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
 import { formatShiftRange } from "@/components/roster/roster-format";
+import { RosterSampleNotice } from "./roster-sample-notice";
 
 function TeamSummary({
   team,
@@ -172,14 +173,19 @@ export function RosterTodayTeam({ now, myShifts = [] }: { now: Date; myShifts?: 
     return (
       <ModeNotice tone="warning">Your team identity could not be loaded. Refresh before using team shifts.</ModeNotice>
     );
-  return enabled.map((team) => (
-    <TeamSummary
-      key={team.serviceId}
-      team={team}
-      actorId={teams.data!.actorId!}
-      now={now}
-      enabledTeams={enabled}
-      myShifts={myShifts}
-    />
-  ));
+  return (
+    <>
+      <RosterSampleNotice sample={teams.data.sample} />
+      {enabled.map((team) => (
+        <TeamSummary
+          key={team.serviceId}
+          team={team}
+          actorId={teams.data!.actorId!}
+          now={now}
+          enabledTeams={enabled}
+          myShifts={myShifts}
+        />
+      ))}
+    </>
+  );
 }
