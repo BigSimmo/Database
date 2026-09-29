@@ -160,11 +160,11 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
       { id: "treatable", label: "Treatable", value: "Yes" },
     ],
     doNow: [
-      "Stop the causative dopamine antagonist immediately, including antiemetics such as metoclopramide and prochlorperazine",
-      "Take temperature, pulse, blood pressure and conscious state now, and start continuous observations",
-      "Send CK, U&E, FBC, LFT, CRP and a venous gas, and look for rhabdomyolysis and acute kidney injury",
-      "Escalate to the medical or ICU team early: this needs fluid resuscitation and cooling in a monitored bed, not a psychiatric ward",
-      "Document the implicated agent clearly so it is not re-charted on transfer",
+      "Immediate cessation of all dopamine receptor antagonists, including all antipsychotics and antiemetics (e.g., metoclopramide, prochlorperazine)",
+      "Initiate intensive medical care with aggressive IV hydration targeting urine output to prevent acute tubular necrosis from rhabdomyolysis, combined with active cooling",
+      "Initiate specific pharmacotherapy: bromocriptine (dopamine agonist) and/or dantrolene (skeletal muscle relaxant) under intensivist or toxicology guidance",
+      "Escalate immediately to intensive care for continuous cardiac monitoring for arrhythmias, respiratory support, and serial monitoring of CK and renal function",
+      "Document the implicated dopamine antagonist clearly and ensure it is flagged as an adverse drug reaction across all clinical records",
     ],
     discriminators: [
       {
@@ -204,11 +204,11 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
       { id: "treatable", label: "Treatable", value: "Yes" },
     ],
     doNow: [
-      "Stop every serotonergic agent, and ask specifically about tramadol, fentanyl, linezolid, triptans, St John's wort and recreational use",
-      "Examine for inducible and spontaneous clonus, ocular clonus, hyperreflexia and tremor, which are lower limb predominant",
-      "Apply the Hunter criteria and record which limb of them is met",
-      "Send CK, U&E, LFT, coagulation profile and a venous gas, and monitor temperature continuously",
-      "Escalate to intensive care early for hyperthermia, rigidity or a falling conscious state, because this can progress within hours. Take the escalation threshold from the local protocol rather than from this page",
+      "Cease all serotonergic agents immediately (including tramadol, fentanyl, linezolid, triptans, and St John's wort); strictly avoid electroconvulsive therapy (ECT under anaesthesia with succinylcholine is potentially lethal)",
+      "Assess Hunter Criteria: spontaneous clonus, inducible clonus with agitation or diaphoresis, ocular clonus with agitation or diaphoresis, tremor plus hyperreflexia, or hypertonia with marked pyrexia and ocular or inducible clonus",
+      "Provide aggressive supportive care: IV fluids, active external cooling, and IV diazepam for neuromuscular agitation and rigidity",
+      "Administer cyproheptadine as specific serotonin antagonist antidote under clinical toxicology guidance",
+      "Escalate to intensive care immediately for hyperthermia or severe autonomic instability; intubation requires non-depolarizing neuromuscular blockade (strictly avoid succinylcholine and suxamethonium due to lethal hyperkalemic cardiac arrest risk)",
     ],
     discriminators: [
       {
@@ -270,6 +270,42 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
         relatedSlug: "catatonia-in-psychotic-disorder",
         favoursRelated: "Catatonia arising on a background of an established psychotic illness",
         favoursFocus: "A clear mood episode framing the catatonia, most often severe depression or a mixed state",
+      },
+    ],
+  },
+
+  "acute-dystonia": {
+    atAGlance: [
+      { id: "high-risk", label: "High risk", value: "Yes" },
+      { id: "onset", label: "Onset", value: "Hours" },
+      { id: "course", label: "Course", value: "Abrupt" },
+      { id: "treatable", label: "Treatable", value: "Rapidly" },
+    ],
+    doNow: [
+      "Recognise acute dystonia as sustained involuntary muscle contractions and spasms (e.g., oculogyric crisis, torticollis, trismus, or laryngeal spasm) following dopamine receptor blockade",
+      "Perform immediate airway assessment to rule out life-threatening laryngeal dystonia and stridor, keeping emergency airway equipment accessible",
+      "Administer emergency anticholinergic therapy immediately using parenteral benztropine or diphenhydramine",
+      "Reassess symptoms after parenteral anticholinergic administration; prepare to repeat therapy or secure the airway if laryngeal spasm does not rapidly resolve",
+      "Review the causative dopamine antagonist and prescribe short-term oral anticholinergic coverage to prevent rebound dystonia",
+    ],
+    discriminators: [
+      {
+        relatedSlug: "akathisia",
+        favoursRelated: "Subjective inner motor restlessness and urge to move, relieved by pacing or movement",
+        favoursFocus: "Sustained involuntary muscle contractions and fixed abnormal posturing without an urge to move",
+      },
+      {
+        relatedSlug: "drug-induced-parkinsonism",
+        favoursRelated: "Bradykinesia, generalized cogwheel rigidity, masked facies, and resting pill-rolling tremor",
+        favoursFocus:
+          "Acute onset of episodic focal muscle spasms (e.g. oculogyric crisis, torticollis) within hours of a dose",
+      },
+      {
+        relatedSlug: "tardive-dyskinesia-tardive-syndromes",
+        favoursRelated:
+          "Choreiform, stereotypic or athetoid involuntary movements developing after months to years of antipsychotic exposure",
+        favoursFocus:
+          "Rapid onset of painful sustained tonic spasm hours to days after dopamine antagonist exposure, rapidly responsive to anticholinergics",
       },
     ],
   },

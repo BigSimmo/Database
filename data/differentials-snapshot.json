@@ -438,7 +438,7 @@
             "what-argues-against": "Review locally.",
             "must-not-miss": "Hyperthermia, rising CK, AKI, collapse, severe autonomic instability.",
             "bedside-question": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate.",
-            "immediate-action": "Use structured screen (Bush-Francis), examine motor signs, check vitals/hydration/CK, think benzodiazepine challenge early Catatonia is more often mood-linked than many clinicians expect",
+            "immediate-action": "Immediate cessation of all dopamine receptor antagonists. Intensive medical care: aggressive IV hydration, active cooling. Pharmacotherapy: bromocriptine and/or dantrolene. ICU monitoring for arrhythmias, rhabdomyolysis, and respiratory failure.",
             "investigations": "Vitals, oxygen saturation, Creatine kinase, Neuroimaging (CT/MRI), EEG, Lumbar puncture / CSF studies",
             "mimics-overlap": "Review overlap locally."
           }
@@ -451,7 +451,7 @@
             "what-argues-against": "Review locally.",
             "must-not-miss": "Hyperthermia, severe autonomic instability, seizures.",
             "bedside-question": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate.",
-            "immediate-action": "Use structured screen (Bush-Francis), examine motor signs, check vitals/hydration/CK, think benzodiazepine challenge early Catatonia is more often mood-linked than many clinicians expect",
+            "immediate-action": "Cease all serotonergic agents immediately; avoid ECT. Apply Hunter Criteria. Supportive care: IV fluids, active cooling, IV diazepam, cyproheptadine. ICU for hyperthermia (> 38.5°C; avoid succinylcholine).",
             "investigations": "Vitals, oxygen saturation, Creatine kinase, Neuroimaging (CT/MRI), EEG, Lumbar puncture / CSF studies",
             "mimics-overlap": "Review overlap locally."
           }
@@ -1437,7 +1437,7 @@
             "what-argues-against": "Review locally.",
             "must-not-miss": "Hyperthermia, autonomic instability, ICU-level illness. Caused by: SSRI/SNRI + MAOI, tramadol, linezolid, lithium, St John's wort.",
             "bedside-question": "Temporal association with antipsychotic initiation, dose change, or depot timing.",
-            "immediate-action": "Constipation with clozapine is a red flag, not a nuisance side effect Clozapine constipation and myocarditis are high-risk problems",
+            "immediate-action": "Cease all serotonergic agents immediately; avoid ECT. Apply Hunter Criteria. Supportive care: IV fluids, active cooling, IV diazepam, cyproheptadine. ICU for hyperthermia (> 38.5°C; avoid succinylcholine).",
             "investigations": "ECG / QT assessment, Urea, electrolytes, creatinine, Inflammatory markers (CRP/ESR), Creatine kinase",
             "mimics-overlap": "Review overlap locally."
           }
@@ -1450,7 +1450,7 @@
             "what-argues-against": "Review locally.",
             "must-not-miss": "Rhabdomyolysis, AKI, collapse, death.",
             "bedside-question": "Temporal association with antipsychotic initiation, dose change, or depot timing.",
-            "immediate-action": "Constipation with clozapine is a red flag, not a nuisance side effect Clozapine constipation and myocarditis are high-risk problems",
+            "immediate-action": "Immediate cessation of all dopamine receptor antagonists. Intensive medical care: aggressive IV hydration, active cooling. Pharmacotherapy: bromocriptine and/or dantrolene. ICU monitoring for arrhythmias, rhabdomyolysis, and respiratory failure.",
             "investigations": "ECG / QT assessment, Urea, electrolytes, creatinine, Inflammatory markers (CRP/ESR), Creatine kinase",
             "mimics-overlap": "Review overlap locally."
           }
@@ -1565,9 +1565,9 @@
             "why-it-fits": "Oculogyric crisis, jaw spasm, torticollis, tongue spasm, opisthotonic posturing soon after dopamine blockade",
             "what-argues-against": "Review locally.",
             "must-not-miss": "Airway compromise, severe distress, laryngospasm.",
-            "bedside-question": "Subjective inner restlessness is the key feature, often with observable motor restlessness.",
-            "immediate-action": "One of the most commonly missed and most distressing psychiatric side effects Bilateral onset after medication strongly suggests drug-induced parkinsonism",
-            "investigations": "Thyroid function tests",
+            "bedside-question": "Are there sustained involuntary muscle contractions or spasms (e.g., oculogyric crisis, torticollis, trismus, laryngeal spasm) following dopamine blockade?",
+            "immediate-action": "Immediate airway assessment to rule out laryngeal dystonia. Emergency anticholinergic therapy: parenteral benztropine or diphenhydramine.",
+            "investigations": "Airway and stridor assessment, medication history and timeline",
             "mimics-overlap": "Review overlap locally."
           }
         },
@@ -5083,7 +5083,7 @@
           "summary": "Oculogyric crisis, jaw spasm, torticollis, tongue spasm, opisthotonic posturing soon after dopamine blockade",
           "items": [
             "Oculogyric crisis, jaw spasm, torticollis, tongue spasm, opisthotonic posturing soon after dopamine blockade",
-            "Subjective inner restlessness is the key feature, often with observable motor restlessness."
+            "Sustained involuntary muscle contractions and spasms (e.g., oculogyric crisis, torticollis, trismus, laryngeal spasm)"
           ],
           "tone": "fit"
         },
@@ -5097,28 +5097,33 @@
         {
           "id": "bedside-question",
           "title": "Bedside question",
-          "summary": "Subjective inner restlessness is the key feature, often with observable motor restlessness.",
-          "items": ["Subjective inner restlessness is the key feature, often with observable motor restlessness."],
+          "summary": "Are there sustained involuntary muscle contractions or spasms (e.g., oculogyric crisis, torticollis, trismus, laryngeal spasm) following dopamine blockade?",
+          "items": [
+            "Are there sustained involuntary muscle contractions or spasms (e.g., oculogyric crisis, torticollis, trismus, laryngeal spasm) following dopamine blockade?"
+          ],
           "tone": "question"
         },
         {
           "id": "immediate-action",
           "title": "Immediate action",
-          "summary": "One of the most commonly missed and most distressing psychiatric side effects Bilateral onset after medication strongly suggests drug-induced parkinsonism Dramatic but very treatable once recognised Not every restless movement is akathisia; tardive phenomenology is different Tremor type and context usually solve the differential",
+          "summary": "Immediate airway assessment to rule out laryngeal dystonia. Emergency anticholinergic therapy: parenteral benztropine or diphenhydramine.",
           "items": [
-            "One of the most commonly missed and most distressing psychiatric side effects",
-            "Bilateral onset after medication strongly suggests drug-induced parkinsonism",
-            "Dramatic but very treatable once recognised",
-            "Not every restless movement is akathisia; tardive phenomenology is different",
-            "Tremor type and context usually solve the differential"
+            "Recognise acute dystonia as sustained involuntary muscle contractions and spasms (e.g., oculogyric crisis, torticollis, trismus, laryngeal spasm)",
+            "Immediate airway assessment to rule out life-threatening laryngeal dystonia and stridor",
+            "Administer emergency anticholinergic therapy (parenteral benztropine or diphenhydramine)",
+            "Reassess symptoms after parenteral anticholinergic administration; repeat therapy or secure airway if laryngeal spasm persists",
+            "Review causative dopamine antagonist and prescribe short-term oral anticholinergic coverage to prevent rebound dystonia"
           ],
           "tone": "action"
         },
         {
           "id": "investigations",
           "title": "Investigations",
-          "summary": "Thyroid function tests",
-          "items": ["Thyroid function tests"],
+          "summary": "Airway and stridor assessment, medication history and timeline",
+          "items": [
+            "Airway and stridor assessment",
+            "Medication history and timeline (dopamine receptor antagonist exposure)"
+          ],
           "tone": "test"
         },
         {
@@ -5162,13 +5167,16 @@
         }
       ],
       "currentPresentation": ["Akathisia / EPSE / Tremor / Sedation", "Akathisia", "Drug-induced parkinsonism"],
-      "investigations": ["Thyroid function tests"],
+      "investigations": [
+        "Airway and stridor assessment",
+        "Medication history and timeline (dopamine receptor antagonist exposure)"
+      ],
       "immediateActions": [
-        "One of the most commonly missed and most distressing psychiatric side effects",
-        "Bilateral onset after medication strongly suggests drug-induced parkinsonism",
-        "Dramatic but very treatable once recognised",
-        "Not every restless movement is akathisia; tardive phenomenology is different",
-        "Tremor type and context usually solve the differential"
+        "Recognise acute dystonia as sustained involuntary muscle contractions and spasms (e.g., oculogyric crisis, torticollis, trismus, laryngeal spasm)",
+        "Immediate airway assessment to rule out life-threatening laryngeal dystonia and stridor",
+        "Administer emergency anticholinergic therapy (parenteral benztropine or diphenhydramine)",
+        "Reassess symptoms after parenteral anticholinergic administration; repeat therapy or secure airway if laryngeal spasm persists",
+        "Review causative dopamine antagonist and prescribe short-term oral anticholinergic coverage to prevent rebound dystonia"
       ]
     },
     {
@@ -18600,16 +18608,13 @@
         {
           "id": "immediate-action",
           "title": "Immediate action",
-          "summary": "Constipation with clozapine is a red flag, not a nuisance side effect Clozapine constipation and myocarditis are high-risk problems Escalate early, review bowels deliberately, maintain active surveillance during early titration Early activation is a common misread Clinical toxicity can occur even when history suggests a \"usual dose\" Check ammonia if unexplained confusion develops on valproate",
+          "summary": "Immediate cessation of all dopamine receptor antagonists. Intensive medical care with aggressive IV hydration and active cooling. Pharmacotherapy with bromocriptine and/or dantrolene. ICU monitoring for arrhythmias, rhabdomyolysis, and respiratory failure.",
           "items": [
-            "Constipation with clozapine is a red flag, not a nuisance side effect",
-            "Clozapine constipation and myocarditis are high-risk problems",
-            "Escalate early, review bowels deliberately, maintain active surveillance during early titration",
-            "Early activation is a common misread",
-            "Clinical toxicity can occur even when history suggests a \"usual dose\"",
-            "Check ammonia if unexplained confusion develops on valproate",
-            "Use structured screen (Bush-Francis), examine motor signs, check vitals/hydration/CK, think benzodiazepine challenge early",
-            "Catatonia is more often mood-linked than many clinicians expect"
+            "Immediate cessation of all dopamine receptor antagonists, including all antipsychotics and antiemetics (e.g., metoclopramide, prochlorperazine)",
+            "Initiate intensive medical care with aggressive IV hydration targeting brisk urine output to prevent acute tubular necrosis from rhabdomyolysis, combined with active cooling",
+            "Initiate specific pharmacotherapy: bromocriptine (dopamine agonist) and/or dantrolene (skeletal muscle relaxant) under intensivist or toxicology guidance",
+            "Escalate immediately to intensive care for continuous cardiac monitoring for arrhythmias, respiratory support, and serial monitoring of CK and renal function",
+            "Urgent laboratory investigations: serial CK, renal function, electrolytes, full blood count, liver enzymes, and blood gas analysis"
           ],
           "tone": "action"
         },
@@ -18706,18 +18711,11 @@
         "Lumbar puncture / CSF studies"
       ],
       "immediateActions": [
-        "Constipation with clozapine is a red flag, not a nuisance side effect",
-        "Clozapine constipation and myocarditis are high-risk problems",
-        "Escalate early, review bowels deliberately, maintain active surveillance during early titration",
-        "Early activation is a common misread",
-        "Clinical toxicity can occur even when history suggests a \"usual dose\"",
-        "Check ammonia if unexplained confusion develops on valproate",
-        "Use structured screen (Bush-Francis), examine motor signs, check vitals/hydration/CK, think benzodiazepine challenge early",
-        "Catatonia is more often mood-linked than many clinicians expect",
-        "Treat the catatonia specifically",
-        "Benzodiazepines and/or ECT are first-line",
-        "Run a full delirium workup",
-        "Hypoactive delirium is a major mimic"
+        "Immediate cessation of all dopamine receptor antagonists, including all antipsychotics and antiemetics (e.g., metoclopramide, prochlorperazine)",
+        "Initiate intensive medical care with aggressive IV hydration targeting brisk urine output to prevent acute tubular necrosis from rhabdomyolysis, combined with active cooling",
+        "Initiate specific pharmacotherapy: bromocriptine (dopamine agonist) and/or dantrolene (skeletal muscle relaxant) under intensivist or toxicology guidance",
+        "Escalate immediately to intensive care for continuous cardiac monitoring for arrhythmias, respiratory support, and serial monitoring of CK and renal function",
+        "Urgent laboratory investigations: serial CK, renal function, electrolytes, full blood count, liver enzymes, and blood gas analysis"
       ]
     },
     {
@@ -23959,14 +23957,13 @@
         {
           "id": "immediate-action",
           "title": "Immediate action",
-          "summary": "Constipation with clozapine is a red flag, not a nuisance side effect Clozapine constipation and myocarditis are high-risk problems Escalate early, review bowels deliberately, maintain active surveillance during early titration Early activation is a common misread Clinical toxicity can occur even when history suggests a \"usual dose\" Check ammonia if unexplained confusion develops on valproate",
+          "summary": "Cease all serotonergic agents immediately. Apply Hunter Criteria. Provide supportive care with IV fluids, active cooling, IV diazepam, and cyproheptadine antidote. Escalate to ICU for hyperthermia (> 38.5°C) or autonomic instability (avoid succinylcholine).",
           "items": [
-            "Constipation with clozapine is a red flag, not a nuisance side effect",
-            "Clozapine constipation and myocarditis are high-risk problems",
-            "Escalate early, review bowels deliberately, maintain active surveillance during early titration",
-            "Early activation is a common misread",
-            "Clinical toxicity can occur even when history suggests a \"usual dose\"",
-            "Check ammonia if unexplained confusion develops on valproate"
+            "Cease all serotonergic agents immediately; purge and strictly avoid electroconvulsive therapy (ECT under anaesthesia with succinylcholine is potentially lethal)",
+            "Apply Hunter Criteria: spontaneous clonus, inducible clonus with agitation or diaphoresis, ocular clonus with agitation or diaphoresis, tremor plus hyperreflexia, or hypertonia plus temperature > 38°C with ocular or inducible clonus",
+            "Supportive care: aggressive IV fluids, active cooling, and IV diazepam for neuromuscular agitation and rigidity",
+            "Antidote: cyproheptadine as specific serotonin receptor antagonist under clinical toxicology guidance",
+            "ICU escalation: for hyperthermia (> 38.5°C) or severe autonomic instability; intubation requires non-depolarizing neuromuscular blockade (AVOID SUCCINYLCHOLINE / suxamethonium due to hyperkalemic cardiac arrest)"
           ],
           "tone": "action"
         },
@@ -24040,12 +24037,11 @@
         "Creatine kinase"
       ],
       "immediateActions": [
-        "Constipation with clozapine is a red flag, not a nuisance side effect",
-        "Clozapine constipation and myocarditis are high-risk problems",
-        "Escalate early, review bowels deliberately, maintain active surveillance during early titration",
-        "Early activation is a common misread",
-        "Clinical toxicity can occur even when history suggests a \"usual dose\"",
-        "Check ammonia if unexplained confusion develops on valproate"
+        "Cease all serotonergic agents immediately; purge and strictly avoid electroconvulsive therapy (ECT under anaesthesia with succinylcholine is potentially lethal)",
+        "Apply Hunter Criteria: spontaneous clonus, inducible clonus with agitation or diaphoresis, ocular clonus with agitation or diaphoresis, tremor plus hyperreflexia, or hypertonia plus temperature > 38°C with ocular or inducible clonus",
+        "Supportive care: aggressive IV fluids, active cooling, and IV diazepam for neuromuscular agitation and rigidity",
+        "Antidote: cyproheptadine as specific serotonin receptor antagonist under clinical toxicology guidance",
+        "ICU escalation: for hyperthermia (> 38.5°C) or severe autonomic instability; intubation requires non-depolarizing neuromuscular blockade (AVOID SUCCINYLCHOLINE / suxamethonium due to hyperkalemic cardiac arrest)"
       ]
     },
     {
@@ -24088,14 +24084,13 @@
         {
           "id": "immediate-action",
           "title": "Immediate action",
-          "summary": "Use structured screen (Bush-Francis), examine motor signs, check vitals/hydration/CK, think benzodiazepine challenge early Catatonia is more often mood-linked than many clinicians expect Treat the catatonia specifically Benzodiazepines and/or ECT are first-line Run a full delirium workup Hypoactive delirium is a major mimic",
+          "summary": "Cease all serotonergic agents immediately. Apply Hunter Criteria. Provide supportive care with IV fluids, active cooling, IV diazepam, and cyproheptadine antidote. Escalate to ICU for hyperthermia (> 38.5°C) or autonomic instability (avoid succinylcholine).",
           "items": [
-            "Use structured screen (Bush-Francis), examine motor signs, check vitals/hydration/CK, think benzodiazepine challenge early",
-            "Catatonia is more often mood-linked than many clinicians expect",
-            "Treat the catatonia specifically",
-            "Benzodiazepines and/or ECT are first-line",
-            "Run a full delirium workup",
-            "Hypoactive delirium is a major mimic"
+            "Cease all serotonergic agents immediately (including tramadol, fentanyl, linezolid, triptans, and St John's wort); purge and strictly avoid electroconvulsive therapy (ECT under anaesthesia with succinylcholine is potentially lethal)",
+            "Apply Hunter Criteria: spontaneous clonus, inducible clonus with agitation or diaphoresis, ocular clonus with agitation or diaphoresis, tremor plus hyperreflexia, or hypertonia plus temperature > 38°C with ocular or inducible clonus",
+            "Supportive care: aggressive IV fluids, active cooling, and IV diazepam for neuromuscular agitation and rigidity",
+            "Antidote: cyproheptadine as specific serotonin receptor antagonist under clinical toxicology guidance",
+            "ICU escalation: for hyperthermia (> 38.5°C) or severe autonomic instability; intubation requires non-depolarizing neuromuscular blockade (AVOID SUCCINYLCHOLINE / suxamethonium due to hyperkalemic cardiac arrest)"
           ],
           "tone": "action"
         },
@@ -24165,12 +24160,11 @@
         "Lumbar puncture / CSF studies"
       ],
       "immediateActions": [
-        "Use structured screen (Bush-Francis), examine motor signs, check vitals/hydration/CK, think benzodiazepine challenge early",
-        "Catatonia is more often mood-linked than many clinicians expect",
-        "Treat the catatonia specifically",
-        "Benzodiazepines and/or ECT are first-line",
-        "Run a full delirium workup",
-        "Hypoactive delirium is a major mimic"
+        "Cease all serotonergic agents immediately (including tramadol, fentanyl, linezolid, triptans, and St John's wort); purge and strictly avoid electroconvulsive therapy (ECT under anaesthesia with succinylcholine is potentially lethal)",
+        "Apply Hunter Criteria: spontaneous clonus, inducible clonus with agitation or diaphoresis, ocular clonus with agitation or diaphoresis, tremor plus hyperreflexia, or hypertonia plus temperature > 38°C with ocular or inducible clonus",
+        "Supportive care: aggressive IV fluids, active cooling, and IV diazepam for neuromuscular agitation and rigidity",
+        "Antidote: cyproheptadine as specific serotonin receptor antagonist under clinical toxicology guidance",
+        "ICU escalation: for hyperthermia (> 38.5°C) or severe autonomic instability; intubation requires non-depolarizing neuromuscular blockade (AVOID SUCCINYLCHOLINE / suxamethonium due to hyperkalemic cardiac arrest)"
       ]
     },
     {
