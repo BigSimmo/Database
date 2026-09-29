@@ -141,6 +141,12 @@ export function ToastProvider({ children }: ToastProviderProps) {
   );
 }
 
+/** Like `useToast`, but returns null outside a `ToastProvider` instead of throwing. */
+export function useOptionalToast(): ToastApi | null {
+  const context = useContext(ToastContext);
+  return context ? { push: context.push, dismiss: context.dismiss } : null;
+}
+
 export function useToast(): ToastApi {
   const context = useContext(ToastContext);
   if (!context) throw new Error("useToast must be used inside a <ToastProvider>");

@@ -5,40 +5,37 @@ import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
-  ChevronDown,
+  CheckSquare,
   ChevronsRight,
-  Clock,
   Copy,
   ExternalLink,
   FileText,
   Folder,
-  FolderPlus,
-  Heart,
-  MoreVertical,
   Pill,
-  Pin,
   Quote,
   Search,
   ShieldCheck,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useId, useMemo, useState, useSyncExternalStore } from "react";
 
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import {
   favouriteSetNames,
   type AccountFavourite,
   type AccountFavouriteSet,
-  type FavouriteContentType,
   type FavouriteSetName,
   useOptionalAccountData,
 } from "@/components/account-data-provider";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { cn, EmptyState, fieldControlPlain } from "@/components/ui-primitives";
+import { cn, EmptyState } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
-import { FAVOURITE_EXAMPLES_NOTICE, FavouriteExampleTag } from "@/components/clinical-dashboard/favourite-example-tag";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { announce } from "@/components/ui/live-announcer";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { useOptionalToast, type ToastApi } from "@/components/ui/toast";
+import { FAVOURITE_EXAMPLES_NOTICE } from "@/components/clinical-dashboard/favourite-example-tag";
 import {
   favouriteItems as prototypeFavouriteItems,
   favouriteSets as prototypeFavouriteSets,
@@ -48,12 +45,36 @@ import {
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
   formatLastOpened,
-  lastOpenedScore,
   loadFavouriteLastOpened,
   loadFavouritePinnedIds,
   recordFavouriteOpened,
   subscribeFavouritesStorage,
+  toggleFavouritePinnedId,
 } from "@/components/favourites/favourites-storage";
+import {
+  FavouriteActionsSheet,
+  FavouriteMoveSheet,
+  FavouriteSetNameSheet,
+  type FavouriteSheetState,
+} from "@/components/favourites/favourite-sheets";
+import { FavouritesContinueCard, FavouritesQuickLaunch } from "@/components/favourites/favourites-launchpad";
+import { FavouritesList, FavouritesSelectBar } from "@/components/favourites/favourites-list";
+import { FavouritesSetBar, FavouritesSetChips } from "@/components/favourites/favourites-set-chips";
+import {
+  buildSetChips,
+  demoOpenedAt,
+  favouritesSummary,
+  groupForView,
+  isSourceBacked,
+  matchesFavouriteSearch,
+  pickContinueItem,
+  quickLaunchHasRoom,
+  quickLaunchItems,
+  UNSORTED_SET_NAME,
+  type FavouriteItem,
+  type FavouriteType,
+  type FavouritesView,
+} from "@/components/favourites/favourites-view-model";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
@@ -66,58 +87,32 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
-import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 import { useAuthSession } from "@/lib/supabase/client";
 
-type FavouriteType =
-  "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential" | "Therapy";
-// Previously imported from `favourites-library-nav`, which this redesign
-// retired along with the sidebar and the two phone rails it exported.
-type ViewMode = "all" | "recent";
-type SortMode = "manual" | "last-used" | "title" | "type";
+export type { FavouriteItem } from "@/components/favourites/favourites-view-model";
 
-export type FavouriteItem = {
-  id: string;
-  title: string;
-  description: string;
-  type: FavouriteType;
-  tabId: string;
-  set: string;
-  evidence: string;
-  lastUsed: string;
-  action: string;
-  href: string;
-  icon: LucideIcon;
-  pinned?: boolean;
-  contentType?: FavouriteContentType;
-  contentKey?: string;
-  setId?: string | null;
-  sortOrder?: number;
-  /** A demo-mode fixture, not something this clinician saved. Shown with an "Example" tag. */
-  example?: boolean;
-};
-
-type FavouriteSet = {
-  id: string;
-  title: string;
-  count: number;
-  meta?: string;
-};
+type PageMode = "browse" | "select" | "reorder";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-// How many rows the Recent card shows before "View all" takes over. Small on
-// purpose: this is a glance surface sitting above the real table, not a second
-// copy of it.
-const recentPreviewLimit = 3;
-
 function subscribeNoop() {
   return () => {};
 }
+
+// The page clock ticks once a minute: often enough for "Today 08:44" and the
+// day groups to stay true, and stable between renders so React never loops.
+function getMinuteNow() {
+  return Math.floor(Date.now() / 60_000) * 60_000;
+}
+function subscribeMinute(onChange: () => void) {
+  const timer = window.setInterval(onChange, 30_000);
+  return () => window.clearInterval(timer);
+}
+const getServerNow = () => 0;
 
 const typeAppearance: Record<FavouriteType, ChipAppearance> = {
   Medication: { kind: "information", tone: "accent" },
@@ -159,13 +154,18 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
   therapies: appModeIcons["therapy-compass"],
 };
 
-function lastUsedScore(lastUsed: string): number {
-  return lastOpenedScore(lastUsed);
-}
-
-function isSourceBacked(item: FavouriteItem): boolean {
-  return Boolean(item.evidence && item.evidence !== "Run" && item.evidence !== "Saved query");
-}
+const viewOptions = {
+  all: [
+    { value: "recent", label: "Recent" },
+    { value: "az", label: "A to Z" },
+    { value: "type", label: "Type" },
+  ],
+  set: [
+    { value: "order", label: "My order" },
+    { value: "recent", label: "Recent" },
+    { value: "az", label: "A to Z" },
+  ],
+} as const;
 
 function favouriteCitationText(item: FavouriteItem): string {
   const evidenceLine = isSourceBacked(item) ? `Evidence: ${item.evidence}` : item.description;
@@ -203,13 +203,19 @@ async function copyFavouriteCitation(item: FavouriteItem): Promise<boolean> {
   }
 }
 
+function parseTimestamp(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function toCommandItem(
   item: PrototypeFavouriteItem,
   lastOpenedMap: Record<string, number>,
   pinnedIds: ReadonlySet<string>,
   favouriteMetadata: ReadonlyMap<string, AccountFavourite>,
   setById: ReadonlyMap<string, AccountFavouriteSet>,
-  demoMode: boolean = false,
+  now: number,
   example: boolean = false,
 ): FavouriteItem {
   const type =
@@ -228,111 +234,38 @@ function toCommandItem(
             : undefined;
   const contentKey = contentType ? item.id.slice(item.id.indexOf(":") + 1) : undefined;
   const metadata = contentType && contentKey ? favouriteMetadata.get(`${contentType}:${contentKey}`) : undefined;
-  const persistedOpened = metadata?.lastOpenedAt ? Date.parse(metadata.lastOpenedAt) : Number.NaN;
-  const localOpened = lastOpenedMap[item.id];
-  const openedAt = Number.isFinite(persistedOpened) ? Math.max(persistedOpened, localOpened ?? 0) : localOpened;
+  const persistedOpened = parseTimestamp(metadata?.lastOpenedAt);
+  const localOpened = lastOpenedMap[item.id] ?? null;
+  const recordedOpened =
+    persistedOpened !== null || localOpened !== null ? Math.max(persistedOpened ?? 0, localOpened ?? 0) : null;
+  // Examples carry a label such as "Today 08:44"; it only becomes a time once
+  // the client clock exists, so the server and the first client frame agree.
+  const openedAt = recordedOpened ?? (example && now > 0 ? demoOpenedAt(lastUsedByItemId[item.id], now) : null);
+  const setName = metadata?.setId ? setById.get(metadata.setId)?.name : undefined;
   return {
     id: item.id,
     title: item.title,
     description: item.meta,
     type,
     tabId: item.type,
-    set:
-      (metadata?.setId ? setById.get(metadata.setId)?.name : undefined) ||
-      item.set ||
-      (item.type === "services" ? "Saved services" : item.type === "forms" ? "Saved forms" : "Unsorted"),
+    // A saved item lives in its account set or in Unsorted. The registry's
+    // "Saved services" style labels were type buckets, not sets; the Type view
+    // does that job now. Examples keep their preset set so the demo reads true.
+    set: setName ?? (example ? item.set : UNSORTED_SET_NAME),
     evidence: item.sourceMeta,
-    lastUsed:
-      openedAt !== undefined
-        ? formatLastOpened(openedAt)
-        : demoMode && lastUsedByItemId[item.id]
-          ? lastUsedByItemId[item.id]
-          : "Saved",
+    lastUsed: openedAt !== null ? formatLastOpened(openedAt) : "Saved",
+    openedAt,
     action: item.primaryAction,
     href: item.href,
     icon: item.icon ?? fallbackIconByType[item.type],
     pinned: Boolean(metadata?.pinnedAt) || pinnedIds.has(item.id),
+    pinnedAt: parseTimestamp(metadata?.pinnedAt),
     contentType,
     contentKey,
     setId: metadata?.setId ?? null,
     sortOrder: metadata?.sortOrder ?? 0,
     example,
   };
-}
-
-function buildFavouriteSets(items: FavouriteItem[]): FavouriteSet[] {
-  const presetSets = prototypeFavouriteSets.map((set) => ({
-    id: set.id,
-    title: set.title,
-    count: items.filter((item) => item.set === set.title).length,
-    meta: set.meta,
-  }));
-  const knownTitles = new Set(presetSets.map((set) => set.title));
-  const dynamicSets = Array.from(new Set(items.map((item) => item.set)))
-    .filter((title) => title && !knownTitles.has(title))
-    .map((title) => ({
-      id: title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, ""),
-      title,
-      count: items.filter((item) => item.set === title).length,
-    }));
-  return [...presetSets, ...dynamicSets].filter((set) => set.count > 0);
-}
-
-function getMostRecentlyUsedItem(items: FavouriteItem[]): FavouriteItem | null {
-  const withOpened = items.filter((item) => lastUsedScore(item.lastUsed) > 1000);
-  if (withOpened.length === 0) return null;
-  return (
-    [...withOpened].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null
-  );
-}
-
-function filterAndSortItems(
-  items: FavouriteItem[],
-  {
-    searchTerm,
-    selectedTypeIds,
-    selectedSetTitles,
-    pinnedOnly,
-    sourceBackedOnly,
-    viewMode,
-    sortMode,
-  }: {
-    searchTerm: string;
-    selectedTypeIds: ReadonlySet<string>;
-    selectedSetTitles: ReadonlySet<string>;
-    pinnedOnly: boolean;
-    sourceBackedOnly: boolean;
-    viewMode: ViewMode;
-    sortMode: SortMode;
-  },
-): FavouriteItem[] {
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const effectiveSort: SortMode = viewMode === "recent" ? "last-used" : sortMode;
-
-  return items
-    .filter((item) => viewMode !== "recent" || lastUsedScore(item.lastUsed) > 1000)
-    .filter((item) => selectedTypeIds.size === 0 || selectedTypeIds.has(item.tabId))
-    .filter((item) => selectedSetTitles.size === 0 || selectedSetTitles.has(item.set))
-    .filter((item) => !pinnedOnly || item.pinned === true)
-    .filter((item) => !sourceBackedOnly || isSourceBacked(item))
-    .filter((item) =>
-      normalizedSearch
-        ? [item.title, item.description, item.type, item.set, item.evidence].some((field) =>
-            field.toLowerCase().includes(normalizedSearch),
-          )
-        : true,
-    )
-    .sort((first, second) => {
-      if (effectiveSort === "manual")
-        return (first.sortOrder ?? 0) - (second.sortOrder ?? 0) || first.title.localeCompare(second.title);
-      if (effectiveSort === "title") return first.title.localeCompare(second.title);
-      if (effectiveSort === "type")
-        return first.type.localeCompare(second.type) || first.title.localeCompare(second.title);
-      return lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed);
-    });
 }
 
 function MiniIconTile({
@@ -359,311 +292,11 @@ function MiniIconTile({
   );
 }
 
-function ExampleTag({ item }: { item: FavouriteItem }) {
-  return item.example ? <FavouriteExampleTag /> : null;
-}
-
 function SmallChip({ children, appearance }: { children: React.ReactNode; appearance: ChipAppearance }) {
   return (
     <Chip size="compact" appearance={appearance}>
       {children}
     </Chip>
-  );
-}
-
-function ContinueStrip({ item, onOpen }: { item: FavouriteItem; onOpen: (item: FavouriteItem) => void }) {
-  const Icon = item.icon;
-  return (
-    <section
-      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e1)]"
-      data-testid="favourites-continue-strip"
-    >
-      <div className="grid min-h-[3.25rem] grid-cols-[3px_minmax(0,1fr)]">
-        <span className="bg-[color:var(--success)]" aria-hidden />
-        <div className="flex min-w-0 flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
-          <div className="flex min-w-0 items-start gap-3 sm:flex-1">
-            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-            <Link href={item.href} onClick={() => onOpen(item)} className={cn("min-w-0 flex-1 text-left", focusRing)}>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--success)]">
-                  Continue
-                </p>
-                <p className="min-w-0 text-sm-minus font-bold leading-snug text-[color:var(--text-heading)]">
-                  {item.title}
-                </p>
-                <ExampleTag item={item} />
-              </div>
-              <p className="mt-0.5 text-2xs font-medium leading-snug text-[color:var(--text-muted)]">
-                {item.set} · last opened {item.lastUsed}
-              </p>
-            </Link>
-          </div>
-          <Link
-            href={item.href}
-            onClick={() => onOpen(item)}
-            aria-label={`Continue ${item.title}`}
-            className={cn(
-              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:w-auto",
-              focusRing,
-            )}
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden />
-            Continue
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/**
- * Renders a menu of actions for a favourite item.
- *
- * @param item - The favourite item associated with the available actions
- */
-export function RowActionsMenu({
-  item,
-  sets,
-  onMove,
-  onRemove,
-  onOpen,
-}: {
-  item: FavouriteItem;
-  sets: AccountFavouriteSet[];
-  onMove: (item: FavouriteItem, setId: string | null) => Promise<boolean>;
-  onRemove: (item: FavouriteItem) => Promise<boolean>;
-  onOpen: (item: FavouriteItem) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
-  const [actionPending, setActionPending] = useState(false);
-  const [actionStatus, setActionStatus] = useState("");
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuId = `favourite-actions-${item.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-  const triggerId = `${menuId}-trigger`;
-
-  useDismissableLayer({
-    enabled: open,
-    refs: [buttonRef, menuRef],
-    onDismiss: () => setOpen(false),
-    restoreFocusRef: buttonRef,
-  });
-
-  const actionLabel = item.action === "Copy" ? "Open" : item.action;
-
-  function focusMenuItem(position: "first" | "last") {
-    window.requestAnimationFrame(() => {
-      const items = Array.from(
-        menuRef.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), select:not([disabled])") ?? [],
-      );
-      const target = position === "first" ? items[0] : items.at(-1);
-      target?.focus({ preventScroll: true });
-    });
-  }
-
-  function openMenu(position: "first" | "last" = "first") {
-    setOpen(true);
-    setCopyStatus("idle");
-    focusMenuItem(position);
-  }
-
-  return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        id={triggerId}
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-controls={open ? menuId : undefined}
-        aria-label={`More actions for ${item.title}`}
-        onClick={() => (open ? setOpen(false) : openMenu())}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-          event.preventDefault();
-          openMenu(event.key === "ArrowUp" ? "last" : "first");
-        }}
-        className={cn(
-          "grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-          focusRing,
-        )}
-      >
-        <MoreVertical className="h-4 w-4" aria-hidden />
-      </button>
-      {open ? (
-        <div
-          ref={menuRef}
-          id={menuId}
-          role="dialog"
-          aria-label={`Actions for ${item.title}`}
-          className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--e2)]"
-        >
-          <Link
-            href={item.href}
-            aria-label={`${actionLabel} ${item.title}`}
-            className={cn(
-              "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
-              focusRing,
-            )}
-            onClick={() => {
-              onOpen(item);
-              setOpen(false);
-            }}
-          >
-            <ExternalLink className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-            {actionLabel}
-          </Link>
-          <button
-            type="button"
-            className={cn(
-              "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
-              focusRing,
-            )}
-            onClick={async () => {
-              const copied = await copyFavouriteCitation(item);
-              setCopyStatus(copied ? "copied" : "failed");
-            }}
-          >
-            <Copy className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-            {copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Copy failed" : "Copy citation"}
-          </button>
-          {item.contentType && item.contentKey ? (
-            <>
-              <label className="grid gap-1 border-t border-[color:var(--border)] px-3 py-2 text-2xs font-semibold text-[color:var(--text-muted)]">
-                Move to set
-                <select
-                  aria-label={`Move ${item.title} to set`}
-                  value={item.setId ?? ""}
-                  disabled={actionPending}
-                  onChange={async (event) => {
-                    setActionPending(true);
-                    try {
-                      const moved = await onMove(item, event.target.value || null);
-                      setActionStatus(moved ? `${item.title} moved` : `Could not move ${item.title}`);
-                      if (moved) setOpen(false);
-                    } catch {
-                      setActionStatus(`Could not move ${item.title}`);
-                    } finally {
-                      setActionPending(false);
-                    }
-                  }}
-                  className="min-h-tap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)]"
-                >
-                  <option value="">Unsorted</option>
-                  {sets.map((set) => (
-                    <option key={set.id} value={set.id}>
-                      {set.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                disabled={actionPending}
-                className={cn(
-                  "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)] disabled:opacity-60",
-                  focusRing,
-                )}
-                onClick={async () => {
-                  setActionPending(true);
-                  try {
-                    const removed = await onRemove(item);
-                    setActionStatus(removed ? `${item.title} removed` : `Could not remove ${item.title}`);
-                    if (removed) setOpen(false);
-                  } catch {
-                    setActionStatus(`Could not remove ${item.title}`);
-                  } finally {
-                    setActionPending(false);
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4" aria-hidden />
-                {actionPending ? "Updating…" : "Remove favourite"}
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-      <span className="sr-only" role="status" aria-live="polite">
-        {copyStatus === "copied"
-          ? `${item.title} citation copied`
-          : copyStatus === "failed"
-            ? "Unable to copy citation"
-            : ""}
-      </span>
-      <span className="sr-only" role="status" aria-live="polite">
-        {actionStatus}
-      </span>
-    </div>
-  );
-}
-
-function FavouriteMobileCard({
-  item,
-  sets,
-  onMove,
-  onRemove,
-  onOpen,
-}: {
-  item: FavouriteItem;
-  sets: AccountFavouriteSet[];
-  onMove: (item: FavouriteItem, setId: string | null) => Promise<boolean>;
-  onRemove: (item: FavouriteItem) => Promise<boolean>;
-  onOpen: (item: FavouriteItem) => void;
-}) {
-  return (
-    <article className="min-w-0 max-w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)]">
-      <div className="min-w-0">
-        <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
-          {item.title}
-        </h3>
-        {item.example ? (
-          <div className="mt-1">
-            <ExampleTag item={item} />
-          </div>
-        ) : null}
-        <p className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-          {item.description}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
-          {isSourceBacked(item) ? (
-            <SmallChip appearance={{ kind: "status", tone: "success" }}>Source-backed</SmallChip>
-          ) : null}
-        </div>
-      </div>
-
-      <dl className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3 text-2xs font-semibold">
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <dt className="inline-flex items-center gap-1.5 text-[color:var(--text-muted)]">
-            <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            Set
-          </dt>
-          <dd className="min-w-0 truncate text-right text-[color:var(--text-heading)]">{item.set}</dd>
-        </div>
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <dt className="text-[color:var(--text-muted)]">Last used</dt>
-          <dd className="min-w-0 truncate text-right text-[color:var(--text-heading)]">{item.lastUsed}</dd>
-        </div>
-      </dl>
-
-      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
-        <Link
-          href={item.href}
-          onClick={() => onOpen(item)}
-          aria-label={`Open ${item.title}`}
-          className={cn(
-            "inline-flex h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-            focusRing,
-          )}
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden />
-          Open
-        </Link>
-        <RowActionsMenu item={item} sets={sets} onMove={onMove} onRemove={onRemove} onOpen={onOpen} />
-      </div>
-    </article>
   );
 }
 
@@ -679,385 +312,6 @@ function FavouritesEmptyMatches() {
       testId="favourites-empty-matches"
       live="polite"
     />
-  );
-}
-
-/**
- * The empty-query dashboard band. Both cards read from the same derived data
- * the table does — no separate store — so they cannot drift from it.
- */
-function FavouritesDashboardBand({
-  recentItems,
-  sets,
-  onSelectSet,
-  onShowRecent,
-  onOpen,
-}: {
-  recentItems: FavouriteItem[];
-  sets: FavouriteSet[];
-  onSelectSet: (id: string) => void;
-  onShowRecent: () => void;
-  onOpen: (item: FavouriteItem) => void;
-}) {
-  return (
-    <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-      <section
-        data-testid="favourites-recent-card"
-        aria-labelledby="favourites-recent-heading"
-        className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-[color:var(--border)] px-3.5 py-2.5">
-          <h2
-            id="favourites-recent-heading"
-            className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]"
-          >
-            <Clock className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-            Recent
-          </h2>
-          <button
-            type="button"
-            onClick={onShowRecent}
-            className={cn(
-              "inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
-              focusRing,
-            )}
-          >
-            View all
-          </button>
-        </div>
-        {recentItems.length === 0 ? (
-          <p className="px-3.5 py-4 text-xs font-medium text-[color:var(--text-muted)]">
-            Recently opened favourites will appear here as you use them.
-          </p>
-        ) : (
-          <ul className="divide-y divide-[color:var(--border)]">
-            {recentItems.map((item) => (
-              <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
-                <Chip size="compact" appearance={typeAppearance[item.type]}>
-                  {item.type}
-                </Chip>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="min-w-0 truncate text-sm font-bold text-[color:var(--text-heading)]">
-                      {item.title}
-                    </span>
-                    <ExampleTag item={item} />
-                  </span>
-                  <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
-                    {item.set} · {item.lastUsed}
-                  </span>
-                </span>
-                <Link
-                  href={item.href}
-                  onClick={() => onOpen(item)}
-                  aria-label={`Open ${item.title}`}
-                  className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
-                    focusRing,
-                  )}
-                >
-                  Open
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section
-        data-testid="favourites-sets-card"
-        aria-labelledby="favourites-sets-heading"
-        className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-[color:var(--border)] px-3.5 py-2.5">
-          <h2
-            id="favourites-sets-heading"
-            className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]"
-          >
-            <FolderPlus className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-            Your sets
-          </h2>
-        </div>
-        {sets.length === 0 ? (
-          <p className="px-3.5 py-4 text-xs font-medium text-[color:var(--text-muted)]">
-            Saved items group into sets as you add them.
-          </p>
-        ) : (
-          <ul className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
-            {sets.map((set) => (
-              <li key={set.id} className="min-w-0">
-                <button
-                  type="button"
-                  onClick={() => onSelectSet(set.id)}
-                  className={cn(
-                    "flex min-h-tap w-full min-w-0 flex-col items-start gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-left hover:bg-[color:var(--surface)]",
-                    focusRing,
-                  )}
-                >
-                  <span className="flex min-w-0 max-w-full items-center gap-1.5">
-                    <Folder className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
-                    <span className="truncate text-xs font-bold text-[color:var(--text-heading)]">{set.title}</span>
-                  </span>
-                  <span className="nums text-2xs font-medium text-[color:var(--text-muted)]">
-                    {set.count} {set.count === 1 ? "item" : "items"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function FavouritesTable({
-  items,
-  rows: tableRows,
-  searchTerm,
-  viewMode,
-  sortMode,
-  selectedItemId,
-  sets,
-  onSortModeChange,
-  onSelectItem,
-  onMove,
-  onRemove,
-  onOpen,
-}: {
-  items: FavouriteItem[];
-  // The filtered/sorted rows are computed once by the page and passed in.
-  // They used to be derived here as well, from the same inputs, so the band's
-  // match count and the table's own count were two independent answers to one
-  // question — the redundant half of the "dual search" ledger #164 names.
-  rows: FavouriteItem[];
-  searchTerm: string;
-  viewMode: ViewMode;
-  sortMode: SortMode;
-  selectedItemId: string | null;
-  sets: AccountFavouriteSet[];
-  onSortModeChange: (value: SortMode) => void;
-  onSelectItem: (id: string) => void;
-  onMove: (item: FavouriteItem, setId: string | null) => Promise<boolean>;
-  onRemove: (item: FavouriteItem) => Promise<boolean>;
-  onOpen: (item: FavouriteItem) => void;
-}) {
-  // With the item workspace open (only at 2xl), the middle column narrows sharply.
-  // Drop the leading icon and the secondary Evidence column there so titles keep
-  // room instead of collapsing to a couple of characters.
-  const compact = Boolean(selectedItemId);
-  const rowIconClass = compact ? "hidden" : "hidden 2xl:grid";
-  const evidenceHeadClass = cn("hidden px-3", compact ? "" : "w-[7rem] 2xl:table-cell");
-  const evidenceCellClass = cn("hidden px-3 align-middle", compact ? "" : "2xl:table-cell");
-
-  return (
-    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3.5 py-2.5">
-        <p className="inline-flex min-w-0 items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
-          {searchTerm.trim() ? (
-            <>
-              <Search className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-              <span className="nums font-bold text-[color:var(--text-heading)]">{tableRows.length}</span>
-              {tableRows.length === 1 ? "match for" : "matches for"}
-              <span className="truncate font-bold normal-case text-[color:var(--text-heading)]">
-                “{searchTerm.trim()}”
-              </span>
-            </>
-          ) : (
-            <>
-              <Heart className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-              <span className="nums font-bold text-[color:var(--text-heading)]">{tableRows.length}</span>
-              {tableRows.length === 1 ? "item" : "items"}
-              {tableRows.length !== items.length ? ` of ${items.length}` : ""}
-            </>
-          )}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="relative block min-w-[9.5rem]">
-            <span className="sr-only">Sort favourites</span>
-            <select
-              value={viewMode === "recent" ? "last-used" : sortMode}
-              disabled={viewMode === "recent"}
-              title={viewMode === "recent" ? "Recently used view is always sorted by last used" : undefined}
-              onChange={(event) => onSortModeChange(event.target.value as SortMode)}
-              className={cn(
-                fieldControlPlain,
-                "appearance-none pr-9 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-              )}
-            >
-              <option value="manual">Sort: Manual order</option>
-              <option value="last-used">Sort: Last used</option>
-              <option value="title">Sort: Title</option>
-              <option value="type">Sort: Type</option>
-            </select>
-            <ChevronDown
-              aria-hidden="true"
-              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--decoration-soft)]"
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className={tableRows.length === 0 ? "hidden" : "hidden overflow-x-auto sm:block"}>
-        <table aria-label="Saved favourites" className="w-full min-w-[34rem] table-fixed border-collapse text-left">
-          <thead>
-            <tr className="h-9 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-              <th scope="col" className="min-w-[11rem] px-3.5">
-                Item
-              </th>
-              <th scope="col" className="w-[6rem] px-3">
-                Type
-              </th>
-              <th scope="col" className="w-[7rem] px-3">
-                Set
-              </th>
-              <th scope="col" className={evidenceHeadClass}>
-                Evidence
-              </th>
-              <th scope="col" className="w-[8.5rem] px-3">
-                Last used
-              </th>
-              <th scope="col" className="w-[7.5rem] px-3 text-right">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[color:var(--border)]">
-            {tableRows.map((item) => {
-              const selected = selectedItemId === item.id;
-              return (
-                <tr
-                  key={item.id}
-                  data-testid={`favourite-row-${item.id}`}
-                  className={cn(
-                    "relative h-14 transition hover:bg-[color:var(--surface-subtle)]",
-                    selected && "xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[var(--shadow-rail-active)]",
-                  )}
-                >
-                  <td className="px-3.5 align-middle">
-                    <button
-                      type="button"
-                      onClick={() => onSelectItem(item.id)}
-                      aria-pressed={selected}
-                      className={cn(
-                        "hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex",
-                        focusRing,
-                      )}
-                    >
-                      <MiniIconTile icon={item.icon} active={selected} className={rowIconClass} />
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          {item.pinned ? (
-                            <>
-                              <Pin
-                                className="h-3 w-3 shrink-0 -rotate-45 fill-current text-[color:var(--clinical-accent)]"
-                                aria-hidden
-                              />
-                              <span className="sr-only">Pinned</span>
-                            </>
-                          ) : null}
-                          <span className="line-clamp-1 min-w-0 text-sm-minus font-bold text-[color:var(--text-heading)]">
-                            {item.title}
-                          </span>
-                          <ExampleTag item={item} />
-                        </span>
-                        <span className="mt-0.5 line-clamp-1 text-2xs font-medium text-[color:var(--text-muted)]">
-                          {item.description}
-                        </span>
-                      </span>
-                    </button>
-                    <Link
-                      href={item.href}
-                      onClick={() => onOpen(item)}
-                      className={cn(
-                        "block min-w-0 max-w-full rounded-md text-left xl:hidden",
-                        focusRing,
-                        stretchedRowLinkClass,
-                      )}
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="line-clamp-1 block min-w-0 text-sm-minus font-bold text-[color:var(--text-heading)]">
-                          {item.title}
-                        </span>
-                        <ExampleTag item={item} />
-                      </span>
-                      <span className="mt-0.5 line-clamp-1 block text-2xs font-medium text-[color:var(--text-muted)]">
-                        {item.description}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="px-3 align-middle">
-                    <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
-                  </td>
-                  <td className="px-3 align-middle">
-                    <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-                      <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      <span className="line-clamp-1">{item.set}</span>
-                    </span>
-                  </td>
-                  <td className={evidenceCellClass}>
-                    {isSourceBacked(item) ? (
-                      <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                        <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        <span className="line-clamp-1">{item.evidence}</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-                        <span className="line-clamp-1">{item.evidence}</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 align-middle">
-                    <span className="whitespace-nowrap text-2xs font-semibold text-[color:var(--text-heading)]">
-                      {item.lastUsed}
-                    </span>
-                  </td>
-                  <td className="relative z-10 px-3 align-middle" onClick={(event) => event.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-2">
-                      <Link
-                        href={item.href}
-                        onClick={() => onOpen(item)}
-                        aria-label={`Open ${item.title}`}
-                        className={cn(
-                          "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-                          focusRing,
-                        )}
-                      >
-                        Open
-                      </Link>
-                      <RowActionsMenu item={item} sets={sets} onMove={onMove} onRemove={onRemove} onOpen={onOpen} />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div
-        className={
-          tableRows.length === 0 ? "hidden" : "grid min-w-0 gap-3 bg-[color:var(--surface-wash)] p-3 sm:hidden"
-        }
-      >
-        {tableRows.map((item) => (
-          <FavouriteMobileCard
-            key={item.id}
-            item={item}
-            sets={sets}
-            onMove={onMove}
-            onRemove={onRemove}
-            onOpen={onOpen}
-          />
-        ))}
-      </div>
-
-      {tableRows.length === 0 ? (
-        <div className="bg-[color:var(--surface-wash)] p-3 sm:p-4">
-          <FavouritesEmptyMatches />
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -1339,11 +593,27 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const auth = useAuthSession();
   const accountData = useOptionalAccountData();
   const searchCommand = useSearchCommand();
+  const toastApi = useOptionalToast();
+  // Outside the app shell (isolated renders) there is no toast region, so say
+  // the outcome through the announcer and let a held-back removal commit.
+  const toast = useMemo<ToastApi>(
+    () =>
+      toastApi ?? {
+        push: (entry) => {
+          announce(entry.title);
+          entry.onClose?.("timeout");
+          return "";
+        },
+        dismiss: () => {},
+      },
+    [toastApi],
+  );
   const hydrated = useSyncExternalStore(
     subscribeNoop,
     () => true,
     () => false,
   );
+  const now = useSyncExternalStore(subscribeMinute, getMinuteNow, getServerNow);
   // The route's submitted `?q=` server-renders the exact list on a hard load;
   // after hydration the shared composer's live draft owns it. That is what
   // makes the typed query filter this page in place — no navigation, no second
@@ -1376,23 +646,33 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       ),
     [accountData?.favouriteItems],
   );
-  const setById = useMemo(
-    () => new Map((accountData?.favouriteSets ?? []).map((set) => [set.id, set] as const)),
+  const accountSets = useMemo(
+    () => [...(accountData?.favouriteSets ?? [])].sort((first, second) => first.sortOrder - second.sortOrder),
     [accountData?.favouriteSets],
   );
+  const setById = useMemo(() => new Map(accountSets.map((set) => [set.id, set] as const)), [accountSets]);
   const items = useMemo(
     () => [
       // Fixtures are tagged by where they came from, not by id, so a saved item can
       // never inherit the Example tag by sharing an id with a fixture.
       ...(demoMode ? prototypeFavouriteItems : []).map((item) =>
-        toCommandItem(item, lastOpenedMap, pinnedIds, favouriteMetadata, setById, demoMode, true),
+        toCommandItem(item, lastOpenedMap, pinnedIds, favouriteMetadata, setById, now, true),
       ),
       ...savedRegistryFavourites.map((item) =>
-        toCommandItem(item, lastOpenedMap, pinnedIds, favouriteMetadata, setById, demoMode),
+        toCommandItem(item, lastOpenedMap, pinnedIds, favouriteMetadata, setById, now),
       ),
     ],
-    [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds, favouriteMetadata, setById],
+    [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds, favouriteMetadata, setById, now],
   );
+
+  // Remove is held back until its Undo message closes, so a removed row hides
+  // here at once while the account still holds it.
+  const [pendingRemovalIds, setPendingRemovalIds] = useState<ReadonlySet<string>>(() => new Set());
+  const libraryItems = useMemo(
+    () => items.filter((item) => !pendingRemovalIds.has(item.id)),
+    [items, pendingRemovalIds],
+  );
+
   // Demo prototypes live outside the hook. If they are the only items while a
   // registry/account read failed, keep their honest nonzero count but mark it
   // partial so it cannot be mistaken for the complete saved library.
@@ -1403,93 +683,99 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       : items.length > 0
         ? "ready"
         : favouritesHookStatus;
-  const sets = useMemo(() => buildFavouriteSets(items), [items]);
+
+  const orderedSetNames = useMemo(
+    () => [...accountSets.map((set) => set.name as string), ...prototypeFavouriteSets.map((set) => set.title)],
+    [accountSets],
+  );
+  const setChips = useMemo(() => buildSetChips(libraryItems, orderedSetNames), [libraryItems, orderedSetNames]);
+
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedSetNames, setSelectedSetNames] = useState<ReadonlySet<string>>(() => new Set());
   const [selectedTypeIds, setSelectedTypeIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [selectedSetIds, setSelectedSetIds] = useState<ReadonlySet<string>>(() => new Set());
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const [sourceBackedOnly, setSourceBackedOnly] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("manual");
+  const [allView, setAllView] = useState<FavouritesView>("recent");
+  const [setView, setSetView] = useState<FavouritesView>("order");
+  const [mode, setMode] = useState<PageMode>("browse");
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<FavouriteSheetState>(null);
+  const [confirmRemoveIds, setConfirmRemoveIds] = useState<string[] | null>(null);
+  const [reorderPending, setReorderPending] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedItemSnapshot, setSelectedItemSnapshot] = useState<FavouriteItem | null>(null);
-  const [newSetName, setNewSetName] = useState<FavouriteSetName>(favouriteSetNames[0]);
-  const [setMutationPending, setSetMutationPending] = useState(false);
-  const [setMutationStatus, setSetMutationStatus] = useState("");
 
-  const effectiveSelectedSetIds = useMemo(
-    () => new Set([...selectedSetIds].filter((id) => sets.some((set) => set.id === id))),
-    [selectedSetIds, sets],
+  // A chosen set that has emptied (moved away, removed) drops out of the filter.
+  const effectiveSelectedSets = useMemo(
+    () => new Set([...selectedSetNames].filter((name) => setChips.some((chip) => chip.name === name))),
+    [selectedSetNames, setChips],
   );
-  const selectedSetTitles = useMemo(
-    () => new Set(sets.filter((set) => effectiveSelectedSetIds.has(set.id)).map((set) => set.title)),
-    [effectiveSelectedSetIds, sets],
-  );
+  const singleSetName = effectiveSelectedSets.size === 1 ? [...effectiveSelectedSets][0]! : null;
+  const view: FavouritesView = singleSetName ? setView : allView;
+  const searching = activeQuery.trim().length > 0;
+  const facetFilterCount = selectedTypeIds.size + Number(pinnedOnly) + Number(sourceBackedOnly);
+  const activeFilterCount = effectiveSelectedSets.size + facetFilterCount;
+  const effectiveMode: PageMode = mode === "reorder" && !(singleSetName && view === "order") ? "browse" : mode;
+
+  const passesFilters = (
+    item: FavouriteItem,
+    {
+      sets = effectiveSelectedSets,
+      typeIds = selectedTypeIds,
+      pinned = pinnedOnly,
+      sourceBacked = sourceBackedOnly,
+    }: {
+      sets?: ReadonlySet<string>;
+      typeIds?: ReadonlySet<string>;
+      pinned?: boolean;
+      sourceBacked?: boolean;
+    } = {},
+  ) =>
+    (sets.size === 0 || sets.has(item.set)) &&
+    (typeIds.size === 0 || typeIds.has(item.tabId)) &&
+    (!pinned || item.pinned === true) &&
+    (!sourceBacked || isSourceBacked(item)) &&
+    matchesFavouriteSearch(item, activeQuery);
 
   // Single source of truth for "what is in the list right now". The band's
-  // match count, the Continue gate, the empty-state branch and the table all
-  // read this one value.
-  const filteredItems = useMemo(
-    () =>
-      filterAndSortItems(items, {
-        searchTerm: activeQuery,
-        selectedTypeIds,
-        selectedSetTitles,
-        pinnedOnly,
-        sourceBackedOnly,
-        viewMode,
-        sortMode,
-      }),
-    [items, activeQuery, selectedTypeIds, selectedSetTitles, pinnedOnly, sourceBackedOnly, viewMode, sortMode],
-  );
-  const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
-  const showContinueStrip =
-    continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
-  const recentItems = useMemo(
-    () =>
-      items
-        .filter((item) => lastOpenedScore(item.lastUsed) > 1000)
-        .sort((first, second) => lastOpenedScore(second.lastUsed) - lastOpenedScore(first.lastUsed))
-        .slice(0, recentPreviewLimit),
-    [items],
-  );
-  const searching = activeQuery.trim().length > 0;
+  // match count, the empty-state branch and the list all read this one value.
+  const filteredItems = libraryItems.filter((item) => passesFilters(item));
+  const groups = groupForView(filteredItems, view, now);
+  const quickLaunch = quickLaunchItems(libraryItems);
+  const continueItem = pickContinueItem(libraryItems);
+  const showLaunchpad = !searching && activeFilterCount === 0 && effectiveMode === "browse";
+
+  const canMutate = (item: FavouriteItem) =>
+    Boolean(item.contentType && item.contentKey && accountData?.isAuthenticated && !item.example);
+  const mutableCount = libraryItems.filter(canMutate).length;
+  const availableSetNames = favouriteSetNames.filter((name) => !accountSets.some((set) => set.name === name));
+  const canCreateSet = Boolean(accountData?.isAuthenticated) && availableSetNames.length > 0;
+  const accountSetForChip = singleSetName ? accountSets.find((set) => set.name === singleSetName) : undefined;
+  const singleSetMutableCount = singleSetName
+    ? filteredItems.filter((item) => item.set === singleSetName && canMutate(item)).length
+    : 0;
 
   const selectedItem = selectedItemId
     ? (items.find((item) => item.id === selectedItemId) ??
       (selectedItemSnapshot?.id === selectedItemId ? selectedItemSnapshot : null))
     : null;
 
-  const availableSetNames = favouriteSetNames.filter(
-    (name) => !(accountData?.favouriteSets ?? []).some((set) => set.name === name),
-  );
-  const effectiveNewSetName = availableSetNames.includes(newSetName) ? newSetName : availableSetNames[0];
-
   function clearSearch() {
     router.push("/favourites");
   }
 
   function clearAllFilters() {
-    setSelectedSetIds(new Set());
+    setSelectedSetNames(new Set());
     setSelectedTypeIds(new Set());
     setPinnedOnly(false);
     setSourceBackedOnly(false);
   }
 
-  async function handleRemove(item: FavouriteItem) {
-    if (!item.contentType || !item.contentKey) return false;
-    return accountData?.setFavourite(item.contentType, item.contentKey, false) ?? false;
-  }
-
-  async function handleMove(item: FavouriteItem, setId: string | null) {
-    if (!item.contentType || !item.contentKey) return false;
-    return accountData?.moveFavourite(item.contentType, item.contentKey, setId) ?? false;
-  }
-
-  async function handleReorder(item: FavouriteItem, direction: -1 | 1) {
-    if (!item.contentType || !item.contentKey) return false;
-    return accountData?.reorderFavourite(item.contentType, item.contentKey, direction === -1 ? "up" : "down") ?? false;
+  function leaveSpecialMode() {
+    setMode("browse");
+    setSelectedIds(new Set());
   }
 
   function handleOpen(item: FavouriteItem) {
@@ -1499,11 +785,192 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     }
   }
 
-  const toggleSet = (id: string) => {
-    const next = new Set(effectiveSelectedSetIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedSetIds(next);
+  async function handleRemoveNow(item: FavouriteItem) {
+    if (!item.contentType || !item.contentKey) return false;
+    return accountData?.setFavourite(item.contentType, item.contentKey, false) ?? false;
+  }
+
+  async function handleMoveNow(item: FavouriteItem, setId: string | null) {
+    if (!item.contentType || !item.contentKey) return false;
+    return accountData?.moveFavourite(item.contentType, item.contentKey, setId) ?? false;
+  }
+
+  async function handleReorder(item: FavouriteItem, direction: -1 | 1) {
+    if (!item.contentType || !item.contentKey) return false;
+    return accountData?.reorderFavourite(item.contentType, item.contentKey, direction === -1 ? "up" : "down") ?? false;
+  }
+
+  async function togglePin(targets: FavouriteItem[]) {
+    const mutable = targets.filter(canMutate);
+    if (mutable.length === 0 || !accountData) return;
+    const unpin = mutable.every((item) => item.pinned);
+    if (unpin) {
+      const results = await Promise.all(
+        mutable.map(async (item) => {
+          // An older phone-only pin lives in this browser; clear it as well.
+          if (pinnedIds.has(item.id)) toggleFavouritePinnedId(item.id);
+          return accountData.setFavouritePinned(item.contentType!, item.contentKey!, false);
+        }),
+      );
+      toast.push(
+        results.every(Boolean)
+          ? {
+              tone: "success",
+              title: mutable.length === 1 ? "Removed from quick launch" : `${mutable.length} removed from quick launch`,
+            }
+          : {
+              tone: "danger",
+              title: "Quick launch could not be updated",
+              body: "Check your connection and try again.",
+            },
+      );
+      return;
+    }
+    const toAdd = mutable.filter((item) => !item.pinned);
+    const room = Math.max(0, 4 - libraryItems.filter((item) => item.pinned).length);
+    if (!quickLaunchHasRoom(libraryItems) || room === 0) {
+      toast.push({ tone: "warning", title: "Quick launch is full", body: "Remove one of the four first." });
+      return;
+    }
+    const adding = toAdd.slice(0, room);
+    const results = await Promise.all(
+      adding.map((item) => accountData.setFavouritePinned(item.contentType!, item.contentKey!, true)),
+    );
+    if (!results.every(Boolean)) {
+      toast.push({
+        tone: "danger",
+        title: "Quick launch could not be updated",
+        body: "Check your connection and try again.",
+      });
+      return;
+    }
+    toast.push({
+      tone: "success",
+      title: adding.length === 1 ? "Added to quick launch" : `${adding.length} added to quick launch`,
+      body: adding.length < toAdd.length ? "Quick launch holds four. The rest were not added." : undefined,
+    });
+  }
+
+  async function moveItems(targets: FavouriteItem[], setId: string | null) {
+    const mutable = targets.filter(canMutate).filter((item) => (item.setId ?? null) !== setId);
+    if (mutable.length === 0) return;
+    const previous = mutable.map((item) => [item, item.setId ?? null] as const);
+    const results = await Promise.all(mutable.map((item) => handleMoveNow(item, setId)));
+    const setName = setId ? (setById.get(setId)?.name ?? "the set") : UNSORTED_SET_NAME;
+    if (!results.every(Boolean)) {
+      toast.push({ tone: "danger", title: "Could not move", body: "Check your connection and try again." });
+      return;
+    }
+    toast.push({
+      tone: "success",
+      title: `${mutable.length === 1 ? "Moved" : `Moved ${mutable.length}`} to ${setName}`,
+      action: {
+        label: "Undo",
+        onAction: () => {
+          void Promise.all(previous.map(([item, originalSetId]) => handleMoveNow(item, originalSetId)));
+        },
+      },
+    });
+  }
+
+  function removeItems(targets: FavouriteItem[]) {
+    const mutable = targets.filter(canMutate);
+    if (mutable.length === 0) return;
+    const ids = mutable.map((item) => item.id);
+    setPendingRemovalIds((current) => new Set([...current, ...ids]));
+    setOpenSwipeId(null);
+    const release = () => setPendingRemovalIds((current) => new Set([...current].filter((id) => !ids.includes(id))));
+    toast.push({
+      tone: "info",
+      title: mutable.length === 1 ? `Removed ${mutable[0]!.title}` : `Removed ${mutable.length} favourites`,
+      action: { label: "Undo", onAction: release },
+      onClose: (reason) => {
+        if (reason === "action") return;
+        void Promise.all(mutable.map(handleRemoveNow)).then((results) => {
+          release();
+          if (!results.every(Boolean)) {
+            toast.push({
+              tone: "danger",
+              title: "Could not remove",
+              body: "The favourite is still saved. Check your connection and try again.",
+            });
+          }
+        });
+      },
+    });
+  }
+
+  async function reorderItem(item: FavouriteItem, direction: -1 | 1) {
+    setReorderPending(true);
+    try {
+      const moved = await handleReorder(item, direction);
+      announce(
+        moved ? `${item.title} moved ${direction === -1 ? "up" : "down"}.` : `${item.title} could not be moved.`,
+      );
+    } finally {
+      setReorderPending(false);
+    }
+  }
+
+  async function chooseSetName(name: FavouriteSetName) {
+    if (!accountData) return;
+    const current = sheet;
+    setSheet(null);
+    if (current?.kind === "rename-set") {
+      const renamed = await accountData.renameFavouriteSet(current.set.id, name);
+      if (renamed) {
+        setSelectedSetNames(new Set([renamed.name]));
+        toast.push({ tone: "success", title: `Renamed to ${renamed.name}` });
+      } else {
+        toast.push({ tone: "danger", title: "Could not rename the set", body: "Check your connection and try again." });
+      }
+      return;
+    }
+    const created = await accountData.createFavouriteSet(name);
+    if (!created) {
+      toast.push({ tone: "danger", title: "Could not create the set", body: "Check your connection and try again." });
+      return;
+    }
+    const moving = current?.kind === "new-set" ? current.items : [];
+    if (moving.length > 0) {
+      await moveItems(moving, created.id);
+      setSelectedSetNames(new Set([created.name]));
+      leaveSpecialMode();
+    } else {
+      toast.push({
+        tone: "success",
+        title: `Created ${created.name}`,
+        body: "Use Move to set on any favourite to add it.",
+      });
+    }
+  }
+
+  const listHandlers = {
+    onOpen: handleOpen,
+    onSelectForWorkspace: (item: FavouriteItem) => {
+      setSelectedItemSnapshot(item);
+      handleOpen(item);
+      setSelectedItemId(item.id);
+    },
+    onShowActions: (item: FavouriteItem) => setSheet({ kind: "actions", item }),
+    onTogglePin: (item: FavouriteItem) => void togglePin([item]),
+    onMove: (item: FavouriteItem) => setSheet({ kind: "move", items: [item] }),
+    onRemove: (item: FavouriteItem) => removeItems([item]),
+    onToggleSelected: (item: FavouriteItem) =>
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.add(item.id);
+        return next;
+      }),
+  };
+  const selectedTargets = libraryItems.filter((item) => selectedIds.has(item.id));
+
+  const toggleSet = (name: string) => {
+    const next = new Set(effectiveSelectedSets);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    setSelectedSetNames(next);
   };
   const toggleType = (id: string) => {
     const next = new Set(selectedTypeIds);
@@ -1511,38 +978,18 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     else next.add(id);
     setSelectedTypeIds(next);
   };
-  const countWith = ({
-    typeIds = selectedTypeIds,
-    setIds = effectiveSelectedSetIds,
-    pinned = pinnedOnly,
-    sourceBacked = sourceBackedOnly,
-  }: {
-    typeIds?: ReadonlySet<string>;
-    setIds?: ReadonlySet<string>;
-    pinned?: boolean;
-    sourceBacked?: boolean;
-  }) => {
-    const setTitles = new Set(sets.filter((set) => setIds.has(set.id)).map((set) => set.title));
-    return filterAndSortItems(items, {
-      searchTerm: activeQuery,
-      selectedTypeIds: typeIds,
-      selectedSetTitles: setTitles,
-      pinnedOnly: pinned,
-      sourceBackedOnly: sourceBacked,
-      viewMode,
-      sortMode,
-    }).length;
-  };
-  const setOptions = sets.map((set) => {
-    const projected = effectiveSelectedSetIds.has(set.id)
-      ? effectiveSelectedSetIds
-      : new Set([...effectiveSelectedSetIds, set.id]);
-    const count = countWith({ setIds: projected });
+  const countWith = (overrides: Parameters<typeof passesFilters>[1]) =>
+    libraryItems.filter((item) => passesFilters(item, overrides)).length;
+  const setOptions = setChips.map((chip) => {
+    const projected = effectiveSelectedSets.has(chip.name)
+      ? effectiveSelectedSets
+      : new Set([...effectiveSelectedSets, chip.name]);
+    const count = countWith({ sets: projected });
     return {
-      value: set.id,
-      label: set.title,
+      value: chip.name,
+      label: chip.name,
       hint: String(count),
-      disabled: !effectiveSelectedSetIds.has(set.id) && count === 0,
+      disabled: !effectiveSelectedSets.has(chip.name) && count === 0,
     };
   });
   const typeOptions = favouriteTabs
@@ -1557,16 +1004,14 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         disabled: !selectedTypeIds.has(tab.id) && count === 0,
       };
     })
-    .filter((option) => items.some((item) => item.tabId === option.value) || selectedTypeIds.has(option.value));
+    .filter((option) => libraryItems.some((item) => item.tabId === option.value) || selectedTypeIds.has(option.value));
   const pinnedCount = countWith({ pinned: true });
   const sourceBackedCount = countWith({ sourceBacked: true });
-  const activeFilterCount =
-    effectiveSelectedSetIds.size + selectedTypeIds.size + Number(pinnedOnly) + Number(sourceBackedOnly);
   const filterGroups = [
     resultFilterFacetGroup({
       id: "set",
       label: "Set",
-      selected: effectiveSelectedSetIds,
+      selected: effectiveSelectedSets,
       options: setOptions,
       onToggle: toggleSet,
     }),
@@ -1607,11 +1052,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     }),
   ];
   const appliedFilters = [
-    ...[...effectiveSelectedSetIds].map((id) => ({
-      id: `set-${id}`,
+    ...[...effectiveSelectedSets].map((name) => ({
+      id: `set-${name}`,
       groupLabel: "Set",
-      valueLabel: sets.find((set) => set.id === id)?.title ?? id,
-      onRemove: () => toggleSet(id),
+      valueLabel: name,
+      onRemove: () => toggleSet(name),
     })),
     ...[...selectedTypeIds].map((id) => ({
       id: `type-${id}`,
@@ -1679,10 +1124,30 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     );
   }
 
+  const summary = favouritesSummary({
+    itemCount: libraryItems.length,
+    setCount: setChips.filter((chip) => chip.name !== UNSORTED_SET_NAME).length,
+    quickLaunchCount: quickLaunch.length,
+  });
+  const showBand = searching || facetFilterCount > 0 || effectiveSelectedSets.size > 1;
+  const filterTrigger = (testId: string) => (
+    <ResultFilterTrigger
+      panelId={filterPanelId}
+      testId={testId}
+      title="Filter favourites"
+      open={filterOpen}
+      activeCount={activeFilterCount}
+      onToggle={() => setFilterOpen((current) => !current)}
+    />
+  );
+
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:grow sm:pb-32 md:pb-0"
+      className={cn(
+        "min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:grow sm:pb-32 md:pb-0",
+        effectiveMode === "select" && "pb-28 sm:pb-32 md:pb-28",
+      )}
     >
       <div
         className={cn(
@@ -1690,92 +1155,57 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
           // fill box, so 100% of it is the real remaining height and the xl
           // split rail still reaches the bottom edge.
           "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-full",
-          // The left library rail is gone — sets, quick views and types are one
-          // chip rail now (ledger #164), so the workspace is a single column
-          // that only splits when the item workspace opens.
+          // One column that only splits when the item workspace opens.
           selectedItem && "xl:grid-cols-[minmax(0,1fr)_23rem]",
         )}
       >
-        <div className="min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-7">
-          <div className="mx-auto grid min-w-0 max-w-[66rem] gap-3 2xl:max-w-[72rem]">
+        <div className="min-w-0 overflow-x-hidden px-4 pb-6 pt-4 sm:px-6 sm:pt-5 lg:px-7">
+          <div className="mx-auto grid min-w-0 max-w-[48rem] gap-4 xl:max-w-[56rem]">
             {/* Owner decision 2026-08-23: this standalone command library stays
                 structurally distinct from the compact dashboard Favourites hub.
-                The marketing lockup is retired here (ledger #164): an icon tile, a
-                "command library" title and a sentence explaining the page to
-                someone already standing on it cost the fold about 90px and
-                said nothing the nav had not. The count is the only thing worth
-                saying here, and it is not a heading. */}
-            <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
-              <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-                {sharedHomePresentation.favourites.title}
-              </h1>
-              <p className="nums text-sm font-medium text-[color:var(--text-muted)]">
-                {items.length} {items.length === 1 ? "item" : "items"}
-              </p>
-              {items.some((item) => item.example) ? (
-                <p className="text-sm font-medium text-[color:var(--text-muted)]">{FAVOURITE_EXAMPLES_NOTICE}</p>
-              ) : null}
-            </header>
-
-            {!demoMode && auth.status === "authenticated" ? (
-              <section
-                aria-label="Manage favourite sets"
-                className="flex flex-wrap items-end gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
-              >
-                <label className="grid min-w-[12rem] flex-1 gap-1 text-2xs font-semibold text-[color:var(--text-muted)]">
-                  New controlled set
-                  <select
-                    value={effectiveNewSetName ?? ""}
-                    disabled={setMutationPending || availableSetNames.length === 0}
-                    onChange={(event) => setNewSetName(event.target.value as FavouriteSetName)}
-                    className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] sm:min-h-10"
-                  >
-                    {availableSetNames.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                The marketing lockup is retired here (ledger #164), and the
+                2026-09-29 phone redesign keeps it that way: one compact title,
+                one summary line and a Select action, so the saved items stay
+                above the fold. The heading is not a hero. */}
+            <header data-testid="favourites-command-library" className="flex min-w-0 items-end justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                  {sharedHomePresentation.favourites.title}
+                </h1>
+                <p className="nums mt-1 text-sm font-medium text-[color:var(--text-muted)]">{summary}</p>
+              </div>
+              {mutableCount >= 2 ? (
                 <button
                   type="button"
-                  disabled={setMutationPending || availableSetNames.length === 0}
-                  onClick={async () => {
-                    const name = effectiveNewSetName;
-                    if (!name) return;
-                    setSetMutationPending(true);
-                    try {
-                      const created = await accountData?.createFavouriteSet(name);
-                      setSetMutationStatus(
-                        created ? `${created.name} set created.` : "Favourite set could not be created.",
-                      );
-                      if (created) {
-                        const remaining = availableSetNames.filter((candidate) => candidate !== name);
-                        if (remaining[0]) setNewSetName(remaining[0]);
-                      }
-                    } catch {
-                      setSetMutationStatus("Favourite set could not be created.");
-                    } finally {
-                      setSetMutationPending(false);
+                  aria-pressed={effectiveMode === "select"}
+                  onClick={() => {
+                    if (effectiveMode === "select") {
+                      leaveSpecialMode();
+                      return;
                     }
+                    setMode("select");
+                    setSelectedIds(new Set());
+                    setOpenSwipeId(null);
                   }}
                   className={cn(
-                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60",
+                    "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold",
+                    effectiveMode === "select"
+                      ? "border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)]"
+                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
                     focusRing,
                   )}
                 >
-                  <FolderPlus className="h-4 w-4" aria-hidden />
-                  {setMutationPending ? "Creating…" : "Create set"}
+                  <CheckSquare className="size-icon-sm" aria-hidden="true" />
+                  {effectiveMode === "select" ? "Done" : "Select"}
                 </button>
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="w-full text-xs font-semibold text-[color:var(--text-muted)]"
-                >
-                  {setMutationStatus || accountData?.error || "Set names are limited to approved clinical workflows."}
-                </p>
-              </section>
-            ) : null}
+              ) : null}
+            </header>
+
+            <DesktopComposerPortalSlot
+              id={modeHomeDesktopComposerSlotId}
+              data-composer-reserve={modeHomeComposerReservePendingValue}
+              className="mode-home-composer-slot -mt-1 block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+            />
 
             {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
               <p
@@ -1786,75 +1216,45 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               </p>
             ) : null}
 
-            <DesktopComposerPortalSlot
-              id={modeHomeDesktopComposerSlotId}
-              data-composer-reserve={modeHomeComposerReservePendingValue}
-              className="mode-home-composer-slot block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
-            />
+            {libraryItems.length > 0 ? (
+              <FavouritesSetChips
+                chips={setChips}
+                totalCount={libraryItems.length}
+                selectedSets={effectiveSelectedSets}
+                onSelect={(name) => {
+                  setSelectedSetNames(name ? new Set([name]) : new Set());
+                  setSetView("order");
+                  if (mode === "reorder") setMode("browse");
+                  setOpenSwipeId(null);
+                }}
+                onNewSet={canCreateSet ? () => setSheet({ kind: "new-set", items: [] }) : undefined}
+              />
+            ) : null}
 
-            <SearchResultsHeaderBand
-              modeId="favourites"
-              query={activeQuery}
-              matchCount={filteredItems.length}
-              // Without this a failed registry read renders as "0 matches", which
-              // reads as "you have no saved favourites" rather than "we could not
-              // load them". `partial` keeps unaffected items (local
-              // differentials, etc.) visible without presenting their nonzero
-              // count as the complete library.
-              status={favouritesRegistryStatus}
-              onRetry={
-                favouritesRegistryStatus === "error" || favouritesRegistryStatus === "partial"
-                  ? refetchFavouritesRegistry
-                  : undefined
-              }
-              filterLabel="Active favourites filters"
-              mobileControlsPlacement="inline"
-              mobileControls={
-                <ResultFilterTrigger
-                  panelId={filterPanelId}
-                  testId="favourites-filter-trigger-phone"
-                  title="Filter favourites"
-                  open={filterOpen}
-                  activeCount={activeFilterCount}
-                  onToggle={() => setFilterOpen((current) => !current)}
-                />
-              }
-              filterControls={
-                <ResultFilterTrigger
-                  panelId={filterPanelId}
-                  testId="favourites-filter-trigger-desktop"
-                  title="Filter favourites"
-                  open={filterOpen}
-                  activeCount={activeFilterCount}
-                  onToggle={() => setFilterOpen((current) => !current)}
-                />
-              }
-              utilityControls={
-                <button
-                  type="button"
-                  aria-pressed={viewMode === "recent"}
-                  aria-label="Recently used"
-                  onClick={() => setViewMode((current) => (current === "recent" ? "all" : "recent"))}
-                  className={cn(
-                    "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold sm:min-h-10",
-                    viewMode === "recent"
-                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-                    focusRing,
-                  )}
-                >
-                  <Clock className="h-3.5 w-3.5" aria-hidden />
-                  {/* The phone count line is shared with this toggle and the
-                      filter trigger; the full label squeezed the scope word to
-                      "Al…" at 320–390px (audit VUX-18). The accessible name
-                      stays "Recently used" at every width. */}
-                  <span className="sm:hidden">Recent</span>
-                  <span className="hidden sm:inline">Recently used</span>
-                </button>
-              }
-              appliedFilters={appliedFilters}
-              onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
-            />
+            {showBand ? (
+              <SearchResultsHeaderBand
+                modeId="favourites"
+                query={activeQuery}
+                matchCount={filteredItems.length}
+                // Without this a failed registry read renders as "0 matches", which
+                // reads as "you have no saved favourites" rather than "we could not
+                // load them". `partial` keeps unaffected items (local
+                // differentials, etc.) visible without presenting their nonzero
+                // count as the complete library.
+                status={favouritesRegistryStatus}
+                onRetry={
+                  favouritesRegistryStatus === "error" || favouritesRegistryStatus === "partial"
+                    ? refetchFavouritesRegistry
+                    : undefined
+                }
+                filterLabel="Active favourites filters"
+                mobileControlsPlacement="inline"
+                mobileControls={filterTrigger("favourites-filter-trigger-phone")}
+                filterControls={filterTrigger("favourites-filter-trigger-desktop")}
+                appliedFilters={appliedFilters}
+                onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
+              />
+            ) : null}
 
             <ResultFilterSheet
               open={filterOpen}
@@ -1862,10 +1262,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               panelId={filterPanelId}
               testId="favourites-filter-panel"
               title="Filter favourites"
-              description="Combine sets, item types, pinned status and source support. Recently used remains a view choice."
+              description="Combine sets, item types, pinned status and source support."
               chromeResetKey={[
                 activeQuery,
-                Array.from(effectiveSelectedSetIds).sort().join(","),
+                Array.from(effectiveSelectedSets).sort().join(","),
                 Array.from(selectedTypeIds).sort().join(","),
                 String(pinnedOnly),
                 String(sourceBackedOnly),
@@ -1875,20 +1275,64 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               summary={{ count: filteredItems.length, noun: filteredItems.length === 1 ? "favourite" : "favourites" }}
             />
 
-            {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} onOpen={handleOpen} /> : null}
+            {showLaunchpad && continueItem ? (
+              <FavouritesContinueCard item={continueItem} now={now} onOpen={handleOpen} />
+            ) : null}
 
-            {/* Empty query is a dashboard; a typed query is a filtered table.
-                Typing does not swap surfaces or navigate — the dashboard band
-                demotes to a collapsed disclosure and the table filters in
-                place beneath it (ledger #164). */}
-            {items.length > 0 && !searching ? (
-              <FavouritesDashboardBand
-                recentItems={recentItems}
-                sets={sets}
-                onSelectSet={(id) => setSelectedSetIds(new Set([id]))}
-                onShowRecent={() => setViewMode("recent")}
+            {showLaunchpad ? (
+              <FavouritesQuickLaunch
+                items={quickLaunch}
+                hasPinnableItems={mutableCount > 0}
                 onOpen={handleOpen}
+                onShowActions={(item) => setSheet({ kind: "actions", item })}
               />
+            ) : null}
+
+            {singleSetName && !showBand ? (
+              <FavouritesSetBar
+                name={singleSetName}
+                count={filteredItems.length}
+                reordering={effectiveMode === "reorder"}
+                onToggleReorder={
+                  view === "order" && singleSetMutableCount >= 2 && accountSetForChip
+                    ? () => {
+                        setOpenSwipeId(null);
+                        setMode(effectiveMode === "reorder" ? "browse" : "reorder");
+                      }
+                    : undefined
+                }
+                onRename={
+                  accountSetForChip && availableSetNames.length > 0
+                    ? () => setSheet({ kind: "rename-set", set: accountSetForChip })
+                    : undefined
+                }
+              />
+            ) : null}
+
+            {libraryItems.length > 0 ? (
+              <div className="flex min-w-0 items-center gap-2">
+                <SegmentedControl<FavouritesView>
+                  label="Organise favourites"
+                  layout="equal"
+                  value={view}
+                  onChange={(next) => {
+                    if (singleSetName) setSetView(next);
+                    else setAllView(next);
+                    if (next !== "order" && mode === "reorder") setMode("browse");
+                  }}
+                  options={singleSetName ? viewOptions.set : viewOptions.all}
+                  className="min-w-0 flex-1"
+                />
+                {showBand ? null : (
+                  <span className="shrink-0">{filterTrigger("favourites-filter-trigger-inline")}</span>
+                )}
+              </div>
+            ) : null}
+
+            {effectiveMode === "reorder" ? (
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Use the arrows to put this set in the order you use it. Tap Done when finished.
+              </p>
             ) : null}
 
             {/* Only a successful read can say "no matches". While loading or
@@ -1902,70 +1346,42 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
                 onClearSearch={clearSearch}
               />
+            ) : filteredItems.length === 0 ? (
+              libraryItems.length > 0 ? (
+                <FavouritesEmptyMatches />
+              ) : favouritesRegistryStatus === "ready" ? (
+                <EmptyState
+                  icon={Folder}
+                  title="No favourites yet"
+                  body="Tap the heart on any service, form, differential or therapy to save it here."
+                  testId="favourites-empty-library"
+                />
+              ) : null
             ) : (
-              <FavouritesTable
-                items={items}
-                rows={filteredItems}
-                searchTerm={activeQuery}
-                viewMode={viewMode}
-                sortMode={sortMode}
-                selectedItemId={selectedItemId}
-                sets={accountData?.favouriteSets ?? []}
-                onSortModeChange={setSortMode}
-                onSelectItem={(id) => {
-                  if (id) {
-                    const item = items.find((candidate) => candidate.id === id);
-                    setSelectedItemSnapshot(item ?? null);
-                    if (item) handleOpen(item);
-                  }
-                  setSelectedItemId(id);
-                }}
-                onMove={handleMove}
-                onRemove={handleRemove}
-                onOpen={handleOpen}
+              <FavouritesList
+                groups={groups}
+                view={view}
+                now={now}
+                showSet={!singleSetName}
+                mode={effectiveMode}
+                selectedIds={selectedIds}
+                workspaceItemId={selectedItemId}
+                openSwipeId={openSwipeId}
+                onOpenSwipeChange={setOpenSwipeId}
+                canMutate={canMutate}
+                handlers={listHandlers}
+                reorder={
+                  effectiveMode === "reorder"
+                    ? { pending: reorderPending, onMove: (item, direction) => void reorderItem(item, direction) }
+                    : undefined
+                }
               />
             )}
 
-            {items.length > 0 && searching ? (
-              <details
-                data-testid="favourites-recent-disclosure"
-                className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]"
-              >
-                <summary
-                  className={cn(
-                    "flex min-h-tap cursor-pointer list-none items-center gap-1.5 px-3.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]",
-                    focusRing,
-                  )}
-                >
-                  <Clock className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-                  Recent
-                </summary>
-                <ul className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
-                  {recentItems.map((item) => (
-                    <li key={item.id} className="flex min-w-0 items-center gap-2.5 px-3.5 py-2.5">
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">
-                          {item.title}
-                        </span>
-                        <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">
-                          {item.set} · {item.lastUsed}
-                        </span>
-                      </span>
-                      <Link
-                        href={item.href}
-                        onClick={() => handleOpen(item)}
-                        aria-label={`Open ${item.title}`}
-                        className={cn(
-                          "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
-                          focusRing,
-                        )}
-                      >
-                        Open
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </details>
+            {libraryItems.some((item) => item.example) ? (
+              <p className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs text-[color:var(--text-muted)]">
+                {FAVOURITE_EXAMPLES_NOTICE}
+              </p>
             ) : null}
 
             <UniversalSearchAlsoMatches modeId="favourites" query={activeQuery} />
@@ -1975,18 +1391,82 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
           <ItemWorkspace
             key={selectedItem.id}
             item={selectedItem}
-            sets={accountData?.favouriteSets ?? []}
+            sets={accountSets}
             onClose={() => {
               setSelectedItemId(null);
               setSelectedItemSnapshot(null);
             }}
-            onMove={handleMove}
-            onRemove={handleRemove}
+            onMove={handleMoveNow}
+            onRemove={handleRemoveNow}
             onReorder={handleReorder}
             onOpen={handleOpen}
           />
         ) : null}
       </div>
+
+      {effectiveMode === "select" ? (
+        <FavouritesSelectBar
+          count={selectedTargets.length}
+          onDone={leaveSpecialMode}
+          onPin={() => void togglePin(selectedTargets)}
+          onMove={() => setSheet({ kind: "move", items: selectedTargets })}
+          onRemove={() => setConfirmRemoveIds(selectedTargets.map((item) => item.id))}
+        />
+      ) : null}
+
+      {sheet?.kind === "actions" ? (
+        <FavouriteActionsSheet
+          item={libraryItems.find((item) => item.id === sheet.item.id) ?? sheet.item}
+          open
+          onClose={() => setSheet(null)}
+          canMutate={canMutate(sheet.item)}
+          onOpen={handleOpen}
+          onTogglePin={(item) => void togglePin([item])}
+          onCopyCitation={copyFavouriteCitation}
+          onMove={(item) => setSheet({ kind: "move", items: [item] })}
+          onRemove={(item) => removeItems([item])}
+        />
+      ) : null}
+      {sheet?.kind === "move" ? (
+        <FavouriteMoveSheet
+          items={sheet.items}
+          open
+          sets={accountSets}
+          canCreateSet={canCreateSet}
+          onClose={() => setSheet(null)}
+          onPick={(setId) => {
+            const targets = sheet.items;
+            setSheet(null);
+            void moveItems(targets, setId).then(() => {
+              if (targets.length > 1) leaveSpecialMode();
+            });
+          }}
+          onNewSet={() => setSheet({ kind: "new-set", items: sheet.items })}
+        />
+      ) : null}
+      {sheet?.kind === "new-set" || sheet?.kind === "rename-set" ? (
+        <FavouriteSetNameSheet
+          mode={sheet.kind === "new-set" ? "create" : "rename"}
+          open
+          availableNames={availableSetNames}
+          movingCount={sheet.kind === "new-set" ? sheet.items.length : 0}
+          onClose={() => setSheet(null)}
+          onChoose={(name) => void chooseSetName(name)}
+        />
+      ) : null}
+      <ConfirmDialog
+        open={confirmRemoveIds !== null}
+        title={`Remove ${confirmRemoveIds?.length ?? 0} ${confirmRemoveIds?.length === 1 ? "favourite" : "favourites"}?`}
+        description="They leave your favourites. You can undo this from the message that appears."
+        confirmLabel={`Remove ${confirmRemoveIds?.length ?? 0} ${confirmRemoveIds?.length === 1 ? "favourite" : "favourites"}`}
+        onCancel={() => setConfirmRemoveIds(null)}
+        onConfirm={() => {
+          const ids = confirmRemoveIds ?? [];
+          setConfirmRemoveIds(null);
+          removeItems(libraryItems.filter((item) => ids.includes(item.id)));
+          leaveSpecialMode();
+        }}
+      />
     </main>
   );
 }

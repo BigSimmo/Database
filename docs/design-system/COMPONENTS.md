@@ -1061,10 +1061,10 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |             108 |
 | `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
-| `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Citation`               | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `CitationList`           | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
+| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
@@ -1092,9 +1092,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `SearchField`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              18 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              19 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              74 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              75 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
