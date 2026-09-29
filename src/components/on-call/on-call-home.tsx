@@ -35,7 +35,7 @@ import {
 } from "@/components/on-call/on-call-section-identity";
 import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { cn, eyebrowText, primaryControl, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl, Skeleton, textMuted } from "@/components/ui-primitives";
 
 /** One of the three small tool tiles under "Who do I call now?". */
 const homeToolTile = cn(
@@ -592,7 +592,12 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           {/* While the first load is in flight the tile grid below carries the
               loading state; saying "Nothing pinned" here would be a claim about
               entries that have not arrived yet. */}
-          {(loading && entries.length === 0) || loadFailed ? null : callFirst.length === 0 ? (
+          {loadFailed ? null : loading && entries.length === 0 ? (
+            <div className="grid grid-cols-2 gap-2" role="status" aria-label="Loading contacts">
+              <Skeleton className="min-h-tap h-20 w-full rounded-lg" />
+              <Skeleton className="min-h-tap h-20 w-full rounded-lg" animationDelay="75ms" />
+            </div>
+          ) : callFirst.length === 0 ? (
             <EmptyState
               icon={Phone}
               title="Nothing pinned to call first"
