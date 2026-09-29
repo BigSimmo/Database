@@ -26,6 +26,7 @@ import { summariseToday, type TodaySummary } from "@/lib/roster/today";
 
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
 import { RosterAskBox } from "./ask/roster-ask-box";
+import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { RosterTodayTeam } from "./team/roster-today-team";
 import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from "./roster-format";
 import { RosterImportFlow } from "./roster-import-flow";
@@ -312,6 +313,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
           ) : (
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
+              <RosterSampleShiftsNotice sample={shifts.sample} />
               {saved ? <ModeNotice>{saved}</ModeNotice> : null}
               {shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
               <Hero
@@ -322,7 +324,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onImport={() => setImporting(true)}
                 onAddShift={() => setAddView("shift")}
               />
-              <RosterTodayTeam now={now} myShifts={shifts.shifts} />
+              <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
               {summary.lead.state !== "empty" ? (
                 <>
                   {shownNextNight ? (
