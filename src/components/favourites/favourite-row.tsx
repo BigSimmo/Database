@@ -11,6 +11,7 @@ import {
   type FavouriteItem,
   type FavouritesView,
 } from "@/components/favourites/favourites-view-model";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { useSwipeRow } from "@/components/favourites/use-swipe-row";
 import { cn } from "@/components/ui-primitives";
 
@@ -157,7 +158,7 @@ export function FavouriteRow({
               onSwipeOpenChange(false);
               onMove(item);
             }}
-            className="flex w-17 flex-col items-center justify-center gap-1 bg-[color:var(--command)] text-2xs font-bold text-[color:var(--command-contrast)]"
+            className="flex w-17 flex-col items-center justify-center gap-1 bg-[color:var(--text-muted)] text-2xs font-bold text-[color:var(--surface)]"
           >
             <Folder className="size-icon-md" aria-hidden="true" />
             Move
@@ -182,7 +183,8 @@ export function FavouriteRow({
         style={{ transform: swipe.offset ? `translateX(${swipe.offset}px)` : undefined }}
         className={cn(
           "relative flex min-h-16 items-center gap-1 bg-[color:var(--surface)] pl-3 pr-1 touch-pan-y",
-          !swipe.dragging && "transition-transform duration-200 ease-out motion-reduce:transition-none",
+          !swipe.dragging &&
+            "transition-transform duration-[var(--duration-base)] ease-out motion-reduce:transition-none",
           workspaceSelected && "xl:bg-[color:var(--clinical-accent-soft)]",
         )}
       >
@@ -232,7 +234,12 @@ export function FavouriteRow({
               href={item.href}
               onClick={() => onOpen(item)}
               aria-label={`Open ${item.title}`}
-              className={cn("block min-w-0 max-w-full rounded-md text-left xl:hidden", "flex-1 py-2", focusRing)}
+              className={cn(
+                "block min-w-0 max-w-full rounded-md text-left xl:hidden",
+                "flex-1 py-2",
+                focusRing,
+                stretchedRowLinkClass,
+              )}
             >
               <span className="flex min-w-0 items-center gap-3">
                 <RowBody item={item} view={view} showSet={showSet} time={time} />
@@ -281,7 +288,7 @@ export function FavouriteRow({
               onShowActions(item);
             }}
             className={cn(
-              "grid size-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+              "relative z-10 grid size-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
           >

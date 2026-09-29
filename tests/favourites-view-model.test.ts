@@ -125,6 +125,10 @@ describe("favourites view model", () => {
       { name: "Prescribing safety", count: 2 },
       { name: "Unsorted", count: 2 },
     ]);
+    // A demo preset and an account set can share a fixed name; one chip each.
+    expect(
+      buildSetChips(library, ["Ward round", "Ward round"]).filter((chip) => chip.name === "Ward round"),
+    ).toHaveLength(1);
   });
 
   it("picks the most recently opened item for Continue and nothing when nothing was opened", () => {

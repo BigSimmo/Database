@@ -685,8 +685,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         : favouritesHookStatus;
 
   const orderedSetNames = useMemo(
-    () => [...accountSets.map((set) => set.name as string), ...prototypeFavouriteSets.map((set) => set.title)],
-    [accountSets],
+    () => [
+      ...accountSets.map((set) => set.name as string),
+      ...(demoMode ? prototypeFavouriteSets.map((set) => set.title) : []),
+    ],
+    [accountSets, demoMode],
   );
   const setChips = useMemo(() => buildSetChips(libraryItems, orderedSetNames), [libraryItems, orderedSetNames]);
 
@@ -1130,10 +1133,12 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     quickLaunchCount: quickLaunch.length,
   });
   const showBand = searching || facetFilterCount > 0 || effectiveSelectedSets.size > 1;
-  const filterTrigger = (testId: string) => (
+  // One Filter button, always beside the view switcher, so it never moves or
+  // swaps element when a filter is applied.
+  const filterTrigger = (
     <ResultFilterTrigger
       panelId={filterPanelId}
-      testId={testId}
+      testId="favourites-filter-trigger"
       title="Filter favourites"
       open={filterOpen}
       activeCount={activeFilterCount}
@@ -1190,7 +1195,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                   className={cn(
                     "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold",
                     effectiveMode === "select"
-                      ? "border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)]"
+                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
                     focusRing,
                   )}
@@ -1248,9 +1253,6 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                     : undefined
                 }
                 filterLabel="Active favourites filters"
-                mobileControlsPlacement="inline"
-                mobileControls={filterTrigger("favourites-filter-trigger-phone")}
-                filterControls={filterTrigger("favourites-filter-trigger-desktop")}
                 appliedFilters={appliedFilters}
                 onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
               />
@@ -1323,9 +1325,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                   options={singleSetName ? viewOptions.set : viewOptions.all}
                   className="min-w-0 flex-1"
                 />
-                {showBand ? null : (
-                  <span className="shrink-0">{filterTrigger("favourites-filter-trigger-inline")}</span>
-                )}
+                <span className="shrink-0">{filterTrigger}</span>
               </div>
             ) : null}
 

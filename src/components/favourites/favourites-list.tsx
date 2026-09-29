@@ -125,7 +125,7 @@ export function FavouritesSelectBar({
       role="toolbar"
       aria-label="Selected favourites"
       data-testid="favourites-select-bar"
-      className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[var(--z-chrome)] mx-auto flex max-w-lg items-center gap-1.5 rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--shadow-elevated)]"
+      className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[var(--z-chrome)] mx-auto flex max-w-lg items-center gap-1.5 rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--e4)]"
     >
       <button
         type="button"

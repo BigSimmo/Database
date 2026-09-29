@@ -111,7 +111,8 @@ function byMostRecent(first: FavouriteItem, second: FavouriteItem) {
 export function buildSetChips(items: readonly FavouriteItem[], orderedSetNames: readonly string[]): FavouriteSetChip[] {
   const counts = new Map<string, number>();
   for (const item of items) counts.set(item.set, (counts.get(item.set) ?? 0) + 1);
-  const names = [...orderedSetNames.filter((name) => name !== UNSORTED_SET_NAME)];
+  // Deduplicated: a demo preset and an account set can share a fixed name.
+  const names = [...new Set(orderedSetNames.filter((name) => name !== UNSORTED_SET_NAME))];
   for (const item of items) {
     if (item.set !== UNSORTED_SET_NAME && !names.includes(item.set)) names.push(item.set);
   }

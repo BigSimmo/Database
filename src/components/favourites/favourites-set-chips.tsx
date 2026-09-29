@@ -133,7 +133,7 @@ export function FavouritesSetBar({
           className={cn(
             "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold",
             reordering
-              ? "bg-[color:var(--command)] text-[color:var(--command-contrast)]"
+              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
             focusRing,
           )}

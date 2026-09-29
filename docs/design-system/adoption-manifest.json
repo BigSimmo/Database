@@ -2100,6 +2100,7 @@
         "tests/answer-progress-ui-smoke.spec.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/eval-process-safety.test.ts",
+        "tests/favourites-page-actions.dom.test.tsx",
         "tests/search-results-header-band.dom.test.tsx",
         "tests/ui-cme-phone.spec.ts",
         "tests/ui-formulation.spec.ts",
