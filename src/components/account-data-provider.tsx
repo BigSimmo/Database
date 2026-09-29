@@ -74,6 +74,8 @@ type AccountDataContextValue = {
   reload: () => void;
   setFavourite: (contentType: FavouriteContentType, contentKey: string, saved: boolean) => Promise<boolean>;
   createFavouriteSet: (name: FavouriteSetName) => Promise<AccountFavouriteSet | null>;
+  /** Names stay on the fixed list, so a set label can never become a patient-note field. */
+  renameFavouriteSet: (setId: string, name: FavouriteSetName) => Promise<AccountFavouriteSet | null>;
   moveFavourite: (contentType: FavouriteContentType, contentKey: string, setId: string | null) => Promise<boolean>;
   reorderFavourite: (
     contentType: FavouriteContentType,
@@ -81,6 +83,8 @@ type AccountDataContextValue = {
     direction: "up" | "down",
   ) => Promise<boolean>;
   recordFavouriteOpen: (contentType: FavouriteContentType, contentKey: string) => Promise<boolean>;
+  /** Adds the favourite to (or removes it from) Quick launch. */
+  setFavouritePinned: (contentType: FavouriteContentType, contentKey: string, pinned: boolean) => Promise<boolean>;
   clearFavourites: () => Promise<boolean>;
 };
 
@@ -394,6 +398,29 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     [reload, replaceFavouriteSets, runStructuredMutation],
   );
 
+  const renameFavouriteSet = useCallback(
+    async (setId: string, name: FavouriteSetName) => {
+      const version = ++structuredMutationVersionRef.current;
+      const previous = favouriteSetsRef.current;
+      replaceFavouriteSets(previous.map((set) => (set.id === setId ? { ...set, name } : set)));
+      const payload = await runStructuredMutation(
+        "POST",
+        { action: "renameSet", setId, name },
+        "Favourite set could not be renamed.",
+      );
+      const renamed = payload ? parseFavouriteSetResponse(payload) : null;
+      if (renamed) {
+        replaceFavouriteSets(favouriteSetsRef.current.map((set) => (set.id === setId ? renamed : set)));
+        return renamed;
+      }
+      if (payload) setError("Favourite set response was invalid.");
+      if (structuredMutationVersionRef.current === version) replaceFavouriteSets(previous);
+      else void structuredMutationTailRef.current.then(reload);
+      return null;
+    },
+    [reload, replaceFavouriteSets, runStructuredMutation],
+  );
+
   const moveFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, setId: string | null) => {
       const version = ++structuredMutationVersionRef.current;
@@ -432,6 +459,30 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       return false;
     },
     [reload, runStructuredMutation],
+  );
+
+  const setFavouritePinned = useCallback(
+    async (contentType: FavouriteContentType, contentKey: string, pinned: boolean) => {
+      const version = ++structuredMutationVersionRef.current;
+      const previous = favouriteItemsRef.current;
+      const pinnedAt = pinned ? new Date().toISOString() : null;
+      replaceFavouriteItems(
+        previous.map((item) =>
+          item.contentType === contentType && item.contentKey === contentKey ? { ...item, pinnedAt } : item,
+        ),
+      );
+      const payload = await runStructuredMutation(
+        "PATCH",
+        { action: "setPinned", contentType, contentKey, pinned },
+        pinned ? "Favourite could not be added to quick launch." : "Favourite could not be removed from quick launch.",
+      );
+      if (isFavouriteUpdateResponse(payload)) return true;
+      if (payload) setError("Favourite pin response was invalid.");
+      if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
+      else void structuredMutationTailRef.current.then(reload);
+      return false;
+    },
+    [reload, replaceFavouriteItems, runStructuredMutation],
   );
 
   const recordFavouriteOpen = useCallback(
@@ -519,9 +570,11 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       isSaved: (contentType, contentKey) => favourites[contentType].includes(contentKey),
       setFavourite,
       createFavouriteSet,
+      renameFavouriteSet,
       moveFavourite,
       reorderFavourite,
       recordFavouriteOpen,
+      setFavouritePinned,
       clearFavourites,
       reload,
     }),
@@ -538,8 +591,10 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       ready,
       recordFavouriteOpen,
       reload,
+      renameFavouriteSet,
       reorderFavourite,
       setFavourite,
+      setFavouritePinned,
     ],
   );
 

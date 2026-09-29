@@ -19,7 +19,17 @@ export type Toast = {
    * polite region re-announces and the dismiss timer restarts.
    */
   announceKey?: number;
+  /**
+   * One optional labelled action, such as Undo. The label names what it does;
+   * pressing it runs `onAction` and closes the toast.
+   */
+  action?: ToastAction;
+  /** Called exactly once when the toast leaves, with the reason it left. */
+  onClose?: (reason: ToastCloseReason) => void;
 };
+
+export type ToastAction = { label: string; onAction: () => void };
+export type ToastCloseReason = "timeout" | "dismiss" | "action";
 
 export type ToastInput = Omit<Toast, "id">;
 export type ToastProviderProps = { children: ReactNode };
@@ -32,6 +42,7 @@ type ToastContextValue = {
   toasts: Toast[];
   push: (toast: ToastInput) => string;
   dismiss: (id: string) => void;
+  close: (id: string, reason: ToastCloseReason) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -70,16 +81,31 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const toastsRef = useRef<Toast[]>([]);
   const counter = useRef(0);
 
-  const dismiss = useCallback((id: string) => {
+  const close = useCallback((id: string, reason: ToastCloseReason) => {
+    const leaving = toastsRef.current.find((toast) => toast.id === id);
+    if (!leaving) return;
     const next = toastsRef.current.filter((toast) => toast.id !== id);
     toastsRef.current = next;
     setToasts(next);
+    leaving.onClose?.(reason);
   }, []);
 
+  const dismiss = useCallback((id: string) => close(id, "dismiss"), [close]);
+
   const push = useCallback((toast: ToastInput) => {
-    const duplicateIndex = toastsRef.current.findIndex(
-      (current) => current.tone === toast.tone && current.title === toast.title && current.body === toast.body,
-    );
+    // A toast that carries an action or a close callback is a distinct outcome
+    // with its own consequence, so it is never merged into an identical-looking one.
+    const mergeable = !toast.action && !toast.onClose;
+    const duplicateIndex = !mergeable
+      ? -1
+      : toastsRef.current.findIndex(
+          (current) =>
+            !current.action &&
+            !current.onClose &&
+            current.tone === toast.tone &&
+            current.title === toast.title &&
+            current.body === toast.body,
+        );
     if (duplicateIndex >= 0) {
       const duplicate = toastsRef.current[duplicateIndex]!;
       const refreshed: Toast = {
@@ -95,13 +121,17 @@ export function ToastProvider({ children }: ToastProviderProps) {
     }
     counter.current += 1;
     const id = `toast-${counter.current}`;
-    const next = [...toastsRef.current, { ...toast, id, announceKey: 0 }].slice(-MAX_VISIBLE_TOASTS);
+    const all = [...toastsRef.current, { ...toast, id, announceKey: 0 }];
+    const overflow = all.slice(0, Math.max(0, all.length - MAX_VISIBLE_TOASTS));
+    const next = all.slice(-MAX_VISIBLE_TOASTS);
     toastsRef.current = next;
     setToasts(next);
+    // A toast pushed off the stack still owes its caller the close callback.
+    for (const dropped of overflow) dropped.onClose?.("timeout");
     return id;
   }, []);
 
-  const value = useMemo(() => ({ toasts, push, dismiss }), [toasts, push, dismiss]);
+  const value = useMemo(() => ({ toasts, push, dismiss, close }), [toasts, push, dismiss, close]);
 
   return (
     <ToastContext.Provider value={value}>
@@ -117,14 +147,26 @@ export function useToast(): ToastApi {
   return { push: context.push, dismiss: context.dismiss };
 }
 
-function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
+function ToastCard({ toast, onClose }: { toast: Toast; onClose: (id: string, reason: ToastCloseReason) => void }) {
   const duration = toast.duration ?? DEFAULT_DURATION;
+  // The timer pauses while the pointer or keyboard focus is on the toast, so an
+  // action such as Undo cannot vanish while someone is reaching for it.
+  const [paused, setPaused] = useState(false);
+  const remainingRef = useRef(duration);
 
   useEffect(() => {
-    if (duration <= 0) return;
-    const timer = setTimeout(() => onDismiss(toast.id), duration);
-    return () => clearTimeout(timer);
-  }, [duration, onDismiss, toast.id, toast.announceKey]);
+    remainingRef.current = duration;
+  }, [duration, toast.announceKey]);
+
+  useEffect(() => {
+    if (duration <= 0 || paused) return;
+    const startedAt = Date.now();
+    const timer = setTimeout(() => onClose(toast.id, "timeout"), remainingRef.current);
+    return () => {
+      clearTimeout(timer);
+      remainingRef.current = Math.max(0, remainingRef.current - (Date.now() - startedAt));
+    };
+  }, [duration, onClose, paused, toast.id, toast.announceKey]);
 
   const Icon = TONE_ICON[toast.tone];
 
@@ -134,6 +176,12 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       data-tone={toast.tone}
       data-announce-key={toast.announceKey ?? 0}
       style={{ pointerEvents: "auto" }}
+      onPointerEnter={() => setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
+      }}
       // Borderless floating surface: a hairline ring is its edge and the shadow is
       // its lift — never a border AND a shadow on one element (register #39/#40).
       className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-elevated)] ring-1 ring-[color:var(--border-lux)]"
@@ -156,9 +204,21 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
           </p>
         ) : null}
       </div>
+      {toast.action ? (
+        <button
+          type="button"
+          onClick={() => {
+            toast.action?.onAction();
+            onClose(toast.id, "action");
+          }}
+          className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-3 text-sm font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          {toast.action.label}
+        </button>
+      ) : null}
       <button
         type="button"
-        onClick={() => onDismiss(toast.id)}
+        onClick={() => onClose(toast.id, "dismiss")}
         aria-label={`Dismiss: ${toast.title}`}
         className="grid size-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
       >
@@ -177,7 +237,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 export function ToastRegion() {
   const context = useContext(ToastContext);
   if (!context) return null;
-  const { toasts, dismiss } = context;
+  const { toasts, close } = context;
 
   const region = (
     <div
@@ -188,7 +248,7 @@ export function ToastRegion() {
       className="pointer-events-none fixed inset-x-0 bottom-0 flex flex-col items-center gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:right-0 sm:items-end"
     >
       {toasts.map((toast) => (
-        <ToastCard key={toast.id} toast={toast} onDismiss={dismiss} />
+        <ToastCard key={toast.id} toast={toast} onClose={close} />
       ))}
     </div>
   );
