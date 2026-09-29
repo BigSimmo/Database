@@ -99,9 +99,12 @@ function useLoaded<T>(url: string | null, what: RosterReadWhat | "teams"): Roste
   return { status: state.status, data: state.data, message: state.message, readAt: state.readAt, reload };
 }
 
+/** `sample` marks the invented team served while the real-staff release is held. */
+export type RosterTeamsPayload = { teams: RosterTeam[]; actorId?: string; sample?: boolean };
+
 /** The teams I belong to. */
-export function useRosterTeams(): RosterReadState<{ teams: RosterTeam[]; actorId?: string }> {
-  return useLoaded<{ teams: RosterTeam[]; actorId?: string }>("/api/roster/team", "teams");
+export function useRosterTeams(): RosterReadState<RosterTeamsPayload> {
+  return useLoaded<RosterTeamsPayload>("/api/roster/team", "teams");
 }
 
 /** One read of one team. Pass a null `serviceId` to wait (no request is made). */

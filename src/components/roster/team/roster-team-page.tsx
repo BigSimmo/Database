@@ -6,6 +6,7 @@ import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { RosterAskBox } from "@/components/roster/ask/roster-ask-box";
+import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notice";
 import { postRosterAction, useRosterRead, useRosterTeams } from "@/components/roster/use-roster-team";
 import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { groupByGrade, timelineSpan, withMe } from "@/lib/roster/team/team-view";
@@ -183,6 +184,7 @@ export function RosterTeamPage({ now: suppliedNow }: { readonly now?: Date } = {
         </ModeGroupedList>
       ) : (
         <>
+          <RosterSampleNotice sample={teams.data?.sample} />
           {available.length > 1 ? (
             <label className="grid gap-1 text-sm">
               Team

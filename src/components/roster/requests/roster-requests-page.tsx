@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { InformationPageShell } from "@/components/information-page-shell";
 import { modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { RosterAskBox } from "@/components/roster/ask/roster-ask-box";
+import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notice";
 import { kindOf, useRosterNow } from "@/components/roster/roster-format";
 import { useRosterShifts } from "@/components/roster/use-roster-shifts";
 import { useRosterRead, useRosterTeams, postRosterAction } from "@/components/roster/use-roster-team";
@@ -357,6 +358,7 @@ export function RosterRequestsPage() {
           New
         </Button>
       </header>
+      <RosterSampleNotice sample={teams.data?.sample} />
       <RosterAskBox />
       {enabled.length > 1 ? (
         <label className="grid max-w-sm gap-1 text-sm">
