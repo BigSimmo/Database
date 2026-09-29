@@ -59,8 +59,10 @@ async function sampleLeave(request: Request, operation: "GET" | "POST" | "PATCH"
 
 async function run(request: Request, operation: "GET" | "POST" | "PATCH" | "DELETE") {
   try {
-    if (isDemoMode())
+    if (isDemoMode()) {
+      if (operation === "GET") return NextResponse.json({ leave: demoRosterLeave() }, { headers });
       return publicErrorResponse("Sign in to use your own leave.", 400, { code: "demo_mode_unavailable" });
+    }
     if (!rosterTeamReleaseEnabled()) return await sampleLeave(request, operation);
     const { client, ownerId, rate } = await authorised(request);
     if (rate.limited) return rateLimitJsonResponse("Too many requests. Try again shortly.", rate);
