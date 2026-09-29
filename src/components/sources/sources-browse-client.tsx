@@ -182,7 +182,7 @@ function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: 
               ))}
             </span>
           ) : null}
-          <span className="mt-1 block text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
+          <span className="mt-1 block text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
             {qualityPhrase(summary)}
             {summary.attentionCount > 0 ? (
               <span className="text-[color:var(--warning)]">
@@ -193,7 +193,7 @@ function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: 
             {latest ? ` · ${summary.latestDateLabel} ${latest}` : null}
           </span>
           {detail.length || usage.length ? (
-            <span className="mt-1 block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)]">
               {detail.join(" · ")}
               {detail.length && usage.length ? " · " : null}
               {usage.length ? `Used in ${usage.join(", ")}` : null}
@@ -481,7 +481,7 @@ export function SourcesBrowseClient({
             <p
               role="note"
               data-testid="sources-partial-catalogue-note"
-              className="pt-2 text-2xs font-semibold text-[color:var(--warning-text,var(--text-muted))]"
+              className="pt-2 text-xs font-semibold text-[color:var(--warning-text,var(--text-muted))]"
             >
               Uploaded document sources cannot be reached, so this list and its counts are incomplete.
             </p>
@@ -510,7 +510,7 @@ export function SourcesBrowseClient({
                 <h2 id={`publisher-scope-${section.scope}`} className={eyebrowText}>
                   {jurisdictionLabels[section.scope]}
                 </h2>
-                <span className="text-2xs font-semibold text-[color:var(--text-muted)]">
+                <span className="text-xs font-semibold text-[color:var(--text-muted)]">
                   {section.rows.length} {section.rows.length === 1 ? "publisher" : "publishers"} ·{" "}
                   {totalSourceCount(section.rows)} {totalSourceCount(section.rows) === 1 ? "source" : "sources"}
                 </span>
@@ -518,7 +518,7 @@ export function SourcesBrowseClient({
               {/* Unknown is a gap in the records, not a place. Saying so stops the
                   longest section on the page reading as a jurisdiction. */}
               {section.scope === "unknown" ? (
-                <p className="text-2xs font-medium text-[color:var(--text-muted)]">
+                <p className="text-xs font-medium text-[color:var(--text-muted)]">
                   No jurisdiction is recorded for these publishers. The catalogue does not infer one.
                 </p>
               ) : null}

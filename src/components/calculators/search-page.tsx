@@ -632,6 +632,7 @@ export function CalculatorsSearchPage({
       {activeCalc ? (
         <CalculatorSheet
           calc={activeCalc}
+          sheetId={calculatorSheetId}
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
           onClose={closeCalculator}
