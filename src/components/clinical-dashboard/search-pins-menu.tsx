@@ -21,7 +21,7 @@ import type {
   ModeActionModeOption,
 } from "@/components/clinical-dashboard/mode-action-popup";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import {
@@ -137,6 +137,7 @@ export function SearchPinsMenu({
   const currentMode = appModeDefinition(currentModeId);
   const CurrentModeIcon = appModeIcons[currentModeId];
   const actionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   function focusActionItem(index: number) {
     if (!actions.length) return;
@@ -196,6 +197,42 @@ export function SearchPinsMenu({
   }, [editor]);
 
   useEffect(() => {
+    if (!editor && triggerRef.current) {
+      const trigger = triggerRef.current;
+      triggerRef.current = null;
+      if (trigger.isConnected) {
+        trigger.focus();
+      } else {
+        const label = trigger.getAttribute("aria-label");
+        const text = trigger.textContent?.trim();
+        let restored = false;
+        if (label) {
+          try {
+            const el = document.querySelector<HTMLElement>(`button[aria-label="${CSS.escape(label)}"]`);
+            if (el) {
+              el.focus();
+              restored = true;
+            }
+          } catch {
+            // CSS.escape fallback
+          }
+        }
+        if (!restored && text) {
+          const buttons = Array.from(document.querySelectorAll<HTMLElement>("button"));
+          const match = buttons.find((b) => b.textContent?.trim() === text);
+          if (match) {
+            match.focus();
+            restored = true;
+          }
+        }
+        if (!restored && actionRefs.current[0]?.isConnected) {
+          actionRefs.current[0].focus();
+        }
+      }
+    }
+  }, [editor]);
+
+  useEffect(() => {
     if (!showModePicker) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -215,6 +252,7 @@ export function SearchPinsMenu({
 
   function beginNewPin() {
     if (pins.length >= maximumSearchPins) return;
+    triggerRef.current = (document.activeElement as HTMLElement | null) ?? null;
     setExpandedPinId(null);
     setShowModePicker(false);
     setConfirmDelete(false);
@@ -223,6 +261,7 @@ export function SearchPinsMenu({
   }
 
   function beginEditPin(pin: SearchPin) {
+    triggerRef.current = (document.activeElement as HTMLElement | null) ?? null;
     setExpandedPinId(null);
     setShowModePicker(false);
     setConfirmDelete(false);
@@ -402,11 +441,11 @@ export function SearchPinsMenu({
           </button>
           <button
             type="button"
-            onClick={!editor.name.trim() ? ignoreUnavailableActivation : saveEditor}
-            aria-disabled={!editor.name.trim() ? "true" : undefined}
+            onClick={saveEditor}
+            disabled={!editor.name.trim()}
             aria-describedby={editorNotice ? editorNoticeId : undefined}
             className={cn(
-              "min-h-12 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] aria-disabled:cursor-not-allowed aria-disabled:opacity-45 disabled:cursor-not-allowed disabled:opacity-45",
+              "min-h-12 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] disabled:cursor-not-allowed disabled:opacity-45",
               focusRing,
             )}
           >

@@ -22,18 +22,14 @@ import {
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-import {
-  SearchResultsEmptyState,
-  SearchResultsHeaderBand,
-  type AppliedFilterChip,
-} from "@/components/clinical-dashboard/search-results-header-band";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { ToolLocalSearch } from "@/components/tools/tool-local-search";
 import { ToolQuickActions } from "@/components/tools/tool-quick-actions";
 import { cardPadding, cardSelected, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
-import { cn, controlBase, primaryControl } from "@/components/ui-primitives";
+import { cn, controlBase, floatingControl, primaryControl } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -437,19 +433,6 @@ export function ToolsSearchResultsPage({
     [effectiveActiveFilter, filterCounts, visibleFilterOptions],
   );
 
-  const appliedFilters = useMemo<AppliedFilterChip[]>(() => {
-    if (effectiveActiveFilter === "all") return [];
-    const option = visibleFilterOptions.find((opt) => opt.id === effectiveActiveFilter);
-    return [
-      {
-        id: "category",
-        groupLabel: "Category",
-        valueLabel: option?.label ?? effectiveActiveFilter,
-        onRemove: () => setActiveFilter("all"),
-      },
-    ];
-  }, [effectiveActiveFilter, visibleFilterOptions]);
-
   const selectedTool = filteredTools.find((tool) => tool.id === selectedId) ?? filteredTools[0] ?? null;
 
   function toggleDetailSection(section: DetailSectionId) {
@@ -545,8 +528,6 @@ export function ToolsSearchResultsPage({
             matchCount={filteredTools.length}
             headingLevel={1}
             filterLabel="Filter tools by category"
-            appliedFilters={appliedFilters}
-            onClearFilters={effectiveActiveFilter === "all" ? undefined : () => setActiveFilter("all")}
             mobileControls={
               <ResultFilterTrigger
                 panelId={filterPanelId}
@@ -598,17 +579,16 @@ export function ToolsSearchResultsPage({
                 />
               ))
             ) : (
-              <SearchResultsEmptyState
-                modeId="tools"
-                query={query}
-                headingLevel={2}
-                title="No tools match"
-                appliedFilters={appliedFilters}
-                onClearFilters={effectiveActiveFilter !== "all" ? () => setActiveFilter("all") : undefined}
-                onClearSearch={query.trim() ? () => router.push("/tools") : undefined}
-                browseAllHref="/tools"
-                browseAllLabel="Show all tools"
-              />
+              <div className="grid justify-items-center gap-3 rounded-2xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-lux)] px-4 py-10 text-center">
+                <Search className="h-7 w-7 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">No tools match</h2>
+                <p className="max-w-md text-sm text-[color:var(--text-muted)]">
+                  Try another search or return to the full tools catalogue.
+                </p>
+                <Link href="/tools" className={floatingControl}>
+                  Show all tools
+                </Link>
+              </div>
             )}
           </section>
           <UniversalSearchAlsoMatches modeId="tools" query={query} className="mt-4" />

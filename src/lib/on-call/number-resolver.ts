@@ -1,4 +1,3 @@
-import { ON_CALL_TIME_ZONE } from "@/lib/on-call/local-date";
 import { isWaPublicHoliday } from "@/lib/on-call/wa-public-holidays";
 
 /**
@@ -46,27 +45,10 @@ export type OnCallPeriod = "in-hours" | "after-hours";
  * department's roster. It is the weekday primitive; `onCallPeriod` adds the WA
  * public holidays and is the rule screens should use.
  */
-const PERTH_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  timeZone: ON_CALL_TIME_ZONE,
-  weekday: "short",
-  hour: "numeric",
-  hourCycle: "h23",
-});
-
-function getPerthWeekdayAndHour(date: Date): { weekday: string; hour: number } {
-  const parts = PERTH_TIME_FORMATTER.formatToParts(date);
-  let weekday = "";
-  let hour = 0;
-  for (const part of parts) {
-    if (part.type === "weekday") weekday = part.value;
-    else if (part.type === "hour") hour = Number.parseInt(part.value, 10);
-  }
-  return { weekday, hour };
-}
-
 export function isOnCallOutOfHours(now: Date = new Date()): boolean {
-  const { weekday, hour } = getPerthWeekdayAndHour(now);
-  if (weekday === "Sun" || weekday === "Sat") return true;
+  const day = now.getDay(); // 0 = Sunday … 6 = Saturday, in the viewer's zone.
+  if (day === 0 || day === 6) return true;
+  const hour = now.getHours();
   return hour < ON_CALL_IN_HOURS_START_HOUR || hour >= ON_CALL_IN_HOURS_END_HOUR;
 }
 

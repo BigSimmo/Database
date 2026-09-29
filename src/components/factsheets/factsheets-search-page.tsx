@@ -2,14 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Info, LayoutGrid, List } from "lucide-react";
-import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
+import { Info, LayoutGrid, List, SearchX } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 
-import {
-  SearchResultsEmptyState,
-  SearchResultsHeaderBand,
-  type AppliedFilterChip,
-} from "@/components/clinical-dashboard/search-results-header-band";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   ResultFilterSheet,
@@ -67,11 +63,7 @@ export function FactsheetsSearchPage({
   // unrelated zero-member categories do not exist. A selected category that the
   // query has narrowed to zero stays visible as a disabled, explained dead end
   // so URL state remains truthful and the available options provide an escape.
-  const deferredQuery = useDeferredValue(query);
-  const queryMatches = useMemo(
-    () => filterFactsheets(deferredQuery, undefined, expansions),
-    [deferredQuery, expansions],
-  );
+  const queryMatches = useMemo(() => filterFactsheets(query, undefined, expansions), [expansions, query]);
   const categoryOptions = useMemo<ReadonlyArray<ResultFilterOption<string>>>(() => {
     const categoryCounts = new Map<string, number>();
     for (const sheet of queryMatches) {
@@ -97,33 +89,15 @@ export function FactsheetsSearchPage({
   const activeCategoryDeadEndMessage = activeCategoryIsDeadEnd
     ? `No results in ${activeCategory} for this search. Choose All or another available category.`
     : undefined;
-  const applyCategory = useCallback(
-    (value: string) => {
-      const option = categoryOptions.find((entry) => entry.value === value);
-      if (!option || option.disabled) return;
-      setFilterOpen(false);
-      router.replace(searchHref(query, value === "all" ? undefined : value), { scroll: false });
-    },
-    [categoryOptions, query, router],
-  );
-
-  const appliedFilters = useMemo<AppliedFilterChip[]>(
-    () =>
-      activeCategory
-        ? [
-            {
-              id: "category",
-              groupLabel: "Category",
-              valueLabel: activeCategory,
-              onRemove: () => applyCategory("all"),
-            },
-          ]
-        : [],
-    [activeCategory, applyCategory],
-  );
+  const applyCategory = (value: string) => {
+    const option = categoryOptions.find((entry) => entry.value === value);
+    if (!option || option.disabled) return;
+    setFilterOpen(false);
+    router.replace(searchHref(query, value === "all" ? undefined : value), { scroll: false });
+  };
 
   return (
-    <main
+    <div
       data-testid="factsheets-search-page"
       className="mx-auto w-full max-w-reading px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
@@ -138,8 +112,6 @@ export function FactsheetsSearchPage({
         matchCount={results.length}
         className="mt-4"
         filterLabel="Filter factsheets by category"
-        appliedFilters={appliedFilters}
-        onClearFilters={activeCategory ? () => applyCategory("all") : undefined}
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
         mobileControls={
@@ -238,18 +210,23 @@ export function FactsheetsSearchPage({
       />
 
       {results.length === 0 ? (
-        <div className="mt-4">
-          <SearchResultsEmptyState
-            modeId="factsheets"
-            query={query}
-            headingLevel={2}
-            appliedFilters={appliedFilters}
-            onClearFilters={activeCategory ? () => applyCategory("all") : undefined}
-            onClearSearch={query.trim() ? () => router.push("/factsheets/search") : undefined}
-            browseAllHref="/factsheets/search"
-            browseAllLabel="Browse sheets"
-          />
-        </div>
+        <section className="mt-4 grid justify-items-center gap-3 rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-4 py-12 text-center">
+          <span className="grid h-12 w-12 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]">
+            <SearchX className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-base font-bold text-[color:var(--text-heading)]">No factsheets found</p>
+            <p className="mt-1 text-sm-minus font-medium text-[color:var(--text-muted)]">
+              Try a broader topic, or browse the full library.
+            </p>
+          </div>
+          <Link
+            href="/factsheets/search"
+            className="inline-flex min-h-tap items-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
+          >
+            Browse sheets
+          </Link>
+        </section>
       ) : view === "list" ? (
         <section
           aria-label="Factsheet results"
@@ -313,6 +290,6 @@ export function FactsheetsSearchPage({
           publication.
         </p>
       </aside>
-    </main>
+    </div>
   );
 }
