@@ -4,7 +4,7 @@ import { Info, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { cn } from "@/components/ui-primitives";
-import { isTopmostSheet, popSheet, pushSheet } from "@/components/ui/sheet-focus";
+import { isTopmostSheet, popSheet, pushSheet, updateSheetRoot } from "@/components/ui/sheet-focus";
 import { MissingValue } from "@/components/ui/missing-value";
 
 import { calculators, domainLabels, type CalculatorFixture } from "./calculator-fixtures";
@@ -30,11 +30,13 @@ export function CalculatorSheet({
   answers,
   onAnswersChange,
   onClose,
+  sheetId,
 }: {
   calc: CalculatorFixture;
   answers: AnswerMap;
   onAnswersChange: (next: AnswerMap) => void;
   onClose: () => void;
+  sheetId?: string;
 }) {
   const derived = deriveCalculator(calc, answers);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -70,11 +72,27 @@ export function CalculatorSheet({
     onClose();
   };
 
+  useEffect(() => {
+    if (sheetId && dialogRef.current) {
+      updateSheetRoot(sheetId, dialogRef.current);
+    }
+    return () => {
+      if (sheetId) {
+        updateSheetRoot(sheetId, null);
+      }
+    };
+  }, [sheetId]);
+
   // Save the opener, move focus into the dialog, and restore on close.
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
-    return () => previousFocusRef.current?.focus?.();
+    return () => {
+      const target = previousFocusRef.current;
+      if (target && target.isConnected && typeof target.focus === "function") {
+        target.focus();
+      }
+    };
   }, [calc.id]);
 
   // Switching calculators in place keeps this sheet mounted, so reset its scroll
@@ -263,6 +281,7 @@ export function CalculatorsPopupSheetMockup() {
       {activeCalc ? (
         <CalculatorSheet
           calc={activeCalc}
+          sheetId={calculatorSheetId}
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((prev) => ({ ...prev, [activeCalc.id]: next }))}
           onClose={() => setOpenId(null)}

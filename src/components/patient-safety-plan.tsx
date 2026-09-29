@@ -357,7 +357,7 @@ function EntryChip({ entry, kind, onRemove }: { entry: Entry; kind: StepKind; on
         onClick={onRemove}
         aria-label={`Remove “${entry.primary}”`}
         className={cn(
-          "grid size-7 place-items-center rounded-md text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
+          "relative grid size-7 place-items-center rounded-md text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)] before:absolute before:-inset-2.5 before:content-['']",
           focusRing,
         )}
       >
@@ -553,19 +553,6 @@ export function PatientSafetyPlan() {
       Object.values(draftDirtyByRow).some(Boolean),
     [draftDirtyByRow, entries, planDate, reasons],
   );
-
-  // The back control asks before discarding, but closing the tab, refreshing or
-  // a swipe-back did not (ledger #846DP9). Ask the browser to confirm too. The
-  // plan is still never written anywhere: this only prompts before it is lost.
-  useEffect(() => {
-    if (!isDirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [isDirty]);
 
   const planText = useMemo(() => {
     const guardLines = exampleActive
@@ -790,13 +777,11 @@ export function PatientSafetyPlan() {
           aria-labelledby="spg-tab-build"
           className={cn("min-w-0 grid content-start gap-4", mobileTab === "build" ? "grid" : "hidden", "lg:grid")}
         >
-          {/* At 390px the heading and both buttons each wrapped onto two lines;
-              let the row wrap as whole items and keep every label on one line. */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="whitespace-nowrap text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
               Build the plan
             </h2>
-            <div className="flex items-center gap-2 whitespace-nowrap">
+            <div className="flex items-center gap-2">
               <button type="button" onClick={loadExample} className={softButton}>
                 <Sparkles className="size-icon-sm" aria-hidden="true" />
                 Load example
@@ -871,7 +856,7 @@ export function PatientSafetyPlan() {
               <span className={cn(metadataPill, "shrink-0 tabular-nums")}>{reasons.length}</span>
             </header>
             {reasons.length ? (
-              <ul className="flex flex-wrap gap-1.5">
+              <ul className="flex flex-wrap gap-x-2.5 gap-y-2">
                 {reasons.map((reason) => (
                   <li
                     key={reason.id}
@@ -886,7 +871,7 @@ export function PatientSafetyPlan() {
                       }}
                       aria-label={`Remove “${reason.primary}”`}
                       className={cn(
-                        "grid size-5 place-items-center rounded-full text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
+                        "relative grid size-5 place-items-center rounded-full text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)] before:absolute before:-inset-y-3.5 before:-inset-x-1.5 before:content-['']",
                         focusRing,
                       )}
                     >

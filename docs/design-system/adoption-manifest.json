@@ -1016,7 +1016,6 @@
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
-        "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx",
         "src/components/on-call/service-page.tsx"
       ],
@@ -1039,7 +1038,6 @@
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-training-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
-        "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx",
         "src/components/on-call/service-page.tsx"
       ],

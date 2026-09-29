@@ -51,21 +51,25 @@ const contact = (over: Partial<OnCallEntry> & { details?: unknown }) =>
   entry({ section: "contacts", details: { role: "Role" }, ...over });
 
 /**
- * Local-time fixtures, built with the `Date(y, m, d, h)` constructor rather than
- * an ISO string on purpose: the rule is about the hour on the registrar's own
- * phone, so the test must express the hour in the same zone the helper reads.
+ * Fixtures pinned to Australia/Perth (+08:00) so tests pass identically in any
+ * runner zone (including UTC in CI).
  *
  * 16 September 2026 is a Wednesday, 19 September a Saturday, 20 September a
  * Sunday.
  */
-const WEEKDAY_0900 = new Date(2026, 8, 16, 9, 0, 0);
-const WEEKDAY_2200 = new Date(2026, 8, 16, 22, 0, 0);
-const WEEKDAY_0800 = new Date(2026, 8, 16, 8, 0, 0);
-const WEEKDAY_0759 = new Date(2026, 8, 16, 7, 59, 0);
-const WEEKDAY_1700 = new Date(2026, 8, 16, 17, 0, 0);
-const WEEKDAY_1659 = new Date(2026, 8, 16, 16, 59, 0);
-const SATURDAY_MIDDAY = new Date(2026, 8, 19, 12, 0, 0);
-const SUNDAY_MIDDAY = new Date(2026, 8, 20, 12, 0, 0);
+function perthDate(year: number, monthIndex: number, day: number, hour = 0, minute = 0, second = 0): Date {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return new Date(`${year}-${pad(monthIndex + 1)}-${pad(day)}T${pad(hour)}:${pad(minute)}:${pad(second)}+08:00`);
+}
+
+const WEEKDAY_0900 = perthDate(2026, 8, 16, 9, 0, 0);
+const WEEKDAY_2200 = perthDate(2026, 8, 16, 22, 0, 0);
+const WEEKDAY_0800 = perthDate(2026, 8, 16, 8, 0, 0);
+const WEEKDAY_0759 = perthDate(2026, 8, 16, 7, 59, 0);
+const WEEKDAY_1700 = perthDate(2026, 8, 16, 17, 0, 0);
+const WEEKDAY_1659 = perthDate(2026, 8, 16, 16, 59, 0);
+const SATURDAY_MIDDAY = perthDate(2026, 8, 19, 12, 0, 0);
+const SUNDAY_MIDDAY = perthDate(2026, 8, 20, 12, 0, 0);
 
 describe("isOnCallOutOfHours", () => {
   it("is false during the weekday working day", () => {
@@ -328,15 +332,15 @@ describe("selectUpcomingSessions", () => {
 });
 
 describe("onCallLocalDateKey", () => {
-  it("uses the viewer's own day, not UTC", () => {
-    // 23:00 on the 12th in a zone ahead of UTC is still the 12th to the person
+  it("uses the Australia/Perth calendar day, not UTC", () => {
+    // 23:00 on the 12th in Perth (+08:00) is still the 12th to the person
     // holding the phone; keying on UTC would call tonight's teaching yesterday's.
-    const localLateEvening = new Date(2026, 8, 12, 23, 0, 0);
-    expect(onCallLocalDateKey(localLateEvening)).toBe("2026-09-12");
+    const perthLateEvening = perthDate(2026, 8, 12, 23, 0, 0);
+    expect(onCallLocalDateKey(perthLateEvening)).toBe("2026-09-12");
   });
 
   it("pads single-digit months and days", () => {
-    expect(onCallLocalDateKey(new Date(2026, 0, 5, 12, 0, 0))).toBe("2026-01-05");
+    expect(onCallLocalDateKey(perthDate(2026, 0, 5, 12, 0, 0))).toBe("2026-01-05");
   });
 });
 
@@ -395,41 +399,40 @@ describe("msUntilOnCallHoursBoundary", () => {
   // next render" was wrong about a page nobody is touching, which is exactly the
   // page someone glances at overnight.
   it("counts down to 17:00 from inside the working day", () => {
-    // Wednesday 16:00 local.
-    expect(msUntilOnCallHoursBoundary(new Date(2026, 8, 16, 16, 0, 0))).toBe(60 * 60 * 1000);
+    // Wednesday 16:00 Perth time.
+    expect(msUntilOnCallHoursBoundary(perthDate(2026, 8, 16, 16, 0, 0))).toBe(60 * 60 * 1000);
   });
 
   it("counts down to 08:00 from the small hours", () => {
-    // Wednesday 02:30 local.
-    expect(msUntilOnCallHoursBoundary(new Date(2026, 8, 16, 2, 30, 0))).toBe(5.5 * 60 * 60 * 1000);
+    // Wednesday 02:30 Perth time.
+    expect(msUntilOnCallHoursBoundary(perthDate(2026, 8, 16, 2, 30, 0))).toBe(5.5 * 60 * 60 * 1000);
   });
 
   it("counts down to the next morning's 08:00 from the evening", () => {
-    // Wednesday 22:00 local -> Thursday 08:00 local.
-    expect(msUntilOnCallHoursBoundary(new Date(2026, 8, 16, 22, 0, 0))).toBe(10 * 60 * 60 * 1000);
+    // Wednesday 22:00 Perth time -> Thursday 08:00 Perth time.
+    expect(msUntilOnCallHoursBoundary(perthDate(2026, 8, 16, 22, 0, 0))).toBe(10 * 60 * 60 * 1000);
   });
 
   it("carries a Friday evening across the weekend to Monday 08:00", () => {
-    // Friday 18:00 local. Saturday and Sunday are out of hours throughout, so
+    // Friday 18:00 Perth time. Saturday and Sunday are out of hours throughout, so
     // the next moment the answer can change is Monday morning -- waking at
     // Saturday 08:00 would re-render for nothing.
-    const friday = new Date(2026, 8, 18, 18, 0, 0);
-    expect(friday.getDay()).toBe(5);
+    const friday = perthDate(2026, 8, 18, 18, 0, 0);
     expect(msUntilOnCallHoursBoundary(friday)).toBe(62 * 60 * 60 * 1000);
   });
 
   it("never returns zero or less, so a timer scheduled on it cannot spin", () => {
     for (const at of [
-      new Date(2026, 8, 16, 8, 0, 0),
-      new Date(2026, 8, 16, 17, 0, 0),
-      new Date(2026, 8, 19, 12, 0, 0),
+      perthDate(2026, 8, 16, 8, 0, 0),
+      perthDate(2026, 8, 16, 17, 0, 0),
+      perthDate(2026, 8, 19, 12, 0, 0),
     ]) {
       expect(msUntilOnCallHoursBoundary(at)).toBeGreaterThan(0);
     }
   });
 
   it("lands exactly on a boundary that flips the answer", () => {
-    const at = new Date(2026, 8, 16, 16, 0, 0);
+    const at = perthDate(2026, 8, 16, 16, 0, 0);
     const next = new Date(at.getTime() + msUntilOnCallHoursBoundary(at));
     expect(isOnCallOutOfHours(at)).toBe(false);
     expect(isOnCallOutOfHours(next)).toBe(true);

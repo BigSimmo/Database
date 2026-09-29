@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useId, useMemo, useState } from "react";
-import { BookOpenCheck, Check, ChevronRight, CircleAlert, GitCompareArrows, SearchX } from "lucide-react";
+import { BookOpenCheck, Check, ChevronRight, CircleAlert, GitCompareArrows } from "lucide-react";
 
 import {
+  SearchResultsEmptyState,
   SearchResultsHeaderBand,
   type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
@@ -15,10 +16,9 @@ import {
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { mobileComposerVisibleReserve } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { usePhoneFooterLayerScrollHidden } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { cardPadding, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
-import { cn, codeText, EmptyState, metadataPill, pageContainer } from "@/components/ui-primitives";
+import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
 
@@ -100,14 +100,12 @@ function DsmSearchResultCard({
 }
 
 function DsmMobileCompareStrip({ selected }: { selected: string[] }) {
-  const phoneChromeHidden = usePhoneFooterLayerScrollHidden();
   if (!selected.length) return null;
 
   return (
     <div
       aria-live="polite"
-      className="dsm-mobile-compare-strip pointer-events-none fixed inset-x-0 z-[var(--z-chrome)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:hidden"
-      data-scroll-hidden={phoneChromeHidden ? "true" : undefined}
+      className="pointer-events-none fixed inset-x-0 z-[var(--z-chrome)] px-4 lg:hidden"
       style={{ bottom: mobileComposerVisibleReserve.shellDock }}
     >
       <Link
@@ -138,6 +136,7 @@ export function DsmSearchPage({
   /** Retained for older server/test callers; filtering now uses the query-matched summaries. */
   totalCount?: number;
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [selected, setSelected] = useState<string[]>(initialIds.slice(0, 3));
   const [filterOpen, setFilterOpen] = useState(false);
@@ -255,7 +254,7 @@ export function DsmSearchPage({
   }
 
   return (
-    <div data-testid="dsm-search-page" className="min-h-full bg-[color:var(--background)]">
+    <main data-testid="dsm-search-page" className="min-h-full bg-[color:var(--background)]">
       <div
         className={cn(
           pageContainer,
@@ -380,26 +379,22 @@ export function DsmSearchPage({
             </aside>
           </div>
         ) : (
-          <EmptyState
-            icon={SearchX}
-            title="No diagnosis matches"
+          <SearchResultsEmptyState
+            modeId="dsm"
+            query={query}
             headingLevel={2}
-            body="Try a diagnosis name, ICD code, symptom phrase, or a broader category."
-            live="polite"
-            actions={
-              <Link
-                href="/dsm/search"
-                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
-              >
-                Browse all diagnoses
-              </Link>
-            }
+            title="No diagnosis matches"
+            appliedFilters={appliedFilters}
+            onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
+            onClearSearch={query.trim() ? () => router.push("/dsm/search") : undefined}
+            browseAllHref="/dsm/search"
+            browseAllLabel="Browse all diagnoses"
           />
         )}
         <UniversalSearchAlsoMatches modeId="dsm" query={query} />
       </div>
 
       <DsmMobileCompareStrip selected={selected} />
-    </div>
+    </main>
   );
 }

@@ -2,14 +2,13 @@
 
 import { Moon, Phone, Sun } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
 import { onCallEntryHref } from "@/components/on-call/on-call-entry-view";
 import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
-import { OnCallSignedOut } from "@/components/on-call/on-call-signed-out";
 import { OnCallToolNavHeader } from "@/components/on-call/on-call-nav-header";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
@@ -22,9 +21,7 @@ import {
   type OnCallCallNowStep,
 } from "@/lib/on-call/call-now";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
-import { ON_CALL_HOME_TAGS, onCallTelHref } from "@/lib/on-call/home-modules";
-import { msUntilOnCallPeriodChange } from "@/lib/on-call/number-resolver";
-import { ON_CALL_SERVER_ANCHOR } from "@/components/on-call/on-call-dates";
+import { msUntilOnCallHoursBoundary, ON_CALL_HOME_TAGS, onCallTelHref } from "@/lib/on-call/home-modules";
 
 /**
  * WHO DO I CALL NOW — pick the situation, get the ladder with call buttons.
@@ -36,36 +33,34 @@ import { ON_CALL_SERVER_ANCHOR } from "@/components/on-call/on-call-dates";
  * rule is wrong.
  */
 export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
-  const [mounted, setMounted] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setMounted(true), []);
-
-  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut } = useOnCallEntries();
-  const [clock, setClock] = useState<Date | null>(() => nowProp ?? null);
-  const now = useMemo(
-    () => nowProp ?? (mounted ? (clock ?? new Date()) : ON_CALL_SERVER_ANCHOR),
-    [nowProp, mounted, clock],
-  );
+  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
+  const [clock, setClock] = useState(() => nowProp ?? new Date());
+  const now = nowProp ?? clock;
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Re-read the clock when the in-hours period starts or ends (holidays count),
-  // so a phone left open on this page does not keep offering the daytime order at night.
+  // Re-read the clock when working hours start or end, so a phone left open on
+  // this page does not keep offering the daytime order at night.
   useEffect(() => {
-    if (nowProp || !mounted) return;
-    const timer = window.setTimeout(() => setClock(new Date()), msUntilOnCallPeriodChange(now));
+    if (nowProp) return;
+    const timer = window.setTimeout(() => setClock(new Date()), msUntilOnCallHoursBoundary(clock));
     return () => window.clearTimeout(timer);
-  }, [now, nowProp, mounted]);
+  }, [clock, nowProp]);
 
   const scenarios = useMemo(() => onCallCallNowScenarios(entries), [entries]);
-  const trimmed = query.trim().toLowerCase();
-  const matches = trimmed
-    ? scenarios.filter((entry) =>
-        [entry.title, entry.subtitle ?? "", JSON.stringify(entry.details ?? "")].some((text) =>
-          text.toLowerCase().includes(trimmed),
-        ),
-      )
-    : scenarios;
+  const deferredQuery = useDeferredValue(query);
+  const trimmed = deferredQuery.trim().toLowerCase();
+  const matches = useMemo(
+    () =>
+      trimmed
+        ? scenarios.filter((entry) =>
+            [entry.title, entry.subtitle ?? "", JSON.stringify(entry.details ?? "")].some((text) =>
+              text.toLowerCase().includes(trimmed),
+            ),
+          )
+        : scenarios,
+    [scenarios, trimmed],
+  );
   const pinned = scenarios.find((entry) => entry.tags.includes(ON_CALL_HOME_TAGS.pinned)) ?? scenarios[0] ?? null;
   const selected = scenarios.find((entry) => entry.id === selectedId) ?? (trimmed ? (matches[0] ?? null) : pinned);
   const steps = selected ? onCallCallNowSteps(selected, now) : [];
@@ -73,17 +68,6 @@ export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
   const nowSteps = steps.filter((step) => step.appliesNow);
   const laterSteps = steps.filter((step) => !step.appliesNow);
   const PeriodIcon = period === "after-hours" ? Moon : Sun;
-
-  if (!nowProp && !mounted) {
-    return (
-      <>
-        <OnCallToolNavHeader title="Who to call now" testIdPrefix="on-call-now" />
-        <InformationPageShell testId="on-call-now-main" width="narrow">
-          <p role="status">Loading current on-call context…</p>
-        </InformationPageShell>
-      </>
-    );
-  }
 
   return (
     <>
@@ -114,8 +98,6 @@ export function OnCallCallNowPage({ now: nowProp }: { now?: Date } = {}) {
           />
         ) : isOffline && entries.length === 0 ? (
           <OnCallLoadFailed reason={loadError} onRetry={retry} />
-        ) : signedOut && entries.length === 0 ? (
-          <OnCallSignedOut icon={Phone} testId="on-call-now-signed-out" />
         ) : scenarios.length === 0 ? (
           <EmptyState
             icon={Phone}
