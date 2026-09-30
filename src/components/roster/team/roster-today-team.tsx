@@ -93,11 +93,7 @@ function TeamSummary({
       {needsYou.length > 0 || waiting > 0 ? (
         <ModeGroupedList eyebrow="Needs you" mode="roster">
           {needsYou.map((swap) => (
-            <ModeRow
-              key={swap.id}
-              title={`${swap.requesterName ?? "A colleague"} asks to swap`}
-              href="/roster/requests"
-            />
+            <ModeRow key={swap.id} title={`${swap.requesterName ?? "A colleague"} asks to swap`} href="/roster/swaps" />
           ))}
           {waiting > 0 ? <ModeRow title={`${waiting} waiting in Manage`} href="/roster/manage" /> : null}
         </ModeGroupedList>

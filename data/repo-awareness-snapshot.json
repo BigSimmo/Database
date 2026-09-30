@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-28"
+    "committed_at": "2026-09-30"
   },
   "routes": {
     "modes": [
@@ -628,6 +628,11 @@
       {
         "path": "/teaching/c/complete",
         "file": "src/app/(search-app)/teaching/c/complete/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/roster/swaps",
+        "file": "src/app/(search-app)/roster/swaps/page.tsx",
         "area": "product"
       },
       {
@@ -2749,6 +2754,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/specs/2026-09-30-roster-team-calendar-and-swaps-design.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
         "path": "docs/source-governance-refresh-worklist-2026-07-22.md",
         "section": "root",
         "catalogued": true
@@ -4201,6 +4211,11 @@
       {
         "path": "docs/audit/performance-image-cwv-audit-2026-08-02.md",
         "section": "audit",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-30-roster-team-calendar-and-swaps.md",
+        "section": "superpowers",
         "catalogued": true
       },
       {

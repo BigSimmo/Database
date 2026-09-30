@@ -212,6 +212,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "today", label: "Today", href: "/roster" },
     { id: "shifts", label: "Shifts", href: "/roster/shifts" },
     { id: "team", label: "Team", href: "/roster/team" },
+    { id: "swaps", label: "Swaps", href: "/roster/swaps" },
     { id: "requests", label: "Requests", href: "/roster/requests" },
     { id: "settings", label: "Settings", href: "/roster/settings" },
   ],
@@ -456,6 +457,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   if (modeId === "roster") {
     if (pathname === "/roster/shifts") return "shifts";
     if (pathname === "/roster/team") return "team";
+    if (pathname === "/roster/swaps") return "swaps";
     if (pathname === "/roster/requests") return "requests";
     if (pathname === "/roster/settings") return "settings";
     // Exact match only, for the same reason On Call's and CME's homes are: a
@@ -523,7 +525,9 @@ export function isModeSecondaryNavigationRoute(params: {
     return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
   if (modeId === "roster") {
-    return ["/roster/shifts", "/roster/team", "/roster/requests", "/roster/settings"].includes(pathname);
+    return ["/roster/shifts", "/roster/team", "/roster/swaps", "/roster/requests", "/roster/settings"].includes(
+      pathname,
+    );
   }
   return false;
 }

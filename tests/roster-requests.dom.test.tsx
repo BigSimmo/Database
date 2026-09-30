@@ -17,6 +17,7 @@ vi.mock("@/components/roster/use-roster-team", () => ({
   fetchRosterRead: mocks.fetchRead,
   postRosterAction: mocks.post,
 }));
+vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "authenticated", authEpoch: 1 }) }));
 vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
 vi.mock("@/components/roster/use-roster-shifts", () => ({ useRosterShifts: () => ({ status: "ready", shifts: [] }) }));
 vi.mock("@/components/ui/sheet", () => ({
@@ -132,26 +133,14 @@ beforeEach(() => {
   );
 });
 
-it("uses a valid team ID in a multi-team handoff and never takes an actor from the URL", async () => {
+it("opens the calendar swap flow from a handoff, using a valid team ID and never takes an actor from the URL", async () => {
   const second = "5e000000-0000-4000-8000-000000000009";
   teamsState.data.teams.push({ ...teamsState.data.teams[0]!, serviceId: second, name: "Other team" });
   window.history.replaceState({}, "", `/roster/requests?start=swap&team=${second}&assignment=${TAKE}&actorId=${MEI}`);
   render(<RosterRequestsPage />);
-  expect(await screen.findByRole("dialog", { name: "Swap a shift" })).toBeTruthy();
+  expect(await screen.findByRole("dialog", { name: "Swap this shift" })).toBeTruthy();
   expect(mocks.fetchRead).toHaveBeenCalledWith(second, "overview");
   expect(mocks.post).not.toHaveBeenCalled();
-});
-
-it("accepts a same-grade swap after a fresh read and exposes ten-minute undo", async () => {
-  const user = userEvent.setup();
-  render(<RosterRequestsPage />);
-  await user.click(screen.getByRole("button", { name: "Review" }));
-  expect(screen.getByText(/You'll be off .*Nov.* and on .*Oct/)).toBeTruthy();
-  expect(await screen.findByText(/Both residents, so it approves itself/)).toBeTruthy();
-  expect(screen.getByText("Rechecked 18:21")).toBeTruthy();
-  await user.click(screen.getByRole("button", { name: "Accept swap" }));
-  expect(mocks.post).toHaveBeenCalledWith(SERVICE, { action: "swap.accept", swapId: SWAP });
-  expect(await screen.findByRole("button", { name: "Undo for 10 min" })).toBeTruthy();
 });
 
 it("opens an Ask dates handoff with Prefer off already selected", async () => {
@@ -162,50 +151,22 @@ it("opens an Ask dates handoff with Prefer off already selected", async () => {
   expect(await screen.findByRole("button", { name: `${day}: Prefer off` })).toBeTruthy();
 });
 
-it("shows why a near swap needs a manager", async () => {
-  const user = userEvent.setup();
-  const soon = {
-    ...give,
-    startsAt: new Date(Date.now() + 5 * 86_400_000).toISOString(),
-    endsAt: new Date(Date.now() + 5 * 86_400_000 + 8 * 3_600_000).toISOString(),
-  };
-  reads.requests.swaps = [{ ...swap, give: soon }];
-  reads.assignments.assignments = [soon, take];
-  render(<RosterRequestsPage />);
-  await user.click(screen.getByRole("button", { name: "Review" }));
-  expect(await screen.findByText("Needs your manager because it's within 7 days")).toBeTruthy();
-});
-
-it("takes an eligible open shift with its id and removes it after someone else took it", async () => {
-  const user = userEvent.setup();
-  reads.requests.swaps = [];
+it("no longer lists swaps or open shifts, and points to the Swaps page", () => {
   reads.requests.openShifts = [open];
-  mocks.post.mockResolvedValueOnce({
-    ok: false,
-    code: "roster_open_shift_taken",
-    message: "Someone else took this shift first.",
-  });
   render(<RosterRequestsPage />);
-  await user.click(screen.getByRole("button", { name: "Take it" }));
-  expect(mocks.post).toHaveBeenCalledWith(SERVICE, { action: "open.claim", openShiftId: OPEN });
-  expect(await screen.findByText("Someone else took this shift first.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Take it" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Swap a shift" })).toBeNull();
+  expect(screen.getByRole("link", { name: /Swaps and open shifts/ }).getAttribute("href")).toBe("/roster/swaps");
 });
 
-it("hides an open shift that clashes with my team shift", () => {
-  reads.requests.swaps = [];
-  reads.requests.openShifts = [{ ...open, startsAt: take.startsAt, endsAt: take.endsAt }];
+it("still opens I can't make my shift from the New menu", async () => {
+  const user = userEvent.setup();
   render(<RosterRequestsPage />);
-  expect(screen.queryByRole("button", { name: "Take it" })).toBeNull();
-});
-
-it("hides Take it and explains grade setup when the actor has no known grade", () => {
-  reads.requests.swaps = [];
-  reads.requests.openShifts = [open];
-  overview.me.grade = null;
-  render(<RosterRequestsPage />);
-  expect(screen.queryByRole("button", { name: "Take it" })).toBeNull();
-  expect(screen.getByText("Add your grade in Your team before taking an open shift.")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "New" }));
+  expect(screen.queryByRole("button", { name: "Swap a shift" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "I can't make my shift" }));
+  expect(await screen.findByRole("dialog", { name: "I can't make my shift" })).toBeTruthy();
 });
 
 it("shows an anonymous leave overlap count", async () => {

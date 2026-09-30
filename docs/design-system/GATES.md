@@ -1,7 +1,7 @@
 # PsychSift design system — GATES
 
 **Every rule paired with the check that enforces it.** Labels: **implemented-blocking**
-(runs in `verify:cheap`/CI and fails the build) · **implemented-partial** (a real check
+(runs in `verify:full`/CI and fails the build) · **implemented-partial** (a real check
 exists but covers less than the rule) · **planned** (rule stated, no check) · **manual**
 (deliberately human). A prohibition with no row here is a suggestion — that is the failure
 mode this document exists to prevent. Three defects last cycle were caught by review rather
@@ -87,8 +87,9 @@ recorded debt with per-path pins, so a new occurrence fails even while the total
 here ("no such rule files exist in `eslint-rules/`… currently **unenforced**") was true about
 ESLint and wrong about enforcement, which is the more expensive error of the two.
 `npm run check:type-scale` and `npm run check:icon-scale` (`scripts/check-type-scale.mjs`,
-`scripts/check-icon-scale.mjs`, both `--strict`) have run inside `verify:cheap` since
-30 July **[verified: package.json]**. They are hard-zero gates with no baseline, unlike the
+`scripts/check-icon-scale.mjs`, both `--strict`) have run inside `verify:full` (and CI
+`static-pr`) since the 2026-09-17 cheap/full split — they previously lived in the pre-split
+`verify:cheap` chain **[verified: package.json]**. They are hard-zero gates with no baseline, unlike the
 ratcheting design-system contract.
 
 **Enforced:** arbitrary font-size and icon-size utilities (`text-[12px]`, `text-[1.45rem]`)

@@ -12,7 +12,7 @@ import { openShiftCandidates } from "@/lib/roster/team/eligibility";
 import type { RosterAction, RosterAssignment, RosterOverview } from "@/lib/roster/team/model";
 
 import { RosterSwapTicket } from "./roster-swap-ticket";
-import type { RequestSent } from "./request-ui";
+import { GIVE_AWAY_WORDS, isUrgentGiveAway, type RequestSent } from "./request-ui";
 
 type Fresh = { assignments: RosterAssignment[]; overview: RosterOverview; readAt: Date };
 
@@ -86,7 +86,7 @@ function GiveAwaySession({
           actorId,
         )
       : [];
-  const isUrgent = urgent || (!!shift && Date.parse(shift.startsAt) - now.getTime() < 86_400_000);
+  const isUrgent = urgent || (!!shift && isUrgentGiveAway(shift.startsAt, now));
 
   async function send(action: "open.post" | "open.report") {
     if (!shift || !actorId) return;
@@ -101,7 +101,7 @@ function GiveAwaySession({
     const id = result.result.openShiftId;
     onSent(
       action === "open.report"
-        ? "Your manager has been told"
+        ? GIVE_AWAY_WORDS.told
         : `Offered to ${candidates.map((candidate) => candidate.name ?? "colleague").join(" and ") || "your team"}`,
       id
         ? async () => {
@@ -114,7 +114,7 @@ function GiveAwaySession({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={isUrgent ? "I can't make my shift" : "Give a shift away"}>
+    <Sheet open={open} onClose={onClose} title={isUrgent ? GIVE_AWAY_WORDS.urgentTitle : GIVE_AWAY_WORDS.title}>
       <div className="grid gap-4">
         {!fresh && !error ? <p role="status">Checking the team roster…</p> : null}
         {error ? <p role="alert">{error}</p> : null}
@@ -149,7 +149,7 @@ function GiveAwaySession({
                 </li>
               ))}
             </ul>
-            {isUrgent ? <p>You still ring in as usual.</p> : null}
+            {isUrgent ? <p>{GIVE_AWAY_WORDS.ringIn}</p> : null}
             <p className="text-xs text-[color:var(--text-muted)]">
               Rechecked{" "}
               {new Intl.DateTimeFormat("en-AU", {
@@ -165,7 +165,7 @@ function GiveAwaySession({
               onClick={() => void send(isUrgent ? "open.report" : "open.post")}
             >
               {isUrgent
-                ? "I can't make it"
+                ? GIVE_AWAY_WORDS.urgentButton
                 : `Offer to ${candidates.length === 1 ? "1 person" : `${candidates.length} people`}`}
             </Button>
           </>

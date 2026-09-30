@@ -269,3 +269,24 @@ export function demoOpenedAt(label: string | undefined, now: number): number | n
     Number(minutes),
   ).getTime();
 }
+
+/**
+ * Where a dragged row lands: the number of other rows whose centre sits above
+ * the dragged row's current centre. `centers` are the rows' resting centres.
+ */
+export function dragTargetIndex(centers: readonly number[], fromIndex: number, draggedCenter: number): number {
+  let target = 0;
+  centers.forEach((center, index) => {
+    if (index !== fromIndex && center < draggedCenter) target += 1;
+  });
+  return target;
+}
+
+/** A copy of `items` with the entry at `from` moved to `to`. */
+export function moveEntry<T>(items: readonly T[], from: number, to: number): T[] {
+  const next = [...items];
+  const [moved] = next.splice(from, 1);
+  if (moved === undefined) return next;
+  next.splice(to, 0, moved);
+  return next;
+}
