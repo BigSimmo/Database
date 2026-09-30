@@ -1,7 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Check, Folder, MoreHorizontal, Pin, PinOff, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Folder,
+  GripVertical,
+  MoreHorizontal,
+  Pin,
+  PinOff,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { FavouriteExampleTag } from "@/components/clinical-dashboard/favourite-example-tag";
 import { FavouriteTypeTile } from "@/components/favourites/favourite-type-tile";
@@ -124,6 +136,11 @@ export function FavouriteRow({
     canMoveDown: boolean;
     pending: boolean;
     onMove: (item: FavouriteItem, direction: -1 | 1) => void;
+    /** Pointer drag from the grip. Keyboard users keep the up and down buttons. */
+    onDragStart?: (item: FavouriteItem, event: ReactPointerEvent<HTMLElement>) => void;
+    /** Vertical offset while this row, or a row passing it, is being dragged. */
+    dragY?: number;
+    dragging?: boolean;
   };
 }) {
   const swipeEnabled = mode === "browse" && canMutate;
@@ -189,11 +206,20 @@ export function FavouriteRow({
 
       <div
         {...swipe.rowHandlers}
-        style={{ transform: swipe.offset ? `translateX(${swipe.offset}px)` : undefined }}
+        style={{
+          transform: reorder?.dragY
+            ? `translateY(${reorder.dragY}px)`
+            : swipe.offset
+              ? `translateX(${swipe.offset}px)`
+              : undefined,
+        }}
+        data-row-id={item.id}
         className={cn(
           "relative flex min-h-16 items-center gap-1 bg-[color:var(--surface)] pl-3 pr-1 touch-pan-y",
           !swipe.dragging &&
+            !reorder?.dragging &&
             "transition-transform duration-[var(--duration-base)] ease-out motion-reduce:transition-none",
+          reorder?.dragging && "z-[5] shadow-[var(--e3)]",
           workspaceSelected && "xl:bg-[color:var(--clinical-accent-soft)]",
         )}
       >
@@ -229,6 +255,18 @@ export function FavouriteRow({
           </button>
         ) : mode === "reorder" ? (
           <div className="flex min-w-0 flex-1 items-center gap-3 py-2">
+            {reorder?.onDragStart ? (
+              <span
+                aria-hidden="true"
+                data-drag-handle
+                onPointerDown={(event) => {
+                  if (!reorder.pending) reorder.onDragStart?.(item, event);
+                }}
+                className="-ml-2 grid h-12 w-8 shrink-0 cursor-grab touch-none place-items-center text-[color:var(--text-muted)] active:cursor-grabbing"
+              >
+                <GripVertical className="size-icon-md" aria-hidden="true" />
+              </span>
+            ) : null}
             <RowBody item={item} view={view} showSet={showSet} time={time} metaId={metaId} />
           </div>
         ) : (

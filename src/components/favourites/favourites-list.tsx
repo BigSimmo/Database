@@ -1,9 +1,16 @@
 "use client";
 
 import { Folder, Pin, Trash2, X } from "lucide-react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { FavouriteRow, type FavouriteRowMode } from "@/components/favourites/favourite-row";
-import type { FavouriteGroup, FavouriteItem, FavouritesView } from "@/components/favourites/favourites-view-model";
+import {
+  dragTargetIndex,
+  moveEntry,
+  type FavouriteGroup,
+  type FavouriteItem,
+  type FavouritesView,
+} from "@/components/favourites/favourites-view-model";
 import { cn } from "@/components/ui-primitives";
 
 const focusRing =
@@ -45,8 +52,63 @@ export function FavouritesList({
   onOpenSwipeChange: (id: string | null) => void;
   canMutate: (item: FavouriteItem) => boolean;
   handlers: FavouritesListHandlers;
-  reorder?: { pending: boolean; onMove: (item: FavouriteItem, direction: -1 | 1) => void };
+  reorder?: {
+    pending: boolean;
+    onMove: (item: FavouriteItem, direction: -1 | 1) => void;
+    /** Called once when a drag ends somewhere new, with the group's full new order. */
+    onDrop?: (items: FavouriteItem[]) => void;
+  };
 }) {
+  const [drag, setDrag] = useState<{ groupId: string; from: number; to: number; dy: number; height: number } | null>(
+    null,
+  );
+
+  function startDrag(group: FavouriteGroup, from: number, event: ReactPointerEvent<HTMLElement>) {
+    if (!reorder?.onDrop || event.button > 0) return;
+    const handle = event.currentTarget;
+    const list = handle.closest("ul");
+    if (!list) return;
+    event.preventDefault();
+    const rects = [...list.querySelectorAll<HTMLElement>("[data-row-id]")].map((row) => row.getBoundingClientRect());
+    const centers = rects.map((rect) => rect.top + rect.height / 2);
+    const height = rects[from]?.height ?? 64;
+    const startY = event.clientY;
+    const pointerId = event.pointerId;
+    try {
+      handle.setPointerCapture(pointerId);
+    } catch {
+      // Capture is an enhancement; the listeners below still follow the pointer.
+    }
+    setDrag({ groupId: group.id, from, to: from, dy: 0, height });
+    let to = from;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      const dy = moveEvent.clientY - startY;
+      to = dragTargetIndex(centers, from, (centers[from] ?? 0) + dy);
+      setDrag({ groupId: group.id, from, to, dy, height });
+    };
+    const onEnd = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== pointerId) return;
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onEnd);
+      handle.removeEventListener("pointercancel", onEnd);
+      setDrag(null);
+      if (endEvent.type === "pointerup" && to !== from) reorder.onDrop?.(moveEntry(group.items, from, to));
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onEnd);
+    handle.addEventListener("pointercancel", onEnd);
+  }
+
+  function dragOffsetFor(groupId: string, index: number) {
+    if (!drag || drag.groupId !== groupId) return 0;
+    if (index === drag.from) return drag.dy;
+    if (drag.from < drag.to && index > drag.from && index <= drag.to) return -drag.height;
+    if (drag.to < drag.from && index >= drag.to && index < drag.from) return drag.height;
+    return 0;
+  }
+
   return (
     <div className="grid gap-4" data-testid="favourites-list">
       {/* Keeps the h3 group headings in a proper outline when Quick launch is hidden. */}
@@ -91,6 +153,9 @@ export function FavouritesList({
                         canMoveDown: index < group.items.length - 1,
                         pending: reorder.pending,
                         onMove: reorder.onMove,
+                        onDragStart: reorder.onDrop ? (_item, event) => startDrag(group, index, event) : undefined,
+                        dragY: dragOffsetFor(group.id, index),
+                        dragging: drag?.groupId === group.id && drag.from === index,
                       }
                     : undefined
                 }
