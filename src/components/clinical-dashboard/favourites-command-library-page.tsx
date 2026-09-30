@@ -790,6 +790,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const sheet = sheetOpen ? sheetContent : null;
   const [confirmRemoveIds, setConfirmRemoveIds] = useState<string[] | null>(null);
   const [reorderPending, setReorderPending] = useState(false);
+  const [confirmDeleteSet, setConfirmDeleteSet] = useState<AccountFavouriteSet | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedItemSnapshot, setSelectedItemSnapshot] = useState<FavouriteItem | null>(null);
 
@@ -1041,6 +1042,35 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     } finally {
       setReorderPending(false);
     }
+  }
+
+  async function dropReorder(items: FavouriteItem[]) {
+    const setId = items[0]?.setId ?? null;
+    const refs = items.flatMap((item) =>
+      item.contentType && item.contentKey ? [{ contentType: item.contentType, contentKey: item.contentKey }] : [],
+    );
+    // Only saved account items can be ordered, and every one must be in the same set.
+    if (!accountData || refs.length !== items.length || items.some((item) => (item.setId ?? null) !== setId)) return;
+    setReorderPending(true);
+    try {
+      const saved = await accountData.setFavouriteOrder(setId, refs);
+      announce(saved ? "New order saved." : "The new order could not be saved.");
+      if (!saved) toast.push({ tone: "danger", title: "Could not save the new order", body: "Try again." });
+    } finally {
+      setReorderPending(false);
+    }
+  }
+
+  async function deleteSet(set: AccountFavouriteSet) {
+    if (!accountData) return;
+    setMode("browse");
+    setSelectedSetNames(new Set());
+    const deleted = await accountData.deleteFavouriteSet(set.id);
+    toast.push(
+      deleted
+        ? { tone: "success", title: `Deleted ${set.name}`, body: "Its favourites are still saved, now in Unsorted." }
+        : { tone: "danger", title: "Could not delete the set", body: "Check your connection and try again." },
+    );
   }
 
   async function chooseSetName(name: FavouriteSetName) {
@@ -1440,6 +1470,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                     ? () => openSheet({ kind: "rename-set", set: accountSetForChip })
                     : undefined
                 }
+                onDelete={accountSetForChip ? () => setConfirmDeleteSet(accountSetForChip) : undefined}
               />
             ) : null}
 
@@ -1504,7 +1535,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 handlers={listHandlers}
                 reorder={
                   effectiveMode === "reorder"
-                    ? { pending: reorderPending, onMove: (item, direction) => void reorderItem(item, direction) }
+                    ? {
+                        pending: reorderPending,
+                        onMove: (item, direction) => void reorderItem(item, direction),
+                        onDrop: (items) => void dropReorder(items),
+                      }
                     : undefined
                 }
               />
@@ -1598,6 +1633,18 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
           onChoose={(name) => void chooseSetName(name)}
         />
       ) : null}
+      <ConfirmDialog
+        open={confirmDeleteSet !== null}
+        title={`Delete ${confirmDeleteSet?.name ?? "set"}?`}
+        description="The set is deleted. Its favourites stay saved and move to Unsorted."
+        confirmLabel="Delete set"
+        onCancel={() => setConfirmDeleteSet(null)}
+        onConfirm={() => {
+          const set = confirmDeleteSet;
+          setConfirmDeleteSet(null);
+          if (set) void deleteSet(set);
+        }}
+      />
       <ConfirmDialog
         open={confirmRemoveIds !== null}
         title={`Remove ${confirmRemoveIds?.length ?? 0} ${confirmRemoveIds?.length === 1 ? "favourite" : "favourites"}?`}
