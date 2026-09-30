@@ -27,7 +27,13 @@ import {
   toolCatalogRecordsForSession,
   type ToolCatalogRecord,
 } from "@/lib/tools-catalog";
-import { groupToolsForPage, toolLaunchNoteById, toolPageGroupById, type ToolPageGroup } from "@/lib/tools-page-layout";
+import {
+  groupToolsForPage,
+  toolLaunchNoteById,
+  toolPageGroupById,
+  withMedicineMatch,
+  type ToolPageGroup,
+} from "@/lib/tools-page-layout";
 
 /**
  * The Tools page, arranged as a task launcher.
@@ -375,9 +381,13 @@ export function ToolsSearchResultsPage({
   const matchedTools = useMemo(
     () =>
       searching
-        ? rankToolRecords(query, undefined, smartExpansions, { authenticated: canAccessFavourites, demoMode: false })
-            .map((match) => match.tool)
-            .filter((tool) => !naturalSmartSearch || !localSmartExcludedToolIds.has(tool.id))
+        ? withMedicineMatch(
+            rankToolRecords(query, undefined, smartExpansions, { authenticated: canAccessFavourites, demoMode: false })
+              .map((match) => match.tool)
+              .filter((tool) => !naturalSmartSearch || !localSmartExcludedToolIds.has(tool.id)),
+            query,
+            accessibleTools,
+          )
         : accessibleTools,
     [accessibleTools, canAccessFavourites, naturalSmartSearch, query, searching, smartExpansions],
   );

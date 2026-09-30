@@ -8,6 +8,7 @@ import {
   readPinnedToolIds,
   togglePinnedToolId,
   toolLaunchNoteById,
+  withMedicineMatch,
 } from "@/lib/tools-page-layout";
 
 describe("Tools page grouping", () => {
@@ -64,5 +65,23 @@ describe("Tools page pins", () => {
     const full = ["forms", "services", "documents", "calculators"] as const;
     expect(full).toHaveLength(maxPinnedTools);
     expect(togglePinnedToolId(full, "monitoring")).toEqual(["services", "documents", "calculators", "monitoring"]);
+  });
+});
+
+describe("Tools search and medicine names", () => {
+  const tools = toolCatalogRecordsForSession({ authenticated: false, demoMode: false });
+
+  it("leads with Medication Prescribing when the query names a medicine", () => {
+    expect(withMedicineMatch([], "clozapine", tools).map((tool) => tool.id)).toEqual(["medication-prescribing"]);
+    const forms = tools.filter((tool) => tool.id === "forms");
+    expect(withMedicineMatch(forms, "lithium forms", tools).map((tool) => tool.id)).toEqual([
+      "medication-prescribing",
+      "forms",
+    ]);
+  });
+
+  it("leaves a query with no medicine name untouched", () => {
+    const forms = tools.filter((tool) => tool.id === "forms");
+    expect(withMedicineMatch(forms, "referral", tools)).toEqual(forms);
   });
 });
