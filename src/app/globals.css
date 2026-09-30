@@ -546,6 +546,8 @@
   --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
   --print-furniture-gap: 4mm;
+  --roster-print-page-margin: 10mm;
+  --roster-print-region-gap: 4mm;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -5565,7 +5567,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 @media print {
   @page roster-month {
     size: a4 landscape;
-    margin: 10mm;
+    margin: var(--roster-print-page-margin);
   }
 
   body:has([data-roster-print]) {
@@ -5585,7 +5587,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 
   [data-roster-print] {
     display: grid !important;
-    gap: 4mm;
+    gap: var(--roster-print-region-gap);
     position: absolute !important;
     top: 0;
     left: 0;
