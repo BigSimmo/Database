@@ -3022,6 +3022,21 @@ summary::-webkit-details-marker {
 }
 /* END tablet mode-home composer geometry */
 
+/* Favourites is the one mode home without the privacy line under its search
+   bar (owner decision 2026-09-30), so its settled stack is shorter: 108px on
+   phones and 128px across 640-1279px, measured. Without these the page kept
+   the full reserve and showed a blank band under the search bar. At 1280px+
+   the 88px default is already below the settled height, as on every home. */
+.favourites-composer-slot {
+  --spacing-mode-home-composer-phone: 6.75rem;
+}
+
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  .favourites-composer-slot {
+    --spacing-mode-home-composer-wide: 8rem;
+  }
+}
+
 /* BEGIN sm+ hero home canvas alignment */
 /* Mode homes optically centre a ~160px composer. The install card can overlap
    that band on constrained 640–1919px viewports (Production UI `ui-pwa`), so

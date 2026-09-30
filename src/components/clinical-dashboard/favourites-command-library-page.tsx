@@ -1341,7 +1341,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
             <DesktopComposerPortalSlot
               id={modeHomeDesktopComposerSlotId}
               data-composer-reserve={modeHomeComposerReservePendingValue}
-              className="mode-home-composer-slot -mt-1 block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+              className="mode-home-composer-slot favourites-composer-slot -mt-1 block w-full max-w-3xl min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
             />
 
             {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
