@@ -4,32 +4,35 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
-import { modeInsetHairline, modePressable } from "@/components/mode-kit/recipes";
-import { focusRing } from "@/components/card-recipes";
-import { cn } from "@/components/ui-primitives";
 import { RosterSentBar, type SentReceipt } from "@/components/roster/requests/roster-sent-bar";
-import { formatShiftRange } from "@/components/roster/roster-format";
 import { SwapFlowSheet } from "@/components/roster/swaps/swap-flow-sheet";
 import { postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
+import { monthKeyOf } from "@/lib/calendar/month-grid";
+import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import {
   calendarStateQuery,
   calendarWindow,
   filterAssignments,
+  monthCells,
   readCalendarState,
   stepCalendar,
+  weekBoard,
+  type BoardRow,
   type CalendarShow,
   type CalendarState,
   type CalendarView,
 } from "@/lib/roster/team/calendar-model";
-import type { RosterAssignment, RosterTeam } from "@/lib/roster/team/model";
+import type { RosterAssignment, RosterSwap, RosterTeam } from "@/lib/roster/team/model";
 import { assignmentStartDate } from "@/lib/roster/team/team-view";
 
 import { CalendarFilters, type CalendarPerson } from "./calendar-filters";
+import { DaySheet } from "./day-sheet";
 import { DayView } from "./day-view";
+import { MonthView } from "./month-view";
 import { ShiftSheet } from "./shift-sheet";
+import { WeekBoard } from "./week-board";
 
 const VIEWS: { value: CalendarView; label: string }[] = [
   { value: "month", label: "Month" },
@@ -55,50 +58,40 @@ function peopleIn(rows: readonly RosterAssignment[]): CalendarPerson[] {
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/**
- * The Month and Week views arrive in later tasks. Until then both show the
- * filtered shifts as a list by the day each one starts, so the page stays usable.
- */
-function ShiftsByDay({
-  rows,
-  actorId,
-  onSelect,
-}: {
-  rows: readonly RosterAssignment[];
-  actorId: string | null;
-  onSelect: (shift: RosterAssignment) => void;
-}) {
-  const days = [...new Set(rows.map(assignmentStartDate))].sort();
-  if (!days.length) return <p>No shifts in this period.</p>;
-  return (
-    <>
-      {days.map((date) => (
-        <ModeGroupedList key={date} eyebrow={formatPerthDay(date)} mode="roster">
-          {rows
-            .filter((row) => assignmentStartDate(row) === date)
-            .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
-            .map((row) => (
-              <li key={row.id} className={cn(modeInsetHairline, "flex min-w-0")}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(row)}
-                  className={cn(
-                    modePressable,
-                    focusRing,
-                    "flex min-h-12 min-w-0 flex-1 items-center justify-between gap-3 px-3 py-1 text-left",
-                  )}
-                >
-                  <span className="break-words font-medium">
-                    {row.userId === actorId ? "You" : (row.name ?? "Name not available")}
-                  </span>
-                  <span className="nums shrink-0 text-sm">{formatShiftRange(row)}</span>
-                </button>
-              </li>
-            ))}
-        </ModeGroupedList>
-      ))}
-    </>
-  );
+/** Assignment ids in the reader's own swaps that are still waiting on an answer. */
+function pendingAssignmentIds(swaps: readonly RosterSwap[], actorId: string | null): Set<string> {
+  const ids = new Set<string>();
+  if (!actorId) return ids;
+  for (const swap of swaps) {
+    if (swap.status !== "requested" && swap.status !== "accepted") continue;
+    if (swap.requesterId !== actorId && swap.counterpartyId !== actorId) continue;
+    for (const side of [swap.give, swap.take]) if (side) ids.add(side.id);
+  }
+  return ids;
+}
+
+/** In Compare, both people get a row even when one has no shifts that week. */
+function withComparedPeople(
+  board: BoardRow[],
+  show: CalendarShow,
+  actorId: string | null,
+  people: readonly CalendarPerson[],
+): BoardRow[] {
+  if (show.kind !== "compare") return board;
+  const missing = (userId: string | null, isMe: boolean): BoardRow[] =>
+    userId === null || board.some((row) => row.userId === userId)
+      ? []
+      : [
+          {
+            userId,
+            name: people.find((person) => person.userId === userId)?.name ?? "Name not available",
+            grade: null,
+            isMe,
+            days: Array.from({ length: 7 }, () => []),
+          },
+        ];
+  const merged = [...board, ...missing(actorId, true), ...missing(show.userId, false)];
+  return merged.sort((a, b) => Number(b.isMe) - Number(a.isMe));
 }
 
 type RequestSheet = { kind: "swap" | "give_away"; shift: RosterAssignment } | null;
@@ -115,9 +108,11 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const today = perthDateOf(now);
   const state = readCalendarState(params, today);
   const overview = useRosterRead(team.serviceId, "overview");
+  const requests = useRosterRead(team.serviceId, "requests");
   const read = useRosterRead(team.serviceId, "assignments", calendarWindow(state));
   const reload = read.reload;
   const [selected, setSelected] = useState<RosterAssignment | null>(null);
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [request, setRequest] = useState<RequestSheet>(null);
   const [sent, setSent] = useState<SentReceipt | null>(null);
   const clearSent = useCallback(() => setSent(null), []);
@@ -151,6 +146,9 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const all = read.data?.assignments ?? [];
   const rows = filterAssignments(all, state.show, actorId);
   const unit = UNIT[state.view];
+  const monday = calendarWindow({ ...state, view: "week" }).from;
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDaysToDate(monday, index));
+  const pendingSwapIds = pendingAssignmentIds(requests.data?.swaps ?? [], actorId);
   return (
     <>
       <SegmentedControl
@@ -212,8 +210,16 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         </div>
       ) : state.view === "day" ? (
         <DayView actorId={actorId} now={now} day={state.date} today={today} rows={rows} onSelect={setSelected} />
+      ) : state.view === "week" ? (
+        <WeekBoard
+          rows={withComparedPeople(weekBoard(monday, rows, actorId), state.show, actorId, peopleIn(all))}
+          days={weekDays}
+          onPickShift={setSelected}
+          pendingSwapIds={pendingSwapIds}
+          openShifts={requests.data?.openShifts}
+        />
       ) : (
-        <ShiftsByDay rows={rows} actorId={actorId} onSelect={setSelected} />
+        <MonthView cells={monthCells(monthKeyOf(state.date), rows, actorId)} today={today} onPickDay={setPickedDay} />
       )}
       <ModeGroupedList>
         <ModeRow
@@ -222,6 +228,28 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         />
       </ModeGroupedList>
       <RosterSentBar receipt={sent} clear={clearSent} />
+      {pickedDay ? (
+        <DaySheet
+          date={pickedDay}
+          rows={rows.filter((row) => assignmentStartDate(row) === pickedDay)}
+          actorId={actorId}
+          now={now}
+          filtered={state.show.kind !== "everyone"}
+          onClose={() => setPickedDay(null)}
+          onPickShift={(shift) => {
+            setPickedDay(null);
+            setSelected(shift);
+          }}
+          onSwap={(shift) => {
+            setPickedDay(null);
+            setRequest({ kind: "swap", shift });
+          }}
+          onGiveAway={(shift) => {
+            setPickedDay(null);
+            setRequest({ kind: "give_away", shift });
+          }}
+        />
+      ) : null}
       {selected ? (
         <ShiftSheet
           shift={selected}
