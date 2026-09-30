@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ruleFlags } from "@/lib/roster/team/rule-flags";
+import { ruleFlags, swapRuleFlags } from "@/lib/roster/team/rule-flags";
 import type { RosterAssignment } from "@/lib/roster/team/model";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
@@ -107,5 +107,68 @@ describe("ruleFlags", () => {
       shift("sam", "day", "2026-10-19", "08:00", "2026-10-19", "18:00"),
     ];
     expect(ruleFlags(rows, { maxHours7d: 15 })).toEqual([]);
+  });
+});
+
+describe("swapRuleFlags", () => {
+  const swap = (give: RosterAssignment | null, take: RosterAssignment | null) => ({
+    requesterId: "pat",
+    counterpartyId: "sam",
+    give,
+    take,
+  });
+
+  it("warns when the shift given away makes the colleague's run break a rule", () => {
+    const samThursday = shift("sam", "night", "2026-10-22", "21:30", "2026-10-23", "08:00");
+    const patFriday = shift("pat", "night", "2026-10-23", "21:30", "2026-10-24", "08:00");
+    const rows = [samThursday, patFriday];
+    // Before the swap nobody breaks the rule.
+    expect(ruleFlags(rows, { maxNightsInRow: 1 })).toEqual([]);
+    expect(swapRuleFlags(rows, { maxNightsInRow: 1 }, swap(patFriday, null))).toEqual([
+      {
+        assignmentId: patFriday.id,
+        userId: "sam",
+        rule: "maxNightsInRow",
+        words: "2nd night in a row (team limit 1)",
+      },
+    ]);
+  });
+
+  it("warns for the requester too, on the shift they take back", () => {
+    const patDay = shift("pat", "day", "2026-10-22", "08:00", "2026-10-22", "16:00");
+    const patNext = shift("pat", "day", "2026-10-23", "08:00", "2026-10-23", "16:00");
+    const samEvening = shift("sam", "evening", "2026-10-23", "22:00", "2026-10-24", "06:00");
+    const rows = [patDay, patNext, samEvening];
+    const flags = swapRuleFlags(rows, { minBreakHours: 10 }, swap(patDay, samEvening));
+    expect(flags).toEqual([
+      {
+        assignmentId: samEvening.id,
+        userId: "pat",
+        rule: "minBreakHours",
+        words: "Less than 10 hours' rest before this shift",
+      },
+    ]);
+  });
+
+  it("gives no warning for a swap that keeps both people inside the rules", () => {
+    const samMonday = shift("sam", "night", "2026-10-19", "21:30", "2026-10-20", "08:00");
+    const patFriday = shift("pat", "night", "2026-10-23", "21:30", "2026-10-24", "08:00");
+    expect(swapRuleFlags([samMonday, patFriday], { maxNightsInRow: 1 }, swap(patFriday, null))).toEqual([]);
+  });
+
+  it("does not repeat a warning the roster already had before the swap", () => {
+    const nights = ["2026-10-19", "2026-10-20"].map((date, index) =>
+      shift("sam", "night", date, "21:30", index ? "2026-10-21" : "2026-10-20", "08:00"),
+    );
+    const patDay = shift("pat", "day", "2026-10-25", "08:00", "2026-10-25", "16:00");
+    const rows = [...nights, patDay];
+    expect(ruleFlags(rows, { maxNightsInRow: 1 })).toHaveLength(1);
+    expect(swapRuleFlags(rows, { maxNightsInRow: 1 }, swap(patDay, null))).toEqual([]);
+  });
+
+  it("counts a swapped shift the rows did not hold", () => {
+    const samThursday = shift("sam", "night", "2026-10-22", "21:30", "2026-10-23", "08:00");
+    const patFriday = shift("pat", "night", "2026-10-23", "21:30", "2026-10-24", "08:00");
+    expect(swapRuleFlags([samThursday], { maxNightsInRow: 1 }, swap(patFriday, null))).toHaveLength(1);
   });
 });

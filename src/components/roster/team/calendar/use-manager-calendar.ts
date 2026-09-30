@@ -12,7 +12,7 @@ import type {
   RosterRules,
   RosterTeam,
 } from "@/lib/roster/team/model";
-import { ruleFlags, type RuleFlag } from "@/lib/roster/team/rule-flags";
+import { ruleFlags, swapRuleFlags, type RuleFlag, type SwapRuleFlag } from "@/lib/roster/team/rule-flags";
 import { assignmentStartDate } from "@/lib/roster/team/team-view";
 
 export type ManagerCalendar = {
@@ -21,6 +21,13 @@ export type ManagerCalendar = {
   unavailable: boolean;
   cover: Map<string, CoverCount[]>;
   flags: Map<string, RuleFlag[]>;
+  /**
+   * For each waiting swap, the rule flags the roster would gain for its two
+   * people once the shifts changed hands. The server does not recheck team
+   * rules when a manager approves, so this is the only check on them.
+   */
+  afterSwap: Map<string, SwapRuleFlag[]>;
+  /** Swaps waiting on this manager; never one the manager is part of, which the server refuses. */
   pending: RosterManageSwap[];
   claimed: RosterManageOpenShift[];
   shortDays: string[];
@@ -75,6 +82,7 @@ export function useManagerCalendar(
   team: RosterTeam,
   window: { from: string; to: string },
   rows: RosterAssignment[],
+  actorId: string | null,
 ): ManagerCalendar {
   const isManager = team.role === "manager";
   const serviceId = isManager ? team.serviceId : null;
@@ -139,8 +147,13 @@ export function useManagerCalendar(
   const swaps = manage.data?.swaps;
   const openShifts = manage.data?.openShifts;
   const pending = useMemo(
-    () => (enabled ? (swaps ?? []).filter((swap) => swap.status === "accepted") : []),
-    [enabled, swaps],
+    () =>
+      enabled
+        ? (swaps ?? []).filter(
+            (swap) => swap.status === "accepted" && swap.requesterId !== actorId && swap.counterpartyId !== actorId,
+          )
+        : [],
+    [enabled, swaps, actorId],
   );
   const claimed = useMemo(
     () => (enabled ? (openShifts ?? []).filter((shift) => shift.status === "claimed") : []),
@@ -164,6 +177,16 @@ export function useManagerCalendar(
     return ids;
   }, [flagRows, pending, coveredFrom, to]);
 
+  const afterSwap = useMemo(() => {
+    const bySwap = new Map<string, SwapRuleFlag[]>();
+    if (!flagRows) return bySwap;
+    for (const swap of pending) {
+      const added = swapRuleFlags(flagRows, rules, swap);
+      if (added.length) bySwap.set(swap.id, added);
+    }
+    return bySwap;
+  }, [flagRows, rules, pending]);
+
   const reloadManage = manage.reload;
   const reloadWide = wideRead.reload;
   const reload = useCallback(() => {
@@ -171,5 +194,5 @@ export function useManagerCalendar(
     reloadWide();
   }, [reloadManage, reloadWide]);
 
-  return { enabled, unavailable, cover, flags, pending, claimed, shortDays, checkable, reload };
+  return { enabled, unavailable, cover, flags, afterSwap, pending, claimed, shortDays, checkable, reload };
 }

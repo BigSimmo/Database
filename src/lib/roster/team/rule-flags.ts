@@ -1,12 +1,17 @@
 import { addDays } from "@/lib/calendar/calendar-event";
-import type { RosterAssignment, RosterRules } from "./model";
+import type { RosterAssignment, RosterManageSwap, RosterRules } from "./model";
 import { assignmentStartDate } from "./team-view";
 
 /**
  * Where a roster breaks the team's own rules, shown to the manager with the
- * reason on tap. Advice only: publishing and swaps recheck the rules on the
- * server. Leave and on-call never count as worked time. A flag sits on the
- * shift that first crosses a limit, not on the ones before it.
+ * reason on tap. Leave and on-call never count as worked time. A flag sits on
+ * the shift that first crosses a limit, not on the ones before it.
+ *
+ * The server does not recheck these rules when a manager approves a swap: it
+ * rechecks only that nobody is double-booked and that the grades still fit.
+ * For a swap waiting on the manager, these flags are the only check on the
+ * team's rules, so `swapRuleFlags` also judges the roster as the swap would
+ * leave it.
  */
 
 export type RuleFlag = {
@@ -131,4 +136,42 @@ export function ruleFlags(rows: readonly RosterAssignment[], rules: RosterRules)
     }
   }
   return flags;
+}
+
+/** A flag the roster would gain from a swap, with the person it would fall on. */
+export type SwapRuleFlag = RuleFlag & { userId: string };
+
+type SwapSides = Pick<RosterManageSwap, "requesterId" | "counterpartyId" | "give" | "take">;
+
+/**
+ * The flags a swap would add for either of its two people: the rules worked
+ * out again on the roster with both shifts changed hands, less the flags that
+ * person already had. A flag whose words change (more hours in the week, a
+ * longer run) counts as new. `rows` should hold both shifts and each person's
+ * look-back; a swapped shift missing from `rows` is added from the swap.
+ */
+export function swapRuleFlags(rows: readonly RosterAssignment[], rules: RosterRules, swap: SwapSides): SwapRuleFlag[] {
+  const people = new Set([swap.requesterId, swap.counterpartyId]);
+  const moves: [RosterAssignment | null, string][] = [
+    [swap.give, swap.counterpartyId],
+    [swap.take, swap.requesterId],
+  ];
+  const after = rows.map((row) => {
+    const move = moves.find(([side]) => side?.id === row.id);
+    return move ? { ...row, userId: move[1] } : row;
+  });
+  for (const [side, userId] of moves) {
+    if (side && !rows.some((row) => row.id === side.id)) after.push({ ...side, userId });
+  }
+  const ownerBefore = new Map(rows.map((row) => [row.id, row.userId]));
+  const ownerAfter = new Map(after.map((row) => [row.id, row.userId]));
+  const key = (flag: RuleFlag, userId: string | null | undefined) =>
+    `${userId}|${flag.assignmentId}|${flag.rule}|${flag.words}`;
+  const before = new Set(ruleFlags(rows, rules).map((flag) => key(flag, ownerBefore.get(flag.assignmentId))));
+  const added: SwapRuleFlag[] = [];
+  for (const flag of ruleFlags(after, rules)) {
+    const userId = ownerAfter.get(flag.assignmentId);
+    if (userId && people.has(userId) && !before.has(key(flag, userId))) added.push({ ...flag, userId });
+  }
+  return added;
 }

@@ -11,9 +11,8 @@ import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import type { RosterAssignment, RosterManageSwap, RosterTeam } from "@/lib/roster/team/model";
 import type { RuleFlag } from "@/lib/roster/team/rule-flags";
 
-import { DecisionAnswer, SwapDecisionRow, useRosterDecision } from "./needs-you-strip";
+import { DecisionAnswer, SwapDecisionRow, useRosterDecision, type SwapChecks } from "./needs-you-strip";
 
-const NO_FLAGS: ReadonlyMap<string, readonly RuleFlag[]> = new Map();
 const noop = () => {};
 
 /** Swap and Give away are offered only on my own shift that has not started. */
@@ -53,7 +52,7 @@ export function ShiftSheet({
   manage?: {
     onChanged: () => void;
     pending: readonly RosterManageSwap[];
-    flags: ReadonlyMap<string, readonly RuleFlag[]>;
+    checks: SwapChecks;
   } | null;
 }) {
   const now = useRosterNow(suppliedNow);
@@ -109,14 +108,14 @@ export function ShiftSheet({
           </ul>
         </div>
       ) : null}
-      {waiting.length ? (
+      {manage && waiting.length ? (
         <div className="mt-4 grid gap-3">
           <p className="text-sm font-medium">Waiting for you</p>
           {waiting.map((swap) => (
             <SwapDecisionRow
               key={swap.id}
               swap={swap}
-              flags={manage?.flags ?? NO_FLAGS}
+              checks={manage.checks}
               busy={decision.busy}
               onDecide={(action) => void decision.decide(action)}
             />

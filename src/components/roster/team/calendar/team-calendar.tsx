@@ -156,7 +156,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const weekDays = Array.from({ length: 7 }, (_, index) => addDaysToDate(monday, index));
   const pendingSwapIds = pendingAssignmentIds(requests.data?.swaps ?? [], actorId, now);
   // Cover counts and rule flags read every shift in the window, not the filtered ones.
-  const manager = useManagerCalendar(team, calendarWindow(state), all);
+  const manager = useManagerCalendar(team, calendarWindow(state), all, actorId);
   const managerReload = manager.reload;
   const requestsReload = requests.reload;
   const managerChanged = useCallback(() => {
@@ -223,8 +223,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           pending={manager.pending}
           claimed={manager.claimed}
           shortDays={manager.shortDays.filter((date) => date >= today)}
-          flags={manager.flags}
-          checkable={manager.checkable}
+          checks={manager}
           onChanged={managerChanged}
           onPickDay={(date) => go({ ...state, view: "day", date })}
         />
@@ -294,9 +293,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           actorId={actorId}
           now={now}
           flags={manager.enabled ? manager.flags.get(selected.id) : undefined}
-          manage={
-            manager.enabled ? { onChanged: managerChanged, pending: manager.pending, flags: manager.flags } : null
-          }
+          manage={manager.enabled ? { onChanged: managerChanged, pending: manager.pending, checks: manager } : null}
           onClose={() => setSelected(null)}
           onSwap={(shift) => {
             setSelected(null);

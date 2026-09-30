@@ -35,12 +35,13 @@ vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => n
 
 import { approveAllWithoutWarnings } from "@/components/roster/team/calendar/needs-you-strip";
 import { RosterTeamPage } from "@/components/roster/team/roster-team-page";
-import type { RosterManageSwap } from "@/lib/roster/team/model";
+import type { RosterAction, RosterManageSwap } from "@/lib/roster/team/model";
 import type { RuleFlag } from "@/lib/roster/team/rule-flags";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const SAM = "22222222-2222-4222-8222-222222222222";
 const TEAM = "33333333-3333-4333-8333-333333333333";
+const PAT = "88888888-8888-4888-8888-888888888888";
 const NOW = new Date("2026-10-15T00:00:00Z"); // 08:00 Thursday 15 October, Perth
 
 const shift = (id: string, userId: string, name: string, kind: string, code: string, start: string, end: string) => ({
@@ -93,12 +94,12 @@ const swap = (id: string, give: unknown, take: unknown, over: Record<string, unk
   autoApproved: false,
   needsManagerBecause: "within_7_days",
   requesterId: SAM,
-  counterpartyId: ME,
+  counterpartyId: PAT,
   give,
   take,
   decidedAt: null,
   requesterName: "Dr Sam Example",
-  counterpartyName: "Alex Example",
+  counterpartyName: "Dr Pat Example",
   ...over,
 });
 
@@ -112,6 +113,8 @@ type Options = {
   makerFails?: boolean;
   overviewFails?: boolean;
   refuse?: Set<string>;
+  /** The server's answer to swap.approve for a swap id, when it is not "approved". */
+  answers?: Record<string, Record<string, unknown>>;
 };
 
 function mockFetch(options: Options = {}) {
@@ -125,6 +128,7 @@ function mockFetch(options: Options = {}) {
       posts.push(body);
       if (body.swapId && options.refuse?.has(body.swapId))
         return Response.json({ code: "roster_conflict", message: "That shift has already changed." }, { status: 409 });
+      if (body.swapId && options.answers?.[body.swapId]) return Response.json({ result: options.answers[body.swapId] });
       return Response.json({ result: { ok: true, status: "approved" } });
     }
     if (address === "/api/roster/team")
@@ -201,10 +205,10 @@ describe("Team calendar, manager layer", () => {
   });
 
   it("lists a pending swap in the strip with Approve and Decline, and sends the decision", async () => {
-    const { posts } = mockFetch({ swaps: [swap(ID(50), samThursdayNight, mine)] });
+    const { posts } = mockFetch({ swaps: [swap(ID(50), samThursdayNight, null)] });
     render(<RosterTeamPage now={NOW} />);
     const strip = await screen.findByRole("region", { name: "Needs you" });
-    expect(within(strip).getByText(/Swap · Dr Sam Example and Alex Example/)).toBeTruthy();
+    expect(within(strip).getByText(/Swap · Dr Sam Example and Dr Pat Example/)).toBeTruthy();
     expect(within(strip).getByText("Needs you because it's within 7 days")).toBeTruthy();
     fireEvent.click(within(strip).getByRole("button", { name: "Decline" }));
     await waitFor(() => expect(posts).toEqual([{ action: "swap.decline", swapId: ID(50) }]));
@@ -285,12 +289,12 @@ describe("Team calendar, manager layer", () => {
   });
 
   it("shows a waiting swap in the shift sheet with Approve and Decline in place", async () => {
-    const { posts } = mockFetch({ swaps: [swap(ID(50), samThursdayNight, mine)] });
+    const { posts } = mockFetch({ swaps: [swap(ID(50), samThursdayNight, null)] });
     render(<RosterTeamPage now={NOW} />);
     await screen.findByRole("region", { name: "Needs you" });
     fireEvent.click(screen.getByRole("button", { name: /Dr Sam Example, Night/ }));
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText(/Swap · Dr Sam Example and Alex Example/)).toBeTruthy();
+    expect(within(sheet).getByText(/Swap · Dr Sam Example and Dr Pat Example/)).toBeTruthy();
     fireEvent.click(within(sheet).getByRole("button", { name: "Decline" }));
     await waitFor(() => expect(posts).toEqual([{ action: "swap.decline", swapId: ID(50) }]));
     fireEvent.click(within(sheet).getByRole("button", { name: "Approve" }));
@@ -308,7 +312,7 @@ describe("Team calendar, manager layer", () => {
       "2026-10-16T21:30:00+08:00",
       "2026-10-17T08:00:00+08:00",
     );
-    mockFetch({ assignments: [mine, samThursdayNight, patNight], swaps: [swap(ID(50), samThursdayNight, mine)] });
+    mockFetch({ assignments: [mine, samThursdayNight, patNight], swaps: [swap(ID(50), samThursdayNight, null)] });
     render(<RosterTeamPage now={NOW} />);
     await screen.findByRole("region", { name: "Needs you" });
     fireEvent.click(screen.getByRole("button", { name: /Dr Pat Example, Night/ }));
@@ -319,8 +323,14 @@ describe("Team calendar, manager layer", () => {
   });
 
   it("'Approve all without warnings' skips a flagged swap and reports a server refusal", async () => {
-    const flaggedSwap = swap(ID(51), samFridayNight, mine);
-    const refusedSwap = swap(ID(52), meFriday, samThursdayNight, { requesterId: ME, counterpartyId: SAM });
+    const flaggedSwap = swap(ID(51), samFridayNight, null);
+    const patFriday = { ...meFriday, id: ID(10), userId: PAT, name: "Dr Pat Example" };
+    const refusedSwap = swap(ID(52), patFriday, samThursdayNight, {
+      requesterId: PAT,
+      counterpartyId: SAM,
+      requesterName: "Dr Pat Example",
+      counterpartyName: "Dr Sam Example",
+    });
     const saturday = shift(
       ID(5),
       SAM,
@@ -333,7 +343,7 @@ describe("Team calendar, manager layer", () => {
     const cleanSwap = swap(ID(53), saturday, null);
     const { posts, reads } = mockFetch({
       rules: { maxNightsInRow: 1 },
-      assignments: [mine, samThursdayNight, samFridayNight, meFriday, saturday],
+      assignments: [mine, samThursdayNight, samFridayNight, patFriday, saturday],
       swaps: [flaggedSwap, refusedSwap, cleanSwap],
       refuse: new Set([ID(52)]),
     });
@@ -356,6 +366,152 @@ describe("Team calendar, manager layer", () => {
     ]);
   });
 
+  it("'Approve all' leaves a swap the server marked as breaking a team rule, even with no flag on the calendar", async () => {
+    const saturday = shift(
+      ID(5),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-17T09:00:00+08:00",
+      "2026-10-17T17:00:00+08:00",
+    );
+    const { posts } = mockFetch({
+      rules: { maxNightsInRow: 1 },
+      assignments: [mine, samThursdayNight, saturday],
+      swaps: [swap(ID(80), saturday, null, { needsManagerBecause: "team_rule" })],
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    expect(within(strip).getByText("Needs you because it breaks a team rule")).toBeTruthy();
+    const all = within(strip).getByRole("button", { name: "Approve all without warnings" }) as HTMLButtonElement;
+    await waitFor(() => expect(within(strip).queryByText("Not checked, open it to review")).toBeNull());
+    expect(all.disabled).toBe(true);
+    expect(posts).toEqual([]);
+  });
+
+  it("'Approve all' leaves a swap whose result would break a team rule, and says what it would break", async () => {
+    // Sam works Thursday night; taking Pat's Friday night would make two nights in a row.
+    const patFridayNight = { ...samFridayNight, id: ID(12), userId: PAT, name: "Dr Pat Example" };
+    const saturday = shift(
+      ID(5),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-17T09:00:00+08:00",
+      "2026-10-17T17:00:00+08:00",
+    );
+    const breaking = swap(ID(81), patFridayNight, null, {
+      requesterId: PAT,
+      counterpartyId: SAM,
+      requesterName: "Dr Pat Example",
+      counterpartyName: "Dr Sam Example",
+    });
+    const clean = swap(ID(82), saturday, null);
+    const { posts } = mockFetch({
+      rules: { maxNightsInRow: 1 },
+      assignments: [mine, samThursdayNight, patFridayNight, saturday],
+      swaps: [breaking, clean],
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    // Nothing on the calendar is flagged before the swap.
+    expect(screen.queryByRole("button", { name: /night in a row/ })).toBeNull();
+    expect(
+      await within(strip).findByText("After this swap, Dr Sam Example: 2nd night in a row (team limit 1)"),
+    ).toBeTruthy();
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve all without warnings" }));
+    expect(
+      await within(strip).findByText("Approved 1. 1 left for you to read because a shift has a rule warning."),
+    ).toBeTruthy();
+    expect(posts).toEqual([{ action: "swap.approve", swapId: ID(82) }]);
+  });
+
+  it("'Approve all' counts only swaps the server really approved and says why the others were not", async () => {
+    const saturday = shift(
+      ID(5),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-17T09:00:00+08:00",
+      "2026-10-17T17:00:00+08:00",
+    );
+    const patFriday = { ...meFriday, id: ID(10), userId: PAT, name: "Dr Pat Example" };
+    const expired = swap(ID(83), saturday, null);
+    const changed = swap(ID(84), patFriday, null, {
+      requesterId: PAT,
+      counterpartyId: SAM,
+      requesterName: "Dr Pat Example",
+      counterpartyName: "Dr Sam Example",
+    });
+    const { posts } = mockFetch({
+      assignments: [mine, samThursdayNight, saturday, patFriday],
+      swaps: [expired, changed],
+      answers: {
+        [ID(83)]: { swapId: ID(83), status: "expired" },
+        [ID(84)]: { swapId: ID(84), status: "cancelled", cancelReason: "roster_changed" },
+      },
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    await waitFor(() =>
+      expect(
+        (within(strip).getByRole("button", { name: "Approve all without warnings" }) as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve all without warnings" }));
+    expect(await within(strip).findByText("Approved 0.")).toBeTruthy();
+    const alert = within(strip).getByRole("alert");
+    expect(alert.textContent).toContain(
+      "The swap between Dr Sam Example and Dr Pat Example wasn't approved because it had expired.",
+    );
+    expect(alert.textContent).toContain(
+      "The swap between Dr Pat Example and Dr Sam Example wasn't approved because the roster changed.",
+    );
+    expect(posts).toHaveLength(2);
+  });
+
+  it("says so when a single approval comes back expired instead of approved", async () => {
+    mockFetch({
+      swaps: [swap(ID(85), samThursdayNight, null)],
+      answers: { [ID(85)]: { swapId: ID(85), status: "expired" } },
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+    expect((await within(strip).findByRole("alert")).textContent).toBe(
+      "This swap wasn't approved because it had expired.",
+    );
+  });
+
+  it("does not list a swap the manager is part of, which the server would refuse", async () => {
+    const saturday = shift(
+      ID(5),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-17T09:00:00+08:00",
+      "2026-10-17T17:00:00+08:00",
+    );
+    mockFetch({
+      swaps: [
+        swap(ID(86), samThursdayNight, mine, { counterpartyId: ME, counterpartyName: "Alex Example" }),
+        swap(ID(87), mine, samThursdayNight, { requesterId: ME, counterpartyId: SAM, requesterName: "Alex Example" }),
+        swap(ID(88), saturday, null),
+      ],
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    expect(
+      within(strip)
+        .getAllByText(/^Swap ·/)
+        .map((line) => line.textContent),
+    ).toEqual(["Swap · Dr Sam Example and Dr Pat Example"]);
+  });
+
   it("'Approve all' leaves a swap it could not check: a shift outside the loaded rows or before the look-back", async () => {
     const outside = shift(
       ID(7),
@@ -375,7 +531,7 @@ describe("Team calendar, manager layer", () => {
       "2026-10-11T09:00:00+08:00",
       "2026-10-11T17:00:00+08:00",
     );
-    const checked = swap(ID(54), samThursdayNight, mine);
+    const checked = swap(ID(54), samThursdayNight, null);
     const { posts } = mockFetch({
       rules: { maxNightsInRow: 1 },
       // `before` is read but sits ahead of the rules' look-back; `outside` is not read at all.
@@ -395,7 +551,7 @@ describe("Team calendar, manager layer", () => {
       overviewFails: true,
       rules: { maxNightsInRow: 1 },
       assignments: [mine, samThursdayNight],
-      swaps: [swap(ID(57), samThursdayNight, mine)],
+      swaps: [swap(ID(57), samThursdayNight, null)],
     });
     render(<RosterTeamPage now={NOW} />);
     const strip = await screen.findByRole("region", { name: "Needs you" });
@@ -418,7 +574,7 @@ describe("Team calendar, manager layer", () => {
   });
 
   it("hides the manager layer with one quiet line when the maker read fails, and the staff calendar still works", async () => {
-    mockFetch({ makerFails: true, needs: [need(1, 4, "night", 2)], swaps: [swap(ID(50), samThursdayNight, mine)] });
+    mockFetch({ makerFails: true, needs: [need(1, 4, "night", 2)], swaps: [swap(ID(50), samThursdayNight, null)] });
     render(<RosterTeamPage now={NOW} />);
     const board = await screen.findByRole("table", { name: "Week roster" });
     expect(within(board).getByRole("button", { name: /Dr Sam Example, Night/ })).toBeTruthy();
@@ -430,7 +586,7 @@ describe("Team calendar, manager layer", () => {
   });
 
   it("shows no counts for a team with no targets", async () => {
-    mockFetch({ needs: [], swaps: [swap(ID(50), samThursdayNight, mine)] });
+    mockFetch({ needs: [], swaps: [swap(ID(50), samThursdayNight, null)] });
     render(<RosterTeamPage now={NOW} />);
     // The strip appearing shows the manager reads have answered.
     await screen.findByRole("region", { name: "Needs you" });
@@ -440,9 +596,10 @@ describe("Team calendar, manager layer", () => {
 });
 
 describe("approveAllWithoutWarnings", () => {
-  const item = (id: string, giveId: string): RosterManageSwap =>
-    swap(id, { ...mine, id: giveId }, null) as unknown as RosterManageSwap;
+  const item = (id: string, giveId: string, over: Record<string, unknown> = {}): RosterManageSwap =>
+    swap(id, { ...mine, id: giveId }, null, over) as unknown as RosterManageSwap;
   const flag: RuleFlag = { assignmentId: ID(11), rule: "maxNightsInRow", words: "2nd night in a row" };
+  const approved = { ok: true, result: { ok: true, status: "approved" } } as const;
 
   it("sends swap.approve one at a time, skipping flagged and unchecked swaps and collecting refusals", async () => {
     const order: string[] = [];
@@ -455,20 +612,69 @@ describe("approveAllWithoutWarnings", () => {
       running -= 1;
       return action.swapId === ID(72)
         ? ({ ok: false, code: "roster_conflict", message: "Refused." } as const)
-        : ({ ok: true, result: { ok: true } } as const);
+        : approved;
     });
     const outcome = await approveAllWithoutWarnings(
       [item(ID(70), ID(11)), item(ID(71), ID(12)), item(ID(72), ID(13)), item(ID(73), ID(14)), item(ID(74), ID(15))],
-      new Map([[ID(11), [flag]]]),
+      {
+        flags: new Map([[ID(11), [flag]]]),
+        afterSwap: new Map(),
+        checkable: new Set([ID(70), ID(71), ID(72), ID(73)]),
+      },
       post,
-      new Set([ID(70), ID(71), ID(72), ID(73)]),
     );
     expect(order).toEqual([ID(71), ID(72), ID(73)]);
     expect(outcome).toEqual({
       approved: 2,
       refused: [{ id: ID(72), message: "Refused." }],
+      notApproved: [],
       warned: [ID(70)],
       notChecked: [ID(74)],
     });
+  });
+
+  it("never sends a swap the server said breaks a team rule, or one whose result would add a rule flag", async () => {
+    const post = vi.fn(async () => approved);
+    const outcome = await approveAllWithoutWarnings(
+      [item(ID(75), ID(16), { needsManagerBecause: "team_rule" }), item(ID(76), ID(17)), item(ID(77), ID(18))],
+      {
+        flags: new Map(),
+        afterSwap: new Map([[ID(76), [{ ...flag, assignmentId: ID(17), userId: PAT }]]]),
+        checkable: new Set([ID(75), ID(76), ID(77)]),
+      },
+      post,
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith({ action: "swap.approve", swapId: ID(77) });
+    expect(outcome.warned).toEqual([ID(75), ID(76)]);
+    expect(outcome.approved).toBe(1);
+  });
+
+  it("counts only an answer of approved, and words the others", async () => {
+    const answers: Record<string, Record<string, unknown>> = {
+      [ID(78)]: { status: "cancelled", cancelReason: "no_longer_fits" },
+      [ID(79)]: { status: "requested" },
+    };
+    const post = vi.fn(async (action: RosterAction) => ({
+      ok: true as const,
+      result: answers["swapId" in action ? action.swapId : ""],
+    }));
+    const outcome = await approveAllWithoutWarnings(
+      [item(ID(78), ID(19)), item(ID(79), ID(20))],
+      { flags: new Map(), afterSwap: new Map(), checkable: new Set([ID(78), ID(79)]) },
+      post,
+    );
+    expect(outcome.approved).toBe(0);
+    expect(outcome.notApproved).toEqual([
+      {
+        id: ID(78),
+        words:
+          "The swap between Dr Sam Example and Dr Pat Example wasn't approved because it no longer fits: a shift clash or a grade change.",
+      },
+      {
+        id: ID(79),
+        words: "The swap between Dr Sam Example and Dr Pat Example wasn't confirmed as approved. Check the list again.",
+      },
+    ]);
   });
 });
