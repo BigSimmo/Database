@@ -88,6 +88,10 @@ test("mode Search tab from compare lands on the specifiers search catalogue", as
   await expect(searchTab).toBeVisible();
   await expect(searchTab).toHaveAttribute("href", "/specifiers/search");
   await expect(modeNav.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
+
+  await searchTab.click();
+  await expect(page).toHaveURL(/\/specifiers\/search(?:\?|$)/, { timeout: 30_000 });
+  expect(new URL(page.url()).searchParams.get("mode")).toBeNull();
   await expect(modeNav.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
 });
 
