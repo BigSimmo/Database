@@ -1146,8 +1146,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       expect(metrics?.position, home.path).not.toBe("fixed");
       expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-      // The APP-5 privacy notice rides the hero pill on phones too (as on desktop).
-      await expect(page.getByTestId("answer-composer-privacy-warning"), home.path).toBeVisible();
+      // The APP-5 privacy notice rides the hero pill on phones too (as on desktop),
+      // except on Favourites, which omits it by owner decision 2026-09-30.
+      await expect(page.getByTestId("answer-composer-privacy-warning"), home.path).toHaveCount(
+        home.path === "/favourites" ? 0 : 1,
+      );
+      if (home.path !== "/favourites") {
+        await expect(page.getByTestId("answer-composer-privacy-warning"), home.path).toBeVisible();
+      }
 
       // The in-flow composer must not cover the page with the universal sheet.
       const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
