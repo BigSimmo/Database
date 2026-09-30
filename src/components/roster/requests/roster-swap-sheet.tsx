@@ -9,6 +9,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { fetchRosterRead, postRosterAction } from "@/components/roster/use-roster-team";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { hoursSinceLastShift, placementProblem, swapCandidates, swapNeedsManager } from "@/lib/roster/team/eligibility";
+import { reasonWords } from "@/lib/roster/team/swap-options";
 import type {
   RosterAction,
   RosterAssignment,
@@ -21,13 +22,6 @@ import { RosterSwapTicket } from "./roster-swap-ticket";
 import type { RequestSent } from "./request-ui";
 
 type Fresh = { assignments: RosterAssignment[]; requests: RosterRequests; overview: RosterOverview; readAt: Date };
-
-const reasonWords = {
-  team_setting: "the team asks your manager to approve swaps",
-  within_7_days: "it's within 7 days",
-  different_grade: "the grades differ",
-  team_rule: "a team rule needs a check",
-} as const;
 
 function checkedTime(value: Date): string {
   return new Intl.DateTimeFormat("en-AU", {
