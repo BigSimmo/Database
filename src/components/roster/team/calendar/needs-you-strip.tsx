@@ -288,7 +288,11 @@ export function NeedsYouStrip({
   const approvable = pending.filter((swap) => checks.checkable.has(swap.id) && !swapHasWarning(swap, checks)).length;
 
   return (
-    <section aria-label="Needs you" className="grid gap-3 rounded-xl border border-[color:var(--border)] p-3">
+    <section
+      aria-label="Needs you"
+      data-print-hide
+      className="grid gap-3 rounded-xl border border-[color:var(--border)] p-3"
+    >
       <h2 className="text-base font-normal">Needs you</h2>
       {pending.length || claimed.length ? (
         <ul className="grid gap-2">

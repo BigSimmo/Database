@@ -5558,9 +5558,10 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
  * Same isolation as the shared clinical output above: everything else on the
  * page is made invisible and the marked calendar region is lifted to the top
  * of the sheet, so headers, docks, nav and the Manage tabs never print.
- * The month grid is fitted to one A4 landscape page. System colours keep it
- * legible on paper whatever theme is on screen, and the signed-in person's
- * days are marked with an outline rather than a tint. */
+ * The month grid is fitted to one A4 landscape page, under a print-only
+ * header naming the team, the Perth date printed and the shift letters.
+ * System colours keep it legible on paper whatever theme is on screen, and
+ * the signed-in person's days are marked with an outline rather than a tint. */
 @media print {
   @page roster-month {
     size: a4 landscape;
@@ -5576,8 +5577,9 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     visibility: hidden !important;
   }
 
-  [data-roster-print],
-  [data-roster-print] * {
+  /* As specific as the hiding rule above, and later, so the region shows. */
+  body:has([data-roster-print]) [data-roster-print],
+  body:has([data-roster-print]) [data-roster-print] * {
     visibility: visible !important;
   }
 
@@ -5629,8 +5631,11 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     font-size: 8pt;
   }
 
-  [data-roster-print] [role="gridcell"] span.hidden {
-    display: inline !important;
+  /* Each cell lists every shift by kind in print through its own print:grid
+     and print:hidden classes, so paper never depends on the lg breakpoint
+     firing at A4 width. Names wrap rather than being cut. */
+  [data-roster-print] [role="gridcell"] [data-month-full] {
+    overflow-wrap: anywhere;
   }
 }
 

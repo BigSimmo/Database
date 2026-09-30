@@ -202,6 +202,9 @@ describe("Team calendar, manager layer", () => {
     const cell = container.querySelector<HTMLElement>('[data-date="2026-10-15"]')!;
     await waitFor(() => expect(within(cell).getByText("Nights 1 of 2")).toBeTruthy());
     expect(cell.querySelector("[data-cover]")?.getAttribute("data-cover")).toBe("short");
+    // A past day shows no count, even one short of its target.
+    const past = container.querySelector<HTMLElement>('[data-date="2026-10-08"]')!;
+    expect(past.querySelector("[data-cover]")).toBeNull();
   });
 
   it("lists a pending swap in the strip with Approve and Decline, and sends the decision", async () => {
@@ -568,8 +571,9 @@ describe("Team calendar, manager layer", () => {
     render(<RosterTeamPage now={NOW} />);
     const strip = await screen.findByRole("region", { name: "Needs you" });
     expect(within(strip).getByRole("button", { name: /Thu 15 Oct/ })).toBeTruthy();
-    // Wednesday 14 October is short too, but it has passed.
-    expect(screen.getByText("Nights 0 of 1").getAttribute("data-cover")).toBe("short");
+    // Wednesday 14 October is short too, but it has passed: no count and no strip entry.
+    expect(screen.getByText("Nights 1 of 2").getAttribute("data-cover")).toBe("short");
+    expect(screen.queryByText("Nights 0 of 1")).toBeNull();
     expect(within(strip).queryByRole("button", { name: /Wed 14 Oct/ })).toBeNull();
   });
 

@@ -589,6 +589,44 @@ describe("Team calendar", () => {
       expect(within(cell).getByText("+1")).toBeTruthy();
     });
 
+    it("at lg and in print shows every shift grouped by kind, not three letters and +n", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      const cell = cellFor(container, "2026-10-15");
+      const summary = cell.querySelector<HTMLElement>("[data-month-summary]")!;
+      const full = cell.querySelector<HTMLElement>("[data-month-full]")!;
+      // The phone summary gives way at lg and in print; the full list is print-specific, not left to lg.
+      expect(summary.className).toMatch(/lg:hidden/);
+      expect(summary.className).toMatch(/print:hidden/);
+      expect(full.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(full.className).toMatch(/lg:grid/);
+      expect(full.className).toMatch(/print:grid/);
+      const groups = [...full.querySelectorAll<HTMLElement>("[data-kind-group]")].map((group) => group.textContent);
+      expect(groups).toEqual(["DYou", "EDr Sam Example, Dr Pat Example", "NDr Sam Example"]);
+    });
+
+    it("prints the team name, the Perth date it was printed and a shift-letter legend", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      const header = container.querySelector<HTMLElement>("[data-roster-print-header]")!;
+      expect(header.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(header.className).toMatch(/print:grid/);
+      expect(within(header).getByText("Example team")).toBeTruthy();
+      expect(within(header).getByText("Printed Thu 15 Oct 2026")).toBeTruthy();
+      expect(within(header).getByText("D Day · E Evening · N Night · C On call · L Leave · W Other work")).toBeTruthy();
+    });
+
+    it("prints no header on the Week view, which has no Print button", async () => {
+      mockFetch();
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("table", { name: "Week roster" });
+      expect(container.querySelector("[data-roster-print-header]")).toBeNull();
+    });
+
     it("marks the cell of my own shift and no other", async () => {
       mockFetch(busyDay);
       url.set("view=month&date=2026-10-15");

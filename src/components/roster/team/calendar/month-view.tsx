@@ -3,7 +3,7 @@
 import { focusRing } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
 import { WEEKDAY_SHORT_LABELS } from "@/lib/calendar/month-grid";
-import { SHIFT_LETTER, SHIFT_LETTER_TONE } from "@/lib/roster/shift-kind";
+import { SHIFT_KINDS, SHIFT_LETTER, SHIFT_LETTER_TONE } from "@/lib/roster/shift-kind";
 import { formatPerthDay } from "@/lib/roster/shifts/perth-time";
 import type { MonthCell } from "@/lib/roster/team/calendar-model";
 import { coverText, type CoverCount } from "@/lib/roster/team/cover";
@@ -11,6 +11,13 @@ import { coverText, type CoverCount } from "@/lib/roster/team/cover";
 import { COVER_TONE } from "./cover-tone";
 
 const LETTERS_SHOWN = 3;
+
+/** A day's shifts by kind, in the usual kind order, for the full (lg and print) cell. */
+function byKind(shifts: MonthCell["shifts"]) {
+  return SHIFT_KINDS.map((kind) => [kind, shifts.filter((shift) => shift.kind === kind)] as const).filter(
+    ([, list]) => list.length > 0,
+  );
+}
 
 function cellLabel(cell: MonthCell, counts: readonly CoverCount[]): string {
   const parts = [formatPerthDay(cell.date)];
@@ -23,9 +30,11 @@ function cellLabel(cell: MonthCell, counts: readonly CoverCount[]): string {
 
 /**
  * The month as a grid of Monday-first weeks. On a phone each day shows up to
- * three shift letters and "+n" for the rest; from `lg` the same markup also
- * shows names. A shift sits on the day it starts, so a night is never counted
- * twice. Tapping a day hands its date to `onPickDay`.
+ * three shift letters and "+n" for the rest; from `lg`, and always on paper,
+ * each day lists every shift grouped by kind with names. Print has its own
+ * rule rather than trusting `lg` to fire at A4 width. A shift sits on the day
+ * it starts, so a night is never counted twice. Tapping a day hands its date
+ * to `onPickDay`.
  */
 export function MonthView({
   cells,
@@ -88,18 +97,31 @@ export function MonthView({
                     ) : null}
                   </span>
                   {cell.holiday ? <span className="sr-only">Public holiday</span> : null}
-                  <span className="flex min-w-0 flex-wrap gap-x-1 lg:flex-col">
+                  <span data-month-summary className="flex min-w-0 flex-wrap gap-x-1 lg:hidden print:hidden">
                     {cell.shifts.slice(0, LETTERS_SHOWN).map((shift) => (
-                      <span key={shift.id} className="flex min-w-0 items-baseline gap-1">
-                        <span data-shift-letter className={cn("nums font-medium", SHIFT_LETTER_TONE[shift.kind])}>
-                          {SHIFT_LETTER[shift.kind]}
-                        </span>
-                        <span className="hidden min-w-0 truncate lg:inline">
-                          {cell.mine.includes(shift) ? "You" : (shift.name ?? "Name not available")}
-                        </span>
+                      <span
+                        key={shift.id}
+                        data-shift-letter
+                        className={cn("nums font-medium", SHIFT_LETTER_TONE[shift.kind])}
+                      >
+                        {SHIFT_LETTER[shift.kind]}
                       </span>
                     ))}
                     {extra > 0 ? <span className="nums text-[color:var(--text-muted)]">{`+${extra}`}</span> : null}
+                  </span>
+                  <span data-month-full className="hidden min-w-0 gap-0.5 lg:grid print:grid">
+                    {byKind(cell.shifts).map(([kind, list]) => (
+                      <span key={kind} data-kind-group className="flex min-w-0 items-baseline gap-1">
+                        <span className={cn("nums shrink-0 font-medium", SHIFT_LETTER_TONE[kind])}>
+                          {SHIFT_LETTER[kind]}
+                        </span>
+                        <span className="min-w-0 break-words">
+                          {list
+                            .map((shift) => (cell.mine.includes(shift) ? "You" : (shift.name ?? "Name not available")))
+                            .join(", ")}
+                        </span>
+                      </span>
+                    ))}
                   </span>
                   {(cover?.get(cell.date) ?? []).map((count) => (
                     <span

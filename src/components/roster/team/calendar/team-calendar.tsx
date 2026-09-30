@@ -11,6 +11,7 @@ import { postRosterAction, useRosterRead } from "@/components/roster/use-roster-
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { monthKeyOf } from "@/lib/calendar/month-grid";
+import { SHIFT_KIND_LABEL, SHIFT_KINDS, SHIFT_LETTER } from "@/lib/roster/shift-kind";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import {
   calendarStateQuery,
@@ -51,6 +52,20 @@ function heading(state: CalendarState): string {
   return new Intl.DateTimeFormat("en-AU", { month: "long", year: "numeric", timeZone: "UTC" }).format(
     new Date(`${state.date}T00:00:00Z`),
   );
+}
+
+const PRINT_LEGEND = SHIFT_KINDS.map((kind) => `${SHIFT_LETTER[kind]} ${SHIFT_KIND_LABEL[kind]}`).join(" · ");
+
+function printedOn(today: string): string {
+  return new Intl.DateTimeFormat("en-AU", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+    .format(new Date(`${today}T00:00:00Z`))
+    .replace(/,/g, "");
 }
 
 function peopleIn(rows: readonly RosterAssignment[]): CalendarPerson[] {
@@ -158,6 +173,8 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const pendingSwapIds = pendingAssignmentIds(requests.data?.swaps ?? [], actorId, now);
   // Cover counts and rule flags read every shift in the window, not the filtered ones.
   const manager = useManagerCalendar(team, calendarWindow(state), all, actorId);
+  // Counts are for planning ahead: a day that has passed shows none, short or not.
+  const cover = new Map([...manager.cover].filter(([date]) => date >= today));
   const managerReload = manager.reload;
   const requestsReload = requests.reload;
   const managerChanged = useCallback(() => {
@@ -167,6 +184,13 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   }, [managerReload, requestsReload, reload]);
   return (
     <>
+      {state.view === "month" ? (
+        <div data-roster-print-header className="hidden gap-1 text-sm print:grid">
+          <p className="font-medium">{team.name}</p>
+          <p>{`Printed ${printedOn(today)}`}</p>
+          <p>{PRINT_LEGEND}</p>
+        </div>
+      ) : null}
       <SegmentedControl
         label="View"
         layout="equal"
@@ -186,7 +210,10 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         {/* Tapping the title opens the date picker: the date input lies over it, unseen. */}
         <div className="relative flex min-h-12 min-w-0 items-center gap-1 rounded px-1 has-[input:focus-visible]:outline has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-[color:var(--focus)]">
           <h1 className="truncate text-base font-normal">{heading(state)}</h1>
-          <CalendarDays aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+          <CalendarDays
+            aria-hidden="true"
+            className="size-icon-sm shrink-0 text-[color:var(--text-muted)] print:hidden"
+          />
           <input
             type="date"
             aria-label="Go to date"
@@ -257,7 +284,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           onPickShift={setSelected}
           pendingSwapIds={pendingSwapIds}
           openShifts={requests.data?.openShifts}
-          cover={manager.cover}
+          cover={cover}
           flags={manager.flags}
         />
       ) : (
@@ -265,7 +292,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           cells={monthCells(monthKeyOf(state.date), rows, actorId)}
           today={today}
           onPickDay={setPickedDay}
-          cover={manager.cover}
+          cover={cover}
         />
       )}
       <ModeGroupedList>
