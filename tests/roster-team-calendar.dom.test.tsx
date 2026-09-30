@@ -38,6 +38,7 @@ vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => n
 import { canRequestShift } from "@/components/roster/team/calendar/shift-sheet";
 import { RosterTeamPage } from "@/components/roster/team/roster-team-page";
 import { SHIFT_LETTER_TONE } from "@/lib/roster/shift-kind";
+import type { RosterAssignment } from "@/lib/roster/team/model";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const SAM = "22222222-2222-4222-8222-222222222222";
@@ -199,8 +200,8 @@ describe("Team calendar", () => {
 
   it("offers no Swap or Give away on my own leave", async () => {
     const leave = { ...mine, kind: "leave", shiftCode: "AL" };
-    expect(canRequestShift(leave as typeof mine & { kind: "leave" }, ME, NOW)).toBe(false);
-    expect(canRequestShift(mine as typeof mine & { kind: "day" }, ME, NOW)).toBe(true);
+    expect(canRequestShift(leave as RosterAssignment, ME, NOW)).toBe(false);
+    expect(canRequestShift(mine as RosterAssignment, ME, NOW)).toBe(true);
     mockFetch([leave, sams]);
     render(<RosterTeamPage now={NOW} />);
     fireEvent.click(await screen.findByRole("button", { name: /^You, Leave/ }));
