@@ -56,7 +56,7 @@ export function MonthView({
                 data-mine={cell.mine.length ? "true" : undefined}
                 className={cn(
                   "min-w-0 rounded-lg border border-[color:var(--border)]",
-                  cell.mine.length &&
+                  cell.mine.length > 0 &&
                     "bg-[color:var(--surface-wash)] ring-2 ring-inset ring-[color:var(--mode-identity)]",
                   !cell.inMonth && "opacity-60",
                 )}
