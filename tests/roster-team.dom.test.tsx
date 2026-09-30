@@ -60,7 +60,7 @@ describe("Roster team journey", () => {
   it("labels the sample team served while team rosters are held", async () => {
     mockTeam(true, true);
     render(<RosterTeamPage now={new Date("2026-10-16T00:00:00Z")} />);
-    expect((await screen.findByTestId("roster-sample-notice")).textContent).toMatch(/Sample team/);
+    expect((await screen.findByTestId("roster-sample-notice")).textContent).toMatch(/Example team/);
   });
   it("shows no sample label for a real team", async () => {
     mockTeam();

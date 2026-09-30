@@ -116,6 +116,20 @@ describe("recommend situation ranking", () => {
     }
   });
 
+  it("does not penalise evidence-based therapies merely for general caution text discussing mania or activation", () => {
+    const evidenceBased = stubTherapy({
+      slug: "cbt-standard",
+      name: "Cognitive behavioural therapy",
+      bestUsedFor: "Anxiety in outpatient care",
+      setting: "Outpatient/community",
+      contraindicationsOrCautions:
+        "Check suicide and self-harm risk, psychosis, mania, cognitive capacity. Confirm behavioral activation is indicated.",
+    });
+    const ranked = rankRecommendations([evidenceBased], "anxiety outpatient", ["outpatient", "avoid-mania"]);
+    expect(ranked[0]?.therapy.slug).toBe("cbt-standard");
+    expect(ranked[0]?.reasons.some((reason) => /mania/i.test(reason))).toBe(false);
+  });
+
   it("drops unrelated therapies below the relevance floor instead of padding to six", () => {
     const ranked = rankRecommendations(
       [

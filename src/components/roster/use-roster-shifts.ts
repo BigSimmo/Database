@@ -39,6 +39,8 @@ export type RosterShiftsState = {
   readonly teamLoading: boolean;
   readonly latestImport: OnCallShiftImportSummary | null;
   readonly demoMode: boolean;
+  /** The shifts are the sample doctor's example roster; the reader's first saved shift replaces them. */
+  readonly sample: boolean;
   /** Save an imported roster. Resolves to an error sentence, or null on success. */
   readonly save: (request: OnCallShiftImportRequest) => Promise<string | null>;
   /** Add a shift by hand, optionally repeating weekly. */
@@ -61,6 +63,7 @@ type Payload = {
   shifts?: OnCallShift[];
   latestImport?: OnCallShiftImportSummary | null;
   demoMode?: boolean;
+  sample?: boolean;
   error?: unknown;
   message?: string;
 };
@@ -144,11 +147,13 @@ export function useRosterShifts(teamRange?: { from: string; to: string }): Roste
   const [shifts, setShifts] = useState<readonly OnCallShift[]>([]);
   const [latestImport, setLatestImport] = useState<OnCallShiftImportSummary | null>(null);
   const [demoMode, setDemoMode] = useState(false);
+  const [sample, setSample] = useState(false);
 
   const accept = useCallback((payload: Payload) => {
     setShifts(payload.shifts ?? []);
     setLatestImport(payload.latestImport ?? null);
     setDemoMode(Boolean(payload.demoMode));
+    setSample(Boolean(payload.sample));
     setStatus("ready");
   }, []);
 
@@ -292,6 +297,7 @@ export function useRosterShifts(teamRange?: { from: string; to: string }): Roste
         : (currentTeamData?.message ?? null),
     latestImport,
     demoMode,
+    sample,
     save,
     addManual,
     removeSeries,

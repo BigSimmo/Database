@@ -9,7 +9,8 @@ import {
   validatePublishPayload,
   validatePublishPeriod,
 } from "@/lib/roster/publish/build";
-import { runAfterResponse, withRosterApi } from "@/lib/roster/team/api";
+import { runAfterResponse, withRosterApi, type RosterAdminClient } from "@/lib/roster/team/api";
+import { demoPublishPreview, demoPublishReceipt } from "@/lib/roster/team/demo-team";
 import { rosterApiError, rosterUnavailable } from "@/lib/roster/team/errors";
 import {
   ROSTER_ASSIGNMENT_KINDS,
@@ -120,83 +121,113 @@ function updateRequired(): PublicApiError {
   });
 }
 
+function periodFrom(request: Request): { from: string; to: string } {
+  const params = new URL(request.url).searchParams;
+  if (
+    [...params.keys()].some((key) => key !== "from" && key !== "to") ||
+    params.getAll("from").length !== 1 ||
+    params.getAll("to").length !== 1
+  ) {
+    throw new PublicApiError("Choose valid roster dates.", 400, { code: "roster_invalid_request" });
+  }
+  const from = date.safeParse(params.get("from"));
+  const to = date.safeParse(params.get("to"));
+  if (!from.success || !to.success)
+    throw new PublicApiError("Choose valid roster dates.", 400, { code: "roster_invalid_request" });
+  try {
+    validatePublishPeriod({ start: from.data, end: to.data });
+  } catch {
+    throw new PublicApiError("Choose a valid period of at most 186 days.", 400, { code: "roster_invalid_request" });
+  }
+  return { from: from.data, to: to.data };
+}
+
+async function checkedPublishBody(request: Request): Promise<z.infer<typeof bodySchema>> {
+  const body = await parsePublishBody(request);
+  try {
+    validatePublishPayload(body.publication);
+    validateOpenShifts({
+      period: { start: body.publication.periodStart, end: body.publication.periodEnd },
+      openShifts: body.openShifts,
+    });
+    if (body.publication.assignments.length + body.openShifts.length > 5000) throw new Error("Too many shifts.");
+    const overrideKeys = body.overrideChanges.map((change) => `${change.kind}:${change.id}`);
+    if (new Set(overrideKeys).size !== overrideKeys.length) throw new Error("Duplicate override.");
+  } catch {
+    throw new PublicApiError("Check the roster before publishing.", 400, { code: "roster_invalid_request" });
+  }
+  return body;
+}
+
 /** The snapshot is one database read under the same lock used by publication. */
 export async function GET(request: Request, context: Context) {
-  return withRosterApi(request, async (client, actorId) => {
-    const serviceId = await serviceIdOf(context);
-    const params = new URL(request.url).searchParams;
-    if (
-      [...params.keys()].some((key) => key !== "from" && key !== "to") ||
-      params.getAll("from").length !== 1 ||
-      params.getAll("to").length !== 1
-    ) {
-      throw new PublicApiError("Choose valid roster dates.", 400, { code: "roster_invalid_request" });
-    }
-    const from = date.safeParse(params.get("from"));
-    const to = date.safeParse(params.get("to"));
-    if (!from.success || !to.success)
-      throw new PublicApiError("Choose valid roster dates.", 400, { code: "roster_invalid_request" });
-    try {
-      validatePublishPeriod({ start: from.data, end: to.data });
-    } catch {
-      throw new PublicApiError("Choose a valid period of at most 186 days.", 400, { code: "roster_invalid_request" });
-    }
-    const overview = await rosterRead(client, actorId, serviceId, "overview");
-    if (overview.me.role !== "manager")
-      throw new PublicApiError("Only the team's roster manager can publish.", 403, { code: "roster_role_denied" });
-    const { data, error } = await client.rpc("roster_publish_preview", {
-      p_actor_id: actorId,
-      p_service_id: serviceId,
-      p_from: from.data,
-      p_to: to.data,
-    });
-    if (error) throw missingPublishRpc(error) ? updateRequired() : rosterApiError(error);
-    const parsed = previewSchema.safeParse(data);
-    if (!parsed.success) throw rosterUnavailable();
-    return parsed.data;
-  });
+  return withRosterApi(
+    request,
+    async (client, actorId) => {
+      const serviceId = await serviceIdOf(context);
+      const { from, to } = periodFrom(request);
+      const overview = await rosterRead(client, actorId, serviceId, "overview");
+      if (overview.me.role !== "manager")
+        throw new PublicApiError("Only the team's roster manager can publish.", 403, { code: "roster_role_denied" });
+      const { data, error } = await client.rpc("roster_publish_preview", {
+        p_actor_id: actorId,
+        p_service_id: serviceId,
+        p_from: from,
+        p_to: to,
+      });
+      if (error) throw missingPublishRpc(error) ? updateRequired() : rosterApiError(error);
+      const parsed = previewSchema.safeParse(data);
+      if (!parsed.success) throw rosterUnavailable();
+      return parsed.data;
+    },
+    {
+      // Release held: the sample team's current roster for the chosen period.
+      sample: async () => {
+        await serviceIdOf(context);
+        const { from, to } = periodFrom(request);
+        return demoPublishPreview(from, to);
+      },
+    },
+  );
 }
 
 /** One atomic command checks freshness, roles, codes and assignments together. */
 export async function POST(request: Request, context: Context) {
-  return withRosterApi(request, async (client, actorId) => {
-    const serviceId = await serviceIdOf(context);
-    const body = await parsePublishBody(request);
-    try {
-      validatePublishPayload(body.publication);
-      validateOpenShifts({
-        period: { start: body.publication.periodStart, end: body.publication.periodEnd },
-        openShifts: body.openShifts,
-      });
-      if (body.publication.assignments.length + body.openShifts.length > 5000) throw new Error("Too many shifts.");
-      const overrideKeys = body.overrideChanges.map((change) => `${change.kind}:${change.id}`);
-      if (new Set(overrideKeys).size !== overrideKeys.length) throw new Error("Duplicate override.");
-    } catch {
-      throw new PublicApiError("Check the roster before publishing.", 400, { code: "roster_invalid_request" });
-    }
-    const { data, error } = await client.rpc("roster_publish", {
-      p_actor_id: actorId,
-      p_service_id: serviceId,
-      p_expected_token: body.expectedToken,
-      p_payload: {
-        roles: body.roles,
-        codes: body.codes,
-        publication: body.publication,
-        openShifts: body.openShifts,
-        overrideChanges: body.overrideChanges,
-      },
-    });
-    if (error) throw missingPublishRpc(error) ? updateRequired() : rosterApiError(error);
-    const parsed = receiptSchema.safeParse(data);
-    if (!parsed.success) throw rosterUnavailable();
-    runAfterResponse(() =>
-      dispatchRosterAlerts(client, {
-        serviceId,
-        actorId,
-        action: { action: "publish" },
-        result: parsed.data,
-      }),
-    );
-    return parsed.data;
+  return withRosterApi(request, async (client, actorId) => publish(request, context, client, actorId), {
+    // Release held: the roster is checked as usual, then nothing is published and nobody is told.
+    sample: async () => {
+      await serviceIdOf(context);
+      await checkedPublishBody(request);
+      return demoPublishReceipt();
+    },
   });
+}
+
+async function publish(request: Request, context: Context, client: RosterAdminClient, actorId: string) {
+  const serviceId = await serviceIdOf(context);
+  const body = await checkedPublishBody(request);
+  const { data, error } = await client.rpc("roster_publish", {
+    p_actor_id: actorId,
+    p_service_id: serviceId,
+    p_expected_token: body.expectedToken,
+    p_payload: {
+      roles: body.roles,
+      codes: body.codes,
+      publication: body.publication,
+      openShifts: body.openShifts,
+      overrideChanges: body.overrideChanges,
+    },
+  });
+  if (error) throw missingPublishRpc(error) ? updateRequired() : rosterApiError(error);
+  const parsed = receiptSchema.safeParse(data);
+  if (!parsed.success) throw rosterUnavailable();
+  runAfterResponse(() =>
+    dispatchRosterAlerts(client, {
+      serviceId,
+      actorId,
+      action: { action: "publish" },
+      result: parsed.data,
+    }),
+  );
+  return parsed.data;
 }

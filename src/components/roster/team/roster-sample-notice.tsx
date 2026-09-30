@@ -8,8 +8,22 @@ export function RosterSampleNotice({ sample }: { readonly sample: boolean | unde
   if (!sample) return null;
   return (
     <ModeNotice testId="roster-sample-notice">
-      Sample team. Every name and shift here is made up so you can see the layout. Team rosters aren&apos;t switched on
-      for real staff yet, so changes won&apos;t be saved.
+      Example team. Every name and shift here is made up so you can see how it works. Team rosters aren&apos;t switched
+      on for real staff yet, so nothing you do here is saved.
+    </ModeNotice>
+  );
+}
+
+/**
+ * Shown when the reader has no shifts of their own and the server answers with
+ * the sample doctor's roster. Their own first shift or import replaces it.
+ */
+export function RosterSampleShiftsNotice({ sample }: { readonly sample: boolean | undefined }) {
+  if (!sample) return null;
+  return (
+    <ModeNotice testId="roster-sample-shifts-notice">
+      Example roster. These shifts and the team are made up so you can see how Roster works. Add or import your own
+      shifts to replace them.
     </ModeNotice>
   );
 }

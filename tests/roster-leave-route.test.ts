@@ -28,13 +28,34 @@ import { PublicApiError } from "@/lib/http";
 
 afterEach(() => vi.unstubAllEnvs());
 
-it("holds real staff leave access in production before reading its data", async () => {
+it("serves example leave while the release is held, and never touches real leave", async () => {
   vi.stubEnv("NODE_ENV", "production");
   const response = await GET(new Request("http://x/api/roster/leave"));
-  expect(response.status).toBe(503);
-  expect(await response.json()).toMatchObject({ code: "roster_release_held" });
-  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(response.status).toBe(200);
+  const listed = await response.json();
+  expect(listed.leave).toHaveLength(1);
+  expect(listed.leave[0]).toMatchObject({ kind: "annual", status: "approved" });
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store, max-age=0");
+
+  const created = await POST(
+    new Request("http://x/api/roster/leave", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "annual",
+        startsOn: "2026-12-22",
+        endsOn: "2027-01-02",
+        status: "planned",
+        serviceId: null,
+      }),
+    }),
+  );
+  expect(created.status).toBe(201);
+  expect((await created.json()).leave).toMatchObject({ startsOn: "2026-12-22", status: "planned" });
   expect(mocks.from).not.toHaveBeenCalled();
+
+  mocks.auth.mockRejectedValueOnce(new (await import("@/lib/supabase/auth")).AuthenticationError());
+  expect((await GET(new Request("http://x/api/roster/leave"))).status).toBe(401);
 });
 
 const ME = "5e000000-0000-4000-8000-000000000001";

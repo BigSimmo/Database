@@ -26,7 +26,9 @@ export type RosterAdminClient = ReturnType<typeof createAdminClient>;
  *
  * While the real-staff release is held, a signed-in reader gets the same
  * invented team from `sample` (falling back to `demo`) so the screens can be
- * seen. No real team row is read and every write is still refused with 503.
+ * used as an example. No real team row is read or written: a write with a
+ * `sample` answer returns an example receipt and saves nothing, and a route
+ * with neither is refused with 503.
  */
 export async function withRosterApi(
   request: Request,
@@ -45,7 +47,8 @@ export async function withRosterApi(
     } else if (!rosterTeamReleaseEnabled()) {
       if (sample) {
         await requireAuthenticatedUser(request, createAdminClient());
-        response = NextResponse.json(sample());
+        const answer = await sample();
+        response = answer instanceof Response ? answer : NextResponse.json(answer);
       } else {
         response = publicErrorResponse("Team roster is not available for real staff yet.", 503, {
           code: "roster_release_held",

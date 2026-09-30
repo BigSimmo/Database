@@ -159,7 +159,16 @@ function TeamSummary({
     </>
   );
 }
-export function RosterTodayTeam({ now, myShifts = [] }: { now: Date; myShifts?: readonly RosterDisplayShift[] }) {
+export function RosterTodayTeam({
+  now,
+  myShifts = [],
+  sampleNoticeShown = false,
+}: {
+  now: Date;
+  myShifts?: readonly RosterDisplayShift[];
+  /** Today already says the whole page is an example, so the team strip need not say it again. */
+  sampleNoticeShown?: boolean;
+}) {
   const teams = useRosterTeams();
   if (teams.status !== "ready") return null;
   const enabled = (Array.isArray(teams.data?.teams) ? teams.data.teams : []).filter((team) => team.enabled);
@@ -175,7 +184,7 @@ export function RosterTodayTeam({ now, myShifts = [] }: { now: Date; myShifts?: 
     );
   return (
     <>
-      <RosterSampleNotice sample={teams.data.sample} />
+      <RosterSampleNotice sample={teams.data.sample && !sampleNoticeShown} />
       {enabled.map((team) => (
         <TeamSummary
           key={team.serviceId}
