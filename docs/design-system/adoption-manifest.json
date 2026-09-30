@@ -357,13 +357,13 @@
         "src/components/roster/requests/roster-leave-sheet.tsx",
         "src/components/roster/requests/roster-requests-page.tsx",
         "src/components/roster/requests/roster-sent-bar.tsx",
-        "src/components/roster/requests/roster-swap-sheet.tsx",
         "src/components/roster/roster-add-sheet.tsx",
         "src/components/roster/roster-code-chooser.tsx",
         "src/components/roster/roster-hours-panel.tsx",
         "src/components/roster/roster-import-flow.tsx",
         "src/components/roster/roster-settings-page.tsx",
         "src/components/roster/roster-today-page.tsx",
+        "src/components/roster/swaps/roster-swaps-page.tsx",
         "src/components/roster/swaps/swap-flow-sheet.tsx",
         "src/components/roster/team/calendar/day-sheet.tsx",
         "src/components/roster/team/calendar/shift-sheet.tsx",
@@ -470,13 +470,13 @@
         "src/components/roster/requests/roster-leave-sheet.tsx",
         "src/components/roster/requests/roster-requests-page.tsx",
         "src/components/roster/requests/roster-sent-bar.tsx",
-        "src/components/roster/requests/roster-swap-sheet.tsx",
         "src/components/roster/roster-add-sheet.tsx",
         "src/components/roster/roster-code-chooser.tsx",
         "src/components/roster/roster-hours-panel.tsx",
         "src/components/roster/roster-import-flow.tsx",
         "src/components/roster/roster-settings-page.tsx",
         "src/components/roster/roster-today-page.tsx",
+        "src/components/roster/swaps/roster-swaps-page.tsx",
         "src/components/roster/swaps/swap-flow-sheet.tsx",
         "src/components/roster/team/calendar/day-sheet.tsx",
         "src/components/roster/team/calendar/shift-sheet.tsx",
@@ -2191,7 +2191,6 @@
         "src/components/roster/requests/roster-give-away-sheet.tsx",
         "src/components/roster/requests/roster-leave-sheet.tsx",
         "src/components/roster/requests/roster-requests-page.tsx",
-        "src/components/roster/requests/roster-swap-sheet.tsx",
         "src/components/roster/roster-add-sheet.tsx",
         "src/components/roster/roster-code-chooser.tsx",
         "src/components/roster/roster-shifts-page.tsx",
@@ -2271,7 +2270,6 @@
         "src/components/roster/requests/roster-give-away-sheet.tsx",
         "src/components/roster/requests/roster-leave-sheet.tsx",
         "src/components/roster/requests/roster-requests-page.tsx",
-        "src/components/roster/requests/roster-swap-sheet.tsx",
         "src/components/roster/roster-add-sheet.tsx",
         "src/components/roster/roster-code-chooser.tsx",
         "src/components/roster/roster-shifts-page.tsx",
@@ -2574,12 +2572,14 @@
       "directImportFiles": [
         "src/components/admin/admin-renewals-page.tsx",
         "src/components/cme/cme-log-page.tsx",
+        "src/components/roster/swaps/roster-swaps-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx"
       ],
       "productImportFiles": [
         "src/components/admin/admin-renewals-page.tsx",
         "src/components/cme/cme-log-page.tsx",
+        "src/components/roster/swaps/roster-swaps-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx"
       ],
@@ -3073,6 +3073,7 @@
         "src/app/(search-app)/roster/requests/page.tsx",
         "src/app/(search-app)/roster/settings/page.tsx",
         "src/app/(search-app)/roster/shifts/page.tsx",
+        "src/app/(search-app)/roster/swaps/page.tsx",
         "src/app/(search-app)/roster/team/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
@@ -3920,6 +3921,16 @@
         },
         {
           "file": "src/app/(search-app)/roster/shifts/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/roster/swaps/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -5347,6 +5358,7 @@
       "src/app/(search-app)/roster/requests/page.tsx",
       "src/app/(search-app)/roster/settings/page.tsx",
       "src/app/(search-app)/roster/shifts/page.tsx",
+      "src/app/(search-app)/roster/swaps/page.tsx",
       "src/app/(search-app)/roster/team/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -5497,6 +5509,7 @@
       "src/app/(search-app)/roster/requests/page.tsx",
       "src/app/(search-app)/roster/settings/page.tsx",
       "src/app/(search-app)/roster/shifts/page.tsx",
+      "src/app/(search-app)/roster/swaps/page.tsx",
       "src/app/(search-app)/roster/team/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -5550,7 +5563,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 155,
+    "inheritedCkbV2RootCount": 156,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -5559,8 +5572,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 45,
-    "rootCount": 156,
-    "productionRouteCount": 148,
-    "nextUiEntryCount": 233
+    "rootCount": 157,
+    "productionRouteCount": 149,
+    "nextUiEntryCount": 234
   }
 }
