@@ -8,12 +8,13 @@ import { cn } from "@/components/ui-primitives";
 import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
 import { SHIFT_KIND_LABEL, SHIFT_LETTER } from "@/lib/roster/shift-kind";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
-import type { CoverCount } from "@/lib/roster/team/cover";
+import { coverText, type CoverCount } from "@/lib/roster/team/cover";
 import type { RosterAssignment, RosterOpenShift } from "@/lib/roster/team/model";
 import type { RuleFlag } from "@/lib/roster/team/rule-flags";
 import type { BoardRow } from "@/lib/roster/team/calendar-model";
 
 const AMBER = "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]";
+const RED = "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]";
 const HAIRLINE = "border-b border-[color:var(--border)]";
 
 /** Open shifts still waiting on someone, or waiting on a manager's decision. */
@@ -48,7 +49,9 @@ export function WeekBoard({
   pendingSwapIds?: ReadonlySet<string>;
   openShifts?: readonly RosterOpenShift[];
 }) {
-  const open = (openShifts ?? []).filter((shift) => SHOWN_OPEN_STATUSES.includes(shift.status));
+  const open = (openShifts ?? []).filter(
+    (shift) => SHOWN_OPEN_STATUSES.includes(shift.status) && days.includes(perthDateOf(shift.startsAt)),
+  );
   const showCover = cover && days.some((date) => (cover.get(date)?.length ?? 0) > 0);
   const rowHeader = "sticky left-0 z-10 w-28 min-w-28 max-w-28 bg-background px-2 py-1 text-left align-middle";
   return (
@@ -173,15 +176,11 @@ export function WeekBoard({
                     {(cover.get(date) ?? []).map((count) => (
                       <li
                         key={count.kind}
-                        aria-label={`${SHIFT_KIND_LABEL[count.kind]}: ${count.rostered} of ${count.needed} rostered`}
-                        className={cn(
-                          "nums rounded border px-1",
-                          count.state === "short" ? AMBER : "border-transparent",
-                        )}
+                        data-cover={count.state}
+                        className={cn("nums rounded border px-1", count.state === "short" ? RED : "border-transparent")}
                       >
-                        <span aria-hidden="true">
-                          {SHIFT_LETTER[count.kind]} {count.rostered}/{count.needed}
-                        </span>
+                        {coverText(count)}
+                        {count.state === "short" ? <span className="sr-only"> (short)</span> : null}
                       </li>
                     ))}
                   </ul>

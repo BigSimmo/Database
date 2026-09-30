@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { coverForDay } from "@/lib/roster/team/cover";
+import { coverForDay, needsOn } from "@/lib/roster/team/cover";
 import type { RosterAssignment, RosterMaker } from "@/lib/roster/team/model";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
@@ -69,6 +69,29 @@ describe("coverForDay", () => {
     expect(coverForDay("2026-10-19", [], needs)).toEqual([{ kind: "day", rostered: 0, needed: 1, state: "short" }]);
     // The next Monday has no dated need, so the weekday target applies again.
     expect(coverForDay("2026-10-26", [], needs)).toEqual([{ kind: "day", rostered: 0, needed: 4, state: "short" }]);
+  });
+
+  it("lets a dated need replace only the weekday need of the same kind and grade", () => {
+    const needs = [
+      need({ weekday: 1, kind: "day", grade: "registrar", needed: 2 }),
+      need({ weekday: 1, kind: "day", grade: "resident", needed: 3 }),
+      need({ weekday: 1, kind: "night", grade: null, needed: 1 }),
+      need({ date: "2026-10-19", kind: "day", grade: "registrar", needed: 1 }),
+    ];
+    // The dated registrar target stands in for the weekday one; the resident target still applies.
+    expect(coverForDay("2026-10-19", [], needs)).toEqual([
+      { kind: "day", rostered: 0, needed: 4, state: "short" },
+      { kind: "night", rostered: 0, needed: 1, state: "short" },
+    ]);
+    expect(needsOn("2026-10-19", needs).map((item) => [item.kind, item.grade, item.needed])).toEqual([
+      ["day", "registrar", 1],
+      ["day", "resident", 3],
+      ["night", null, 1],
+    ]);
+    // A dated target for any grade replaces every weekday target of that kind.
+    const anyGrade = [...needs, need({ date: "2026-10-19", kind: "day", grade: null, needed: 5 })];
+    expect(needsOn("2026-10-19", anyGrade).filter((item) => item.kind === "day")).toHaveLength(2);
+    expect(coverForDay("2026-10-19", [], anyGrade)[0]).toMatchObject({ kind: "day", needed: 6 });
   });
 
   it("reads weekday 1 as Monday and weekday 7 as Sunday", () => {

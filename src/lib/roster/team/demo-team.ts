@@ -24,6 +24,7 @@ const DEMO_SITE_ID = "d0000000-0000-4000-8000-000000000002";
 const DEMO_PUBLICATION_ID = "d0000000-0000-4000-8000-000000000003";
 const DEMO_SWAP_ID = "d0000000-0000-4000-8000-000000000004";
 const DEMO_OPEN_SHIFT_ID = "d0000000-0000-4000-8000-000000000005";
+const DEMO_MANAGE_SWAP_ID = "d0000000-0000-4000-8000-000000000007";
 export const DEMO_ME_ID = "d0000000-0000-4000-8000-0000000000a1";
 
 const PEOPLE: readonly { userId: string; name: string; grade: RosterGrade; manager?: boolean }[] = [
@@ -123,6 +124,37 @@ export function demoRosterRead<W extends RosterReadWhat>(
     createdAt: new Date(now.getTime() - 3_600_000).toISOString(),
     decidedAt: null,
   };
+  // A swap between two residents that waits on the manager because it is within 7 days.
+  const soon = assignments.filter(
+    (a) => Date.parse(a.startsAt) > now.getTime() && Date.parse(a.startsAt) < now.getTime() + 7 * 86_400_000,
+  );
+  const residentGives = soon.find((a) => a.userId === PEOPLE[2].userId);
+  const residentTakes = soon.find((a) => a.userId === PEOPLE[3].userId && a.kind !== residentGives?.kind);
+  const managedSwap = {
+    id: DEMO_MANAGE_SWAP_ID,
+    status: "accepted" as const,
+    autoApproved: false,
+    needsManagerBecause: "within_7_days" as const,
+    requesterId: PEOPLE[2].userId,
+    counterpartyId: PEOPLE[3].userId,
+    give: residentGives ?? null,
+    take: residentTakes ?? null,
+    decidedAt: null,
+    requesterName: PEOPLE[2].name,
+    counterpartyName: PEOPLE[3].name,
+  };
+  // Weekday targets for day, evening and night: Monday (1) to Friday (5).
+  const needs = ([1, 2, 3, 4, 5] as const).flatMap((weekday, index) =>
+    PATTERN.map((shift, kindIndex) => ({
+      id: hexId(0x2000 + index * 3 + kindIndex),
+      weekday,
+      date: null,
+      kind: shift.kind,
+      grade: null,
+      siteId: null,
+      needed: shift.kind === "day" ? 2 : 1,
+    })),
+  );
   const openDay = addDaysToDate(start, 12);
   const openShift = {
     id: DEMO_OPEN_SHIFT_ID,
@@ -165,7 +197,7 @@ export function demoRosterRead<W extends RosterReadWhat>(
     unavailability: () => ({ unavailability: [] }),
     leave_overlap: () => ({ alreadyOff: 0 }),
     manage: () => ({
-      swaps: [],
+      swaps: [managedSwap],
       openShifts: [{ ...openShift, postedBy: PEOPLE[3].userId, claimedBy: null, claimedAt: null }],
       seen: {
         publicationId: DEMO_PUBLICATION_ID,
@@ -208,7 +240,7 @@ export function demoRosterRead<W extends RosterReadWhat>(
         ends: shift.end,
         label: null,
       })),
-      needs: [],
+      needs,
       drafts: [],
     }),
     changes: () => {

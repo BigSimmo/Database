@@ -6,11 +6,13 @@ import { WEEKDAY_SHORT_LABELS } from "@/lib/calendar/month-grid";
 import { SHIFT_LETTER, SHIFT_LETTER_TONE } from "@/lib/roster/shift-kind";
 import { formatPerthDay } from "@/lib/roster/shifts/perth-time";
 import type { MonthCell } from "@/lib/roster/team/calendar-model";
+import { coverText, type CoverCount } from "@/lib/roster/team/cover";
 
 const LETTERS_SHOWN = 3;
 
-function cellLabel(cell: MonthCell): string {
+function cellLabel(cell: MonthCell, counts: readonly CoverCount[]): string {
   const parts = [formatPerthDay(cell.date)];
+  parts.push(...counts.map(coverText));
   if (cell.shifts.length) parts.push(`${cell.shifts.length} ${cell.shifts.length === 1 ? "shift" : "shifts"}`);
   if (cell.mine.length) parts.push("including yours");
   if (cell.holiday) parts.push("Public holiday");
@@ -27,10 +29,13 @@ export function MonthView({
   cells,
   onPickDay,
   today,
+  cover,
 }: {
   cells: MonthCell[][];
   onPickDay: (date: string) => void;
   today?: string;
+  /** Manager cover counts by date; without it the cells show no counts. */
+  cover?: Map<string, CoverCount[]>;
 }) {
   return (
     <div role="grid" aria-label="Month" className="grid gap-px">
@@ -63,7 +68,7 @@ export function MonthView({
               >
                 <button
                   type="button"
-                  aria-label={cellLabel(cell)}
+                  aria-label={cellLabel(cell, cover?.get(cell.date) ?? [])}
                   onClick={() => onPickDay(cell.date)}
                   className={cn(
                     focusRing,
@@ -94,6 +99,23 @@ export function MonthView({
                     ))}
                     {extra > 0 ? <span className="nums text-[color:var(--text-muted)]">{`+${extra}`}</span> : null}
                   </span>
+                  {(cover?.get(cell.date) ?? []).map((count) => (
+                    <span
+                      key={count.kind}
+                      data-cover={count.state}
+                      className={cn(
+                        "nums rounded border px-0.5 text-3xs",
+                        count.state === "short"
+                          ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
+                          : "border-transparent text-[color:var(--text-muted)]",
+                      )}
+                    >
+                      <span className="sr-only">{coverText(count)}</span>
+                      <span aria-hidden="true">
+                        {SHIFT_LETTER[count.kind]} {count.rostered}/{count.needed}
+                      </span>
+                    </span>
+                  ))}
                 </button>
               </div>
             );

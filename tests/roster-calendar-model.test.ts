@@ -58,6 +58,7 @@ describe("readCalendarState and calendarStateQuery", () => {
     const shows: CalendarState["show"][] = [
       { kind: "everyone" },
       { kind: "me" },
+      { kind: "with_me" },
       { kind: "grade", grade: "consultant" },
       { kind: "person", userId: ALEX },
       { kind: "compare", userId: SAM },
@@ -148,6 +149,30 @@ describe("filterAssignments", () => {
   it("shows only me, or nothing when I am not known", () => {
     expect(filterAssignments(rows, { kind: "me" }, ME)).toEqual([mine]);
     expect(filterAssignments(rows, { kind: "me" }, null)).toEqual([]);
+  });
+  it("shows colleagues whose shifts overlap mine with the old With me rule, and reads show=with-me", () => {
+    const now = new Date("2026-10-14T00:00:00Z");
+    const own = shift({
+      userId: ME,
+      startsAt: "2026-10-15T09:00:00+08:00",
+      endsAt: "2026-10-15T17:00:00+08:00",
+    });
+    const overlapping = shift({
+      userId: SAM,
+      startsAt: "2026-10-15T13:00:00+08:00",
+      endsAt: "2026-10-15T21:00:00+08:00",
+    });
+    const apart = shift({
+      userId: ALEX,
+      startsAt: "2026-10-16T09:00:00+08:00",
+      endsAt: "2026-10-16T17:00:00+08:00",
+    });
+    expect(filterAssignments([own, overlapping, apart], { kind: "with_me" }, ME, now)).toEqual([own, overlapping]);
+    expect(filterAssignments([own, overlapping, apart], { kind: "with_me" }, null, now)).toEqual([]);
+    expect(readCalendarState(new URLSearchParams("show=with-me"), TODAY).show).toEqual({ kind: "with_me" });
+    expect(calendarStateQuery({ view: "week", date: "2026-11-03", show: { kind: "with_me" } })).toBe(
+      "date=2026-11-03&show=with-me",
+    );
   });
   it("shows one grade", () => {
     expect(filterAssignments(rows, { kind: "grade", grade: "consultant" }, ME)).toEqual([mine, sam]);

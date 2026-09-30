@@ -28,7 +28,7 @@ export function CalendarFilters({
   onChange: (show: CalendarShow) => void;
 }) {
   const other = show.kind === "grade" || show.kind === "person" || show.kind === "compare";
-  const segment = show.kind === "me" ? "me" : other ? "filtered" : "everyone";
+  const segment = show.kind === "me" ? "me" : show.kind === "with_me" ? "with_me" : other ? "filtered" : "everyone";
   return (
     <div className="grid gap-2">
       <SegmentedControl
@@ -37,11 +37,13 @@ export function CalendarFilters({
         value={segment}
         onChange={(value) => {
           if (value === "me") onChange({ kind: "me" });
+          else if (value === "with_me") onChange({ kind: "with_me" });
           else if (value === "everyone") onChange({ kind: "everyone" });
         }}
         options={[
           { value: "everyone", label: "Everyone" },
           { value: "me", label: "Just me", disabled: !canFilterToMe },
+          { value: "with_me", label: "With me", disabled: !canFilterToMe },
           ...(other ? [{ value: "filtered", label: "Filtered" }] : []),
         ]}
       />

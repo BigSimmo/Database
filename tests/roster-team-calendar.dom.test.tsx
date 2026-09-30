@@ -252,6 +252,121 @@ describe("Team calendar", () => {
     expect(within(board).getAllByRole("rowheader")).toHaveLength(2);
   });
 
+  it("Compare with myself shows one row, not a second 'You'", async () => {
+    mockFetch([]);
+    url.set(`show=compare:${ME}`);
+    render(<RosterTeamPage now={NOW} />);
+    const board = await screen.findByRole("table", { name: "Week roster" });
+    const headers = within(board).getAllByRole("rowheader");
+    expect(headers).toHaveLength(1);
+    expect(headers[0].textContent).toMatch(/^You/);
+  });
+
+  it("offers With me next to Just me and keeps only colleagues who overlap my shifts", async () => {
+    const overlapping = { ...sams, startsAt: "2026-10-15T13:00:00+08:00", endsAt: "2026-10-15T21:00:00+08:00" };
+    const apart = {
+      ...sams,
+      id: "66666666-6666-4666-8666-666666666666",
+      userId: "77777777-7777-4777-8777-777777777777",
+      name: "Pat Example",
+      startsAt: "2026-10-16T09:00:00+08:00",
+      endsAt: "2026-10-16T17:00:00+08:00",
+    };
+    mockFetch([mine, overlapping, apart]);
+    url.set("view=day&date=2026-10-15");
+    render(<RosterTeamPage now={NOW} />);
+    const show = await screen.findByRole("radiogroup", { name: "Show" });
+    expect(
+      within(show)
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toEqual(["Everyone", "Just me", "With me"]);
+    fireEvent.click(within(show).getByRole("radio", { name: "With me" }));
+    expect(url.replace).toHaveBeenCalledWith("/roster/team?view=day&date=2026-10-15&show=with-me", { scroll: false });
+    expect(await screen.findByRole("button", { name: /Dr Sam Example/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Pat Example/ })).toBeNull();
+  });
+
+  it("does not mark an expired, unanswered swap as pending", async () => {
+    const fetchMock = mockFetch();
+    const base = fetchMock.getMockImplementation()!;
+    const requested = (expiresAt: string) => ({
+      id: "88888888-8888-4888-8888-888888888888",
+      status: "requested",
+      autoApproved: false,
+      needsManagerBecause: null,
+      cancelReason: null,
+      requesterId: ME,
+      counterpartyId: SAM,
+      give: mine,
+      take: sams,
+      expiresAt,
+      createdAt: "2026-10-10T00:00:00Z",
+      decidedAt: null,
+    });
+    let expiresAt = "2026-10-14T00:00:00Z"; // before NOW
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
+      String(input).includes("what=requests")
+        ? Response.json({ openShifts: [], swaps: [requested(expiresAt)] })
+        : base(input),
+    );
+    const first = render(<RosterTeamPage now={NOW} />);
+    const cell = await screen.findByRole("button", { name: /You.*Day.*09:00–17:00/ });
+    await vi.waitFor(() =>
+      expect(fetchMock.mock.calls.some(([item]) => String(item).includes("what=requests"))).toBe(true),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(cell.getAttribute("data-pending-swap")).toBeNull();
+    first.unmount();
+    // The same swap, still inside its window, is pending.
+    expiresAt = "2026-10-20T00:00:00Z";
+    render(<RosterTeamPage now={NOW} />);
+    const live = await screen.findByRole("button", { name: /You.*Day.*09:00–17:00/ });
+    await vi.waitFor(() => expect(live.getAttribute("data-pending-swap")).toBe("true"));
+  });
+
+  it("shows the Open shifts row only when an open shift starts in the week shown", async () => {
+    const openShift = (startsAt: string, endsAt: string) => ({
+      id: "99999999-9999-4999-8999-999999999999",
+      status: "open",
+      urgent: false,
+      startsAt,
+      endsAt,
+      shiftCode: "D",
+      kind: "day",
+      minGrade: null,
+      siteId: null,
+      mine: false,
+      claimedByMe: false,
+    });
+    const fetchMock = mockFetch();
+    const base = fetchMock.getMockImplementation()!;
+    let shiftInWeek = false;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
+      String(input).includes("what=requests")
+        ? Response.json({
+            swaps: [],
+            openShifts: [
+              shiftInWeek
+                ? openShift("2026-10-16T09:00:00+08:00", "2026-10-16T17:00:00+08:00")
+                : openShift("2026-10-22T09:00:00+08:00", "2026-10-22T17:00:00+08:00"),
+            ],
+          })
+        : base(input),
+    );
+    const first = render(<RosterTeamPage now={NOW} />);
+    await screen.findByRole("table", { name: "Week roster" });
+    await vi.waitFor(() =>
+      expect(fetchMock.mock.calls.some(([item]) => String(item).includes("what=requests"))).toBe(true),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole("rowheader", { name: /Open shifts/ })).toBeNull();
+    first.unmount();
+    shiftInWeek = true;
+    render(<RosterTeamPage now={NOW} />);
+    expect(await screen.findByRole("rowheader", { name: /Open shifts/ })).toBeTruthy();
+  });
+
   it("marks the cell of a shift in my own pending swap", async () => {
     const fetchMock = mockFetch();
     const base = fetchMock.getMockImplementation()!;
