@@ -73,10 +73,11 @@ const failed = (status: string) => status !== "ready" && status !== "loading";
  * reads at all. It is `enabled` only while both the `manage` and `maker` reads
  * have answered, so a failed read leaves the staff calendar as it was.
  *
- * Rule flags are worked out from a wider read that also covers the rules'
- * look-back, so a shift at the edge of the window is judged with its
- * neighbours. Where that cannot be done (the rules or that read failed, or the
- * look-back would not fit the read limit) the shift's swap is not `checkable`.
+ * Rule flags are worked out from a wider read that covers the rules' look-back
+ * before the window and the same span after it, so a shift at either edge is
+ * judged with its neighbours, and a swap is judged by the later shifts it
+ * could push over a limit. Where that cannot be done (the rules or that read
+ * failed, or the span would not fit the read limit) the swap is not `checkable`.
  */
 export function useManagerCalendar(
   team: RosterTeam,
@@ -96,24 +97,30 @@ export function useManagerCalendar(
   const rules = overview.data?.settings.rules ?? NO_RULES;
   const { from, to } = window;
 
+  // Rules look back from later shifts, so a swapped shift can break a rule on a
+  // shift up to `lookback` days after it: the read reaches that far past `to`
+  // as well as before `from`. The whole read stays inside the server's limit;
+  // what does not fit is trimmed from the start, and swaps there are not checked.
   const lookback = rulesLoaded ? ruleLookbackDays(rules) : 0;
+  const flagTo = addDaysToDate(to, lookback);
   const flagFrom = useMemo(() => {
     const wanted = addDaysToDate(from, -lookback);
-    const floor = addDaysToDate(to, -MAX_FLAG_SPAN_DAYS);
+    const floor = addDaysToDate(flagTo, -MAX_FLAG_SPAN_DAYS);
     return wanted < floor ? floor : wanted;
-  }, [from, to, lookback]);
-  const wide = lookback > 0 && flagFrom < from;
+  }, [from, flagTo, lookback]);
+  const wide = lookback > 0;
   const wideRead = useRosterRead(enabled && rulesLoaded && wide ? team.serviceId : null, "assignments", {
     from: flagFrom,
-    to,
+    to: flagTo,
   });
   const flagRows: readonly RosterAssignment[] | null = !rulesLoaded
     ? null
     : wide
       ? (wideRead.data?.assignments ?? null)
       : rows;
-  // The earliest start date that has its whole look-back inside the rows.
+  // The start dates whose whole look-back and look-ahead sit inside the rows.
   const coveredFrom = addDaysToDate(flagFrom, lookback);
+  const coveredTo = addDaysToDate(flagTo, -lookback);
 
   const cover = useMemo(() => {
     const counts = new Map<string, CoverCount[]>();
@@ -170,12 +177,12 @@ export function useManagerCalendar(
         const row = known.get(side.id);
         if (!row) return false;
         const date = assignmentStartDate(row);
-        return date >= coveredFrom && date <= to;
+        return date >= coveredFrom && date <= coveredTo;
       });
       if (sides.length && covered) ids.add(swap.id);
     }
     return ids;
-  }, [flagRows, pending, coveredFrom, to]);
+  }, [flagRows, pending, coveredFrom, coveredTo]);
 
   const afterSwap = useMemo(() => {
     const bySwap = new Map<string, SwapRuleFlag[]>();

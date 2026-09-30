@@ -150,8 +150,18 @@ function mockFetch(options: Options = {}) {
         sites: [],
       });
     }
-    if (address.includes("what=assignments"))
-      return Response.json({ assignments: options.assignments ?? [mine, samThursdayNight] });
+    if (address.includes("what=assignments")) {
+      // Only the shifts that start inside the asked-for dates, as the server answers.
+      const query = new URL(address, "http://localhost").searchParams;
+      const [from, to] = [query.get("from"), query.get("to")];
+      const perthDate = (iso: string) => new Date(Date.parse(iso) + 8 * 3_600_000).toISOString().slice(0, 10);
+      const rows = (options.assignments ?? [mine, samThursdayNight]) as { startsAt: string }[];
+      return Response.json({
+        assignments: rows.filter(
+          (row) => (!from || perthDate(row.startsAt) >= from) && (!to || perthDate(row.startsAt) <= to),
+        ),
+      });
+    }
     if (address.includes("what=maker")) {
       if (options.makerFails) return Response.json({ message: "Roster couldn't be reached." }, { status: 500 });
       return Response.json({ codes: [], needs: options.needs ?? [], drafts: [] });
@@ -450,6 +460,100 @@ describe("Team calendar, manager layer", () => {
       await within(strip).findByText("Approved 1. 1 left for you to read because a shift has a rule warning."),
     ).toBeTruthy();
     expect(posts).toEqual([{ action: "swap.approve", swapId: ID(82) }]);
+  });
+
+  it("'Approve all' leaves a swap at the end of the week that breaks a rule on a shift just after it", async () => {
+    // The week ends Sunday 18 Oct. Sam works Monday 19 Oct night; taking Pat's Sunday night makes two in a row.
+    const patSundayNight = shift(
+      ID(21),
+      PAT,
+      "Dr Pat Example",
+      "night",
+      "N",
+      "2026-10-18T21:30:00+08:00",
+      "2026-10-19T08:00:00+08:00",
+    );
+    const samMondayNight = shift(
+      ID(22),
+      SAM,
+      "Dr Sam Example",
+      "night",
+      "N",
+      "2026-10-19T21:30:00+08:00",
+      "2026-10-20T08:00:00+08:00",
+    );
+    const saturday = shift(
+      ID(5),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-17T09:00:00+08:00",
+      "2026-10-17T17:00:00+08:00",
+    );
+    const breaking = swap(ID(89), patSundayNight, null, {
+      requesterId: PAT,
+      counterpartyId: SAM,
+      requesterName: "Dr Pat Example",
+      counterpartyName: "Dr Sam Example",
+    });
+    const { posts, reads } = mockFetch({
+      rules: { maxNightsInRow: 1 },
+      assignments: [mine, patSundayNight, samMondayNight, saturday],
+      swaps: [breaking, swap(ID(90), saturday, null)],
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    expect(
+      await within(strip).findByText("After this swap, Dr Sam Example: 2nd night in a row (team limit 1)"),
+    ).toBeTruthy();
+    // The rule flags read reaches past the week by the rules' look-back.
+    expect(reads.some((address) => address.includes("what=assignments") && address.includes("to=2026-10-20"))).toBe(
+      true,
+    );
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve all without warnings" }));
+    expect(
+      await within(strip).findByText("Approved 1. 1 left for you to read because a shift has a rule warning."),
+    ).toBeTruthy();
+    expect(posts).toEqual([{ action: "swap.approve", swapId: ID(90) }]);
+  });
+
+  it("treats a swap as not checked where the look-back and look-ahead cannot both fit the read limit", async () => {
+    // The November grid runs 26 Oct to 6 Dec. With a 14-day hours rule the read reaches 15 days
+    // past it, so its start is trimmed to fit 60 days and early-grid swaps cannot be judged.
+    const early = shift(
+      ID(23),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-28T09:00:00+08:00",
+      "2026-10-28T17:00:00+08:00",
+    );
+    const later = shift(
+      ID(24),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-11-20T09:00:00+08:00",
+      "2026-11-20T17:00:00+08:00",
+    );
+    const { posts, reads } = mockFetch({
+      rules: { maxHours14d: 200 },
+      assignments: [early, later],
+      swaps: [swap(ID(91), early, null), swap(ID(92), later, null)],
+    });
+    url.set("view=month&date=2026-11-15");
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    await waitFor(() => expect(within(strip).getAllByText("Not checked, open it to review")).toHaveLength(1));
+    expect(reads.some((address) => address.includes("from=2026-10-22") && address.includes("to=2026-12-21"))).toBe(
+      true,
+    );
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve all without warnings" }));
+    expect(await within(strip).findByText("Approved 1. 1 not checked, open it to review.")).toBeTruthy();
+    expect(posts).toEqual([{ action: "swap.approve", swapId: ID(92) }]);
   });
 
   it("'Approve all' counts only swaps the server really approved and says why the others were not", async () => {
