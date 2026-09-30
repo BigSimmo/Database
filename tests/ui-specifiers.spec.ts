@@ -371,7 +371,7 @@ test("keeps the specifier map flow usable with reduced motion and forced colors"
   await gotoApp(page, "/specifiers/map?selected=with-anxious-distress");
 
   await expect(page.getByRole("heading", { name: "Find the right specifier", level: 1 })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Choose a specifier role" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
   const roleNavigation = page.getByRole("navigation", { name: "Choose a specifier role" });
   await expect(roleNavigation.getByRole("button")).toHaveCount(3);
   await expect(page.getByText("Base diagnosis", { exact: true })).toHaveCount(0);
