@@ -84,6 +84,30 @@ function demoAssignments(now: Date): RosterAssignment[] {
   return rows;
 }
 
+const overlaps = (a: RosterAssignment, b: RosterAssignment) =>
+  Date.parse(a.startsAt) < Date.parse(b.endsAt) && Date.parse(a.endsAt) > Date.parse(b.startsAt);
+
+/** Free for `shift` once `handedOver` is gone: none of `userId`'s other shifts overlaps it. */
+function freeFor(rows: readonly RosterAssignment[], userId: string, shift: RosterAssignment, handedOver: string) {
+  return !rows.some((row) => row.userId === userId && row.id !== handedOver && overlaps(row, shift));
+}
+
+/** The reader's and Dr Sam's shifts for the sample swap, same kind first, that neither would clash taking. */
+function acceptableSwap(future: readonly RosterAssignment[], rows: readonly RosterAssignment[]) {
+  const sam = PEOPLE[1].userId;
+  const mineAll = future.filter((a) => a.userId === DEMO_ME_ID);
+  const samsAll = future.filter((a) => a.userId === sam);
+  const fits = (mine: RosterAssignment, theirs: RosterAssignment) =>
+    freeFor(rows, DEMO_ME_ID, theirs, mine.id) && freeFor(rows, sam, mine, theirs.id);
+  for (const sameKind of [true, false]) {
+    for (const mine of mineAll) {
+      const theirs = samsAll.find((a) => (!sameKind || a.kind === mine.kind) && fits(mine, a));
+      if (theirs) return { mine, theirs };
+    }
+  }
+  return { mine: mineAll[0], theirs: samsAll[0] ?? null };
+}
+
 export function demoRosterTeams(): RosterTeam[] {
   return [
     {
@@ -104,11 +128,9 @@ export function demoRosterRead<W extends RosterReadWhat>(
   const start = periodStart(now);
   const assignments = demoAssignments(now);
   const future = assignments.filter((a) => Date.parse(a.startsAt) > now.getTime() + 8 * 86_400_000);
-  const mine = future.find((a) => a.userId === DEMO_ME_ID)!;
-  const theirs =
-    future.find((a) => a.userId === PEOPLE[1].userId && a.kind === mine.kind) ??
-    future.find((a) => a.userId === PEOPLE[1].userId) ??
-    null;
+  // The swap waiting on the reader is one that can really be accepted: neither
+  // doctor is already working when they would take the other's shift.
+  const { mine, theirs } = acceptableSwap(future, assignments);
   const publishedAt = perthWallToIso(addDaysToDate(start, -5), "16:10")!;
   const swap = {
     id: DEMO_SWAP_ID,

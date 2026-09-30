@@ -119,6 +119,26 @@ function WeekPreview({
   );
 }
 
+const ACCEPT_CANCEL_WORDS: Record<string, string> = {
+  withdrawn: "Swap cancelled: it was withdrawn",
+  roster_changed: "Swap cancelled: the roster changed",
+  member_left: "Swap cancelled: they left the team",
+  no_longer_fits: "Swap cancelled: it no longer fits",
+};
+
+/**
+ * What an Accept really did. `swap.accept` answers success even when it finds
+ * the swap has expired or no longer fits and ends it, so the words follow the
+ * returned status rather than the button pressed.
+ */
+function acceptWords(result: { status?: string; autoApproved?: boolean; cancelReason?: string }): string {
+  if (result.status === "approved") return result.autoApproved ? "Swap approved itself" : "Swap accepted";
+  if (result.status === "cancelled") return ACCEPT_CANCEL_WORDS[result.cancelReason ?? ""] ?? "Swap cancelled";
+  if (result.status === "expired") return "Swap expired before you accepted it";
+  if (result.status === "accepted") return "Swap accepted";
+  return "Answer sent. Check Swaps for where it has got to";
+}
+
 const grade = (value: string | null) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : "Grade not set");
 
 export function SwapFlowSheet(props: {
@@ -485,8 +505,8 @@ export function SwapAnswerCard({
       setUndoable(false);
       onDone("Swap undone");
     } else if (action === "swap.accept") {
-      setUndoable(!!result.result.autoApproved);
-      onDone(result.result.autoApproved ? "Swap approved itself" : "Swap accepted");
+      setUndoable(result.result.status === "approved" && !!result.result.autoApproved);
+      onDone(acceptWords(result.result));
     } else onDone("Swap declined");
   }
 

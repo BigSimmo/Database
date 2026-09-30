@@ -350,6 +350,7 @@ describe("SwapAnswerCard", () => {
   const done = vi.fn();
 
   it("shows what they give and get, and accepts", async () => {
+    mocks.post.mockResolvedValueOnce({ ok: true, result: { swapId: SWAP, status: "accepted" } });
     render(<SwapAnswerCard swap={swap} serviceId={SERVICE} actorId={ME} onDone={done} />);
     expect(screen.getByText("Dr Sam Example give")).toBeTruthy();
     expect(screen.getByText("Dr Sam Example get")).toBeTruthy();
@@ -358,6 +359,22 @@ describe("SwapAnswerCard", () => {
     await act(async () => {});
     expect(mocks.post).toHaveBeenCalledWith(SERVICE, { action: "swap.accept", swapId: SWAP });
     expect(done).toHaveBeenCalledWith("Swap accepted");
+  });
+
+  it.each([
+    [{ status: "approved", autoApproved: true }, "Swap approved itself"],
+    [{ status: "cancelled", cancelReason: "roster_changed" }, "Swap cancelled: the roster changed"],
+    [{ status: "cancelled", cancelReason: "no_longer_fits" }, "Swap cancelled: it no longer fits"],
+    [{ status: "expired" }, "Swap expired before you accepted it"],
+  ])("says what really happened when Accept comes back %o", async (result, words) => {
+    mocks.post.mockResolvedValueOnce({ ok: true, result: { swapId: SWAP, ...result } });
+    render(<SwapAnswerCard swap={swap} serviceId={SERVICE} actorId={ME} onDone={done} />);
+    await screen.findByLabelText("Your week after");
+    fireEvent.click(screen.getByRole("button", { name: "Accept swap" }));
+    await act(async () => {});
+    expect(done).toHaveBeenCalledWith(words);
+    expect(done).not.toHaveBeenCalledWith("Swap accepted");
+    expect(screen.queryByRole("button", { name: "Undo for 10 min" }) !== null).toBe(result.status === "approved");
   });
 
   it("reads Expired and offers no Accept once the swap has run out", () => {
