@@ -71,9 +71,13 @@ export function MonthView({
                 data-date={cell.date}
                 data-mine={cell.mine.length ? "true" : undefined}
                 className={cn(
-                  "min-w-0 rounded-lg border border-[color:var(--border)]",
-                  cell.mine.length > 0 &&
-                    "bg-[color:var(--surface-wash)] ring-2 ring-inset ring-[color:var(--mode-identity)]",
+                  // Ring owns the cell outline so a non-mine cell still has a
+                  // border; the "mine" branch swaps the ring width and colour
+                  // rather than layering a second edge (the design-system
+                  // contract forbids border + ring on the same element).
+                  cell.mine.length > 0
+                    ? "min-w-0 rounded-lg bg-[color:var(--surface-wash)] ring-2 ring-inset ring-[color:var(--mode-identity)]"
+                    : "min-w-0 rounded-lg ring-1 ring-inset ring-[color:var(--border)]",
                   !cell.inMonth && "opacity-60",
                 )}
               >
