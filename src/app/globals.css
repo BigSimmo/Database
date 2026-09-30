@@ -3022,18 +3022,18 @@ summary::-webkit-details-marker {
 }
 /* END tablet mode-home composer geometry */
 
-/* Favourites is the one mode home without the privacy line under its search
-   bar (owner decision 2026-09-30), so its settled stack is shorter: 108px on
-   phones and 128px across 640-1279px, measured. Without these the page kept
-   the full reserve and showed a blank band under the search bar. At 1280px+
-   the 88px default is already below the settled height, as on every home. */
+/* Favourites shows its search pill alone on its home: no privacy line and no
+   "Try this" ticker, prompt rail or "Try …" line (owner decisions 2026-09-30).
+   Its settled stack is just the pill, measured at 52px on phones and 56px from
+   640px up, so the reserve matches exactly and no blank band sits under the
+   search bar. */
 .favourites-composer-slot {
-  --spacing-mode-home-composer-phone: 6.75rem;
+  --spacing-mode-home-composer-phone: 3.25rem;
 }
 
-@media (min-width: 640px) and (max-width: 1279.98px) {
+@media (min-width: 640px) {
   .favourites-composer-slot {
-    --spacing-mode-home-composer-wide: 8rem;
+    --spacing-mode-home-composer-wide: 3.5rem;
   }
 }
 
