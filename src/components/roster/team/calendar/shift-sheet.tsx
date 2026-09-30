@@ -15,9 +15,14 @@ import { DecisionAnswer, SwapDecisionRow, useRosterDecision, type SwapChecks } f
 
 const noop = () => {};
 
-/** Swap and Give away are offered only on my own shift that has not started. */
+/**
+ * Swap and Give away are offered only on my own shift that has not started,
+ * and never on leave, which the server refuses to swap or give away.
+ */
 export function canRequestShift(shift: RosterAssignment, actorId: string | null, now: Date): boolean {
-  return actorId !== null && shift.userId === actorId && Date.parse(shift.startsAt) > now.getTime();
+  return (
+    actorId !== null && shift.userId === actorId && shift.kind !== "leave" && Date.parse(shift.startsAt) > now.getTime()
+  );
 }
 
 /**

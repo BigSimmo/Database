@@ -204,6 +204,31 @@ describe("monthCells", () => {
     expect(october.find((cell) => cell.date === "2026-10-31")?.mine).toEqual([night]);
   });
 
+  it("places UTC 'Z' timestamps by their Perth date, as the server sends them", () => {
+    // 13:30Z is 21:30 on 31 Oct in Perth; 16:30Z the same UTC day is 00:30 on 1 Nov in Perth.
+    const lateOnThe31st = shift({
+      kind: "night",
+      shiftCode: "N",
+      startsAt: "2026-10-31T13:30:00Z",
+      endsAt: "2026-10-31T23:30:00Z",
+    });
+    const pastMidnight = shift({
+      userId: SAM,
+      name: "Dr Sam Example",
+      kind: "night",
+      shiftCode: "N",
+      startsAt: "2026-10-31T16:30:00Z",
+      endsAt: "2026-11-01T00:30:00Z",
+    });
+    const cells = monthCells("2026-10", [lateOnThe31st, pastMidnight], ME).flat();
+    expect(cells.find((cell) => cell.date === "2026-10-31")?.shifts).toEqual([lateOnThe31st]);
+    expect(cells.find((cell) => cell.date === "2026-11-01")?.shifts).toEqual([pastMidnight]);
+    // Week of Monday 26 Oct: Saturday 31 Oct and Sunday 1 Nov.
+    const board = weekBoard("2026-10-26", [lateOnThe31st, pastMidnight], ME);
+    expect(board.find((row) => row.userId === ALEX)?.days.map((list) => list.length)).toEqual([0, 0, 0, 0, 0, 1, 0]);
+    expect(board.find((row) => row.userId === SAM)?.days.map((list) => list.length)).toEqual([0, 0, 0, 0, 0, 0, 1]);
+  });
+
   it("lays out whole Monday-first weeks and marks in-month days", () => {
     const grid = monthCells("2026-10", [], ME);
     expect(grid).toHaveLength(5);

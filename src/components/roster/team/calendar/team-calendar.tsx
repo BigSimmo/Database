@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { RosterSentBar, type SentReceipt } from "@/components/roster/requests/roster-sent-bar";
+import type { SharedManageReload } from "@/components/roster/manage/roster-approve-tab";
 import { SwapFlowSheet } from "@/components/roster/swaps/swap-flow-sheet";
 import { postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
@@ -123,7 +124,18 @@ type RequestSheet = { kind: "swap" | "give_away"; shift: RosterAssignment } | nu
  * with `router.replace`, so stepping around never piles up history and
  * nothing about the roster is kept on the device.
  */
-export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId: string | null; now: Date }) {
+export function TeamCalendar({
+  team,
+  actorId,
+  now,
+  shared,
+}: {
+  team: RosterTeam;
+  actorId: string | null;
+  now: Date;
+  /** On the Manage page: the manage reload shared with the Approve tab. */
+  shared?: SharedManageReload;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -149,21 +161,6 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   function go(next: CalendarState) {
     router.replace(`${pathname}?${calendarStateQuery(next)}`, { scroll: false });
   }
-  const onSent = useCallback(
-    (message: string, undo?: () => Promise<void>) => {
-      setSent({
-        message,
-        undo: undo
-          ? async () => {
-              await undo();
-              reload();
-            }
-          : undefined,
-      });
-      reload();
-    },
-    [reload],
-  );
 
   const all = read.data?.assignments ?? [];
   const rows = filterAssignments(all, state.show, actorId, now);
@@ -177,11 +174,41 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const cover = new Map([...manager.cover].filter(([date]) => date >= today));
   const managerReload = manager.reload;
   const requestsReload = requests.reload;
+  const sharedChanged = shared?.onChanged;
   const managerChanged = useCallback(() => {
     managerReload();
     requestsReload();
     reload();
-  }, [managerReload, requestsReload, reload]);
+    sharedChanged?.("calendar");
+  }, [managerReload, requestsReload, reload, sharedChanged]);
+  const round = shared?.round ?? 0;
+  const changedBy = shared?.changedBy;
+  const seenRound = useRef(round);
+  useEffect(() => {
+    if (round === seenRound.current) return;
+    seenRound.current = round;
+    if (changedBy === "calendar") return;
+    managerReload();
+    requestsReload();
+    reload();
+  }, [round, changedBy, managerReload, requestsReload, reload]);
+  // A sent swap or give-away changes requests and manage as well as the roster,
+  // so the pending outline and the new open shift show straight away.
+  const onSent = useCallback(
+    (message: string, undo?: () => Promise<void>) => {
+      setSent({
+        message,
+        undo: undo
+          ? async () => {
+              await undo();
+              managerChanged();
+            }
+          : undefined,
+      });
+      managerChanged();
+    },
+    [managerChanged],
+  );
   return (
     <>
       {state.view === "month" ? (

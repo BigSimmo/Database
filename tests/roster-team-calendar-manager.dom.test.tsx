@@ -32,7 +32,9 @@ vi.mock("next/navigation", () => ({
     ),
 }));
 vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
+vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "authenticated", authEpoch: 1 }) }));
 
+import { UNDO_MS } from "@/components/roster/swaps/use-delayed-roster-action";
 import { approveAllWithoutWarnings } from "@/components/roster/team/calendar/needs-you-strip";
 import { RosterTeamPage } from "@/components/roster/team/roster-team-page";
 import type { RosterAction, RosterManageSwap } from "@/lib/roster/team/model";
@@ -168,6 +170,7 @@ beforeEach(() => {
   url.set("");
 });
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -278,6 +281,24 @@ describe("Team calendar, manager layer", () => {
     expect(met.getAttribute("data-cover")).toBe("met");
     expect(met.className).not.toContain("--info");
     expect(screen.getByText("Nights 1 of 2").getAttribute("data-cover")).toBe("short");
+  });
+
+  it("reads requests, manage and the roster again after a give-away is sent from the calendar", async () => {
+    const { posts, reads } = mockFetch();
+    render(<RosterTeamPage now={NOW} />);
+    fireEvent.click(await screen.findByRole("button", { name: /You, Day 09:00–17:00/ }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Give away" }));
+    const offer = await screen.findByRole("button", { name: /^Offer to 1 person/ });
+    const count = (what: string) => reads.filter((address) => address.includes(`what=${what}`)).length;
+    const before = { requests: count("requests"), manage: count("manage"), assignments: count("assignments") };
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.click(offer);
+    await act(async () => vi.advanceTimersByTime(UNDO_MS + 1));
+    vi.useRealTimers();
+    await waitFor(() => expect(posts).toEqual([{ action: "open.post", assignmentId: mine.id }]));
+    await waitFor(() => expect(count("requests")).toBeGreaterThan(before.requests));
+    expect(count("manage")).toBeGreaterThan(before.manage);
+    expect(count("assignments")).toBeGreaterThan(before.assignments);
   });
 
   it("offers a manager 'Post as open shift' on an upcoming shift", async () => {

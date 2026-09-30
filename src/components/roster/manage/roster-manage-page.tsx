@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
 import { useRosterNow } from "@/components/roster/roster-format";
@@ -20,6 +20,14 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
   const now = useRosterNow();
   const overview = useRosterRead(serviceId, "overview");
   const [section, setSection] = useState("approve");
+  // One shared reload for the manager's swaps and open shifts: a decision in
+  // the Approve tab or in the calendar's strip refreshes the other too. Each
+  // side reloads itself and skips the round it started.
+  const [manageRound, setManageRound] = useState({ round: 0, changedBy: "" });
+  const manageChanged = useCallback(
+    (changedBy: string) => setManageRound((current) => ({ round: current.round + 1, changedBy })),
+    [],
+  );
   if (overview.status === "error")
     return (
       <div>
@@ -36,7 +44,7 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
       <div className="order-1 grid min-w-0 gap-6 lg:order-2">
         <RosterManageNavHeader activeId={section} onSelect={setSection} />
         {section === "approve" ? (
-          <RosterApproveTab serviceId={serviceId} />
+          <RosterApproveTab serviceId={serviceId} shared={{ ...manageRound, onChanged: manageChanged }} />
         ) : section === "cover" ? (
           <RosterCoverTab serviceId={serviceId} overview={overview.data} />
         ) : (
@@ -61,7 +69,7 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
         className="order-2 grid min-w-0 content-start gap-4 lg:order-1"
       >
         <Suspense fallback={<p role="status">Loading the team roster…</p>}>
-          <TeamCalendar team={team} actorId={actorId} now={now} />
+          <TeamCalendar team={team} actorId={actorId} now={now} shared={{ ...manageRound, onChanged: manageChanged }} />
         </Suspense>
       </div>
     </div>

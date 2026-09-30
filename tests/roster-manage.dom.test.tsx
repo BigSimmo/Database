@@ -159,3 +159,47 @@ it("offers Print in Month view only, and it prints the page", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Print" }));
   expect(print).toHaveBeenCalledTimes(1);
 });
+
+it("a decision in the calendar strip also refreshes the Approve tab, from one shared reload", async () => {
+  const waiting = {
+    id: "swap",
+    status: "accepted",
+    requesterId: "sam",
+    counterpartyId: "noor",
+    needsManagerBecause: "within_7_days",
+    autoApproved: false,
+    give: null,
+    take: null,
+    decidedAt: null,
+    requesterName: "Sam",
+    counterpartyName: "Noor",
+  };
+  const reads: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") return Response.json({ result: { swapId: "swap", status: "approved" } });
+      const what = new URL(String(input), "http://localhost").searchParams.get("what");
+      if (!what)
+        return Response.json({
+          actorId: "alex",
+          teams: [{ serviceId: "team", name: "Example team", enabled: true, role: "manager", grade: null }],
+        });
+      reads.push(what);
+      if (what === "overview") return Response.json(overview);
+      if (what === "assignments") return Response.json({ assignments: [] });
+      if (what === "requests") return Response.json({ swaps: [], openShifts: [] });
+      if (what === "maker") return Response.json({ codes: [], needs: [], drafts: [] });
+      if (what === "manage") return Response.json({ swaps: [waiting], openShifts: [], seen: null });
+      return Response.json({ people: [], leave: [] });
+    }),
+  );
+  render(<RosterManagePage />);
+  const strip = await screen.findByRole("region", { name: "Needs you" });
+  await screen.findByRole("region", { name: "Approve" });
+  const manageReads = () => reads.filter((what) => what === "manage").length;
+  const before = manageReads();
+  fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+  // The calendar reads again for itself, and the Approve tab reads again with it.
+  await waitFor(() => expect(manageReads()).toBeGreaterThanOrEqual(before + 2));
+});
