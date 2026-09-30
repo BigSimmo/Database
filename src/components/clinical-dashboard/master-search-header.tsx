@@ -2329,11 +2329,13 @@ export function MasterSearchHeader({
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
-          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
+          // Favourites shows the pill alone on its home too (owner decision
+          // 2026-09-30): no "Try this" ticker, "Try …" line or prompt rail.
+          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome && searchMode !== "favourites"}
           // Only the mode-home hero keeps the "Try …" line and prompt rail.
           // Result views, page slots, and the answer dock render the pill
           // alone in every mode.
-          showHomeSuggestions={isDesktopHomeComposer}
+          showHomeSuggestions={isDesktopHomeComposer && searchMode !== "favourites"}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
