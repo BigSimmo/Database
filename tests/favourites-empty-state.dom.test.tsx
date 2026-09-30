@@ -35,22 +35,22 @@ vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => (
 }));
 
 describe("favourites empty rendering", () => {
-  it("renders one no-match state and one related status region across responsive layouts", () => {
+  it("renders one empty-library state, not a no-match state, when nothing is saved", () => {
     render(<FavouritesCommandLibraryPage query="" demoMode={false} />);
 
-    expect(screen.getAllByTestId("favourites-empty-matches")).toHaveLength(1);
-    expect(screen.getAllByText("No favourites match")).toHaveLength(1);
-    expect(
-      screen.getAllByRole("status").filter((status) => status.textContent?.includes("No favourites match")),
-    ).toHaveLength(1);
+    // An empty library is not a search that missed: it says how to save the first item.
+    expect(screen.getAllByTestId("favourites-empty-library")).toHaveLength(1);
+    expect(screen.getAllByText("No favourites yet")).toHaveLength(1);
+    expect(screen.queryByTestId("favourites-empty-matches")).toBeNull();
+    expect(screen.queryByText("No favourites match")).toBeNull();
   });
 
-  it("uses Set and Type facets while keeping Recently used outside the filter count", async () => {
+  it("uses Set and Type facets while keeping the Recent view outside the filter count", async () => {
     const user = userEvent.setup();
     render(<FavouritesCommandLibraryPage query="" demoMode />);
 
     expect(screen.queryByTestId("favourites-filter-rail")).toBeNull();
-    const trigger = screen.getByTestId("favourites-filter-trigger-phone");
+    const trigger = screen.getByTestId("favourites-filter-trigger");
     expect(trigger).toHaveAccessibleName(/No filters active/);
 
     await user.click(trigger);
@@ -66,9 +66,11 @@ describe("favourites empty rendering", () => {
     await user.click(within(panel).getByTestId("favourites-filter-panel-done"));
     expect(screen.getByRole("button", { name: "Remove Status: Pinned filter" })).toBeVisible();
 
-    const recent = screen.getByRole("button", { name: "Recently used" });
+    const organise = screen.getByRole("radiogroup", { name: "Organise favourites" });
+    const recent = within(organise).getByRole("radio", { name: "Recent" });
+    await user.click(within(organise).getByRole("radio", { name: "A to Z" }));
     await user.click(recent);
-    expect(recent).toHaveAttribute("aria-pressed", "true");
+    expect(recent).toHaveAttribute("aria-checked", "true");
     expect(trigger).toHaveAccessibleName(/1 filter active/);
   });
 });

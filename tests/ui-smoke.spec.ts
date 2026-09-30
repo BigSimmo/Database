@@ -4475,16 +4475,20 @@ test.describe("PsychSift UI smoke coverage", () => {
     await workspace.getByRole("button", { name: "Notes" }).click();
     await expect(workspace).toContainText("No personal note is saved for this item.");
 
-    const moreActions = page.getByRole("button", { name: "More actions for Lithium monitoring guideline" });
+    // The row menu is a named actions sheet (a centred dialog at this width).
+    const moreActions = visibleByTestId(page, "favourite-row-lithium-monitoring-guideline").getByRole("button", {
+      name: "More actions for Lithium monitoring guideline",
+    });
     await moreActions.focus();
-    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Actions for Lithium monitoring guideline" });
-    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(dialog.getByRole("button", { name: "Copy citation" })).toBeFocused();
+    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeVisible();
+    const copyCitation = dialog.getByRole("button", { name: "Copy citation" });
+    await copyCitation.focus();
     await page.keyboard.press("Enter");
     await expect(dialog.getByRole("button", { name: "Copied" })).toBeFocused();
     await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
     await expect(moreActions).toBeFocused();
   });
 
@@ -4497,12 +4501,14 @@ test.describe("PsychSift UI smoke coverage", () => {
       message: "favourites hub owner",
     });
     await expect(hub.locator('article[role="button"]')).toHaveCount(0);
-    const card = hub.locator("article").filter({ hasText: "Acamprosate renal screen" });
+    // One row at every width: below xl it is a plain link that opens the item,
+    // and the xl-only select button beside it is not rendered visibly.
+    const card = hub.getByTestId("favourite-row-acamprosate-renal-screen");
     const openItem = card.getByRole("link", { name: "Open Acamprosate renal screen" });
     const moreActions = card.getByRole("button", { name: "More actions for Acamprosate renal screen" });
 
     await expect(card).toBeVisible();
-    await expect(card.locator("button[aria-pressed]")).toHaveCount(0);
+    await expect(card.locator("button[aria-pressed]")).toBeHidden();
     await expectMinTouchTarget(openItem);
     await expectMinTouchTarget(moreActions);
     await expectNoPageHorizontalOverflow(page);
@@ -4511,7 +4517,6 @@ test.describe("PsychSift UI smoke coverage", () => {
     const row = page.getByTestId("favourite-row-acamprosate-renal-screen");
     await expect(row).toBeVisible();
     await expect(row.locator("button[aria-pressed]")).toBeHidden();
-    await expect(row.locator("td").first().getByRole("link")).toBeVisible();
     await expect(row.getByRole("link", { name: "Open Acamprosate renal screen" })).toBeVisible();
     await expect(row.getByRole("button", { name: "More actions for Acamprosate renal screen" })).toBeVisible();
 
