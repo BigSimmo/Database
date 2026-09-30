@@ -10,7 +10,7 @@ import type { RosterAssignment, RosterGrade, RosterSettings, SwapNeedsManagerRea
  * reason, so a missing grade or name never hides a person from the board.
  */
 
-export type CannotReason = "lower_grade" | "no_grade" | "already_working" | "rest_rule";
+export type CannotReason = "lower_grade" | "no_grade" | "on_leave" | "already_working" | "rest_rule";
 
 export type SwapChoice = {
   userId: string;
@@ -32,9 +32,12 @@ export const reasonWords = {
 const CANNOT_WORDS: Record<CannotReason, string> = {
   lower_grade: "Lower grade than this shift needs",
   no_grade: "No grade on the roster",
+  on_leave: "On leave then",
   already_working: "Already working then",
   rest_rule: "Would break the team's rest rule",
 };
+
+const SHIFT_HAS_NO_GRADE_WORDS = "This shift has no grade on the roster, so the manager needs to set one first";
 
 type Person = { userId: string; name: string | null; grade: RosterGrade | null };
 
@@ -84,12 +87,26 @@ function whyNot(
   give: RosterAssignment,
   person: Person,
   giverRank: number | null,
-): CannotReason {
+): { reason: CannotReason; words: string } {
   const rank = gradeRank(person.grade);
-  if (rank === null || giverRank === null) return "no_grade";
-  if (rank < giverRank) return "lower_grade";
-  if (placementProblem(rows, person.userId, give.startsAt, give.endsAt, [], null)) return "already_working";
-  return "rest_rule";
+  // A colleague with no grade is told so; otherwise a missing shift grade is the shift's problem.
+  if (rank === null) return { reason: "no_grade", words: CANNOT_WORDS.no_grade };
+  if (giverRank === null) return { reason: "no_grade", words: SHIFT_HAS_NO_GRADE_WORDS };
+  let reason: CannotReason = "rest_rule";
+  if (rank < giverRank) reason = "lower_grade";
+  else if (placementProblem(rows, person.userId, give.startsAt, give.endsAt, [], null)) {
+    const start = Date.parse(give.startsAt);
+    const end = Date.parse(give.endsAt);
+    const onLeave = rows.some(
+      (row) =>
+        row.userId === person.userId &&
+        row.kind === "leave" &&
+        Date.parse(row.startsAt) < end &&
+        Date.parse(row.endsAt) > start,
+    );
+    reason = onLeave ? "on_leave" : "already_working";
+  }
+  return { reason, words: CANNOT_WORDS[reason] };
 }
 
 const byName = (a: { name: string | null }, b: { name: string | null }) => {
@@ -118,14 +135,13 @@ export function swapOptions(input: {
   const cannot = colleagues(rows, me.userId)
     .filter((person) => !canIds.has(person.userId))
     .map((person): SwapBlocked => {
-      const reason = whyNot(rows, give, person, giverRank);
-      return { userId: person.userId, name: person.name, reason, words: CANNOT_WORDS[reason] };
+      return { userId: person.userId, name: person.name, ...whyNot(rows, give, person, giverRank) };
     })
     .sort(byName);
   return { can, cannot };
 }
 
-/** The seven days from the Monday of `give`, each person's shifts before and after the swap. */
+/** Each person's shifts before and after the swap, for the Monday-to-Sunday weeks of both shifts. */
 export function swapPreview(
   rows: readonly RosterAssignment[],
   give: RosterAssignment,
@@ -136,9 +152,12 @@ export function swapPreview(
   mine: { before: RosterAssignment[]; after: RosterAssignment[] };
   theirs: { before: RosterAssignment[]; after: RosterAssignment[] };
 } {
-  const giveDate = perthDateOf(give.startsAt);
-  const monday = addDaysToDate(giveDate, 1 - isoWeekday(giveDate));
-  const dates = new Set(Array.from({ length: 7 }, (_, index) => addDaysToDate(monday, index)));
+  const dates = new Set<string>();
+  for (const shift of take ? [give, take] : [give]) {
+    const date = perthDateOf(shift.startsAt);
+    const monday = addDaysToDate(date, 1 - isoWeekday(date));
+    for (let index = 0; index < 7; index += 1) dates.add(addDaysToDate(monday, index));
+  }
   const inWeek = (row: RosterAssignment) => dates.has(perthDateOf(row.startsAt));
   const week = (userId: string) => rows.filter((row) => row.userId === userId && inWeek(row)).sort(byStart);
   const swapped = (before: RosterAssignment[], leaving: RosterAssignment | null, arriving: RosterAssignment | null) =>

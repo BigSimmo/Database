@@ -97,6 +97,27 @@ describe("swapOptions", () => {
     expect(cannot.map((c) => c.userId).sort()).toEqual(["dana", "kai", "lee", "noor", "sam"]);
   });
 
+  it("says a colleague on leave at that time is on leave, not working", () => {
+    const leave = shift("ola", "registrar", "2026-10-19", "00:00", "2026-10-22", "00:00", "leave");
+    const { can, cannot } = swapOptions({ rows: [...rows, leave], give, me, settings, now: NOW });
+    expect(can.some((c) => c.userId === "ola")).toBe(false);
+    expect(cannot.find((c) => c.userId === "ola")).toMatchObject({ reason: "on_leave", words: "On leave then" });
+    expect(cannot.find((c) => c.userId === "kai")).toMatchObject({ reason: "already_working" });
+  });
+
+  it("blames the shift, not the colleague, when the shift itself has no grade", () => {
+    const ungraded = { ...give, grade: null };
+    const { cannot } = swapOptions({ rows, give: ungraded, me: { userId: "mei", grade: null }, settings, now: NOW });
+    const shiftWords = "This shift has no grade on the roster, so the manager needs to set one first";
+    expect(cannot.find((c) => c.userId === "dana")).toMatchObject({ reason: "no_grade", words: shiftWords });
+    expect(cannot.find((c) => c.userId === "sam")).toMatchObject({ reason: "no_grade", words: shiftWords });
+    // A colleague with no grade of their own is still told so.
+    expect(cannot.find((c) => c.userId === "lee")).toMatchObject({
+      reason: "no_grade",
+      words: "No grade on the roster",
+    });
+  });
+
   it("offers as take-back only the colleague's future shifts that do not clash with the reader", () => {
     const { can } = swapOptions({ rows, give, me, settings, now: NOW });
     const sam = can.find((c) => c.userId === "sam")!;
@@ -132,6 +153,17 @@ describe("swapPreview", () => {
     expect(ids(preview.theirs.after)).toContain(give.id);
     expect(ids(preview.theirs.after)).not.toContain(take.id);
     expect(preview.theirs.after).toHaveLength(3);
+  });
+
+  it("shows the take-back shift too when it falls outside the give's week", () => {
+    const later = shift("sam", "registrar", "2026-10-28", "08:00", "2026-10-28", "16:30");
+    const preview = swapPreview([...rows, later], give, later, "mei", "sam");
+    const ids = (list: RosterAssignment[]) => list.map((a) => a.id);
+    expect(ids(preview.mine.after)).toEqual([rows[1].id, later.id]);
+    expect(ids(preview.theirs.after)).toContain(give.id);
+    expect(ids(preview.theirs.after)).not.toContain(later.id);
+    // Both shifts' weeks are shown, so Sam's 28 Oct shift is in his before list.
+    expect(ids(preview.theirs.before)).toContain(later.id);
   });
 
   it("just moves the shift across when nothing is taken back", () => {
