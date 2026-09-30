@@ -1,3 +1,4 @@
+import { medicationEntitiesInText } from "@/lib/medication-entities";
 import type { ToolCatalogArea, ToolCatalogId, ToolCatalogRecord } from "@/lib/tools-catalog";
 
 /**
@@ -115,4 +116,19 @@ export function readPinnedToolIds(storedValue: string | null | undefined): ToolC
 export function togglePinnedToolId(current: readonly ToolCatalogId[], id: ToolCatalogId): ToolCatalogId[] {
   if (current.includes(id)) return current.filter((candidate) => candidate !== id);
   return [...current, id].slice(-maxPinnedTools);
+}
+
+/**
+ * Tool ranking only knows each tool's own keywords, so a medicine name such as
+ * "clozapine" matched nothing. When the query names a known medicine, lead with
+ * Medication Prescribing, drawn from the session's own tools so gating still holds.
+ */
+export function withMedicineMatch(
+  matched: readonly ToolCatalogRecord[],
+  query: string,
+  sessionTools: readonly ToolCatalogRecord[],
+): ToolCatalogRecord[] {
+  const prescribing = sessionTools.find((tool) => tool.id === "medication-prescribing");
+  if (!prescribing || medicationEntitiesInText(query).length === 0) return [...matched];
+  return [prescribing, ...matched.filter((tool) => tool.id !== prescribing.id)];
 }
