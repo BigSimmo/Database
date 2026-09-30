@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { fetchRosterRead, postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
+import { coverForDay, needsOn } from "@/lib/roster/team/cover";
 import { fairnessCounts } from "@/lib/roster/team/fairness";
 import { openShiftCandidates } from "@/lib/roster/team/eligibility";
 import type { RosterAssignment, RosterOverview, RosterMaker } from "@/lib/roster/team/model";
@@ -197,18 +198,10 @@ export function RosterCoverTab({ serviceId, overview }: { serviceId: string; ove
     );
   const shifts = assignments.data.assignments;
   const days = Array.from({ length: 14 }, (_, index) => addDaysToDate(today, index));
-  const matchingNeeds = (date: string, kind: string) =>
-    maker.data!.needs.filter(
-      (need) =>
-        need.kind === kind &&
-        (need.date ? need.date === date : need.weekday === new Date(`${date}T00:00:00Z`).getUTCDay()),
-    );
   const gaps = days.flatMap((date) =>
-    maker
-      .data!.needs.filter(
+    needsOn(date, maker.data!.needs)
+      .filter(
         (need) =>
-          need.kind !== "leave" &&
-          (need.date ? need.date === date : need.weekday === new Date(`${date}T00:00:00Z`).getUTCDay()) &&
           shifts.filter(
             (row) =>
               perthDateOf(row.startsAt) === date &&
@@ -259,12 +252,14 @@ export function RosterCoverTab({ serviceId, overview }: { serviceId: string; ove
               <tr key={date} className="border-t">
                 <th className="p-2 font-normal">{formatPerthDay(date)}</th>
                 {["day", "evening", "night"].map((kind) => {
-                  const needs = matchingNeeds(date, kind);
-                  const count = shifts.filter((row) => perthDateOf(row.startsAt) === date && row.kind === kind).length;
+                  const cover = coverForDay(date, shifts, maker.data!.needs).find((row) => row.kind === kind);
+                  const count =
+                    cover?.rostered ??
+                    shifts.filter((row) => perthDateOf(row.startsAt) === date && row.kind === kind).length;
                   return (
                     <td key={kind} className="p-2">
                       {count}
-                      {needs.length ? ` / ${needs.reduce((sum, row) => sum + row.needed, 0)}` : ""}
+                      {cover ? ` / ${cover.needed}` : ""}
                     </td>
                   );
                 })}
