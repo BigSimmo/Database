@@ -36,6 +36,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
 
 import { RosterTeamPage } from "@/components/roster/team/roster-team-page";
+import { SHIFT_LETTER_TONE } from "@/lib/roster/shift-kind";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const SAM = "22222222-2222-4222-8222-222222222222";
@@ -293,6 +294,54 @@ describe("Team calendar", () => {
         .map((header) => header.textContent);
       expect(headers).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
       expect(within(grid).getAllByRole("rowheader").length).toBeGreaterThan(3);
+    });
+
+    it("colours each shift letter by its kind and outlines my own cell", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      const cell = cellFor(container, "2026-10-15");
+      const [day, evening] = [...cell.querySelectorAll("[data-shift-letter]")];
+      expect(day.classList.contains(SHIFT_LETTER_TONE.day)).toBe(true);
+      expect(evening.classList.contains(SHIFT_LETTER_TONE.evening)).toBe(true);
+      expect(SHIFT_LETTER_TONE.day).not.toBe(SHIFT_LETTER_TONE.evening);
+      expect(cell.classList.contains("ring-2")).toBe(true);
+      expect(cellFor(container, "2026-10-16").classList.contains("ring-2")).toBe(false);
+    });
+
+    it("offers Swap and Give away in the day sheet on my future shift only", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      fireEvent.click(within(cellFor(container, "2026-10-15")).getByRole("button"));
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).getAllByRole("button", { name: "Swap" })).toHaveLength(1);
+      expect(within(sheet).getAllByRole("button", { name: "Give away" })).toHaveLength(1);
+      const mineRow = within(sheet).getByRole("button", { name: /You/ }).closest("li")!;
+      expect(within(mineRow).getByRole("button", { name: "Swap" })).toBeTruthy();
+    });
+
+    it("offers no Swap or Give away in the day sheet once my shift has started", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={new Date("2026-10-15T03:00:00Z")} />);
+      await screen.findByRole("grid");
+      fireEvent.click(within(cellFor(container, "2026-10-15")).getByRole("button"));
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).queryByRole("button", { name: "Swap" })).toBeNull();
+      expect(within(sheet).queryByRole("button", { name: "Give away" })).toBeNull();
+    });
+
+    it("says nothing to show, not nobody, on an empty day while a filter is on", async () => {
+      mockFetch([sams]);
+      url.set("view=month&date=2026-10-15&show=me");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      fireEvent.click(within(cellFor(container, "2026-10-15")).getByRole("button"));
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).getByText("No shifts to show on this day.")).toBeTruthy();
     });
 
     it("opens a day sheet listing names by grade, then the shift", async () => {

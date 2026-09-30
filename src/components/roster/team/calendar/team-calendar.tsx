@@ -235,10 +235,20 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           date={pickedDay}
           rows={rows.filter((row) => assignmentStartDate(row) === pickedDay)}
           actorId={actorId}
+          now={now}
+          filtered={state.show.kind !== "everyone"}
           onClose={() => setPickedDay(null)}
           onPickShift={(shift) => {
             setPickedDay(null);
             setSelected(shift);
+          }}
+          onSwap={(shift) => {
+            setPickedDay(null);
+            setRequest({ kind: "swap", assignmentId: shift.id });
+          }}
+          onGiveAway={(shift) => {
+            setPickedDay(null);
+            setRequest({ kind: "give_away", assignmentId: shift.id });
           }}
         />
       ) : null}

@@ -3,7 +3,7 @@
 import { focusRing } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
 import { WEEKDAY_SHORT_LABELS } from "@/lib/calendar/month-grid";
-import { SHIFT_LETTER } from "@/lib/roster/shift-kind";
+import { SHIFT_LETTER, SHIFT_LETTER_TONE } from "@/lib/roster/shift-kind";
 import { formatPerthDay } from "@/lib/roster/shifts/perth-time";
 import type { MonthCell } from "@/lib/roster/team/calendar-model";
 
@@ -56,7 +56,8 @@ export function MonthView({
                 data-mine={cell.mine.length ? "true" : undefined}
                 className={cn(
                   "min-w-0 rounded-lg border border-[color:var(--border)]",
-                  cell.mine.length && "border-[color:var(--mode-identity)] bg-[color:var(--surface-wash)]",
+                  cell.mine.length &&
+                    "bg-[color:var(--surface-wash)] ring-2 ring-inset ring-[color:var(--mode-identity)]",
                   !cell.inMonth && "opacity-60",
                 )}
               >
@@ -83,7 +84,7 @@ export function MonthView({
                   <span className="flex min-w-0 flex-wrap gap-x-1 lg:flex-col">
                     {cell.shifts.slice(0, LETTERS_SHOWN).map((shift) => (
                       <span key={shift.id} className="flex min-w-0 items-baseline gap-1">
-                        <span data-shift-letter className="nums font-medium">
+                        <span data-shift-letter className={cn("nums font-medium", SHIFT_LETTER_TONE[shift.kind])}>
                           {SHIFT_LETTER[shift.kind]}
                         </span>
                         <span className="hidden min-w-0 truncate lg:inline">

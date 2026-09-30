@@ -7,6 +7,11 @@ import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import type { RosterAssignment, RosterTeam } from "@/lib/roster/team/model";
 
+/** Swap and Give away are offered only on my own shift that has not started. */
+export function canRequestShift(shift: RosterAssignment, actorId: string | null, now: Date): boolean {
+  return actorId !== null && shift.userId === actorId && Date.parse(shift.startsAt) > now.getTime();
+}
+
 /**
  * One shift in detail. Swap and Give away are offered only on my own shift
  * that has not started; the request sheets do the real checking.
@@ -30,7 +35,7 @@ export function ShiftSheet({
 }) {
   const now = useRosterNow(suppliedNow);
   const isMine = actorId !== null && shift.userId === actorId;
-  const canRequest = isMine && Date.parse(shift.startsAt) > now.getTime();
+  const canRequest = canRequestShift(shift, actorId, now);
   const details: [string, string][] = [
     ["Who", isMine ? "You" : (shift.name ?? "Name not available")],
     ["Time", formatShiftRange(shift)],
