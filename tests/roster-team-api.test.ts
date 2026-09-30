@@ -94,11 +94,16 @@ it("holds real staff team access in production until explicitly enabled", async 
   expect(heldRead.status).toBe(200);
   expect(mocks.rpc).not.toHaveBeenCalled();
 
-  // Held: every write is still refused, and nothing reaches the database.
-  const heldWrite = await POST(jsonRequest({ action: "leave.request", from: "2026-10-01", to: "2026-10-02" }), ctx());
-  expect(heldWrite.status).toBe(503);
-  expect(await heldWrite.json()).toMatchObject({ code: "roster_release_held" });
+  // Held: a team action gets an example receipt; nothing reaches the database and no alert is sent.
+  const heldWrite = await POST(jsonRequest({ action: "swap.approve", swapId: SWAP }), ctx());
+  expect(heldWrite.status).toBe(200);
+  expect(await heldWrite.json()).toEqual({ result: { ok: true, swapId: SWAP, status: "approved" } });
   expect(mocks.rpc).not.toHaveBeenCalled();
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+
+  // Held: a malformed action is still refused before any answer.
+  const badWrite = await POST(jsonRequest({ action: "leave.request", from: "2026-10-01" }), ctx());
+  expect(badWrite.status).toBe(400);
 
   // Held: a signed-out reader is asked to sign in, not shown the sample.
   mocks.auth.mockRejectedValueOnce(new (await import("@/lib/supabase/auth")).AuthenticationError());

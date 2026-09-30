@@ -29,6 +29,7 @@ import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } f
 import { RosterHoursPanel, type RosterExtraTime } from "./roster-hours-panel";
 import { RosterImportFlow } from "./roster-import-flow";
 import { RosterLetter, RosterWeekChart } from "./roster-week-strip";
+import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
@@ -266,6 +267,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
           ) : (
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
+              <RosterSampleShiftsNotice sample={shifts.sample} />
               {notice ? <ModeNotice tone={notice.tone}>{notice.text}</ModeNotice> : null}
               {shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
               {view === "week" ? (

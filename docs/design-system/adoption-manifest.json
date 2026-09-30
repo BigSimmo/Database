@@ -658,12 +658,14 @@
       "directImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
+        "src/components/favourites/favourites-set-chips.tsx",
         "src/components/therapy-compass/recommend-scenario-fields.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
+        "src/components/favourites/favourites-set-chips.tsx",
         "src/components/therapy-compass/recommend-scenario-fields.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
@@ -768,6 +770,7 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/calendar/calendar-subscribe.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
@@ -777,6 +780,7 @@
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-subscribe.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-route-client.tsx",
@@ -1980,6 +1984,7 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
@@ -1999,6 +2004,7 @@
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
@@ -2088,6 +2094,7 @@
         "tests/answer-progress-ui-smoke.spec.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/eval-process-safety.test.ts",
+        "tests/favourites-page-actions.dom.test.tsx",
         "tests/search-results-header-band.dom.test.tsx",
         "tests/ui-cme-phone.spec.ts",
         "tests/ui-formulation.spec.ts",
@@ -2149,6 +2156,7 @@
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
+        "src/components/favourites/favourite-sheets.tsx",
         "src/components/first-nations/before-you-go-in.tsx",
         "src/components/first-nations/page-menu.tsx",
         "src/components/first-nations/primer.tsx",
@@ -2225,6 +2233,7 @@
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
+        "src/components/favourites/favourite-sheets.tsx",
         "src/components/first-nations/before-you-go-in.tsx",
         "src/components/first-nations/page-menu.tsx",
         "src/components/first-nations/primer.tsx",

@@ -906,7 +906,10 @@ a complete description. **Publication status.** The PR 10 contract is implemente
 axes: `tone` (appearance) · `priority` (polite/assertive) · `persistence` (timed —
 pauses on hover **and** focus — or explicit) · optional labelled `action`. One
 application-level viewport at the toast rung (above modal, deliberately); queue cap and
-dedupe; warning and danger never share an icon (SPEC §5). **Publication status.**
+dedupe; warning and danger never share an icon (SPEC §5). A toast with an `action` or an
+`onClose(reason)` callback is never merged by dedupe, and `onClose` fires exactly once
+(`timeout`, `dismiss` or `action`), so a caller can hold back a removal until Undo has
+had its chance (Favourites does this). **Publication status.**
 `ToastRegion` is the visual export; `ToastProvider` and `useToast` remain support-only APIs.
 
 ### 9.23 `Sheet`
@@ -1058,10 +1061,10 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |             107 |
 | `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
-| `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Citation`               | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `CitationList`           | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
+| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
@@ -1089,9 +1092,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `SearchField`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              17 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              18 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              74 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              75 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

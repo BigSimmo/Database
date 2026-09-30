@@ -1315,6 +1315,83 @@ describe("Toast", () => {
     expect(screen.getAllByTestId("toast")).toHaveLength(1);
     expect(screen.getByTestId("toast")).toHaveAttribute("data-announce-key", "1");
   });
+
+  it("runs a labelled action once and reports why each toast closed", async () => {
+    const onAction = vi.fn();
+    const closes: string[] = [];
+    function ActionHarness() {
+      const { push } = useToast();
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              push({
+                tone: "info",
+                title: "Removed Lithium monitoring guideline",
+                duration: 0,
+                action: { label: "Undo", onAction },
+                onClose: (reason) => closes.push(`undo:${reason}`),
+              })
+            }
+          >
+            Remove
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              push({ tone: "info", title: "Moved", duration: 0, onClose: (reason) => closes.push(`move:${reason}`) })
+            }
+          >
+            Move
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <ActionHarness />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Removed Lithium monitoring guideline")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Move" }));
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss: Moved" }));
+    expect(closes).toEqual(["undo:action", "move:dismiss"]);
+  });
+
+  it("pauses the close timer while the toast has focus and reports a timeout afterwards", async () => {
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      let pushToast: ((title: string) => void) | null = null;
+      function TimedHarness() {
+        const { push } = useToast();
+        pushToast = (title) =>
+          push({ tone: "info", title, duration: 1000, action: { label: "Undo", onAction: vi.fn() }, onClose });
+        return null;
+      }
+      render(
+        <ToastProvider>
+          <TimedHarness />
+        </ToastProvider>,
+      );
+      act(() => pushToast?.("Moved to Ward round"));
+      act(() => screen.getByRole("button", { name: "Undo" }).focus());
+      act(() => vi.advanceTimersByTime(5000));
+      expect(screen.getByText("Moved to Ward round")).toBeInTheDocument();
+      act(() => screen.getByRole("button", { name: "Undo" }).blur());
+      act(() => vi.advanceTimersByTime(1000));
+      expect(screen.queryByText("Moved to Ward round")).not.toBeInTheDocument();
+      expect(onClose).toHaveBeenCalledWith("timeout");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("DoseLine", () => {

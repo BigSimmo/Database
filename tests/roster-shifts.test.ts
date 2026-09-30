@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diffRoster, rosterWindow } from "@/lib/roster/shifts/diff";
 import type { OnCallShift, OnCallShiftInput } from "@/lib/roster/shifts/model";
@@ -37,7 +37,7 @@ vi.mock("@/lib/api-rate-limit", () => ({
 }));
 
 import { DELETE, GET, POST } from "@/app/api/roster/shifts/route";
-import { DELETE as legacyDelete, POST as legacyPost } from "@/app/api/on-call/shifts/route";
+import { DELETE as legacyDelete, GET as legacyGet, POST as legacyPost } from "@/app/api/on-call/shifts/route";
 import { PATCH } from "@/app/api/roster/shifts/imports/[id]/route";
 import { DELETE as deleteManualShiftSeries } from "@/app/api/roster/shifts/manual/[seriesId]/route";
 import { POST as postManualShift } from "@/app/api/roster/shifts/manual/route";
@@ -680,5 +680,46 @@ describe("hand-added shifts", () => {
       { params: Promise.resolve({ seriesId: "not-a-uuid" }) },
     );
     expect(response.status).toBe(404);
+  });
+});
+
+describe("the example roster while team rosters are held", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("shows a doctor with no shifts of their own the sample doctor's roster, marked as an example", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    fakeSupabase({ on_call_shifts: [], on_call_shift_imports: [] });
+    const response = await GET(request("GET"));
+    const payload = (await response.json()) as { sample?: boolean; shifts: Array<{ workplace: string | null }> };
+    expect(payload.sample).toBe(true);
+    expect(payload.shifts.length).toBeGreaterThan(10);
+    expect(payload.shifts.every((item) => item.workplace === "Example Hospital")).toBe(true);
+  });
+
+  it("shows the doctor's own shifts, never the example, once they have any", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    fakeSupabase(storedRows);
+    const payload = (await (await GET(request("GET"))).json()) as {
+      sample?: boolean;
+      shifts: Array<{ title: string }>;
+    };
+    expect(payload.sample).toBeUndefined();
+    expect(payload.shifts.map((item) => item.title)).toEqual(["Mine"]);
+  });
+
+  it("never gives On Call the example roster as a real shift", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    fakeSupabase({ on_call_shifts: [], on_call_shift_imports: [] });
+    const payload = await (await legacyGet(request("GET"))).json();
+    expect(payload).toEqual({ shifts: [], latestImport: null });
+  });
+
+  it("has no example once team rosters are released", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ROSTER_TEAM_RELEASE_ENABLED", "true");
+    fakeSupabase({ on_call_shifts: [], on_call_shift_imports: [] });
+    const payload = (await (await GET(request("GET"))).json()) as { sample?: boolean; shifts: unknown[] };
+    expect(payload.sample).toBeUndefined();
+    expect(payload.shifts).toEqual([]);
   });
 });
