@@ -203,11 +203,117 @@ describe("Team calendar", () => {
     expect(within(sheet).queryByRole("button", { name: "Swap" })).toBeNull();
   });
 
-  it("lists the filtered shifts by day in Week view until the board arrives", async () => {
+  it("shows the Week view as a board with me first and a sticky names column", async () => {
     mockFetch();
     render(<RosterTeamPage now={NOW} />);
-    expect(await screen.findByRole("button", { name: /Dr Sam Example/ })).toBeTruthy();
-    expect(screen.getByText("Thu 15 Oct")).toBeTruthy();
+    const board = await screen.findByRole("table", { name: "Week roster" });
+    const names = within(board)
+      .getAllByRole("rowheader")
+      .map((header) => header.textContent);
+    expect(names[0]).toMatch(/^You/);
+    expect(names[1]).toMatch(/Dr Sam Example/);
+    expect(within(board).getAllByRole("rowheader")[0].className).toContain("sticky left-0");
+    expect(board.parentElement?.className).toContain("overflow-x-auto");
+    expect(within(board).getByRole("button", { name: /Dr Sam Example.*Night.*21:30–08:00 \+1/ })).toBeTruthy();
+  });
+
+  it("opens the shift sheet from a board cell", async () => {
+    mockFetch();
+    render(<RosterTeamPage now={NOW} />);
+    fireEvent.click(await screen.findByRole("button", { name: /You.*Day.*09:00–17:00/ }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("Compare shows exactly two rows: me and the chosen colleague", async () => {
+    const third = {
+      ...sams,
+      id: "66666666-6666-4666-8666-666666666666",
+      userId: "77777777-7777-4777-8777-777777777777",
+      name: "Pat Example",
+    };
+    mockFetch([mine, sams, third]);
+    url.set(`show=compare:${SAM}`);
+    render(<RosterTeamPage now={NOW} />);
+    const board = await screen.findByRole("table", { name: "Week roster" });
+    const headers = within(board)
+      .getAllByRole("rowheader")
+      .map((header) => header.textContent ?? "");
+    expect(headers).toHaveLength(2);
+    expect(headers[0]).toMatch(/^You/);
+    expect(headers[1]).toMatch(/Dr Sam Example/);
+  });
+
+  it("Compare still shows the colleague's row when they have no shifts that week", async () => {
+    mockFetch([mine]);
+    url.set(`show=compare:${SAM}`);
+    render(<RosterTeamPage now={NOW} />);
+    const board = await screen.findByRole("table", { name: "Week roster" });
+    expect(within(board).getAllByRole("rowheader")).toHaveLength(2);
+  });
+
+  it("marks the cell of a shift in my own pending swap", async () => {
+    const fetchMock = mockFetch();
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).includes("what=requests"))
+        return Response.json({
+          openShifts: [],
+          swaps: [
+            {
+              id: "88888888-8888-4888-8888-888888888888",
+              status: "requested",
+              autoApproved: false,
+              needsManagerBecause: null,
+              cancelReason: null,
+              requesterId: ME,
+              counterpartyId: SAM,
+              give: mine,
+              take: sams,
+              expiresAt: "2026-10-20T00:00:00Z",
+              createdAt: "2026-10-14T00:00:00Z",
+              decidedAt: null,
+            },
+          ],
+        });
+      return base(input);
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const cell = await screen.findByRole("button", { name: /You.*Day.*09:00–17:00/ });
+    await vi.waitFor(() => expect(cell.getAttribute("data-pending-swap")).toBe("true"));
+    expect(screen.getByRole("button", { name: /Dr Sam Example.*Night/ }).getAttribute("data-pending-swap")).toBe(
+      "true",
+    );
+  });
+
+  it("shows open shifts in an amber row labelled Open shift", async () => {
+    const fetchMock = mockFetch();
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).includes("what=requests"))
+        return Response.json({
+          swaps: [],
+          openShifts: [
+            {
+              id: "99999999-9999-4999-8999-999999999999",
+              status: "open",
+              urgent: false,
+              startsAt: "2026-10-16T09:00:00+08:00",
+              endsAt: "2026-10-16T17:00:00+08:00",
+              shiftCode: "D",
+              kind: "day",
+              minGrade: null,
+              siteId: null,
+              mine: false,
+              claimedByMe: false,
+            },
+          ],
+        });
+      return base(input);
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const cell = await screen.findByText("Open shift");
+    expect(cell.closest("[data-open-shift]")?.className).toContain("--warning");
+    expect(screen.getByRole("rowheader", { name: /Open shifts/ })).toBeTruthy();
   });
 
   it("writes nothing to the device", async () => {

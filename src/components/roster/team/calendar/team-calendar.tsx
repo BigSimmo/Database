@@ -14,23 +14,26 @@ import { formatShiftRange } from "@/components/roster/roster-format";
 import { postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
+import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import {
   calendarStateQuery,
   calendarWindow,
   filterAssignments,
   readCalendarState,
   stepCalendar,
+  weekBoard,
+  type BoardRow,
   type CalendarShow,
   type CalendarState,
   type CalendarView,
 } from "@/lib/roster/team/calendar-model";
-import type { RosterAssignment, RosterTeam } from "@/lib/roster/team/model";
+import type { RosterAssignment, RosterSwap, RosterTeam } from "@/lib/roster/team/model";
 import { assignmentStartDate } from "@/lib/roster/team/team-view";
 
 import { CalendarFilters, type CalendarPerson } from "./calendar-filters";
 import { DayView } from "./day-view";
 import { ShiftSheet } from "./shift-sheet";
+import { WeekBoard } from "./week-board";
 
 const VIEWS: { value: CalendarView; label: string }[] = [
   { value: "month", label: "Month" },
@@ -102,6 +105,42 @@ function ShiftsByDay({
   );
 }
 
+/** Assignment ids in the reader's own swaps that are still waiting on an answer. */
+function pendingAssignmentIds(swaps: readonly RosterSwap[], actorId: string | null): Set<string> {
+  const ids = new Set<string>();
+  if (!actorId) return ids;
+  for (const swap of swaps) {
+    if (swap.status !== "requested" && swap.status !== "accepted") continue;
+    if (swap.requesterId !== actorId && swap.counterpartyId !== actorId) continue;
+    for (const side of [swap.give, swap.take]) if (side) ids.add(side.id);
+  }
+  return ids;
+}
+
+/** In Compare, both people get a row even when one has no shifts that week. */
+function withComparedPeople(
+  board: BoardRow[],
+  show: CalendarShow,
+  actorId: string | null,
+  people: readonly CalendarPerson[],
+): BoardRow[] {
+  if (show.kind !== "compare") return board;
+  const missing = (userId: string | null, isMe: boolean): BoardRow[] =>
+    userId === null || board.some((row) => row.userId === userId)
+      ? []
+      : [
+          {
+            userId,
+            name: people.find((person) => person.userId === userId)?.name ?? "Name not available",
+            grade: null,
+            isMe,
+            days: Array.from({ length: 7 }, () => []),
+          },
+        ];
+  const merged = [...board, ...missing(actorId, true), ...missing(show.userId, false)];
+  return merged.sort((a, b) => Number(b.isMe) - Number(a.isMe));
+}
+
 type RequestSheet = { kind: "swap" | "give_away"; assignmentId: string } | null;
 
 /**
@@ -116,6 +155,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const today = perthDateOf(now);
   const state = readCalendarState(params, today);
   const overview = useRosterRead(team.serviceId, "overview");
+  const requests = useRosterRead(team.serviceId, "requests");
   const read = useRosterRead(team.serviceId, "assignments", calendarWindow(state));
   const reload = read.reload;
   const [selected, setSelected] = useState<RosterAssignment | null>(null);
@@ -152,6 +192,9 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const all = read.data?.assignments ?? [];
   const rows = filterAssignments(all, state.show, actorId);
   const unit = UNIT[state.view];
+  const monday = calendarWindow({ ...state, view: "week" }).from;
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDaysToDate(monday, index));
+  const pendingSwapIds = pendingAssignmentIds(requests.data?.swaps ?? [], actorId);
   return (
     <>
       <SegmentedControl
@@ -213,6 +256,14 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         </div>
       ) : state.view === "day" ? (
         <DayView actorId={actorId} now={now} day={state.date} today={today} rows={rows} onSelect={setSelected} />
+      ) : state.view === "week" ? (
+        <WeekBoard
+          rows={withComparedPeople(weekBoard(monday, rows, actorId), state.show, actorId, peopleIn(all))}
+          days={weekDays}
+          onPickShift={setSelected}
+          pendingSwapIds={pendingSwapIds}
+          openShifts={requests.data?.openShifts}
+        />
       ) : (
         <ShiftsByDay rows={rows} actorId={actorId} onSelect={setSelected} />
       )}
