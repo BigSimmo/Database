@@ -2,7 +2,7 @@
 
 How Documentation keeps project docs accurate, logged, and non-stale across Joshua’s repos. **Process doc — no product DDL.**
 
-_Owned by Documentation. Updated 2026-09-21 (adversarial registry accuracy)._
+_Owned by Documentation. Updated 2026-09-30 — registry tip-true for #2959 landed; removed phantom Documentation skills; Documentation owns._
 
 ## Principles
 
@@ -53,7 +53,7 @@ Verified against `origin/main` on 2026-09-21 unless noted. Tip-only claims are l
 
 | Project                                   | Tip / repo                                                      | Entry docs (on `main` unless noted)                                                                                                         | Doc check on `main`                                                                          | Notes                                                                                                                                                                         |
 | ----------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PsychSift** (repo `BigSimmo/PsychSift`) | GitHub default `main`; local tips on Josh PC worktrees as named | Root `README.md`, curated `docs/README.md` (hand-maintained Start-here / index — **not** auto-written by `docs:update`), process: this file | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is **PsychSift**. Supabase project label is **PsychSift Production**. Closeout board (when merged): [PR #2959](https://github.com/BigSimmo/PsychSift/pull/2959). |
+| **PsychSift** (repo `BigSimmo/PsychSift`) | GitHub default `main`; local tips on Josh PC worktrees as named | Root `README.md`, curated `docs/README.md` (hand-maintained Start-here / index — **not** auto-written by `docs:update`), process: this file | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is **PsychSift**. Supabase project label is **PsychSift Production**. Closeout notes landed via [PR #2959](https://github.com/BigSimmo/PsychSift/pull/2959) (merged 2026-09-21). |
 
 ### Catalog honesty
 
@@ -64,9 +64,10 @@ Verified against `origin/main` on 2026-09-21 unless noted. Tip-only claims are l
 
 - Script names and filenames in this table must match `package.json` and the tip tree — verify before editing this file.
 - If an entry doc cites a tip SHA, that SHA must equal `git rev-parse HEAD` on the locked tip (or the sentence must say “as of &lt;date&gt;” and be updated on the next docs pass).
-- Agent skills (**Documentation Operating System**, **Docs Freshness Audit**) mirror this file; when they disagree, **this file on the project tip/PR wins**, then skills are updated.
+- This file is the live source for Documentation process in this repo. There are no separate tip skills named **Documentation Operating System** or **Docs Freshness Audit** — do not hunt for them.
 
 ## Related
 
-- Agent skills (Documentation bot): **Documentation Operating System**, **Docs Freshness Audit**.
-- Active PsychSift / PsychSift Production closeout PR: [#2959](https://github.com/BigSimmo/PsychSift/pull/2959) (lands the closeout notes on PR #2959).
+- Process ownership: this file (`docs/DOCS-SYSTEM.md`) and curated `docs/README.md`.
+- PsychSift / PsychSift Production closeout notes: [PR #2959](https://github.com/BigSimmo/PsychSift/pull/2959) (merged 2026-09-21).
+- Weekday freshness sweep is a Documentation operating habit, not an npm skill.
