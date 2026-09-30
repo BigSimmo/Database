@@ -124,6 +124,18 @@ export function complianceExpiresOn(entry: OnCallEntry): string | undefined {
 }
 
 /**
+ * The day the holder recorded that they checked with the issuer themselves,
+ * or `undefined`. Never On Call freshness (`lastVerifiedAt`) and never a
+ * verdict — callers must phrase it as a holder action, not as "verified".
+ */
+export function complianceIssuerCheckedOn(entry: OnCallEntry): string | undefined {
+  const details = entry.details;
+  if (typeof details !== "object" || details === null) return undefined;
+  const value = (details as { issuerCheckedOn?: unknown }).issuerCheckedOn;
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+/**
  * Whether the date the holder RECORDED is now in the past.
  *
  * Named for the record, not the person, and that is the whole care taken here.
@@ -191,6 +203,7 @@ export const COMPLIANCE_MARKER_KEYS = [
   "provenance",
   "expiryHistory",
   "proofNote",
+  "issuerCheckedOn",
   "notForThisJob",
   "requirementId",
 ] as const;

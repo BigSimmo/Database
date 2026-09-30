@@ -344,6 +344,19 @@ const logisticsDetails = z
     /** "Where's your proof": a note to self of up to 120 characters, never the proof itself. */
     proofNote: trimmed.max(120).optional(),
     /**
+     * Calendar day (`YYYY-MM-DD`) the holder pressed "Record issuer check
+     * today" after looking at the real register themselves.
+     *
+     * Never inferred from Renewed, open, or view, and never reused from
+     * `lastVerifiedAt` (On Call freshness). Surfaces may say "Last checked
+     * with issuer · {date} · by you" or "No issuer check recorded" — never
+     * "verified" or "compliant". Optional JSONB, so older rows keep parsing.
+     */
+    issuerCheckedOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+      .optional(),
+    /**
      * Owner-only: this requirement does not apply to the doctor's current job
      * (spec review 27/28, "Not for this job", approved by Josh 18:48Z). Storing
      * it moves the row to a final section on Renewals and takes it out of the
