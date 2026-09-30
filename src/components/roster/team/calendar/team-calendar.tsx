@@ -14,11 +14,13 @@ import { formatShiftRange } from "@/components/roster/roster-format";
 import { postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { monthKeyOf } from "@/lib/calendar/month-grid";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import {
   calendarStateQuery,
   calendarWindow,
   filterAssignments,
+  monthCells,
   readCalendarState,
   stepCalendar,
   type CalendarShow,
@@ -29,7 +31,9 @@ import type { RosterAssignment, RosterTeam } from "@/lib/roster/team/model";
 import { assignmentStartDate } from "@/lib/roster/team/team-view";
 
 import { CalendarFilters, type CalendarPerson } from "./calendar-filters";
+import { DaySheet } from "./day-sheet";
 import { DayView } from "./day-view";
+import { MonthView } from "./month-view";
 import { ShiftSheet } from "./shift-sheet";
 
 const VIEWS: { value: CalendarView; label: string }[] = [
@@ -57,7 +61,7 @@ function peopleIn(rows: readonly RosterAssignment[]): CalendarPerson[] {
 }
 
 /**
- * The Month and Week views arrive in later tasks. Until then both show the
+ * The Week board arrives in a later task. Until then Week shows the
  * filtered shifts as a list by the day each one starts, so the page stays usable.
  */
 function ShiftsByDay({
@@ -119,6 +123,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const read = useRosterRead(team.serviceId, "assignments", calendarWindow(state));
   const reload = read.reload;
   const [selected, setSelected] = useState<RosterAssignment | null>(null);
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [request, setRequest] = useState<RequestSheet>(null);
   const [sent, setSent] = useState<SentReceipt | null>(null);
   const clearSent = useCallback(() => setSent(null), []);
@@ -213,6 +218,8 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         </div>
       ) : state.view === "day" ? (
         <DayView actorId={actorId} now={now} day={state.date} today={today} rows={rows} onSelect={setSelected} />
+      ) : state.view === "month" ? (
+        <MonthView cells={monthCells(monthKeyOf(state.date), rows, actorId)} today={today} onPickDay={setPickedDay} />
       ) : (
         <ShiftsByDay rows={rows} actorId={actorId} onSelect={setSelected} />
       )}
@@ -223,6 +230,18 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         />
       </ModeGroupedList>
       <RosterSentBar receipt={sent} clear={clearSent} />
+      {pickedDay ? (
+        <DaySheet
+          date={pickedDay}
+          rows={rows.filter((row) => assignmentStartDate(row) === pickedDay)}
+          actorId={actorId}
+          onClose={() => setPickedDay(null)}
+          onPickShift={(shift) => {
+            setPickedDay(null);
+            setSelected(shift);
+          }}
+        />
+      ) : null}
       {selected ? (
         <ShiftSheet
           shift={selected}

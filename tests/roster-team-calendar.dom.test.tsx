@@ -210,6 +210,107 @@ describe("Team calendar", () => {
     expect(screen.getByText("Thu 15 Oct")).toBeTruthy();
   });
 
+  describe("Month view", () => {
+    const shift = (
+      id: string,
+      userId: string,
+      name: string,
+      kind: string,
+      code: string,
+      start: string,
+      end: string,
+    ) => ({
+      ...mine,
+      id,
+      userId,
+      name,
+      kind,
+      shiftCode: code,
+      startsAt: start,
+      endsAt: end,
+    });
+    const busyDay = [
+      mine,
+      shift(
+        "66666666-6666-4666-8666-666666666666",
+        SAM,
+        "Dr Sam Example",
+        "evening",
+        "E",
+        "2026-10-15T13:00:00+08:00",
+        "2026-10-15T21:00:00+08:00",
+      ),
+      shift(
+        "77777777-7777-4777-8777-777777777777",
+        "88888888-8888-4888-8888-888888888888",
+        "Dr Pat Example",
+        "evening",
+        "E",
+        "2026-10-15T14:00:00+08:00",
+        "2026-10-15T22:00:00+08:00",
+      ),
+      sams,
+    ];
+    const cellFor = (container: HTMLElement, date: string) =>
+      container.querySelector<HTMLElement>(`[data-date="${date}"]`)!;
+
+    it("shows three shift letters and +1 for a day with four shifts", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      const cell = cellFor(container, "2026-10-15");
+      const letters = [...cell.querySelectorAll("[data-shift-letter]")].map((node) => node.textContent);
+      expect(letters).toEqual(["D", "E", "E"]);
+      expect(within(cell).getByText("+1")).toBeTruthy();
+    });
+
+    it("marks the cell of my own shift and no other", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      expect(cellFor(container, "2026-10-15").getAttribute("data-mine")).toBe("true");
+      expect(cellFor(container, "2026-10-16").getAttribute("data-mine")).not.toBe("true");
+    });
+
+    it("gives a public holiday the words for screen readers", async () => {
+      mockFetch([]);
+      url.set("view=month&date=2026-09-28");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      expect(within(cellFor(container, "2026-09-28")).getByText("Public holiday")).toBeTruthy();
+      expect(within(cellFor(container, "2026-09-29")).queryByText("Public holiday")).toBeNull();
+    });
+
+    it("lays out a grid with Monday-first column headers", async () => {
+      mockFetch([]);
+      url.set("view=month&date=2026-10-15");
+      render(<RosterTeamPage now={NOW} />);
+      const grid = await screen.findByRole("grid");
+      const headers = within(grid)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent);
+      expect(headers).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+      expect(within(grid).getAllByRole("rowheader").length).toBeGreaterThan(3);
+    });
+
+    it("opens a day sheet listing names by grade, then the shift", async () => {
+      mockFetch(busyDay);
+      url.set("view=month&date=2026-10-15");
+      const { container } = render(<RosterTeamPage now={NOW} />);
+      await screen.findByRole("grid");
+      fireEvent.click(within(cellFor(container, "2026-10-15")).getByRole("button"));
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).getByText("Registrars")).toBeTruthy();
+      expect(within(sheet).getByText("Dr Pat Example")).toBeTruthy();
+      expect(within(sheet).getByText("You")).toBeTruthy();
+      fireEvent.click(within(sheet).getByRole("button", { name: /Dr Sam Example.*Night/ }));
+      const shiftSheet = await screen.findByRole("dialog");
+      expect(within(shiftSheet).getByText(/21:30–08:00 \+1/)).toBeTruthy();
+    });
+  });
+
   it("writes nothing to the device", async () => {
     const setItem = vi.spyOn(Storage.prototype, "setItem");
     mockFetch();
