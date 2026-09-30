@@ -5554,6 +5554,86 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* Roster team calendar print (Manage page, Month view).
+ * Same isolation as the shared clinical output above: everything else on the
+ * page is made invisible and the marked calendar region is lifted to the top
+ * of the sheet, so headers, docks, nav and the Manage tabs never print.
+ * The month grid is fitted to one A4 landscape page. System colours keep it
+ * legible on paper whatever theme is on screen, and the signed-in person's
+ * days are marked with an outline rather than a tint. */
+@media print {
+  @page roster-month {
+    size: a4 landscape;
+    margin: 10mm;
+  }
+
+  body:has([data-roster-print]) {
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  body:has([data-roster-print]) * {
+    visibility: hidden !important;
+  }
+
+  [data-roster-print],
+  [data-roster-print] * {
+    visibility: visible !important;
+  }
+
+  [data-roster-print] {
+    display: grid !important;
+    gap: 4mm;
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    color: CanvasText;
+    background: Canvas;
+    page: roster-month;
+  }
+
+  [data-roster-print] * {
+    color: CanvasText !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  [data-roster-print] :is([role="radiogroup"], select, input, label, a, [role="status"], [data-print-hide]) {
+    display: none !important;
+  }
+
+  [data-roster-print] [role="grid"] {
+    break-inside: avoid;
+    gap: 0;
+  }
+
+  [data-roster-print] [role="gridcell"] {
+    border: 1px solid GrayText;
+    border-radius: 0;
+    opacity: 1;
+    overflow: hidden;
+  }
+
+  [data-roster-print] [role="gridcell"][data-mine] {
+    outline: 2px solid CanvasText;
+    outline-offset: -3px;
+  }
+
+  /* The global print reset hides every button; a month cell is a button. */
+  [data-roster-print] [role="gridcell"] > button {
+    display: flex !important;
+    min-height: 22mm;
+    font-size: 8pt;
+  }
+
+  [data-roster-print] [role="gridcell"] span.hidden {
+    display: inline !important;
+  }
+}
+
 /* Phone reserve padding animates while the short-lived reserve-transition
    marker is active (hide and reveal). Mode/route flips of
    --mobile-composer-reserve (hero ↔ dock) must snap — those clear the marker
