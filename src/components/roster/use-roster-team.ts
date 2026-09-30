@@ -146,10 +146,14 @@ export async function fetchRosterRead<W extends RosterReadWhat>(
   }
 }
 
-/** Send one team action. The body names no actor: the server takes it from the session. */
+/**
+ * Send one team action. The body names no actor: the server takes it from the
+ * session. `keepalive` lets a held send finish even as the page is leaving.
+ */
 export async function postRosterAction(
   serviceId: string,
   action: RosterAction,
+  options?: { keepalive?: boolean },
 ): Promise<{ ok: true; result: RosterCommandResult } | { ok: false; code: string; message: string }> {
   try {
     const response = await fetch(rosterTeamUrl(serviceId), {
@@ -157,6 +161,7 @@ export async function postRosterAction(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(action),
       cache: "no-store",
+      ...(options?.keepalive ? { keepalive: true } : {}),
     });
     const payload = (await response.json().catch(() => null)) as
       ({ result?: RosterCommandResult } & ErrorPayload) | null;

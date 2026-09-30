@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
+import { useRosterNow } from "@/components/roster/roster-format";
 import { useRosterRead, useRosterTeams } from "@/components/roster/use-roster-team";
+import type { RosterTeam } from "@/lib/roster/team/model";
+import { TeamCalendar } from "@/components/roster/team/calendar/team-calendar";
 import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notice";
 import { RosterManageNavHeader } from "./roster-manage-nav-header";
 import { RosterApproveTab } from "./roster-approve-tab";
@@ -12,9 +15,19 @@ import { RosterPeopleList } from "./roster-people-list";
 import { RosterTeamSettings } from "./roster-team-settings";
 import { RosterPublishTab } from "./publish/roster-publish-tab";
 
-function ManagerTeam({ serviceId }: { serviceId: string }) {
+function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | null }) {
+  const { serviceId } = team;
+  const now = useRosterNow();
   const overview = useRosterRead(serviceId, "overview");
   const [section, setSection] = useState("approve");
+  // One shared reload for the manager's swaps and open shifts: a decision in
+  // the Approve tab or in the calendar's strip refreshes the other too. Each
+  // side reloads itself and skips the round it started.
+  const [manageRound, setManageRound] = useState({ round: 0, changedBy: "" });
+  const manageChanged = useCallback(
+    (changedBy: string) => setManageRound((current) => ({ round: current.round + 1, changedBy })),
+    [],
+  );
   if (overview.status === "error")
     return (
       <div>
@@ -24,28 +37,41 @@ function ManagerTeam({ serviceId }: { serviceId: string }) {
     );
   if (!overview.data) return <p>Loading your team…</p>;
   if (overview.data.me.role !== "manager") return <p>Only your team&apos;s roster manager can see this page.</p>;
+  // Phones keep one column with the tabs first and the calendar below; from
+  // `lg` the calendar sits on the left and the tabs on the right.
   return (
-    <div className="grid gap-6">
-      <RosterManageNavHeader activeId={section} onSelect={setSection} />
-      {section === "approve" ? (
-        <RosterApproveTab serviceId={serviceId} />
-      ) : section === "cover" ? (
-        <RosterCoverTab serviceId={serviceId} overview={overview.data} />
-      ) : (
-        <>
-          <RosterPublishTab serviceId={serviceId} overview={overview.data} />
-          <RosterPeopleList
-            team={{
-              serviceId,
-              name: overview.data.service.name,
-              enabled: true,
-              role: "manager",
-              grade: overview.data.me.grade,
-            }}
-          />
-          <RosterTeamSettings serviceId={serviceId} overview={overview.data} />
-        </>
-      )}
+    <div className="mx-auto grid w-full max-w-reading gap-6 lg:max-w-none lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+      <div className="order-1 grid min-w-0 gap-6 lg:order-2">
+        <RosterManageNavHeader activeId={section} onSelect={setSection} />
+        {section === "approve" ? (
+          <RosterApproveTab serviceId={serviceId} shared={{ ...manageRound, onChanged: manageChanged }} />
+        ) : section === "cover" ? (
+          <RosterCoverTab serviceId={serviceId} overview={overview.data} />
+        ) : (
+          <>
+            <RosterPublishTab serviceId={serviceId} overview={overview.data} />
+            <RosterPeopleList
+              team={{
+                serviceId,
+                name: overview.data.service.name,
+                enabled: true,
+                role: "manager",
+                grade: overview.data.me.grade,
+              }}
+            />
+            <RosterTeamSettings serviceId={serviceId} overview={overview.data} />
+          </>
+        )}
+      </div>
+      <div
+        data-testid="roster-manage-calendar"
+        data-roster-print
+        className="order-2 grid min-w-0 content-start gap-4 lg:order-1"
+      >
+        <Suspense fallback={<p role="status">Loading the team roster…</p>}>
+          <TeamCalendar team={team} actorId={actorId} now={now} shared={{ ...manageRound, onChanged: manageChanged }} />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -54,9 +80,9 @@ export function RosterManagePage() {
   const teams = useRosterTeams();
   const [selected, setSelected] = useState("");
   const available = teams.data?.teams.filter((team) => team.enabled && team.role === "manager") ?? [];
-  const serviceId = available.find((team) => team.serviceId === selected)?.serviceId ?? available[0]?.serviceId;
+  const team = available.find((item) => item.serviceId === selected) ?? available[0];
   return (
-    <InformationPageShell width="narrow">
+    <InformationPageShell>
       <div className="grid gap-4" data-mode-identity="roster">
         {teams.status === "loading" ? (
           <p>Loading your teams…</p>
@@ -65,7 +91,7 @@ export function RosterManagePage() {
             <p>{teams.message}</p>
             <Button onClick={teams.reload}>Try again</Button>
           </div>
-        ) : !serviceId ? (
+        ) : !team ? (
           <p>Only your team&apos;s roster manager can see this page.</p>
         ) : (
           <>
@@ -75,7 +101,7 @@ export function RosterManagePage() {
                 Team
                 <select
                   className="min-h-12 w-full min-w-0 rounded border bg-background p-2"
-                  value={serviceId}
+                  value={team.serviceId}
                   onChange={(event) => setSelected(event.target.value)}
                 >
                   {available.map((team) => (
@@ -86,7 +112,7 @@ export function RosterManagePage() {
                 </select>
               </label>
             ) : null}
-            <ManagerTeam key={serviceId} serviceId={serviceId} />
+            <ManagerTeam key={team.serviceId} team={team} actorId={teams.data?.actorId ?? null} />
           </>
         )}
       </div>

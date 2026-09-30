@@ -55,7 +55,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   teaching: ["Today", "Week", "What's on", "Resources", "Logbook", "Teach", "Supervision", "Organise"],
   psychiatry: [],
   "my-work": ["Today", "Renewals", "New job", "Help"],
-  roster: ["Today", "Shifts", "Team", "Requests", "Settings"],
+  roster: ["Today", "Shifts", "Team", "Swaps", "Requests", "Settings"],
   "first-nations": [
     "Bedside",
     "Contacts",
@@ -728,6 +728,7 @@ describe("Roster mode secondary navigation active destinations", () => {
     expect(activeModeSecondaryNavigationId("roster", "/roster")).toBe("today");
     expect(activeModeSecondaryNavigationId("roster", "/roster/shifts")).toBe("shifts");
     expect(activeModeSecondaryNavigationId("roster", "/roster/settings")).toBe("settings");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/swaps")).toBe("swaps");
     expect(activeModeSecondaryNavigationId("roster", "/roster/calendar")).toBeNull();
   });
 
