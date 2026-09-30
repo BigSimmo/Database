@@ -222,7 +222,7 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
       const tabRect = tab.getBoundingClientRect();
       const cardStyle = getComputedStyle(card);
       const tabStyle = getComputedStyle(tab);
-      const detailRects = detailCells.map((rect) => rect.getBoundingClientRect());
+      const detailRects = detailCells.map((cell) => cell.getBoundingClientRect());
       return {
         borderColors: [
           cardStyle.borderTopColor,
