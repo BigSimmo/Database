@@ -96,7 +96,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(main).not.toContainText("Car park after hours");
       await expect(main.getByTestId("on-call-find-on-site").getByRole("link")).toHaveAttribute(
         "href",
-        "/on-call/logistics",
+        "/admin/help",
       );
       expect(await shortTargets(main)).toEqual([]);
       if (colorScheme === "dark") expect(await brightBlocksOver48(main)).toEqual([]);
