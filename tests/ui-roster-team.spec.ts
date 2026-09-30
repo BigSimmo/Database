@@ -103,7 +103,7 @@ for (const width of [390, 1280]) {
     await syntheticTeam(page);
     await page.goto("/roster/team?view=day");
     await expect(page.getByRole("button", { name: /Sam Example/ })).toBeVisible();
-    await expect(page.getByRole("radio", { name: "Just me", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Filter/ })).toBeVisible();
     const axis = await page.getByTestId("roster-timeline-axis").boundingBox();
     const bars = page.getByTestId("roster-timeline-bar");
     await expect(bars).toHaveCount(2);
@@ -125,7 +125,10 @@ for (const width of [390, 1280]) {
       expect(marker.width).toBe("2px");
       expect(marker.vector).toBe("non-scaling-stroke");
     }
+    await clickWhenHydrated(page.getByRole("button", { name: /^Filter/ }));
     await clickWhenHydrated(page.getByRole("radio", { name: "Just me", exact: true }));
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Filter" })).toHaveCount(0);
     await expect(bars).toHaveCount(1);
     expect(
       await page

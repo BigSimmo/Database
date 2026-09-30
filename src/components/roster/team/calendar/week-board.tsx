@@ -54,8 +54,10 @@ export function WeekBoard({
   );
   const showCover = cover && days.some((date) => (cover.get(date)?.length ?? 0) > 0);
   const rowHeader = "sticky left-0 z-10 w-28 min-w-28 max-w-28 bg-background px-2 py-1 text-left align-middle";
+  // `relative` keeps the absolutely placed screen-reader text inside the board's
+  // own scroll; without it that text escapes and widens the page on a phone.
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table aria-label="Week roster" className="w-full min-w-[46rem] border-separate border-spacing-0 text-sm">
         <thead>
           <tr>

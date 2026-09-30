@@ -160,6 +160,7 @@ describe("Team calendar", () => {
     url.set("view=day&date=2026-10-15");
     render(<RosterTeamPage now={NOW} />);
     expect(await screen.findByRole("button", { name: /Dr Sam Example/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
     fireEvent.click(screen.getByRole("radio", { name: "Just me" }));
     expect(url.replace).toHaveBeenCalledWith("/roster/team?view=day&date=2026-10-15&show=me", { scroll: false });
     expect(screen.queryByRole("button", { name: /Dr Sam Example/ })).toBeNull();
@@ -215,6 +216,9 @@ describe("Team calendar", () => {
     expect(names[1]).toMatch(/Dr Sam Example/);
     expect(within(board).getAllByRole("rowheader")[0].className).toContain("sticky left-0");
     expect(board.parentElement?.className).toContain("overflow-x-auto");
+    // Positioned, so the screen-reader text inside the board (absolutely placed)
+    // scrolls with it instead of widening the page on a phone.
+    expect(board.parentElement?.className).toMatch(/(^|\s)relative(\s|$)/);
     expect(within(board).getByRole("button", { name: /Dr Sam Example.*Night.*21:30–08:00 \+1/ })).toBeTruthy();
   });
 
@@ -275,6 +279,7 @@ describe("Team calendar", () => {
     mockFetch([mine, overlapping, apart]);
     url.set("view=day&date=2026-10-15");
     render(<RosterTeamPage now={NOW} />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Filter/ }));
     const show = await screen.findByRole("radiogroup", { name: "Show" });
     expect(
       within(show)
@@ -285,6 +290,86 @@ describe("Team calendar", () => {
     expect(url.replace).toHaveBeenCalledWith("/roster/team?view=day&date=2026-10-15&show=with-me", { scroll: false });
     expect(await screen.findByRole("button", { name: /Dr Sam Example/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Pat Example/ })).toBeNull();
+  });
+
+  it("keeps every filter behind one Filter button that names the active filter", async () => {
+    mockFetch();
+    render(<RosterTeamPage now={NOW} />);
+    const button = await screen.findByRole("button", { name: "Filter: Everyone" });
+    expect(screen.queryByRole("radiogroup", { name: "Show" })).toBeNull();
+    fireEvent.click(button);
+    const sheet = await screen.findByRole("dialog", { name: "Filter" });
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Just me" }));
+    expect(await screen.findByRole("button", { name: "Filter: Just me" })).toBeTruthy();
+  });
+
+  it("filters by grade and by person from the Filter sheet, with no inert Show option chosen", async () => {
+    mockFetch();
+    render(<RosterTeamPage now={NOW} />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Filter/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Filter" });
+    fireEvent.change(within(sheet).getByLabelText("Grade"), { target: { value: "registrar" } });
+    expect(url.replace).toHaveBeenLastCalledWith("/roster/team?date=2026-10-15&show=grade:registrar", {
+      scroll: false,
+    });
+    expect(screen.getByRole("button", { name: "Filter: Registrars" })).toBeTruthy();
+    const show = within(sheet).getByRole("radiogroup", { name: "Show" });
+    expect(
+      within(show)
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toEqual(["Everyone", "Just me", "With me"]);
+    expect(within(show).queryByRole("radio", { checked: true })).toBeNull();
+    fireEvent.change(within(sheet).getByLabelText("Person"), { target: { value: SAM } });
+    expect(url.replace).toHaveBeenLastCalledWith(`/roster/team?date=2026-10-15&show=person:${SAM}`, { scroll: false });
+    expect(screen.getByRole("button", { name: "Filter: Dr Sam Example" })).toBeTruthy();
+    const board = screen.getByRole("table", { name: "Week roster" });
+    expect(
+      within(board)
+        .getAllByRole("rowheader")
+        .map((header) => header.textContent),
+    ).toEqual([expect.stringMatching(/Dr Sam Example/)]);
+  });
+
+  it("offers Compare with me once a colleague is chosen, and compares the two of us", async () => {
+    mockFetch();
+    url.set(`show=person:${SAM}`);
+    render(<RosterTeamPage now={NOW} />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Filter/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Filter" });
+    const compare = within(sheet).getByRole("button", { name: "Compare with me" });
+    expect(compare.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(compare);
+    expect(url.replace).toHaveBeenLastCalledWith(`/roster/team?date=2026-10-15&show=compare:${SAM}`, {
+      scroll: false,
+    });
+    expect(within(sheet).getByRole("button", { name: "Compare with me" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Filter: You and Dr Sam Example" })).toBeTruthy();
+    const board = screen.getByRole("table", { name: "Week roster" });
+    expect(within(board).getAllByRole("rowheader")).toHaveLength(2);
+    // Pressed again, it goes back to just the colleague.
+    fireEvent.click(within(sheet).getByRole("button", { name: "Compare with me" }));
+    expect(url.replace).toHaveBeenLastCalledWith(`/roster/team?date=2026-10-15&show=person:${SAM}`, { scroll: false });
+  });
+
+  it("does not offer Compare with me with no one chosen, or with myself chosen", async () => {
+    mockFetch();
+    render(<RosterTeamPage now={NOW} />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Filter/ }));
+    const sheet = await screen.findByRole("dialog", { name: "Filter" });
+    expect(within(sheet).queryByRole("button", { name: "Compare with me" })).toBeNull();
+    fireEvent.change(within(sheet).getByLabelText("Person"), { target: { value: ME } });
+    expect(within(sheet).queryByRole("button", { name: "Compare with me" })).toBeNull();
+  });
+
+  it("opens the date picker from the period title", async () => {
+    mockFetch();
+    render(<RosterTeamPage now={NOW} />);
+    const heading = await screen.findByRole("heading", { name: /Week of/ });
+    const input = screen.getByLabelText("Go to date");
+    // The date input lies over the title, so a tap on the title lands on it.
+    expect(input.parentElement).toBe(heading.parentElement);
+    expect(input.className).toContain("absolute inset-0");
   });
 
   it("does not mark an expired, unanswered swap as pending", async () => {
@@ -603,6 +688,7 @@ describe("Team calendar", () => {
     mockFetch();
     render(<RosterTeamPage now={NOW} />);
     fireEvent.click(await screen.findByRole("radio", { name: "Day" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Filter/ }));
     fireEvent.click(await screen.findByRole("radio", { name: "Just me" }));
     expect(setItem).not.toHaveBeenCalled();
   });

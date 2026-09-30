@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarDays } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -27,7 +28,7 @@ import {
 import type { RosterAssignment, RosterSwap, RosterTeam } from "@/lib/roster/team/model";
 import { assignmentStartDate } from "@/lib/roster/team/team-view";
 
-import { CalendarFilters, type CalendarPerson } from "./calendar-filters";
+import { CalendarFilterButton, type CalendarPerson } from "./calendar-filters";
 import { DaySheet } from "./day-sheet";
 import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
@@ -173,13 +174,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         onChange={(view) => go({ ...state, view })}
         options={VIEWS}
       />
-      <CalendarFilters
-        show={state.show}
-        canFilterToMe={actorId !== null}
-        people={peopleIn(all)}
-        onChange={(show: CalendarShow) => go({ ...state, show })}
-      />
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-1">
         <Button
           variant="ghost"
           className="min-h-12"
@@ -188,7 +183,27 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
         >
           ‹
         </Button>
-        <h1 className="text-base font-normal">{heading(state)}</h1>
+        {/* Tapping the title opens the date picker: the date input lies over it, unseen. */}
+        <div className="relative flex min-h-12 min-w-0 items-center gap-1 rounded px-1 has-[input:focus-visible]:outline has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-[color:var(--focus)]">
+          <h1 className="truncate text-base font-normal">{heading(state)}</h1>
+          <CalendarDays aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+          <input
+            type="date"
+            aria-label="Go to date"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            value={state.date}
+            onClick={(event) => {
+              try {
+                event.currentTarget.showPicker();
+              } catch {
+                // Some browsers open the picker on their own, or not from a script.
+              }
+            }}
+            onChange={(event) => {
+              if (event.target.value) go({ ...state, date: event.target.value });
+            }}
+          />
+        </div>
         <Button
           variant="ghost"
           className="min-h-12"
@@ -198,18 +213,14 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           ›
         </Button>
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <label className="grid gap-1 text-sm">
-          Go to date
-          <input
-            type="date"
-            className="min-h-12 rounded border bg-background p-2"
-            value={state.date}
-            onChange={(event) => {
-              if (event.target.value) go({ ...state, date: event.target.value });
-            }}
-          />
-        </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarFilterButton
+          show={state.show}
+          canFilterToMe={actorId !== null}
+          actorId={actorId}
+          people={peopleIn(all)}
+          onChange={(show: CalendarShow) => go({ ...state, show })}
+        />
         {state.date !== today ? (
           <Button className="min-h-12" onClick={() => go({ ...state, date: today })}>
             Today
