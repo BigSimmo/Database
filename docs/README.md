@@ -322,6 +322,7 @@ Every remaining tracked document in this category, one line each; the descriptio
 - [superpowers/plans/2026-09-27-roster-mode-status.md](superpowers/plans/2026-09-27-roster-mode-status.md) — Roster mode: where the build stands and the plan to complete it
 - [superpowers/plans/2026-09-27-roster-mode-db-agreement.md](superpowers/plans/2026-09-27-roster-mode-db-agreement.md) — Roster mode: the Roster, On Call, Admin and Teaching agreement on the combined database change
 - [superpowers/plans/2026-09-27-roster-mode-build-brief.md](superpowers/plans/2026-09-27-roster-mode-build-brief.md) — Roster mode: the brief the build threads work from
+- [superpowers/specs/2026-09-30-roster-team-calendar-and-swaps-design.md](superpowers/specs/2026-09-30-roster-team-calendar-and-swaps-design.md) — Roster: team calendar (month, week board, day) and calendar-first swaps design spec
 - [superpowers/specs/2026-09-04-on-call-mode-design.md](superpowers/specs/2026-09-04-on-call-mode-design.md) — On Call mode design spec
 
 ## Subdirectory map
