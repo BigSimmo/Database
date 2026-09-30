@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownUp, Check, Folder, FolderPlus, PenLine } from "lucide-react";
+import { ArrowDownUp, Check, Folder, FolderPlus, PenLine, Trash2 } from "lucide-react";
 
 import { UNSORTED_SET_NAME, type FavouriteSetChip } from "@/components/favourites/favourites-view-model";
 import { ChoiceChip } from "@/components/ui/chip";
@@ -87,6 +87,7 @@ export function FavouritesSetBar({
   reordering,
   onToggleReorder,
   onRename,
+  onDelete,
 }: {
   name: string;
   count: number;
@@ -95,6 +96,8 @@ export function FavouritesSetBar({
   onToggleReorder?: () => void;
   /** Omitted for Unsorted and example sets. */
   onRename?: () => void;
+  /** Omitted for Unsorted and example sets. Its favourites move to Unsorted. */
+  onDelete?: () => void;
 }) {
   return (
     <section
@@ -123,6 +126,19 @@ export function FavouritesSetBar({
           )}
         >
           <PenLine className="size-icon-md" aria-hidden="true" />
+        </button>
+      ) : null}
+      {onDelete ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={`Delete ${name} set`}
+          className={cn(
+            "grid size-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
+            focusRing,
+          )}
+        >
+          <Trash2 className="size-icon-md" aria-hidden="true" />
         </button>
       ) : null}
       {onToggleReorder ? (

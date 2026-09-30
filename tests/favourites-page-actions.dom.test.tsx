@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FileText } from "lucide-react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -63,6 +63,8 @@ const account = vi.hoisted(() => ({
   recordFavouriteOpen: vi.fn(async () => true),
   createFavouriteSet: vi.fn(async () => null),
   renameFavouriteSet: vi.fn(async () => null),
+  deleteFavouriteSet: vi.fn(async () => true),
+  setFavouriteOrder: vi.fn(async () => true),
 }));
 
 vi.mock("@/components/account-data-provider", async (importOriginal) => {
@@ -95,6 +97,8 @@ vi.mock("@/components/account-data-provider", async (importOriginal) => {
       recordFavouriteOpen: account.recordFavouriteOpen,
       createFavouriteSet: account.createFavouriteSet,
       renameFavouriteSet: account.renameFavouriteSet,
+      deleteFavouriteSet: account.deleteFavouriteSet,
+      setFavouriteOrder: account.setFavouriteOrder,
     }),
   };
 });
@@ -121,6 +125,8 @@ beforeEach(() => {
     account.reorderFavourite,
     account.setFavouritePinned,
     account.recordFavouriteOpen,
+    account.deleteFavouriteSet,
+    account.setFavouriteOrder,
   ]) {
     mock.mockClear();
   }
@@ -215,5 +221,45 @@ describe("favourites page actions", () => {
       await user.click(screen.getByRole("button", { name: "Move Service crisis-team down" }));
     });
     expect(account.reorderFavourite).toHaveBeenCalledWith("service", "crisis-team", "down");
+  });
+
+  it("drags a row by its grip to save an exact order for the whole set", async () => {
+    account.wardRoundSlugs = ["crisis-team", "perinatal"];
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      within(screen.getByTestId("favourites-set-chips")).getByRole("button", { name: "Ward round, 2 favourites" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Reorder" }));
+    const grip = rowFor("crisis-team").querySelector<HTMLElement>("[data-drag-handle]");
+    expect(grip).not.toBeNull();
+    await act(async () => {
+      fireEvent.pointerDown(grip!, { pointerId: 1, clientY: 0, button: 0 });
+      fireEvent.pointerMove(grip!, { pointerId: 1, clientY: 120 });
+      fireEvent.pointerUp(grip!, { pointerId: 1, clientY: 120 });
+    });
+    await waitFor(() =>
+      expect(account.setFavouriteOrder).toHaveBeenCalledWith(wardRound.id, [
+        { contentType: "service", contentKey: "perinatal" },
+        { contentType: "service", contentKey: "crisis-team" },
+      ]),
+    );
+  });
+
+  it("deletes a set only after confirming, keeping its favourites", async () => {
+    account.wardRoundSlugs = ["crisis-team"];
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      within(screen.getByTestId("favourites-set-chips")).getByRole("button", { name: "Ward round, 1 favourite" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Delete Ward round set" }));
+    const dialog = screen.getByRole("dialog", { name: "Delete Ward round?" });
+    expect(dialog).toHaveTextContent("Its favourites stay saved and move to Unsorted.");
+    expect(account.deleteFavouriteSet).not.toHaveBeenCalled();
+    await act(async () => {
+      await user.click(within(dialog).getByRole("button", { name: "Delete set" }));
+    });
+    expect(account.deleteFavouriteSet).toHaveBeenCalledWith(wardRound.id);
   });
 });

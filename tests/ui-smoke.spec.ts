@@ -4429,6 +4429,40 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
   });
 
+  test("favourites search bar stands alone: no privacy line or example ticker (owner decision 2026-09-30)", async ({
+    page,
+  }) => {
+    await mockDemoApi(page);
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1280, height: 900 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await gotoApp(page, "/favourites");
+      await expect(page.getByRole("combobox", { name: /Search saved favourites/ })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
+      await expect(page.getByRole("group", { name: "Search privacy notice" })).toHaveCount(0);
+      await expect(page.getByText("Do not enter patient-identifiable information.")).toHaveCount(0);
+      await expect(page.getByTestId("smart-search-phone-ticker")).toHaveCount(0);
+      await expect(page.getByTestId("search-example-ticker")).toHaveCount(0);
+      await expect(page.getByTestId("smart-search-prompt-row")).toHaveCount(0);
+      // With the pill alone, the set chips sit close under the search bar.
+      const gap = await page.evaluate(() => {
+        const form = document
+          .querySelector('.mode-home-composer-slot [data-testid="global-search-input"]')
+          ?.closest("form");
+        const chips = document.querySelector('[data-testid="favourites-set-chips"]');
+        if (!form || !chips) return null;
+        return chips.getBoundingClientRect().top - form.getBoundingClientRect().bottom;
+      });
+      expect(gap, `gap under the search bar at ${viewport.width}px`).not.toBeNull();
+      expect(gap!).toBeLessThanOrEqual(24);
+    }
+    // Every other mode home keeps the line.
+    await gotoApp(page, "/documents");
+    await expect(page.getByRole("group", { name: "Search privacy notice" })).toBeVisible({ timeout: 30_000 });
+  });
+
   test("favourites hub hydrates saved services from the registry", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);

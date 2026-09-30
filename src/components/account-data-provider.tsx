@@ -76,7 +76,14 @@ type AccountDataContextValue = {
   createFavouriteSet: (name: FavouriteSetName) => Promise<AccountFavouriteSet | null>;
   /** Names stay on the fixed list, so a set label can never become a patient-note field. */
   renameFavouriteSet: (setId: string, name: FavouriteSetName) => Promise<AccountFavouriteSet | null>;
+  /** Deletes a set. Its favourites stay saved and move to Unsorted. */
+  deleteFavouriteSet: (setId: string) => Promise<boolean>;
   moveFavourite: (contentType: FavouriteContentType, contentKey: string, setId: string | null) => Promise<boolean>;
+  /** Saves an exact order for every favourite in one set (or Unsorted when setId is null). */
+  setFavouriteOrder: (
+    setId: string | null,
+    items: Array<{ contentType: FavouriteContentType; contentKey: string }>,
+  ) => Promise<boolean>;
   reorderFavourite: (
     contentType: FavouriteContentType,
     contentKey: string,
@@ -421,6 +428,55 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     [reload, replaceFavouriteSets, runStructuredMutation],
   );
 
+  const deleteFavouriteSet = useCallback(
+    async (setId: string) => {
+      const version = ++structuredMutationVersionRef.current;
+      const previousSets = favouriteSetsRef.current;
+      const previousItems = favouriteItemsRef.current;
+      replaceFavouriteSets(previousSets.filter((set) => set.id !== setId));
+      replaceFavouriteItems(previousItems.map((item) => (item.setId === setId ? { ...item, setId: null } : item)));
+      const payload = await runStructuredMutation(
+        "POST",
+        { action: "deleteSet", setId },
+        "Favourite set could not be deleted.",
+      );
+      if (isFavouriteUpdateResponse(payload)) return true;
+      if (payload) setError("Favourite set response was invalid.");
+      if (structuredMutationVersionRef.current === version) {
+        replaceFavouriteSets(previousSets);
+        replaceFavouriteItems(previousItems);
+      } else void structuredMutationTailRef.current.then(reload);
+      return false;
+    },
+    [reload, replaceFavouriteItems, replaceFavouriteSets, runStructuredMutation],
+  );
+
+  const setFavouriteOrder = useCallback(
+    async (setId: string | null, items: Array<{ contentType: FavouriteContentType; contentKey: string }>) => {
+      const version = ++structuredMutationVersionRef.current;
+      const previous = favouriteItemsRef.current;
+      const position = new Map(items.map((item, index) => [`${item.contentType}:${item.contentKey}`, index]));
+      replaceFavouriteItems(
+        previous.map((item) => {
+          const index = position.get(`${item.contentType}:${item.contentKey}`);
+          return index === undefined || item.setId !== setId ? item : { ...item, sortOrder: (index + 1) * 10 };
+        }),
+      );
+      const payload = await runStructuredMutation(
+        "PATCH",
+        { action: "setItemOrder", setId, items },
+        "Favourite order could not be updated.",
+      );
+      if (isFavouriteUpdateResponse(payload)) return true;
+      if (payload) setError("Favourite order response was invalid.");
+      if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
+      // A stale order (someone changed the set elsewhere) reloads the true order.
+      void structuredMutationTailRef.current.then(reload);
+      return false;
+    },
+    [reload, replaceFavouriteItems, runStructuredMutation],
+  );
+
   const moveFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, setId: string | null) => {
       const version = ++structuredMutationVersionRef.current;
@@ -571,6 +627,8 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       setFavourite,
       createFavouriteSet,
       renameFavouriteSet,
+      deleteFavouriteSet,
+      setFavouriteOrder,
       moveFavourite,
       reorderFavourite,
       recordFavouriteOpen,
@@ -582,6 +640,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       auth.status,
       clearFavourites,
       createFavouriteSet,
+      deleteFavouriteSet,
       error,
       favouriteItems,
       favouriteSets,
@@ -594,6 +653,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       renameFavouriteSet,
       reorderFavourite,
       setFavourite,
+      setFavouriteOrder,
       setFavouritePinned,
     ],
   );

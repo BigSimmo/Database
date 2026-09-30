@@ -3022,6 +3022,21 @@ summary::-webkit-details-marker {
 }
 /* END tablet mode-home composer geometry */
 
+/* Favourites shows its search pill alone on its home: no privacy line and no
+   "Try this" ticker, prompt rail or "Try …" line (owner decisions 2026-09-30).
+   Its settled stack is just the pill, measured at 52px on phones and 56px from
+   640px up, so the reserve matches exactly and no blank band sits under the
+   search bar. */
+.favourites-composer-slot {
+  --spacing-mode-home-composer-phone: 3.25rem;
+}
+
+@media (min-width: 640px) {
+  .favourites-composer-slot {
+    --spacing-mode-home-composer-wide: 3.5rem;
+  }
+}
+
 /* BEGIN sm+ hero home canvas alignment */
 /* Mode homes optically centre a ~160px composer. The install card can overlap
    that band on constrained 640–1919px viewports (Production UI `ui-pwa`), so

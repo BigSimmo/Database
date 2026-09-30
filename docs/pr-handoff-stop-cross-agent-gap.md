@@ -2,8 +2,9 @@
 
 **Status:** gap documentation only — this document builds no mechanism
 **Ledger row:** `#258` (P2, rec)
-**Checked:** 2026-08-14 against `origin/main` at `d47aa6d`; simplified from a 30-minute budget to a
-single CronCreate block 2026-09-17 (owner-approved governance cut)
+**Checked:** 2026-09-30 against tip `.cursor/agents/` (design-review, pr-babysit only; no
+`pr-bugbot.md`) and Claude CronCreate deny; earlier check 2026-08-14 at `d47aa6d`; simplified
+from a 30-minute budget to a single CronCreate block 2026-09-17 (owner-approved governance cut)
 **Rule it backs:** `AGENTS.md` → "Babysit the pull request, then stop"
 
 A session should follow its own pull request's CI while that is useful, fix only what this
@@ -52,7 +53,7 @@ Details that matter to anyone reproducing this elsewhere:
 
 - `.claude/settings.json` is read only by Claude Code. Its `PreToolUse` / `PostToolUse` registrations are invisible to the other two agents, so the marker is never dropped and no call is ever denied for them.
 - `plugins/clinical-kb/.codex-plugin/plugin.json` declares `name`, `version`, `description`, `author`, `repository`, `keywords`, `skills` and an `interface` block. **There is no hook, event, or pre-tool-interception field**, and the plugin ships exactly one skill (`skills/clinical-kb-workflow/SKILL.md`). A Codex session reads guidance; nothing intercepts its tool calls.
-- `.cursor/` contains `settings.json` (plugin enablement only — `context7-plugin`, `figma`), `mcp.json`, `agents/` (`design-review.md`, `pr-babysit.md`, `pr-bugbot.md`) and `skills/`. **No deny path.** Note that `.cursor/agents/pr-babysit.md` exists at all: Cursor has a documented agent for exactly the PR-following behaviour the stop rule restricts, with nothing to stop a cron entry being parked on one either.
+- `.cursor/` contains `settings.json` (plugin enablement only — `context7-plugin`, `figma`), `mcp.json`, `agents/` (`design-review.md`, `pr-babysit.md`) and `skills/`. **No deny path.** Note that `.cursor/agents/pr-babysit.md` exists at all: Cursor has a documented agent for exactly the PR-following behaviour the stop rule restricts, with nothing to stop a cron entry being parked on one either.
 
 The consequence is precise, and it is worth stating plainly because it is easy to read the
 hook's existence as though the problem were solved: **prose alone is what was already in force
