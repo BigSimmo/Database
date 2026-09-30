@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, controlDisabled, textMuted } from "@/components/ui-primitives";
 import { formatRecordedDate } from "@/lib/admin/renewal-dates";
-import { complianceExpiryHistory, renewalCalendarEvent } from "@/lib/admin/renewals";
+import { complianceExpiryHistory, issuerCheckStampLabel, renewalCalendarEvent } from "@/lib/admin/renewals";
 import type { AdminRequirementCatalogueItem, RequirementChecklistRow } from "@/lib/admin/requirements";
 import { downloadTextFile } from "@/lib/admin/download-file";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { icsFileName, toIcs } from "@/lib/calendar/ics";
-import { complianceExpiresOn, entryNotForThisJob } from "@/lib/on-call/compliance";
+import { complianceExpiresOn, complianceIssuerCheckedOn, entryNotForThisJob } from "@/lib/on-call/compliance";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 
 export type ChecklistItemSubject =
@@ -25,9 +26,9 @@ export type ChecklistItemSubject =
 /**
  * The checklist item detail sheet (final design, screens-v3): the confirmed
  * rule or the unconfirmed line, the source, the recorded date and its
- * history, "Add to calendar", "Renewed" at the foot, and a quiet
- * "Not for this job" row. Never the word "checked" — every line is a record
- * of what was entered, never a claim that anything was verified.
+ * history, the holder-pressed issuer-check stamp, "Add to calendar",
+ * "Renewed" at the foot, and a quiet "Not for this job" row. The stamp is a
+ * holder action only — never "verified" or "compliant".
  */
 export function ChecklistItemDetailSheet({
   subject,
@@ -36,6 +37,7 @@ export function ChecklistItemDetailSheet({
   onClose,
   onRenew,
   onNotForThisJob,
+  onIssuerCheck,
   testId = "admin-renewals-item-sheet",
 }: {
   readonly subject: ChecklistItemSubject | null;
@@ -51,6 +53,8 @@ export function ChecklistItemDetailSheet({
     entry: OnCallEntry | null,
     notForThisJob: boolean,
   ) => Promise<void>;
+  /** Explicit issuer-check stamp: set today's Perth date, or clear. Never auto-set by Renewed. */
+  readonly onIssuerCheck?: (entry: OnCallEntry, checkedOn: string | null) => Promise<void>;
   readonly testId?: string;
 }) {
   const [busy, setBusy] = useState(false);
@@ -61,6 +65,7 @@ export function ChecklistItemDetailSheet({
   const expiresOn = entry ? complianceExpiresOn(entry) : undefined;
   const history = entry ? complianceExpiryHistory(entry) : [];
   const flagged = entry ? entryNotForThisJob(entry) : false;
+  const issuerCheckedOn = entry ? complianceIssuerCheckedOn(entry) : undefined;
   const row: RequirementChecklistRow | null =
     subject?.kind === "catalogue"
       ? {
@@ -78,6 +83,32 @@ export function ChecklistItemDetailSheet({
     try {
       await onNotForThisJob(item, entry, !flagged);
       onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save that.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recordIssuerCheck() {
+    if (!entry || !onIssuerCheck) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onIssuerCheck(entry, perthCalendarDate(now));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save that.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearIssuerCheck() {
+    if (!entry || !onIssuerCheck) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onIssuerCheck(entry, null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save that.");
     } finally {
@@ -204,6 +235,48 @@ export function ChecklistItemDetailSheet({
               </div>
             ) : null}
           </div>
+
+          {entry ? (
+            <div
+              className="grid gap-2 rounded-lg border border-[color:var(--border)] p-3"
+              data-testid={`${testId}-issuer-check`}
+            >
+              <p className="text-sm text-[color:var(--text)]" data-testid={`${testId}-issuer-check-label`}>
+                {issuerCheckStampLabel(issuerCheckedOn)}
+              </p>
+              {canEdit && onIssuerCheck ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    busy={busy}
+                    onClick={() => void recordIssuerCheck()}
+                    testId={`${testId}-issuer-check-record`}
+                  >
+                    Record issuer check today
+                  </Button>
+                  {issuerCheckedOn ? (
+                    <button
+                      type="button"
+                      onClick={() => void clearIssuerCheck()}
+                      disabled={busy}
+                      data-testid={`${testId}-issuer-check-clear`}
+                      className={cn(
+                        focusRing,
+                        controlDisabled,
+                        "min-h-tap px-2 text-sm text-[color:var(--text-muted)] underline-offset-2 hover:underline",
+                      )}
+                    >
+                      Clear issuer check
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className={cn(textMuted, "text-sm")} data-testid={`${testId}-issuer-check-label`}>
+              No issuer check recorded
+            </p>
+          )}
 
           {entry ? (
             <Button variant="secondary" onClick={addToCalendar} testId={`${testId}-calendar`}>
