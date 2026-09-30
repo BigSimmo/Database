@@ -3,7 +3,7 @@ import { monthGrid, monthGridRange, monthKeyOf } from "@/lib/calendar/month-grid
 import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
 import { gradeRank } from "./eligibility";
 import { ROSTER_GRADES, type RosterAssignment, type RosterGrade } from "./model";
-import { assignmentStartDate } from "./team-view";
+import { assignmentStartDate, withMe } from "./team-view";
 
 /**
  * The team calendar's state and its pure layout. View, date and filter live in
@@ -19,6 +19,7 @@ export type CalendarView = "month" | "week" | "day";
 export type CalendarShow =
   | { kind: "everyone" }
   | { kind: "me" }
+  | { kind: "with_me" }
   | { kind: "grade"; grade: RosterGrade }
   | { kind: "person"; userId: string }
   | { kind: "compare"; userId: string };
@@ -36,6 +37,7 @@ function isCalendarDate(value: string | null): value is string {
 
 function readShow(value: string | null): CalendarShow {
   if (value === "me") return { kind: "me" };
+  if (value === "with-me") return { kind: "with_me" };
   if (!value) return EVERYONE;
   const colon = value.indexOf(":");
   if (colon < 0) return EVERYONE;
@@ -54,6 +56,8 @@ function showValue(show: CalendarShow): string | null {
       return null;
     case "me":
       return "me";
+    case "with_me":
+      return "with-me";
     case "grade":
       return `grade:${show.grade}`;
     case "person":
@@ -124,16 +128,23 @@ export function stepCalendar(state: CalendarState, direction: -1 | 1): CalendarS
   return { ...state, date };
 }
 
+/**
+ * `with_me` keeps the colleagues whose shifts overlap my next seven that have
+ * not ended, which is why it needs `now`.
+ */
 export function filterAssignments(
   rows: readonly RosterAssignment[],
   show: CalendarShow,
   me: string | null,
+  now: Date = new Date(),
 ): RosterAssignment[] {
   switch (show.kind) {
     case "everyone":
       return [...rows];
     case "me":
       return me === null ? [] : rows.filter((row) => row.userId === me);
+    case "with_me":
+      return me === null ? [] : withMe(rows, me, now);
     case "grade":
       return rows.filter((row) => row.grade === show.grade);
     case "person":

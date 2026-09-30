@@ -31,7 +31,10 @@ import { CalendarFilters, type CalendarPerson } from "./calendar-filters";
 import { DaySheet } from "./day-sheet";
 import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
+import { NeedsYouStrip } from "./needs-you-strip";
+import { PrintButton } from "./print-button";
 import { ShiftSheet } from "./shift-sheet";
+import { useManagerCalendar } from "./use-manager-calendar";
 import { WeekBoard } from "./week-board";
 
 const VIEWS: { value: CalendarView; label: string }[] = [
@@ -59,11 +62,13 @@ function peopleIn(rows: readonly RosterAssignment[]): CalendarPerson[] {
 }
 
 /** Assignment ids in the reader's own swaps that are still waiting on an answer. */
-function pendingAssignmentIds(swaps: readonly RosterSwap[], actorId: string | null): Set<string> {
+function pendingAssignmentIds(swaps: readonly RosterSwap[], actorId: string | null, now: Date): Set<string> {
   const ids = new Set<string>();
   if (!actorId) return ids;
   for (const swap of swaps) {
     if (swap.status !== "requested" && swap.status !== "accepted") continue;
+    // A request nobody answered in time is expired, not waiting.
+    if (swap.status === "requested" && Date.parse(swap.expiresAt) < now.getTime()) continue;
     if (swap.requesterId !== actorId && swap.counterpartyId !== actorId) continue;
     for (const side of [swap.give, swap.take]) if (side) ids.add(side.id);
   }
@@ -90,7 +95,8 @@ function withComparedPeople(
             days: Array.from({ length: 7 }, () => []),
           },
         ];
-  const merged = [...board, ...missing(actorId, true), ...missing(show.userId, false)];
+  // Comparing with myself is one row, not two.
+  const merged = [...board, ...missing(actorId, true), ...(show.userId === actorId ? [] : missing(show.userId, false))];
   return merged.sort((a, b) => Number(b.isMe) - Number(a.isMe));
 }
 
@@ -144,11 +150,20 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   );
 
   const all = read.data?.assignments ?? [];
-  const rows = filterAssignments(all, state.show, actorId);
+  const rows = filterAssignments(all, state.show, actorId, now);
   const unit = UNIT[state.view];
   const monday = calendarWindow({ ...state, view: "week" }).from;
   const weekDays = Array.from({ length: 7 }, (_, index) => addDaysToDate(monday, index));
-  const pendingSwapIds = pendingAssignmentIds(requests.data?.swaps ?? [], actorId);
+  const pendingSwapIds = pendingAssignmentIds(requests.data?.swaps ?? [], actorId, now);
+  // Cover counts and rule flags read every shift in the window, not the filtered ones.
+  const manager = useManagerCalendar(team, calendarWindow(state), all);
+  const managerReload = manager.reload;
+  const requestsReload = requests.reload;
+  const managerChanged = useCallback(() => {
+    managerReload();
+    requestsReload();
+    reload();
+  }, [managerReload, requestsReload, reload]);
   return (
     <>
       <SegmentedControl
@@ -200,7 +215,22 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
             Today
           </Button>
         ) : null}
+        {state.view === "month" ? <PrintButton /> : null}
       </div>
+      {manager.enabled ? (
+        <NeedsYouStrip
+          serviceId={team.serviceId}
+          pending={manager.pending}
+          claimed={manager.claimed}
+          shortDays={manager.shortDays.filter((date) => date >= today)}
+          flags={manager.flags}
+          checkable={manager.checkable}
+          onChanged={managerChanged}
+          onPickDay={(date) => go({ ...state, view: "day", date })}
+        />
+      ) : manager.unavailable ? (
+        <p className="text-sm text-[color:var(--text-muted)]">Manager tools aren&apos;t available right now.</p>
+      ) : null}
       {read.status === "loading" ? (
         <p role="status">Loading the team roster…</p>
       ) : read.status !== "ready" ? (
@@ -217,9 +247,16 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           onPickShift={setSelected}
           pendingSwapIds={pendingSwapIds}
           openShifts={requests.data?.openShifts}
+          cover={manager.cover}
+          flags={manager.flags}
         />
       ) : (
-        <MonthView cells={monthCells(monthKeyOf(state.date), rows, actorId)} today={today} onPickDay={setPickedDay} />
+        <MonthView
+          cells={monthCells(monthKeyOf(state.date), rows, actorId)}
+          today={today}
+          onPickDay={setPickedDay}
+          cover={manager.cover}
+        />
       )}
       <ModeGroupedList>
         <ModeRow
@@ -256,6 +293,10 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           team={team}
           actorId={actorId}
           now={now}
+          flags={manager.enabled ? manager.flags.get(selected.id) : undefined}
+          manage={
+            manager.enabled ? { onChanged: managerChanged, pending: manager.pending, flags: manager.flags } : null
+          }
           onClose={() => setSelected(null)}
           onSwap={(shift) => {
             setSelected(null);

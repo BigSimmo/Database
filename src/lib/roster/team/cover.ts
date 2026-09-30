@@ -1,4 +1,5 @@
 import { dateKeyToUtcMillis } from "@/lib/calendar/calendar-event";
+import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import { ROSTER_ASSIGNMENT_KINDS, type RosterAssignment, type RosterAssignmentKind, type RosterMaker } from "./model";
 import { assignmentStartDate } from "./team-view";
 
@@ -17,6 +18,11 @@ export type CoverCount = {
 
 type Need = RosterMaker["needs"][number];
 
+/** "Nights 1 of 2": the words for one cover count, on the week board and in each month cell. */
+export function coverText(count: CoverCount): string {
+  return `${SHIFT_KIND_LABEL[count.kind]}s ${count.rostered} of ${count.needed}`;
+}
+
 /** ISO weekday of a `YYYY-MM-DD` date: 1 = Monday … 7 = Sunday (the database's `weekday between 1 and 7`). */
 export function isoWeekday(date: string): number {
   const millis = dateKeyToUtcMillis(date);
@@ -25,8 +31,10 @@ export function isoWeekday(date: string): number {
 }
 
 /**
- * The targets that apply on `date`. Per kind, a target set for that exact date
- * replaces the weekday targets. Leave is never a target.
+ * The targets that apply on `date`. A target set for that exact date replaces
+ * the weekday target for the same kind and grade only, so a dated registrar
+ * target never silences the weekday resident target. A dated target for
+ * "any grade" replaces every weekday target of its kind. Leave is never a target.
  */
 export function needsOn(date: string, needs: RosterMaker["needs"]): Need[] {
   const weekday = isoWeekday(date);
@@ -34,7 +42,11 @@ export function needsOn(date: string, needs: RosterMaker["needs"]): Need[] {
     if (kind === "leave") return [];
     const ofKind = needs.filter((need) => need.kind === kind);
     const dated = ofKind.filter((need) => need.date === date);
-    return dated.length ? dated : ofKind.filter((need) => need.date === null && need.weekday === weekday);
+    const weekdayNeeds = ofKind.filter((need) => need.date === null && need.weekday === weekday);
+    if (!dated.length) return weekdayNeeds;
+    const anyGrade = dated.some((need) => need.grade === null);
+    const datedGrades = new Set(dated.map((need) => need.grade));
+    return [...dated, ...weekdayNeeds.filter((need) => !anyGrade && !datedGrades.has(need.grade))];
   });
 }
 
