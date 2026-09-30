@@ -8,6 +8,8 @@ import { formatPerthDay } from "@/lib/roster/shifts/perth-time";
 import type { MonthCell } from "@/lib/roster/team/calendar-model";
 import { coverText, type CoverCount } from "@/lib/roster/team/cover";
 
+import { COVER_TONE } from "./cover-tone";
+
 const LETTERS_SHOWN = 3;
 
 function cellLabel(cell: MonthCell, counts: readonly CoverCount[]): string {
@@ -105,9 +107,8 @@ export function MonthView({
                       data-cover={count.state}
                       className={cn(
                         "nums rounded border px-0.5 text-3xs",
-                        count.state === "short"
-                          ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
-                          : "border-transparent text-[color:var(--text-muted)]",
+                        COVER_TONE[count.state],
+                        count.state === "met" && "text-[color:var(--text-muted)]",
                       )}
                     >
                       <span className="sr-only">{coverText(count)}</span>

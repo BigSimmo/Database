@@ -157,6 +157,13 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
   const pendingSwapIds = pendingAssignmentIds(requests.data?.swaps ?? [], actorId, now);
   // Cover counts and rule flags read every shift in the window, not the filtered ones.
   const manager = useManagerCalendar(team, calendarWindow(state), all);
+  const managerReload = manager.reload;
+  const requestsReload = requests.reload;
+  const managerChanged = useCallback(() => {
+    managerReload();
+    requestsReload();
+    reload();
+  }, [managerReload, requestsReload, reload]);
   return (
     <>
       <SegmentedControl
@@ -215,15 +222,14 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           serviceId={team.serviceId}
           pending={manager.pending}
           claimed={manager.claimed}
-          shortDays={manager.shortDays}
+          shortDays={manager.shortDays.filter((date) => date >= today)}
           flags={manager.flags}
-          onChanged={() => {
-            manager.reload();
-            requests.reload();
-            reload();
-          }}
+          checkable={manager.checkable}
+          onChanged={managerChanged}
           onPickDay={(date) => go({ ...state, view: "day", date })}
         />
+      ) : manager.unavailable ? (
+        <p className="text-sm text-[color:var(--text-muted)]">Manager tools aren&apos;t available right now.</p>
       ) : null}
       {read.status === "loading" ? (
         <p role="status">Loading the team roster…</p>
@@ -289,15 +295,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           now={now}
           flags={manager.enabled ? manager.flags.get(selected.id) : undefined}
           manage={
-            manager.enabled
-              ? {
-                  onChanged: () => {
-                    manager.reload();
-                    requests.reload();
-                    reload();
-                  },
-                }
-              : null
+            manager.enabled ? { onChanged: managerChanged, pending: manager.pending, flags: manager.flags } : null
           }
           onClose={() => setSelected(null)}
           onSwap={(shift) => {

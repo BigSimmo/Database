@@ -9,12 +9,12 @@ import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
 import { SHIFT_KIND_LABEL, SHIFT_LETTER } from "@/lib/roster/shift-kind";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { coverText, type CoverCount } from "@/lib/roster/team/cover";
+import { COVER_STATE_WORDS, COVER_TONE } from "./cover-tone";
 import type { RosterAssignment, RosterOpenShift } from "@/lib/roster/team/model";
 import type { RuleFlag } from "@/lib/roster/team/rule-flags";
 import type { BoardRow } from "@/lib/roster/team/calendar-model";
 
 const AMBER = "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]";
-const RED = "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]";
 const HAIRLINE = "border-b border-[color:var(--border)]";
 
 /** Open shifts still waiting on someone, or waiting on a manager's decision. */
@@ -177,10 +177,12 @@ export function WeekBoard({
                       <li
                         key={count.kind}
                         data-cover={count.state}
-                        className={cn("nums rounded border px-1", count.state === "short" ? RED : "border-transparent")}
+                        className={cn("nums rounded border px-1", COVER_TONE[count.state])}
                       >
                         {coverText(count)}
-                        {count.state === "short" ? <span className="sr-only"> (short)</span> : null}
+                        {count.state !== "met" ? (
+                          <span className="sr-only">{COVER_STATE_WORDS[count.state]}</span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

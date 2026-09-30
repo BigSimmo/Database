@@ -304,25 +304,29 @@ describe("Team calendar", () => {
       createdAt: "2026-10-10T00:00:00Z",
       decidedAt: null,
     });
-    let expiresAt = "2026-10-14T00:00:00Z"; // before NOW
+    // My shift is in an expired request; Sam's is in a live one. The live one turning up
+    // is the sign that the requests read has been applied.
     fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
       String(input).includes("what=requests")
-        ? Response.json({ openShifts: [], swaps: [requested(expiresAt)] })
+        ? Response.json({
+            openShifts: [],
+            swaps: [
+              { ...requested("2026-10-14T00:00:00Z"), take: null },
+              {
+                ...requested("2026-10-20T00:00:00Z"),
+                id: "88888888-8888-4888-8888-888888888889",
+                give: sams,
+                take: null,
+              },
+            ],
+          })
         : base(input),
     );
-    const first = render(<RosterTeamPage now={NOW} />);
-    const cell = await screen.findByRole("button", { name: /You.*Day.*09:00–17:00/ });
-    await vi.waitFor(() =>
-      expect(fetchMock.mock.calls.some(([item]) => String(item).includes("what=requests"))).toBe(true),
-    );
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(cell.getAttribute("data-pending-swap")).toBeNull();
-    first.unmount();
-    // The same swap, still inside its window, is pending.
-    expiresAt = "2026-10-20T00:00:00Z";
     render(<RosterTeamPage now={NOW} />);
-    const live = await screen.findByRole("button", { name: /You.*Day.*09:00–17:00/ });
+    const live = await screen.findByRole("button", { name: /Dr Sam Example.*Night/ });
     await vi.waitFor(() => expect(live.getAttribute("data-pending-swap")).toBe("true"));
+    const cell = screen.getByRole("button", { name: /You.*Day.*09:00–17:00/ });
+    expect(cell.getAttribute("data-pending-swap")).toBeNull();
   });
 
   it("shows the Open shifts row only when an open shift starts in the week shown", async () => {
@@ -345,7 +349,22 @@ describe("Team calendar", () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) =>
       String(input).includes("what=requests")
         ? Response.json({
-            swaps: [],
+            swaps: [
+              {
+                id: "88888888-8888-4888-8888-888888888888",
+                status: "requested",
+                autoApproved: false,
+                needsManagerBecause: null,
+                cancelReason: null,
+                requesterId: ME,
+                counterpartyId: SAM,
+                give: sams,
+                take: null,
+                expiresAt: "2026-10-20T00:00:00Z",
+                createdAt: "2026-10-14T00:00:00Z",
+                decidedAt: null,
+              },
+            ],
             openShifts: [
               shiftInWeek
                 ? openShift("2026-10-16T09:00:00+08:00", "2026-10-16T17:00:00+08:00")
@@ -355,11 +374,9 @@ describe("Team calendar", () => {
         : base(input),
     );
     const first = render(<RosterTeamPage now={NOW} />);
-    await screen.findByRole("table", { name: "Week roster" });
-    await vi.waitFor(() =>
-      expect(fetchMock.mock.calls.some(([item]) => String(item).includes("what=requests"))).toBe(true),
-    );
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // A live request on Sam's shift turning up shows the requests read has been applied.
+    const sam = await screen.findByRole("button", { name: /Dr Sam Example.*Night/ });
+    await vi.waitFor(() => expect(sam.getAttribute("data-pending-swap")).toBe("true"));
     expect(screen.queryByRole("rowheader", { name: /Open shifts/ })).toBeNull();
     first.unmount();
     shiftInWeek = true;

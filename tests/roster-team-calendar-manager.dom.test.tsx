@@ -110,6 +110,7 @@ type Options = {
   swaps?: unknown[];
   openShifts?: unknown[];
   makerFails?: boolean;
+  overviewFails?: boolean;
   refuse?: Set<string>;
 };
 
@@ -132,7 +133,8 @@ function mockFetch(options: Options = {}) {
         teams: [{ serviceId: TEAM, name: "Example team", enabled: true, role, grade: "registrar" }],
       });
     reads.push(address);
-    if (address.includes("what=overview"))
+    if (address.includes("what=overview")) {
+      if (options.overviewFails) return Response.json({ message: "Roster couldn't be reached." }, { status: 500 });
       return Response.json({
         service: { id: TEAM, name: "Example team" },
         me: { role, grade: "registrar", rotationEndsOn: null },
@@ -141,6 +143,7 @@ function mockFetch(options: Options = {}) {
         settings: { swapApproval: "manager", rules: options.rules ?? {}, rulesSource: null, payFortnightAnchor: null },
         sites: [],
       });
+    }
     if (address.includes("what=assignments"))
       return Response.json({ assignments: options.assignments ?? [mine, samThursdayNight] });
     if (address.includes("what=maker")) {
@@ -245,34 +248,102 @@ describe("Team calendar, manager layer", () => {
     expect(within(sheet).getByText("2nd night in a row (team limit 1)")).toBeTruthy();
   });
 
-  it("offers a manager 'Offer to the team' on an upcoming shift", async () => {
+  it("draws over-cover in the blue info tone, apart from met", async () => {
+    const extraDay = shift(
+      ID(6),
+      "88888888-8888-4888-8888-888888888888",
+      "Dr Pat Example",
+      "day",
+      "D",
+      "2026-10-15T08:00:00+08:00",
+      "2026-10-15T16:00:00+08:00",
+    );
+    mockFetch({
+      assignments: [mine, extraDay, samThursdayNight, samFridayNight],
+      needs: [need(1, 4, "day", 1), need(2, 4, "night", 1), need(3, 5, "night", 2)],
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const over = await screen.findByText("Days 2 of 1");
+    expect(over.getAttribute("data-cover")).toBe("over");
+    expect(over.className).toContain("--info");
+    expect(over.className).not.toContain("--danger");
+    const met = screen.getByText("Nights 1 of 1");
+    expect(met.getAttribute("data-cover")).toBe("met");
+    expect(met.className).not.toContain("--info");
+    expect(screen.getByText("Nights 1 of 2").getAttribute("data-cover")).toBe("short");
+  });
+
+  it("offers a manager 'Post as open shift' on an upcoming shift", async () => {
     const { posts } = mockFetch();
     render(<RosterTeamPage now={NOW} />);
     fireEvent.click(await screen.findByRole("button", { name: /Dr Sam Example, Night/ }));
     const sheet = await screen.findByRole("dialog");
-    fireEvent.click(within(sheet).getByRole("button", { name: "Offer to the team" }));
+    expect(within(sheet).queryByRole("button", { name: "Offer to the team" })).toBeNull();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Post as open shift" }));
     await waitFor(() => expect(posts).toEqual([{ action: "open.post", assignmentId: samThursdayNight.id }]));
-    expect(await within(sheet).findByText("Offered to the team.")).toBeTruthy();
+    expect(await within(sheet).findByText("Posted as an open shift.")).toBeTruthy();
+  });
+
+  it("shows a waiting swap in the shift sheet with Approve and Decline in place", async () => {
+    const { posts } = mockFetch({ swaps: [swap(ID(50), samThursdayNight, mine)] });
+    render(<RosterTeamPage now={NOW} />);
+    await screen.findByRole("region", { name: "Needs you" });
+    fireEvent.click(screen.getByRole("button", { name: /Dr Sam Example, Night/ }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText(/Swap · Dr Sam Example and Alex Example/)).toBeTruthy();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Decline" }));
+    await waitFor(() => expect(posts).toEqual([{ action: "swap.decline", swapId: ID(50) }]));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1]).toEqual({ action: "swap.approve", swapId: ID(50) });
+  });
+
+  it("shows no swap in the sheet of a shift the waiting swap does not touch", async () => {
+    const patNight = shift(
+      ID(9),
+      "88888888-8888-4888-8888-888888888888",
+      "Dr Pat Example",
+      "night",
+      "N",
+      "2026-10-16T21:30:00+08:00",
+      "2026-10-17T08:00:00+08:00",
+    );
+    mockFetch({ assignments: [mine, samThursdayNight, patNight], swaps: [swap(ID(50), samThursdayNight, mine)] });
+    render(<RosterTeamPage now={NOW} />);
+    await screen.findByRole("region", { name: "Needs you" });
+    fireEvent.click(screen.getByRole("button", { name: /Dr Pat Example, Night/ }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).queryByText(/Swap ·/)).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(within(sheet).getByRole("button", { name: "Post as open shift" })).toBeTruthy();
   });
 
   it("'Approve all without warnings' skips a flagged swap and reports a server refusal", async () => {
     const flaggedSwap = swap(ID(51), samFridayNight, mine);
     const refusedSwap = swap(ID(52), meFriday, samThursdayNight, { requesterId: ME, counterpartyId: SAM });
-    const cleanSwap = swap(
-      ID(53),
-      shift(ID(5), SAM, "Dr Sam Example", "day", "D", "2026-10-17T09:00:00+08:00", "2026-10-17T17:00:00+08:00"),
-      null,
+    const saturday = shift(
+      ID(5),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-17T09:00:00+08:00",
+      "2026-10-17T17:00:00+08:00",
     );
-    const { posts } = mockFetch({
+    const cleanSwap = swap(ID(53), saturday, null);
+    const { posts, reads } = mockFetch({
       rules: { maxNightsInRow: 1 },
-      assignments: [mine, samThursdayNight, samFridayNight, meFriday],
+      assignments: [mine, samThursdayNight, samFridayNight, meFriday, saturday],
       swaps: [flaggedSwap, refusedSwap, cleanSwap],
       refuse: new Set([ID(52)]),
     });
     render(<RosterTeamPage now={NOW} />);
     const strip = await screen.findByRole("region", { name: "Needs you" });
-    // Wait for the rule flags, which come from a separate read.
+    // Wait for the rule flags, which come from a separate, wider read.
     await screen.findByRole("button", { name: /2nd night in a row/ });
+    expect(reads.some((address) => address.includes("what=assignments") && address.includes("from=2026-10-10"))).toBe(
+      true,
+    );
     fireEvent.click(within(strip).getByRole("button", { name: "Approve all without warnings" }));
     expect(
       await within(strip).findByText("Approved 1. 1 left for you to read because a shift has a rule warning."),
@@ -285,24 +356,86 @@ describe("Team calendar, manager layer", () => {
     ]);
   });
 
-  it("hides counts and the strip when the maker read fails, and the staff calendar still works", async () => {
+  it("'Approve all' leaves a swap it could not check: a shift outside the loaded rows or before the look-back", async () => {
+    const outside = shift(
+      ID(7),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-11-20T09:00:00+08:00",
+      "2026-11-20T17:00:00+08:00",
+    );
+    const before = shift(
+      ID(8),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-11T09:00:00+08:00",
+      "2026-10-11T17:00:00+08:00",
+    );
+    const checked = swap(ID(54), samThursdayNight, mine);
+    const { posts } = mockFetch({
+      rules: { maxNightsInRow: 1 },
+      // `before` is read but sits ahead of the rules' look-back; `outside` is not read at all.
+      assignments: [mine, samThursdayNight, before],
+      swaps: [checked, swap(ID(55), outside, null), swap(ID(56), before, null)],
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    await waitFor(() => expect(within(strip).getAllByText("Not checked, open it to review")).toHaveLength(2));
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve all without warnings" }));
+    expect(await within(strip).findByText("Approved 1. 2 not checked, open them to review.")).toBeTruthy();
+    expect(posts).toEqual([{ action: "swap.approve", swapId: ID(54) }]);
+  });
+
+  it("'Approve all' checks nothing when the team rules did not load", async () => {
+    const { posts } = mockFetch({
+      overviewFails: true,
+      rules: { maxNightsInRow: 1 },
+      assignments: [mine, samThursdayNight],
+      swaps: [swap(ID(57), samThursdayNight, mine)],
+    });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    expect(within(strip).getByText("Not checked, open it to review")).toBeTruthy();
+    const all = within(strip).getByRole("button", { name: "Approve all without warnings" }) as HTMLButtonElement;
+    expect(all.disabled).toBe(true);
+    // A single decision is still the manager's to make.
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(posts).toEqual([{ action: "swap.approve", swapId: ID(57) }]));
+  });
+
+  it("lists short days from today onward only", async () => {
+    mockFetch({ needs: [need(1, 3, "night", 1), need(2, 4, "night", 2)] });
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    expect(within(strip).getByRole("button", { name: /Thu 15 Oct/ })).toBeTruthy();
+    // Wednesday 14 October is short too, but it has passed.
+    expect(screen.getByText("Nights 0 of 1").getAttribute("data-cover")).toBe("short");
+    expect(within(strip).queryByRole("button", { name: /Wed 14 Oct/ })).toBeNull();
+  });
+
+  it("hides the manager layer with one quiet line when the maker read fails, and the staff calendar still works", async () => {
     mockFetch({ makerFails: true, needs: [need(1, 4, "night", 2)], swaps: [swap(ID(50), samThursdayNight, mine)] });
     render(<RosterTeamPage now={NOW} />);
     const board = await screen.findByRole("table", { name: "Week roster" });
     expect(within(board).getByRole("button", { name: /Dr Sam Example, Night/ })).toBeTruthy();
-    // Give the failed read time to settle, then check nothing manager-only appeared.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    const line = await screen.findByText("Manager tools aren't available right now.");
+    expect(line.getAttribute("role")).toBeNull();
     expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
     expect(screen.queryByText(/Nights 1 of 2/)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("shows no counts for a team with no targets", async () => {
-    mockFetch({ needs: [] });
+    mockFetch({ needs: [], swaps: [swap(ID(50), samThursdayNight, mine)] });
     render(<RosterTeamPage now={NOW} />);
-    await screen.findByRole("table", { name: "Week roster" });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The strip appearing shows the manager reads have answered.
+    await screen.findByRole("region", { name: "Needs you" });
     expect(screen.queryByText(/ of \d/)).toBeNull();
+    expect(screen.queryByText("Manager tools aren't available right now.")).toBeNull();
   });
 });
 
@@ -311,7 +444,7 @@ describe("approveAllWithoutWarnings", () => {
     swap(id, { ...mine, id: giveId }, null) as unknown as RosterManageSwap;
   const flag: RuleFlag = { assignmentId: ID(11), rule: "maxNightsInRow", words: "2nd night in a row" };
 
-  it("sends swap.approve one at a time, skipping flagged swaps and collecting refusals", async () => {
+  it("sends swap.approve one at a time, skipping flagged and unchecked swaps and collecting refusals", async () => {
     const order: string[] = [];
     let running = 0;
     const post = vi.fn(async (action: { action: string; swapId?: string }) => {
@@ -325,11 +458,17 @@ describe("approveAllWithoutWarnings", () => {
         : ({ ok: true, result: { ok: true } } as const);
     });
     const outcome = await approveAllWithoutWarnings(
-      [item(ID(70), ID(11)), item(ID(71), ID(12)), item(ID(72), ID(13)), item(ID(73), ID(14))],
+      [item(ID(70), ID(11)), item(ID(71), ID(12)), item(ID(72), ID(13)), item(ID(73), ID(14)), item(ID(74), ID(15))],
       new Map([[ID(11), [flag]]]),
       post,
+      new Set([ID(70), ID(71), ID(72), ID(73)]),
     );
     expect(order).toEqual([ID(71), ID(72), ID(73)]);
-    expect(outcome).toEqual({ approved: 2, refused: [{ id: ID(72), message: "Refused." }] });
+    expect(outcome).toEqual({
+      approved: 2,
+      refused: [{ id: ID(72), message: "Refused." }],
+      warned: [ID(70)],
+      notChecked: [ID(74)],
+    });
   });
 });
