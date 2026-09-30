@@ -102,7 +102,7 @@ function ToolRow({
         onClick={(event) => onAbout(tool, event.currentTarget)}
         className={cn(
           "relative z-10 grid h-tap w-tap shrink-0 place-items-center rounded-full transition hover:bg-[color:var(--surface-subtle)]",
-          tone === "safety" ? "text-[color:var(--warning-text)]" : "text-[color:var(--text-soft)]",
+          tone === "safety" ? "text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]",
           focusRing,
         )}
       >
