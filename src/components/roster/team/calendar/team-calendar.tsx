@@ -7,10 +7,9 @@ import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { modeInsetHairline, modePressable } from "@/components/mode-kit/recipes";
 import { focusRing } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
-import { RosterGiveAwaySheet } from "@/components/roster/requests/roster-give-away-sheet";
 import { RosterSentBar, type SentReceipt } from "@/components/roster/requests/roster-sent-bar";
-import { RosterSwapSheet } from "@/components/roster/requests/roster-swap-sheet";
 import { formatShiftRange } from "@/components/roster/roster-format";
+import { SwapFlowSheet } from "@/components/roster/swaps/swap-flow-sheet";
 import { postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -102,7 +101,7 @@ function ShiftsByDay({
   );
 }
 
-type RequestSheet = { kind: "swap" | "give_away"; assignmentId: string } | null;
+type RequestSheet = { kind: "swap" | "give_away"; shift: RosterAssignment } | null;
 
 /**
  * The team calendar. View, date and filter live in the URL and are written
@@ -232,33 +231,24 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
           onClose={() => setSelected(null)}
           onSwap={(shift) => {
             setSelected(null);
-            setRequest({ kind: "swap", assignmentId: shift.id });
+            setRequest({ kind: "swap", shift });
           }}
           onGiveAway={(shift) => {
             setSelected(null);
-            setRequest({ kind: "give_away", assignmentId: shift.id });
+            setRequest({ kind: "give_away", shift });
           }}
         />
       ) : null}
-      {actorId ? (
-        <>
-          <RosterSwapSheet
-            open={request?.kind === "swap"}
-            onClose={() => setRequest(null)}
-            serviceId={team.serviceId}
-            actorId={actorId}
-            initialGiveId={request?.kind === "swap" ? request.assignmentId : undefined}
-            onSent={onSent}
-          />
-          <RosterGiveAwaySheet
-            open={request?.kind === "give_away"}
-            onClose={() => setRequest(null)}
-            serviceId={team.serviceId}
-            actorId={actorId}
-            initialAssignmentId={request?.kind === "give_away" ? request.assignmentId : undefined}
-            onSent={onSent}
-          />
-        </>
+      {actorId && request ? (
+        <SwapFlowSheet
+          open
+          onClose={() => setRequest(null)}
+          serviceId={team.serviceId}
+          actorId={actorId}
+          give={request.shift}
+          mode={request.kind}
+          onSent={onSent}
+        />
       ) : null}
     </>
   );
