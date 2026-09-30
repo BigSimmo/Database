@@ -32,6 +32,7 @@ import { CalendarFilters, type CalendarPerson } from "./calendar-filters";
 import { DaySheet } from "./day-sheet";
 import { DayView } from "./day-view";
 import { MonthView } from "./month-view";
+import { PrintButton } from "./print-button";
 import { ShiftSheet } from "./shift-sheet";
 import { WeekBoard } from "./week-board";
 
@@ -201,6 +202,7 @@ export function TeamCalendar({ team, actorId, now }: { team: RosterTeam; actorId
             Today
           </Button>
         ) : null}
+        {state.view === "month" ? <PrintButton /> : null}
       </div>
       {read.status === "loading" ? (
         <p role="status">Loading the team roster…</p>

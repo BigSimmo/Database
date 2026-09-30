@@ -55,9 +55,11 @@ export function RosterTeamPage({ now: suppliedNow }: { readonly now?: Date } = {
           ) : (
             <p className="text-sm">{selected.name}</p>
           )}
-          <Suspense fallback={<p role="status">Loading the team roster…</p>}>
-            <TeamCalendar key={selected.serviceId} team={selected} actorId={teams.data?.actorId ?? null} now={now} />
-          </Suspense>
+          <div data-roster-print className="contents">
+            <Suspense fallback={<p role="status">Loading the team roster…</p>}>
+              <TeamCalendar key={selected.serviceId} team={selected} actorId={teams.data?.actorId ?? null} now={now} />
+            </Suspense>
+          </div>
         </>
       )}
     </InformationPageShell>
