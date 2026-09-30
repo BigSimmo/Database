@@ -84,10 +84,22 @@ const reads = {
 const onSent = vi.fn();
 const onClose = vi.fn();
 
-function renderFlow(mode: "swap" | "give_away" = "swap") {
-  return render(
-    <SwapFlowSheet open onClose={onClose} serviceId={SERVICE} actorId={ME} give={give} mode={mode} onSent={onSent} />,
+function flowElement(mode: "swap" | "give_away" = "swap", shiftToGive = give) {
+  return (
+    <SwapFlowSheet
+      open
+      onClose={onClose}
+      serviceId={SERVICE}
+      actorId={ME}
+      give={shiftToGive}
+      mode={mode}
+      onSent={onSent}
+    />
   );
+}
+
+function renderFlow(mode: "swap" | "give_away" = "swap", shiftToGive = give) {
+  return render(flowElement(mode, shiftToGive));
 }
 
 async function toCheckStep() {
@@ -107,6 +119,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   overview.settings.swapApproval = "auto_same_grade";
   auth.status = "authenticated";
+  auth.authEpoch = 1;
+  reads.assignments = { assignments: [give, myOther, samEarly, samLate, samClashesWithMine, noorDay] };
   mocks.fetchRead.mockImplementation(async (_serviceId: string, what: string) => ({
     ok: true,
     data: reads[what as keyof typeof reads],
@@ -223,6 +237,50 @@ describe("SwapFlowSheet: check and send", () => {
     expect(mocks.fetchRead.mock.calls.length).toBeGreaterThan(readsBefore);
     expect(onSent).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+    // The Send button is back after the refusal, and the message goes when the step changes.
+    expect(screen.getByRole("button", { name: "Send swap request" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows Sending and offers no second Send while the request is in flight", async () => {
+    let answer: (value: unknown) => void = () => {};
+    mocks.post.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    renderFlow();
+    await toCheckStep();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.click(screen.getByRole("button", { name: "Send swap request" }));
+    await act(async () => vi.advanceTimersByTime(UNDO_MS + 1));
+    expect(screen.getByText("Sending…")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Send swap request" })).toBeNull();
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      answer({ ok: true, result: { swapId: SWAP, status: "requested" } });
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+    expect(onSent).toHaveBeenCalledWith("Swap sent");
+  });
+
+  it("says to sign in, and does not pretend to send, when nobody is signed in", async () => {
+    auth.status = "signed_out";
+    renderFlow();
+    await toCheckStep();
+    expect(screen.getByText("Sign in to send")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Send swap request" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("cancels the held send when the account changes", async () => {
+    const { rerender } = renderFlow();
+    await toCheckStep();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.click(screen.getByRole("button", { name: "Send swap request" }));
+    expect(screen.getByText("Sending in 10 seconds")).toBeTruthy();
+    auth.authEpoch = 2;
+    rerender(flowElement());
+    expect(screen.queryByText("Sending in 10 seconds")).toBeNull();
+    await act(async () => vi.advanceTimersByTime(UNDO_MS + 1));
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(onSent).not.toHaveBeenCalled();
   });
 });
 
@@ -240,6 +298,34 @@ describe("SwapFlowSheet: give away", () => {
       { keepalive: true },
     );
     expect(onSent).toHaveBeenCalledWith("Offered to Dr Sam Example");
+  });
+});
+
+describe("SwapFlowSheet: a shift starting within 24 hours", () => {
+  const soon = shift(ME, "Alex Example", "registrar", "2030-01-01", "08:00", "2030-01-01", "16:00");
+  const urgentGive = {
+    ...soon,
+    startsAt: new Date(Date.now() + 2 * 3_600_000).toISOString(),
+    endsAt: new Date(Date.now() + 10 * 3_600_000).toISOString(),
+  };
+
+  it("reports it to the manager with open.report, and Send works even with nobody free", async () => {
+    reads.assignments = { assignments: [urgentGive] };
+    renderFlow("give_away", urgentGive);
+    expect(screen.getByRole("dialog", { name: "I can't make my shift" })).toBeTruthy();
+    await screen.findByText("You still ring in as usual.");
+    const button = screen.getByRole("button", { name: "I can't make it" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.click(button);
+    expect(screen.getByText("Sending in 10 seconds")).toBeTruthy();
+    await act(async () => vi.advanceTimersByTime(UNDO_MS + 1));
+    expect(mocks.post).toHaveBeenCalledWith(
+      SERVICE,
+      { action: "open.report", assignmentId: urgentGive.id },
+      { keepalive: true },
+    );
+    expect(onSent).toHaveBeenCalledWith("Your manager has been told");
   });
 });
 
@@ -286,6 +372,18 @@ describe("SwapAnswerCard", () => {
     expect(screen.getByText("Expired")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Accept swap" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Decline" })).toBeNull();
+  });
+
+  it("shows the refusal and reads the roster again when Accept is refused", async () => {
+    mocks.post.mockResolvedValue({ ok: false, code: "roster_swap_gone", message: "That swap was withdrawn." });
+    render(<SwapAnswerCard swap={swap} serviceId={SERVICE} actorId={ME} onDone={done} />);
+    await screen.findByLabelText("Your week after");
+    const readsBefore = mocks.fetchRead.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Accept swap" }));
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toBe("That swap was withdrawn.");
+    expect(mocks.fetchRead.mock.calls.length).toBeGreaterThan(readsBefore);
+    expect(done).not.toHaveBeenCalled();
   });
 
   it("declines", async () => {

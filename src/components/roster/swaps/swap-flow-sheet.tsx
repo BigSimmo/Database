@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { GIVE_AWAY_WORDS, isUrgentGiveAway } from "@/components/roster/requests/request-ui";
 import { RosterSwapTicket } from "@/components/roster/requests/roster-swap-ticket";
 import { formatShiftRange, useRosterNow } from "@/components/roster/roster-format";
 import { useDelayedRosterAction } from "@/components/roster/swaps/use-delayed-roster-action";
@@ -138,7 +139,7 @@ export function SwapFlowSheet(props: {
 function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parameters<typeof SwapFlowSheet>[0]) {
   const now = useRosterNow();
   const { fresh, loadError, reread } = useFreshRead(serviceId, give.startsAt);
-  const { pending, schedule, undo } = useDelayedRosterAction();
+  const { pending, sending, canSend, schedule, undo } = useDelayedRosterAction();
   const [step, setStep] = useState<Step>("who");
   const [colleagueId, setColleagueId] = useState("");
   // null until chosen; "" means "Nothing, just take my shift".
@@ -177,9 +178,17 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
     [fresh, mode, give, actorId],
   );
 
+  // A shift starting within a day is reported to the manager, as the Requests give-away does.
+  const urgent = mode === "give_away" && isUrgentGiveAway(give.startsAt, now);
+
   function close() {
     undo();
     onClose();
+  }
+
+  function goStep(next: Step) {
+    setRefusal(null);
+    setStep(next);
   }
 
   function send() {
@@ -190,6 +199,19 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
       setRefusal(message);
       reread();
     };
+    if (urgent) {
+      schedule({
+        label: "Telling your manager",
+        serviceId,
+        action: { action: "open.report", assignmentId: give.id },
+        onDone: () => {
+          onSent(GIVE_AWAY_WORDS.told);
+          onClose();
+        },
+        onFailed,
+      });
+      return;
+    }
     if (mode === "give_away") {
       const names = giveAwayPeople.map((person) => person.name ?? "colleague").join(" and ");
       schedule({
@@ -242,7 +264,12 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
       : null;
   const preview = fresh && chosen ? swapPreview(fresh.assignments, give, take, actorId, chosen.userId) : null;
 
-  const sendControls = pending ? (
+  // While the hold runs, and while the server is answering, there is no Send button to tap again.
+  const sendControls = sending ? (
+    <p role="status" className={PANEL}>
+      Sending…
+    </p>
+  ) : pending ? (
     <div role="status" className={`${PANEL} grid gap-2`}>
       <p className="font-medium">Sending in 10 seconds</p>
       <p className="text-sm">{pending}. Closing this window cancels it.</p>
@@ -251,9 +278,14 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
       </Button>
     </div>
   ) : null;
+  const signInNote = canSend ? null : <p role="status">Sign in to send</p>;
 
   return (
-    <Sheet open onClose={close} title={mode === "swap" ? "Swap this shift" : "Give this shift away"}>
+    <Sheet
+      open
+      onClose={close}
+      title={mode === "swap" ? "Swap this shift" : urgent ? GIVE_AWAY_WORDS.urgentTitle : "Give this shift away"}
+    >
       <div className="grid gap-4">
         {!fresh && !loadError ? <p role="status">Checking the team roster…</p> : null}
         {loadError ? <p role="alert">{loadError}</p> : null}
@@ -274,7 +306,7 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
                     onClick={() => {
                       setColleagueId(choice.userId);
                       setTakeId(null);
-                      setStep("take");
+                      goStep("take");
                     }}
                   >
                     <span>
@@ -314,7 +346,7 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
                 className={CHOICE}
                 onClick={() => {
                   setTakeId("");
-                  setStep("check");
+                  goStep("check");
                 }}
               >
                 Nothing, just take my shift
@@ -325,14 +357,14 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
                   className={CHOICE}
                   onClick={() => {
                     setTakeId(shift.id);
-                    setStep("check");
+                    goStep("check");
                   }}
                 >
                   {shiftLine(shift)}
                 </Button>
               ))}
             </section>
-            <Button variant="ghost" onClick={() => setStep("who")}>
+            <Button variant="ghost" onClick={() => goStep("who")}>
               Back
             </Button>
           </>
@@ -353,10 +385,11 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
             <p className="text-xs text-[color:var(--text-muted)]">Rechecked {checkedTime(fresh.readAt)}</p>
             {sendControls ?? (
               <div className="grid gap-2">
-                <Button variant="primary" onClick={send}>
+                {signInNote}
+                <Button variant="primary" disabled={!canSend} onClick={send}>
                   Send swap request
                 </Button>
-                <Button variant="ghost" onClick={() => setStep("take")}>
+                <Button variant="ghost" onClick={() => goStep("take")}>
                   Back
                 </Button>
               </div>
@@ -377,10 +410,20 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
               ))}
             </ul>
             <p className="text-xs text-[color:var(--text-muted)]">Rechecked {checkedTime(fresh.readAt)}</p>
+            {urgent ? <p>{GIVE_AWAY_WORDS.ringIn}</p> : null}
             {sendControls ?? (
-              <Button variant="primary" disabled={giveAwayPeople.length === 0} onClick={send}>
-                {`Offer to ${giveAwayPeople.length === 1 ? "1 person" : `${giveAwayPeople.length} people`}`}
-              </Button>
+              <>
+                {signInNote}
+                <Button
+                  variant="primary"
+                  disabled={!canSend || (!urgent && giveAwayPeople.length === 0)}
+                  onClick={send}
+                >
+                  {urgent
+                    ? GIVE_AWAY_WORDS.urgentButton
+                    : `Offer to ${giveAwayPeople.length === 1 ? "1 person" : `${giveAwayPeople.length} people`}`}
+                </Button>
+              </>
             )}
           </>
         ) : null}
@@ -406,7 +449,7 @@ export function SwapAnswerCard({
   onDone: (label: string) => void;
 }) {
   const now = useRosterNow();
-  const { fresh, loadError } = useFreshRead(serviceId, swap.give?.startsAt ?? swap.createdAt);
+  const { fresh, loadError, reread } = useFreshRead(serviceId, swap.give?.startsAt ?? swap.createdAt);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [undoable, setUndoable] = useState(false);
@@ -435,6 +478,7 @@ export function SwapAnswerCard({
     setBusy(false);
     if (!result.ok) {
       setError(result.message);
+      reread();
       return;
     }
     if (action === "swap.undo") {

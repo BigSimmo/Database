@@ -25,11 +25,17 @@ type Job = {
 
 export function useDelayedRosterAction(): {
   pending: string | null;
+  /** True from the moment the hold ends until the server has answered. */
+  sending: boolean;
+  /** False when nobody is signed in: nothing can be scheduled. */
+  canSend: boolean;
   schedule: (job: Job) => void;
   undo: () => void;
 } {
   const auth = useAuthSession();
   const held = useRef<{ job: Job; timer: number } | null>(null);
+  const inFlight = useRef(false);
+  const [sending, setSending] = useState(false);
   const [pending, setPending] = useState<{ label: string; authEpoch: number } | null>(null);
 
   const send = useCallback(() => {
@@ -38,7 +44,11 @@ export function useDelayedRosterAction(): {
     window.clearTimeout(current.timer);
     held.current = null;
     setPending(null);
+    inFlight.current = true;
+    setSending(true);
     void postRosterAction(current.job.serviceId, current.job.action, { keepalive: true }).then((result) => {
+      inFlight.current = false;
+      setSending(false);
       if (result.ok) current.job.onDone(result.result);
       else current.job.onFailed(result.message);
     });
@@ -46,7 +56,7 @@ export function useDelayedRosterAction(): {
 
   const schedule = useCallback(
     (next: Job) => {
-      if (held.current || auth.status !== "authenticated") return;
+      if (held.current || inFlight.current || auth.status !== "authenticated") return;
       held.current = { job: next, timer: window.setTimeout(send, UNDO_MS) };
       setPending({ label: next.label, authEpoch: auth.authEpoch });
     },
@@ -70,5 +80,5 @@ export function useDelayedRosterAction(): {
 
   const visiblePending =
     auth.status === "authenticated" && pending?.authEpoch === auth.authEpoch ? pending.label : null;
-  return { pending: visiblePending, schedule, undo };
+  return { pending: visiblePending, sending, canSend: auth.status === "authenticated", schedule, undo };
 }
