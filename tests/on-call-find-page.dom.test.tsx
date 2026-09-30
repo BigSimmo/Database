@@ -48,10 +48,7 @@ describe("Find page", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Systems down" })).toBeInTheDocument();
     expect(screen.queryByText("Car park after hours")).toBeNull();
     expect(within(document.getElementById("on-call-group-other")!).getByText("Parking permits")).toBeInTheDocument();
-    expect(within(screen.getByTestId("on-call-find-on-site")).getByRole("link")).toHaveAttribute(
-      "href",
-      "/admin/help",
-    );
+    expect(within(screen.getByTestId("on-call-find-on-site")).getByRole("link")).toHaveAttribute("href", "/admin/help");
     expect(screen.getByRole("link", { name: "Your manuals" })).toHaveAttribute("href", "/on-call/orientation");
     expect(screen.getAllByRole("searchbox")).toHaveLength(1);
     expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Search numbers, wards, roles");
