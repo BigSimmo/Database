@@ -564,8 +564,11 @@ describe("mode secondary navigation registry", () => {
       "/on-call/card": "card",
       "/on-call/service": "service",
       "/on-call/compliance": "compliance",
+      "/admin/renewals": "compliance",
       "/on-call/logistics": "logistics",
+      "/admin/help": "logistics",
       "/on-call/education": "teaching",
+      "/teaching": "teaching",
       "/on-call/who-is-who": "whoswho",
       "/on-call/orientation": "orientation",
       "/on-call/check": null,
@@ -575,6 +578,17 @@ describe("mode secondary navigation registry", () => {
     for (const [path, id] of Object.entries(cases)) {
       expect(activeModeSecondaryNavigationId("on-call", path), path).toBe(id);
     }
+  });
+
+  it("sends More Compliance, Admin and Teaching straight to their mode homes", () => {
+    const more = Object.fromEntries(
+      modeSecondaryNavigationEntries("on-call")
+        .filter((entry) => entry.group === "more")
+        .map((entry) => [entry.id, entry.href]),
+    );
+    expect(more.compliance).toBe("/admin/renewals");
+    expect(more.logistics).toBe("/admin/help");
+    expect(more.teaching).toBe("/teaching");
   });
 
   it("does not mark Find/Search current on record routes that match no destination", () => {
