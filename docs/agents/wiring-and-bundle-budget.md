@@ -30,7 +30,8 @@ action must perform one; a page that ships must be reachable.
 - **Gates.** `eslint-rules/require-button-wiring.mjs` (in `npm run lint`) fails on an un-wired
   `<button>`; `tests/route-reachability.test.ts` (in `npm run test`) fails when a production page
   route has no inbound nav link unless it is consciously added to that test's documented
-  allowlist (redirect targets / legacy-compat routes). Both run in `verify:cheap` and CI. Mockups
+  allowlist (redirect targets / legacy-compat routes). Both run via `lint` / `test` inside
+  `verify:cheap`, `verify:full`, and CI. Mockups
   (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both. **Corrected
   2026-09-02: "and from nothing else" was wrong** — reading the actual rule and config sources,
   mockups are also exempt from `local/no-hardcoded-hex`, `local/require-z-index-ladder` and

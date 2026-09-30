@@ -254,12 +254,16 @@ maintained docs still resolve.
 Verification gates (see `package.json` for the full chain):
 
 ```bash
-npm run verify:cheap    # 38 static/consistency gates (check:runtime through
-                        # check:owner-scope; `npm run check:gate-manifest` lists
-                        # them) + lint + typecheck + test
-npm run verify:pr-local # closest local mirror of the PR gate: format + verify:cheap,
-                        # plus conditional build/client-bundle scan and RAG
-                        # fixture validation; the full unit suite runs once
+npm run verify:cheap    # ordinary offline gate: check:installed-lock-parity
+                        # + lint + typecheck + test (nothing else)
+npm run verify:full     # 41 static/consistency gates (check:runtime through
+                        # check:instructions; `npm run check:gate-manifest`
+                        # lists them from verify:full:internal) then lint +
+                        # typecheck + test — does not invoke the cheap script
+npm run verify:pr-local # risk-routed PR mirror: focused docs/workflow contracts
+                        # for recognised light scope; fail-closed lint/typecheck/
+                        # full unit (+ build/domain) for executable or unknown
+                        # scope. Inspect with `-- --dry-run --files <paths>`
 npm run verify:ui       # check:runtime + required production Chromium journeys
 npm run verify:release  # check:runtime + lint + typecheck + test + build + test:e2e
                         # + check:production-readiness + governance:release

@@ -45,8 +45,8 @@ covers a distinct plausible regression and the incremental confidence justifies 
 | --------------------------- | --------------------------------------------------------------- |
 | Markdown / docs only        | `prettier --check`, `docs:check-links`, `docs:check-index`      |
 | Localised source behavior   | `test:focused -- --files <paths>`                               |
-| Ordinary pre-PR check       | `verify:cheap` — lint + typecheck + unit tests                  |
-| Cross-module/unknown scope  | `verify:full` — `verify:cheap` plus 41 static gates             |
+| Ordinary pre-PR check       | `verify:cheap` — lock parity + lint + typecheck + unit tests    |
+| Cross-module/unknown scope  | `verify:full` — 41 static gates then lint + typecheck + test (does not invoke cheap; check 2 of 44) |
 | Before PR handoff           | `verify:pr-local` (risk-routed; inspect with `--dry-run`)       |
 | UI, styling, routing, a11y  | `npm run ensure`, affected journey, broad UI only when shared   |
 | Phone chrome                | `verify:phone-chrome` (narrower than `verify:ui`; run it first) |

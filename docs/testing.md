@@ -149,7 +149,8 @@ it is limited to the documented, exact GitHub connector-gap operation in
 | `npm run test:live`                       | Explicit provider suite; requires `ALLOW_PROVIDER_TESTS=true`.                                                                                          |
 | `npm run test:e2e:pr`                     | Required production Chromium journeys and visual-artifact smoke, excluding mockups and quarantined tests.                                               |
 | `npm run test:e2e:advisory`               | Quarantined and mockup journeys in one advisory invocation.                                                                                             |
-| `npm run verify:cheap`                    | Broad offline local gate: runtime/config checks, lint, typecheck, and the full unit suite.                                                              |
+| `npm run verify:cheap`                    | Ordinary offline local gate: `check:installed-lock-parity`, lint, typecheck, and the full unit suite. Nothing else. Static hygiene (runtime, sitemap, design tokens, ledgers…) lives in `verify:full` / CI. |
+| `npm run verify:full`                     | Broad offline local gate: 41 static/consistency gates then lint, typecheck, and unit tests. Does not invoke the cheap script. `check:gate-manifest` reads this chain. |
 | `npm run verify:pr-local`                 | Risk-routed PR-like local gate. Recognised docs/workflow scopes stay focused; executable or unknown scope adds lint, typecheck, full unit, and domains. |
 | `npm run verify:phone-chrome`             | Smart phone-chrome gate: lock parity, affected contracts, browser/PWA owners and exact journeys, then full UI only for shared foundations.              |
 | `npm run verify:ui`                       | Complete required production Chromium gate.                                                                                                             |
