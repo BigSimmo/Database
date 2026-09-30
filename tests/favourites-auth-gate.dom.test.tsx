@@ -494,17 +494,23 @@ describe("favourites auth gate DOM", () => {
   it("applies the same Favourites access gate to the all-tools results directory", () => {
     const { rerender } = render(<ToolsSearchResultsPage canAccessFavourites={false} />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Open PsychSift Search" })).toHaveAttribute("href", "/?mode=answer");
-    expect(screen.getByRole("button", { name: "View details for PsychSift Search" })).toBeVisible();
-    expect(screen.getAllByText("Safety-first").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("radio", { name: /Saved/ })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
+    expect(within(screen.getByTestId("tool-row-clinical-kb-search")).getByRole("link")).toHaveAttribute(
+      "href",
+      "/?mode=answer",
+    );
+    expect(screen.getByRole("button", { name: "About PsychSift Search" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Safety" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Saved" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Saved workflows" })).toBeNull();
+    // The default Saved workflows pin resolves against the session, so a guest never sees it.
+    expect(screen.queryByTestId("tool-pin-favourites")).toBeNull();
 
     rerender(<ToolsSearchResultsPage canAccessFavourites />);
 
-    expect(screen.getByRole("radio", { name: "Saved (1)" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Saved" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Saved workflows" })).toBeVisible();
+    expect(screen.getByTestId("tool-pin-favourites")).toBeVisible();
   });
 
   it("offers an all-tools recovery path when a URL query has no matching tools", () => {
@@ -521,11 +527,11 @@ describe("favourites auth gate DOM", () => {
 
     expect(
       within(screen.getByRole("region", { name: "Tool results" })).getByRole("heading", {
-        level: 2,
+        level: 3,
         name: "Medication Prescribing",
       }),
     ).toBeVisible();
-    expect(screen.queryByRole("heading", { level: 2, name: "Favourites" })).toBeNull();
+    expect(screen.queryByRole("heading", { level: 3, name: "Saved workflows" })).toBeNull();
   });
 
   it("keeps local-only Tools Smart results free of escape tools while literal titles still open them", () => {
@@ -534,14 +540,15 @@ describe("favourites auth gate DOM", () => {
     );
     const results = screen.getByRole("region", { name: "Tool results" });
 
-    for (const title of ["PsychSift Search", "Documents", "Favourites"]) {
-      expect(within(results).queryByRole("heading", { level: 2, name: title })).toBeNull();
-      expect(within(results).queryByRole("link", { name: `Open ${title}` })).toBeNull();
+    for (const title of ["PsychSift Search", "Documents", "Saved workflows"]) {
+      expect(within(results).queryByRole("heading", { level: 3, name: title })).toBeNull();
+      expect(within(results).queryByRole("link", { name: title })).toBeNull();
     }
 
     rerender(<ToolsSearchResultsPage initialQuery="Documents" canAccessFavourites />);
-    expect(within(results).getByRole("heading", { level: 2, name: "Documents" })).toBeVisible();
-    expect(within(results).getByRole("link", { name: "Open Documents" })).toBeVisible();
+    const literalResults = screen.getByRole("region", { name: "Tool results" });
+    expect(within(literalResults).getByRole("heading", { level: 3, name: "Documents" })).toBeVisible();
+    expect(within(literalResults).getByRole("link", { name: "Documents" })).toBeVisible();
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

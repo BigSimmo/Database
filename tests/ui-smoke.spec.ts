@@ -2051,7 +2051,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const toolsTrigger = page.getByRole("button", { name: "Mode Tools" });
     await expect(toolsTrigger).toBeVisible();
     await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
 
     // Reopening on a mode in a lower group must position that selected row in
@@ -5278,13 +5278,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(results).toBeVisible();
     const queryRibbon = results.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "medications" })).toBeVisible();
-    await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    // The verb shortcut row is for an unqueried catalogue, so a running query hides it.
-    await expect(page.getByTestId("tools-shortcuts")).toHaveCount(0);
-    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+    await expect(results.getByRole("heading", { level: 3, name: "Medication Prescribing" })).toBeVisible();
+    // The pinned row is for an unqueried catalogue, so a running query hides it.
+    await expect(page.getByTestId("tools-pinned")).toHaveCount(0);
+    await results.getByRole("button", { name: "About Medication Prescribing" }).click();
     await expect(
-      results.getByRole("complementary", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
+      page.locator('[data-testid="tools-search-detail-sheet"]:visible').locator('a[href="/medications"]').first(),
     ).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
