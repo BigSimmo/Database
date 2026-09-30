@@ -178,9 +178,54 @@ describe("Swaps page swaps", () => {
     ];
     render(<RosterSwapsPage />);
     await user.click(screen.getByRole("tab", { name: /Sent/ }));
-    expect(screen.getByText("Waiting on Sam")).toBeTruthy();
+    expect(screen.getByText("Waiting on Sam, expires Thu 1 Jan")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Withdraw" }));
     expect(mocks.post).toHaveBeenCalledWith(SERVICE, { action: "swap.cancel", swapId: swap.id });
+  });
+
+  it("says when a swap I sent runs out, in Perth time", async () => {
+    const user = userEvent.setup();
+    reads.requests.swaps = [
+      { ...swap, requesterId: ME, counterpartyId: SAM, requesterName: "You", counterpartyName: "Sam" },
+    ];
+    render(<RosterSwapsPage />);
+    await user.click(screen.getByRole("tab", { name: /Sent/ }));
+    expect(screen.getByText("Waiting on Sam, expires Thu 1 Jan")).toBeTruthy();
+  });
+
+  it("says when a swap waiting on me runs out", () => {
+    render(<RosterSwapsPage />);
+    expect(screen.getByText("Waiting on you, expires Thu 1 Jan")).toBeTruthy();
+  });
+
+  it("shows a declined swap in History with its reason", async () => {
+    const user = userEvent.setup();
+    reads.requests.swaps = [{ ...swap, status: "declined" }];
+    render(<RosterSwapsPage />);
+    await user.click(screen.getByRole("tab", { name: /History/ }));
+    expect(screen.getByText("Declined")).toBeTruthy();
+    expect(screen.queryByText(/expires/)).toBeNull();
+  });
+
+  it("shows a cancelled swap in History with why it was cancelled", async () => {
+    const user = userEvent.setup();
+    reads.requests.swaps = [{ ...swap, status: "cancelled", cancelReason: "roster_changed" }];
+    render(<RosterSwapsPage />);
+    await user.click(screen.getByRole("tab", { name: /History/ }));
+    expect(screen.getByText("Cancelled: the roster changed")).toBeTruthy();
+  });
+
+  it("shows an ended swap in All team swaps without an expiry", async () => {
+    const user = userEvent.setup();
+    teamsState.data.teams[0]!.role = "manager";
+    reads.manage.swaps = [
+      { ...swap, status: "declined", counterpartyId: NOOR, counterpartyName: "Noor" },
+      { ...swap, id: "5e000000-0000-4000-8000-000000000009", status: "requested", counterpartyId: NOOR },
+    ];
+    render(<RosterSwapsPage />);
+    await user.click(screen.getByRole("tab", { name: /All team swaps/ }));
+    expect(screen.getByText("Declined")).toBeTruthy();
+    expect(screen.queryByText(/expires/)).toBeNull();
   });
 
   it("marks the current step of the progress line", async () => {

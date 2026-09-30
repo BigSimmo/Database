@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
+import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import type { SwapStep } from "@/lib/roster/team/swap-progress";
 
 const STATE_WORDS: Record<SwapStep["state"], string> = { done: "done", current: "now", todo: "still to come" };
@@ -15,10 +16,13 @@ export function SwapProgressLine({
   steps,
   waitingOn,
   ended,
+  expiresAt,
 }: {
   steps: readonly SwapStep[];
   waitingOn: string | null;
   ended: string | null;
+  /** When a swap still waiting for an answer runs out, if the read carries it. */
+  expiresAt?: string | null;
 }) {
   return (
     <div className="grid gap-1">
@@ -55,6 +59,7 @@ export function SwapProgressLine({
       ) : waitingOn ? (
         <p className="text-sm text-[color:var(--text-muted)]">
           {waitingOn === "You" ? "Waiting on you" : `Waiting on ${waitingOn}`}
+          {expiresAt ? `, expires ${formatPerthDay(perthDateOf(expiresAt))}` : ""}
         </p>
       ) : null}
     </div>

@@ -454,7 +454,7 @@ export function SwapAnswerCard({
   const [error, setError] = useState<string | null>(null);
   const [undoable, setUndoable] = useState(false);
   const { give, take } = swap;
-  if (!give) return <p role="alert">That swap changed. Refresh Requests.</p>;
+  if (!give) return <p role="alert">That swap changed. Refresh Swaps.</p>;
 
   const progress = swapProgress(swap, actorId, now);
   const canAnswer = swap.counterpartyId === actorId && swap.status === "requested" && progress.ended === null;

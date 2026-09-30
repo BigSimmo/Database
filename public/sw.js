@@ -327,8 +327,8 @@ self.addEventListener("message", (event) => {
 // the lock screen.
 const ROSTER_PUSH = {
   changed: { body: "Your roster changed. Open Roster to see what moved.", path: "/roster" },
-  request: { body: "Something in Roster is waiting for you.", path: "/roster/requests" },
-  offer: { body: "A shift is open in your team. Open Roster to see it.", path: "/roster/requests" },
+  request: { body: "Something in Roster is waiting for you.", path: "/roster/swaps" },
+  offer: { body: "A shift is open in your team. Open Roster to see it.", path: "/roster/swaps" },
   manage: { body: "Something in Manage is waiting for you.", path: "/roster/manage" },
 };
 

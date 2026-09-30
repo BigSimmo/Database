@@ -56,6 +56,13 @@ function Row({
   );
 }
 
+/** How an ended swap ended, with its reason (declined, withdrawn, roster changed...). */
+const endedWords = (swap: RosterSwap, progress: { ended: string | null }, meId: string, now: Date) =>
+  progress.ended && swap.status !== "requested" ? requestStatusWords(swap, meId, now) : progress.ended;
+/** Only a swap still waiting for an answer has an expiry worth showing. */
+const expiryOf = (swap: RosterSwap, progress: { ended: string | null }) =>
+  swap.status === "requested" && progress.ended === null ? swap.expiresAt : null;
+
 const shiftDay = (swap: RosterSwap | RosterManageSwap) =>
   swap.give ? `${formatPerthDay(perthDateOf(swap.give.startsAt))} ${SHIFT_KIND_LABEL[swap.give.kind]}` : "a shift";
 const returnLine = (swap: RosterSwap | RosterManageSwap) =>
@@ -209,7 +216,12 @@ export function RosterSwapsPage() {
           </div>
         }
       >
-        <SwapProgressLine steps={progress.steps} waitingOn={progress.waitingOn} ended={progress.ended} />
+        <SwapProgressLine
+          steps={progress.steps}
+          waitingOn={progress.waitingOn}
+          ended={endedWords(swap, progress, actorId!, now)}
+          expiresAt={expiryOf(swap, progress)}
+        />
       </Row>
     );
   }
@@ -308,10 +320,15 @@ export function RosterSwapsPage() {
           {activeTab === "needs_you" ? (
             needsYou.length ? (
               <ul className="grid gap-3">
-                {needsYou.map(({ swap }) => (
+                {needsYou.map(({ swap, progress }) => (
                   <li key={swap.id} className={cn(modeModuleSurface, "grid gap-2 p-3")}>
                     <p className="font-medium">{swap.requesterName ?? "A colleague"} asks to swap</p>
-                    <SwapProgressLine {...swapProgress(swap, actorId!, now)} />
+                    <SwapProgressLine
+                      steps={progress.steps}
+                      waitingOn={progress.waitingOn}
+                      ended={progress.ended}
+                      expiresAt={expiryOf(swap, progress)}
+                    />
                     <SwapAnswerCard swap={swap} serviceId={serviceId!} actorId={actorId!} onDone={onSent} />
                   </li>
                 ))}
