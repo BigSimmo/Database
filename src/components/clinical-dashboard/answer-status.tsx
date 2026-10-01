@@ -217,9 +217,9 @@ function StopControl({ onStop }: { onStop: () => void }) {
       onClick={onStop}
       data-testid="stop-answer"
       aria-label="Stop generating answer"
-      className="group -my-2 inline-flex min-h-tap shrink-0 items-center justify-center rounded-md outline-none"
+      className="group -my-2 inline-flex min-h-tap shrink-0 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >
-      <span className="inline-flex items-center gap-1 rounded-md px-1 text-2xs font-semibold text-[color:var(--text-muted)] transition group-hover:text-[color:var(--text-heading)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none">
+      <span className="inline-flex items-center gap-1 rounded-md px-1 text-2xs font-semibold text-[color:var(--text-muted)] transition group-hover:text-[color:var(--text-heading)] motion-reduce:transition-none">
         <Square aria-hidden="true" className="size-icon-xs shrink-0 fill-current" />
         Stop
       </span>

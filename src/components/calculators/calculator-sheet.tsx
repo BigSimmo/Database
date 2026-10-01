@@ -4,7 +4,7 @@ import { Info, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { cn } from "@/components/ui-primitives";
-import { isTopmostSheet, popSheet, pushSheet, updateSheetRoot } from "@/components/ui/sheet-focus";
+import { canRestoreFocusTo, isTopmostSheet, popSheet, pushSheet, updateSheetRoot } from "@/components/ui/sheet-focus";
 import { MissingValue } from "@/components/ui/missing-value";
 
 import { calculators, domainLabels, type CalculatorFixture } from "./calculator-fixtures";
@@ -25,20 +25,30 @@ import { CalculatorSearchHome, NextActionsPanel, ScorePanel, type SessionAnswers
  * page in place underneath. Uses the app's modal layer (z-100) and the
  * sheet-up / dialog-rise motion tokens.
  */
+export interface CalculatorSheetProps {
+  calc: CalculatorFixture;
+  answers: AnswerMap;
+  onAnswersChange: (next: AnswerMap) => void;
+  onClose: () => void;
+  sheetId?: string;
+  isOpen?: boolean;
+}
+
 export function CalculatorSheet({
   calc,
   answers,
   onAnswersChange,
   onClose,
   sheetId,
-}: {
-  calc: CalculatorFixture;
-  answers: AnswerMap;
-  onAnswersChange: (next: AnswerMap) => void;
-  onClose: () => void;
-  sheetId?: string;
-}) {
+  isOpen = true,
+}: CalculatorSheetProps) {
   const derived = deriveCalculator(calc, answers);
+  const internalSheetId = useId();
+  const effectiveSheetId = sheetId ?? internalSheetId;
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -73,27 +83,37 @@ export function CalculatorSheet({
   };
 
   useEffect(() => {
-    if (sheetId && dialogRef.current) {
-      updateSheetRoot(sheetId, dialogRef.current);
-    }
-    return () => {
-      if (sheetId) {
-        updateSheetRoot(sheetId, null);
+    if (!isOpen) return;
+    pushSheet(effectiveSheetId, dialogRef.current);
+    updateSheetRoot(effectiveSheetId, dialogRef.current);
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && isTopmostSheet(effectiveSheetId)) {
+        event.preventDefault();
+        onCloseRef.current();
       }
     };
-  }, [sheetId]);
+
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      updateSheetRoot(effectiveSheetId, null);
+      popSheet(effectiveSheetId);
+    };
+  }, [effectiveSheetId, isOpen]);
 
   // Save the opener, move focus into the dialog, and restore on close.
   useEffect(() => {
+    if (!isOpen) return;
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
     return () => {
       const target = previousFocusRef.current;
-      if (target && target.isConnected && typeof target.focus === "function") {
+      if (target && target.isConnected && typeof target.focus === "function" && canRestoreFocusTo(target)) {
         target.focus();
       }
     };
-  }, [calc.id]);
+  }, [calc.id, isOpen]);
 
   // Switching calculators in place keeps this sheet mounted, so reset its scroll
   // on calc change — otherwise the next one opens at the prior sheet's offset
@@ -126,6 +146,8 @@ export function CalculatorSheet({
       first.focus();
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div

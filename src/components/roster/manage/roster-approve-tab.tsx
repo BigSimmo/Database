@@ -51,6 +51,7 @@ export function RosterApproveTab({ serviceId }: { serviceId: string }) {
         {swaps.map((swap) => (
           <li key={swap.id}>
             <button
+              type="button"
               className="grid min-h-12 w-full gap-1 p-4 text-left"
               onClick={() => setDecision({ kind: "swap", item: swap })}
             >
@@ -67,6 +68,7 @@ export function RosterApproveTab({ serviceId }: { serviceId: string }) {
         {open.map((shift) => (
           <li key={shift.id}>
             <button
+              type="button"
               className="grid min-h-12 w-full gap-1 p-4 text-left"
               onClick={() => setDecision({ kind: "open", item: shift })}
             >

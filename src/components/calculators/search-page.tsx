@@ -21,7 +21,6 @@ import {
 import { ShowAllChip } from "@/components/show-all-chip";
 import { restoreFocusUnlessMoved } from "@/components/use-dismissable-layer";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { isTopmostSheet, popSheet, pushSheet } from "@/components/ui/sheet-focus";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
@@ -215,7 +214,7 @@ function DensityControl({ density, onDensity }: { density: Density; onDensity: (
           title={`${label} density`}
           onClick={() => onDensity(value)}
           className={cn(
-            "grid size-9 place-items-center rounded-md transition motion-reduce:transition-none",
+            "relative grid size-9 place-items-center rounded-md transition motion-reduce:transition-none before:absolute before:-inset-y-1.5 before:inset-x-0",
             density === value
               ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
@@ -417,23 +416,6 @@ export function CalculatorsSearchPage({
     },
     [],
   );
-
-  useEffect(() => {
-    if (!activeCalc) return;
-    pushSheet(calculatorSheetId);
-    const onKey = (event: KeyboardEvent) => {
-      if (!isTopmostSheet(calculatorSheetId)) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeCalculator();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      popSheet(calculatorSheetId);
-    };
-  }, [activeCalc, calculatorSheetId, closeCalculator]);
 
   function toggleDomain(domain: CalculatorDomain) {
     setSelectedDomains((current) => {

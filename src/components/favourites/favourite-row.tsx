@@ -277,6 +277,7 @@ export function FavouriteRow({
             <button
               type="button"
               onClick={() => onSelectForWorkspace(item)}
+              aria-label={`Select ${item.title} for workspace`}
               aria-pressed={workspaceSelected}
               aria-describedby={metaId}
               className={cn(
