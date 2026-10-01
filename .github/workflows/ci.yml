@@ -331,7 +331,8 @@ jobs:
           LEDGER_WRITE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           node scripts/resolve-ledger-ci-base.mjs --self-test
-          echo "LEDGER_WRITE_BASE_SHA=$(node scripts/resolve-ledger-ci-base.mjs)" >> "$GITHUB_ENV"
+          ledger_base="$(node scripts/resolve-ledger-ci-base.mjs)"
+          echo "LEDGER_WRITE_BASE_SHA=$ledger_base" >> "$GITHUB_ENV"
 
       - name: Run ledger write discipline
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
