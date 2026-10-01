@@ -18,7 +18,7 @@ vi.mock("@/components/roster/use-roster-team", () => ({
   postRosterAction: mocks.post,
 }));
 vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "authenticated", authEpoch: 1 }) }));
-vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
+vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskButton: () => null }));
 vi.mock("@/components/roster/use-roster-shifts", () => ({ useRosterShifts: () => ({ status: "ready", shifts: [] }) }));
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ open, title, children }: { open: boolean; title: string; children: ReactNode }) =>
