@@ -13,7 +13,7 @@ import { perthCalendarDate } from "@/lib/cme/cpd-year";
  *  "start renewing" lead time to draw from unless the entry itself carries a
  *  `leadTimeDays`, so a personal row reads "Recorded" once a date exists, a
  *  diamond once that date has passed, or "Not recorded yet" with a dashed ring. */
-function personalStatus(entry: OnCallEntry, now: Date) {
+export function personalStatus(entry: OnCallEntry, now: Date) {
   const expiresOn = complianceExpiresOn(entry);
   if (!expiresOn) return { shape: "ring" as const, word: "Not recorded yet" };
   if (expiresOn < perthCalendarDate(now)) return { shape: "diamond" as const, word: "Date passed" };

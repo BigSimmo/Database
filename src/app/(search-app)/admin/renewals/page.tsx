@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { AdminRenewalsPage } from "@/components/admin/admin-renewals-page";
 
@@ -10,5 +11,11 @@ export const metadata: Metadata = {
 };
 
 export default function AdminRenewalsRoute() {
-  return <AdminRenewalsPage />;
+  // The page reads `?show=`, `?item=` and `?record=` through `useSearchParams`,
+  // which needs a Suspense boundary in the App Router.
+  return (
+    <Suspense fallback={null}>
+      <AdminRenewalsPage />
+    </Suspense>
+  );
 }

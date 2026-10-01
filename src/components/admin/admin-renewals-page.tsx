@@ -1,16 +1,20 @@
 "use client";
 
+import { Ellipsis } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminFloatingAdd } from "@/components/admin/admin-floating-add";
 import { AdminQuickAddSheet } from "@/components/admin/admin-quick-add-sheet";
 import { AdminRenewedSheet } from "@/components/admin/admin-renewed-sheet";
 import { catalogueItemForEntry, isPersonalRenewal } from "@/components/admin/renewals/catalogue-lookup";
-import { ChecklistList } from "@/components/admin/renewals/checklist-list";
+import { ChecklistList, type RecordDatesSlot } from "@/components/admin/renewals/checklist-list";
 import { ChecklistKindChips, type ChecklistKindFilter } from "@/components/admin/renewals/kind-chips";
 import { ChecklistItemDetailSheet, type ChecklistItemSubject } from "@/components/admin/renewals/item-detail-sheet";
 import { ChecklistSummary } from "@/components/admin/renewals/checklist-summary";
 import { PersonalRenewalsList } from "@/components/admin/renewals/personal-list";
+import { RecordDatesSheet, type RecordDatesReadOnly } from "@/components/admin/renewals/record-dates-sheet";
+import { RenewalsShowFilterList } from "@/components/admin/renewals/show-filter-list";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -18,8 +22,10 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { EmptyState, InlineNotice } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
+import { announce } from "@/components/ui/live-announcer";
+import { Sheet } from "@/components/ui/sheet";
 import { Tabs } from "@/components/ui/tabs";
-import { cn, controlDisabled, floatingControl, textMuted } from "@/components/ui-primitives";
+import { cn, controlDisabled, IconButton, textMuted } from "@/components/ui-primitives";
 import { downloadTextFile } from "@/lib/admin/download-file";
 import {
   buildIssuerCheckStampBody,
@@ -36,6 +42,7 @@ import {
   requirementsRecordedCount,
 } from "@/lib/admin/requirements";
 import { adminLoadState, selectAdminOwnEntries } from "@/lib/admin/own-entries";
+import { parseRenewalsShow, renewalsShowMatches } from "@/lib/admin/renewals-filters";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
@@ -57,12 +64,43 @@ type UndoBar = {
 /** A failed save that is not an undo ("Move back"): shown as a neutral notice with Retry. */
 type FailedAction = { readonly message: string; readonly retry: () => Promise<void> };
 
+/** The page's own path, for clearing a `?show=` filter in place. */
+const RENEWALS_PATH = "/admin/renewals";
+
+/** A menu row in the ••• sheet: full width, 48px, plain text. */
+const menuItem =
+  "flex min-h-12 w-full items-center rounded-lg px-2 text-left text-sm text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-default disabled:text-[color:var(--text-muted)] disabled:hover:bg-transparent";
+
 async function parsedEntry(response: Response): Promise<OnCallEntry> {
   if (!response.ok) throw await parseApiErrorResponse(response);
   const payload: unknown = await response.json();
   const parsed = onCallEntrySchema.safeParse((payload as { entry?: unknown } | null)?.entry);
   if (!parsed.success) throw new Error("Save response was invalid.");
   return parsed.data;
+}
+
+/** The detail sheet's subject for one of the reader's rows, or null when it is not a renewal. */
+function detailSubjectForEntry(entry: OnCallEntry): ChecklistItemSubject | null {
+  const item = catalogueItemForEntry(entry);
+  if (item) return { kind: "catalogue", item, entry };
+  if (isPersonalRenewal(entry)) return { kind: "personal", entry };
+  return null;
+}
+
+/** The detail sheet's subject for a catalogue item id, with the reader's row for it if any. */
+function detailSubjectForCatalogueItem(id: string, own: readonly OnCallEntry[]): ChecklistItemSubject | null {
+  const item = ADMIN_REQUIREMENTS_CATALOGUE.find((candidate) => candidate.id === id);
+  if (!item) return null;
+  // The same row the checklist shows for it; else one marked not for this job.
+  const row = requirementChecklistRowsForJob(ADMIN_REQUIREMENTS_CATALOGUE, own).find(
+    (candidate) => candidate.item.id === item.id,
+  );
+  const entry =
+    row?.entry ??
+    requirementsNotForThisJob(ADMIN_REQUIREMENTS_CATALOGUE, own).find((flagged) => flagged.item.id === item.id)
+      ?.entry ??
+    null;
+  return { kind: "catalogue", item, entry };
 }
 
 /**
@@ -91,6 +129,17 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   const ready = loadState === "ready";
   const canEdit = ready && !state.demoMode;
   const [signInOpen, setSignInOpen] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // `/admin/renewals?show=…` (Today's at-a-glance counts), `?item=<id>` and
+  // `?record=missing` — see the cross-lane URL contract. Unknown values are ignored.
+  const showFilter = parseRenewalsShow(searchParams?.get("show"));
+  const itemParam = searchParams?.get("item") ?? null;
+  const recordParam = searchParams?.get("record") ?? null;
+  const [menuOpen, setMenuOpen] = useState(false);
+  // The queue the "Record missing dates" sheet steps through, fixed when it
+  // opens; null while the sheet is closed.
+  const [recordQueue, setRecordQueue] = useState<readonly CatalogueItem[] | null>(null);
 
   const [tab, setTab] = useState<"checklist" | "personal">("checklist");
   const [kindFilter, setKindFilter] = useState<ChecklistKindFilter>("all");
@@ -122,6 +171,27 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   );
   const personalEntries = useMemo(() => own.filter((entry) => isPersonalRenewal(entry)), [own]);
   const calendarFile = useMemo(() => renewalsCalendarFile(own, now), [own, now]);
+  const showMatches = useMemo(
+    () => (showFilter ? renewalsShowMatches(own, showFilter, now) : []),
+    [own, showFilter, now],
+  );
+  const notRecordedItems = useMemo(
+    () => rows.filter((row) => row.state === "not-recorded").map((row) => row.item),
+    [rows],
+  );
+  const recordReadOnly: RecordDatesReadOnly | null =
+    loadState === "signed-out" ? "signed-out" : loadState === "failed" ? "failed" : state.demoMode ? "demo" : null;
+
+  function openRecordDates() {
+    setRecordQueue(notRecordedItems);
+  }
+
+  function clearShowFilter() {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("show");
+    const query = params.toString();
+    router.replace(query ? `${RENEWALS_PATH}?${query}` : RENEWALS_PATH, { scroll: false });
+  }
 
   function upsert(entry: OnCallEntry) {
     cacheOnCallEntries([...state.entries.filter((existing) => existing.id !== entry.id), entry]);
@@ -164,21 +234,44 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
       if (!hash.startsWith("on-call-entry-") || openedHash.current === hash) return;
       const entry = own.find((candidate) => onCallEntryAnchorId(candidate.id) === hash);
       if (!entry) return;
-      const item = catalogueItemForEntry(entry);
-      if (item) {
-        openedHash.current = hash;
-        setTab("checklist");
-        setDetailSubject({ kind: "catalogue", item, entry });
-      } else if (isPersonalRenewal(entry)) {
-        openedHash.current = hash;
-        setTab("personal");
-        setDetailSubject({ kind: "personal", entry });
-      }
+      const subject = detailSubjectForEntry(entry);
+      if (!subject) return;
+      openedHash.current = hash;
+      setTab(subject.kind === "catalogue" ? "checklist" : "personal");
+      setDetailSubject(subject);
     }
     openFromHash();
     window.addEventListener("hashchange", openFromHash);
     return () => window.removeEventListener("hashchange", openFromHash);
   }, [ready, own]);
+
+  // `?item=<entry id or catalogue item id>` (Today's "Coming up" rows) opens
+  // that item's detail sheet once the reader's rows have loaded, once per id.
+  const openedItem = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ready || !itemParam || openedItem.current === itemParam) return;
+    function openFromItemParam(id: string) {
+      const entry = own.find((candidate) => candidate.id === id);
+      const subject = entry ? detailSubjectForEntry(entry) : detailSubjectForCatalogueItem(id, own);
+      if (!subject) return;
+      openedItem.current = id;
+      setTab(subject.kind === "catalogue" ? "checklist" : "personal");
+      setDetailSubject(subject);
+    }
+    openFromItemParam(itemParam);
+  }, [ready, own, itemParam]);
+
+  // `?record=missing` opens "Record missing dates" once the load settles —
+  // on a read-only page it opens too, and says why it cannot save.
+  const openedRecord = useRef(false);
+  useEffect(() => {
+    if (recordParam !== "missing" || loadState === "loading" || openedRecord.current) return;
+    function openFromRecordParam(queue: readonly CatalogueItem[]) {
+      openedRecord.current = true;
+      setRecordQueue(queue);
+    }
+    openFromRecordParam(notRecordedItems);
+  }, [recordParam, loadState, notRecordedItems]);
 
   async function runUndo(bar: UndoBar) {
     setUndoBusy(true);
@@ -207,8 +300,10 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
     try {
       await copyTextToClipboard(text);
       setCopy("copied");
+      announce("Copied for workforce", { eventId: "admin-renewals-copy" });
     } catch {
       setCopy("failed");
+      announce("Couldn't copy. The text is shown below to copy by hand.", { eventId: "admin-renewals-copy" });
     }
   }
 
@@ -260,41 +355,34 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
     });
   }
 
+  function addDate(item: CatalogueItem) {
+    setRenewSubject({ entry: null, createItem: item });
+    setRenewOpen(true);
+  }
+
+  const recordDatesSlot: RecordDatesSlot | undefined = canEdit
+    ? { kind: "button", onOpen: openRecordDates }
+    : state.demoMode
+      ? { kind: "note", text: "Example records are read-only" }
+      : undefined;
+
   return (
     <InformationPageShell testId="admin-renewals-main">
-      <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Renewals</h1>
-        <p className={cn(textMuted, "text-sm")}>Source: Medical Board, WA Health · Updated 26 Sep 2026</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="grid min-w-0 gap-1">
+          <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Renewals</h1>
+          <p className={cn(textMuted, "text-sm")}>Source: Medical Board, WA Health · Updated 26 Sep 2026</p>
+        </div>
+        {ready ? (
+          <IconButton
+            label="More actions"
+            icon={Ellipsis}
+            onClick={() => setMenuOpen(true)}
+            className="shrink-0"
+            data-testid="admin-renewals-more"
+          />
+        ) : null}
       </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void copyForWorkforce()}
-          disabled={!ready}
-          data-testid="admin-renewals-copy"
-          className={floatingControl}
-        >
-          {copy === "copied" ? "Copied" : "Copy for workforce"}
-        </button>
-        <button
-          type="button"
-          onClick={downloadAll}
-          disabled={!ready || !calendarFile}
-          data-testid="admin-renewals-calendar-all"
-          className={floatingControl}
-        >
-          Add all to my calendar
-        </button>
-      </div>
-      {copy === "failed" ? (
-        <textarea
-          readOnly
-          value={workforceCopyText(own, now)}
-          aria-label="Text to copy for workforce"
-          className="min-h-24 w-full rounded-lg border border-[color:var(--border)] p-3 text-sm"
-        />
-      ) : null}
 
       {loadState === "loading" ? (
         <ModeModuleSkeleton rows={6} twoLine testId="admin-renewals-loading" />
@@ -362,20 +450,34 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
                 now={now}
                 testId="admin-renewals-summary"
               />
-              <ChecklistKindChips active={kindFilter} onChange={setKindFilter} testId="admin-renewals-kind" />
-              <ChecklistList
-                rows={rows}
-                notForThisJob={notForThisJob}
-                filter={kindFilter}
-                now={now}
-                onOpen={(item, entry) => setDetailSubject({ kind: "catalogue", item, entry })}
-                canEdit={canEdit}
-                onAddDate={(item) => {
-                  setRenewSubject({ entry: null, createItem: item });
-                  setRenewOpen(true);
-                }}
-                onMoveBack={(entry) => void moveBack(entry)}
-              />
+              {showFilter ? (
+                <RenewalsShowFilterList
+                  filter={showFilter}
+                  matches={showMatches}
+                  now={now}
+                  canEdit={canEdit}
+                  onClear={clearShowFilter}
+                  onOpenCatalogue={(item, entry) => setDetailSubject({ kind: "catalogue", item, entry })}
+                  onOpenPersonal={(entry) => setDetailSubject({ kind: "personal", entry })}
+                  onAddDate={addDate}
+                  onRecordDates={showFilter === "not-recorded" && canEdit ? openRecordDates : undefined}
+                />
+              ) : (
+                <>
+                  <ChecklistKindChips active={kindFilter} onChange={setKindFilter} testId="admin-renewals-kind" />
+                  <ChecklistList
+                    rows={rows}
+                    notForThisJob={notForThisJob}
+                    filter={kindFilter}
+                    now={now}
+                    onOpen={(item, entry) => setDetailSubject({ kind: "catalogue", item, entry })}
+                    canEdit={canEdit}
+                    onAddDate={addDate}
+                    onMoveBack={(entry) => void moveBack(entry)}
+                    recordDates={recordDatesSlot}
+                  />
+                </>
+              )}
             </div>
           ) : (
             <PersonalRenewalsList
@@ -466,6 +568,54 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
       />
 
       <AdminQuickAddSheet open={quickAddOpen} onClose={() => setQuickAddOpen(false)} onSaved={upsert} />
+
+      <Sheet open={ready && menuOpen} onClose={() => setMenuOpen(false)} title="Renewals" testId="admin-renewals-menu">
+        <div className="grid gap-2">
+          <button
+            type="button"
+            onClick={() => void copyForWorkforce()}
+            data-testid="admin-renewals-copy"
+            className={cn(focusRing, menuItem)}
+          >
+            {copy === "copied" ? "Copied" : copy === "failed" ? "Couldn't copy" : "Copy for workforce"}
+          </button>
+          {copy === "failed" ? (
+            <textarea
+              readOnly
+              value={workforceCopyText(own, now)}
+              aria-label="Text to copy for workforce"
+              className="min-h-24 w-full rounded-lg border border-[color:var(--border)] p-3 text-sm"
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={downloadAll}
+            disabled={!calendarFile}
+            data-testid="admin-renewals-calendar-all"
+            className={cn(focusRing, menuItem)}
+          >
+            Add all to my calendar
+          </button>
+          {!calendarFile ? <p className={cn(textMuted, "px-2 text-xs")}>No recorded dates to add yet.</p> : null}
+        </div>
+      </Sheet>
+
+      {recordQueue ? (
+        <RecordDatesSheet
+          items={recordQueue}
+          readOnly={recordReadOnly}
+          onClose={() => setRecordQueue(null)}
+          onSaved={upsert}
+          onSignIn={() => {
+            setRecordQueue(null);
+            setSignInOpen(true);
+          }}
+          onRetryLoad={() => {
+            setRecordQueue(null);
+            state.retry();
+          }}
+        />
+      ) : null}
     </InformationPageShell>
   );
 }
