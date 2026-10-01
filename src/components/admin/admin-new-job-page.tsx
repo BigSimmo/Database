@@ -321,7 +321,10 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
         )}
       </InformationPageShell>
 
-      <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
+      {/* Mounted only where a sign-in control is offered (it needs the auth provider, as on Today). */}
+      {startReadOnlyReason === "signed-out" ? (
+        <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
+      ) : null}
 
       {undo ? (
         <AdminSavedUndoBar
