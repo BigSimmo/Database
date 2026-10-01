@@ -299,6 +299,7 @@
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/admin-today-page.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/renewals/personal-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
@@ -416,6 +417,7 @@
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/admin-today-page.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
+        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/renewals/personal-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
@@ -1331,13 +1333,11 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
       ],
       "productImportFiles": [
-        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
@@ -2153,7 +2153,6 @@
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
-        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
@@ -2235,7 +2234,6 @@
         "src/components/admin/admin-quick-add-sheet.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
-        "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
