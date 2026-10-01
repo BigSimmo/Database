@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
 
 import { focusRing } from "@/components/card-recipes";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
@@ -30,7 +30,8 @@ function provenanceLine(source: "you" | "shared", updatedOn: string | null): str
 /**
  * One "Before" row: a login or access entry, own or shared. Own rows carry a
  * real saved tick (its own 48px tap area) and an Edit control; shared rows are
- * read-only, with "Shared by another doctor" in place of the tick.
+ * read-only, with "Shared by another doctor" in place of the tick. A row with
+ * no tick sits flush (no empty 48px gutter); a done one shows a quiet "Done".
  */
 export function AdminNewJobStepRow({
   entry,
@@ -67,10 +68,8 @@ export function AdminNewJobStepRow({
             data-testid={`admin-new-job-step-${entry.slug}-checkbox`}
           />
         </label>
-      ) : (
-        <span aria-hidden="true" className="w-12 shrink-0" />
-      )}
-      <div className="grid min-w-0 flex-1 gap-0.5 self-center px-1 py-1">
+      ) : null}
+      <div className={cn("grid min-w-0 flex-1 gap-0.5 self-center py-1", onToggle ? "px-1" : "px-2")}>
         <span className="break-words text-sm font-medium text-[color:var(--text-heading)]">{entry.title}</span>
         {entry.subtitle ? <span className={cn(textMuted, "break-words text-sm")}>{entry.subtitle}</span> : null}
         {phone ? (
@@ -81,13 +80,28 @@ export function AdminNewJobStepRow({
             {displayPhoneNumber(phone, "own-list")}
           </a>
         ) : null}
-        {url ? (
-          <ExternalTextLink href={url} className="inline-flex w-fit min-h-tap items-center text-xs">
-            More info
-          </ExternalTextLink>
-        ) : null}
-        <span className={cn(textMuted, "text-xs")}>{provenanceLine(source, entry.lastVerifiedAt)}</span>
+        <span className={cn(textMuted, "flex min-w-0 flex-wrap items-center gap-x-1 text-xs")}>
+          <span>{provenanceLine(source, entry.lastVerifiedAt)}</span>
+          {url ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <ExternalTextLink href={url} className="inline-flex min-h-tap items-center gap-0.5 text-xs">
+                More info
+              </ExternalTextLink>
+            </>
+          ) : null}
+        </span>
       </div>
+      {!onToggle && done ? (
+        // Read-only (shared, signed out or example rows): the recorded tick as a quiet word, never a control.
+        <span
+          className={cn(textMuted, "flex shrink-0 items-center gap-1 self-center pr-2 text-xs")}
+          data-testid={`admin-new-job-step-${entry.slug}-done`}
+        >
+          <Check aria-hidden="true" className="size-icon-sm" />
+          Done
+        </span>
+      ) : null}
       {source === "you" && onEdit ? (
         <div className="flex shrink-0 items-center">
           <button

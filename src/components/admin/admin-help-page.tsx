@@ -1,12 +1,12 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { LifeBuoy, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { AdminCrisisLines } from "@/components/admin/admin-crisis-lines";
-import { AdminHelpItemRow } from "@/components/admin/admin-help-item-row";
+import { AdminHelpItemRow, AdminHelpOnSiteGlance } from "@/components/admin/admin-help-item-row";
 import { AdminNavHeader } from "@/components/admin/admin-nav-header";
 import { ADMIN_HELP_SECTIONS } from "@/components/admin/admin-page-sections";
 import { AdminShowAll } from "@/components/admin/admin-show-all";
@@ -14,6 +14,7 @@ import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
+import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { Button } from "@/components/ui/button";
@@ -107,7 +108,7 @@ export function AdminHelpPage({ now: nowProp }: { now?: Date } = {}) {
     <>
       <AdminNavHeader title="Help" sections={ADMIN_HELP_SECTIONS} />
       <InformationPageShell testId="admin-help-main">
-        <h1 className="sr-only">Help</h1>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">Help</h1>
 
         {/* Crisis lines first, above the filter and every tab (design; ui-lane-rules). */}
         <AdminCrisisLines />
@@ -157,22 +158,33 @@ export function AdminHelpPage({ now: nowProp }: { now?: Date } = {}) {
                 {rows.length === 0 && loadState === "loading" ? (
                   // Design point 11: a loading section is a skeleton, never an empty-looking one.
                   <ModeModuleSkeleton rows={3} testId={`admin-help-${tab}-loading`} />
+                ) : rows.length === 0 && tab === "support" && !query.trim() ? (
+                  // An honest empty state: no statewide service is listed yet, and none is invented.
+                  <EmptyState
+                    icon={LifeBuoy}
+                    title="Nothing here yet"
+                    body={EMPTY_MESSAGE.support}
+                    testId="admin-help-support-empty"
+                  />
                 ) : rows.length === 0 ? (
                   <p className={cn(textMuted, "text-sm")}>{EMPTY_MESSAGE[tab]}</p>
                 ) : (
-                  <AdminShowAll
-                    items={rows}
-                    label={section.label}
-                    testId={`admin-help-${tab}-list`}
-                    anchorIdOf={(item) => (item.entry ? onCallEntryAnchorId(item.entry.id) : item.key)}
-                    renderItem={(item) => (
-                      <AdminHelpItemRow
-                        key={item.key}
-                        item={item}
-                        onEdit={isAuthenticated && item.entry ? openEditor : undefined}
-                      />
-                    )}
-                  />
+                  <>
+                    {tab === "on-site" ? <AdminHelpOnSiteGlance items={rows} /> : null}
+                    <AdminShowAll
+                      items={rows}
+                      label={section.label}
+                      testId={`admin-help-${tab}-list`}
+                      anchorIdOf={(item) => (item.entry ? onCallEntryAnchorId(item.entry.id) : item.key)}
+                      renderItem={(item) => (
+                        <AdminHelpItemRow
+                          key={item.key}
+                          item={item}
+                          onEdit={isAuthenticated && item.entry ? openEditor : undefined}
+                        />
+                      )}
+                    />
+                  </>
                 )}
               </section>
             );
