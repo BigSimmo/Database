@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { TeachingToday } from "@/components/teaching/teaching-today";
-import { isDemoMode } from "@/lib/env";
+import { teachingDemoMode } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "Teaching | PsychSift",
@@ -9,6 +9,6 @@ export const metadata: Metadata = {
 };
 
 /* Like My Work and CPD it declares no search surface, so it renders its own body. Demo mode is read on the server. */
-export default function TeachingTodayRoute() {
-  return <TeachingToday demoMode={isDemoMode()} />;
+export default async function TeachingTodayRoute() {
+  return <TeachingToday demoMode={await teachingDemoMode()} />;
 }
