@@ -298,7 +298,7 @@ describe("TeachingHero", () => {
     const hero = screen.getByTestId("teaching-hero");
     expect(within(hero).getByText("12:30").className).toContain("font-normal");
     expect(within(hero).getByText("Next up")).toBeInTheDocument();
-    expect(within(hero).getByRole("link", { name: "Join on Teams" })).toHaveAttribute(
+    expect(within(hero).getByRole("link", { name: /^Join on Teams/ })).toHaveAttribute(
       "href",
       "https://teams.example.test/x",
     );

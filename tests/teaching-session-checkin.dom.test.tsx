@@ -74,7 +74,7 @@ describe("the session page", () => {
     expect(phase).toHaveTextContent("Check-in open until 13:45");
     expect(within(phase).getByRole("button", { name: "Scan to check in" })).toBeInTheDocument();
     expect(within(phase).getByRole("button", { name: "Check in without code" })).toBeInTheDocument();
-    expect(within(phase).getByRole("link", { name: "Join on Teams" })).toHaveAttribute("href", JOIN);
+    expect(within(phase).getByRole("link", { name: /^Join on Teams/ })).toHaveAttribute("href", JOIN);
     expect(screen.getByText("Wed 30 Sep · 12:30–13:30")).toBeInTheDocument();
     expect(byId("teaching-session-details")).toHaveTextContent("Microsoft Teams · Members only");
     expect(byId("teaching-session-materials")).toHaveTextContent("chosen by the presenter");

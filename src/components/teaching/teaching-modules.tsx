@@ -219,7 +219,7 @@ function TimelineRowBody({ row }: { row: TimelineRow }) {
           <ModeStateLabel tone={row.status.tone === "warning" ? "warning" : "muted"}>{row.status.text}</ModeStateLabel>
         ) : null}
       </span>
-      <span className="col-start-2 row-span-2 row-start-1 grid place-items-center @min-[17rem]:col-start-3 @min-[17rem]:row-span-1">
+      <span className="relative col-start-2 row-span-2 row-start-1 grid place-items-center @min-[17rem]:col-start-3 @min-[17rem]:row-span-1">
         {row.trailing ??
           (row.href || row.onSelect ? (
             <ChevronRight aria-hidden="true" className={cn("size-icon-sm", textMuted)} />
@@ -265,6 +265,28 @@ export function SessionTimeline({ groups, testId }: { groups: readonly TimelineG
                     >
                       <TimelineRowBody row={row} />
                     </button>
+                  ) : row.trailing && (row.href || row.onSelect) ? (
+                    // A row with its own control (What's on's add toggle) still opens: the
+                    // link stretches under the row and the control paints above it.
+                    <div className={cn(rowClass, hover)}>
+                      {row.href ? (
+                        <Link
+                          href={row.href}
+                          aria-label={row.title}
+                          data-row-open
+                          className={cn("absolute inset-0", focusRing)}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          aria-label={row.title}
+                          data-row-open
+                          onClick={row.onSelect}
+                          className={cn("absolute inset-0", focusRing)}
+                        />
+                      )}
+                      <TimelineRowBody row={row} />
+                    </div>
                   ) : (
                     <div className={rowClass}>
                       <TimelineRowBody row={row} />

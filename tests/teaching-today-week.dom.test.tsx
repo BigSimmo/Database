@@ -239,7 +239,7 @@ describe("Today", () => {
     render(<TeachingToday demoMode={false} />);
     const hero = await screen.findByTestId("teaching-hero");
     expect(hero).toHaveTextContent("Seminar room 1 · Hospital A psychiatry · check-in opens 12:15");
-    expect(await within(hero).findByRole("link", { name: "Join on Teams" })).toHaveAttribute("href", JOIN);
+    expect(await within(hero).findByRole("link", { name: /^Join on Teams/ })).toHaveAttribute("href", JOIN);
     expect(rawText(screen.getByRole("link", { name: /Rest of this week/ }))).toContain(`1${NB}more session`);
     expect(screen.queryByTestId(/^teaching-row-/)).toBeNull();
     expect(fetchCalls(fetchMock, "/api/teaching?view=week&from=2026-09-30&to=2026-10-06")).toBe(1);
