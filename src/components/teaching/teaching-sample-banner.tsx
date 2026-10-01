@@ -1,8 +1,13 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { TEACHING_SAMPLE_PATH } from "@/lib/teaching/sample-paths";
 
 /** Shown above every Teaching page while this browser is in the sample, with the one way out. */
 export function TeachingSampleBanner() {
+  const pathname = usePathname();
+  if (!pathname || /^\/teaching\/c(?:\/|$)/.test(pathname)) return null;
   return (
     <div className="mx-auto w-full max-w-reading px-3 pt-4 sm:px-5 lg:px-7" data-testid="teaching-sample-banner">
       <ModeNotice>

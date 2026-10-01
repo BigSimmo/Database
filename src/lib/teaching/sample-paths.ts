@@ -13,5 +13,9 @@ export function teachingSampleReturnPath(next: string | null | undefined): strin
 
 /** The link "Open the demo" follows from a signed-out Teaching page, returning the reader to that page. */
 export function teachingSampleEntryHref(returnTo: string | null | undefined): string {
-  return `${TEACHING_SAMPLE_PATH}?${new URLSearchParams({ next: teachingSampleReturnPath(returnTo) })}`;
+  return `${TEACHING_SAMPLE_PATH}?${new URLSearchParams({
+    next: teachingSampleReturnPath(
+      returnTo && /^\/teaching\/(?:session|team|resources)\/[^/?#]+/.test(returnTo) ? "/teaching" : returnTo,
+    ),
+  })}`;
 }

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
 import { TeachingResources } from "@/components/teaching/teaching-resources";
-import { teachingDemoMode } from "@/lib/teaching/sample";
+import { demoTeachingResources } from "@/lib/teaching/demo-resources";
+import type { ResourcesForWeek } from "@/lib/teaching/model";
+import { mondayOf, perthDateKey } from "@/components/teaching/teaching-dates";
+import { teachingDemoMode, teachingSampleOn } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "Resources | Teaching | PsychSift",
@@ -11,5 +14,12 @@ export const metadata: Metadata = {
 
 /* Demo mode is read on the server; in the demo the page still reads, and the server serves made-up links. */
 export default async function TeachingResourcesRoute() {
-  return <TeachingResources demoMode={await teachingDemoMode()} />;
+  const now = new Date();
+  const sampleData = (await teachingSampleOn())
+    ? (demoTeachingResources(
+        { action: "resources.read", weekStart: mondayOf(perthDateKey(now)) },
+        now,
+      ) as ResourcesForWeek)
+    : undefined;
+  return <TeachingResources demoMode={await teachingDemoMode()} sampleData={sampleData} />;
 }

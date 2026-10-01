@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 
 import { isCollectionParam } from "@/components/teaching/resources-model";
 import { TeachingCollection } from "@/components/teaching/teaching-collection";
-import { teachingDemoMode } from "@/lib/teaching/sample";
+import { demoTeachingResources } from "@/lib/teaching/demo-resources";
+import type { CollectionRead } from "@/lib/teaching/model";
+import { teachingDemoMode, teachingSampleOn } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "Collection | Resources | Teaching | PsychSift",
@@ -16,5 +18,16 @@ type TeachingCollectionRouteProps = { params: Promise<{ collectionId: string }> 
 export default async function TeachingCollectionRoute({ params }: TeachingCollectionRouteProps) {
   const { collectionId } = await params;
   if (!isCollectionParam(collectionId)) notFound();
-  return <TeachingCollection collection={collectionId} demoMode={await teachingDemoMode()} />;
+  let sampleData: CollectionRead | undefined;
+  if (await teachingSampleOn()) {
+    try {
+      sampleData = demoTeachingResources({
+        action: "collection.read",
+        ...(collectionId === "saved" || collectionId === "recordings" ? { builtIn: collectionId } : { collectionId }),
+      }) as CollectionRead;
+    } catch {
+      notFound();
+    }
+  }
+  return <TeachingCollection collection={collectionId} demoMode={await teachingDemoMode()} sampleData={sampleData} />;
 }
