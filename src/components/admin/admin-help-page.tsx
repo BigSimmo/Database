@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
+import { AdminPinnedNumbers } from "@/components/admin/admin-pinned-numbers";
 import { AdminCrisisLines } from "@/components/admin/admin-crisis-lines";
 import { AdminHelpItemRow, AdminHelpOnSiteGlance } from "@/components/admin/admin-help-item-row";
 import { AdminNavHeader } from "@/components/admin/admin-nav-header";
@@ -112,6 +113,9 @@ export function AdminHelpPage({ now: nowProp }: { now?: Date } = {}) {
 
         {/* Crisis lines first, above the filter and every tab (design; ui-lane-rules). */}
         <AdminCrisisLines />
+
+        {/* Pinned numbers sit under the crisis lines, never above them (owner decision 2026-10-01). */}
+        <AdminPinnedNumbers items={items} testId="admin-help-pinned" />
 
         <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
           <div data-testid="admin-help-filter" className="min-w-0">

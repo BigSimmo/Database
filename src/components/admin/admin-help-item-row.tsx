@@ -1,5 +1,6 @@
 import { Pencil, Phone } from "lucide-react";
 
+import { AdminPinButton } from "@/components/admin/admin-pin-button";
 import { cardSurface, focusRing } from "@/components/card-recipes";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { spokenModeNumber } from "@/components/mode-kit/dates";
@@ -60,17 +61,22 @@ export function AdminHelpItemRow({ item, onEdit }: { item: AdminHelpItem; onEdit
           ) : null}
         </span>
       </div>
-      {item.source === "you" && onEdit ? (
+      {item.entry || (item.source === "you" && onEdit) ? (
         <div className="flex shrink-0 items-center">
-          <button
-            type="button"
-            onClick={() => onEdit(item)}
-            aria-label={`Edit ${item.title}`}
-            data-testid={`admin-help-item-${item.key}-edit`}
-            className={cn(toolbarButton, "shrink-0")}
-          >
-            <Pencil aria-hidden="true" className="h-4 w-4" />
-          </button>
+          {item.entry ? (
+            <AdminPinButton entryId={item.entry.id} title={item.title} testId={`admin-help-item-${item.key}-pin`} />
+          ) : null}
+          {item.source === "you" && onEdit ? (
+            <button
+              type="button"
+              onClick={() => onEdit(item)}
+              aria-label={`Edit ${item.title}`}
+              data-testid={`admin-help-item-${item.key}-edit`}
+              className={cn(toolbarButton, "shrink-0")}
+            >
+              <Pencil aria-hidden="true" className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
       ) : null}
     </li>
