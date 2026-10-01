@@ -88,7 +88,7 @@ function DayLine({ shift, now }: { readonly shift: OnCallShift; readonly now: Da
           />
         ) : null}
         <span
-          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--surface-summary-ink)] ring-4 ring-[color:var(--surface-summary)] forced-colors:border"
+          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--surface-summary-ink)] ring-4 ring-[color:var(--surface-summary)]"
           style={{ left: `${at * 100}%` }}
         />
       </span>
@@ -196,16 +196,14 @@ function Hero({
   const status = lead.state === "on_now" ? "On now" : lead.state === "before" ? "Later today" : null;
   return (
     <section
-      className={cn(modeSummarySurface, "relative isolate grid gap-3 overflow-hidden p-5")}
+      data-mode-identity="roster"
+      className={cn(
+        modeSummarySurface,
+        "grid gap-3 p-5 bg-[image:radial-gradient(circle_at_100%_0%,color-mix(in_oklab,var(--mode-identity)_45%,transparent),transparent_65%)] forced-colors:bg-none",
+      )}
       data-testid="roster-today-hero"
       aria-label="Today"
     >
-      {/* A soft violet glow in the corner: decoration only, never a signal. */}
-      <span
-        aria-hidden="true"
-        data-mode-identity="roster"
-        className="pointer-events-none absolute -right-20 -top-24 -z-10 size-56 rounded-full bg-[color:var(--mode-identity)] opacity-40 blur-3xl forced-colors:hidden"
-      />
       <div className="flex items-center justify-between gap-2">
         <h2 className={cn(eyebrowText, modeSummaryMutedText)}>{eyebrow}</h2>
         {status ? (

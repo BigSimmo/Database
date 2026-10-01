@@ -63,15 +63,14 @@ export function RosterNightDial({
   const { end: endTime } = shiftTimes(shift);
   return (
     <section
-      className={cn(modeSummarySurface, "relative isolate grid gap-3 overflow-hidden p-5")}
+      data-mode-identity="roster"
+      className={cn(
+        modeSummarySurface,
+        "grid gap-3 p-5 bg-[image:radial-gradient(circle_at_0%_0%,color-mix(in_oklab,var(--mode-identity)_45%,transparent),transparent_65%)] forced-colors:bg-none",
+      )}
       data-testid={testId}
       aria-label="Night shift"
     >
-      <span
-        aria-hidden="true"
-        data-mode-identity="roster"
-        className="pointer-events-none absolute -left-20 -top-24 -z-10 size-56 rounded-full bg-[color:var(--mode-identity)] opacity-40 blur-3xl forced-colors:hidden"
-      />
       <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3">
         <h2 className={cn(eyebrowText, modeSummaryMutedText)}>
           {SHIFT_KIND_LABEL.night}
