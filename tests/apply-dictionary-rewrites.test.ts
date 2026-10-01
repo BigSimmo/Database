@@ -177,7 +177,8 @@ describe("planDictionaryRewrites", () => {
     const index = realDocument.reviews.findIndex((candidate) => candidate.proposedWording !== null);
     const target = realDocument.reviews[index];
     const reviews = realDocument.reviews.map((candidate, at) => {
-      const { clinicalApproval: _approval, ...unsigned } = candidate;
+      const unsigned = { ...candidate };
+      delete unsigned.clinicalApproval;
       return at === index ? approve(unsigned) : unsigned;
     });
 

@@ -399,7 +399,8 @@ describe("dictionary rewrite approval", () => {
     const after = next.reviews.find((review) => review.id === view.id)!;
     expect(after.clinicalApproval).toMatchObject({ status: "approved", reviewer: REVIEWER, reviewedAt: REVIEWED_AT });
     const withoutApproval = Object.fromEntries(Object.entries(after).filter(([key]) => key !== "clinicalApproval"));
-    const { clinicalApproval: _approval, ...beforeWithoutApproval } = before;
+    const beforeWithoutApproval: Json = { ...before };
+    delete beforeWithoutApproval.clinicalApproval;
     expect(withoutApproval).toEqual(beforeWithoutApproval);
     const view2 = collectionOf("dictionary-rewrite", next).find((record: Json) => record.id === view.id);
     expect(recordPinState(view2, "dictionary-rewrite")).toBe("current");
