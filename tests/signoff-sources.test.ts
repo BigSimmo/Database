@@ -38,7 +38,7 @@ import { repositorySourceReferences } from "@/lib/sources/repository-providers";
  * all read it without a second file.
  */
 
-const NOW = new Date("2026-09-26T06:00:00.000Z");
+const NOW = new Date("2026-10-02T06:00:00.000Z");
 const REVIEWED_AT = "2026-09-25T05:00:00.000Z";
 const REVIEWER = "Dr Clinical Owner";
 const ATTESTATION_FIELDS = ["attestedBy", "attestedAt", "attestedAgainstSha256"];
@@ -71,7 +71,8 @@ function sign(id: string) {
 }
 
 /** The first record the walk-through offers: in the review queue and not held. */
-const firstOffered = () => signOffQueue("source", views())[0] as string;
+const firstOffered = () =>
+  views().find((record) => record.disposition === "candidate" && !indigenousContentIn(record, "source"))!.id as string;
 
 describe("source sign-offs on disk", () => {
   it("every ledger record is unsigned or carries a current pin", () => {
@@ -240,7 +241,16 @@ describe("source sign-off screen", () => {
   });
 
   it("puts the duplicate warning in the review pack as well", () => {
-    const html = renderClinicalPack("source", views(), context, { generatedAt: NOW });
+    const unsigned = collectionOf(
+      "source",
+      ledger.map((record) => {
+        const copy = clone(record);
+        for (const field of ATTESTATION_FIELDS) delete copy[field];
+        if (copy.disposition !== "rejected") copy.validationStatus = "unverified";
+        return copy;
+      }),
+    );
+    const html = renderClinicalPack("source", unsigned, context, { generatedAt: NOW });
     expect(html).toContain("DUPLICATE of australian-prescriber-lithium-therapy-and-its-interactions");
   });
 
@@ -251,7 +261,7 @@ describe("source sign-off screen", () => {
     expect(Object.keys(ratings).sort()).toEqual(ledger.map((record) => record.id).sort());
     const text = rowsText(
       display.source(
-        views().find((record) => record.id === firstOffered())!,
+        collectionOf("source", asUnsigned(firstOffered())).find((record: Json) => record.id === firstOffered())!,
         loaded,
       ),
     );

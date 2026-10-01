@@ -2172,9 +2172,14 @@ export function MasterSearchHeader({
     // Tablet/desktop show it on the mode-home hero and the answer dock (its
     // own composer type). Submitted result views and page slots render the
     // compact pill alone, like the phone result dock.
-    const showsComposerPrivacyNotice = usesPhoneSearchLayout
-      ? isDesktopHomeComposer || (mobileHomeComposerPlacement === "footer" && Boolean(desktopHomeComposerSlotId))
-      : isDesktopHomeComposer || usesAnswerFooterStyle;
+    // Favourites is the one mode home without the line: owner decision
+    // 2026-09-30, so the saved list starts closer to the top of the page.
+    // Every other mode home and the answer dock keep it.
+    const showsComposerPrivacyNotice =
+      searchMode !== "favourites" &&
+      (usesPhoneSearchLayout
+        ? isDesktopHomeComposer || (mobileHomeComposerPlacement === "footer" && Boolean(desktopHomeComposerSlotId))
+        : isDesktopHomeComposer || usesAnswerFooterStyle);
 
     const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
     const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
@@ -2324,11 +2329,13 @@ export function MasterSearchHeader({
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
-          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
+          // Favourites shows the pill alone on its home too (owner decision
+          // 2026-09-30): no "Try this" ticker, "Try …" line or prompt rail.
+          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome && searchMode !== "favourites"}
           // Only the mode-home hero keeps the "Try …" line and prompt rail.
           // Result views, page slots, and the answer dock render the pill
           // alone in every mode.
-          showHomeSuggestions={isDesktopHomeComposer}
+          showHomeSuggestions={isDesktopHomeComposer && searchMode !== "favourites"}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}

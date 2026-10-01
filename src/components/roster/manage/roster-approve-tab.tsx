@@ -1,13 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRosterRead } from "@/components/roster/use-roster-team";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { managerReason, RosterDecisionSheet, type ManagerDecision } from "./roster-decision-sheet";
 
-export function RosterApproveTab({ serviceId }: { serviceId: string }) {
+/** The manage reload shared with the calendar on the Manage page (see `ManagerTeam`). */
+export type SharedManageReload = {
+  round: number;
+  changedBy: string;
+  onChanged: (changedBy: string) => void;
+};
+
+export function RosterApproveTab({ serviceId, shared }: { serviceId: string; shared?: SharedManageReload }) {
   const manage = useRosterRead(serviceId, "manage");
+  const reloadManage = manage.reload;
+  const round = shared?.round ?? 0;
+  const changedBy = shared?.changedBy;
+  // Only a round started elsewhere after this tab opened; opening the tab reads afresh anyway.
+  const seenRound = useRef(round);
+  useEffect(() => {
+    if (round === seenRound.current) return;
+    seenRound.current = round;
+    if (changedBy !== "approve") reloadManage();
+  }, [round, changedBy, reloadManage]);
   const people = useRosterRead(serviceId, "people");
   const today = perthDateOf(new Date());
   const leave = useRosterRead(serviceId, "team_leave", { from: today, to: addDaysToDate(today, 61) });
@@ -51,6 +68,7 @@ export function RosterApproveTab({ serviceId }: { serviceId: string }) {
         {swaps.map((swap) => (
           <li key={swap.id}>
             <button
+              type="button"
               className="grid min-h-12 w-full gap-1 p-4 text-left"
               onClick={() => setDecision({ kind: "swap", item: swap })}
             >
@@ -67,6 +85,7 @@ export function RosterApproveTab({ serviceId }: { serviceId: string }) {
         {open.map((shift) => (
           <li key={shift.id}>
             <button
+              type="button"
               className="grid min-h-12 w-full gap-1 p-4 text-left"
               onClick={() => setDecision({ kind: "open", item: shift })}
             >
@@ -96,7 +115,10 @@ export function RosterApproveTab({ serviceId }: { serviceId: string }) {
           serviceId={serviceId}
           decision={decision}
           onClose={() => setDecision(null)}
-          onChanged={manage.reload}
+          onChanged={() => {
+            manage.reload();
+            shared?.onChanged("approve");
+          }}
         />
       ) : null}
     </section>

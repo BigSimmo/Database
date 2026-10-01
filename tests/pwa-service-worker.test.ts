@@ -312,7 +312,7 @@ describe("PWA service worker cache and lifecycle policy", () => {
       data: { t: "offer" },
     });
     await worker.clickNotification({ t: "offer", url: "https://elsewhere.example/steal" });
-    expect(worker.openWindow).toHaveBeenCalledWith("/roster/requests");
+    expect(worker.openWindow).toHaveBeenCalledWith("/roster/swaps");
   });
 
   it("uses generic Roster words when push data is missing or malformed", async () => {

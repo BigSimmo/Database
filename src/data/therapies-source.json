@@ -2601,7 +2601,7 @@
     "targetSymptoms": "Distress from hallucinations or delusion-like beliefs, threat interpretations, safety behaviours, hopelessness, defeat, secondary depression/anxiety, poor coping with voices, and psychosis-related functional impairment.",
     "patientPopulation": "Patients with enough engagement, cognitive capacity, and stability to collaborate on a psychosis-specific formulation and practise coping work between sessions. It often fits best when the person can reflect at least partly on links between triggers, appraisals, voices/beliefs, emotions, and behaviour, even if insight is limited.",
     "setting": "Emergency/acute",
-    "sessionLength": "Micro skill",
+    "sessionLength": "Standard (45–60 min)",
     "timeRequired": "NICE recommends individual CBT for psychosis, delivered one-to-one over at least 16 planned sessions, following a treatment manual. NICE also specifies that therapy should include at least one of these elements: monitoring thoughts/feelings/behaviours in relation to symptoms or recurrence, promoting alternative coping strategies, or reducing distress and improving functioning.",
     "complexity": "High",
     "mechanism": "Psychotic experiences are influenced not only by their presence but by the meaning the person gives them, the way they respond to them, and the behavioural patterns that keep distress and disability going. Treatment works by helping the patient understand links between thoughts, feelings, behaviours, symptoms, and functioning, then develop alternative coping and appraisal strategies.",
@@ -2621,7 +2621,7 @@
     "confidenceLevel": "low",
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
@@ -2692,7 +2692,7 @@
     "targetSymptoms": "Trauma-related stuck points, guilt, shame, overgeneralised danger beliefs, self-blame, mistrust, damaged-self beliefs, and trauma-linked cognitive rigidity.",
     "patientPopulation": "Patients with PTSD who can engage in structured cognitive work and who are strongly affected by trauma-linked beliefs about themselves, others, or the world. Often a good fit when cognitive meaning-making appears more central than primary behavioural avoidance alone.",
     "setting": "Emergency/acute",
-    "sessionLength": "Micro skill",
+    "sessionLength": "Standard (50–60 min)",
     "timeRequired": "Usually individual, manualised, and structured. Phoenix Australia describes CPT as a 12-session trauma-focused CBT treatment for PTSD. It has a smaller exposure component than imaginal exposure therapy, with trauma writing-based processing rather than a large imaginal exposure emphasis.",
     "complexity": "High",
     "mechanism": "PTSD is often maintained by maladaptive trauma appraisals or “stuck points” about safety, trust, power/control, esteem, and intimacy. Treatment works by identifying, examining, and revising those trauma-linked beliefs so the trauma is no longer processed through the same rigid, self-defeating meanings.",
@@ -2708,14 +2708,14 @@
     "evidenceNotes": "Phoenix Australia PTSD guidelines give a strong recommendation for CPT in adults with PTSD and describe it as a 12-session manualised treatment focused on trauma themes including safety, trust, power and control, self-esteem, and intimacy, with a smaller exposure component than imaginal exposure therapy. NICE PTSD guidance includes cognitive processing therapy within the individual trauma-focused CBT interventions recommended for adults with PTSD and says these treatments should be manual-based, supervised, and typically 8 to 12 sessions, with more if clinically indicated. RANZCP’s psychotherapy position statement supports trauma-focused psychotherapies within core psychiatric treatment.",
     "limitations": "Usually not enough if the patient is too dissociated, psychotic, intoxicated, cognitively impaired, or behaviourally unstable for structured trauma-focused cognitive work. It may also be a weaker fit if the dominant problem is primarily exposure avoidance rather than stuck-point-dominated cognitive processing.",
     "references": "Phoenix Australia PTSD guidelines give a strong recommendation for CPT in adults with PTSD and describe it as a 12-session manualised treatment focused on trauma themes including safety, trust, power and control, self-esteem, and intimacy, with a smaller exposure component than imaginal exposure therapy. NICE PTSD guidance includes cognitive processing therapy within the individual trauma-focused CBT interventions recommended for adults with PTSD and says these treatments should be manual-based, supervised, and typically 8 to 12 sessions, with more if clinically indicated. RANZCP’s psychotherapy position statement supports trauma-focused psychotherapies within core psychiatric treatment.",
-    "reviewStatus": "reviewed",
+    "reviewStatus": "needs_review",
     "confidenceLevel": "moderate",
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "sourceCompleteness": null,
     "indexCompleteness": 100,
-    "reviewCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2726,7 +2726,10 @@
       "Micro skill"
     ],
     "warnings": [
-      "No explicit patient-facing explanation in uploaded record"
+      "No explicit patient-facing explanation in uploaded record",
+      "No explicit last reviewed date in therapy card",
+      "Missing last reviewed date",
+      "Not clinically reviewed"
     ],
     "aliases": [
       "CPT"
@@ -2755,17 +2758,14 @@
       }
     ],
     "reviewChecklist": {
-      "clinicalAccuracyReviewed": true,
-      "sourceChecked": true,
-      "evidenceAppraised": true,
-      "safetyCautionsChecked": true,
-      "patientExplanationChecked": true,
-      "proofread": true,
-      "australianEnglishChecked": true
-    },
-    "reviewedBy": "PsychSift",
-    "reviewedAt": "2026-09-26T17:26:59.987Z",
-    "reviewedContentSha256": "87474a5cb68f0d3d7c52bf1e67d9359008060b588054be8355ac9ea425904740"
+      "clinicalAccuracyReviewed": false,
+      "sourceChecked": false,
+      "evidenceAppraised": false,
+      "safetyCautionsChecked": false,
+      "patientExplanationChecked": false,
+      "proofread": false,
+      "australianEnglishChecked": false
+    }
   },
   {
     "slug": "cognitive-remediation-therapy-crt",
@@ -9083,7 +9083,7 @@
     "targetSymptoms": "Interpersonal conflict, unresolved grief, role transitions, social withdrawal, relationship strain, impaired communication, and depression maintained by current relational stress.",
     "patientPopulation": "Patients who can examine current relationships, identify emotional responses to interpersonal events, and work in a structured, focused way on one main interpersonal problem area. Best suited to outpatient and community care, though IPT principles can inform follow-up care after acute stabilisation.",
     "setting": "Emergency/acute, Outpatient/community, Family/carer",
-    "sessionLength": "Micro skill",
+    "sessionLength": "Standard (50 min)",
     "timeRequired": "Usually individual, delivered by a practitioner with therapy-specific training and competence, and in line with current treatment manuals. NICE states IPT usually consists of 8 to 16 regular sessions for less severe depression and 16 regular sessions for more severe depression, with additional sessions if clinically needed for comorbidity, complex social needs, or residual symptoms.",
     "complexity": "High",
     "mechanism": "Depression often develops or persists in the context of interpersonal stressors such as grief, role transition, interpersonal disputes, or social disconnection, and improvement occurs when these problems are identified and worked through directly.",
@@ -9099,14 +9099,14 @@
     "evidenceNotes": "NICE depression guideline NG222, last reviewed 30 January 2026, lists interpersonal psychotherapy (IPT) as a treatment option for both less severe and more severe depression. It describes IPT as focusing on how interpersonal relationships or circumstances are related to depression and states it is usually 8 to 16 sessions for less severe depression and 16 sessions for more severe depression. RANZCP PS #54 identifies psychotherapy as core psychiatric practice and explicitly names interpersonal therapy among the structured psychotherapies used by psychiatrists.",
     "limitations": "Usually not enough when the main syndrome is severe psychosis, mania, delirium, severe OCD, severe PTSD needing trauma-focused therapy, or a primarily behavioural or compulsive maintenance loop better addressed by another treatment. It is also less suitable for patients who are unwilling or unable to discuss significant relationships.",
     "references": "NICE depression guideline NG222, last reviewed 30 January 2026, lists interpersonal psychotherapy (IPT) as a treatment option for both less severe and more severe depression. It describes IPT as focusing on how interpersonal relationships or circumstances are related to depression and states it is usually 8 to 16 sessions for less severe depression and 16 sessions for more severe depression. RANZCP PS #54 identifies psychotherapy as core psychiatric practice and explicitly names interpersonal therapy among the structured psychotherapies used by psychiatrists.",
-    "reviewStatus": "reviewed",
+    "reviewStatus": "needs_review",
     "confidenceLevel": "moderate",
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "sourceCompleteness": null,
     "indexCompleteness": 100,
-    "reviewCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Trauma",
@@ -9121,7 +9121,8 @@
       "Micro skill"
     ],
     "warnings": [
-      "No explicit patient-facing explanation in uploaded record"
+      "No explicit patient-facing explanation in uploaded record",
+      "Not clinically reviewed"
     ],
     "aliases": [
       "IPT"
@@ -9150,17 +9151,14 @@
       }
     ],
     "reviewChecklist": {
-      "clinicalAccuracyReviewed": true,
-      "sourceChecked": true,
-      "evidenceAppraised": true,
-      "safetyCautionsChecked": true,
-      "patientExplanationChecked": true,
-      "proofread": true,
-      "australianEnglishChecked": true
-    },
-    "reviewedBy": "PsychSift",
-    "reviewedAt": "2026-09-26T17:26:59.987Z",
-    "reviewedContentSha256": "f5227b7951752c357768e79df7c9e8a082f9876859f03866530cdcbfc459df8e"
+      "clinicalAccuracyReviewed": false,
+      "sourceChecked": false,
+      "evidenceAppraised": false,
+      "safetyCautionsChecked": false,
+      "patientExplanationChecked": false,
+      "proofread": false,
+      "australianEnglishChecked": false
+    }
   },
   {
     "slug": "life-review-therapy-reminiscence-therapy",
@@ -12532,7 +12530,7 @@
     "targetSymptoms": "Trauma avoidance, trauma memory distress, fear of reminders, trauma-linked escape behaviour, overestimation of threat, and persistent PTSD symptoms driven by unprocessed trauma memories.",
     "patientPopulation": "Patients with PTSD who can engage in direct trauma-memory work and who are willing to confront both trauma memories and avoided safe reminders in a structured way. Often a good fit when trauma avoidance is highly prominent and the patient can tolerate repeated imaginal work.",
     "setting": "Emergency/acute",
-    "sessionLength": "Micro skill",
+    "sessionLength": "Standard (60–90 min)",
     "timeRequired": "Usually individual, manual-based, and delivered by trained practitioners with supervision. Phoenix describes PE as including psychoeducation, breathing retraining, in vivo exposure, imaginal exposure, and processing. Phoenix also states the number of sessions typically ranges from 5 to 12 sessions of 90 minutes, though this may be altered depending on the number of traumatic events. NICE places PE within adult trauma-focused CBT interventions that are typically 8 to 12 sessions, with more if clinically indicated.",
     "complexity": "High",
     "mechanism": "PTSD persists when trauma memories and trauma-linked cues are persistently avoided and therefore never fully processed. Treatment works by repeated, structured exposure to the trauma memory and avoided safe situations, so the fear structure is updated and the trauma becomes less distressing and less dominant.",
@@ -12548,14 +12546,14 @@
     "evidenceNotes": "Phoenix Australia PTSD guideline materials, including the interventions chapter, patient guide, and executive summary, which give a strong recommendation for PE in adult PTSD and describe its core components and typical session structure. NICE PTSD guidance, which includes prolonged exposure within recommended individual trauma-focused CBT interventions for adults and describes the general treatment dose as typically 8 to 12 sessions, with more when clinically indicated. RANZCP PS #54, which provides the Australian umbrella position that psychotherapy is core psychiatric treatment.",
     "limitations": "Usually not enough or not first-line when acute instability, severe dissociation, psychosis, major substance dysregulation, or other major safety issues make direct trauma-memory work unsafe. It may also be a poorer fit when the dominant maintaining process is not avoidance but another mechanism better suited to CPT, CT-PTSD, or EMDR.",
     "references": "Phoenix Australia PTSD guideline materials, including the interventions chapter, patient guide, and executive summary, which give a strong recommendation for PE in adult PTSD and describe its core components and typical session structure. NICE PTSD guidance, which includes prolonged exposure within recommended individual trauma-focused CBT interventions for adults and describes the general treatment dose as typically 8 to 12 sessions, with more when clinically indicated. RANZCP PS #54, which provides the Australian umbrella position that psychotherapy is core psychiatric treatment.",
-    "reviewStatus": "reviewed",
+    "reviewStatus": "needs_review",
     "confidenceLevel": "moderate",
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "sourceCompleteness": null,
     "indexCompleteness": 100,
-    "reviewCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -12566,7 +12564,10 @@
       "Micro skill"
     ],
     "warnings": [
-      "No explicit patient-facing explanation in uploaded record"
+      "No explicit patient-facing explanation in uploaded record",
+      "No explicit last reviewed date in therapy card",
+      "Missing last reviewed date",
+      "Not clinically reviewed"
     ],
     "aliases": [
       "PE"
@@ -12595,17 +12596,14 @@
       }
     ],
     "reviewChecklist": {
-      "clinicalAccuracyReviewed": true,
-      "sourceChecked": true,
-      "evidenceAppraised": true,
-      "safetyCautionsChecked": true,
-      "patientExplanationChecked": true,
-      "proofread": true,
-      "australianEnglishChecked": true
-    },
-    "reviewedBy": "PsychSift",
-    "reviewedAt": "2026-09-26T17:26:59.987Z",
-    "reviewedContentSha256": "9469c51296d939dab00a4b62eadccbad7f07f113d5cf1c0f159ac8a47520309d"
+      "clinicalAccuracyReviewed": false,
+      "sourceChecked": false,
+      "evidenceAppraised": false,
+      "safetyCautionsChecked": false,
+      "patientExplanationChecked": false,
+      "proofread": false,
+      "australianEnglishChecked": false
+    }
   },
   {
     "slug": "psychoanalysis",
@@ -14118,7 +14116,7 @@
     "targetSymptoms": "Primarily major depressive disorder, especially episodes not adequately improved with antidepressants or where antidepressants are unsuitable. RANZCP also states it may be offered on a restricted basis for carefully selected patients with schizophrenia who have persistent auditory hallucinations after adequate antipsychotic trials. (RANZCP)",
     "patientPopulation": "Patients with major depression who need a non-invasive biological treatment, can attend repeated outpatient sessions, and do not currently need the speed or severity-level indication that would favour ECT instead. The “ECT instead” distinction is a clinical inference from the relative positioning of rTMS versus ECT in practice; the outpatient repeated-session format is directly supported by NICE. (NICE)",
     "setting": "Emergency/acute, Outpatient/community",
-    "sessionLength": "Micro skill",
+    "sessionLength": "Clinical protocol duration (20–40 min session)",
     "timeRequired": "Usually outpatient, without anaesthesia. NICE describes daily sessions of about 30 minutes, typically for 2 to 6 weeks. In Australia, rTMS is listed on the MBS for major depressive disorder, and psychiatrists claiming Medicare items must meet specific training and ongoing CPD requirements. (NICE)",
     "complexity": "High",
     "mechanism": "Modulate cortical activity using repeated magnetic stimulation to improve depressive symptoms, usually without anaesthesia and in an outpatient format. NICE notes it does not need anaesthesia and is typically delivered using repeated electromagnetic pulses over cortical targets. (NICE)",
@@ -14138,7 +14136,7 @@
     "confidenceLevel": "moderate",
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,

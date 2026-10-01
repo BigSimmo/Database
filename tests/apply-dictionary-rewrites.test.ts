@@ -176,7 +176,10 @@ describe("planDictionaryRewrites", () => {
     const realSource = readFileSync(DICTIONARY_DATA_PATH, "utf8");
     const index = realDocument.reviews.findIndex((candidate) => candidate.proposedWording !== null);
     const target = realDocument.reviews[index];
-    const reviews = realDocument.reviews.map((candidate, at) => (at === index ? approve(candidate) : candidate));
+    const reviews = realDocument.reviews.map((candidate, at) => {
+      const { clinicalApproval: _approval, ...unsigned } = candidate;
+      return at === index ? approve(unsigned) : unsigned;
+    });
 
     const plan = planDictionaryRewrites({ ...realDocument, reviews }, realSource, dictionaryEntries);
     expect(plan.problems).toEqual([]);

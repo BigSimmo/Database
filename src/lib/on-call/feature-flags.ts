@@ -21,7 +21,7 @@ export const ON_CALL_YOU_CALLED_ENABLED = true;
 /**
  * Where on-site help lives: access, food, taxi and the other Admin-section rows.
  * The "On site: access, food, taxi" link, search results that point at Admin
- * rows, and More › Admin all use this one constant. Today it is On Call's own
- * Admin page; Admin mode's build changes it to `/admin/help` in its own PR.
+ * rows, and More › Admin all use this one constant. Points straight at Admin ›
+ * Help; `/on-call/logistics` remains a bookmark redirect to the same place.
  */
-export const ON_CALL_ADMIN_ROWS_HREF = "/on-call/logistics";
+export const ON_CALL_ADMIN_ROWS_HREF = "/admin/help";

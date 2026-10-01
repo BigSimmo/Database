@@ -4,11 +4,17 @@ import { formatRecordedDate, renewalStartOn } from "@/lib/admin/renewal-dates";
 import { addDays, type CalendarEvent } from "@/lib/calendar/calendar-event";
 import { toIcs } from "@/lib/calendar/ics";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import type { AdminRequirementCatalogueItem } from "@/lib/admin/requirements";
+import {
+  ADMIN_REQUIREMENTS_CATALOGUE,
+  catalogueItemForEntry,
+  requirementChecklistRowsForJob,
+  type AdminRequirementCatalogueItem,
+} from "@/lib/admin/requirements";
 import type { createOnCallEntrySchema, updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 import { onCallExpiryEvents } from "@/lib/on-call/calendar-events";
 import {
   complianceExpiresOn,
+  complianceIssuerCheckedOn,
   entryNotForThisJob,
   partitionLogisticsEntries,
   sortComplianceEntries,
@@ -130,17 +136,85 @@ export function renewalsCalendarFile(entries: readonly OnCallEntry[], now: Date)
   return events.length ? toIcs(events, { now }) : null;
 }
 
+/** Holder-facing stamp line — never "verified" / "compliant". */
+export function issuerCheckStampLabel(checkedOn: string | undefined): string {
+  return checkedOn
+    ? `Last checked with issuer · ${formatRecordedDate(checkedOn)} · by you`
+    : "No issuer check recorded";
+}
+
+function complianceHasProof(entry: OnCallEntry): boolean {
+  const details = detailsOf(entry);
+  const note = details.proofNote;
+  const url = details.evidenceUrl;
+  return (typeof note === "string" && note.trim().length > 0) || (typeof url === "string" && url.trim().length > 0);
+}
+
+function workforceEntryName(title: string, entry: OnCallEntry | null): string {
+  const issuer = entry ? detailsOf(entry).issuingBody : undefined;
+  return typeof issuer === "string" && issuer.trim() ? `${title} (${issuer.trim()})` : title;
+}
+
+/**
+ * One cover-sheet line: ready vs Not recorded yet / missing proof, plus the
+ * issuer-check stamp when the holder recorded one. Never a verdict.
+ */
+export function workforceRequirementLine(title: string, entry: OnCallEntry | null): string {
+  const name = workforceEntryName(title, entry);
+  if (!entry) return `${name}: Not recorded yet · missing proof`;
+  const expiresOn = complianceExpiresOn(entry);
+  const parts: string[] = [];
+  if (expiresOn) {
+    parts.push(complianceHasProof(entry) ? "ready" : "missing proof");
+    parts.push(`recorded as expiring ${formatRecordedDate(expiresOn)}`);
+  } else {
+    parts.push("Not recorded yet");
+    if (!complianceHasProof(entry)) parts.push("missing proof");
+  }
+  const stamp = complianceIssuerCheckedOn(entry);
+  if (stamp) parts.push(issuerCheckStampLabel(stamp));
+  return `${name}: ${parts.join(" · ")}`;
+}
+
+/**
+ * Cover-sheet text for workforce: every applicable catalogue requirement
+ * (naming gaps as Not recorded yet / missing proof) plus personal renewals
+ * that are not on the catalogue. Stamp lines only when the holder set one.
+ */
 export function workforceCopyText(entries: readonly OnCallEntry[], now: Date): string {
-  const lines = sortComplianceEntries(exportableComplianceEntries(entries)).map((entry) => {
-    const issuer = detailsOf(entry).issuingBody;
-    const name = typeof issuer === "string" && issuer.trim() ? `${entry.title} (${issuer.trim()})` : entry.title;
-    const expiresOn = complianceExpiresOn(entry);
-    return expiresOn ? `${name}: recorded as expiring ${formatRecordedDate(expiresOn)}` : `${name}: no expiry recorded`;
-  });
+  const exportable = exportableComplianceEntries(entries);
+  const catalogueRows = requirementChecklistRowsForJob(ADMIN_REQUIREMENTS_CATALOGUE, exportable);
+  const catalogueMatched = new Set(catalogueRows.flatMap((row) => (row.entry ? [row.entry.id] : [])));
+  const personal = sortComplianceEntries(exportable.filter((entry) => !catalogueMatched.has(entry.id))).filter(
+    (entry) => !catalogueItemForEntry(entry),
+  );
+  const lines = [
+    ...catalogueRows.map((row) => workforceRequirementLine(row.item.title, row.entry)),
+    ...personal.map((entry) => workforceRequirementLine(entry.title, entry)),
+  ];
   return [
     `Dates as I recorded them, copied ${formatRecordedDate(perthCalendarDate(now))}; not checked with issuers`,
     ...lines,
   ].join("\n");
+}
+
+/**
+ * Explicit holder action: set or clear `details.issuerCheckedOn`. Never called
+ * from Renewed — that path must leave the stamp untouched.
+ */
+export function buildIssuerCheckStampBody(
+  entry: OnCallEntry,
+  checkedOn: string | null,
+): { ok: true; body: UpdateBody } | { ok: false; reason: "malformed" } {
+  if (checkedOn !== null && (!DATE_KEY.test(checkedOn) || Number.isNaN(Date.parse(`${checkedOn}T00:00:00Z`)))) {
+    return { ok: false, reason: "malformed" };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it from `rest`
+  const { issuerCheckedOn: _dropped, ...rest } = detailsOf(entry);
+  return {
+    ok: true,
+    body: fullBody(entry, checkedOn ? { ...rest, issuerCheckedOn: checkedOn } : rest),
+  };
 }
 
 /**

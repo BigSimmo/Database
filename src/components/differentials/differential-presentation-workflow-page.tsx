@@ -862,7 +862,7 @@ function MobileComparison({
           role="group"
           aria-label="Differential comparison actions"
           data-testid="differential-presentation-phone-footer"
-          className="phone-footer-layer inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)] sm:fixed"
+          className="phone-footer-layer inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+var(--safe-area-bottom))] shadow-[var(--shadow-elevated)] sm:fixed"
         >
           <span
             aria-current="page"
@@ -956,7 +956,7 @@ export function DifferentialPresentationWorkflowPage({
       />
       <main
         data-testid="differential-presentation-page"
-        className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:grow sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-3 pb-[calc(6.25rem+var(--safe-area-bottom))] pt-4 text-[color:var(--text)] sm:grow sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
       >
         <div className="mx-auto grid w-full max-w-[94rem] gap-5 xl:grid-cols-[minmax(0,1fr)_23.5rem]">
           <div className="min-w-0">

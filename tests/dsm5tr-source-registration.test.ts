@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { acquisitionAttestedContentSha256 } from "@/lib/sources/acquisition-ledger";
 
 import {
   acquisitionLedgerIssues,
@@ -105,11 +106,14 @@ describe("DSM-5-TR handover acquisition rows", () => {
     expect(byId.get("ihacpa-icd10am-achi-acs-13")!.rung).toBe(3);
   });
 
-  it("leaves every admitted row unverified and never adopted", () => {
+  it("requires content-pinned owner reviews and keeps every admitted row unadopted", () => {
     const byId = new Map(sourceAcquisitionRecords.map((record) => [record.id, record]));
     for (const id of admitted) {
       const row = byId.get(id)!;
-      expect(row.validationStatus, `${id} must not claim a review that has not happened`).toBe("unverified");
+      expect(row.validationStatus, `${id} was signed off by the clinical owner`).toBe("locally_reviewed");
+      expect(row.attestedBy).toBe("PsychSift");
+      expect(row.attestedAt).toBe("2026-09-26T17:29:43.184Z");
+      expect(row.attestedAgainstSha256).toBe(acquisitionAttestedContentSha256(row));
       expect(row.disposition, `${id} must not be adopted without clinical sign-off`).toBe("candidate");
     }
   });

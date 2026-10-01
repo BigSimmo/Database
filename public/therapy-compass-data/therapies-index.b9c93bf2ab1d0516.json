@@ -622,7 +622,7 @@
     "bestUsedFor": "Best supported for psychosis and schizophrenia, including people at increased risk of psychosis, first and subsequent acute episodes, and the recovery phase when positive or negative symptoms continue to affect distress or function.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -647,7 +647,7 @@
     "bestUsedFor": "Strongest use is PTSD.",
     "reviewStatus": "reviewed",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2144,7 +2144,7 @@
     "bestUsedFor": "Strongest routine use is depression, especially when symptoms are closely linked to bereavement, changing roles, interpersonal conflict, or isolation.",
     "reviewStatus": "reviewed",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2941,7 +2941,7 @@
     "bestUsedFor": "Strongest use is PTSD in adults.",
     "reviewStatus": "reviewed",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3305,7 +3305,7 @@
     "bestUsedFor": "Best-supported psychiatric use is major depressive disorder, particularly treatment-resistant or hard-to-treat depressive episodes.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",

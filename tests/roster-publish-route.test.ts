@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const SERVICE = "5e000000-0000-4000-8000-000000000001";
 const ACTOR = "5e000000-0000-4000-8000-000000000002";
@@ -249,5 +249,26 @@ describe("atomic roster publication", () => {
     mocks.rpc.mockClear();
     expect((await POST(request({ ...body, codes: [{ ...code, starts: "08:00" }] }), context)).status).toBe(400);
     expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("example publishing while team rosters are held", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("previews the sample team and answers a checked publish with an example receipt, saving nothing", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const shown = await GET(previewRequest(), context);
+    expect(shown.status).toBe(200);
+    const snapshot = await shown.json();
+    expect(snapshot.freshnessToken).toBe("sample");
+    expect(snapshot.people.length).toBeGreaterThan(0);
+
+    const published = await POST(request(body), context);
+    expect(published.status).toBe(200);
+    expect(await published.json()).toMatchObject({ version: 2, changedUserIds: [], openShiftIds: [] });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.alerts).not.toHaveBeenCalled();
+
+    expect((await POST(request({ ...body, actorId: ACTOR }), context)).status).toBe(400);
   });
 });

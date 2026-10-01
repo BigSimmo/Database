@@ -449,6 +449,9 @@ function cautionHaystack(t: Therapy): string {
   return lc(`${t.contraindicationsOrCautions} ${t.limitations} ${t.warnings.join(" ")}`);
 }
 
+const HAZARDOUS_MANIA_OR_ACTIVATION_RE =
+  /(?:risk of (?:inducing )?|can (?:precipitate|induce|trigger|increase)|causes?|precipitat\w*|induc\w*|trigger\w*|switch\w*(?:\s+(?:in)?to)?)\s+(?:acute\s+|emergent\s+)?(?:hypo)?mania|(?:hazardous|unsafe|destabilis\w+|destabiliz\w+)\s+(?:behaviou?ral\s+)?activation|(?:can\s+)?(?:increase|precipitate|induce|trigger)\s+(?:hazardous\s+)?activation|\bavoid\s+in\s+(?:acute\s+)?(?:hypo)?mania|\bcontraindicat\w*\s+in\s+(?:acute\s+)?(?:hypo)?mania/i;
+
 function clinicalFieldScore(t: Therapy, tokens: string[]): { score: number; reasons: string[] } {
   const presentationTokens = tokens.filter((token) => !RECOMMEND_LOGISTICS_TOKENS.has(token));
   const logisticsTokens = tokens.filter((token) => RECOMMEND_LOGISTICS_TOKENS.has(token));
@@ -509,7 +512,7 @@ export function rankRecommendations(
 
     for (const c of cons) {
       if (c.key === "avoid-mania") {
-        if (/mania|hypomania|activation/.test(cautionHaystack(t))) {
+        if (HAZARDOUS_MANIA_OR_ACTIVATION_RE.test(cautionHaystack(t))) {
           score -= 28;
           reasons.push("Caution: mania or activation risk");
         }

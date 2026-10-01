@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Search } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import type { FormEvent } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -43,8 +43,8 @@ export function ToolLocalSearch({
         className,
       )}
     >
-      <span className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--clinical-accent)]">
-        <Plus className="size-icon-lg" aria-hidden />
+      <span className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)]">
+        <Search className="size-icon-lg" aria-hidden />
       </span>
       <label className="min-w-0">
         <span className="sr-only">Search tools</span>
@@ -52,7 +52,7 @@ export function ToolLocalSearch({
           data-testid="tools-local-search-input"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Search tools..."
+          placeholder="Search tools"
           className={cn(
             searchShellInput,
             "w-full text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)]",
@@ -61,14 +61,14 @@ export function ToolLocalSearch({
       </label>
       <button
         type="submit"
-        aria-label="Open selected tool"
+        aria-label="Search tools"
         data-testid="tools-local-search-submit"
         className={cn(
           "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)]",
           focusRing,
         )}
       >
-        <Search className="size-icon-lg" aria-hidden />
+        <ArrowRight className="size-icon-lg" aria-hidden />
       </button>
     </form>
   );

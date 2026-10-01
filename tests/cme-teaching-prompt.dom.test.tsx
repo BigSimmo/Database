@@ -12,7 +12,7 @@ async function renderPrompt() {
 }
 
 describe("Teaching handoff on CPD Today", () => {
-  it("links only a positive owner-scoped count to the Teaching logbook", async () => {
+  it("links only a positive owner-scoped count to the Teaching weekly review", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ count: 2 }) });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -25,7 +25,7 @@ describe("Teaching handoff on CPD Today", () => {
     const prompt = screen.getByTestId("cme-teaching-prompt");
     expect(prompt).toHaveTextContent("Next to log: Teaching");
     expect(prompt).toHaveTextContent("2 teaching sessions to review in Teaching");
-    expect(screen.getByRole("link", { name: "Open Teaching logbook" })).toHaveAttribute("href", "/teaching/logbook");
+    expect(screen.getByRole("link", { name: "Review & log" })).toHaveAttribute("href", "/teaching/review");
   });
 
   it.each([

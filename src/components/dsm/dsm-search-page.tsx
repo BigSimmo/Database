@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useSyncExternalStore } from "react";
 import { BookOpenCheck, Check, ChevronRight, CircleAlert, GitCompareArrows, SearchX } from "lucide-react";
 
 import {
@@ -15,7 +15,10 @@ import {
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { mobileComposerVisibleReserve } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { usePhoneFooterLayerScrollHidden } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import {
+  PhoneFooterLayerPortal,
+  usePhoneFooterLayerScrollHidden,
+} from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { cardPadding, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { cn, codeText, EmptyState, metadataPill, pageContainer } from "@/components/ui-primitives";
@@ -101,27 +104,35 @@ function DsmSearchResultCard({
 
 function DsmMobileCompareStrip({ selected }: { selected: string[] }) {
   const phoneChromeHidden = usePhoneFooterLayerScrollHidden();
-  if (!selected.length) return null;
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  if (!selected.length || !mounted) return null;
 
   return (
-    <div
-      aria-live="polite"
-      className="dsm-mobile-compare-strip pointer-events-none fixed inset-x-0 z-[var(--z-chrome)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:hidden"
-      data-scroll-hidden={phoneChromeHidden ? "true" : undefined}
-      style={{ bottom: mobileComposerVisibleReserve.shellDock }}
-    >
-      <Link
-        href={compareHref(selected)}
-        data-testid="dsm-search-compare-mobile"
-        className="pointer-events-auto inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
+    <PhoneFooterLayerPortal>
+      <div
+        aria-live="polite"
+        className="phone-footer-layer dsm-mobile-compare-strip pointer-events-none inset-x-0 z-[var(--z-chrome)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:fixed lg:hidden"
+        data-scroll-hidden={phoneChromeHidden ? "true" : undefined}
+        style={{ bottom: mobileComposerVisibleReserve.shellDock }}
       >
-        <GitCompareArrows className="h-4 w-4 shrink-0" aria-hidden />
-        Compare
-        <span className="grid h-7 min-w-7 place-items-center rounded-full bg-[color:var(--command-contrast)]/20 px-1.5 text-xs font-extrabold tabular-nums">
-          {selected.length}
-        </span>
-      </Link>
-    </div>
+        <Link
+          href={compareHref(selected)}
+          data-testid="dsm-search-compare-mobile"
+          className="pointer-events-auto inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
+        >
+          <GitCompareArrows className="h-4 w-4 shrink-0" aria-hidden />
+          Compare
+          <span className="grid h-7 min-w-7 place-items-center rounded-full bg-[color:var(--command-contrast)]/20 px-1.5 text-xs font-extrabold tabular-nums">
+            {selected.length}
+          </span>
+        </Link>
+      </div>
+    </PhoneFooterLayerPortal>
   );
 }
 
@@ -260,7 +271,7 @@ export function DsmSearchPage({
         className={cn(
           pageContainer,
           "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8",
-          selected.length > 0 && "max-lg:pb-[calc(4rem+var(--safe-area-bottom))]",
+          selected.length > 0 && "sm:max-lg:pb-16",
         )}
       >
         <SearchResultsHeaderBand

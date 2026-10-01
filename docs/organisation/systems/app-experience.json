@@ -182,6 +182,7 @@
     "src/lib/therapy-compass-navigation.ts",
     "src/lib/therapy-ranking.ts",
     "src/lib/tools-catalog.ts",
+    "src/lib/tools-page-layout.ts",
     "src/lib/ui-copy.ts",
     "src/lib/universal-search-domains.ts",
     "src/lib/universal-search-mode-context.ts",

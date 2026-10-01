@@ -11,6 +11,7 @@ import {
   type SwapCheck,
 } from "@/lib/roster/team/eligibility";
 import type { RosterAssignment, RosterGrade } from "@/lib/roster/team/model";
+import { demoRosterRead } from "@/lib/roster/team/demo-team";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /*
@@ -230,4 +231,24 @@ describe("breaks around a moment", () => {
     expect(hoursUntilNextShift(rows, "mei", at)).toBe(40);
     expect(hoursSinceLastShift(rows, "nobody", at)).toBeNull();
   });
+});
+
+describe("the sample team's swap waiting on the reader", () => {
+  // Every day of a fortnight, so the sample is checked whatever day it is opened.
+  const days = Array.from({ length: 14 }, (_, index) => new Date(Date.UTC(2026, 9, 1 + index, 2)));
+
+  it.each(days.map((now) => [now.toISOString().slice(0, 10), now] as const))(
+    "can be accepted on %s: neither doctor would be double-booked",
+    (_, now) => {
+      const swap = demoRosterRead("requests", {}, now).swaps[0];
+      const rows = demoRosterRead("assignments", {}, now).assignments;
+      expect(swap.give && swap.take).toBeTruthy();
+      expect(
+        placementProblem(rows, swap.counterpartyId, swap.give!.startsAt, swap.give!.endsAt, [swap.take?.id], null),
+      ).toBeNull();
+      expect(
+        placementProblem(rows, swap.requesterId, swap.take!.startsAt, swap.take!.endsAt, [swap.give?.id], null),
+      ).toBeNull();
+    },
+  );
 });
