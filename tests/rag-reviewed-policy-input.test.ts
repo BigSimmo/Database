@@ -58,7 +58,7 @@ function event(sequence = 1, status: ReviewedPolicyEvent["status"] = "approved")
     reviewerRole: "clinical_source_governance",
     reviewerId: "AUDIT_ONLY_CANARY",
     reviewedAt: "2026-09-01T00:00:00.000Z",
-    expiresAt: "2026-10-01T00:00:00.000Z",
+    expiresAt: "2027-10-01T00:00:00.000Z",
     sourcePolicyVersion: "rag-legacy-source-policy-v1",
     difference: {
       claimRole: "subsidy",
@@ -161,7 +161,7 @@ describe("reviewed policy request lifecycle (fixtures)", () => {
         rows,
       ).conflicts,
     ).toEqual([]);
-    expect(revalidateReviewedPolicyRequest(loaded, rows, Date.parse("2026-10-02T00:00:00Z")).conflicts).toEqual([]);
+    expect(revalidateReviewedPolicyRequest(loaded, rows, Date.parse("2027-10-02T00:00:00Z")).conflicts).toEqual([]);
     expect(
       revalidateReviewedPolicyRequest(
         loaded,

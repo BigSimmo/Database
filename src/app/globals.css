@@ -187,6 +187,7 @@
      size-tap. The `4.5` (18px) half-step these retire snaps to sm/md/lg per site.
      NB: container tiles (iconTile h-9, empty-state tile h-10) are NOT glyphs and
      stay on the integer spacing scale — this token is for the icon glyph itself. */
+  --spacing-icon-2xs: 0.75rem; /* 12px — compact badge/flag markers */
   --spacing-icon-xs: 0.75rem; /* 12px — inline markers, dense metadata */
   --spacing-icon-sm: 0.875rem; /* 14px — badge / chip / metadata icons */
   --spacing-icon-md: 1rem; /* 16px — default: buttons, nav, fields */
@@ -1851,13 +1852,36 @@ summary::-webkit-details-marker {
 
 /* DSM mobile compare strip adapts to footer scroll-hide transitions */
 .dsm-mobile-compare-strip {
-  transition: transform var(--duration-quick) var(--ease-out-soft);
+  transition:
+    transform var(--duration-moderate) var(--ease-chrome-reveal),
+    opacity var(--duration-moderate) var(--ease-chrome-reveal);
 }
 
 @media (max-width: 1023px) {
   .dsm-mobile-compare-strip[data-scroll-hidden="true"] {
-    transform: translateY(calc(100% + var(--safe-area-bottom, 0px) + 2rem));
+    transform: translateY(calc(100% + 5.5rem + var(--safe-area-bottom, 0px) + var(--keyboard-height, 0px) + 0.5rem));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--duration-slow) var(--ease-chrome-hide),
+      opacity var(--duration-slow) var(--ease-chrome-hide);
   }
+
+  .dsm-mobile-compare-strip[data-scroll-hidden="true"] * {
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsm-mobile-compare-strip,
+  .dsm-mobile-compare-strip[data-scroll-hidden="true"] {
+    transition: none;
+  }
+}
+
+html[data-motion="reduced"] .dsm-mobile-compare-strip,
+html[data-motion="reduced"] .dsm-mobile-compare-strip[data-scroll-hidden="true"] {
+  transition: none;
 }
 
 /* Medication surfaces: Patient details sits above the search pill in the dock,
@@ -1983,7 +2007,7 @@ summary::-webkit-details-marker {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-pill, 9999px);
   color: var(--text-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 900;
   transition: transform var(--duration-moderate) var(--ease-out-soft);
 }
@@ -2026,7 +2050,7 @@ summary::-webkit-details-marker {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -2461,7 +2485,7 @@ summary::-webkit-details-marker {
   border-radius: var(--radius-xs);
   border-width: 1px;
   border-style: solid;
-  font-size: 0.5em;
+  font-size: 0.75rem;
   line-height: var(--answer-mark-leading);
   text-align: center;
   vertical-align: baseline;
@@ -2481,7 +2505,7 @@ summary::-webkit-details-marker {
   position: relative;
   top: -0.625em;
   margin-left: var(--answer-mark-gap);
-  font-size: 0.5em;
+  font-size: 0.75rem;
   line-height: var(--answer-mark-leading);
   vertical-align: baseline;
 }
@@ -2943,7 +2967,7 @@ summary::-webkit-details-marker {
   --smart-search-phone-ticker-kicker-gap: 0.25rem;
   gap: var(--smart-search-phone-ticker-kicker-gap);
   color: var(--clinical-accent);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2962,7 +2986,7 @@ summary::-webkit-details-marker {
 
 .smart-search-phone-ticker-action {
   color: var(--text-muted);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -3075,13 +3099,13 @@ summary::-webkit-details-marker {
 
 .answer-suggestion-label {
   color: var(--text-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
 .answer-suggestion-label-eyebrow {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   line-height: var(--leading-prose);
   text-transform: uppercase;
@@ -3275,7 +3299,7 @@ summary::-webkit-details-marker {
 
 .home-recent-searches .answer-suggestion-label {
   color: var(--text-heading);
-  font-size: var(--text-3xs);
+  font-size: var(--text-xs);
   font-weight: 650;
   letter-spacing: 0.025em;
 }
@@ -3293,13 +3317,13 @@ summary::-webkit-details-marker {
   box-shadow: none;
   padding-inline: var(--radius-md);
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   font-weight: 550;
 }
 
 .home-recent-searches .answer-suggestion-chip-icon {
-  width: var(--text-2xs);
-  height: var(--text-2xs);
+  width: var(--spacing-icon-xs);
+  height: var(--spacing-icon-xs);
   margin-right: var(--radius-xs);
 }
 
@@ -3887,7 +3911,7 @@ body:has([data-route-recovery="true"]) .pwa-install-sheet {
   border-radius: var(--pwa-control-radius);
   padding: 0 calc(2 * var(--pwa-inset-xs));
   color: var(--text-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: var(--pwa-line-height-control);
   transition:
@@ -5819,7 +5843,7 @@ html.theme-transitioning *:after {
 /* Small enough to read as a label rather than a control, which is what stops a
    row of accent chips reading as a second bank of buttons. */
 .search-band-shelf-label {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 560;
   letter-spacing: 0.1em;
 }
@@ -6128,7 +6152,7 @@ html.theme-transitioning *:after {
   padding: var(--radius-xs) var(--spacing-icon-xs);
   background: var(--clinical-accent-soft);
   color: var(--clinical-accent);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 @media (max-width: 639px) {

@@ -506,7 +506,7 @@ export function CmeDashboard({
   };
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6">
+    <main className="mx-auto w-full max-w-5xl px-4 pb-[calc(max(1rem,var(--safe-area-bottom))+6rem)] pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-[color:var(--text)]">CPD</h1>
