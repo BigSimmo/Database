@@ -77,6 +77,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/on-call/logistics",
     "Retired Admin update 1 path. It redirects to its /admin page (proxy fast path plus a page backstop), so in-app navigation links the /admin route directly.",
   ],
+  [
+    "/on-call/education",
+    "Retained On Call Teaching page until the Education → Teaching transfer is approved. More › Teaching and product CTAs now open /teaching directly; this route stays reachable for bookmarks and the relocation backstop (no hard redirect in this tranche).",
+  ],
 ]);
 
 function isMockupPath(relPosix: string) {

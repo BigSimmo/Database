@@ -55,7 +55,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   teaching: ["Today", "Week", "What's on", "Resources", "Logbook", "Teach", "Supervision", "Organise"],
   psychiatry: [],
   "my-work": ["Today", "Renewals", "New job", "Help"],
-  roster: ["Today", "Shifts", "Team", "Requests", "Settings"],
+  roster: ["Today", "Shifts", "Team", "Swaps", "Requests", "Settings"],
   "first-nations": [
     "Bedside",
     "Contacts",
@@ -564,8 +564,11 @@ describe("mode secondary navigation registry", () => {
       "/on-call/card": "card",
       "/on-call/service": "service",
       "/on-call/compliance": "compliance",
+      "/admin/renewals": "compliance",
       "/on-call/logistics": "logistics",
+      "/admin/help": "logistics",
       "/on-call/education": "teaching",
+      "/teaching": "teaching",
       "/on-call/who-is-who": "whoswho",
       "/on-call/orientation": "orientation",
       "/on-call/check": null,
@@ -575,6 +578,17 @@ describe("mode secondary navigation registry", () => {
     for (const [path, id] of Object.entries(cases)) {
       expect(activeModeSecondaryNavigationId("on-call", path), path).toBe(id);
     }
+  });
+
+  it("sends More Compliance, Admin and Teaching straight to their mode homes", () => {
+    const more = Object.fromEntries(
+      modeSecondaryNavigationEntries("on-call")
+        .filter((entry) => entry.group === "more")
+        .map((entry) => [entry.id, entry.href]),
+    );
+    expect(more.compliance).toBe("/admin/renewals");
+    expect(more.logistics).toBe("/admin/help");
+    expect(more.teaching).toBe("/teaching");
   });
 
   it("does not mark Find/Search current on record routes that match no destination", () => {
@@ -728,6 +742,7 @@ describe("Roster mode secondary navigation active destinations", () => {
     expect(activeModeSecondaryNavigationId("roster", "/roster")).toBe("today");
     expect(activeModeSecondaryNavigationId("roster", "/roster/shifts")).toBe("shifts");
     expect(activeModeSecondaryNavigationId("roster", "/roster/settings")).toBe("settings");
+    expect(activeModeSecondaryNavigationId("roster", "/roster/swaps")).toBe("swaps");
     expect(activeModeSecondaryNavigationId("roster", "/roster/calendar")).toBeNull();
   });
 

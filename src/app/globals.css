@@ -547,6 +547,8 @@
   --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
   --print-furniture-gap: 4mm;
+  --roster-print-page-margin: 10mm;
+  --roster-print-region-gap: 4mm;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -5590,6 +5592,91 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 
   .privacy-page [data-print-stack] {
     display: block !important;
+  }
+}
+
+/* Roster team calendar print (Manage page, Month view).
+ * Same isolation as the shared clinical output above: everything else on the
+ * page is made invisible and the marked calendar region is lifted to the top
+ * of the sheet, so headers, docks, nav and the Manage tabs never print.
+ * The month grid is fitted to one A4 landscape page, under a print-only
+ * header naming the team, the Perth date printed and the shift letters.
+ * System colours keep it legible on paper whatever theme is on screen, and
+ * the signed-in person's days are marked with an outline rather than a tint. */
+@media print {
+  @page roster-month {
+    size: a4 landscape;
+    margin: var(--roster-print-page-margin);
+  }
+
+  body:has([data-roster-print]) {
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  body:has([data-roster-print]) * {
+    visibility: hidden !important;
+  }
+
+  /* As specific as the hiding rule above, and later, so the region shows. */
+  body:has([data-roster-print]) [data-roster-print],
+  body:has([data-roster-print]) [data-roster-print] * {
+    visibility: visible !important;
+  }
+
+  [data-roster-print] {
+    display: grid !important;
+    gap: var(--roster-print-region-gap);
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    color: CanvasText;
+    background: Canvas;
+    page: roster-month;
+  }
+
+  [data-roster-print] * {
+    color: CanvasText !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  [data-roster-print] :is([role="radiogroup"], select, input, label, a, [role="status"], [data-print-hide]) {
+    display: none !important;
+  }
+
+  [data-roster-print] [role="grid"] {
+    break-inside: avoid;
+    gap: 0;
+  }
+
+  [data-roster-print] [role="gridcell"] {
+    border: 1px solid GrayText;
+    border-radius: 0;
+    opacity: 1;
+    overflow: hidden;
+  }
+
+  [data-roster-print] [role="gridcell"][data-mine] {
+    outline: 2px solid CanvasText;
+    outline-offset: -3px;
+  }
+
+  /* The global print reset hides every button; a month cell is a button. */
+  [data-roster-print] [role="gridcell"] > button {
+    display: flex !important;
+    min-height: 22mm;
+    font-size: 8pt;
+  }
+
+  /* Each cell lists every shift by kind in print through its own print:grid
+     and print:hidden classes, so paper never depends on the lg breakpoint
+     firing at A4 width. Names wrap rather than being cut. */
+  [data-roster-print] [role="gridcell"] [data-month-full] {
+    overflow-wrap: anywhere;
   }
 }
 

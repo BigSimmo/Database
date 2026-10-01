@@ -24,6 +24,7 @@ const DEMO_SITE_ID = "d0000000-0000-4000-8000-000000000002";
 const DEMO_PUBLICATION_ID = "d0000000-0000-4000-8000-000000000003";
 const DEMO_SWAP_ID = "d0000000-0000-4000-8000-000000000004";
 const DEMO_OPEN_SHIFT_ID = "d0000000-0000-4000-8000-000000000005";
+const DEMO_MANAGE_SWAP_ID = "d0000000-0000-4000-8000-000000000007";
 export const DEMO_ME_ID = "d0000000-0000-4000-8000-0000000000a1";
 
 const PEOPLE: readonly { userId: string; name: string; grade: RosterGrade; manager?: boolean }[] = [
@@ -83,6 +84,30 @@ function demoAssignments(now: Date): RosterAssignment[] {
   return rows;
 }
 
+const overlaps = (a: RosterAssignment, b: RosterAssignment) =>
+  Date.parse(a.startsAt) < Date.parse(b.endsAt) && Date.parse(a.endsAt) > Date.parse(b.startsAt);
+
+/** Free for `shift` once `handedOver` is gone: none of `userId`'s other shifts overlaps it. */
+function freeFor(rows: readonly RosterAssignment[], userId: string, shift: RosterAssignment, handedOver: string) {
+  return !rows.some((row) => row.userId === userId && row.id !== handedOver && overlaps(row, shift));
+}
+
+/** The reader's and Dr Sam's shifts for the sample swap, same kind first, that neither would clash taking. */
+function acceptableSwap(future: readonly RosterAssignment[], rows: readonly RosterAssignment[]) {
+  const sam = PEOPLE[1].userId;
+  const mineAll = future.filter((a) => a.userId === DEMO_ME_ID);
+  const samsAll = future.filter((a) => a.userId === sam);
+  const fits = (mine: RosterAssignment, theirs: RosterAssignment) =>
+    freeFor(rows, DEMO_ME_ID, theirs, mine.id) && freeFor(rows, sam, mine, theirs.id);
+  for (const sameKind of [true, false]) {
+    for (const mine of mineAll) {
+      const theirs = samsAll.find((a) => (!sameKind || a.kind === mine.kind) && fits(mine, a));
+      if (theirs) return { mine, theirs };
+    }
+  }
+  return { mine: mineAll[0], theirs: samsAll[0] ?? null };
+}
+
 export function demoRosterTeams(): RosterTeam[] {
   return [
     {
@@ -103,11 +128,9 @@ export function demoRosterRead<W extends RosterReadWhat>(
   const start = periodStart(now);
   const assignments = demoAssignments(now);
   const future = assignments.filter((a) => Date.parse(a.startsAt) > now.getTime() + 8 * 86_400_000);
-  const mine = future.find((a) => a.userId === DEMO_ME_ID)!;
-  const theirs =
-    future.find((a) => a.userId === PEOPLE[1].userId && a.kind === mine.kind) ??
-    future.find((a) => a.userId === PEOPLE[1].userId) ??
-    null;
+  // The swap waiting on the reader is one that can really be accepted: neither
+  // doctor is already working when they would take the other's shift.
+  const { mine, theirs } = acceptableSwap(future, assignments);
   const publishedAt = perthWallToIso(addDaysToDate(start, -5), "16:10")!;
   const swap = {
     id: DEMO_SWAP_ID,
@@ -123,6 +146,37 @@ export function demoRosterRead<W extends RosterReadWhat>(
     createdAt: new Date(now.getTime() - 3_600_000).toISOString(),
     decidedAt: null,
   };
+  // A swap between two residents that waits on the manager because it is within 7 days.
+  const soon = assignments.filter(
+    (a) => Date.parse(a.startsAt) > now.getTime() && Date.parse(a.startsAt) < now.getTime() + 7 * 86_400_000,
+  );
+  const residentGives = soon.find((a) => a.userId === PEOPLE[2].userId);
+  const residentTakes = soon.find((a) => a.userId === PEOPLE[3].userId && a.kind !== residentGives?.kind);
+  const managedSwap = {
+    id: DEMO_MANAGE_SWAP_ID,
+    status: "accepted" as const,
+    autoApproved: false,
+    needsManagerBecause: "within_7_days" as const,
+    requesterId: PEOPLE[2].userId,
+    counterpartyId: PEOPLE[3].userId,
+    give: residentGives ?? null,
+    take: residentTakes ?? null,
+    decidedAt: null,
+    requesterName: PEOPLE[2].name,
+    counterpartyName: PEOPLE[3].name,
+  };
+  // Weekday targets for day, evening and night: Monday (1) to Friday (5).
+  const needs = ([1, 2, 3, 4, 5] as const).flatMap((weekday, index) =>
+    PATTERN.map((shift, kindIndex) => ({
+      id: hexId(0x2000 + index * 3 + kindIndex),
+      weekday,
+      date: null,
+      kind: shift.kind,
+      grade: null,
+      siteId: null,
+      needed: shift.kind === "day" ? 2 : 1,
+    })),
+  );
   const openDay = addDaysToDate(start, 12);
   const openShift = {
     id: DEMO_OPEN_SHIFT_ID,
@@ -165,7 +219,7 @@ export function demoRosterRead<W extends RosterReadWhat>(
     unavailability: () => ({ unavailability: [] }),
     leave_overlap: () => ({ alreadyOff: 0 }),
     manage: () => ({
-      swaps: [],
+      swaps: [managedSwap],
       openShifts: [{ ...openShift, postedBy: PEOPLE[3].userId, claimedBy: null, claimedAt: null }],
       seen: {
         publicationId: DEMO_PUBLICATION_ID,
@@ -208,7 +262,7 @@ export function demoRosterRead<W extends RosterReadWhat>(
         ends: shift.end,
         label: null,
       })),
-      needs: [],
+      needs,
       drafts: [],
     }),
     changes: () => {
