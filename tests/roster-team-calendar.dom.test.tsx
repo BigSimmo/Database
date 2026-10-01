@@ -33,7 +33,7 @@ vi.mock("next/navigation", () => ({
       () => url.state.params,
     ),
 }));
-vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
+vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskButton: () => null }));
 
 import { canRequestShift } from "@/components/roster/team/calendar/shift-sheet";
 import { RosterTeamPage } from "@/components/roster/team/roster-team-page";
