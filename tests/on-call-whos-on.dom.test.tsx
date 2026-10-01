@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
-import { handbookItems, readyHandbook } from "./helpers/on-call-handbook-fixtures";
+import { handbookItems, coverItems, readyHandbook } from "./helpers/on-call-handbook-fixtures";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call/whos-on",
@@ -38,9 +38,17 @@ function groupHeadings(): (string | null)[] {
 }
 
 describe("Who's on", () => {
+  it("does not imply ordinary contacts are current cover", () => {
+    handbook.state = readyHandbook(
+      handbookItems([{ id: "contact", title: "Medicine: Registrar", phone: "5550 0042" }]),
+    );
+    render(<OnCallWhosOnPage />);
+    expect(screen.getByText(/Cover is unknown/)).toBeInTheDocument();
+    expect(screen.queryByTestId("on-call-whos-on-row-contact")).toBeNull();
+  });
   it("lists roles by team with the reader's team first, under the hospital's name, and no names", async () => {
     handbook.state = readyHandbook(
-      handbookItems([
+      coverItems([
         { id: "i", title: "ICU: Registrar", phone: "4456" },
         { id: "m", title: "Medicine: Registrar on call", phone: "9000 0001" },
       ]),
@@ -54,14 +62,14 @@ describe("Who's on", () => {
     const medicine = screen.getByTestId("on-call-whos-on-team-Medicine");
     expect(
       within(medicine)
-        .getByRole("link", { name: /^call registrar on call/i })
+        .getByRole("link", { name: /^call registrar/i })
         .getAttribute("href"),
     ).toMatch(/^tel:.*90000001$/);
   });
 
   it("groups a team no list names, and puts rows with no team under Other", () => {
     handbook.state = readyHandbook(
-      handbookItems([
+      coverItems([
         { id: "o", title: "Orthopaedics: Registrar", phone: "9000 0010" },
         { id: "i", title: "ICU: Registrar", phone: "4456" },
         { id: "sw", title: "Switchboard", phone: "9000 0000" },
@@ -69,18 +77,18 @@ describe("Who's on", () => {
     );
     render(<OnCallWhosOnPage />);
     expect(groupHeadings()).toEqual(["ICU", "Orthopaedics", "Other"]);
-    expect(screen.getByTestId("on-call-whos-on-other")).toHaveTextContent("Switchboard");
+    expect(screen.getByTestId("on-call-whos-on-other")).toHaveTextContent("Registrar");
   });
 
   it("says the reader's team is not set up rather than showing an empty list", async () => {
-    handbook.state = readyHandbook(handbookItems([{ id: "i", title: "ICU: Registrar", phone: "4456" }]));
+    handbook.state = readyHandbook(coverItems([{ id: "i", title: "ICU: Registrar", phone: "4456" }]));
     render(<OnCallWhosOnPage />);
     await userEvent.selectOptions(screen.getByTestId("on-call-whos-on-my-team"), "Obstetrics");
     expect(screen.getByTestId("on-call-whos-on-my-team-empty")).toHaveTextContent("Not set up for this hospital");
   });
 
   it("carries no explanatory text: the Being set up stub is gone", () => {
-    handbook.state = readyHandbook(handbookItems([{ id: "i", title: "ICU: Registrar", phone: "4456" }]));
+    handbook.state = readyHandbook(coverItems([{ id: "i", title: "ICU: Registrar", phone: "4456" }]));
     render(<OnCallWhosOnPage />);
     expect(screen.queryByTestId("on-call-whos-on-being-set-up")).toBeNull();
     expect(screen.queryByText(/being built|being set up/i)).toBeNull();

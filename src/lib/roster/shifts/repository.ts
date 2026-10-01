@@ -294,6 +294,35 @@ export async function undoShiftImport(
   const from = perthWallToIso(undo.windowStart, "00:00");
   const to = perthWallToIso(addDaysToDate(undo.windowEnd, 1), "00:00");
   if (!from || !to) throw new Error("Invalid roster dates.");
+  // A newer import for the same workplace (for example a file saved while this refresh ran)
+  // now owns the window's rows: drop only this import's record, never the newer shifts.
+  const own = await supabase
+    .from("on_call_shift_imports")
+    .select("imported_at")
+    .eq("owner_id", ownerId)
+    .eq("id", undo.importId)
+    .maybeSingle();
+  if (own.error) throw own.error;
+  if (own.data) {
+    const newer = supabase
+      .from("on_call_shift_imports")
+      .select("id")
+      .eq("owner_id", ownerId)
+      .neq("id", undo.importId)
+      .gt("imported_at", own.data.imported_at)
+      .limit(1);
+    const found = await (undo.workplace === null ? newer.is("workplace", null) : newer.eq("workplace", undo.workplace));
+    if (found.error) throw found.error;
+    if ((found.data ?? []).length > 0) {
+      const record = await supabase
+        .from("on_call_shift_imports")
+        .delete()
+        .eq("owner_id", ownerId)
+        .eq("id", undo.importId);
+      if (record.error) throw record.error;
+      return;
+    }
+  }
   const query = supabase
     .from("on_call_shifts")
     .delete()

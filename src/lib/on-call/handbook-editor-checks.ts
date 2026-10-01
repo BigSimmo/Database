@@ -29,6 +29,9 @@ export type HandbookEditorContent = Pick<ServiceContent, "title" | "section" | "
 
 /** "Will appear in: Call › Hospital › Medicine", the one line the editor sees as they type. */
 export function handbookPlacementLine(content: HandbookEditorContent): string {
+  if (content.section === "playbook") return "Will appear in: Playbook after independent review";
+  if (content.section === "cover")
+    return "Will appear in: Who's on, Call and Your team during the recorded times after independent review";
   const parsed = parseHandbookTitle(content.title);
   if (parsed.prefix === "Emergency" && content.section === "contacts") {
     return "Will appear in: Now (emergency) and Call › Hospital";

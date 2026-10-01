@@ -7,11 +7,10 @@
  */
 
 /**
- * Who's on is hidden from the pages sheet in Stage A (owner card F5): until the
- * roster data exists it would only repeat Call. Its route, page and tests stay,
- * so Stage C turns it on by flipping this to `true`.
+ * Who's on reads reviewed role-only cover windows. Local editor, permission and
+ * changeover tests cover this Stage C path; named staff remain outside this mode.
  */
-export const ON_CALL_WHOS_ON_ENABLED = false;
+export const ON_CALL_WHOS_ON_ENABLED = true;
 
 /**
  * The muted "You called 02:14" line on a row called this shift (idea 3; owner
@@ -22,7 +21,7 @@ export const ON_CALL_YOU_CALLED_ENABLED = true;
 /**
  * Where on-site help lives: access, food, taxi and the other Admin-section rows.
  * The "On site: access, food, taxi" link, search results that point at Admin
- * rows, and More › Admin all use this one constant. Today it is On Call's own
- * Admin page; Admin mode's build changes it to `/admin/help` in its own PR.
+ * rows, and More › Admin all use this one constant. Points straight at Admin ›
+ * Help; `/on-call/logistics` remains a bookmark redirect to the same place.
  */
-export const ON_CALL_ADMIN_ROWS_HREF = "/on-call/logistics";
+export const ON_CALL_ADMIN_ROWS_HREF = "/admin/help";

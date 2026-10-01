@@ -99,7 +99,7 @@ function bestDocumentPoint(query: string, results: SearchResult[]) {
       const normalized = normalizeText(sentence);
       const tokenHits = tokens.filter((token) => normalized.includes(token)).length;
       const clinicalSignal =
-        /\b(?:must|should|required|monitor|escalat|risk|dose|mg|mcg|threshold|urgent|review|withhold|cease|avoid|baseline|hours?|days?)\b/i.test(
+        /\b(?:must|should|required|monitor|escalat(?:e|es|ed|ing|ion|ions)|risk|dose|mg|mcg|threshold|urgent|review|withhold|cease|avoid|baseline|hours?|days?)\b/i.test(
           sentence,
         )
           ? 1.25

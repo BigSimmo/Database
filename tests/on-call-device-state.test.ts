@@ -166,9 +166,9 @@ describe("whether this hospital has a pinned emergency number (a yes or no, neve
 });
 
 describe("kit constants that one line flips", () => {
-  it("hides Who's on in Stage A and points admin rows at today's page", () => {
-    expect(ON_CALL_WHOS_ON_ENABLED).toBe(false);
-    expect(ON_CALL_ADMIN_ROWS_HREF).toBe("/on-call/logistics");
+  it("shows role-only Who's on in Stage C and points admin rows at Admin Help", () => {
+    expect(ON_CALL_WHOS_ON_ENABLED).toBe(true);
+    expect(ON_CALL_ADMIN_ROWS_HREF).toBe("/admin/help");
   });
 
   it("keeps the flags module import-free so the header may read it", () => {

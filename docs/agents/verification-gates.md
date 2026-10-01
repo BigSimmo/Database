@@ -22,7 +22,7 @@
 | 3 — Domain gate         | Shared UI/routing, dependencies, security, privacy, RAG, clinical output, production configuration, or another cross-cutting domain | The smallest applicable repository/domain selector, focused journey, or contract gate                                |
 | 4 — Broad handoff       | The diff crosses multiple subsystems, cannot be bounded reliably, or the task explicitly requires PR/release confidence             | One appropriate broad gate, selected rather than stacked by default                                                  |
 
-- Do not run a broad baseline routinely before localized work, and do not select `verify:cheap` merely because a change is described as “non-trivial.” Use `npm run verify:cheap` once when cross-module risk warrants a broad offline gate. Use `npm run verify:pr-local` when a change is ready for PR handoff: it now classifies the changed paths, runs focused documentation/workflow contracts for recognised low-risk scopes, and fails closed to lint, typecheck, the full unit suite, RAG fixture validation, and relevant build/domain gates for executable or unknown scope. If the diff has not changed, do not run `verify:cheap` first merely to repeat the same coverage.
+- Do not run a broad baseline routinely before localized work, and do not select `verify:cheap` merely because a change is described as “non-trivial.” `npm run verify:cheap` is the ordinary offline gate (`check:installed-lock-parity` + lint + typecheck + test). Use `npm run verify:full` when cross-module risk warrants the broad static set (41 static gates, then lint + typecheck + test). Use `npm run verify:pr-local` when a change is ready for PR handoff: it classifies the changed paths, runs focused documentation/workflow contracts for recognised low-risk scopes, and fails closed to lint, typecheck, the full unit suite, RAG fixture validation, and relevant build/domain gates for executable or unknown scope. If the diff has not changed, do not run `verify:cheap` first merely to repeat the same coverage.
 - Do not stack focused tests, full tests, typecheck, lint, build, and browser checks unless each catches a distinct plausible regression. Do not rerun an unchanged successful gate. Since 2026-08-21 that last rule is enforced rather than remembered: `scripts/gate-receipts.mjs` memoises `lint`, `typecheck` and non-coverage Vitest runs against a content signature, so an identical re-run on unchanged content exits 0 immediately instead of repeating the work. A reused receipt must be reported as "reused receipt from <time>", never as a fresh run; use `GATE_RECEIPTS=refresh` when fresh evidence is the point, `GATE_RECEIPTS=off` to disable, and `npm run receipts` to inspect the store. Receipts are local-only and never reach CI — `CI` being set disables reuse outright, because GitHub remains the authoritative merge gate. Do not memoise `build` or `test:coverage`; their artefacts are read by later gates. Contract: `docs/process-hardening.md` and `tests/gate-receipts.test.ts`. A deliberately skipped low-yield broad gate is not automatically verification debt; report the skipped check and its risk-based reason concisely.
 - A fast-fail subset may precede a broader required gate only when the later gate excludes that subset for the same event; retain a fail-safe full path whenever the subset is skipped. Likewise, do not pre-run a build, install, or server setup that the selected wrapper performs itself. Guard these disjoint/fallback rules with workflow contract tests so a later edit cannot silently restore duplicate work or create a coverage hole.
 - Use dry-run selectors before expensive gates when scope is uncertain. `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` inspects PR-local selection without running commands. The broader `--extended` plan is dry-run only unless explicit approval is reflected by `ALLOW_EXTENDED_PR_LOCAL=true`.
@@ -39,11 +39,12 @@
 ## Do not pay twice for the verdict GitHub is about to reach
 
 `check:gate-manifest` enforces a one-way invariant: CI never runs LESS of the local
-`verify:cheap` static set than the local chain does. Read that the other way and it says
-something uncomfortable — **every local run of a gate in that chain is work GitHub is
-about to repeat.** `gate-receipts.mjs` closes the local-versus-local half of that: it
-memoises `lint`, `typecheck`, and non-coverage Vitest against a content signature, so an
-identical re-run on unchanged content exits 0 immediately instead of repeating the work.
+`verify:full` static set than the local chain does (it reads `verify:full:internal`, not
+`verify:cheap:internal`). Read that the other way and it says something uncomfortable —
+**every local run of a gate in that chain is work GitHub is about to repeat.**
+`gate-receipts.mjs` closes the local-versus-local half of that: it memoises `lint`,
+`typecheck`, and non-coverage Vitest against a content signature, so an identical re-run
+on unchanged content exits 0 immediately instead of repeating the work.
 
 ```bash
 npm run receipts          # inspect the receipt store

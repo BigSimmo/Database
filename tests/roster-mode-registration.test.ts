@@ -17,11 +17,14 @@ import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
 describe("Roster mode registration", () => {
-  it("is a mode with three pages in Release 1", () => {
+  it("is a mode with six pages in Release 2", () => {
     expect(appModeIds).toContain("roster");
     expect(modeSecondaryNavigationEntries("roster").map((entry) => entry.label)).toEqual([
       "Today",
       "Shifts",
+      "Team",
+      "Swaps",
+      "Requests",
       "Settings",
     ]);
   });
@@ -70,6 +73,9 @@ describe("Roster mode registration", () => {
     expect(isInformationPage("/roster/shifts")).toBe(true);
     expect(isInformationPage("/roster/settings")).toBe(true);
     expect(isInformationPage("/roster/calendar")).toBe(true);
+    for (const path of ["/roster/team", "/roster/swaps", "/roster/requests", "/roster/manage", "/roster/join"]) {
+      expect(isInformationPage(path)).toBe(true);
+    }
   });
 
   it("declares a local, non-remote command surface", () => {

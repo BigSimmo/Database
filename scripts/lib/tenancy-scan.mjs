@@ -98,6 +98,13 @@ export const SCANNED_LIB_MODULES = [
   "src/lib/roster/shifts/repository.ts",
   "src/lib/roster/calendar-links.ts",
   "src/lib/roster/settings.ts",
+  // Owner-scoped planned leave, subscriptions and own night-shift reads.
+  "src/lib/roster/leave.ts",
+  "src/lib/roster/alerts/subscriptions.ts",
+  "src/lib/roster/alerts/night.ts",
+  // Cleanup's dates query also carries the team id, and never deletes team assignments.
+  "src/lib/roster/team/delete-my-data.ts",
+  // owner/teams is platform-owner guarded; alerts/recipients reads ids scoped to row id and team id.
 ];
 
 export const API_DIR_SEGMENTS = ["src", "app", "api"];
@@ -1111,6 +1118,15 @@ const SETUP_STATUS_REASON =
  * query chain. Every entry names its proof; the mechanical kinds are re-checked in the AST.
  */
 export const SCOPE_EXEMPTIONS = [
+  {
+    file: "src/lib/roster/alerts/subscriptions.ts",
+    table: "web_push_subscriptions",
+    fn: "saveOwnerSubscription",
+    queries: 1,
+    proof: PROOF_KINDS.REVIEWED_INDIRECT,
+    reason:
+      "The one shared-phone endpoint transfer removes a prior subscription by the validated browser endpoint before binding it to the signed-in owner. Other deletes retain owner_id. Endpoint validation and transfer are pinned by tests/roster-alerts-route.test.ts.",
+  },
   {
     file: "src/lib/roster/shifts/repository.ts",
     table: "on_call_shifts",

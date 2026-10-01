@@ -65,8 +65,7 @@ function elapsed(calledAt: string, now: Date): string {
  * and rings it in one tap. The row itself opens the ladder in the Playbook.
  *
  * It keeps no record: the time comes from the 12-hour "You called" mark, which
- * is an id and a time only. There is no wait and no "overdue": ladder waits are
- * the hospital's to set (a Stage B field), so the row never implies one.
+ * is an id and a time only. A wait is shown only when the hospital recorded one; no overdue verdict is inferred.
  */
 export function NowNeedsYou({
   needs,
@@ -99,7 +98,7 @@ export function NowNeedsYou({
         title={`Waiting on ${needs.waitingOn}`}
         subtitle={
           <span className={onCallNumberText}>
-            {`Called ${formatOnCallTime(needs.calledAt)} · ${elapsed(needs.calledAt, now)} · next: ${next.whoToCall}, ${next.dial.display}`}
+            {`Called ${formatOnCallTime(needs.calledAt)} · ${elapsed(needs.calledAt, now)}${needs.waitMinutes ? ` · Hospital-set wait: ${needs.waitMinutes} min` : ""} · next: ${next.whoToCall}, ${next.dial.display}`}
           </span>
         }
         href={ladderHref ?? undefined}

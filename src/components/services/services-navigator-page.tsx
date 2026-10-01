@@ -398,7 +398,7 @@ function ComparisonPanel({
                 type="button"
                 onClick={() => onRemove(service.slug)}
                 aria-label={`Remove ${service.title} from comparison`}
-                className="grid size-10 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="grid size-12 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:size-10"
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>

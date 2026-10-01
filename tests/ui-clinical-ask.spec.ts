@@ -161,10 +161,14 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
     });
     await expect(page.getByText(expectedResult, { exact: true }).filter({ visible: true }).first()).toBeVisible();
     if (mode === "tools") {
-      for (const title of ["PsychSift Search", "Documents", "Favourites"]) {
+      for (const [title, id] of [
+        ["PsychSift Search", "clinical-kb-search"],
+        ["Documents", "documents"],
+        ["Saved workflows", "favourites"],
+      ] as const) {
         await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
-        await expect(page.getByRole("link", { name: `Open ${title}`, exact: true })).toHaveCount(0);
-        await expect(page.getByRole("button", { name: `View details for ${title}`, exact: true })).toHaveCount(0);
+        await expect(page.getByTestId(`tool-row-${id}`)).toHaveCount(0);
+        await expect(page.getByRole("button", { name: `About ${title}`, exact: true })).toHaveCount(0);
       }
     }
     expect(clinicalAskRequests).toBe(0);

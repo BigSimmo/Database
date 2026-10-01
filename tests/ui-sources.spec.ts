@@ -76,7 +76,7 @@ test("@critical Sources catalogue filters and opens traceability", async ({ page
 
   // Below the sm breakpoint the toolbar swaps the desktop trigger for its phone twin.
   const phoneWidth = (page.viewportSize()?.width ?? 1280) < 640;
-  await page.getByTestId(phoneWidth ? "sources-filter-trigger-phone" : "sources-filter-trigger-desktop").click();
+  await visibleByTestId(page, phoneWidth ? "sources-filter-trigger-phone" : "sources-filter-trigger-desktop").click();
   const sheet = page.getByTestId("sources-filter-sheet");
   await expect(sheet).toBeVisible();
   // Sources hands the sheet four facet groups, which is past the density

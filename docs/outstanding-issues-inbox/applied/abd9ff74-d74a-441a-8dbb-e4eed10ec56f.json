@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "abd9ff74-d74a-441a-8dbb-e4eed10ec56f",
+  "createdOn": "2026-09-27",
+  "action": "update",
+  "payload": {
+    "id": "#VA5SP4",
+    "detail": "TRIAGED 2026-09-27: not a blanket fix. Many of the 44 waitForTimeout calls are deliberate: ui-chrome-scroll.spec.ts:166 paces wheel steps at 16 ms like a real device, and ui-phone-scroll.spec.ts:98 waits a fixed 350 ms to prove the collapsed header does not oscillate (a negative timing assertion that polling cannot express). The remainder are post-scroll settle windows before one-shot geometry reads; each needs converting to expect.poll on the specific settled state and proving with repeated npm run verify:phone-chrome runs, because these specs guard the protected search chrome (AGENTS.md Search chrome behaviour). Next action: in a planned session, classify each call as deliberate or settle, convert only the settle ones one spec at a time, and prove each spec green three times locally before pushing. Original locations as listed on main 7f8312f2c: ui-chrome-scroll 11, ui-phone-scroll 11, ui-phone-scroll-routes 7, ui-dictionary 4, ui-phone-scroll-page-owned 2, ui-smoke 2, ui-style-contract 2, ui-universal-search 2, ui-pwa 1, ui-therapy-nav-scroll 1, ui-therapy-pathways 1.",
+    "baseRowFingerprint": "9168a41238900edea9ba7869eb70f362b52737d74b7c33ccf9c1261b19e67402"
+  }
+}

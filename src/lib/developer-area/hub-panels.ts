@@ -16,6 +16,14 @@ export type HubPanel = {
 
 export const HUB_PANELS: readonly HubPanel[] = [
   {
+    id: "roster-teams",
+    name: "Roster teams",
+    summary: "Confirm teams and appoint roster managers",
+    group: "work",
+    phase: 1,
+    href: "/mockups/development/roster-teams",
+  },
+  {
     id: "task-ledger",
     name: "Task ledger",
     summary: "Outstanding work, in recommended order",

@@ -12,6 +12,7 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
       logLabel="Unhandled runtime error captured by boundary:"
       showReload
       minHeightClass="min-h-screen"
+      landmark
     />
   );
 }

@@ -4,13 +4,11 @@ export default function Loading() {
   return (
     <div className={searchPageShell} role="status" aria-label="Loading medication">
       <div className={searchPageContainer}>
-        <Skeleton className="mb-6 h-10 w-1/3 max-w-sm" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-40 w-full rounded-xl" animationDelay="50ms" />
-          <Skeleton className="h-40 w-full rounded-xl" animationDelay="100ms" />
-          <Skeleton className="h-40 w-full rounded-xl" animationDelay="150ms" />
-          <Skeleton className="h-40 w-full rounded-xl" animationDelay="200ms" />
-        </div>
+        <Skeleton className="mb-4 h-8 w-48 rounded-lg" />
+        <Skeleton className="mb-6 h-10 w-96 rounded-lg" animationDelay="50ms" />
+        <Skeleton className="mb-6 h-28 w-full rounded-2xl" animationDelay="100ms" />
+        <Skeleton className="mb-6 h-12 w-full rounded-xl" animationDelay="150ms" />
+        <Skeleton className="h-72 w-full rounded-2xl" animationDelay="200ms" />
       </div>
       <span className="sr-only">Loading medication</span>
     </div>
