@@ -134,10 +134,7 @@ function Hero({
   const lead = summary.lead;
   if (lead.state === "empty") {
     return (
-      <section
-        className={cn(modeModuleSurface, "grid justify-items-start gap-3 p-5")}
-        data-testid="roster-today-empty"
-      >
+      <section className={cn(modeModuleSurface, "grid justify-items-start gap-3 p-5")} data-testid="roster-today-empty">
         <RosterIdentityTile icon={CalendarRange} />
         <h2 className="text-lg-minus font-semibold text-[color:var(--text-heading)]">Get your shifts in</h2>
         <p className="text-sm text-[color:var(--text-muted)]">
@@ -351,7 +348,6 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
         />
       ) : (
         <div className="grid min-w-0 gap-5">
-
           {shifts.status === "loading" ? (
             <ModeModuleSkeleton rows={4} testId="roster-today-loading" />
           ) : shifts.status === "signed-out" ? (

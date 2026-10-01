@@ -15,7 +15,7 @@ import { RosterPeopleList } from "./roster-people-list";
 import { RosterTeamSettings } from "./roster-team-settings";
 import { RosterPublishTab } from "./publish/roster-publish-tab";
 import { ClipboardList } from "lucide-react";
-import { RosterPageHeader } from "@/components/roster/roster-ui";
+import { RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 
 function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | null }) {
   const { serviceId } = team;
@@ -109,7 +109,7 @@ export function RosterManagePage() {
               <label className="grid gap-1">
                 Team
                 <select
-                  className="min-h-12 w-full min-w-0 rounded border bg-background p-2"
+                  className={rosterField}
                   value={team.serviceId}
                   onChange={(event) => setSelected(event.target.value)}
                 >

@@ -141,3 +141,34 @@ export function RosterStats({ children, testId }: { readonly children: ReactNode
     </div>
   );
 }
+
+/** One field look for every roster select and input: 48px, hairline, violet focus. */
+export const rosterField =
+  "min-h-12 w-full min-w-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-base-minus text-[color:var(--text)] shadow-[var(--e1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--command)]";
+
+/** A calm empty state: a soft icon disc over one line, centred in a dashed card. */
+export function RosterEmpty({
+  icon: Icon,
+  children,
+  testId,
+}: {
+  readonly icon: LucideIcon;
+  readonly children: ReactNode;
+  readonly testId?: string;
+}) {
+  return (
+    <div
+      className="grid justify-items-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-4 py-6 text-center"
+      data-testid={testId}
+    >
+      <span
+        aria-hidden="true"
+        data-mode-identity="roster"
+        className="grid size-10 place-items-center rounded-full bg-[color:var(--mode-identity-soft)] text-[color:var(--mode-identity)]"
+      >
+        <Icon aria-hidden="true" strokeWidth={1.75} className="size-icon-lg" />
+      </span>
+      <p className="text-sm text-[color:var(--text-muted)]">{children}</p>
+    </div>
+  );
+}

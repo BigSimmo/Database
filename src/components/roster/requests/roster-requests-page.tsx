@@ -1,6 +1,6 @@
 "use client";
 
-import { Inbox, Plus } from "lucide-react";
+import { Inbox, Plane, Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
@@ -13,7 +13,7 @@ import { useRosterNow } from "@/components/roster/roster-format";
 import { useRosterRead, useRosterTeams } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
-import { cn } from "@/components/ui-primitives";
+import { cn, eyebrowText } from "@/components/ui-primitives";
 import { formatDateSpan } from "@/components/roster/roster-format";
 import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import type { RosterLeave } from "@/lib/roster/leave";
@@ -22,7 +22,7 @@ import { RosterDatesSheet } from "./roster-dates-sheet";
 import { RosterGiveAwaySheet } from "./roster-give-away-sheet";
 import { RosterLeaveSheet } from "./roster-leave-sheet";
 import { RosterSentBar, type SentReceipt } from "./roster-sent-bar";
-import { RosterPageHeader } from "@/components/roster/roster-ui";
+import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 
 type Start = "swap" | "give_away" | "cant_make" | "dates" | "leave";
 type ActiveSheet = {
@@ -226,7 +226,7 @@ export function RosterRequestsPage() {
           <select
             value={selectedServiceId ?? ""}
             onChange={(event) => setSelectedServiceId(event.target.value || null)}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            className={rosterField}
           >
             <option value="">Choose a team</option>
             {enabled.map((team) => (
@@ -258,18 +258,21 @@ export function RosterRequestsPage() {
         />
       </ModeGroupedList>
       <section>
-        <h2 className="mb-2 text-lg font-medium">Leave {currentLeave.length}</h2>
+        <h2 className={cn(eyebrowText, "mb-2 flex items-center gap-2 px-1")}>
+          Leave
+          <span className="nums rounded-full bg-[color:var(--surface-wash)] px-2 text-xs text-[color:var(--text-muted)]">
+            {currentLeave.length}
+          </span>
+        </h2>
         {currentLeave.length ? (
           <ul className={modeModuleSurface}>{currentLeave.map(leaveRow)}</ul>
         ) : (
-          <p className="rounded-xl border border-[color:var(--border)] p-4">
-            Nothing yet. Tap New to plan leave or mark dates you can&apos;t work.
-          </p>
+          <RosterEmpty icon={Plane}>Nothing yet. Tap New to plan leave or mark dates you can&apos;t work.</RosterEmpty>
         )}
       </section>
       {earlierLeave.length ? (
         <section>
-          <h2 className="mb-2 text-lg font-medium">Earlier</h2>
+          <h2 className={cn(eyebrowText, "mb-2 px-1")}>Earlier</h2>
           <ul className={modeModuleSurface}>{earlierLeave.map(leaveRow)}</ul>
         </section>
       ) : null}

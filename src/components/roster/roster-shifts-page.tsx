@@ -11,7 +11,7 @@ import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
-import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeInsetHairline, modeModuleSurface, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
 import { modeNumberText } from "@/components/mode-kit/type";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
@@ -120,7 +120,9 @@ function WeekView({
           onClick={() => onWeekChange(addDaysToDate(monday, 7))}
         />
       </div>
-      <RosterWeekChart monday={monday} shifts={shifts} now={now} testId="roster-shifts-week-chart" />
+      <div className={cn(modeModuleSurface, "p-3")}>
+        <RosterWeekChart monday={monday} shifts={shifts} now={now} testId="roster-shifts-week-chart" />
+      </div>
       <ModeGroupedList testId="roster-shifts-agenda">
         {inWeek.length === 0 ? (
           <ModeRow title="No shifts this week" />

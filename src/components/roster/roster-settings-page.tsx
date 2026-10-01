@@ -145,7 +145,12 @@ export function RosterSettingsPage() {
   if (deleteState !== "idle") {
     return (
       <InformationPageShell testId="roster-settings-main" width="narrow">
-        <RosterPageHeader icon={Settings2} title="Settings" subtitle="Calendar links, hours and your data." ask={false} />
+        <RosterPageHeader
+          icon={Settings2}
+          title="Settings"
+          subtitle="Calendar links, hours and your data."
+          ask={false}
+        />
         <div className="grid gap-3" data-testid="roster-settings-deleting">
           <ModeNotice>
             {deleteState === "pending"

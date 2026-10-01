@@ -9,7 +9,7 @@ import { TeamCalendar } from "@/components/roster/team/calendar/team-calendar";
 import { useRosterNow } from "@/components/roster/roster-format";
 import { useRosterTeams } from "@/components/roster/use-roster-team";
 import { Users } from "lucide-react";
-import { RosterPageHeader } from "@/components/roster/roster-ui";
+import { RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 
 export function RosterTeamPage({ now: suppliedNow }: { readonly now?: Date } = {}) {
   const now = useRosterNow(suppliedNow);
@@ -42,7 +42,7 @@ export function RosterTeamPage({ now: suppliedNow }: { readonly now?: Date } = {
             <label className="grid gap-1 text-sm">
               Team
               <select
-                className="min-h-12 w-full min-w-0 rounded border bg-background p-2"
+                className={rosterField}
                 value={selected.serviceId}
                 onChange={(event) => setSelectedId(event.target.value)}
               >
