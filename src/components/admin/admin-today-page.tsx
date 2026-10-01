@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useAccountData } from "@/components/account-data-provider";
+import { AdminPinnedNumbers } from "@/components/admin/admin-pinned-numbers";
 import { AdminSetupSheet } from "@/components/admin/admin-setup-sheet";
 import { TodayAtAGlance } from "@/components/admin/today/today-at-a-glance";
 import { TodayComingUpModule } from "@/components/admin/today/today-coming-up-module";
@@ -21,6 +22,7 @@ import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { adminLoadState, selectAdminOwnEntries, selectAdminSharedEntries } from "@/lib/admin/own-entries";
+import { buildAdminHelpItems } from "@/lib/admin/help-items";
 import { formatDateEcho } from "@/lib/admin/renewal-dates";
 import { renewalsShowCounts } from "@/lib/admin/renewals-filters";
 import { needsSetup } from "@/lib/admin/setup";
@@ -115,6 +117,9 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
   const [signInOpen, setSignInOpen] = useState(false);
   const setupOpen = isAuthenticated && load === "ready" && !state.demoMode && !setupDismissed && needsSetup(own);
 
+  // Pinned numbers (owner decision 2026-10-01): the same rows Help lists, so a pin made there shows here.
+  const helpItems = useMemo(() => buildAdminHelpItems({ own, shared, statewide: [] }), [own, shared]);
+
   function upsert(entry: OnCallEntry) {
     const latest = readCachedOnCallEntries()?.entries ?? state.entries;
     cacheOnCallEntries([...latest.filter((existing) => existing.id !== entry.id), entry]);
@@ -161,6 +166,7 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
             <div className={TODAY_COLUMN} data-testid="admin-today-column-act">
               {renewNext ? <TodayRenewNextCard item={renewNext} ownEntries={own} today={today} /> : null}
               <TodayAtAGlance counts={showCounts} />
+              <AdminPinnedNumbers items={helpItems} testId="admin-today-pinned" />
               {needsYou ? <TodayNeedsYouModule needsYou={needsYou} today={today} /> : null}
             </div>
             <div className={TODAY_COLUMN} data-testid="admin-today-column-ahead">
