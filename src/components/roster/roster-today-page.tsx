@@ -192,14 +192,8 @@ function Hero({
   if (leadShift && lead.state === "on_now")
     when = `Ends in ${formatDuration(Date.parse(leadShift.endsAt) - now.getTime())}`;
 
-  const status =
-    lead.state === "on_now"
-      ? "On now"
-      : lead.state === "before"
-        ? "Later today"
-        : lead.finishedToday
-          ? "Done for today"
-          : "Off today";
+  // Only a live or upcoming shift earns a pill; a day off already says so in the eyebrow.
+  const status = lead.state === "on_now" ? "On now" : lead.state === "before" ? "Later today" : null;
   return (
     <section
       className={cn(modeSummarySurface, "relative isolate grid gap-3 overflow-hidden p-5")}
@@ -214,18 +208,20 @@ function Hero({
       />
       <div className="flex items-center justify-between gap-2">
         <h2 className={cn(eyebrowText, modeSummaryMutedText)}>{eyebrow}</h2>
-        <span
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs",
-            modeSummaryHairline,
-            lead.state === "on_now" ? "text-[color:var(--surface-summary-ink)]" : modeSummaryMutedText,
-          )}
-        >
-          {lead.state === "on_now" ? (
-            <span aria-hidden="true" className={cn(modeDot, "bg-[color:var(--success)]")} />
-          ) : null}
-          {status}
-        </span>
+        {status ? (
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs",
+              modeSummaryHairline,
+              lead.state === "on_now" ? "text-[color:var(--surface-summary-ink)]" : modeSummaryMutedText,
+            )}
+          >
+            {lead.state === "on_now" ? (
+              <span aria-hidden="true" className={cn(modeDot, "bg-[color:var(--success)]")} />
+            ) : null}
+            {status}
+          </span>
+        ) : null}
       </div>
       {leadShift ? (
         <>

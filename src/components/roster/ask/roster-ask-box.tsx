@@ -124,7 +124,7 @@ function RosterAskPanel({
     <section aria-label="Ask Roster" className="grid gap-3">
       <form
         onSubmit={onSubmit}
-        className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1.5 transition-colors duration-[var(--duration-instant)] focus-within:border-[color:var(--mode-identity-border)] focus-within:bg-[color:var(--surface-raised)]"
+        className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1.5 transition-colors duration-[var(--duration-instant)] focus-within:border-[color:var(--command)] focus-within:bg-[color:var(--surface-raised)] focus-within:shadow-[var(--e1)]"
       >
         <input
           ref={inputRef}
@@ -138,7 +138,7 @@ function RosterAskPanel({
             setText(event.target.value);
             setPending(null);
           }}
-          className="min-h-12 min-w-0 flex-1 rounded-md bg-transparent px-2 text-base-minus text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus-visible:outline-2 focus-visible:outline-[color:var(--command)]"
+          className="min-h-12 min-w-0 flex-1 rounded-md bg-transparent px-2 text-base-minus text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
         />
         <button type="submit" aria-label="Read roster question" className={modeTapArea}>
           <span className={modeControlShape.command}>
