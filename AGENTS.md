@@ -74,6 +74,8 @@ For navigation, use [the agents guide](docs/agents-guide.md) and
 [the documentation index](docs/README.md). Keep rules in their canonical source,
 task status in its existing checkpoint and historical evidence labelled as such.
 
+Read and follow [the task lifecycle and receipt handoff](docs/task-receipts.md) at task start, checkpoint, blocker, resume and completion. Reuse the original task identity and canonical record; local receipt export is a handoff, not canonical reconciliation.
+
 <!-- END:contextual-working-defaults -->
 
 ## Smart agent allocation
