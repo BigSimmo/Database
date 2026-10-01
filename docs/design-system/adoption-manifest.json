@@ -2199,6 +2199,7 @@
         "src/components/on-call/now/your-team.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/roster/ask/roster-ask-box.tsx",
         "src/components/roster/invite/roster-invite-sheet.tsx",
         "src/components/roster/manage/roster-decision-sheet.tsx",
         "src/components/roster/manage/roster-people-list.tsx",
@@ -2279,6 +2280,7 @@
         "src/components/on-call/now/your-team.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-page-menu.tsx",
+        "src/components/roster/ask/roster-ask-box.tsx",
         "src/components/roster/invite/roster-invite-sheet.tsx",
         "src/components/roster/manage/roster-decision-sheet.tsx",
         "src/components/roster/manage/roster-people-list.tsx",
@@ -2735,8 +2737,14 @@
       "source": "src/components/ui/link.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/calendar/calendar-view.tsx"],
-      "productImportFiles": ["src/components/calendar/calendar-view.tsx"],
+      "directImportFiles": [
+        "src/components/admin/today/today-coming-up-module.tsx",
+        "src/components/calendar/calendar-view.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/admin/today/today-coming-up-module.tsx",
+        "src/components/calendar/calendar-view.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,

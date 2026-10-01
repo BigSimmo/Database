@@ -19,7 +19,8 @@ function shortDate(date: string): string {
  *
  * `today` may fall before, on or after the window; the marker clamps to the
  * track so a passed date still draws (fully filled, today past the end)
- * rather than overflowing it.
+ * rather than overflowing it, and the "Today" label stays inside the bar's
+ * own bounds at either end.
  */
 export function TodayWindowBar({ start, end, today }: { start: string; end: string; today: string }) {
   const startIndex = dayIndex(start);
@@ -31,9 +32,14 @@ export function TodayWindowBar({ start, end, today }: { start: string; end: stri
   return (
     <div className="grid gap-1.5" data-testid="admin-today-renew-next-window">
       <div className="relative pt-4">
+        {/* The label slides along its own width as the marker moves: centred
+            at the middle, flush left at the start, flush right at the end
+            (`left: p%` + `translateX(-p%)`). So it can never spill past the
+            card's edge, and the marker always sits under the word. */}
         <span
-          className="absolute top-0 -translate-x-1/2 text-xs font-medium text-[color:var(--text-heading)]"
-          style={{ left: `${percent}%` }}
+          className="absolute top-0 whitespace-nowrap text-xs font-medium text-[color:var(--text-heading)]"
+          style={{ left: `${percent}%`, transform: `translateX(-${percent}%)` }}
+          data-testid="admin-today-renew-next-window-today"
         >
           Today
         </span>

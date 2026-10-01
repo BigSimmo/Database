@@ -1,4 +1,5 @@
-import { renewalStartOn } from "@/lib/admin/renewal-dates";
+import { formatUpdatedMonth, renewalStartOn, utcDay } from "@/lib/admin/renewal-dates";
+import { renewalsFilterItemExpiresOn, renewalsFilterItems } from "@/lib/admin/renewals-filters";
 import { groupComplianceEntries } from "@/lib/admin/renewals";
 import {
   ADMIN_REQUIREMENTS_CATALOGUE,
@@ -130,6 +131,12 @@ export interface NeedsYou {
   readonly featured: NeedsYouRow;
   /** At most two, per the owner-approved order. */
   readonly rows: readonly NeedsYouRow[];
+  /**
+   * How many dates Renewals calls "Not recorded yet", counted before the
+   * two-row cap, so the "Record dates" action still shows when three or more
+   * passed dates push the grouped not-recorded row off the card.
+   */
+  readonly notRecordedCount: number;
 }
 
 /**
@@ -194,7 +201,7 @@ export function selectNeedsYou(
 
   if (rows.length === 0) return null;
   const [featured, ...rest] = rows;
-  return { featured, rows: rest.slice(0, 2) };
+  return { featured, rows: rest.slice(0, 2), notRecordedCount: notRecordedTitles.length };
 }
 
 export interface RequirementsSummary {
@@ -215,4 +222,92 @@ export function selectRequirementsSummary(entries: readonly OnCallEntry[]): Requ
     total,
     notForThisJob: requirementsNotForThisJob(ADMIN_REQUIREMENTS_CATALOGUE, entries).length,
   };
+}
+
+/** How far ahead "Coming up" looks, in Perth calendar days from today (inclusive). */
+export const COMING_UP_WINDOW_DAYS = 365;
+
+/** How many rows "Coming up" shows before "See all in Renewals". */
+export const COMING_UP_LIMIT = 6;
+
+export interface ComingUpRow {
+  /** The doctor's own entry: every dated row has one, and Renewals opens it by this id. */
+  readonly entryId: string;
+  readonly title: string;
+  /** `YYYY-MM-DD`, the recorded date. */
+  readonly expiresOn: string;
+}
+
+export interface ComingUpGroup {
+  /** `"passed"`, or the month as `YYYY-MM`. */
+  readonly key: string;
+  readonly kind: "passed" | "month";
+  /** "Date passed", or the month in words ("Oct 2026"). */
+  readonly label: string;
+  readonly rows: readonly ComingUpRow[];
+}
+
+export interface ComingUp {
+  readonly groups: readonly ComingUpGroup[];
+  /** Rows shown across every group (at most the limit). */
+  readonly shown: number;
+  /** Every recorded date in range, before the cap. */
+  readonly total: number;
+}
+
+/**
+ * "Coming up" (proposal feature 2): the doctor's recorded dates over the next
+ * 12 months, grouped by calendar month, with anything whose recorded date has
+ * already passed first, in its own "Date passed" group. Read from
+ * `renewalsFilterItems`, the same rows Renewals lists, so an item marked "not
+ * for this job" is left out here exactly as it is there.
+ *
+ * Every date is a calendar date the doctor typed; "today" is the Perth
+ * calendar day. Soonest first; a passed date sits above every future one
+ * however long ago it was. The list stops at `limit` rows and reports the
+ * full total so the page can offer "See all in Renewals".
+ */
+export function selectComingUp(
+  entries: readonly OnCallEntry[],
+  now: Date,
+  options: { readonly limit?: number; readonly catalogue?: readonly AdminRequirementCatalogueItem[] } = {},
+): ComingUp {
+  const limit = Math.max(0, options.limit ?? COMING_UP_LIMIT);
+  const today = perthCalendarDate(now);
+  const todayIndex = utcDay(today) ?? 0;
+
+  const dated: ComingUpRow[] = [];
+  for (const item of renewalsFilterItems(entries, options.catalogue ?? ADMIN_REQUIREMENTS_CATALOGUE)) {
+    const expiresOn = renewalsFilterItemExpiresOn(item);
+    const entry = item.kind === "catalogue" ? item.row.entry : item.entry;
+    if (!expiresOn || !entry) continue;
+    const day = utcDay(expiresOn);
+    if (day === null || day - todayIndex > COMING_UP_WINDOW_DAYS) continue;
+    dated.push({
+      entryId: entry.id,
+      // The checklist's own name for a catalogue item, as Renewals prints it.
+      title: item.kind === "catalogue" ? item.row.item.title : entry.title,
+      expiresOn,
+    });
+  }
+  dated.sort((a, b) => a.expiresOn.localeCompare(b.expiresOn) || a.title.localeCompare(b.title));
+
+  const groups: { key: string; kind: "passed" | "month"; label: string; rows: ComingUpRow[] }[] = [];
+  for (const row of dated.slice(0, limit)) {
+    const passed = row.expiresOn < today;
+    const key = passed ? "passed" : row.expiresOn.slice(0, 7);
+    const last = groups[groups.length - 1];
+    if (last?.key === key) {
+      last.rows.push(row);
+    } else {
+      groups.push({
+        key,
+        kind: passed ? "passed" : "month",
+        label: passed ? "Date passed" : formatUpdatedMonth(`${key}-01`),
+        rows: [row],
+      });
+    }
+  }
+
+  return { groups, shown: Math.min(dated.length, limit), total: dated.length };
 }
