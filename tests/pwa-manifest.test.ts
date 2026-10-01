@@ -70,6 +70,11 @@ describe("PWA manifest and public bootstrap resources", () => {
 
     const cmeShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "CME");
     expect(cmeShortcut?.url).toBe("/cme?focus=1");
+
+    // Long-press "Log CPD" opens straight into the activity form; nothing is
+    // saved until the owner presses Save there.
+    const logCpdShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "Log CPD");
+    expect(logCpdShortcut?.url).toBe("/cme/new");
   });
 
   it("declares conservative launch and display fallbacks", () => {
