@@ -20,6 +20,10 @@ afterEach(cleanup);
 const CLINICAL_STATUS_CLASS = /\b(?:bg|text|border|ring)-(?:red|amber|green|orange|rose|emerald|yellow)-/;
 // 48 px, or 52 px for a two-line grouped-list row (the kit's min-h-13): both at or above the 48 px floor.
 const TAP_TARGET_CLASS = /\bmin-h-(?:12|13|tap)\b/;
+// The shared header's ellipsis is a 48 px square (`h-tap w-tap`), the same floor
+// `tests/cme-visual-contract.dom.test.tsx` accepts.
+const hasTapTarget = (className: string) =>
+  TAP_TARGET_CLASS.test(className) || (/\bh-tap\b/.test(className) && /\bw-tap\b/.test(className));
 
 /**
  * `DEMO_CME_ENTRIES` (Task 3) gives every entry a single allocation and
@@ -389,7 +393,7 @@ describe("One entry", () => {
     const { container } = render(<CmeEntryPage entryId="fx-1" entries={fixtureEntries} set={fixtureSet} />);
     const interactive = [...container.querySelectorAll<HTMLElement>("button, a[href], [role='button']")];
     expect(interactive.length).toBeGreaterThan(0);
-    const short = interactive.filter((node) => !TAP_TARGET_CLASS.test(node.className));
+    const short = interactive.filter((node) => !hasTapTarget(node.className));
     expect(short.map((node) => node.textContent?.trim() || node.getAttribute("aria-label"))).toEqual([]);
   });
 });
