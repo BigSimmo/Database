@@ -115,11 +115,11 @@ function ChecklistTimeline({
             Today
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <Triangle strokeWidth={1.75} className="size-3 fill-current" />
+            <Triangle aria-hidden="true" strokeWidth={1.75} className="size-3 fill-current" />
             Expiry ahead
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <Diamond strokeWidth={1.75} className="size-3 fill-current" />
+            <Diamond aria-hidden="true" strokeWidth={1.75} className="size-3 fill-current" />
             Expiry passed
           </span>
         </span>

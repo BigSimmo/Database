@@ -45,7 +45,7 @@ async function postEntry(body: unknown): Promise<OnCallEntry> {
 
 type Tally = { readonly recorded: number; readonly skipped: number; readonly notForThisJob: number };
 
-export function recordDatesSummary({ recorded, skipped, notForThisJob }: Tally): string {
+function recordDatesSummary({ recorded, skipped, notForThisJob }: Tally): string {
   const parts = [`Recorded ${recorded}`, `skipped ${skipped}`];
   if (notForThisJob > 0) parts.push(`${notForThisJob} not for this job`);
   return parts.join(", ");

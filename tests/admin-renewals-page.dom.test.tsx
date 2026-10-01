@@ -13,10 +13,24 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ADMIN_REQUIREMENTS_CATALOGUE } from "@/lib/admin/requirements";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
 vi.mock("@/lib/admin/download-file", () => ({ downloadTextFile: vi.fn() }));
+
+// The page reads `?show=`, `?item=` and `?record=`; each test sets its own query.
+// The real sign-in dialog needs the auth provider; only whether it opens matters here.
+vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
+  AccountSetupDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="mock-sign-in-dialog" /> : null),
+}));
+
+const navigation = vi.hoisted(() => ({ query: "", replace: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/renewals",
+  useRouter: () => ({ push: vi.fn(), replace: navigation.replace, back: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(navigation.query),
+}));
 import { downloadTextFile } from "@/lib/admin/download-file";
 
 const storeState = vi.hoisted(() => ({
@@ -64,6 +78,8 @@ const REGISTRATION = complianceFixture(
 const ALL = [WWC, ALS, INDEMNITY, REGISTRATION];
 
 beforeEach(() => {
+  navigation.query = "";
+  navigation.replace.mockReset();
   Object.assign(storeState, {
     entries: [...ALL],
     loading: false,
@@ -86,6 +102,11 @@ function renderPage() {
   render(<AdminRenewalsPage now={NOW} />);
 }
 
+/** "Not recorded yet" shows its first five rows; open the rest. */
+function showAllNotRecorded() {
+  fireEvent.click(screen.getByTestId("admin-renewals-checklist-group-Not recorded yet-show-all"));
+}
+
 describe("AdminRenewalsPage — the checklist", () => {
   it("offers no write controls for demo entries", () => {
     storeState.demoMode = true;
@@ -100,6 +121,7 @@ describe("AdminRenewalsPage — the checklist", () => {
   it("disables calendar export when there are no dated events", () => {
     storeState.entries = [];
     renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     expect(screen.getByTestId("admin-renewals-calendar-all")).toBeDisabled();
   });
   it("groups by state under All: soonest first, then not recorded yet", () => {
@@ -234,6 +256,7 @@ describe("AdminRenewalsPage — Add date on a not-recorded item", () => {
       ),
     );
     renderPage();
+    showAllNotRecorded();
     fireEvent.click(screen.getByTestId("admin-renewals-checklist-add-date-criminal-record-screening"));
     const save = screen.getByTestId("admin-renewed-save");
     expect(save).toBeDisabled();
@@ -365,6 +388,7 @@ describe("AdminRenewalsPage — Copy for workforce and Add all to my calendar", 
     });
     Object.assign(navigator, { clipboard: { writeText } });
     renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.click(screen.getByTestId("admin-renewals-copy"));
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     const text = String(writeText.mock.calls[0]?.[0]);
@@ -377,6 +401,7 @@ describe("AdminRenewalsPage — Copy for workforce and Add all to my calendar", 
 
   it("downloads one calendar file for every dated renewal", () => {
     renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.click(screen.getByTestId("admin-renewals-calendar-all"));
     expect(downloadTextFile).toHaveBeenCalledWith(
       expect.stringContaining("BEGIN:VCALENDAR"),
@@ -435,6 +460,7 @@ describe("AdminRenewalsPage — Not for this job on an item never recorded (I4)"
       .mockResolvedValueOnce(jsonResponse({ entry: created }, 201))
       .mockResolvedValueOnce(jsonResponse({ deleted: true, id: created.id }));
     renderPage();
+    showAllNotRecorded();
     fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-img-visa-requirements"));
     fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-not-for-this-job"));
 
@@ -511,5 +537,223 @@ describe("AdminRenewalsPage — failed saves are never silent (I5)", () => {
     expect(screen.getByTestId("admin-renewals-undo-bar")).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(3_500));
     expect(screen.queryByTestId("admin-renewals-undo-bar")).toBeNull();
+  });
+});
+
+// Every catalogue item none of the four fixtures records.
+const NOT_RECORDED_COUNT = ADMIN_REQUIREMENTS_CATALOGUE.length - ALL.length;
+
+describe("AdminRenewalsPage — header menu", () => {
+  it("keeps Copy for workforce and Add all to my calendar behind More actions", () => {
+    renderPage();
+    expect(screen.getByRole("heading", { level: 1, name: "Renewals" })).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-renewals-copy")).toBeNull();
+    expect(screen.queryByTestId("admin-renewals-calendar-all")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    const menu = within(screen.getByTestId("admin-renewals-menu"));
+    expect(menu.getByTestId("admin-renewals-copy")).toHaveTextContent("Copy for workforce");
+    expect(menu.getByTestId("admin-renewals-calendar-all")).toHaveTextContent("Add all to my calendar");
+  });
+
+  it("shows the copy text to copy by hand when the clipboard refuses", async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn(async () => Promise.reject(new Error("denied"))) } });
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByTestId("admin-renewals-copy"));
+    expect(await screen.findByLabelText("Text to copy for workforce")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-renewals-copy")).toHaveTextContent("Couldn't copy");
+  });
+});
+
+describe("AdminRenewalsPage — readable timeline, wrapping chips, short Not recorded group", () => {
+  it("names each timeline row in full, with three-letter months and a Today line", () => {
+    renderPage();
+    const timeline = screen.getByTestId("admin-renewals-summary-timeline");
+    expect(within(timeline).getAllByText("Working with Children Check").length).toBeGreaterThan(0);
+    const months = within(timeline).getByTestId("admin-renewals-summary-timeline-months");
+    expect(months.children).toHaveLength(12);
+    expect(months.children[0]?.textContent).toBe("Sep");
+    expect(months.children[1]?.textContent).toBe("Oct");
+    expect(timeline.querySelector("[data-today-line]")).not.toBeNull();
+    expect(within(timeline).getByText("Today")).toBeInTheDocument();
+    // A words-only equivalent for screen readers.
+    const list = within(timeline).getByRole("list", { name: "Coming up in the next twelve months" });
+    expect(list.textContent).toMatch(/Working with Children Check: 3 Sep 2026.*Date passed/);
+  });
+
+  it("wraps the kind chips instead of scrolling them sideways", () => {
+    renderPage();
+    const chips = screen.getByTestId("admin-renewals-kind");
+    expect(chips.className).toContain("flex-wrap");
+    expect(chips.className).not.toContain("overflow-x-auto");
+  });
+
+  it("puts the count beside the Not recorded yet heading, shows five rows, then Show all", () => {
+    renderPage();
+    const group = screen.getByTestId("admin-renewals-checklist-group-Not recorded yet");
+    expect(within(group).getByRole("heading", { name: "Not recorded yet" })).toBeInTheDocument();
+    expect(screen.getByTestId("admin-renewals-checklist-group-Not recorded yet-count")).toHaveTextContent(
+      String(NOT_RECORDED_COUNT),
+    );
+    // The heading already says it, so rows do not repeat "Not recorded yet".
+    expect(within(group).getAllByText("Not recorded yet")).toHaveLength(1);
+    expect(within(group).getAllByRole("listitem")).toHaveLength(5);
+    const showAll = within(group).getByRole("button", { name: `Show all ${NOT_RECORDED_COUNT}` });
+    fireEvent.click(showAll);
+    expect(within(group).getAllByRole("listitem")).toHaveLength(NOT_RECORDED_COUNT);
+    expect(within(group).queryByRole("button", { name: /Show all/ })).toBeNull();
+  });
+
+  it("keeps Check with your service lines in the Not recorded group", () => {
+    renderPage();
+    showAllNotRecorded();
+    const group = screen.getByTestId("admin-renewals-checklist-group-Not recorded yet");
+    const needsChecking = ADMIN_REQUIREMENTS_CATALOGUE.filter(
+      (item) => item.status === "needs-checking" && !ALL.some((entry) => entry.title === item.title),
+    );
+    if (needsChecking.length > 0) {
+      expect(within(group).getAllByText("Check with your service").length).toBeGreaterThan(0);
+    }
+  });
+
+  it("offers Record dates when editable, and says why not on example records", () => {
+    renderPage();
+    expect(screen.getByTestId("admin-renewals-record-dates")).toHaveTextContent("Record dates");
+    cleanup();
+    storeState.demoMode = true;
+    renderPage();
+    expect(screen.queryByTestId("admin-renewals-record-dates")).toBeNull();
+    expect(screen.getByTestId("admin-renewals-record-dates-note")).toHaveTextContent("Example records are read-only");
+  });
+
+  it("Record dates steps through the not-recorded items", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-record-dates"));
+    const sheet = within(screen.getByTestId("admin-renewals-record-sheet"));
+    expect(sheet.getByText(`1 of ${NOT_RECORDED_COUNT}`)).toBeInTheDocument();
+  });
+});
+
+describe("AdminRenewalsPage — detail sheet", () => {
+  it("draws its groups on one surface, with no bordered card inside the sheet", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-working-with-children-check"));
+    const groups = screen.getByTestId("admin-renewals-item-sheet-groups");
+    expect(groups.querySelector("div.rounded-lg.border")).toBeNull();
+    const source = within(groups).getByRole("link", { name: /Source: WA Department of Communities/ });
+    expect(source.getAttribute("target")).toBe("_blank");
+  });
+
+  it("renders Open CPD year check as a real, underlined link", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-medical-registration-renewal"));
+    const link = screen.getByRole("link", { name: "Open CPD year check" });
+    expect(link.getAttribute("href")).toBe("/cme/check");
+    expect(link.className).toMatch(/(^|\s)underline(\s|$)/);
+  });
+});
+
+describe("AdminRenewalsPage — the URL contract", () => {
+  it("?show=date-passed filters the Checklist, personal renewals included, with a Clear that removes it", () => {
+    const car = complianceFixture(
+      "A car I lease for work",
+      { category: "Personal", expiresOn: "2026-08-01" },
+      { slug: "car" },
+    );
+    storeState.entries = [...ALL, car];
+    navigation.query = "show=date-passed&item=";
+    renderPage();
+    const notice = screen.getByTestId("admin-renewals-show-notice");
+    expect(notice).toHaveTextContent("Showing: Date passed · 2");
+    const list = within(screen.getByTestId("admin-renewals-show-list"));
+    expect(list.getByText("Working with Children Check")).toBeInTheDocument();
+    expect(list.getByText("A car I lease for work")).toBeInTheDocument();
+    expect(list.queryByText("ALS course certification")).toBeNull();
+    expect(screen.queryByTestId("admin-renewals-kind")).toBeNull();
+    expect(screen.queryByTestId("admin-renewals-checklist")).toBeNull();
+
+    fireEvent.click(within(notice).getByRole("button", { name: "Clear" }));
+    expect(navigation.replace).toHaveBeenCalledWith("/admin/renewals?item=", { scroll: false });
+  });
+
+  it("?show=due-90 lists the rows due within 90 days, and Clear with no other params returns to the bare path", () => {
+    navigation.query = "show=due-90";
+    renderPage();
+    expect(screen.getByTestId("admin-renewals-show-notice")).toHaveTextContent("Showing: Due in 90 days · 2");
+    const list = within(screen.getByTestId("admin-renewals-show-list"));
+    expect(list.getByText("ALS course certification")).toBeInTheDocument();
+    expect(list.getByText("Indemnity insurance declaration")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("admin-renewals-show-clear"));
+    expect(navigation.replace).toHaveBeenCalledWith("/admin/renewals", { scroll: false });
+  });
+
+  it("?show=not-recorded lists every unrecorded item and offers Record dates", () => {
+    navigation.query = "show=not-recorded";
+    renderPage();
+    expect(screen.getByTestId("admin-renewals-show-notice")).toHaveTextContent(
+      `Showing: Not recorded · ${NOT_RECORDED_COUNT}`,
+    );
+    expect(within(screen.getByTestId("admin-renewals-show-list")).getAllByRole("listitem")).toHaveLength(
+      NOT_RECORDED_COUNT,
+    );
+    fireEvent.click(screen.getByTestId("admin-renewals-show-record-dates"));
+    expect(screen.getByTestId("admin-renewals-record-sheet")).toBeInTheDocument();
+  });
+
+  it("ignores an unknown ?show value", () => {
+    navigation.query = "show=everything";
+    renderPage();
+    expect(screen.queryByTestId("admin-renewals-show")).toBeNull();
+    expect(screen.getByTestId("admin-renewals-checklist")).toBeInTheDocument();
+  });
+
+  it("?item=<entry id> opens that entry's detail sheet", () => {
+    navigation.query = `item=${ALS.id}`;
+    renderPage();
+    const sheet = within(screen.getByTestId("admin-renewals-item-sheet"));
+    expect(sheet.getByText("ALS course certification")).toBeInTheDocument();
+    expect(sheet.getByTestId("admin-renewals-item-sheet-renew")).toHaveTextContent("Renewed");
+  });
+
+  it("?item=<catalogue item id> opens that item's sheet, even never recorded", () => {
+    navigation.query = "item=criminal-record-screening";
+    renderPage();
+    const sheet = within(screen.getByTestId("admin-renewals-item-sheet"));
+    expect(sheet.getByTestId("admin-renewals-item-sheet-renew")).toHaveTextContent("Add date");
+  });
+
+  it("ignores an ?item that names nothing of the reader's", () => {
+    navigation.query = "item=not-a-real-thing";
+    renderPage();
+    expect(screen.queryByTestId("admin-renewals-item-sheet")).toBeNull();
+  });
+
+  it("?record=missing opens Record missing dates", () => {
+    navigation.query = "record=missing";
+    renderPage();
+    expect(
+      within(screen.getByTestId("admin-renewals-record-sheet")).getByText(`1 of ${NOT_RECORDED_COUNT}`),
+    ).toBeInTheDocument();
+  });
+
+  it("?record=missing on example records says they are read-only", () => {
+    storeState.demoMode = true;
+    navigation.query = "record=missing";
+    renderPage();
+    const sheet = within(screen.getByTestId("admin-renewals-record-sheet"));
+    expect(sheet.getByText("Example records are read-only.")).toBeInTheDocument();
+    expect(sheet.queryByTestId("admin-renewals-record-sheet-save")).toBeNull();
+  });
+
+  it("?record=missing when signed out asks to sign in", () => {
+    storeState.signedOut = true;
+    storeState.entries = [];
+    navigation.query = "record=missing";
+    renderPage();
+    const sheet = within(screen.getByTestId("admin-renewals-record-sheet"));
+    expect(sheet.getByText("Sign in to record dates.")).toBeInTheDocument();
+    fireEvent.click(sheet.getByTestId("admin-renewals-record-sheet-sign-in"));
+    expect(screen.getByTestId("mock-sign-in-dialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-renewals-record-sheet")).toBeNull();
   });
 });

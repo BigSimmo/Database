@@ -36,7 +36,7 @@ function groupRows(rows: readonly RequirementChecklistRow[], filter: ChecklistKi
 }
 
 /** How many not-recorded rows show before "Show all N". */
-export const NOT_RECORDED_PREVIEW_ROWS = 5;
+const NOT_RECORDED_PREVIEW_ROWS = 5;
 
 /**
  * What the "Record dates" slot above "Not recorded yet" offers: the button
