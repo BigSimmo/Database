@@ -1,0 +1,173 @@
+name: Docker Build with Cache Export
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'Dockerfile'
+      - 'Dockerfile.worker'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.dockerignore'
+      - '.github/workflows/docker-build-cache.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile'
+      - 'Dockerfile.worker'
+      - 'package.json'
+      - 'package-lock.json'
+
+env:
+  REGISTRY: ghcr.io
+  REPO_OWNER: ${{ github.repository_owner }}
+
+jobs:
+  build-app:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: latest
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-app
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+
+      - name: Build and push app tier (with cache export)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-app:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-app:buildcache,mode=max
+          build-args: |
+            ALLOW_LOW_RAM_BUILD=1
+
+  build-worker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: latest
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-worker
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+
+      - name: Build and push worker tier (with cache export)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.worker
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-worker:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-worker:buildcache,mode=max
+          build-args: |
+            ALLOW_LOW_RAM_BUILD=1
+
+  build-multi-platform:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: latest
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (multi-platform)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-app
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Build and push app (multi-platform amd64/arm64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-app:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-app:buildcache,mode=max
+          build-args: |
+            ALLOW_LOW_RAM_BUILD=1
+
+      - name: Build and push worker (multi-platform amd64/arm64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.worker
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-worker:latest
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-worker:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/psychsift-worker:buildcache,mode=max
+          build-args: |
+            ALLOW_LOW_RAM_BUILD=1

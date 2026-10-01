@@ -1,15 +1,24 @@
 .git
 .github
-.claude
 .agents
+.claude
 .codex
 .cursor
 .design-sync
-.local
 .mcp.json
+.vscode
+.idea
+.local
+Dockerfile
+Dockerfile.worker
+.dockerignore
 node_modules
 .next
 .next-playwright
+.env
+.env.*
+!.env.example
+# Test outputs
 coverage
 output
 out
@@ -18,15 +27,16 @@ test-results
 playwright-report
 playwright-cli
 playwright/.auth
-scratch
-.tmp-visual
-tmp
-artifacts
 .impeccable
 .qa-smoke
-.ds-sync
-ds-bundle
-sample-documents
+# Build & CI artifacts
+artifacts
+dist
+.next-playwright
+.tmp-visual
+tmp
+scratch
+# Local development
 dev-server.log
 *.log
 *.pem
@@ -36,16 +46,32 @@ dev-server.log
 *.pid
 *.tsbuildinfo
 next-env.d.ts
+# Python
 __pycache__
 .pytest_cache
 .vercel
 supabase/.temp
-.env
-.env.*
-!.env.example
-.vscode
-.idea
-Dockerfile
-Dockerfile.worker
-.dockerignore
-dist
+# Sample/demo (generated locally, not shipped)
+sample-documents
+public/demo-documents
+ds-bundle
+.ds-sync
+# Large optional assets excluded from Docker context
+mockups/
+docs/archive/
+eval/
+worktrees/
+scripts/archive/
+# Security scanning & artifact files
+.trivyignore
+sbom.json
+*.sbom
+.sigstore/
+*.sig
+*.keyless-sig
+# Prevent accidental secrets leakage
+*.aws
+*.gcp
+*.azure
+secrets/
+.secrets/

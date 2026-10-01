@@ -9,7 +9,7 @@
     "p2": 75,
     "p3": 60,
     "queued": 6,
-    "pending": 0,
+    "pending": 4,
     "resolved": 693
   },
   "queue": [
@@ -1477,5 +1477,30 @@
       "added": "2026-09-27"
     }
   ],
-  "pending": []
+  "pending": [
+    {
+      "request_id": "056472dd-22fc-423c-b880-d4deae61d3f8",
+      "action": "update",
+      "summary": "#22TMRM: summary → UI copy uses three full stops instead of an ellipsis character in 12 visible places; detail → Verified 2026-09-27: 12 user-visible occurrences under src/components. The 14-location list also counted master-search-header.tsx:272 (JSDoc example) and forms/form-detail-page.tsx:857 (JSX comment); those two comments are not rendered and require no UI-copy edit. Replace the 12 visible occurrences in one pass and update tests asserting old strings.; source → PR #3144 review, checked against current source 2026-09-27",
+      "created_at": "2026-09-27"
+    },
+    {
+      "request_id": "51cd89dd-3b34-43d8-acb7-d042126ba989",
+      "action": "done",
+      "summary": "#4NSKNS: Resolved before this reconciliation: service-entry-editor.tsx installs a beforeunload listener while the draft is dirty and removes it on cleanup; verified against the current PR head.",
+      "created_at": "2026-09-27"
+    },
+    {
+      "request_id": "b1305954-1d47-44f3-9385-03dc624309b8",
+      "action": "done",
+      "summary": "#5K1788: Resolved before this reconciliation: the cited On Call components use the shared formatOnCallDate formatter, which converts timestamps to Australia/Perth before rendering; verified against the current PR head.",
+      "created_at": "2026-09-27"
+    },
+    {
+      "request_id": "d933ec56-4f46-444c-ae65-c2171d584871",
+      "action": "done",
+      "summary": "#846DP9: Resolved before this reconciliation: patient-safety-plan.tsx installs a beforeunload listener while isDirty and removes it on cleanup; no plan content is persisted.",
+      "created_at": "2026-09-27"
+    }
+  ]
 }
