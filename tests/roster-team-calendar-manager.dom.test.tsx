@@ -31,7 +31,7 @@ vi.mock("next/navigation", () => ({
       () => url.state.params,
     ),
 }));
-vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
+vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskButton: () => null }));
 vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "authenticated", authEpoch: 1 }) }));
 
 import { UNDO_MS } from "@/components/roster/swaps/use-delayed-roster-action";

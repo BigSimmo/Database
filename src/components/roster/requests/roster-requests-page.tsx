@@ -1,13 +1,12 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Inbox, Plus } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
 import { modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
-import { RosterAskBox } from "@/components/roster/ask/roster-ask-box";
 import { SwapFlowSheet } from "@/components/roster/swaps/swap-flow-sheet";
 import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notice";
 import { useRosterNow } from "@/components/roster/roster-format";
@@ -23,6 +22,7 @@ import { RosterDatesSheet } from "./roster-dates-sheet";
 import { RosterGiveAwaySheet } from "./roster-give-away-sheet";
 import { RosterLeaveSheet } from "./roster-leave-sheet";
 import { RosterSentBar, type SentReceipt } from "./roster-sent-bar";
+import { RosterPageHeader } from "@/components/roster/roster-ui";
 
 type Start = "swap" | "give_away" | "cant_make" | "dates" | "leave";
 type ActiveSheet = {
@@ -208,20 +208,18 @@ export function RosterRequestsPage() {
   const canTeamAct = !!serviceId && !!actorId && overview.status === "ready";
   return (
     <InformationPageShell testId="roster-requests-page">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-[color:var(--text-muted)]">Roster</p>
-          <h1 className="text-2xl font-semibold">Requests</h1>
-          <p className="text-sm text-[color:var(--text-muted)]">
-            Dates you can&apos;t work, leave, and shifts you can&apos;t make.
-          </p>
-        </div>
-        <Button icon={Plus} variant="primary" disabled={teams.status !== "ready"} onClick={() => setNewOpen(true)}>
-          New
-        </Button>
-      </header>
+      <RosterPageHeader
+        icon={Inbox}
+        eyebrow="Roster"
+        title="Requests"
+        subtitle="Dates you can't work, leave, and shifts you can't make."
+        actions={
+          <Button icon={Plus} variant="primary" disabled={teams.status !== "ready"} onClick={() => setNewOpen(true)}>
+            New
+          </Button>
+        }
+      />
       <RosterSampleNotice sample={teams.data?.sample} />
-      <RosterAskBox />
       {enabled.length > 1 ? (
         <label className="grid max-w-sm gap-1 text-sm">
           Team

@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, Trash2 } from "lucide-react";
+import { RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CalendarSubscribe } from "@/components/calendar/calendar-subscribe";
@@ -20,6 +20,7 @@ import { RosterAlertsSection } from "./alerts/roster-alerts-section";
 import { describeLinkFailure, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
+import { RosterPageHeader } from "./roster-ui";
 
 /**
  * Roster Settings: the calendar switch, the evening-before reminder,
@@ -144,7 +145,7 @@ export function RosterSettingsPage() {
   if (deleteState !== "idle") {
     return (
       <InformationPageShell testId="roster-settings-main" width="narrow">
-        <h1 className="sr-only">Settings</h1>
+        <RosterPageHeader icon={Settings2} title="Settings" subtitle="Calendar links, hours and your data." ask={false} />
         <div className="grid gap-3" data-testid="roster-settings-deleting">
           <ModeNotice>
             {deleteState === "pending"
@@ -165,7 +166,7 @@ export function RosterSettingsPage() {
 
   return (
     <InformationPageShell testId="roster-settings-main" width="narrow">
-      <h1 className="sr-only">Settings</h1>
+      <RosterPageHeader icon={Settings2} title="Settings" subtitle="Calendar links, hours and your data." ask={false} />
       <div className="grid min-w-0 gap-5">
         {notice ? <ModeNotice tone={notice.tone}>{notice.text}</ModeNotice> : null}
         {shifts.status === "loading" ? (

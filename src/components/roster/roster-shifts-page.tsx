@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
@@ -24,7 +24,6 @@ import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-v
 import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
-import { RosterAskBox } from "./ask/roster-ask-box";
 import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } from "./roster-format";
 import { RosterHoursPanel, type RosterExtraTime } from "./roster-hours-panel";
 import { RosterImportFlow } from "./roster-import-flow";
@@ -34,6 +33,7 @@ import { useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
 import { useRosterRead, useRosterTeams } from "./use-roster-team";
+import { RosterPageHeader } from "./roster-ui";
 
 /**
  * Roster Shifts: Week (a 24-hour chart and every shift in words), Month
@@ -241,8 +241,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
 
   return (
     <InformationPageShell testId="roster-shifts-main" width="narrow">
-      <h1 className="sr-only">Shifts</h1>
-      <RosterAskBox />
+      <RosterPageHeader icon={CalendarClock} title="Shifts" subtitle="Your shifts, week by week." />
       {importing ? (
         <RosterImportFlow
           shifts={shifts}

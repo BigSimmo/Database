@@ -4,11 +4,12 @@ import { Suspense, useState } from "react";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { Button } from "@/components/ui/button";
-import { RosterAskBox } from "@/components/roster/ask/roster-ask-box";
 import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notice";
 import { TeamCalendar } from "@/components/roster/team/calendar/team-calendar";
 import { useRosterNow } from "@/components/roster/roster-format";
 import { useRosterTeams } from "@/components/roster/use-roster-team";
+import { Users } from "lucide-react";
+import { RosterPageHeader } from "@/components/roster/roster-ui";
 
 export function RosterTeamPage({ now: suppliedNow }: { readonly now?: Date } = {}) {
   const now = useRosterNow(suppliedNow);
@@ -19,7 +20,7 @@ export function RosterTeamPage({ now: suppliedNow }: { readonly now?: Date } = {
   const selected = available.find((team) => team.serviceId === selectedId) ?? available[0];
   return (
     <InformationPageShell testId="roster-team-page" width="narrow">
-      <RosterAskBox />
+      <RosterPageHeader icon={Users} eyebrow="Roster" title="Team" subtitle="Who's on, and the whole team calendar." />
       {teams.status === "loading" ? (
         <p role="status">Loading your teams…</p>
       ) : teams.status !== "ready" ? (

@@ -10,6 +10,8 @@ import { RosterAlertsSwitch } from "@/components/roster/alerts/roster-alerts-sec
 import { ToggleSwitch } from "@/components/primitive-recipes/feedback";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
+import { UserPlus } from "lucide-react";
+import { RosterPageHeader } from "@/components/roster/roster-ui";
 
 type JoinState =
   | { kind: "entry" }
@@ -182,7 +184,7 @@ export function RosterJoinPage() {
   return (
     <InformationPageShell testId="roster-join-main" width="narrow">
       <div className="grid gap-5">
-        <h1 className="text-2xl font-normal text-[color:var(--text-heading)]">Join a team roster</h1>
+        <RosterPageHeader icon={UserPlus} title="Join a team roster" ask={false} />
         {state.kind === "joining" ? <p role="status">Joining your team…</p> : null}
         {state.kind === "signed-out" ? <ModeNotice>Sign in, then open the invite link again.</ModeNotice> : null}
         {state.kind === "error" ? <ModeNotice tone="warning">{state.message}</ModeNotice> : null}

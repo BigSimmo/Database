@@ -1,18 +1,19 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type RefObject } from "react";
+
+import { Sheet } from "@/components/ui/sheet";
+import { cn } from "@/components/ui-primitives";
 
 import { RosterAskAnswer } from "@/components/roster/ask/roster-ask-answer";
 import { useRosterAskContext } from "@/components/roster/ask/use-roster-ask-context";
-import { modeControlShape, modeModuleSurface, modeTapArea } from "@/components/mode-kit/recipes";
+import { modeControlShape, modeTapArea } from "@/components/mode-kit/recipes";
 import { answerQuestion } from "@/lib/roster/ask/answer";
 import { askIntentHref } from "@/lib/roster/ask/handoff";
 import { parseAsk, type AskChoice, type AskContext, type AskResult } from "@/lib/roster/ask/parse";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
-
-const SUGGESTIONS = ["When am I next on nights?", "Am I on 14 Dec?", "Who's the reg Saturday?"] as const;
 
 function readingFor(result: AskResult, ctx: AskContext): string | null {
   if (result.kind !== "change") return null;
@@ -95,28 +96,38 @@ function RosterAskSession({
   );
 }
 
-/** In-flow local grammar. Roster reads begin only after a question is submitted. */
-export function RosterAskBox() {
+/**
+ * The ask form itself: local grammar only. Roster reads begin only after a
+ * question is submitted, so opening the sheet costs nothing.
+ */
+function RosterAskPanel({
+  inputRef,
+  onNavigate,
+}: {
+  readonly inputRef: RefObject<HTMLInputElement | null>;
+  readonly onNavigate: () => void;
+}) {
   const [text, setText] = useState("");
   const [pending, setPending] = useState<Pending | null>(null);
   const [active, setActive] = useState(false);
   const nextId = useRef(0);
 
-  function submit(value: string) {
-    nextId.current += 1;
-    setPending({ id: nextId.current, text: value });
-    setActive(true);
-  }
-
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    submit(text);
+    if (!text.trim()) return;
+    nextId.current += 1;
+    setPending({ id: nextId.current, text });
+    setActive(true);
   }
 
   return (
     <section aria-label="Ask Roster" className="grid gap-3">
-      <form onSubmit={onSubmit} className={`${modeModuleSurface} flex min-w-0 items-center gap-2 p-2`}>
+      <form
+        onSubmit={onSubmit}
+        className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1.5 transition-colors duration-[var(--duration-instant)] focus-within:border-[color:var(--mode-identity-border)] focus-within:bg-[color:var(--surface-raised)]"
+      >
         <input
+          ref={inputRef}
           type="text"
           aria-label="Ask or change your roster"
           placeholder="Ask or change your roster"
@@ -127,7 +138,7 @@ export function RosterAskBox() {
             setText(event.target.value);
             setPending(null);
           }}
-          className="min-h-12 min-w-0 flex-1 rounded-md bg-transparent px-2 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus-visible:outline-2 focus-visible:outline-[color:var(--command)]"
+          className="min-h-12 min-w-0 flex-1 rounded-md bg-transparent px-2 text-base-minus text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus-visible:outline-2 focus-visible:outline-[color:var(--command)]"
         />
         <button type="submit" aria-label="Read roster question" className={modeTapArea}>
           <span className={modeControlShape.command}>
@@ -135,22 +146,10 @@ export function RosterAskBox() {
           </span>
         </button>
       </form>
-      {!text && !pending ? (
-        <div className="flex flex-wrap gap-2 px-2">
-          {SUGGESTIONS.map((suggestion) => (
-            <button
-              key={suggestion}
-              type="button"
-              onClick={() => {
-                setText(suggestion);
-                submit(suggestion);
-              }}
-              className="min-h-12 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--command)]"
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
+      {!pending ? (
+        <p className="px-2 text-sm text-[color:var(--text-muted)]">
+          Try &ldquo;When am I next on nights?&rdquo; or &ldquo;I can&apos;t work Saturday&rdquo;.
+        </p>
       ) : null}
       {active ? (
         <RosterAskSession
@@ -159,9 +158,49 @@ export function RosterAskBox() {
             setText("");
             setPending(null);
             setActive(false);
+            onNavigate();
           }}
         />
       ) : null}
     </section>
+  );
+}
+
+/**
+ * A compact round icon that opens Ask Roster in a sheet. It sits in a page
+ * header, so asking never costs the page any vertical space.
+ */
+export function RosterAskButton({ className }: { readonly className?: string }) {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Ask or change your roster"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className={cn(modeTapArea, "group rounded-full", className)}
+        data-testid="roster-ask-open"
+      >
+        <span
+          data-mode-identity="roster"
+          className="grid size-10 place-items-center rounded-full border border-[color:var(--mode-identity-border)] bg-[color:var(--mode-identity-soft)] text-[color:var(--mode-identity)] shadow-[var(--e1)] transition-transform duration-[var(--duration-instant)] group-active:scale-95 forced-colors:border motion-reduce:transition-none"
+        >
+          <Sparkles aria-hidden="true" strokeWidth={1.75} className="size-icon-lg" />
+        </span>
+      </button>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Ask your roster"
+        description="Ask about shifts, or start a swap, leave or a date you can't work."
+        mobilePlacement="bottom"
+        initialFocusRef={inputRef}
+        testId="roster-ask-sheet"
+      >
+        {open ? <RosterAskPanel inputRef={inputRef} onNavigate={() => setOpen(false)} /> : null}
+      </Sheet>
+    </>
   );
 }
