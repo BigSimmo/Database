@@ -7,9 +7,10 @@ import { kindOf } from "./roster-format";
 
 /**
  * This week as seven letter squares (Today), and as a 24-hour chart (Shifts).
- * Greys only, as chosen: darker for nights, outlined for on call, a dashed edge
- * for leave. The letter is always there, so shape and fill are never the only
- * signal.
+ * The squares are greys only, as chosen: darker for nights, outlined for on
+ * call, a dashed edge for leave. The letter is always there, so shape and fill
+ * are never the only signal. The chart fills its bars in the roster violet
+ * (deepest for nights) so a shift reads as a block, not an empty outline.
  */
 
 const LETTER_SHAPE: Record<ShiftKind, string> = {
@@ -108,13 +109,14 @@ export function RosterWeekStrip({
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/* Read inside the chart's `data-mode-identity="roster"` scope, so these are the violet tokens. */
 const BAR_SHAPE: Record<ShiftKind, string> = {
-  day: "border-[color:var(--border-strong)] bg-[color:var(--surface-wash)]",
-  evening: "border-[color:var(--text-muted)] bg-[color:var(--border-strong)]",
-  night: "border-[color:var(--command)] bg-[color:var(--command)]",
-  on_call: "border-[color:var(--text-heading)] bg-transparent",
-  leave: "border-dashed border-[color:var(--border-strong)] bg-transparent",
-  other: "border-[color:var(--border-strong)] bg-[color:var(--surface-wash)]",
+  day: "border-[color:var(--mode-identity)] bg-[color:var(--mode-identity-border)]",
+  evening: "border-[color:var(--mode-identity)] bg-[color:var(--mode-identity-border)]",
+  night: "border-[color:var(--mode-identity)] bg-[color:var(--mode-identity)]",
+  on_call: "border-[color:var(--mode-identity)] bg-[color:var(--mode-identity-soft)]",
+  leave: "border-dashed border-[color:var(--mode-identity)] bg-[color:var(--mode-identity-soft)]",
+  other: "border-[color:var(--mode-identity)] bg-[color:var(--mode-identity-border)]",
 };
 
 type Segment = { key: string; top: number; height: number; kind: ShiftKind };
@@ -157,10 +159,21 @@ export function RosterWeekChart({
   const today = perthDateOf(now);
   const nowTop = ((now.getTime() - Date.parse(`${today}T00:00:00+08:00`)) / DAY_MS) * 100;
   return (
-    <div className="grid grid-cols-[1.75rem_repeat(7,minmax(0,1fr))] gap-1" aria-hidden="true" data-testid={testId}>
+    <div
+      className="grid grid-cols-[1.75rem_repeat(7,minmax(0,1fr))] gap-1"
+      aria-hidden="true"
+      data-mode-identity="roster"
+      data-testid={testId}
+    >
       <span />
       {days.map((date) => (
-        <span key={date} className="nums text-center text-xs text-[color:var(--text-muted)]">
+        <span
+          key={date}
+          className={cn(
+            "nums text-center text-xs",
+            date === today ? "font-semibold text-[color:var(--mode-identity)]" : "text-[color:var(--text-muted)]",
+          )}
+        >
           {weekdayOf(date).slice(0, 1)} {Number(date.slice(8, 10))}
         </span>
       ))}
@@ -178,7 +191,11 @@ export function RosterWeekChart({
       {days.map((date) => (
         <span
           key={date}
-          className="relative h-48 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)]"
+          data-today={date === today ? "" : undefined}
+          className={cn(
+            "relative h-48 overflow-hidden rounded-md border bg-[color:var(--surface-raised)]",
+            date === today ? "border-[color:var(--mode-identity)]" : "border-[color:var(--border)]",
+          )}
         >
           {segmentsFor(date, shifts).map((segment) => (
             <span

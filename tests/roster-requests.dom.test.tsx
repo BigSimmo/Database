@@ -180,3 +180,21 @@ it("shows an anonymous leave overlap count", async () => {
   expect(await screen.findByText("2 of the team are already off these dates")).toBeTruthy();
   expect(mocks.fetchRead).toHaveBeenCalledWith(SERVICE, "leave_overlap", { from: "2026-12-22", to: "2027-01-02" });
 });
+
+it("shows leave as loading, not as empty, until the leave read answers", async () => {
+  let answer: (response: Response) => void = () => undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    ),
+  );
+  render(<RosterRequestsPage />);
+  expect(await screen.findByText("Loading your leave…")).toBeTruthy();
+  expect(screen.queryByText(/Nothing yet/)).toBeNull();
+  answer(Response.json({ leave: [] }));
+  expect(await screen.findByText(/Nothing yet/)).toBeTruthy();
+});

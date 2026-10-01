@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
+import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
+import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { SwapFlowSheet } from "@/components/roster/swaps/swap-flow-sheet";
@@ -22,6 +24,7 @@ import { RosterDatesSheet } from "./roster-dates-sheet";
 import { RosterGiveAwaySheet } from "./roster-give-away-sheet";
 import { RosterLeaveSheet } from "./roster-leave-sheet";
 import { RosterSentBar, type SentReceipt } from "./roster-sent-bar";
+import { RosterSignInNotice } from "@/components/roster/invite/roster-sign-in-notice";
 import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 
 type Start = "swap" | "give_away" | "cant_make" | "dates" | "leave";
@@ -239,15 +242,34 @@ export function RosterRequestsPage() {
       ) : null}
       {enabled.length > 1 && !selectedServiceId ? <p>Choose the team for a request before continuing.</p> : null}
       {teams.status === "loading" ? <p role="status">Loading your teams…</p> : null}
-      {teams.status === "signed-out" ? <p>Sign in to see your leave and requests.</p> : null}
-      {teams.status === "error" ? <p role="alert">{teams.message}</p> : null}
+      {teams.status === "signed-out" ? (
+        <RosterSignInNotice testId="roster-requests-signed-out">Sign in to see your leave and requests.</RosterSignInNotice>
+      ) : null}
+      {teams.status === "not-confirmed" || teams.status === "unavailable" ? (
+        <ModeNotice testId="roster-requests-team-pending">
+          {teams.status === "not-confirmed" && teams.message
+            ? teams.message
+            : "Team requests aren\u2019t available yet. Try again later."}
+        </ModeNotice>
+      ) : null}
+      {teams.status === "error" ? (
+        <div role="alert" className="grid gap-2">
+          <p>{teams.message}</p>
+          <Button className="justify-self-start" onClick={teams.reload}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
       {teams.status === "ready" && !enabled.length ? (
         <p>No confirmed team yet. You can still plan your own leave.</p>
       ) : null}
       {serviceId && (assignments.status === "error" || overview.status === "error") ? (
-        <p role="alert">
-          The team roster couldn&apos;t be checked. <Button onClick={reload}>Try again</Button>
-        </p>
+        <div role="alert" className="grid gap-2">
+          <p>The team roster couldn&apos;t be checked.</p>
+          <Button className="justify-self-start" onClick={reload}>
+            Try again
+          </Button>
+        </div>
       ) : null}
       <RosterSentBar receipt={sent} clear={clearSent} />
       <ModeGroupedList>
@@ -266,9 +288,16 @@ export function RosterRequestsPage() {
         </h2>
         {currentLeave.length ? (
           <ul className={modeModuleSurface}>{currentLeave.map(leaveRow)}</ul>
-        ) : (
+        ) : teams.status === "loading" || (teams.status === "ready" && leaveState === "loading") ? (
+          <>
+            <p role="status" className="sr-only">
+              Loading your leave…
+            </p>
+            <ModeModuleSkeleton rows={2} twoLine testId="roster-requests-leave-loading" />
+          </>
+        ) : teams.status === "ready" && leaveState === "ready" ? (
           <RosterEmpty icon={Plane}>Nothing yet. Tap New to plan leave or mark dates you can&apos;t work.</RosterEmpty>
-        )}
+        ) : null}
       </section>
       {earlierLeave.length ? (
         <section>
@@ -282,9 +311,12 @@ export function RosterRequestsPage() {
         </p>
       ) : null}
       {leaveState === "error" ? (
-        <p role="alert">
-          Your leave couldn&apos;t be loaded. <Button onClick={() => void loadLeave()}>Try again</Button>
-        </p>
+        <div role="alert" className="grid gap-2">
+          <p>Your leave couldn&apos;t be loaded.</p>
+          <Button className="justify-self-start" onClick={() => void loadLeave()}>
+            Try again
+          </Button>
+        </div>
       ) : null}
       <Sheet open={newOpen} onClose={() => setNewOpen(false)} title="New request">
         <div className="grid gap-2">

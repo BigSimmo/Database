@@ -14,9 +14,11 @@ import { ModeNotice } from "@/components/mode-kit/notice";
 import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { ToggleSwitch } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { updateReminderType, type ReminderLeadTime, type ReminderType } from "@/lib/reminders/settings-model";
 
 import { RosterAlertsSection } from "./alerts/roster-alerts-section";
+import { RosterSignInNotice } from "./invite/roster-sign-in-notice";
 import { describeLinkFailure, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
@@ -27,10 +29,14 @@ import { RosterPageHeader } from "./roster-ui";
  * workplaces, calendar links, and Delete my data.
  *
  * Delete asks no "Are you sure?". Everything is hidden at once and Undo shows
- * for 30 seconds; the delete request is sent only when those 30 seconds end,
- * or when the page is left first: closed (`pagehide`) or navigated away from
- * inside the app (unmount), both with `keepalive` so the request outlives the
- * page. Undo cancels the timer, so nothing was deleted.
+ * for 30 seconds; the delete request is sent only when those 30 seconds end
+ * with the page still open. Leaving first, by closing the page or navigating
+ * away inside the app, cancels it just as Undo does: nothing is deleted. A
+ * whole-account delete is the one Roster action that cannot be reversed, so
+ * it keeps a longer window than the 10-second `ROSTER_UNDO_MS` used elsewhere.
+ *
+ * Removing a workplace or a calendar link asks first (ConfirmDialog), because
+ * neither has an Undo.
  */
 
 export const ROSTER_DELETE_UNDO_MS = 30_000;
@@ -49,6 +55,10 @@ export function RosterSettingsPage() {
   const [deleteState, setDeleteState] = useState<DeleteState>("idle");
   const [notice, setNotice] = useState<{ tone: "neutral" | "warning"; text: string } | null>(null);
   const timer = useRef<number | null>(null);
+  const [confirm, setConfirm] = useState<
+    { kind: "workplace"; name: string } | { kind: "link"; id: string; host: string } | null
+  >(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   const reminderOn = preferences.reminders.types[SHIFTS_REMINDER]?.calendarAlert === EVENING_BEFORE;
   const calendarShifts = settings.settings.calendarShifts;
@@ -61,40 +71,36 @@ export function RosterSettingsPage() {
   }, [shifts.shifts, settings.settings.codes]);
 
   const { deleteAll } = shifts;
-  const sendDelete = useCallback(
-    (keepalive: boolean) => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-      timer.current = null;
-      setDeleteState("deleting");
-      void deleteAll({ keepalive }).then((failure) => {
+  const sendDelete = useCallback(() => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+    setDeleteState("deleting");
+    void deleteAll().then((failure) => {
         if (failure) {
           setDeleteState("idle");
           setNotice({ tone: "warning", text: failure });
-        } else setDeleteState("deleted");
-      });
-    },
-    [deleteAll],
-  );
+      } else setDeleteState("deleted");
+    });
+  }, [deleteAll]);
 
+  // Leaving the page during the 30 seconds, closed or navigated away from
+  // inside the app, cancels the pending delete: nothing is sent.
   useEffect(() => {
     if (deleteState !== "pending") return;
-    const onPageHide = () => sendDelete(true);
+    const onPageHide = () => {
+      if (timer.current !== null) window.clearTimeout(timer.current);
+      timer.current = null;
+      setDeleteState("idle");
+    };
     window.addEventListener("pagehide", onPageHide);
     return () => window.removeEventListener("pagehide", onPageHide);
-  }, [deleteState, sendDelete]);
-
-  const latestDeleteAll = useRef(deleteAll);
-  useEffect(() => {
-    latestDeleteAll.current = deleteAll;
-  }, [deleteAll]);
+  }, [deleteState]);
 
   useEffect(
     () => () => {
       if (timer.current === null) return;
       window.clearTimeout(timer.current);
       timer.current = null;
-      // Leaving the page inside the app during the 30 seconds deletes, just as closing it does.
-      void latestDeleteAll.current({ keepalive: true });
     },
     [],
   );
@@ -102,7 +108,7 @@ export function RosterSettingsPage() {
   function startDelete() {
     setNotice(null);
     setDeleteState("pending");
-    timer.current = window.setTimeout(() => sendDelete(false), ROSTER_DELETE_UNDO_MS);
+    timer.current = window.setTimeout(sendDelete, ROSTER_DELETE_UNDO_MS);
   }
 
   function undoDelete() {
@@ -142,6 +148,15 @@ export function RosterSettingsPage() {
     setNotice(failure ? { tone: "warning", text: failure } : { tone: "neutral", text: done });
   }
 
+  async function confirmRemoval() {
+    if (!confirm) return;
+    setConfirmBusy(true);
+    if (confirm.kind === "workplace") await removeWorkplace(confirm.name);
+    else await linkAction(links.remove(confirm.id), "Removed");
+    setConfirmBusy(false);
+    setConfirm(null);
+  }
+
   if (deleteState !== "idle") {
     return (
       <InformationPageShell testId="roster-settings-main" width="narrow">
@@ -154,7 +169,7 @@ export function RosterSettingsPage() {
         <div className="grid gap-3" data-testid="roster-settings-deleting">
           <ModeNotice>
             {deleteState === "pending"
-              ? "Your Roster data will be deleted shortly."
+              ? "Your Roster data will be deleted in 30 seconds. Leaving this page cancels it."
               : deleteState === "deleting"
                 ? "Deleting your own Roster data…"
                 : "Your own Roster data is deleted. Team rostered shifts remain with the team."}
@@ -177,7 +192,7 @@ export function RosterSettingsPage() {
         {shifts.status === "loading" ? (
           <ModeModuleSkeleton rows={4} eyebrow testId="roster-settings-loading" />
         ) : shifts.status === "signed-out" ? (
-          <ModeNotice testId="roster-settings-signed-out">Sign in to change Roster settings.</ModeNotice>
+          <RosterSignInNotice testId="roster-settings-signed-out">Sign in to change Roster settings.</RosterSignInNotice>
         ) : (
           <>
             <ModeGroupedList eyebrow="Calendar" testId="roster-settings-calendar">
@@ -213,9 +228,12 @@ export function RosterSettingsPage() {
             <RosterAlertsSection />
 
             {shifts.status === "error" ? (
-              <ModeNotice tone="warning" testId="roster-settings-error">
-                Your shifts could not be loaded. Try again later.
-              </ModeNotice>
+              <div className="grid gap-2" data-testid="roster-settings-error">
+                <ModeNotice tone="warning">Your shifts could not be loaded.</ModeNotice>
+                <Button className="justify-self-start" onClick={() => void shifts.reload()}>
+                  Try again
+                </Button>
+              </div>
             ) : (
               <ModeGroupedList eyebrow="Workplaces" testId="roster-settings-workplaces">
                 {workplaces.length === 0 ? (
@@ -229,7 +247,7 @@ export function RosterSettingsPage() {
                         <ModeActionButton
                           icon={Trash2}
                           label={`Remove ${name}`}
-                          onClick={() => void removeWorkplace(name)}
+                          onClick={() => setConfirm({ kind: "workplace", name })}
                           disabled={shifts.demoMode}
                         />
                       }
@@ -240,9 +258,12 @@ export function RosterSettingsPage() {
             )}
 
             {links.status === "error" ? (
-              <ModeNotice tone="warning" testId="roster-settings-links-error">
-                Your calendar links could not be loaded. Try again later.
-              </ModeNotice>
+              <div className="grid gap-2" data-testid="roster-settings-links-error">
+                <ModeNotice tone="warning">Your calendar links could not be loaded.</ModeNotice>
+                <Button className="justify-self-start" onClick={() => void links.reload()}>
+                  Try again
+                </Button>
+              </div>
             ) : (
               <ModeGroupedList eyebrow="Calendar links" testId="roster-settings-links">
                 {links.links.length === 0 ? (
@@ -268,7 +289,7 @@ export function RosterSettingsPage() {
                           <ModeActionButton
                             icon={Trash2}
                             label={`Remove ${link.hostPreview}`}
-                            onClick={() => void linkAction(links.remove(link.id), "Removed")}
+                            onClick={() => setConfirm({ kind: "link", id: link.id, host: link.hostPreview })}
                           />
                         </>
                       }
@@ -292,6 +313,22 @@ export function RosterSettingsPage() {
           </>
         )}
       </div>
+      <ConfirmDialog
+        open={confirm !== null}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => void confirmRemoval()}
+        title={confirm?.kind === "link" ? "Remove calendar link?" : "Remove workplace?"}
+        description={
+          confirm?.kind === "workplace"
+            ? `This removes ${confirm.name}: its calendar links, the shifts imported for it, and its shift codes. Shifts you added yourself stay.`
+            : confirm?.kind === "link"
+              ? `Roster stops updating from ${confirm.host}. Shifts already imported from it stay on your roster.`
+              : ""
+        }
+        confirmLabel={confirm?.kind === "link" ? "Remove calendar link" : "Remove workplace"}
+        busy={confirmBusy}
+        busyLabel="Removing…"
+      />
     </InformationPageShell>
   );
 }

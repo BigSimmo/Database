@@ -1,7 +1,10 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { focusRing } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import { cn } from "@/components/ui-primitives";
 import { TextField } from "@/components/ui/text-field";
 import { RosterInviteSheet } from "@/components/roster/invite/roster-invite-sheet";
 import { postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
@@ -40,11 +43,7 @@ function PersonEditor({ person, team, refresh }: { person: RosterPerson; team: R
     refresh();
   }
   return (
-    <div className="grid gap-3 p-3">
-      <h3 className="font-normal">
-        {person.displayName ?? "Name not available"}
-        {person.role === "manager" ? " · Roster manager" : ""}
-      </h3>
+    <div className="grid gap-3">
       <label className="grid gap-1 text-sm">
         Grade
         <select
@@ -73,8 +72,8 @@ function PersonEditor({ person, team, refresh }: { person: RosterPerson; team: R
         onChange={(event) => setRotation(event.target.value)}
       />
       {message ? <p role="status">{message}</p> : null}
-      <div className="flex gap-2">
-        <Button disabled={busy} onClick={() => void save()}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="primary" disabled={busy} onClick={() => void save()}>
           Save person
         </Button>
         {person.serviceRole === "member" ? (
@@ -82,7 +81,7 @@ function PersonEditor({ person, team, refresh }: { person: RosterPerson; team: R
             Remove
           </Button>
         ) : (
-          <span>Remove in On call</span>
+          <span className="text-sm text-[color:var(--text-muted)]">Remove in On call</span>
         )}
       </div>
       <Sheet
@@ -93,30 +92,66 @@ function PersonEditor({ person, team, refresh }: { person: RosterPerson; team: R
       >
         <p>They leave this team in On call, Teaching and Roster, and their open requests are cancelled.</p>
         {message ? <p role="alert">{message}</p> : null}
-        <Button disabled={busy} onClick={() => void save(true)}>
-          Remove from team
-        </Button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setConfirm(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" disabled={busy} onClick={() => void save(true)}>
+            Remove from team
+          </Button>
+        </div>
       </Sheet>
     </div>
   );
 }
+function personTitle(person: RosterPerson): string {
+  return `${person.displayName ?? "Name not available"}${person.role === "manager" ? " · Roster manager" : ""}`;
+}
+
+/**
+ * The team as one row per person (name, grade, chevron). A row opens that
+ * person's edit form in a sheet, so the list stays short and only one form is
+ * open at a time.
+ */
 export function RosterPeopleList({ team }: { team: RosterTeam }) {
   const people = useRosterRead(team.serviceId, "people");
   const [invite, setInvite] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const person = people.data?.people.find((item) => item.userId === editing) ?? null;
   return (
     <>
       <section className="grid gap-2">
         <h2>People</h2>
-        <ul className="divide-y rounded-xl border">
-          {people.data?.people.map((person) => (
-            <li key={person.userId}>
-              <PersonEditor person={person} team={team} refresh={people.reload} />
-            </li>
-          ))}
-        </ul>
+        {people.status === "loading" && !people.data ? <p role="status">Loading people…</p> : null}
+        {people.data?.people.length ? (
+          <ul className="divide-y rounded-xl border">
+            {people.data.people.map((item) => (
+              <li key={item.userId}>
+                <button
+                  type="button"
+                  onClick={() => setEditing(item.userId)}
+                  className={cn(focusRing, "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-left")}
+                >
+                  <span className="grid min-w-0 flex-1">
+                    <span className="break-words">{personTitle(item)}</span>
+                    <span className="text-sm capitalize text-[color:var(--text-muted)]">
+                      {item.grade ?? "Grade not set"}
+                    </span>
+                  </span>
+                  <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
       {people.message ? <p role="alert">{people.message}</p> : null}
       <Button onClick={() => setInvite(true)}>Invite by email</Button>
+      {person ? (
+        <Sheet open onClose={() => setEditing(null)} title={personTitle(person)} description={team.name}>
+          <PersonEditor key={person.userId} person={person} team={team} refresh={people.reload} />
+        </Sheet>
+      ) : null}
       {invite ? (
         <RosterInviteSheet serviceId={team.serviceId} teamName={team.name} onClose={() => setInvite(false)} />
       ) : null}

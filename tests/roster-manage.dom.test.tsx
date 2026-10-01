@@ -203,3 +203,50 @@ it("a decision in the calendar strip also refreshes the Approve tab, from one sh
   // The calendar reads again for itself, and the Approve tab reads again with it.
   await waitFor(() => expect(manageReads()).toBeGreaterThanOrEqual(before + 2));
 });
+
+it("points to the Needs you strip instead of listing its decisions twice, and keeps the shifts only it decides", async () => {
+  const waiting = {
+    id: "swap",
+    status: "accepted",
+    requesterId: "sam",
+    counterpartyId: "noor",
+    needsManagerBecause: "within_7_days",
+    autoApproved: false,
+    give: null,
+    take: null,
+  };
+  const reported = {
+    id: "open",
+    status: "reported",
+    postedBy: "noor",
+    claimedBy: null,
+    startsAt: "2026-10-06T00:00:00Z",
+    endsAt: "2026-10-06T09:00:00Z",
+    kind: "day",
+    shiftCode: "D",
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const what = new URL(String(input), "http://localhost").searchParams.get("what");
+      return Response.json(
+        what === "manage"
+          ? { swaps: [waiting], openShifts: [reported], seen: null }
+          : what === "people"
+            ? {
+                people: [
+                  { userId: "sam", displayName: "Sam" },
+                  { userId: "noor", displayName: "Noor" },
+                ],
+              }
+            : { leave: [] },
+      );
+    }),
+  );
+  render(<RosterApproveTab serviceId="team" decisionsInStrip actorId="alex" />);
+  expect(await screen.findByRole("button", { name: "Go to Needs you" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Swap · Sam and Noor/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /Noor can't make/ })).toBeTruthy();
+  const summary = screen.getByRole("list", { name: "Summary" });
+  expect(within(summary).getByTestId("roster-stat-waiting").textContent).toContain("2");
+});

@@ -13,6 +13,8 @@ import { TextField } from "@/components/ui/text-field";
 import { UserPlus } from "lucide-react";
 import { RosterPageHeader } from "@/components/roster/roster-ui";
 
+import { RosterSignInNotice } from "./roster-sign-in-notice";
+
 type JoinState =
   | { kind: "entry" }
   | { kind: "joining" }
@@ -124,6 +126,8 @@ export function RosterJoinPage() {
           // A completed join must never be shown as a failed invite because the
           // optional follow-up read failed after the invitation was consumed.
         }
+        // Only a completed join clears the typed code; a failed one keeps it to fix or retry.
+        setInput("");
         setState(joinedCopy(overview));
         void loadCalendarSetting();
       } catch {
@@ -155,7 +159,6 @@ export function RosterJoinPage() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const code = codeFrom(input);
-    setInput("");
     if (!code) {
       setState({ kind: "error", message: "Paste a Roster invite link or its 64-character code." });
       return;
@@ -186,7 +189,9 @@ export function RosterJoinPage() {
       <div className="grid gap-5">
         <RosterPageHeader icon={UserPlus} title="Join a team roster" ask={false} />
         {state.kind === "joining" ? <p role="status">Joining your team…</p> : null}
-        {state.kind === "signed-out" ? <ModeNotice>Sign in, then open the invite link again.</ModeNotice> : null}
+        {state.kind === "signed-out" ? (
+          <RosterSignInNotice testId="roster-join-signed-out">Sign in, then open the invite link again.</RosterSignInNotice>
+        ) : null}
         {state.kind === "error" ? <ModeNotice tone="warning">{state.message}</ModeNotice> : null}
         {state.kind === "joined" ? (
           <div className="grid gap-4">

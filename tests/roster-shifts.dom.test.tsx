@@ -213,6 +213,8 @@ describe("Roster Shifts", () => {
     });
     expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
     expect(within(screen.getByTestId("roster-hours-facts")).getByText("1.25 h")).toBeInTheDocument();
+    // Extra time is never read back, so the tile says it covers this visit only.
+    expect(screen.getByTestId("roster-hours-facts")).toHaveTextContent("Extra time recorded this visit");
   });
 
   it("reads a new calendar link straight away, and shows the new shifts", async () => {
@@ -294,6 +296,10 @@ describe("Roster Shifts", () => {
     routes.set(`DELETE /api/roster/shifts/manual/${series}`, () => Response.json({ deleted: true }));
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     fireEvent.click(await screen.findByRole("button", { name: "Remove Other work on Wed 14 Oct and its repeats" }));
+    // It asks first, naming what goes, and removes nothing until confirmed.
+    expect(fetchCalls(`/api/roster/shifts/manual/${series}`, "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("confirm-dialog")).toHaveTextContent("every weekly repeat of it");
+    fireEvent.click(screen.getByRole("button", { name: "Remove shift and repeats" }));
     await screen.findByText("Removed");
     expect(screen.queryByTestId("roster-shifts-row")).toBeNull();
   });

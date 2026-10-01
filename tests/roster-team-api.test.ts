@@ -177,6 +177,10 @@ describe("reading a team", () => {
     const read = await GET(readRequest("what=overview"), ctx());
     expect(read.status).toBe(200);
     expect(JSON.stringify(await read.json())).toContain("General Medicine");
+    // The demo team list is marked as a sample, so every team screen labels it as made up.
+    const teams = await GET_TEAMS(new Request("http://x/api/roster/team"));
+    expect(teams.status).toBe(200);
+    expect(await teams.json()).toMatchObject({ sample: true });
     const write = await POST(jsonRequest({ action: "swap.cancel", swapId: SWAP }), ctx());
     expect(write.status).toBe(400);
     expect(await write.json()).toMatchObject({ code: "demo_mode_unavailable" });

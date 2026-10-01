@@ -13,8 +13,10 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeInsetHairline, modeModuleSurface, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
 import { modeNumberText } from "@/components/mode-kit/type";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import { cn, primaryControl } from "@/components/ui-primitives";
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
 import { monthGridRange, monthKeyOf } from "@/lib/calendar/month-grid";
@@ -23,6 +25,7 @@ import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
 import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
+import { RosterSignInNotice } from "./invite/roster-sign-in-notice";
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
 import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } from "./roster-format";
 import { RosterHoursPanel, type RosterExtraTime } from "./roster-hours-panel";
@@ -88,7 +91,7 @@ function WeekView({
   readonly now: Date;
   readonly monday: string;
   readonly onWeekChange: (monday: string) => void;
-  readonly onRemoveSeries: (seriesId: string) => void;
+  readonly onRemoveSeries: (series: { readonly id: string; readonly label: string }) => void;
   readonly onTeamShift: (shift: OnCallShift) => void;
 }) {
   const sunday = addDaysToDate(monday, 6);
@@ -154,7 +157,9 @@ function WeekView({
                         {place ? ` · ${place}` : ""}
                       </span>
                     </span>
-                    <span className={cn(modeNumberText, "shrink-0 text-base-minus text-[color:var(--text)]")}>
+                    <span
+                      className={cn(modeNumberText, "shrink-0 whitespace-nowrap text-base-minus text-[color:var(--text)]")}
+                    >
                       {formatShiftRange(shift)}
                     </span>
                   </button>
@@ -173,14 +178,26 @@ function WeekView({
                 subtitle={`${SHIFT_KIND_LABEL[kind]}${place ? ` · ${place}` : ""}`}
                 trailing={
                   <>
-                    <span className={cn(modeNumberText, "text-base-minus text-[color:var(--text)]")}>
+                    <span
+                      className={cn(
+                        modeNumberText,
+                        "whitespace-nowrap text-base-minus text-[color:var(--text)]",
+                        // Room before the card edge when no remove control follows the time.
+                        !(shift.source === "manual" && shift.seriesId) && "pr-2",
+                      )}
+                    >
                       {formatShiftRange(shift)}
                     </span>
                     {shift.source === "manual" && shift.seriesId ? (
                       <ModeActionButton
                         icon={Trash2}
                         label={`Remove ${SHIFT_KIND_LABEL[kind]} on ${formatPerthDay(perthDateOf(shift.startsAt))} and its repeats`}
-                        onClick={() => onRemoveSeries(shift.seriesId!)}
+                        onClick={() =>
+                          onRemoveSeries({
+                            id: shift.seriesId!,
+                            label: `${SHIFT_KIND_LABEL[kind].toLowerCase()} on ${formatPerthDay(perthDateOf(shift.startsAt))}`,
+                          })
+                        }
                       />
                     ) : null}
                   </>
@@ -220,6 +237,8 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const [extras, setExtras] = useState<readonly RosterExtraTime[]>([]);
   const [notice, setNotice] = useState<{ tone: "neutral" | "warning"; text: string } | null>(null);
   const [teamShift, setTeamShift] = useState<OnCallShift | null>(null);
+  const [confirmSeries, setConfirmSeries] = useState<{ readonly id: string; readonly label: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
 
   const events = useMemo(() => toCalendarEvents(shifts.shifts), [shifts.shifts]);
@@ -237,7 +256,10 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const canEdit = shifts.status === "ready" && !shifts.demoMode;
 
   async function removeSeries(seriesId: string) {
+    setRemoving(true);
     const failure = await shifts.removeSeries(seriesId);
+    setRemoving(false);
+    setConfirmSeries(null);
     setNotice(failure ? { tone: "warning", text: failure } : { tone: "neutral", text: "Removed" });
   }
 
@@ -257,14 +279,22 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
         />
       ) : (
         <div className="grid min-w-0 gap-5 pb-20">
-          <SegmentedControl label="View" value={view} onChange={setView} options={VIEWS} layout="equal" />
+          {/* The roster identity scope recolours the selected segment violet (globals.css remaps the accent). */}
+          <div data-mode-identity="roster" className="min-w-0">
+            <SegmentedControl label="View" value={view} onChange={setView} options={VIEWS} layout="equal" />
+          </div>
 
           {shifts.status === "loading" ? (
             <ModeModuleSkeleton rows={5} twoLine testId="roster-shifts-loading" />
           ) : shifts.status === "signed-out" ? (
-            <ModeNotice testId="roster-shifts-signed-out">Sign in to see your roster.</ModeNotice>
+            <RosterSignInNotice testId="roster-shifts-signed-out">Sign in to see your roster.</RosterSignInNotice>
           ) : shifts.status === "error" ? (
-            <ModeNotice tone="warning">Your shifts could not be loaded. Try again later.</ModeNotice>
+            <div className="grid gap-2" data-testid="roster-shifts-error">
+              <ModeNotice tone="warning">Your shifts could not be loaded.</ModeNotice>
+              <Button className="justify-self-start" onClick={() => void shifts.reload()}>
+                Try again
+              </Button>
+            </div>
           ) : (
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
@@ -280,7 +310,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
                     now={now}
                     monday={monday}
                     onWeekChange={setMonday}
-                    onRemoveSeries={(id) => void removeSeries(id)}
+                    onRemoveSeries={setConfirmSeries}
                     onTeamShift={setTeamShift}
                   />
                 )
@@ -334,6 +364,23 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
           Add
         </button>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmSeries !== null}
+        onCancel={() => setConfirmSeries(null)}
+        onConfirm={() => {
+          if (confirmSeries) void removeSeries(confirmSeries.id);
+        }}
+        title="Remove repeating shift?"
+        description={
+          confirmSeries
+            ? `This removes your ${confirmSeries.label} and every weekly repeat of it from your roster. Shifts from imports and your team are not changed.`
+            : ""
+        }
+        confirmLabel="Remove shift and repeats"
+        busy={removing}
+        busyLabel="Removing…"
+      />
 
       <Sheet
         open={Boolean(teamShift)}

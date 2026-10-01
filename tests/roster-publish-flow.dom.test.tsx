@@ -103,7 +103,9 @@ describe("Roster publication preparation", () => {
     await screen.findByText("Locum 1");
     expect(screen.getByText(/Rows matched 0 of 1/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
-    await screen.findByText("Publishing needs a small database update first.");
+    expect((await screen.findAllByText("Publishing isn't available yet — ask the app owner.")).length).toBeGreaterThan(
+      0,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Keep as named" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Keep as named" })).toBeNull());
     expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();

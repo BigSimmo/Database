@@ -21,6 +21,49 @@ export const managerReason: Record<SwapNeedsManagerReason, string> = {
 };
 export type ManagerDecision = { kind: "swap"; item: RosterManageSwap } | { kind: "open"; item: RosterManageOpenShift };
 
+export type RecheckOutcome =
+  { ok: true; current: ManagerDecision; checkedAt: Date } | { ok: false; reason: "unreachable" | "changed" };
+
+/**
+ * The live recheck every manager decision goes through before it is sent:
+ * reads the roster around the shift and the manager's list afresh, and finds
+ * the request again in a state that can still be decided. The Review sheet,
+ * the calendar's Needs you strip and the shift sheet all decide through this,
+ * so no approval is ever sent from a list that has gone stale.
+ */
+export async function recheckDecision(serviceId: string, decision: ManagerDecision): Promise<RecheckOutcome> {
+  const startsAt = decision.kind === "swap" ? decision.item.give?.startsAt : decision.item.startsAt;
+  const day = perthDateOf(startsAt ?? new Date());
+  const [assignments, manage] = await Promise.all([
+    fetchRosterRead(serviceId, "assignments", { from: addDaysToDate(day, -7), to: addDaysToDate(day, 7) }),
+    fetchRosterRead(serviceId, "manage"),
+  ]);
+  if (!assignments.ok || !manage.ok) return { ok: false, reason: "unreachable" };
+  if (decision.kind === "swap") {
+    const item = manage.data.swaps.find((row) => row.id === decision.item.id && row.status === "accepted");
+    return item
+      ? { ok: true, current: { kind: "swap", item }, checkedAt: assignments.readAt }
+      : { ok: false, reason: "changed" };
+  }
+  const item = manage.data.openShifts.find(
+    (row) => row.id === decision.item.id && ["reported", "claimed"].includes(row.status),
+  );
+  return item
+    ? { ok: true, current: { kind: "open", item }, checkedAt: assignments.readAt }
+    : { ok: false, reason: "changed" };
+}
+
+/** The action a decision sends, worked out from the rechecked request rather than the listed one. */
+export function decisionAction(current: ManagerDecision, approve: boolean): RosterAction {
+  return current.kind === "swap"
+    ? { action: approve ? "swap.approve" : "swap.decline", swapId: current.item.id }
+    : current.item.status === "reported"
+      ? approve
+        ? { action: "open.release", openShiftId: current.item.id, urgent: true }
+        : { action: "open.cancel", openShiftId: current.item.id }
+      : { action: approve ? "open.approve" : "open.decline", openShiftId: current.item.id };
+}
+
 export function RosterDecisionSheet({
   serviceId,
   decision,
@@ -38,29 +81,18 @@ export function RosterDecisionSheet({
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
-    const startsAt = decision.kind === "swap" ? decision.item.give?.startsAt : decision.item.startsAt;
-    const day = perthDateOf(startsAt ?? new Date());
-    void Promise.all([
-      fetchRosterRead(serviceId, "assignments", { from: addDaysToDate(day, -7), to: addDaysToDate(day, 7) }),
-      fetchRosterRead(serviceId, "manage"),
-    ]).then(([assignments, manage]) => {
+    void recheckDecision(serviceId, decision).then((outcome) => {
       if (!alive) return;
-      if (!assignments.ok || !manage.ok) {
-        setError("The roster could not be rechecked. Close and try again.");
+      if (!outcome.ok) {
+        setError(
+          outcome.reason === "unreachable"
+            ? "The roster could not be rechecked. Close and try again."
+            : "This request has changed. Close to refresh the list.",
+        );
         return;
       }
-      if (decision.kind === "swap") {
-        const item = manage.data.swaps.find((row) => row.id === decision.item.id && row.status === "accepted");
-        if (item) setCurrent({ kind: "swap", item });
-        else setError("This request has changed. Close to refresh the list.");
-      } else {
-        const item = manage.data.openShifts.find(
-          (row) => row.id === decision.item.id && ["reported", "claimed"].includes(row.status),
-        );
-        if (item) setCurrent({ kind: "open", item });
-        else setError("This request has changed. Close to refresh the list.");
-      }
-      setChecked(assignments.readAt);
+      setCurrent(outcome.current);
+      setChecked(outcome.checkedAt);
     });
     return () => {
       alive = false;
@@ -68,14 +100,7 @@ export function RosterDecisionSheet({
   }, [decision, serviceId]);
   async function act(approve: boolean) {
     if (!current || busy) return;
-    const action: RosterAction =
-      current.kind === "swap"
-        ? { action: approve ? "swap.approve" : "swap.decline", swapId: current.item.id }
-        : current.item.status === "reported"
-          ? approve
-            ? { action: "open.release", openShiftId: current.item.id, urgent: true }
-            : { action: "open.cancel", openShiftId: current.item.id }
-          : { action: approve ? "open.approve" : "open.decline", openShiftId: current.item.id };
+    const action = decisionAction(current, approve);
     setBusy(true);
     const result = await postRosterAction(serviceId, action);
     setBusy(false);
@@ -113,15 +138,15 @@ export function RosterDecisionSheet({
           <p className="text-sm text-muted-foreground">
             Rechecked {perthTimeOf(checked.toISOString())}. Eligibility is checked again when you decide.
           </p>
-        ) : (
-          <p>Rechecking the live roster…</p>
+        ) : error ? null : (
+          <p role="status">Rechecking the live roster…</p>
         )}
         {error ? <p role="alert">{error}</p> : null}
         <div className="flex flex-wrap gap-3">
           <Button variant="secondary" disabled={!current || busy} onClick={() => void act(false)}>
             {current?.kind === "open" && current.item.status === "reported" ? "Cancel request" : "Decline"}
           </Button>
-          <Button disabled={!current || busy} onClick={() => void act(true)}>
+          <Button variant="primary" disabled={!current || busy} onClick={() => void act(true)}>
             {current?.kind === "open" && current.item.status === "reported" ? "Post to team" : "Approve"}
           </Button>
         </div>

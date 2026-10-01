@@ -1,7 +1,11 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { focusRing } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
+import { cn } from "@/components/ui-primitives";
 import { TextField } from "@/components/ui/text-field";
 import { fetchRosterRead, postRosterAction, useRosterRead } from "@/components/roster/use-roster-team";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
@@ -46,14 +50,14 @@ function Fairness({ serviceId, overview }: { serviceId: string; overview: Roster
   if (!period) return <p>Fairness counts appear after the first publication.</p>;
   if (error)
     return (
-      <div>
+      <div role="alert">
         <p>Fairness counts could not be loaded.</p>
         <Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>
           Try again
         </Button>
       </div>
     );
-  if (result?.key !== key) return <p>Loading fairness counts…</p>;
+  if (result?.key !== key) return <p role="status">Loading fairness counts…</p>;
   const rows = fairnessCounts(result.assignments, { from: period.periodStart, to: period.periodEnd });
   return (
     <section className="grid gap-2">
@@ -112,6 +116,7 @@ function Gap({
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [opened, setOpened] = useState(false);
   if (need.kind === "leave") return null;
   if (need.grade === "other")
     return (
@@ -141,29 +146,45 @@ function Gap({
     setMessage(result.ok ? "Posted to your team" : result.message);
     if (result.ok) onPosted();
   }
+  const summary = `Gap: ${formatPerthDay(date)} ${need.kind}${need.grade ? ` · ${need.grade}` : ""}. Fewer people rostered than needed.`;
+  // One row per gap; the form to post it opens in a sheet, one gap at a time.
   return (
-    <div className="grid gap-3 rounded-xl border border-[color:var(--warning)] p-3">
-      <p>
-        Gap: {formatPerthDay(date)} {need.kind}
-        {need.grade ? ` · ${need.grade}` : ""}. Fewer people rostered than needed.
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        <TextField label="Starts (Perth)" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-        <TextField label="Ends (Perth)" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-      </div>
-      <TextField label="Shift code" maxLength={12} value={code} onChange={(e) => setCode(e.target.value)} />
-      {start && end ? (
-        <p className="text-sm">
-          {candidates.length
-            ? `${candidates.map((person) => person.name ?? "Team member").join(", ")} may be able to take it. Team rules are checked again on acceptance.`
-            : "No eligible colleague found in the loaded team roster."}
-        </p>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpened(true)}
+        className={cn(
+          focusRing,
+          "flex min-h-12 w-full items-center gap-3 rounded-xl border border-[color:var(--warning-border)] px-3 py-2 text-left",
+        )}
+      >
+        <span className="min-w-0 flex-1 break-words">{summary}</span>
+        {message ? <span className="text-sm text-[color:var(--text-muted)]">{message}</span> : null}
+        <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+      </button>
+      {opened ? (
+        <Sheet open onClose={() => setOpened(false)} title="Post gap" description={summary}>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <TextField label="Starts (Perth)" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+              <TextField label="Ends (Perth)" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+            <TextField label="Shift code" maxLength={12} value={code} onChange={(e) => setCode(e.target.value)} />
+            {start && end ? (
+              <p className="text-sm">
+                {candidates.length
+                  ? `${candidates.map((person) => person.name ?? "Team member").join(", ")} may be able to take it. Team rules are checked again on acceptance.`
+                  : "No eligible colleague found in the loaded team roster."}
+              </p>
+            ) : null}
+            {message ? <p role="status">{message}</p> : null}
+            <Button variant="primary" disabled={busy || !start || !end || !code.trim()} onClick={() => void post()}>
+              Post gap
+            </Button>
+          </div>
+        </Sheet>
       ) : null}
-      {message ? <p role="status">{message}</p> : null}
-      <Button variant="secondary" disabled={busy || !start || !end || !code.trim()} onClick={() => void post()}>
-        Post gap
-      </Button>
-    </div>
+    </>
   );
 }
 
@@ -180,11 +201,12 @@ export function RosterCoverTab({ serviceId, overview }: { serviceId: string; ove
   const [message, setMessage] = useState<string | null>(null);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(addDaysToDate(today, 13));
-  if (!assignments.data || !maker.data)
+  if (!assignments.data || !maker.data) {
+    const failed = assignments.status === "error" || maker.status === "error";
     return (
-      <div>
+      <div role={failed ? "alert" : "status"}>
         <p>{assignments.message ?? maker.message ?? "Loading cover…"}</p>
-        {assignments.status === "error" || maker.status === "error" ? (
+        {failed ? (
           <Button
             onClick={() => {
               assignments.reload();
@@ -196,6 +218,7 @@ export function RosterCoverTab({ serviceId, overview }: { serviceId: string; ove
         ) : null}
       </div>
     );
+  }
   const shifts = assignments.data.assignments;
   const days = Array.from({ length: 14 }, (_, index) => addDaysToDate(today, index));
   const gaps = days.flatMap((date) =>
@@ -273,17 +296,21 @@ export function RosterCoverTab({ serviceId, overview }: { serviceId: string; ove
           Showing rostered counts. Staffing requirements have not been set.
         </p>
       ) : null}
-      {gaps.map(({ date, need }) => (
-        <Gap
-          key={`${date}-${need.id}`}
-          date={date}
-          need={need}
-          assignments={shifts}
-          overview={overview}
-          serviceId={serviceId}
-          onPosted={manage.reload}
-        />
-      ))}
+      {gaps.length ? (
+        <div className="grid gap-2" data-testid="roster-cover-gaps">
+          {gaps.map(({ date, need }) => (
+            <Gap
+              key={`${date}-${need.id}`}
+              date={date}
+              need={need}
+              assignments={shifts}
+              overview={overview}
+              serviceId={serviceId}
+              onPosted={manage.reload}
+            />
+          ))}
+        </div>
+      ) : null}
       {manage.data?.seen ? (
         <div className="grid gap-2">
           <p>

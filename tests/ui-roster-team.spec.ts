@@ -140,7 +140,7 @@ for (const width of [390, 1280]) {
     await page.goto("/roster/requests");
     await expect(page.getByRole("heading", { name: "Requests", exact: true })).toBeVisible();
     await page.goto("/roster/manage");
-    await expect(page.getByText("Waiting 0", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("roster-stat-waiting")).toHaveText(/Waiting\s*0/);
     await page.getByTestId("roster-manage-section-trigger").focus();
     await page.keyboard.press("Enter");
     await clickWhenHydrated(page.getByRole("button", { name: "Cover", exact: true }));
