@@ -2737,8 +2737,14 @@
       "source": "src/components/ui/link.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/calendar/calendar-view.tsx"],
-      "productImportFiles": ["src/components/calendar/calendar-view.tsx"],
+      "directImportFiles": [
+        "src/components/admin/today/today-coming-up-module.tsx",
+        "src/components/calendar/calendar-view.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/admin/today/today-coming-up-module.tsx",
+        "src/components/calendar/calendar-view.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,

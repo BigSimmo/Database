@@ -1103,7 +1103,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              35 |
-| `TextLink`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `TextLink`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Tooltip`                | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
