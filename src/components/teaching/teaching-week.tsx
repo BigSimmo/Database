@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
+import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
@@ -113,24 +114,34 @@ function WeekBody({
   const handbook = useHandbookTeaching(ready);
   const sunday = addDays(monday, 6);
 
-  function moveWeek(days: number) {
+  function goToWeek(next: string) {
     setDay(null);
     setPastShown(null);
     setSelected(null);
-    onMonday(addDays(monday, days));
+    onMonday(next);
   }
 
+  function moveWeek(days: number) {
+    goToWeek(addDays(monday, days));
+  }
+
+  const thisMonday = mondayOf(today);
+  const current = monday === thisMonday;
+  // One compact row: icon-only arrows (48px tap areas) either side of the dates, and a way back to this week.
   const nav = (
-    <div className="flex flex-wrap items-center justify-between gap-x-2">
-      <Button variant="ghost" size="sm" icon={ChevronLeft} onClick={() => moveWeek(-7)}>
-        Previous week
-      </Button>
-      <span className="nums text-sm font-normal text-[color:var(--text-heading)]">
-        {`${shortDayLabel(monday)} – ${shortDayLabel(sunday)}`}
-      </span>
-      <Button variant="ghost" size="sm" trailingIcon={ChevronRight} onClick={() => moveWeek(7)}>
-        Next week
-      </Button>
+    <div className="flex items-center justify-between gap-1" data-testid="teaching-week-nav">
+      <ModeActionButton icon={ChevronLeft} label="Previous week" onClick={() => moveWeek(-7)} />
+      <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-1">
+        <span className="nums text-center text-sm font-normal text-[color:var(--text-heading)]">
+          {`${shortDayLabel(monday)} – ${shortDayLabel(sunday)}`}
+        </span>
+        {current ? null : (
+          <Button variant="ghost" size="sm" onClick={() => goToWeek(thisMonday)}>
+            This week
+          </Button>
+        )}
+      </div>
+      <ModeActionButton icon={ChevronRight} label="Next week" onClick={() => moveWeek(7)} />
     </div>
   );
 
@@ -143,6 +154,8 @@ function WeekBody({
       </>
     );
   const week = view.week;
+  if (view.status === "ready" && week && week.teams.length === 0 && week.relocated.length === 0)
+    return <TeachingStateNotice state="no-team" />;
   if (view.status !== "ready" || !week)
     return (
       <>
@@ -199,7 +212,11 @@ function WeekBody({
         <SessionTimeline groups={groups} testId="teaching-week-list" />
       ) : (
         <ModeNotice>
-          {filter === "presenting" ? "You're not presenting this week." : "No more sessions this week."}
+          {filter === "presenting"
+            ? "You're not presenting this week."
+            : current
+              ? "No more sessions this week."
+              : "No sessions this week."}
         </ModeNotice>
       )}
     </>

@@ -88,7 +88,7 @@ export function presenterPrep(read: TeachRead, today: string | null): { title: s
   const total = readinessItems.length;
   const deidOpen = next.deidConfirmedAt === null;
   if (done >= total && !deidOpen) return null;
-  const parts = [`${done} of ${total} prep items done`];
+  const parts = [`${withUnit(done, "of")} ${total} prep items done`];
   if (deidOpen) parts.push("de-identification not confirmed");
   return { title: `You present ${shortDayLabel(perthDateKey(next.startsAt))}`, subtitle: parts.join(" · ") };
 }

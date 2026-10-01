@@ -143,6 +143,7 @@ export function ActionStrip({
       <div
         className={cn(
           "grid gap-x-2",
+          layout === "stack" && "gap-y-2",
           layout === "row" ? "@min-[17rem]:auto-cols-fr @min-[17rem]:grid-flow-col" : "grid-cols-1",
         )}
       >

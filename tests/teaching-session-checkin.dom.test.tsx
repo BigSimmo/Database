@@ -61,7 +61,7 @@ function serveSession(
 }
 
 describe("the session page", () => {
-  it("while on: the live module with Scan to check in, Check in without code, Join, details and materials", async () => {
+  it("while on: the live module with Check in with code, Check in without code, Join, details and materials", async () => {
     serveSession({
       hasJoinLink: true,
       joinUrl: JOIN,
@@ -72,7 +72,7 @@ describe("the session page", () => {
     const phase = await screen.findByTestId("teaching-session-phase");
     expect(phase).toHaveTextContent("On now");
     expect(phase).toHaveTextContent("Check-in open until 13:45");
-    expect(within(phase).getByRole("button", { name: "Scan to check in" })).toBeInTheDocument();
+    expect(within(phase).getByRole("button", { name: "Check in with code" })).toBeInTheDocument();
     expect(within(phase).getByRole("button", { name: "Check in without code" })).toBeInTheDocument();
     expect(within(phase).getByRole("link", { name: /^Join on Teams/ })).toHaveAttribute("href", JOIN);
     expect(screen.getByText("Wed 30 Sep · 12:30–13:30")).toBeInTheDocument();
@@ -88,9 +88,17 @@ describe("the session page", () => {
       return json(200, { occurrenceId: OCC, method: "code_room", recordedAt: DURING.toISOString(), serviceId: TEAM_A });
     });
     render(<TeachingSessionScreen occurrenceId={OCC} demoMode={false} initialSheet="scan" />);
-    const sheet = await screen.findByRole("dialog", { name: "Scan to check in" });
-    fireEvent.change(within(sheet).getByLabelText("Or type the six digits"), { target: { value: "482 913" } });
-    fireEvent.click(within(sheet).getByRole("button", { name: "Check in" }));
+    const sheet = await screen.findByRole("dialog", { name: "Check in with code" });
+    const field = within(sheet).getByLabelText("Or type the six digits");
+    expect(field).toHaveAttribute("maxLength", "6");
+    expect(field).toHaveAttribute("inputMode", "numeric");
+    expect(field).toHaveAttribute("autoComplete", "one-time-code");
+    fireEvent.change(field, { target: { value: "482 913" } });
+    expect(field).toHaveValue("482913");
+    const submit = within(sheet).getByRole("button", { name: "Check in" });
+    expect(submit).toHaveAttribute("type", "submit");
+    // Go / Enter on the keyboard submits the form, as the footer button does.
+    fireEvent.submit(field.closest("form")!);
     await waitFor(() =>
       expect(screen.getByTestId("teaching-session-phase")).toHaveTextContent("Checked in by code · shown in room"),
     );
@@ -105,7 +113,7 @@ describe("the session page", () => {
     });
     render(<TeachingSessionScreen occurrenceId={OCC} demoMode={false} />);
     const phase = await screen.findByTestId("teaching-session-phase");
-    expect(within(phase).queryByRole("button", { name: "Scan to check in" })).toBeNull();
+    expect(within(phase).queryByRole("button", { name: "Check in with code" })).toBeNull();
     expect(within(phase).queryByRole("button", { name: "Check in without code" })).toBeNull();
     fireEvent.click(within(phase).getByRole("button", { name: "I was there" }));
     await waitFor(() => expect(posts).toEqual(["/api/teaching/whats-on whats_on.attend"]));
@@ -120,6 +128,43 @@ describe("the session page", () => {
     expect(phase).toHaveTextContent("Self-reported");
     fireEvent.click(within(phase).getByRole("button", { name: "Log to CPD" }));
     expect(await screen.findByRole("dialog", { name: "Log to CPD" })).toBeInTheDocument();
+  });
+
+  it("after logging to CPD, says Logged to CPD instead of offering the button again", async () => {
+    vi.setSystemTime(AFTER);
+    serveSession({ myAttendance: { method: "self", recordedAt: DURING.toISOString() } }, (url) =>
+      url === "/api/teaching/cpd" ? json(200, { entryId: "e1", created: true }) : null,
+    );
+    render(<TeachingSessionScreen occurrenceId={OCC} demoMode={false} />);
+    const phase = await screen.findByTestId("teaching-session-phase");
+    fireEvent.click(within(phase).getByRole("button", { name: "Log to CPD" }));
+    const sheet = await screen.findByRole("dialog", { name: "Log to CPD" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Save to CPD" }));
+    await waitFor(() => expect(phase).toHaveTextContent("Logged to CPD"));
+    expect(within(phase).queryByRole("button", { name: "Log to CPD" })).toBeNull();
+  });
+
+  it("puts the presenter's code and the register in the phase module, and no empty body when there is nothing to do", async () => {
+    serveSession({ canShowCode: true, counts: { code: 1, self: 1, visitors: 0, expected: 4 } }, (url) =>
+      url.includes("action=register.read") ? json(200, { rows: [], visitors: 0 }) : null,
+    );
+    const { unmount } = render(<TeachingSessionScreen occurrenceId={OCC} demoMode={false} />);
+    const phase = await screen.findByTestId("teaching-session-phase");
+    expect(within(phase).getByRole("link", { name: "Show check-in code" })).toHaveAttribute(
+      "href",
+      `/teaching/session/${OCC}/check-in`,
+    );
+    expect(await within(phase).findByRole("button", { name: "Register" })).toBeInTheDocument();
+    const tiles = screen.getByRole("group", { name: "Attendance" });
+    expect(tiles.children).toHaveLength(3);
+    unmount();
+    vi.setSystemTime(new Date("2026-09-30T01:00:00Z")); // 09:00: before check-in opens, not staff
+    serveSession();
+    render(<TeachingSessionScreen occurrenceId={OCC} demoMode={false} />);
+    const quiet = await screen.findByTestId("teaching-session-phase");
+    expect(quiet).toHaveTextContent("Coming up");
+    expect(within(quiet).queryAllByRole("button")).toHaveLength(0);
+    expect(quiet.querySelector(".p-3")).toBeNull();
   });
 
   it("a cancelled or moved session says so in words and offers no Join and no check-in (review focus 5)", async () => {
@@ -171,8 +216,19 @@ describe("the session page", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Register" }));
     const sheet = await screen.findByRole("dialog", { name: "Register" });
     expect(within(sheet).getAllByRole("button", { name: /Remove/ })).toHaveLength(1);
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
     fireEvent.click(within(sheet).getByRole("button", { name: "Remove Dr A" }));
-    await waitFor(() => expect(removed).toEqual([{ action: "attendance.remove", occurrenceId: OCC, userId: "u1" }]));
+    expect(within(sheet).getByTestId("teaching-register-pending")).toHaveTextContent("Removing Dr A.");
+    // Undo inside the 10 seconds: nothing is sent.
+    fireEvent.click(within(sheet).getByRole("button", { name: "Undo" }));
+    await act(async () => vi.advanceTimersByTimeAsync(11_000));
+    expect(removed).toEqual([]);
+    // Left alone, it is sent once the 10 seconds are up.
+    fireEvent.click(within(sheet).getByRole("button", { name: "Remove Dr A" }));
+    await act(async () => vi.advanceTimersByTimeAsync(9_000));
+    expect(removed).toEqual([]);
+    await act(async () => vi.advanceTimersByTimeAsync(1_500));
+    expect(removed).toEqual([{ action: "attendance.remove", occurrenceId: OCC, userId: "u1" }]);
   });
 });
 

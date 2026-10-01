@@ -1,10 +1,9 @@
 "use client";
 
-import { Clock, QrCode } from "lucide-react";
-import { useState } from "react";
+import { ClipboardList, Clock, QrCode } from "lucide-react";
+import { useId, useState } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
-import { ModeFactTile, ModeFactTiles } from "@/components/mode-kit/fact-tile";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
@@ -15,13 +14,12 @@ import {
   changeLine,
   checkinCloses,
   checkinOpens,
-  formatTypedCode,
   isOccurrenceId,
   sessionWhen,
   typedCodeDigits,
 } from "@/components/teaching/session-view-model";
 import { ActionStrip, type TeachingAction } from "@/components/teaching/teaching-actions";
-import { TeachingModule, TeachingSwitch } from "@/components/teaching/teaching-modules";
+import { AttendanceTileRow, TeachingModule, TeachingSwitch } from "@/components/teaching/teaching-modules";
 import { TeachingNavHeader } from "@/components/teaching/teaching-nav-header";
 import type { SessionDetailRead } from "@/components/teaching/teaching-reads";
 import { SessionMaterials } from "@/components/teaching/teaching-resource-list";
@@ -32,6 +30,7 @@ import { joinLabel, joinPlatform } from "@/components/teaching/teaching-view-mod
 import { attendanceTiles, type AttendanceCounts } from "@/components/teaching/use-checkin-code";
 import { useSessionDetail } from "@/components/teaching/use-session-detail";
 import { useTeachingNow } from "@/components/teaching/use-teaching-now";
+import { useDelayedPost } from "@/components/teaching/use-delayed-post";
 import { useTeachingResource } from "@/components/teaching/use-teaching-resource";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -48,10 +47,11 @@ import {
 
 /*
  * One session (spec §9, review focus 5): the phase module (Coming up; On now
- * with Scan to check in and Check in without code; then a quiet Log to CPD),
- * Details, Materials, and for the presenter and organisers the counts and the
- * check-in code. Organisers also get the named register, where a self-reported
- * mark can be removed. A cancelled, moved or removed session says so in words
+ * with Check in with code and Check in without code; then a quiet Log to CPD;
+ * for the presenter and organisers, Show check-in code and Register, in thumb
+ * reach at session time), Details, Materials, and the staff's counts. In the
+ * named register an organiser can remove a self-reported mark, held 10 seconds
+ * under Undo. A cancelled, moved or removed session says so in words
  * and offers no Join and no check-in. A health-service visitor (master plan
  * R5 and R15) gets the read-only view and says "I was there" through What's
  * on, never through this service.
@@ -68,12 +68,14 @@ export function TeachingSessionScreen({ occurrenceId, demoMode, initialSheet, em
   const detail = resource.data;
 
   let body;
+  let ready = false;
   if (!valid || resource.code === "teaching_not_found") body = <ModeNotice>{GONE}</ModeNotice>;
   else if (resource.status === "signed-out") body = <TeachingSignInNotice />;
   else if (resource.status === "offline" || resource.status === "error" || resource.status === "setup")
     body = <TeachingStateNotice state={resource.status} onRetry={resource.retry} />;
   else if (!now || !detail) body = <ModeModuleSkeleton rows={4} eyebrow />;
-  else
+  else {
+    ready = true;
     body = (
       <SessionBody
         key={detail.occurrenceId}
@@ -84,13 +86,21 @@ export function TeachingSessionScreen({ occurrenceId, demoMode, initialSheet, em
         embedded={embedded}
       />
     );
+  }
 
-  const content = <div className="grid gap-3">{body}</div>;
+  const content = (
+    <div className="grid gap-3">
+      {/* Until the session's own title is the heading, the page still has one. */}
+      {!ready && !embedded ? <h1 className="sr-only">Session</h1> : null}
+      {body}
+    </div>
+  );
   if (embedded) return content;
   return (
     <>
+      {/* The body carries the session's full title as the h1 (it wraps; the header row truncates). */}
       <TeachingNavHeader
-        title={detail?.title ?? "Session"}
+        title="Session"
         testIdPrefix="teaching-session"
         back={{ href: "/teaching/week", label: "Week" }}
       />
@@ -128,6 +138,7 @@ function SessionBody({
   const [sheet, setSheet] = useState<"scan" | "cpd" | "register" | null>(initialSheet ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logged, setLogged] = useState(false);
   // `register.read` answers an organiser with names and a presenter with counts only (plan-contracts §4).
   const register = useTeachingResource<RegisterResult>(
     live && staff
@@ -142,6 +153,7 @@ function SessionBody({
   const canSelfReport = !mark && started && (phase === "checkin" || phase === "self");
   const canScan = !mark && !visitor && phase === "checkin";
   const rows = register.data && "rows" in register.data ? register.data.rows : null;
+  const registerFailed = register.status === "error" || register.status === "offline" || register.status === "setup";
 
   async function selfCheckIn() {
     if (!live) {
@@ -173,7 +185,7 @@ function SessionBody({
   if (canScan)
     actions.push({
       id: "scan",
-      label: "Scan to check in",
+      label: "Check in with code",
       icon: QrCode,
       onClick: () => setSheet("scan"),
       emphasis: "primary",
@@ -195,8 +207,31 @@ function SessionBody({
       external: true,
       emphasis: actions.some((action) => action.emphasis === "primary") ? "secondary" : "primary",
     });
-  if (mark && ended && live)
+  if (mark && ended && live && !logged)
     actions.push({ id: "cpd", label: "Log to CPD", onClick: () => setSheet("cpd"), emphasis: "text" });
+
+  // The presenter's and organisers' controls sit in the phase module, in thumb reach at session time.
+  const staffActions: TeachingAction[] = [];
+  if (staff && phase === "checkin")
+    staffActions.push({
+      id: "code",
+      label: "Show check-in code",
+      icon: QrCode,
+      href: `/teaching/session/${detail.occurrenceId}/check-in`,
+      emphasis: actions.some((action) => action.emphasis === "primary") ? "secondary" : "primary",
+      testId: "teaching-session-show-code",
+    });
+  if (staff && rows)
+    staffActions.push({
+      id: "register",
+      label: "Register",
+      icon: ClipboardList,
+      onClick: () => setSheet("register"),
+      emphasis: "secondary",
+      testId: "teaching-session-register",
+    });
+  const hasBody =
+    mark !== null || logged || actions.length > 0 || staffActions.length > 0 || error !== null || registerFailed;
 
   const moduleTitle =
     phase === "checkin" && started && !ended
@@ -231,11 +266,30 @@ function SessionBody({
           freshKey={moduleTitle}
           aside={aside}
         >
-          <div className="grid gap-2 p-3">
-            {mark ? <ModeStateLabel tone="muted">{attendanceLabels[mark.method]}</ModeStateLabel> : null}
-            <ActionStrip actions={actions} layout="stack" />
-            {error ? <ModeNotice tone="warning">{error}</ModeNotice> : null}
-          </div>
+          {hasBody ? (
+            <div className="grid gap-2 p-3">
+              {mark || logged ? (
+                <p className="flex flex-wrap gap-x-3 gap-y-1">
+                  {mark ? <ModeStateLabel tone="muted">{attendanceLabels[mark.method]}</ModeStateLabel> : null}
+                  {logged ? <ModeStateLabel tone="muted">Logged to CPD</ModeStateLabel> : null}
+                </p>
+              ) : null}
+              <ActionStrip actions={actions} layout="stack" />
+              {staffActions.length > 0 ? (
+                <div data-testid="teaching-session-staff-actions">
+                  <ActionStrip actions={staffActions} />
+                </div>
+              ) : null}
+              {error ? (
+                <div role="alert">
+                  <ModeNotice tone="warning">{error}</ModeNotice>
+                </div>
+              ) : null}
+              {registerFailed ? <ModeNotice tone="warning">The register couldn&apos;t load.</ModeNotice> : null}
+            </div>
+          ) : (
+            <div className="pb-3" />
+          )}
         </TeachingModule>
       ) : null}
       <ModeGroupedList mode="teaching" eyebrow="Details" testId="teaching-session-details">
@@ -250,31 +304,11 @@ function SessionBody({
         {detail.presenterName ? <ModeRow title="Presenter" subtitle={detail.presenterName} /> : null}
       </ModeGroupedList>
       <SessionMaterials detail={detail} />
-      {staff ? (
-        <>
-          {detail.counts ? (
-            <div role="group" aria-label="Attendance">
-              <ModeFactTiles>
-                {attendanceTiles(sessionCounts(detail.counts), detail.counts.expected).map((tile) => (
-                  <ModeFactTile key={tile.id} label={tile.label} value={tile.value} />
-                ))}
-              </ModeFactTiles>
-            </div>
-          ) : null}
-          {phase === "checkin" || rows ? (
-            <ModeGroupedList mode="teaching">
-              {phase === "checkin" ? (
-                <ModeRow
-                  title="Show check-in code"
-                  subtitle={`Open until ${checkinCloses(detail)}`}
-                  href={`/teaching/session/${detail.occurrenceId}/check-in`}
-                  testId="teaching-session-show-code"
-                />
-              ) : null}
-              {rows ? <TeachingRow title="Register" onClick={() => setSheet("register")} /> : null}
-            </ModeGroupedList>
-          ) : null}
-        </>
+      {staff && detail.counts ? (
+        <AttendanceTileRow
+          label="Attendance"
+          tiles={attendanceTiles(sessionCounts(detail.counts), detail.counts.expected)}
+        />
       ) : null}
       {canScan ? (
         <ScanSheet
@@ -292,6 +326,7 @@ function SessionBody({
           occurrenceId={detail.occurrenceId}
           startsAt={detail.startsAt}
           endsAt={detail.endsAt}
+          onLogged={() => setLogged(true)}
         />
       ) : null}
       {rows ? (
@@ -353,9 +388,27 @@ function ScanSheet({
     }
   }
 
+  const formId = useId();
   return (
-    <Sheet open={open} onClose={onClose} title="Scan to check in">
-      <div className="grid gap-3">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Check in with code"
+      footer={
+        <Button type="submit" form={formId} variant="primary" block busy={busy} busyLabel="Checking in">
+          Check in
+        </Button>
+      }
+    >
+      <form
+        id={formId}
+        className="grid gap-3"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!busy) void submit();
+        }}
+      >
         <p className="text-sm text-[color:var(--text-heading)]">
           Open your phone&apos;s camera and point it at the code on screen.
         </p>
@@ -374,15 +427,13 @@ function ScanSheet({
           label="Or type the six digits"
           inputMode="numeric"
           autoComplete="one-time-code"
+          maxLength={6}
           value={typed}
-          onChange={(event) => setTyped(event.target.value)}
-          placeholder={formatTypedCode("000000")}
+          onChange={(event) => setTyped(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="000000"
           error={error ?? undefined}
         />
-        <Button variant="primary" block busy={busy} busyLabel="Checking in" onClick={() => void submit()}>
-          Check in
-        </Button>
-      </div>
+      </form>
     </Sheet>
   );
 }
@@ -401,23 +452,31 @@ function RegisterSheet({
   onChanged: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  // Held for 10 seconds under Undo (the Organise pattern), then sent; `removing` covers the send itself.
+  const delayed = useDelayedPost();
   const [removing, setRemoving] = useState<string | null>(null);
 
-  async function remove(userId: string) {
+  function remove(userId: string, name: string) {
     setError(null);
     setRemoving(userId);
-    try {
-      await teachingPost(teachingServiceUrl(detail.serviceId), {
-        action: "attendance.remove",
-        occurrenceId: detail.occurrenceId,
-        userId,
-      });
-      onChanged();
-    } catch (cause) {
-      setError(teachingErrorMessage(cause));
-    } finally {
-      setRemoving(null);
-    }
+    delayed.schedule({
+      label: `Removing ${name}`,
+      url: teachingServiceUrl(detail.serviceId),
+      body: { action: "attendance.remove", occurrenceId: detail.occurrenceId, userId },
+      onPosted: () => {
+        setRemoving(null);
+        onChanged();
+      },
+      onFailed: (cause) => {
+        setRemoving(null);
+        setError(teachingErrorMessage(cause));
+      },
+    });
+  }
+
+  function undo() {
+    delayed.undo();
+    setRemoving(null);
   }
 
   return (
@@ -443,7 +502,8 @@ function RegisterSheet({
                         aria-label={`Remove ${name}`}
                         busy={removing === userId}
                         busyLabel="Removing"
-                        onClick={() => void remove(userId)}
+                        disabled={removing !== null}
+                        onClick={() => remove(userId, name)}
                       >
                         Remove
                       </Button>
@@ -454,7 +514,23 @@ function RegisterSheet({
             })}
           </ModeGroupedList>
         )}
-        {error ? <ModeNotice tone="warning">{error}</ModeNotice> : null}
+        {delayed.pending ? (
+          <div
+            role="status"
+            data-testid="teaching-register-pending"
+            className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-1 pr-1 pl-3"
+          >
+            <span className="text-sm text-[color:var(--text-heading)]">{`${delayed.pending}.`}</span>
+            <Button variant="ghost" onClick={undo}>
+              Undo
+            </Button>
+          </div>
+        ) : null}
+        {error ? (
+          <div role="alert">
+            <ModeNotice tone="warning">{error}</ModeNotice>
+          </div>
+        ) : null}
       </div>
     </Sheet>
   );

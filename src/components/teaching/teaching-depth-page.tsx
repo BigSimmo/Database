@@ -9,6 +9,13 @@ import { TeachingStateNotice } from "@/components/teaching/teaching-states";
 import type { TeachingResource } from "@/components/teaching/use-teaching-resource";
 import { useAuthSession } from "@/lib/supabase/client";
 
+/**
+ * A depth page's submit, held at the bottom of the screen inside the page's own flow (not fixed chrome),
+ * so a long list never pushes it out of thumb reach. It paints the page background and adds no padding.
+ */
+export const teachingStickySubmit =
+  "sticky bottom-0 z-[var(--z-raised)] -mx-3 grid gap-2 border-t border-[color:var(--border)] bg-[color:var(--background)] px-3 py-2";
+
 /** Account changes also clear unsaved choices and mutation results, not just fetched records. */
 export function TeachingAccountPage({
   component: Component,

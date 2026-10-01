@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
+import { ModeFactTile } from "@/components/mode-kit/fact-tile";
 import { modeDot, modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { modeNumberText } from "@/components/mode-kit/type";
@@ -534,5 +535,22 @@ export function DrainingHairline({
     >
       <line x1="0" y1="1" x2={String(Math.round(left * 100))} y2="1" stroke="currentColor" strokeWidth="2" />
     </svg>
+  );
+}
+
+/** The attendance counts as one compact row: three tiles fit across a 390px phone, four from a little wider. */
+export function AttendanceTileRow({
+  tiles,
+  label,
+}: {
+  tiles: readonly { id: string; label: string; value: string }[];
+  label: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2">
+      {tiles.map((tile) => (
+        <ModeFactTile key={tile.id} label={tile.label} value={tile.value} />
+      ))}
+    </div>
   );
 }

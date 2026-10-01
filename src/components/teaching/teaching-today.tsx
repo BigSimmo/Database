@@ -6,6 +6,7 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
+import { catchUpCount } from "@/components/teaching/teaching-catch-up";
 import { TeachingCalendarSheet } from "@/components/teaching/teaching-calendar-sheet";
 import { addDays, perthDateKey } from "@/components/teaching/teaching-dates";
 import { TeachingHero } from "@/components/teaching/teaching-hero";
@@ -69,6 +70,7 @@ function TodayBody({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [checkedIn, setCheckedIn] = useState(false);
   const live = view.demo === "off";
   const week = view.status === "ready" ? view.week : null;
   const teamValue = week && (team === ALL_TEAMS || week.teams.some((t) => t.id === team)) ? team : ALL_TEAMS;
@@ -89,6 +91,13 @@ function TodayBody({
     return <TeachingStateNotice state={view.status} onRetry={view.retry} />;
   if (!week || (!inRange && later.status === "loading")) return <ModeModuleSkeleton rows={2} twoLine eyebrow />;
   if (week.teams.length === 0 && week.relocated.length === 0) return <TeachingStateNotice state="no-team" />;
+  // A failed `view=next-session` read is not "No sessions yet": say what went wrong.
+  const laterStatus = later.status;
+  const laterFailure =
+    !inRange &&
+    (laterStatus === "offline" || laterStatus === "error" || laterStatus === "setup" || laterStatus === "signed-out")
+      ? laterStatus
+      : null;
 
   const bar = (
     <TeachingContextBar
@@ -98,6 +107,18 @@ function TodayBody({
       demoTag={!live || week.teams.some((t) => t.isDemo)}
     />
   );
+  if (laterFailure) {
+    return (
+      <>
+        {bar}
+        {laterFailure === "signed-out" ? (
+          <TeachingSignInNotice onOpenDemo={onOpenDemo} />
+        ) : (
+          <TeachingStateNotice state={laterFailure} onRetry={later.retry} />
+        )}
+      </>
+    );
+  }
   if (!next) {
     const chosen = week.teams.find((t) => t.id === teamValue) ?? (week.teams.length === 1 ? week.teams[0] : undefined);
     return (
@@ -131,11 +152,13 @@ function TodayBody({
     }
     setSaving(true);
     setSaveError(null);
+    setCheckedIn(false);
     try {
       await teachingPost(teachingServiceUrl(next.serviceId), {
         action: "attendance.self",
         occurrenceId: next.occurrenceId,
       });
+      setCheckedIn(true);
       view.retry();
     } catch (cause) {
       setSaveError(teachingErrorMessage(cause));
@@ -156,8 +179,13 @@ function TodayBody({
     <>
       {bar}
       <TeachingHero {...hero} actions={actions} />
-      {saveError ? <ModeNotice tone="warning">{saveError}</ModeNotice> : null}
-      <NeedsYou live={live} />
+      {checkedIn ? <ModeNotice testId="teaching-today-checked-in">Checked in.</ModeNotice> : null}
+      {saveError ? (
+        <div role="alert">
+          <ModeNotice tone="warning">{saveError}</ModeNotice>
+        </div>
+      ) : null}
+      <NeedsYou live={live} today={today} catchUp={catchUpCount(week, now)} />
       <ModeGroupedList testId="teaching-rest-of-week">
         <ModeRow
           href="/teaching/week"

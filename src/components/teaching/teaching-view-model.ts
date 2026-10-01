@@ -174,7 +174,7 @@ export function heroModel(session: SessionSummaryRead | null, input: HeroInput):
   if (href === null) actions = [{ id: "week", label: "See it in Week", href: "/teaching/week", emphasis: "primary" }];
   else if (checkinOpen)
     actions = [
-      { id: "scan", label: "Scan to check in", href: `${href}?check-in=scan`, emphasis: "primary" },
+      { id: "scan", label: "Check in with code", href: `${href}?check-in=scan`, emphasis: "primary" },
       { id: "self", label: "Check in without code", emphasis: "text" },
     ];
   else if (!isToday)

@@ -259,7 +259,7 @@ describe("ActionStrip", () => {
       <ActionStrip
         layout="stack"
         actions={[
-          { id: "scan", label: "Scan to check in", href: `/teaching/session/${OCC}?check-in=scan` },
+          { id: "scan", label: "Check in with code", href: `/teaching/session/${OCC}?check-in=scan` },
           {
             id: "self",
             label: "Check in without code",
@@ -271,7 +271,7 @@ describe("ActionStrip", () => {
         ]}
       />,
     );
-    expect(screen.getByRole("link", { name: "Scan to check in" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Check in with code" })).toHaveAttribute(
       "href",
       `/teaching/session/${OCC}?check-in=scan`,
     );

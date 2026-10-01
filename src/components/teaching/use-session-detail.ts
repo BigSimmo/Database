@@ -20,9 +20,9 @@ export function useSessionDetail(
     [demo, occurrenceId, now],
   );
   if (!demo) return resource;
-  if (!occurrenceId) return { status: "idle", data: null, code: null, retry: resource.retry };
-  if (!now) return { status: "loading", data: null, code: null, retry: resource.retry };
+  if (!occurrenceId) return { status: "idle", data: null, code: null, refreshing: false, retry: resource.retry };
+  if (!now) return { status: "loading", data: null, code: null, refreshing: false, retry: resource.retry };
   return demoDetail
-    ? { status: "ready", data: demoDetail, code: null, retry: resource.retry }
-    : { status: "error", data: null, code: "teaching_not_found", retry: resource.retry };
+    ? { status: "ready", data: demoDetail, code: null, refreshing: false, retry: resource.retry }
+    : { status: "error", data: null, code: "teaching_not_found", refreshing: false, retry: resource.retry };
 }

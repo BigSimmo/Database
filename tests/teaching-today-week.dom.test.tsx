@@ -180,7 +180,7 @@ describe("the view model", () => {
     const open = heroModel(session(), { ...heroInput, now: DURING });
     expect(open).toMatchObject({ eyebrowRight: "On now", live: true });
     expect(open.actions.map((a) => [a.label, a.emphasis])).toEqual([
-      ["Scan to check in", "primary"],
+      ["Check in with code", "primary"],
       ["Check in without code", "text"],
     ]);
     const tuesday = session({ startsAt: "2026-10-06T00:00:00.000Z", endsAt: "2026-10-06T00:45:00.000Z" });
@@ -270,12 +270,48 @@ describe("Today", () => {
     });
     render(<TeachingToday demoMode={false} />);
     const hero = await screen.findByTestId("teaching-hero");
-    expect(within(hero).getByRole("link", { name: "Scan to check in" })).toHaveAttribute(
+    expect(within(hero).getByRole("link", { name: "Check in with code" })).toHaveAttribute(
       "href",
       `/teaching/session/${OCC}?check-in=scan`,
     );
     fireEvent.click(within(hero).getByRole("button", { name: "Check in without code" }));
     await waitFor(() => expect(screen.getByTestId("teaching-hero")).toHaveTextContent("Self-reported"));
+    expect(screen.getByTestId("teaching-today-checked-in")).toHaveAttribute("role", "status");
+    expect(screen.getByTestId("teaching-today-checked-in")).toHaveTextContent("Checked in.");
+  });
+
+  it("puts a check-in save error in an alert", async () => {
+    vi.setSystemTime(DURING);
+    serveFetch((url) =>
+      url === `/api/teaching/services/${TEAM_A}`
+        ? apiError(503, "teaching_unavailable")
+        : url.startsWith("/api/teaching?view=week")
+          ? json(200, week())
+          : null,
+    );
+    render(<TeachingToday demoMode={false} />);
+    const hero = await screen.findByTestId("teaching-hero");
+    fireEvent.click(within(hero).getByRole("button", { name: "Check in without code" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByTestId("teaching-today-checked-in")).toBeNull();
+  });
+
+  it("says the next-session read failed rather than claiming there are no sessions", async () => {
+    let calls = 0;
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week")
+        ? json(200, week({ sessions: [] }))
+        : url === "/api/teaching?view=next-session"
+          ? calls++ === 0
+            ? apiError(500, "teaching_unavailable")
+            : json(200, { session: null })
+          : null,
+    );
+    render(<TeachingToday demoMode={false} />);
+    expect(await screen.findByTestId("teaching-state-error")).toBeInTheDocument();
+    expect(screen.queryByTestId("teaching-state-empty")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("teaching-state-empty")).toBeInTheDocument();
   });
 
   it("asks for the next session when nothing falls in the next seven days, and opens the calendar sheet", async () => {
@@ -418,8 +454,34 @@ describe("Week", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Presenting" }));
     expect(screen.queryByTestId(`teaching-row-${OCC}`)).toBeNull();
     expect(screen.getByTestId("teaching-row-mine")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "This week" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next week" }));
     await waitFor(() => expect(fetchCalls(fetchMock, "/api/teaching?view=week&from=2026-10-05&to=2026-10-11")).toBe(1));
+  });
+
+  it("moves by week with icon arrows, offers This week only away from it, and words an empty week by when it is", async () => {
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week") ? json(200, week({ sessions: [] })) : onCallRoutes(url),
+    );
+    render(<TeachingWeekScreen demoMode={false} />);
+    expect(await screen.findByText("No more sessions this week.")).toBeInTheDocument();
+    const nav = byId("teaching-week-nav");
+    expect(within(nav).getByRole("button", { name: "Previous week" })).toHaveTextContent("");
+    expect(within(nav).queryByRole("button", { name: "This week" })).toBeNull();
+    fireEvent.click(within(nav).getByRole("button", { name: "Previous week" }));
+    expect(await screen.findByText("No sessions this week.")).toBeInTheDocument();
+    expect(byId("teaching-week-nav")).toHaveTextContent("Mon 21 Sep – Sun 27 Sep");
+    fireEvent.click(within(byId("teaching-week-nav")).getByRole("button", { name: "This week" }));
+    expect(await screen.findByText("No more sessions this week.")).toBeInTheDocument();
+    expect(byId("teaching-week-nav")).toHaveTextContent("Mon 28 Sep – Sun 4 Oct");
+  });
+
+  it("says when the reader is not in a teaching service yet", async () => {
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week") ? json(200, week({ teams: [], sessions: [] })) : onCallRoutes(url),
+    );
+    render(<TeachingWeekScreen demoMode={false} />);
+    expect(await screen.findByTestId("teaching-state-no-team")).toBeInTheDocument();
   });
 
   it("adds a service to the calendar, and says In sync once part 2 reports it", async () => {

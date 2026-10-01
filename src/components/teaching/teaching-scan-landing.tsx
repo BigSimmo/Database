@@ -128,16 +128,24 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
   }
 
   const opened = state.opened;
+  const todayLink = (
+    <Link href="/teaching" className={cn(buttonFaceClass({ variant: "ghost", block: true }), "no-underline")}>
+      Go to Today
+    </Link>
+  );
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-scan">
       <div className="grid gap-3">
-        <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">
-          {state.kind === "done"
-            ? "You're checked in"
-            : state.kind === "sign-in"
-              ? "Sign in to finish checking in"
-              : "Check in"}
-        </h1>
+        {/* A live region around the heading (always present, so a change is announced): "You're checked in" is read out without losing the heading. */}
+        <div role="status">
+          <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">
+            {state.kind === "done"
+              ? "You're checked in"
+              : state.kind === "sign-in"
+                ? "Sign in to finish checking in"
+                : "Check in"}
+          </h1>
+        </div>
         {opened ? (
           <div className={cn(modeModuleSurface, "grid gap-0.5 p-3")}>
             <p className="text-base-minus font-medium text-[color:var(--text-heading)]">{opened.title}</p>
@@ -158,14 +166,43 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
             >
               Open the session
             </Link>
+            {todayLink}
           </>
         ) : null}
 
         {state.kind === "sign-in" ? (
           state.sent ? (
-            <ModeNotice>Check your email. Open the link on this phone, in this browser, within 10 minutes.</ModeNotice>
-          ) : (
             <div className="grid gap-2">
+              <ModeNotice>
+                Check your email. Open the link on this phone, in this browser, within 10 minutes.
+              </ModeNotice>
+              <Button
+                variant="secondary"
+                block
+                busy={sending}
+                busyLabel="Sending"
+                onClick={() => void sendLink(opened)}
+              >
+                Send again
+              </Button>
+              <Button variant="ghost" block onClick={() => setState({ kind: "sign-in", opened, sent: false })}>
+                Use a different email
+              </Button>
+              {emailError ? (
+                <div role="alert">
+                  <ModeNotice tone="warning">{emailError}</ModeNotice>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <form
+              className="grid gap-2"
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!sending) void sendLink(opened);
+              }}
+            >
               <p className={cn("text-sm", textMuted)}>Your scan is kept on this phone for 10 minutes.</p>
               <TextField
                 label="Email"
@@ -173,12 +210,13 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                enterKeyHint="send"
                 error={emailError ?? undefined}
               />
-              <Button variant="primary" block busy={sending} busyLabel="Sending" onClick={() => void sendLink(opened)}>
+              <Button type="submit" variant="primary" block busy={sending} busyLabel="Sending">
                 Email me a sign-in link
               </Button>
-            </div>
+            </form>
           )
         ) : null}
 
@@ -192,6 +230,7 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
                 Try again
               </Button>
             ) : null}
+            {todayLink}
           </div>
         ) : null}
 

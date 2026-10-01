@@ -41,7 +41,7 @@ describe("presenterPrep", () => {
   it("names the day, the readiness count and an unconfirmed de-identification", () => {
     expect(presenterPrep(teach(), "2026-10-01")).toEqual({
       title: "You present Wed 7 Oct",
-      subtitle: "2 of 4 prep items done · de-identification not confirmed",
+      subtitle: "2\u00a0of 4 prep items done · de-identification not confirmed",
     });
   });
 

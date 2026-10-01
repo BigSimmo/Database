@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -27,6 +27,7 @@ export function TeachingRow({
   onClick,
   externalHref,
   trailing,
+  busy = false,
   testId,
 }: {
   readonly title: ReactNode;
@@ -37,6 +38,8 @@ export function TeachingRow({
   readonly externalHref?: string | null;
   /** A control beside an external link, such as a save toggle. */
   readonly trailing?: ReactNode;
+  /** An `onClick` row whose work is running: announced busy and not pressable again until it ends. */
+  readonly busy?: boolean;
   readonly testId?: string;
 }) {
   const twoLine = Boolean(subtitle) || Boolean(meta);
@@ -63,6 +66,7 @@ export function TeachingRow({
       <li className={cn(modeInsetHairline, "flex min-w-0 items-center pr-1")}>
         <a href={externalHref} target="_blank" rel="noreferrer" data-testid={testId} className={control}>
           {text}
+          <span className="sr-only"> (opens in a new tab)</span>
           <ExternalLink aria-hidden="true" className={chevron} />
         </a>
         {trailing ? <span className="flex shrink-0 items-center gap-1">{trailing}</span> : null}
@@ -72,9 +76,20 @@ export function TeachingRow({
   if (onClick) {
     return (
       <li className={cn(modeInsetHairline, "flex min-w-0 items-center pr-1")}>
-        <button type="button" onClick={onClick} data-testid={testId} className={control}>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={busy}
+          aria-busy={busy || undefined}
+          data-testid={testId}
+          className={cn(control, "disabled:cursor-progress")}
+        >
           {text}
-          <ChevronRight aria-hidden="true" className={chevron} />
+          {busy ? (
+            <Loader2 aria-hidden="true" className={cn(chevron, "animate-spin motion-reduce:animate-none")} />
+          ) : (
+            <ChevronRight aria-hidden="true" className={chevron} />
+          )}
         </button>
       </li>
     );
@@ -86,5 +101,37 @@ export function TeachingRow({
     >
       {text}
     </li>
+  );
+}
+
+/**
+ * The 10-second Undo bar (v5.2): fixed above the page's bottom edge in the toast layer, one line and
+ * one Undo. Organise's delayed posts, Supervision's held confirmations and a collection's removals
+ * all use this one bar, so an unsent change always looks and behaves the same.
+ */
+export function TeachingUndoBar({
+  children,
+  onUndo,
+  testId,
+}: {
+  readonly children: ReactNode;
+  readonly onUndo: () => void;
+  readonly testId?: string;
+}) {
+  return (
+    <div
+      role="status"
+      data-testid={testId}
+      className="fixed inset-x-4 bottom-4 z-[var(--z-toast)] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-1 pr-1 pl-3 shadow-[var(--e4)]"
+    >
+      <span className="min-w-0 text-sm text-[color:var(--text-heading)]">{children}</span>
+      <button
+        type="button"
+        onClick={onUndo}
+        className={cn("min-h-tap min-w-tap shrink-0 px-3 text-sm font-medium text-[color:var(--primary)]", focusRing)}
+      >
+        Undo
+      </button>
+    </div>
   );
 }

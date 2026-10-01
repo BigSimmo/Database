@@ -144,6 +144,23 @@ describe("Logbook", () => {
     expect(screen.getByRole("link", { name: "Download CSV" }).getAttribute("href")).toMatch(/^blob:|^data:text\/csv/);
   });
 
+  it("links Supervision, the CPD review and Feedback as rows, counting what is not in CPD yet", async () => {
+    serveFetch((url) =>
+      url === "/api/teaching?view=logbook"
+        ? json(200, { attendance: [row(), row({ occurrenceId: "x", cpdEntryId: "e" })] })
+        : null,
+    );
+    render(<TeachingLogbook demoMode={false} />);
+    const links = within(await screen.findByRole("navigation", { name: "Logbook actions" }));
+    expect(links.getByRole("link", { name: /^Supervision/ })).toHaveAttribute("href", "/teaching/supervision");
+    expect(links.getByRole("link", { name: /^Give feedback/ })).toHaveAttribute("href", "/teaching/feedback");
+    await waitFor(() =>
+      expect(links.getByRole("link", { name: /^Weekly CPD review/ }).textContent).toContain(
+        `1${NB}session not in CPD yet`,
+      ),
+    );
+  });
+
   it("says so when there are no check-ins yet", async () => {
     serveFetch((url) => (url === "/api/teaching?view=logbook" ? json(200, { attendance: [] }) : null));
     render(<TeachingLogbook demoMode={false} />);
@@ -189,6 +206,40 @@ describe("Organise", () => {
     serveOrganise([teamA]);
     render(<TeachingOrganise demoMode={false} />);
     expect(await screen.findByText("Organise is for your service's organisers.")).toBeInTheDocument();
+  });
+
+  it("offers Import a timetable only to organisers and admins, never in the demo", async () => {
+    serveOrganise([teamA]);
+    const first = render(<TeachingOrganise demoMode={false} />);
+    expect(await screen.findByText("Organise is for your service's organisers.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Import a timetable" })).toBeNull();
+    first.unmount();
+    serveOrganise([organiser]);
+    const second = render(<TeachingOrganise demoMode={false} />);
+    expect(await screen.findByRole("link", { name: "Import a timetable" })).toHaveAttribute("href", "/teaching/import");
+    second.unmount();
+    render(<TeachingOrganise demoMode />);
+    expect(await screen.findByTestId("teaching-organise-demo")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Import a timetable" })).toBeNull();
+  });
+
+  it("shows Download attendance as busy while the export is read", async () => {
+    let finish: (response: Response) => void = () => {};
+    serveFetch((url) => {
+      if (url.startsWith("/api/teaching?view=week")) return json(200, week({ teams: [organiser] }));
+      if (url === ORGANISE_URL) return json(200, organise);
+      if (url.startsWith(`/api/teaching/services/${TEAM_A}?action=export.attendance`))
+        return new Promise<Response>((resolve) => (finish = resolve));
+      return null;
+    });
+    render(<TeachingOrganise demoMode={false} />);
+    const download = await screen.findByRole("button", { name: /Download attendance/ });
+    fireEvent.click(download);
+    expect(download).toHaveAttribute("aria-busy", "true");
+    expect(download).toBeDisabled();
+    expect(download).toHaveTextContent("Preparing the spreadsheet…");
+    await act(async () => finish(json(200, { rows: [] })));
+    await waitFor(() => expect(download).not.toHaveAttribute("aria-busy"));
   });
 
   it("names the one risk in the next 48 hours, and shows the counts", async () => {
