@@ -64,7 +64,11 @@ export function renewalsFilterItems(
 }
 
 export function matchesRenewalsShow(filter: RenewalsShowFilter, item: RenewalsFilterItem, now: Date): boolean {
-  if (filter === "not-recorded") return item.kind === "catalogue" && item.row.state === "not-recorded";
+  // Exactly what Renewals and Today's Needs you call "not recorded": a catalogue
+  // item with no row at all, or one of the doctor's own renewals saved with no date.
+  if (filter === "not-recorded") {
+    return item.kind === "catalogue" ? item.row.state === "not-recorded" : item.expiresOn === undefined;
+  }
   const expiresOn = renewalsFilterItemExpiresOn(item);
   if (!expiresOn) return false;
   const today = perthCalendarDate(now);
@@ -81,7 +85,9 @@ export function renewalsShowMatches(
   catalogue: readonly AdminRequirementCatalogueItem[] = ADMIN_REQUIREMENTS_CATALOGUE,
 ): RenewalsFilterItem[] {
   const matches = renewalsFilterItems(own, catalogue).filter((item) => matchesRenewalsShow(filter, item, now));
-  if (filter === "not-recorded") return matches;
+  // Personal renewals first, then catalogue items: the order Needs you names them in.
+  if (filter === "not-recorded")
+    return [...matches.filter((m) => m.kind === "personal"), ...matches.filter((m) => m.kind === "catalogue")];
   return matches.sort((a, b) =>
     (renewalsFilterItemExpiresOn(a) ?? "").localeCompare(renewalsFilterItemExpiresOn(b) ?? ""),
   );
