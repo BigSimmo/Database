@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { ADMIN_REQUIREMENTS_CATALOGUE } from "@/lib/admin/requirements";
-import { selectNeedsYou, selectRenewNext, selectRequirementsSummary } from "@/lib/admin/today-selectors";
+import {
+  COMING_UP_LIMIT,
+  selectComingUp,
+  selectNeedsYou,
+  selectRenewNext,
+  selectRequirementsSummary,
+} from "@/lib/admin/today-selectors";
 import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
 // 09:00 on Sat 26 Sep 2026 in Perth. Every instant below is UTC, so the Perth
@@ -224,5 +230,96 @@ describe("selectRequirementsSummary", () => {
   it("never counts an admin row that is not compliance at all", () => {
     const adminRow = onCallEntryFixture({ section: "logistics", details: { category: "Pay" } });
     expect(selectRequirementsSummary([adminRow])).toEqual(selectRequirementsSummary([]));
+  });
+});
+
+describe("selectNeedsYou notRecordedCount", () => {
+  it("counts every not-recorded date even when passed rows push the grouped row past the two-row cap", () => {
+    const passed = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04"].map((expiresOn, index) =>
+      complianceFixture(`Personal passed ${index}`, { category: "Training", expiresOn }),
+    );
+    const undated = complianceFixture("Personal undated", { category: "Training" });
+    const needsYou = selectNeedsYou([...passed, undated], NOW);
+    expect(needsYou?.rows.some((row) => row.kind === "not-recorded")).toBe(false);
+    // One personal undated row plus every catalogue item with no row at all.
+    expect(needsYou?.notRecordedCount).toBe(1 + ADMIN_REQUIREMENTS_CATALOGUE.length);
+  });
+
+  it("is zero when nothing is unrecorded", () => {
+    const recordedAll = ADMIN_REQUIREMENTS_CATALOGUE.map((item) =>
+      complianceFixture(item.title, { category: "Registration", requirementId: item.id, expiresOn: "2026-09-01" }),
+    );
+    expect(selectNeedsYou(recordedAll, NOW)?.notRecordedCount).toBe(0);
+  });
+});
+
+describe("selectComingUp", () => {
+  const registration = complianceFixture("Medical registration", {
+    category: "Registration",
+    requirementId: "medical-registration-renewal",
+    expiresOn: "2026-10-15",
+  });
+  const wwc = complianceFixture("Working with Children card", { category: "Clearances", expiresOn: "2026-09-03" });
+  const flu = complianceFixture("Flu shot", { category: "Health", expiresOn: "2026-10-02" });
+  const indemnity = complianceFixture("Indemnity", { category: "Indemnity", expiresOn: "2027-06-30" });
+  const lastDay = complianceFixture("Last day in range", { category: "Training", expiresOn: "2027-09-26" });
+  const tooFar = complianceFixture("Passport", { category: "Training", expiresOn: "2027-09-27" });
+  const undated = complianceFixture("Police check", { category: "Clearances" });
+
+  it("puts passed dates first under 'Date passed', then groups the next 12 months by Perth calendar month", () => {
+    const comingUp = selectComingUp([indemnity, registration, tooFar, undated, flu, wwc, lastDay], NOW);
+    expect(comingUp.groups.map((group) => [group.kind, group.label])).toEqual([
+      ["passed", "Date passed"],
+      ["month", "Oct 2026"],
+      ["month", "Jun 2027"],
+      ["month", "Sep 2027"],
+    ]);
+    expect(comingUp.groups[0].rows.map((row) => row.title)).toEqual(["Working with Children card"]);
+    // Soonest first inside a month; a catalogue row carries the checklist's own title.
+    expect(comingUp.groups[1].rows.map((row) => row.title)).toEqual(["Flu shot", "Medical registration renewal"]);
+    expect(comingUp.groups[1].rows[1]).toEqual({
+      entryId: registration.id,
+      title: "Medical registration renewal",
+      expiresOn: "2026-10-15",
+    });
+    // 365 days out is in; 366 is not; an undated row never appears.
+    const titles = comingUp.groups.flatMap((group) => group.rows.map((row) => row.title));
+    expect(titles).toContain("Last day in range");
+    expect(titles).not.toContain("Passport");
+    expect(titles).not.toContain("Police check");
+    expect(comingUp).toMatchObject({ shown: 5, total: 5 });
+  });
+
+  it("turns over at Perth midnight, not UTC midnight", () => {
+    const due = complianceFixture("Due today", { category: "Training", expiresOn: "2026-09-26" });
+    // 23:30 UTC on 25 Sep is already 07:30 on 26 Sep in Perth: due today, not passed.
+    expect(selectComingUp([due], new Date("2026-09-25T23:30:00Z")).groups[0].kind).toBe("month");
+    // 16:30 UTC on 26 Sep is 00:30 on 27 Sep in Perth: the date has passed.
+    expect(selectComingUp([due], new Date("2026-09-26T16:30:00Z")).groups[0].kind).toBe("passed");
+  });
+
+  it("caps the rows and reports the full total for 'See all in Renewals'", () => {
+    const many = Array.from({ length: COMING_UP_LIMIT + 3 }, (_, index) =>
+      complianceFixture(`Item ${index}`, {
+        category: "Training",
+        expiresOn: `2026-11-${String(index + 1).padStart(2, "0")}`,
+      }),
+    );
+    const comingUp = selectComingUp(many, NOW);
+    expect(comingUp.groups.flatMap((group) => group.rows)).toHaveLength(COMING_UP_LIMIT);
+    expect(comingUp).toMatchObject({ shown: COMING_UP_LIMIT, total: COMING_UP_LIMIT + 3 });
+  });
+
+  it("leaves out rows marked not for this job, as Renewals does", () => {
+    const flagged = complianceFixture("Skipped", {
+      category: "Training",
+      expiresOn: "2026-10-20",
+      notForThisJob: true,
+    });
+    expect(selectComingUp([flagged], NOW)).toEqual({ groups: [], shown: 0, total: 0 });
+  });
+
+  it("is empty when nothing is dated", () => {
+    expect(selectComingUp([undated], NOW)).toEqual({ groups: [], shown: 0, total: 0 });
   });
 });
