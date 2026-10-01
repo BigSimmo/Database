@@ -14,6 +14,8 @@ import { RosterCoverTab } from "./roster-cover-tab";
 import { RosterPeopleList } from "./roster-people-list";
 import { RosterTeamSettings } from "./roster-team-settings";
 import { RosterPublishTab } from "./publish/roster-publish-tab";
+import { ClipboardList } from "lucide-react";
+import { RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 
 function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | null }) {
   const { serviceId } = team;
@@ -84,6 +86,13 @@ export function RosterManagePage() {
   return (
     <InformationPageShell>
       <div className="grid gap-4" data-mode-identity="roster">
+        <RosterPageHeader
+          icon={ClipboardList}
+          eyebrow="Roster"
+          title="Manage"
+          subtitle="Cover, publishing and team settings."
+          ask={false}
+        />
         {teams.status === "loading" ? (
           <p>Loading your teams…</p>
         ) : teams.status !== "ready" ? (
@@ -100,7 +109,7 @@ export function RosterManagePage() {
               <label className="grid gap-1">
                 Team
                 <select
-                  className="min-h-12 w-full min-w-0 rounded border bg-background p-2"
+                  className={rosterField}
                   value={team.serviceId}
                   onChange={(event) => setSelected(event.target.value)}
                 >
