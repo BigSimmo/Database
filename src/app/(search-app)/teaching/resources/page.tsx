@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { TeachingResources } from "@/components/teaching/teaching-resources";
-import { isDemoMode } from "@/lib/env";
+import { teachingDemoMode } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "Resources | Teaching | PsychSift",
@@ -10,6 +10,6 @@ export const metadata: Metadata = {
 };
 
 /* Demo mode is read on the server; in the demo the page still reads, and the server serves made-up links. */
-export default function TeachingResourcesRoute() {
-  return <TeachingResources demoMode={isDemoMode()} />;
+export default async function TeachingResourcesRoute() {
+  return <TeachingResources demoMode={await teachingDemoMode()} />;
 }

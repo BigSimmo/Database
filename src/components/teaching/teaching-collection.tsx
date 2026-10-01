@@ -56,11 +56,7 @@ export function TeachingCollection({ collection, demoMode }: { collection: strin
   const query = builtIn ? `builtIn=${collection}` : `collectionId=${collection}`;
   // Demo mode reads too: the server answers with the made-up collections (master plan R8).
   const read = useTeachingResource<CollectionRead>(`/api/teaching/resources?action=collection.read&${query}`);
-  const week = useTeachingWeek(
-    monday ? { from: monday, to: addDays(monday, 6) } : null,
-    { demoMode, signedOutDemo: false },
-    now,
-  );
+  const week = useTeachingWeek(monday ? { from: monday, to: addDays(monday, 6) } : null, { demoMode }, now);
   const [type, setType] = useState<ResourceType>("all");
   const [filter, setFilter] = useState("");
   const [adding, setAdding] = useState(false);

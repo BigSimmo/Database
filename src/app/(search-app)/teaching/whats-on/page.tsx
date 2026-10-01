@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { TeachingWhatsOn } from "@/components/teaching/teaching-whats-on";
-import { isDemoMode } from "@/lib/env";
+import { teachingDemoMode } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "What's on | Teaching | PsychSift",
@@ -10,6 +10,6 @@ export const metadata: Metadata = {
 };
 
 /* Demo mode is read on the server; the server itself decides which sessions the reader sees. */
-export default function TeachingWhatsOnRoute() {
-  return <TeachingWhatsOn demoMode={isDemoMode()} />;
+export default async function TeachingWhatsOnRoute() {
+  return <TeachingWhatsOn demoMode={await teachingDemoMode()} />;
 }

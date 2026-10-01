@@ -48,11 +48,7 @@ export function TeachingResources({ demoMode }: { demoMode: boolean }) {
   const read = useTeachingResource<ResourcesForWeek>(
     monday ? `/api/teaching/resources?action=resources.read&weekStart=${monday}` : null,
   );
-  const week = useTeachingWeek(
-    monday ? { from: monday, to: addDays(monday, 6) } : null,
-    { demoMode, signedOutDemo: false },
-    now,
-  );
+  const week = useTeachingWeek(monday ? { from: monday, to: addDays(monday, 6) } : null, { demoMode }, now);
   const teams = useMemo(() => week.week?.teams ?? [], [week.week]);
   const [team, setTeam] = useState<string>(ALL_TEAMS);
   const [filter, setFilter] = useState("");

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { TeachingOrganise } from "@/components/teaching/teaching-organise";
-import { isDemoMode } from "@/lib/env";
+import { teachingDemoMode } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "Organise | Teaching | PsychSift",
@@ -10,6 +10,6 @@ export const metadata: Metadata = {
 };
 
 /* Demo mode is read on the server. The server refuses anyone who is not an organiser or admin. */
-export default function TeachingOrganiseRoute() {
-  return <TeachingOrganise demoMode={isDemoMode()} />;
+export default async function TeachingOrganiseRoute() {
+  return <TeachingOrganise demoMode={await teachingDemoMode()} />;
 }

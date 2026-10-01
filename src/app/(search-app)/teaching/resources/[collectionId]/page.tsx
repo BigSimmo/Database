@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { isCollectionParam } from "@/components/teaching/resources-model";
 import { TeachingCollection } from "@/components/teaching/teaching-collection";
-import { isDemoMode } from "@/lib/env";
+import { teachingDemoMode } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "Collection | Resources | Teaching | PsychSift",
@@ -16,5 +16,5 @@ type TeachingCollectionRouteProps = { params: Promise<{ collectionId: string }> 
 export default async function TeachingCollectionRoute({ params }: TeachingCollectionRouteProps) {
   const { collectionId } = await params;
   if (!isCollectionParam(collectionId)) notFound();
-  return <TeachingCollection collection={collectionId} demoMode={isDemoMode()} />;
+  return <TeachingCollection collection={collectionId} demoMode={await teachingDemoMode()} />;
 }
