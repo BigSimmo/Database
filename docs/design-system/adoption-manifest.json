@@ -300,8 +300,11 @@
         "src/components/admin/admin-today-page.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/admin/new-job/admin-records-page.tsx",
+        "src/components/admin/renewals/checklist-list.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/renewals/personal-list.tsx",
+        "src/components/admin/renewals/record-dates-sheet.tsx",
+        "src/components/admin/renewals/show-filter-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/settings-reminders.tsx",
@@ -418,8 +421,11 @@
         "src/components/admin/admin-today-page.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/admin/new-job/admin-records-page.tsx",
+        "src/components/admin/renewals/checklist-list.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/renewals/personal-list.tsx",
+        "src/components/admin/renewals/record-dates-sheet.tsx",
+        "src/components/admin/renewals/show-filter-list.tsx",
         "src/components/calendar/calendar-subscribe.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/settings-reminders.tsx",
@@ -1168,6 +1174,7 @@
       "directImportFiles": [
         "src/components/admin/admin-help-item-row.tsx",
         "src/components/admin/new-job/admin-new-job-step-row.tsx",
+        "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
@@ -1178,6 +1185,7 @@
       "productImportFiles": [
         "src/components/admin/admin-help-item-row.tsx",
         "src/components/admin/new-job/admin-new-job-step-row.tsx",
+        "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
@@ -1333,11 +1341,13 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/admin-renewals-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/admin-renewals-page.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
@@ -1779,8 +1789,8 @@
       "source": "src/components/ui/progress.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/admin/renewals/record-dates-sheet.tsx"],
+      "productImportFiles": ["src/components/admin/renewals/record-dates-sheet.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1801,8 +1811,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -2151,9 +2161,11 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewals-page.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
+        "src/components/admin/renewals/record-dates-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
@@ -2232,9 +2244,11 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
         "src/components/admin/admin-quick-add-sheet.tsx",
+        "src/components/admin/admin-renewals-page.tsx",
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/renewals/item-detail-sheet.tsx",
+        "src/components/admin/renewals/record-dates-sheet.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
@@ -2640,6 +2654,7 @@
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
+        "src/components/admin/renewals/record-dates-sheet.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
@@ -2678,6 +2693,7 @@
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
+        "src/components/admin/renewals/record-dates-sheet.tsx",
         "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
@@ -2736,10 +2752,12 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/today/today-coming-up-module.tsx",
         "src/components/calendar/calendar-view.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/today/today-coming-up-module.tsx",
         "src/components/calendar/calendar-view.tsx"
       ],
@@ -5596,7 +5614,7 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 45,
+    "productImportedComponentCount": 46,
     "rootCount": 157,
     "productionRouteCount": 149,
     "nextUiEntryCount": 234
