@@ -234,12 +234,6 @@ describe("Empirical Challenger M4 Stress Test Harness", () => {
   describe("3. Dictionary Term Page: Topic link tap floor", () => {
     it("renders topic tag with min-h-tap py-2", () => {
       const baseEntry = findDictionaryEntry("auditory-hallucination")!;
-      const topic = {
-        slug: "psychosis",
-        title: "Psychosis & Schizophrenia",
-        description: "Overview of psychotic conditions.",
-        entryCount: 15,
-      };
 
       render(<DictionaryTermPage entry={baseEntry} />);
 
