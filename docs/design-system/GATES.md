@@ -31,17 +31,17 @@ than CI, two of them by the second reader; review does not scale past two carefu
 | `arbitraryTracking`               | **0** (hard floor) | 0            |
 | `colourOnlyStatusIndicators`      | **0** (hard floor) | 0            |
 | `darkColorOverrides`              | **0** (hard floor) | 0            |
-| `disabledOpacityUses`             | 39                 | 24           |
+| `disabledOpacityUses`             | 36                 | 24           |
 | `edgeOwnershipConflicts`          | 5                  | 2            |
 | `elevationInversions`             | 6                  | 5            |
 | `errorStateCountProps`            | **0** (hard floor) | 0            |
 | `failedStateResultCounts`         | **0** (hard floor) | 0            |
 | `handRolledCommandButtons`        | 8                  | 7            |
 | `hardcodedCssMotionDurations`     | 25                 | 1            |
-| `interactiveTapFloorDeclarations` | 5                  | 4            |
+| `interactiveTapFloorDeclarations` | 4                  | 3            |
 | `layoutTransitionExceptions`      | 9                  | 3            |
 | `legacyPaletteUtilities`          | **0** (hard floor) | 0            |
-| `legacyShadowAliases`             | 34                 | 28           |
+| `legacyShadowAliases`             | 33                 | 27           |
 | `legacyTapClasses`                | **0** (hard floor) | 0            |
 | `literalShadowClasses`            | **0** (hard floor) | 0            |
 | `onePixelShadowSpreads`           | **0** (hard floor) | 0            |
@@ -55,7 +55,7 @@ than CI, two of them by the second reader; review does not scale past two carefu
 | `sameFileTextSmMinusMix`          | 25                 | 25           |
 | `statusColouredNumerals`          | **0** (hard floor) | 0            |
 | `textSoftConsumers`               | **0** (hard floor) | 0            |
-| `visibleLiveRegions`              | 21                 | 19           |
+| `visibleLiveRegions`              | 20                 | 19           |
 
 28 metrics, 13 of them pinned at zero. A metric at zero is a hard floor:
 the check asserts `value <= baseline`, so any reintroduction fails. A non-zero pin is

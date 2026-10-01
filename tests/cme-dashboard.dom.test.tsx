@@ -184,9 +184,7 @@ describe("the dashboard", () => {
   it("keeps 48 px clear under the last module for the floating + Log (spec §5)", () => {
     const { container } = renderAt("2026-09-19T02:00:00Z");
     // The button sits max(16 px, the home indicator) off the bottom and is 48 px tall; 6rem more is those 48 px plus 48 px clear.
-    expect(container.querySelector("main")?.className).toContain(
-      "pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)]",
-    );
+    expect(container.querySelector("main")?.className).toContain("pb-[calc(max(1rem,var(--safe-area-bottom))+6rem)]");
   });
 
   it("says nothing about pace in January and points at the plan instead", () => {

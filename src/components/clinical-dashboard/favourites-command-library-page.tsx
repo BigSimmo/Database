@@ -355,7 +355,7 @@ function ItemWorkspace({
           type="button"
           onClick={onClose}
           className={cn(
-            "grid h-8 w-8 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+            "relative grid h-8 w-8 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] before:absolute before:-inset-2",
             focusRing,
           )}
           aria-label="Collapse item workspace"
@@ -419,7 +419,7 @@ function ItemWorkspace({
               href={item.href}
               onClick={() => onOpen(item)}
               className={cn(
-                "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]",
+                "mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]",
                 focusRing,
               )}
             >
@@ -477,7 +477,7 @@ function ItemWorkspace({
                 setCopyStatus(copied ? "copied" : "failed");
               }}
               className={cn(
-                "inline-flex h-9 items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+                "inline-flex min-h-tap items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
                 focusRing,
               )}
             >

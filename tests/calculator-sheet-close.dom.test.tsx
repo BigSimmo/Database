@@ -14,18 +14,23 @@
  * `OverlayPortal`. It is not portalled, so it still inherits any transformed or
  * clipping ancestor the search page grows. That is the larger correct fix.
  */
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CalculatorSheet } from "@/components/calculators/calculator-sheet";
 import { calculators } from "@/components/calculators/calculator-fixtures";
+import { hasOpenSheet, popSheet, pushSheet, SHEET_INERT_MARKER } from "@/components/ui/sheet-focus";
 
 const calc = calculators[0];
 
 beforeEach(() => {
   // jsdom has no Element.scrollTo; the sheet resets its scroll on calc change.
   Element.prototype.scrollTo = vi.fn();
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 function renderSheet(onClose = vi.fn()) {
@@ -78,6 +83,25 @@ describe("CalculatorSheet close paths", () => {
     // the loop is how a "close" landed on the wrong element.
     await user.tab();
     expect(document.activeElement).not.toBe(screen.getByTestId("calculator-sheet-backdrop"));
+  });
+
+  it("closes from Escape keydown", async () => {
+    const user = userEvent.setup();
+    const onClose = renderSheet();
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses Escape dismissal when another sheet is stacked on top", async () => {
+    const user = userEvent.setup();
+    const onClose = renderSheet();
+    pushSheet("stacked-sheet");
+    try {
+      await user.keyboard("{Escape}");
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      popSheet("stacked-sheet");
+    }
   });
 });
 
@@ -134,5 +158,53 @@ describe("CalculatorSheet does not discard entered answers", () => {
     // The guard covers the backdrop only — the two deliberate exits are unchanged,
     // otherwise a part-finished assessment could not be abandoned at all.
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("still closes a started sheet from Escape keydown", async () => {
+    const user = userEvent.setup();
+    const onClose = renderStartedSheet();
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CalculatorSheet sheet-focus and scroll-lock lifecycle", () => {
+  it("registers with sheet-focus on mount and unregisters scroll lock and inert on unmount", () => {
+    const background = document.createElement("div");
+    document.body.append(background);
+
+    expect(hasOpenSheet()).toBe(false);
+    expect(document.body.style.overflow).toBe("");
+    expect(background).not.toHaveAttribute("inert");
+
+    const { unmount } = render(
+      <CalculatorSheet calc={calc} answers={{}} onAnswersChange={() => {}} onClose={() => {}} />,
+    );
+
+    expect(hasOpenSheet()).toBe(true);
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(background).toHaveAttribute("inert");
+    expect(background).toHaveAttribute(SHEET_INERT_MARKER, "true");
+
+    unmount();
+
+    expect(hasOpenSheet()).toBe(false);
+    expect(document.body.style.overflow).toBe("");
+    expect(background).not.toHaveAttribute("inert");
+    expect(background).not.toHaveAttribute(SHEET_INERT_MARKER);
+    background.remove();
+  });
+
+  it("cleans up sheet-focus registration when isOpen becomes false", () => {
+    const { rerender } = render(
+      <CalculatorSheet calc={calc} answers={{}} onAnswersChange={() => {}} onClose={() => {}} isOpen={true} />,
+    );
+
+    expect(hasOpenSheet()).toBe(true);
+
+    rerender(<CalculatorSheet calc={calc} answers={{}} onAnswersChange={() => {}} onClose={() => {}} isOpen={false} />);
+
+    expect(hasOpenSheet()).toBe(false);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
