@@ -30,7 +30,7 @@ function EntryRow({ entry, today }: { entry: CmeEntry; today: string }) {
       trailing={
         // `nums font-normal` are repeated from the recipe so Task 7's scanner, which reads literal classes, sees 400.
         <span className={cn(modeNumberText, "nums font-normal pr-2 text-base-minus text-[color:var(--text)]")}>
-          {entry.archivedAt ? "Archived" : `${formatLogHours(totalAllocatedHours([entry]))} h`}
+          {entry.archivedAt ? "Archived" : `${formatLogHours(totalAllocatedHours([entry]))} h`}
         </span>
       }
     />
@@ -66,7 +66,7 @@ export function CmeLogMonthList({ groups, today }: { groups: readonly MonthGroup
             <span
               className={cn(modeNumberText, "nums font-normal text-2xs normal-case text-[color:var(--text-muted)]")}
             >
-              {`${formatLogHours(group.hours)} h`}
+              {`${formatLogHours(group.hours)} h`}
             </span>
           </div>
           <ModeGroupedList>

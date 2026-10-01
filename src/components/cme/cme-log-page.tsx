@@ -19,7 +19,7 @@ import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { buttonFaceClass } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { SearchField } from "@/components/ui/text-field";
-import { cn, EmptyState, eyebrowText, IconButton, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import type { CmeDraft } from "@/lib/cme/drafts";
 import type { CmeMissedSession } from "@/lib/cme/missed-sessions";
@@ -259,15 +259,18 @@ export function CmeLogPage({
           )}
         </div>
         {showFinish ? null : (
-          <IconButton
+          // A native button rather than `IconButton`, which takes no ref: the More sheet returns focus here.
+          <button
             ref={moreButtonRef}
-            label="More log actions"
-            icon={Ellipsis}
-            onClick={() => setMoreOpen(true)}
+            type="button"
+            aria-label="More log actions"
             aria-haspopup="dialog"
+            onClick={() => setMoreOpen(true)}
             data-testid="cme-log-more"
-            className="-mr-2 min-h-tap text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-          />
+            className="-mr-2 grid size-tap min-h-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            <Ellipsis aria-hidden="true" className="size-icon-md" />
+          </button>
         )}
       </div>
       <div role="status" data-testid="cme-log-saved">
@@ -313,7 +316,11 @@ export function CmeLogPage({
                 <Download aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
                 Download CSV
               </a>
-              <Link href={`/cme/summary?year=${effectiveYear}`} data-testid="cme-log-annual-summary" className={moreRow}>
+              <Link
+                href={`/cme/summary?year=${effectiveYear}`}
+                data-testid="cme-log-annual-summary"
+                className={moreRow}
+              >
                 <FileText aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
                 Annual summary
               </Link>
@@ -422,9 +429,7 @@ export function CmeLogPage({
               >
                 <ListFilter aria-hidden="true" className="size-icon-sm" />
                 <span>
-                  Filters<span aria-hidden="true"> · </span>
-                  <span className="sr-only">, </span>
-                  <span className="nums font-normal">{yearLabel}</span>
+                  Filters<span aria-hidden="true"> ·</span> <span className="nums font-normal">{yearLabel}</span>
                 </span>
                 {activeFilterCount > 0 ? (
                   <span
@@ -488,7 +493,11 @@ export function CmeLogPage({
               </div>
             ) : null}
             {attention === "copy" && lastCopiedId && !copyOpen ? (
-              <div role="status" data-testid="cme-log-copy-done" className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <div
+                role="status"
+                data-testid="cme-log-copy-done"
+                className="mt-2 flex flex-wrap items-center gap-2 text-sm"
+              >
                 <span>Marked as copied.</span>
                 <button
                   type="button"
@@ -513,8 +522,8 @@ export function CmeLogPage({
             ) : null}
             {showArchived ? (
               <p className={cn(textMuted, "mt-2 text-sm")}>
-                Archived entries retain their records and evidence. They contribute zero to totals, downloads and
-                annual summaries. Open an entry to restore it.
+                Archived entries retain their records and evidence. They contribute zero to totals, downloads and annual
+                summaries. Open an entry to restore it.
               </p>
             ) : null}
 

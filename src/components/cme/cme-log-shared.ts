@@ -1,6 +1,12 @@
 import { formatCalendarMonthLabel } from "@/lib/cme/cpd-year";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
-import { cmeCategories, cmeCategoryLabels, cmeCertificateMissing, type CmeCategory, type CmeEntry } from "@/lib/cme/types";
+import {
+  cmeCategories,
+  cmeCategoryLabels,
+  cmeCertificateMissing,
+  type CmeCategory,
+  type CmeEntry,
+} from "@/lib/cme/types";
 
 /** The three things an audit asks for per activity, as log filters. */
 export type CmeLogAttention = "evidence" | "reflection" | "copy";

@@ -108,13 +108,8 @@ export function CmeLogFilterPanel({
             const count = countFor(year);
             const selected = !allYears && effectiveYear === year;
             return navigationYears && year !== effectiveYear ? (
-              <Link
-                key={year}
-                href={`/cme/log?year=${year}${categoryQuery}`}
-                className={cn(choiceRow, choiceIdle)}
-              >
-                <span>{year}</span>{" "}
-                <span className={countText}>{count || "Open"}</span>
+              <Link key={year} href={`/cme/log?year=${year}${categoryQuery}`} className={cn(choiceRow, choiceIdle)}>
+                <span>{year}</span> <span className={countText}>{count || "Open"}</span>
               </Link>
             ) : (
               <button
@@ -128,8 +123,7 @@ export function CmeLogFilterPanel({
                 }}
                 className={cn(choiceRow, selected ? choicePressed : choiceIdle)}
               >
-                <span>{year}</span>{" "}
-                <span className={countText}>{count}</span>
+                <span>{year}</span> <span className={countText}>{count}</span>
               </button>
             );
           })}

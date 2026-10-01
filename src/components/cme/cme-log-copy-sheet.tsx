@@ -209,7 +209,10 @@ export function CmeLogCopySheet({
           </p>
         ) : (
           <>
-            <dl data-testid="cme-log-copy-fields" className="divide-y divide-[color:var(--border)] rounded-lg border border-[color:var(--border)]">
+            <dl
+              data-testid="cme-log-copy-fields"
+              className="divide-y divide-[color:var(--border)] rounded-lg border border-[color:var(--border)]"
+            >
               {fields.map((field, position) => {
                 const key = `${position}:${field.label}`;
                 const copied = copiedField === key;
