@@ -73,8 +73,7 @@ export function computeCmeNextStep(args: {
     // Closing happens on the annual summary, which also shows what the year looks like
     // before it is frozen, so the action sends the owner there rather than closing from here.
     return {
-      label:
-        "Year end: check each entry against the records you keep, then close the year from your annual summary.",
+      label: "Year end: check each entry against the records you keep, then close the year from your annual summary.",
       href: summaryHref,
       inList: false,
     };

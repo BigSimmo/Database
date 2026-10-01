@@ -93,16 +93,15 @@ export function CmeTodayDetailSheet({
       {detail === "gap" ? (
         <div className="space-y-4 text-sm text-[color:var(--text)]">
           <p>
-            {formatCmeHours(totalGap)} h remain to your {formatCmeHours(set.totalHours)} h target. This is based on
-            your saved entries and the target you confirmed on {formatRoutineDueDate(set.confirmedOn)}.
+            {formatCmeHours(totalGap)} h remain to your {formatCmeHours(set.totalHours)} h target. This is based on your
+            saved entries and the target you confirmed on {formatRoutineDueDate(set.confirmedOn)}.
           </p>
           {gapScenarios.length ? (
             <ul className="space-y-2" data-testid="cme-gap-scenarios">
               {gapScenarios.map((scenario) => (
                 <li key={scenario.routineId} className={cn(cardSurface, "p-3")}>
                   <strong>{scenario.title}</strong>: {scenario.occurrences} ×{" "}
-                  {formatCmeHours(scenario.hoursPerOccurrence)} h
-                  {` = ${formatCmeHours(scenario.projectedHours)} h`}
+                  {formatCmeHours(scenario.hoursPerOccurrence)} h{` = ${formatCmeHours(scenario.projectedHours)} h`}
                   {scenario.closesGap ? null : " by 31 Dec, short of the gap on its own"}
                 </li>
               ))}

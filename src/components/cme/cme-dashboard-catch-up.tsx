@@ -97,9 +97,7 @@ export function CmeCatchUpCard({
           </dt>
           <dd data-testid="cme-catch-up-remaining-hours" className="nums font-normal">
             {`${formatCmeHours(plan.remainingAfterRoutines)} h`}
-            {showWeekly && plan.remainingAfterRoutines > 0
-              ? ` · ${plan.hoursPerWeek.toFixed(1)} h a week`
-              : null}
+            {showWeekly && plan.remainingAfterRoutines > 0 ? ` · ${plan.hoursPerWeek.toFixed(1)} h a week` : null}
           </dd>
         </div>
       </dl>
