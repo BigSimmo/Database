@@ -328,12 +328,10 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         env:
           LEDGER_WRITE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          LEDGER_WRITE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "${LEDGER_WRITE_BASE_SHA:-}" = "0000000000000000000000000000000000000000" ]; then
-            echo "LEDGER_WRITE_BASE_SHA=" >> "$GITHUB_ENV"
-          else
-            echo "LEDGER_WRITE_BASE_SHA=$LEDGER_WRITE_BASE_SHA" >> "$GITHUB_ENV"
-          fi
+          node scripts/resolve-ledger-ci-base.mjs --self-test
+          echo "LEDGER_WRITE_BASE_SHA=$(node scripts/resolve-ledger-ci-base.mjs)" >> "$GITHUB_ENV"
 
       - name: Run ledger write discipline
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
