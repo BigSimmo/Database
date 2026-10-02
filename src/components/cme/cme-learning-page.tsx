@@ -4,7 +4,9 @@ import Link from "next/link";
 import { CalendarPlus, ExternalLink } from "lucide-react";
 import { useState } from "react";
 
-import { EmptyState, cn, raisedCard, textMuted, toneWarning } from "@/components/ui-primitives";
+import { cmePageTitle, cmePageWidth } from "@/components/cme/cme-page-frame";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { EmptyState, cn, eyebrowText, raisedCard, textMuted, toneWarning } from "@/components/ui-primitives";
 import { formatCalendarDateLong, formatCalendarDateShort, perthCalendarDate } from "@/lib/cme/cpd-year";
 import { canAddLearningToCalendar, learningCalendarEventIcs, learningCalendarFileName } from "@/lib/cme/calendar-event";
 import {
@@ -106,12 +108,11 @@ function LearningItemCard({
         {phase === "upcoming" && canAddLearningToCalendar(item) ? (
           <button
             type="button"
-            aria-label="Add to calendar"
-            title="Add to calendar"
             onClick={() => downloadCalendarEvent(item)}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-12 items-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
-            <CalendarPlus aria-hidden="true" className="size-icon-md" />
+            <CalendarPlus aria-hidden="true" className="size-icon-sm" />
+            Add to calendar
           </button>
         ) : null}
       </div>
@@ -155,8 +156,8 @@ export function CmeLearningPage({
   const stale = isDirectoryStale(lastCheckedOn, today);
 
   return (
-    <main data-testid="cme-learning" className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 sm:px-6">
-      <h1 className="text-xl font-semibold text-[color:var(--text)]">Learning</h1>
+    <main data-testid="cme-learning" className={cn(cmePageWidth, "px-4 pb-24 pt-6 sm:px-6")}>
+      <h1 className={cmePageTitle}>Learning</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         {view === "past"
           ? "Earlier courses and events in Western Australia."
@@ -176,46 +177,43 @@ export function CmeLearningPage({
         </p>
       ) : null}
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2" data-testid="cme-learning-filters">
-        <label className="grid gap-1 text-sm font-medium text-[color:var(--text)]">
-          Specialty
-          <select
-            aria-label="Specialty"
+      {/* Two short one-of-N choices over a short list: chip-sized radiogroups
+          that show every option at once, not two full-width dropdowns. "All"
+          is the first Specialty option, so going back to every specialty is
+          one tap. */}
+      <div className="mt-5 flex flex-col gap-3" data-testid="cme-learning-filters">
+        <div className="flex flex-col gap-1.5">
+          <p id="cme-learning-specialty-label" className={eyebrowText}>
+            Specialty
+          </p>
+          <SegmentedControl
+            ariaLabelledBy="cme-learning-specialty-label"
             value={specialty}
-            onChange={(event) => setSpecialty(event.target.value)}
-            className="min-h-12 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text)]"
-          >
-            <option value="all">All</option>
-            {specialties.map((name) => (
-              <option key={name} value={name}>
-                {name.charAt(0).toUpperCase() + name.slice(1)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm font-medium text-[color:var(--text)]">
-          Format
-          <select
-            aria-label="Format"
+            onChange={setSpecialty}
+            options={[
+              { value: "all", label: "All" },
+              ...specialties.map((name) => ({ value: name, label: name.charAt(0).toUpperCase() + name.slice(1) })),
+            ]}
+            className="w-auto self-start"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <p id="cme-learning-format-label" className={eyebrowText}>
+            Format
+          </p>
+          <SegmentedControl<LearningFormat>
+            ariaLabelledBy="cme-learning-format-label"
             value={format}
-            onChange={(event) => setFormat(event.target.value as LearningFormat)}
-            className="min-h-12 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text)]"
-          >
-            <option value="any">Any</option>
-            <option value="online">Online</option>
-            <option value="in-person">In person</option>
-          </select>
-        </label>
+            onChange={setFormat}
+            options={[
+              { value: "any", label: "Any" },
+              { value: "online", label: "Online" },
+              { value: "in-person", label: "In person" },
+            ]}
+            className="w-auto self-start"
+          />
+        </div>
       </div>
-      {specialty !== "all" ? (
-        <button
-          type="button"
-          onClick={() => setSpecialty("all")}
-          className="mt-2 inline-flex min-h-12 items-center text-sm underline underline-offset-2"
-        >
-          All specialties
-        </button>
-      ) : null}
 
       {view === "past" ? (
         <section aria-labelledby="cme-learning-past-heading" className="mt-6" data-testid="cme-learning-past">
