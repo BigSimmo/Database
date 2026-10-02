@@ -163,6 +163,14 @@ shared rows are read-only and are excluded from the owner's calendar, copy and p
 Optional proof notes are checked for patient-identifying shapes before saving. Admin records
 are not sent to search or a model provider.
 
+**Admin pinned numbers (owner decision, 2026-10-01):** Help and Today let the doctor pin the
+numbers they ring most. Pins are the one thing Admin keeps on the device: `localStorage` key
+`clinical-kb-admin-pins` holds up to eight `on_call_entries` row ids and nothing else (no title,
+number or other record text; anything that is not a row id is refused on write and dropped on read).
+They are removed on sign-out and account switch through `clearAccountScopedBrowserState`
+([client.tsx](../src/lib/supabase/client.tsx)). Evidence: [pins.ts](../src/lib/admin/pins.ts),
+[tests/admin-pins.test.ts](../tests/admin-pins.test.ts).
+
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
 experienced psychiatrist in Perth"_ ([src/lib/rag/rag.ts](../src/lib/rag/rag.ts)) â€” i.e. a **WA psychiatry**
 use case. Psychiatric context raises the sensitivity ceiling: mental-health information is squarely

@@ -19,6 +19,8 @@ vi.mock("@/components/on-call/use-hospital-handbook", async (importOriginal) => 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+  // Renewals reads `?show=`, `?item=` and `?record=`; no parameters here.
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/components/account-data-provider", () => ({
@@ -319,13 +321,14 @@ describe("Admin > Renewals header menu", () => {
     document.body.append(slot);
     try {
       render(<AdminRenewalsRoute />);
-      // Renewals (Admin update 1) renders no On Call-style ellipsis page menu
-      // at all — nothing is portalled into the universal header's trailing
-      // slot. Its two page-level actions are plain, always-visible toolbar
-      // buttons named for the page, and adding is left entirely to the one
+      // Renewals renders no On Call-style ellipsis page menu in the universal
+      // header's trailing slot. Its two occasional page-level actions sit in
+      // the page's own "More actions" menu beside the title (owner-approved
+      // Admin redesign, 2026-10-01), and adding is left entirely to the one
       // floating "+ Add" control (Josh, 16:31Z).
       expect(screen.queryByTestId("on-call-page-menu-trigger")).toBeNull();
       expect(screen.getByRole("heading", { level: 1, name: "Renewals" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
       expect(screen.getByRole("button", { name: "Copy for workforce" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add all to my calendar" })).toBeInTheDocument();
       expect(screen.queryByTestId("on-call-page-menu-add")).toBeNull();

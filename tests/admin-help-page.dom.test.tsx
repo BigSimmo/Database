@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AdminHelpPage } from "@/components/admin/admin-help-page";
+import { adminPinsStorageKey } from "@/lib/admin/pins";
 import { WA_CRISIS_CONTACTS } from "@/lib/crisis-contacts";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { onCallEntryFixture } from "./helpers/on-call-entry-fixture";
@@ -120,7 +121,8 @@ describe("AdminHelpPage", () => {
   it("files own and shared rows into On site and Guides, each with its entry anchor", () => {
     render(<AdminHelpPage now={NOW} />);
     const onSite = screen.getByRole("region", { name: "On site" });
-    expect(within(onSite).getByText(onSiteOwn.title)).toBeTruthy();
+    // The title shows twice in On site now: its glance tile and its full row.
+    expect(within(onSite).getByTestId("admin-help-on-site-list")).toHaveTextContent(onSiteOwn.title);
     expect(document.getElementById(`on-call-entry-${onSiteOwn.id}`)).not.toBeNull();
 
     const guides = screen.getByRole("region", { name: "Guides" });
@@ -144,7 +146,7 @@ describe("AdminHelpPage", () => {
 
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fireEvent.change(filter, { target: { value: "hungry" } });
-    expect(screen.getByText("Demo food after hours")).toBeTruthy();
+    expect(within(screen.getByTestId("admin-help-on-site-list")).getByText("Demo food after hours")).toBeTruthy();
     expect(screen.queryByText("Demo payslips and pay queries")).toBeNull();
     expect(screen.getByTestId("admin-help-crisis")).toBeTruthy();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -168,10 +170,112 @@ describe("AdminHelpPage", () => {
     expect(screen.getByTestId("admin-help-add").className).not.toContain("--command");
   });
 
+  it("hides pinned numbers resolved from cached rows when entries failed to load", () => {
+    window.localStorage.setItem(adminPinsStorageKey, JSON.stringify([onSiteOwn.id]));
+    try {
+      const view = render(<AdminHelpPage now={NOW} />);
+      expect(screen.getByTestId("admin-help-pinned")).toHaveTextContent(onSiteOwn.title);
+      view.unmount();
+      Object.assign(entryState, { isOffline: true, loadError: "offline" });
+      render(<AdminHelpPage now={NOW} />);
+      expect(screen.getByTestId("admin-help-load-failed")).toBeTruthy();
+      expect(screen.queryByTestId("admin-help-pinned")).toBeNull();
+    } finally {
+      window.localStorage.removeItem(adminPinsStorageKey);
+    }
+  });
+
   it("shows the load-failed state, not empty tabs, when entries failed to load", () => {
     Object.assign(entryState, { isOffline: true, loadError: "offline" });
     render(<AdminHelpPage now={NOW} />);
     expect(screen.getByTestId("admin-help-load-failed")).toBeTruthy();
     expect(screen.getByTestId("admin-help-crisis")).toBeTruthy();
+  });
+});
+
+describe("AdminHelpPage layout (Admin polish, lane C)", () => {
+  it("shows the same compact visible page title as Renewals", () => {
+    render(<AdminHelpPage now={NOW} />);
+    const heading = screen.getByRole("heading", { level: 1, name: "Help" });
+    expect(heading.className).not.toContain("sr-only");
+    expect(heading.className).toContain("text-2xl");
+  });
+
+  it("keeps every crisis line's words, in order, with the hours, caveat and month beneath a named 48px call link", () => {
+    render(<AdminHelpPage now={NOW} />);
+    const crisis = screen.getByTestId("admin-help-crisis");
+    const rows = within(crisis).getAllByRole("listitem");
+    expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual(
+      WA_CRISIS_CONTACTS.map((contact) => `admin-help-crisis-${contact.id}`),
+    );
+    for (const contact of WA_CRISIS_CONTACTS) {
+      const row = within(crisis).getByTestId(`admin-help-crisis-${contact.id}`);
+      expect(row.textContent).toContain(contact.name);
+      expect(row.textContent).toContain(contact.availability);
+      if (contact.caveat) expect(within(row).getByText(contact.caveat)).toBeTruthy();
+      const call = within(row).getByTestId(`admin-help-crisis-${contact.id}-call`);
+      expect(call.getAttribute("aria-label")).toMatch(new RegExp(`^Call ${contact.name.replace(/[()]/g, "\\$&")}, `));
+      expect(call.className).toContain("min-h-12");
+      expect(call.className).toContain("min-w-12");
+    }
+  });
+
+  it("puts a guide's More info link on its provenance line, keeping a 48px tap height", () => {
+    const linked = onCallEntryFixture({
+      section: "logistics",
+      title: "Demo leave forms",
+      details: { category: "Pay", url: "https://example.org/leave" },
+      isOwn: true,
+    });
+    Object.assign(entryState, { entries: [linked] });
+    render(<AdminHelpPage now={NOW} />);
+    const link = screen.getByRole("link", { name: /More info/ });
+    expect(link.parentElement?.textContent).toMatch(/^Yours · No date recorded·More info/);
+    expect(link.className).toContain("min-h-tap");
+  });
+
+  it("shows Support's empty state as a quiet panel with the existing explanation, inventing no service", () => {
+    render(<AdminHelpPage now={NOW} />);
+    const empty = within(screen.getByRole("region", { name: "Support" })).getByTestId("admin-help-support-empty");
+    expect(empty).toHaveTextContent("Nothing here yet");
+    expect(empty).toHaveTextContent(
+      "Crisis lines are above. Statewide support services will appear here, each with a link to its source.",
+    );
+  });
+
+  it("shows On site at a glance: one tile per On site row, jumping to the full row, with a call link only for a number", () => {
+    const switchboard = onCallEntryFixture({
+      section: "logistics",
+      title: "Demo switchboard",
+      details: { category: "Facilities", phone: "(08) 9000 0099" },
+      isOwn: true,
+    });
+    Object.assign(entryState, { entries: [onSiteOwn, switchboard, guideShared] });
+    render(<AdminHelpPage now={NOW} />);
+    const glance = screen.getByTestId("admin-help-on-site-glance");
+    const tiles = within(glance).getAllByRole("listitem");
+    expect(tiles).toHaveLength(2);
+
+    const foodTile = within(glance).getByTestId(`admin-help-glance-entry-${onSiteOwn.id}`);
+    expect(within(foodTile).getByRole("link").getAttribute("href")).toBe(`#on-call-entry-${onSiteOwn.id}`);
+    expect(within(foodTile).queryByRole("link", { name: /^Call / })).toBeNull();
+
+    const switchboardTile = within(glance).getByTestId(`admin-help-glance-entry-${switchboard.id}`);
+    expect(switchboardTile).toHaveTextContent("9000 0099");
+    const call = within(switchboardTile).getByRole("link", { name: /^Call Demo switchboard/ });
+    expect(call.getAttribute("href")).toBe("tel:0890000099");
+    expect(document.getElementById(`on-call-entry-${switchboard.id}`)).not.toBeNull();
+    // The glance sits above the full list, inside On site.
+    const onSite = screen.getByRole("region", { name: "On site" });
+    expect(onSite).toContainElement(glance);
+    expect(
+      glance.compareDocumentPosition(screen.getByTestId("admin-help-on-site-list")) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("draws no glance grid when there are no On site rows", () => {
+    Object.assign(entryState, { entries: [guideShared] });
+    render(<AdminHelpPage now={NOW} />);
+    expect(screen.queryByTestId("admin-help-on-site-glance")).toBeNull();
   });
 });
