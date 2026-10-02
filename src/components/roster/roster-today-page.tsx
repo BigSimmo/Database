@@ -1,16 +1,13 @@
 "use client";
 
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, CalendarRange, Moon, MoonStar, Plane, Sun } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
-import { ModeFactTile, ModeFactTiles } from "@/components/mode-kit/fact-tile";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import {
   modeDot,
-  modeIconTile,
-  modeIdentityIcon,
   modeModuleSurface,
   modeSummaryHairline,
   modeSummaryMutedText,
@@ -25,11 +22,12 @@ import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/pe
 import { summariseToday, type TodaySummary } from "@/lib/roster/today";
 
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
-import { RosterAskBox } from "./ask/roster-ask-box";
+import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { RosterTodayTeam } from "./team/roster-today-team";
 import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from "./roster-format";
 import { RosterImportFlow } from "./roster-import-flow";
 import { RosterNightDial } from "./roster-night-dial";
+import { RosterIdentityTile, RosterPageHeader, RosterSection, RosterStat, RosterStats } from "./roster-ui";
 import { RosterWeekStrip } from "./roster-week-strip";
 import { hasFreshLink, refreshDueRosterLinks, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
@@ -42,7 +40,6 @@ import { useRosterShifts } from "./use-roster-shifts";
  * night the lead becomes the night dial.
  */
 
-const MODE = "roster";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -68,7 +65,7 @@ function RosterFreshness({ fresh }: { readonly fresh: boolean }) {
   }, [fresh]);
   if (!fresh) return null;
   return (
-    <p className="flex items-center gap-1.5 px-3 text-xs text-[color:var(--text-muted)]" data-testid="roster-fresh">
+    <p className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]" data-testid="roster-fresh">
       <span ref={dot} aria-hidden="true" className={cn(modeDot, "bg-[color:var(--success)]")} />
       Up to date
     </p>
@@ -83,7 +80,7 @@ function DayLine({ shift, now }: { readonly shift: OnCallShift; readonly now: Da
   const at = (now.getTime() - dayStart) / DAY_MS;
   return (
     <div className="grid gap-1" aria-hidden="true">
-      <span className="relative block h-2 rounded-full bg-[color:var(--surface-summary-line)]">
+      <span className="relative block h-2.5 rounded-full bg-[color:var(--surface-summary-line)]">
         {end > start ? (
           <span
             className="absolute inset-y-0 rounded-full bg-[color:var(--surface-summary-muted)]"
@@ -91,7 +88,7 @@ function DayLine({ shift, now }: { readonly shift: OnCallShift; readonly now: Da
           />
         ) : null}
         <span
-          className="absolute -inset-y-1 w-px bg-[color:var(--surface-summary-ink)]"
+          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--surface-summary-ink)] ring-4 ring-[color:var(--surface-summary)]"
           style={{ left: `${at * 100}%` }}
         />
       </span>
@@ -137,9 +134,13 @@ function Hero({
   const lead = summary.lead;
   if (lead.state === "empty") {
     return (
-      <section className={cn(modeModuleSurface, "grid gap-3 p-4")} data-testid="roster-today-empty">
-        <h2 className="text-lg-minus font-normal text-[color:var(--text-heading)]">Get your shifts in</h2>
-        <div className="flex flex-wrap gap-2">
+      <section className={cn(modeModuleSurface, "grid justify-items-start gap-3 p-5")} data-testid="roster-today-empty">
+        <RosterIdentityTile icon={CalendarRange} />
+        <h2 className="text-lg-minus font-semibold text-[color:var(--text-heading)]">Get your shifts in</h2>
+        <p className="text-sm text-[color:var(--text-muted)]">
+          Import your roster file or add a shift, and Today will show where you&apos;re working and when.
+        </p>
+        <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <Button variant="primary" onClick={onImport} disabled={!canEdit}>
             Import a file
           </Button>
@@ -191,9 +192,35 @@ function Hero({
   if (leadShift && lead.state === "on_now")
     when = `Ends in ${formatDuration(Date.parse(leadShift.endsAt) - now.getTime())}`;
 
+  // Only a live or upcoming shift earns a pill; a day off already says so in the eyebrow.
+  const status = lead.state === "on_now" ? "On now" : lead.state === "before" ? "Later today" : null;
   return (
-    <section className={cn(modeSummarySurface, "grid gap-3 p-4")} data-testid="roster-today-hero" aria-label="Today">
-      <h2 className={cn(eyebrowText, modeSummaryMutedText)}>{eyebrow}</h2>
+    <section
+      data-mode-identity="roster"
+      className={cn(
+        modeSummarySurface,
+        "grid gap-3 p-5 bg-[image:radial-gradient(circle_at_100%_0%,color-mix(in_oklab,var(--mode-identity)_45%,transparent),transparent_65%)] forced-colors:bg-none",
+      )}
+      data-testid="roster-today-hero"
+      aria-label="Today"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className={cn(eyebrowText, modeSummaryMutedText)}>{eyebrow}</h2>
+        {status ? (
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs",
+              modeSummaryHairline,
+              lead.state === "on_now" ? "text-[color:var(--surface-summary-ink)]" : modeSummaryMutedText,
+            )}
+          >
+            {lead.state === "on_now" ? (
+              <span aria-hidden="true" className={cn(modeDot, "bg-[color:var(--success)]")} />
+            ) : null}
+            {status}
+          </span>
+        ) : null}
+      </div>
       {leadShift ? (
         <>
           {lead.state === "day_off" ? (
@@ -221,6 +248,14 @@ function Hero({
       ) : null}
     </section>
   );
+}
+
+/** A warm line under the date, from the Perth hour. */
+function greetingFor(now: Date): { readonly text: string; readonly icon: typeof Sun } {
+  const hour = Number(perthTimeOf(now).slice(0, 2));
+  if (hour >= 5 && hour < 12) return { text: "Good morning", icon: Sun };
+  if (hour >= 12 && hour < 18) return { text: "Good afternoon", icon: Sun };
+  return { text: "Good evening", icon: Moon };
 }
 
 export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}) {
@@ -277,14 +312,22 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0];
   const shownNextNight = nextNight && nextNight.id !== leadIsNight?.id ? nextNight : null;
   const canEdit = shifts.status === "ready" && !shifts.demoMode;
+  const greeting = greetingFor(now);
 
   return (
     <InformationPageShell testId="roster-today-main" width="narrow">
-      <h1 className="sr-only">Today</h1>
-      <RosterAskBox />
-      <p className="text-xs text-muted-foreground">
-        Your copy of the roster. Check official changes with your service.
-      </p>
+      <RosterPageHeader
+        icon={greeting.icon}
+        eyebrow={formatPerthDay(today)}
+        title="Today"
+        subtitle={
+          <div className="grid gap-0.5">
+            <span>{greeting.text}</span>
+            <RosterFreshness fresh={hasFreshLink(links.links, now)} />
+          </div>
+        }
+        testId="roster-today-header"
+      />
 
       {importing ? (
         <RosterImportFlow
@@ -299,8 +342,6 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
         />
       ) : (
         <div className="grid min-w-0 gap-5">
-          <RosterFreshness fresh={hasFreshLink(links.links, now)} />
-
           {shifts.status === "loading" ? (
             <ModeModuleSkeleton rows={4} testId="roster-today-loading" />
           ) : shifts.status === "signed-out" ? (
@@ -312,6 +353,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
           ) : (
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
+              <RosterSampleShiftsNotice sample={shifts.sample} />
               {saved ? <ModeNotice>{saved}</ModeNotice> : null}
               {shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
               <Hero
@@ -322,45 +364,46 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onImport={() => setImporting(true)}
                 onAddShift={() => setAddView("shift")}
               />
-              <RosterTodayTeam now={now} myShifts={shifts.shifts} />
+              <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
               {summary.lead.state !== "empty" ? (
                 <>
-                  {shownNextNight ? (
-                    <ModeFactTiles testId="roster-today-next-night">
-                      <ModeFactTile label="Next night" value={formatPerthDay(perthDateOf(shownNextNight.startsAt))} />
-                    </ModeFactTiles>
-                  ) : null}
-                  <section className="grid gap-2" aria-labelledby="roster-today-week">
-                    <div className="flex items-center gap-2 px-3">
-                      <span aria-hidden="true" data-mode-identity={MODE} className={modeIconTile}>
-                        <CalendarDays aria-hidden="true" strokeWidth={1.5} className={modeIdentityIcon} />
-                      </span>
-                      <h2 id="roster-today-week" className={eyebrowText}>
-                        This week
-                      </h2>
-                    </div>
-                    <div className={cn(modeModuleSurface, "p-3")}>
+                  <RosterSection icon={CalendarDays} title="This week" id="roster-today-week">
+                    <div className={cn(modeModuleSurface, "px-2 py-3")}>
                       <RosterWeekStrip week={summary.week} today={today} testId="roster-today-week-strip" />
                     </div>
-                  </section>
-                  <ModeFactTiles testId="roster-today-facts">
-                    <ModeFactTile
-                      label="Next leave"
-                      value={summary.nextLeave ? formatDateSpan(summary.nextLeave.start, summary.nextLeave.end) : "–"}
-                    />
-                    <ModeFactTile
+                  </RosterSection>
+                  <RosterStats testId="roster-today-facts">
+                    {shownNextNight ? (
+                      <RosterStat
+                        icon={Moon}
+                        label="Next night"
+                        value={formatPerthDay(perthDateOf(shownNextNight.startsAt))}
+                        testId="roster-today-next-night"
+                      />
+                    ) : null}
+                    <RosterStat
+                      icon={MoonStar}
                       label="Next nights"
                       value={
                         summary.nextNights ? formatDateSpan(summary.nextNights.start, summary.nextNights.end) : "–"
                       }
                     />
-                  </ModeFactTiles>
+                    <RosterStat
+                      icon={Plane}
+                      label="Next leave"
+                      value={summary.nextLeave ? formatDateSpan(summary.nextLeave.start, summary.nextLeave.end) : "–"}
+                    />
+                  </RosterStats>
                 </>
               ) : null}
             </>
           )}
         </div>
       )}
+
+      <p className="px-1 pt-2 text-center text-xs text-[color:var(--text-muted)]">
+        Your copy of the roster. Check official changes with your service.
+      </p>
 
       <RosterAddSheet
         open={addView !== null}

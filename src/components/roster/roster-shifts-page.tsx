@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
@@ -11,7 +11,7 @@ import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
-import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeInsetHairline, modeModuleSurface, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
 import { modeNumberText } from "@/components/mode-kit/type";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
@@ -24,15 +24,16 @@ import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-v
 import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
-import { RosterAskBox } from "./ask/roster-ask-box";
 import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } from "./roster-format";
 import { RosterHoursPanel, type RosterExtraTime } from "./roster-hours-panel";
 import { RosterImportFlow } from "./roster-import-flow";
 import { RosterLetter, RosterWeekChart } from "./roster-week-strip";
+import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
 import { useRosterRead, useRosterTeams } from "./use-roster-team";
+import { RosterPageHeader } from "./roster-ui";
 
 /**
  * Roster Shifts: Week (a 24-hour chart and every shift in words), Month
@@ -119,7 +120,9 @@ function WeekView({
           onClick={() => onWeekChange(addDaysToDate(monday, 7))}
         />
       </div>
-      <RosterWeekChart monday={monday} shifts={shifts} now={now} testId="roster-shifts-week-chart" />
+      <div className={cn(modeModuleSurface, "p-3")}>
+        <RosterWeekChart monday={monday} shifts={shifts} now={now} testId="roster-shifts-week-chart" />
+      </div>
       <ModeGroupedList testId="roster-shifts-agenda">
         {inWeek.length === 0 ? (
           <ModeRow title="No shifts this week" />
@@ -240,8 +243,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
 
   return (
     <InformationPageShell testId="roster-shifts-main" width="narrow">
-      <h1 className="sr-only">Shifts</h1>
-      <RosterAskBox />
+      <RosterPageHeader icon={CalendarClock} title="Shifts" subtitle="Your shifts, week by week." />
       {importing ? (
         <RosterImportFlow
           shifts={shifts}
@@ -266,6 +268,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
           ) : (
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
+              <RosterSampleShiftsNotice sample={shifts.sample} />
               {notice ? <ModeNotice tone={notice.tone}>{notice.text}</ModeNotice> : null}
               {shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
               {view === "week" ? (

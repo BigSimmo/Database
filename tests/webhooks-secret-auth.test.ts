@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { presentedWebhookSecret, timingSafeSecretEqual, verifyWebhookSecret } from "../src/lib/webhooks/secret-auth";
+import {
+  presentedWebhookSecret,
+  sanitizeWebhookUrl,
+  timingSafeSecretEqual,
+  verifyWebhookSecret,
+} from "../src/lib/webhooks/secret-auth";
 
 const SECRET = "a-sufficiently-long-secret-value";
 
@@ -57,5 +62,25 @@ describe("verifyWebhookSecret", () => {
         allowQueryToken: true,
       }),
     ).toEqual({ ok: true });
+  });
+});
+
+describe("sanitizeWebhookUrl", () => {
+  it("redacts ?token query parameters from valid URLs", () => {
+    expect(sanitizeWebhookUrl("https://example.com/api/webhooks/railway?token=secret123&env=production")).toBe(
+      "https://example.com/api/webhooks/railway?token=%5BREDACTED%5D&env=production",
+    );
+  });
+
+  it("leaves URLs without token untouched", () => {
+    expect(sanitizeWebhookUrl("https://example.com/api/webhooks/railway?env=production")).toBe(
+      "https://example.com/api/webhooks/railway?env=production",
+    );
+  });
+
+  it("handles malformed URLs via regex fallback", () => {
+    expect(sanitizeWebhookUrl("relative/path?token=supersecret&foo=bar")).toBe(
+      "relative/path?token=[REDACTED]&foo=bar",
+    );
   });
 });

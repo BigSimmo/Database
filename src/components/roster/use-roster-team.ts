@@ -99,9 +99,12 @@ function useLoaded<T>(url: string | null, what: RosterReadWhat | "teams"): Roste
   return { status: state.status, data: state.data, message: state.message, readAt: state.readAt, reload };
 }
 
+/** `sample` marks the invented team served while the real-staff release is held. */
+export type RosterTeamsPayload = { teams: RosterTeam[]; actorId?: string; sample?: boolean };
+
 /** The teams I belong to. */
-export function useRosterTeams(): RosterReadState<{ teams: RosterTeam[]; actorId?: string }> {
-  return useLoaded<{ teams: RosterTeam[]; actorId?: string }>("/api/roster/team", "teams");
+export function useRosterTeams(): RosterReadState<RosterTeamsPayload> {
+  return useLoaded<RosterTeamsPayload>("/api/roster/team", "teams");
 }
 
 /** One read of one team. Pass a null `serviceId` to wait (no request is made). */
@@ -143,10 +146,14 @@ export async function fetchRosterRead<W extends RosterReadWhat>(
   }
 }
 
-/** Send one team action. The body names no actor: the server takes it from the session. */
+/**
+ * Send one team action. The body names no actor: the server takes it from the
+ * session. `keepalive` lets a held send finish even as the page is leaving.
+ */
 export async function postRosterAction(
   serviceId: string,
   action: RosterAction,
+  options?: { keepalive?: boolean },
 ): Promise<{ ok: true; result: RosterCommandResult } | { ok: false; code: string; message: string }> {
   try {
     const response = await fetch(rosterTeamUrl(serviceId), {
@@ -154,6 +161,7 @@ export async function postRosterAction(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(action),
       cache: "no-store",
+      ...(options?.keepalive ? { keepalive: true } : {}),
     });
     const payload = (await response.json().catch(() => null)) as
       ({ result?: RosterCommandResult } & ErrorPayload) | null;

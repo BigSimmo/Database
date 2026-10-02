@@ -6,7 +6,7 @@ import {
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
-import { POST as rosterPost } from "@/app/api/roster/shifts/route";
+import { GET as rosterGet, POST as rosterPost } from "@/app/api/roster/shifts/route";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { deleteOwnerShifts } from "@/lib/roster/shifts/repository";
@@ -21,11 +21,26 @@ import { parseJsonBody } from "@/lib/validation/body";
  * Calendar links and Roster settings did not exist for that page, so its
  * delete never touches them. Roster's own delete is `DELETE /api/roster/shifts`.
  */
-export { GET } from "@/app/api/roster/shifts/route";
-
 export const runtime = "nodejs";
 
 const noStore = { "Cache-Control": "no-store" };
+
+/**
+ * Roster's own read, minus its example roster: On Call must never treat the
+ * sample doctor's invented shifts as the reader's real shift.
+ */
+export async function GET(request: Request) {
+  const response = await rosterGet(request);
+  if (!response.ok) return response;
+  const body: unknown = await response
+    .clone()
+    .json()
+    .catch(() => null);
+  if (isRecord(body) && body.sample === true) {
+    return NextResponse.json({ shifts: [], latestImport: null }, { headers: noStore });
+  }
+  return response;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

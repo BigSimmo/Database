@@ -2073,8 +2073,8 @@ function ClinicalDashboardContent({
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) {
-          if (isAnswerRequest) onAnswerProgress({ stage: "retrieving", message: "Trying keyword-based search..." });
-          else onProgress("Trying keyword-based search...");
+          if (isAnswerRequest) onAnswerProgress({ stage: "retrieving", message: "Trying keyword-based search…" });
+          else onProgress("Trying keyword-based search…");
         }
 
         try {

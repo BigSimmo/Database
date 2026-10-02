@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Clock3, History, Info, LayoutGrid, ListChecks, Rows3, Search, Sigma } from "lucide-react";
-import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 
 import {
   ResultFilterSheet,
@@ -21,7 +21,6 @@ import {
 import { ShowAllChip } from "@/components/show-all-chip";
 import { restoreFocusUnlessMoved } from "@/components/use-dismissable-layer";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { isTopmostSheet, popSheet, pushSheet } from "@/components/ui/sheet-focus";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
@@ -46,7 +45,7 @@ import {
   type CalculatorFixture,
 } from "./calculator-fixtures";
 import { CalculatorSheet } from "./calculator-sheet";
-import { calculatorRecordById, calculatorRecordHref, calculatorSearchHref } from "./calculator-routes";
+import { calculatorRecordById } from "./calculator-routes";
 import {
   MetaPill,
   SeverityPill,
@@ -215,7 +214,7 @@ function DensityControl({ density, onDensity }: { density: Density; onDensity: (
           title={`${label} density`}
           onClick={() => onDensity(value)}
           className={cn(
-            "grid size-9 place-items-center rounded-md transition motion-reduce:transition-none",
+            "relative grid size-9 place-items-center rounded-md transition motion-reduce:transition-none before:absolute before:-inset-y-1.5 before:inset-x-0",
             density === value
               ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
@@ -294,6 +293,14 @@ function AboutPanel() {
   );
 }
 
+function useOptionalSearchParams() {
+  try {
+    return useSearchParams();
+  } catch {
+    return null;
+  }
+}
+
 export function CalculatorsSearchPage({
   initialQuery = "",
   initialCalculatorId,
@@ -302,6 +309,7 @@ export function CalculatorsSearchPage({
   initialCalculatorId?: string;
 }) {
   const router = useRouter();
+  const searchParams = useOptionalSearchParams();
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
     subscribeNoop,
@@ -357,15 +365,30 @@ export function CalculatorsSearchPage({
     const calculator = calculatorRecordById(calculatorId);
     if (!calculator) return;
     setOpenId(calculator.id);
-    router.push(calculatorRecordHref(calculator.id));
+    const nextParams = new URLSearchParams(
+      searchParams ? searchParams.toString() : typeof window !== "undefined" ? window.location.search : "",
+    );
+    if (!nextParams.has("q") && query.trim()) {
+      nextParams.set("q", query.trim());
+    }
+    nextParams.set("calculator", calculator.id);
+    router.push("/calculators/search?" + nextParams.toString());
   }
 
-  function closeCalculator() {
-    const href = calculatorSearchHref(query);
+  const closeCalculator = useCallback(() => {
+    const nextParams = new URLSearchParams(
+      searchParams ? searchParams.toString() : typeof window !== "undefined" ? window.location.search : "",
+    );
+    nextParams.delete("calculator");
+    if (!nextParams.has("q") && query.trim()) {
+      nextParams.set("q", query.trim());
+    }
+    const searchString = nextParams.toString();
+    const href = searchString ? `/calculators/search?${searchString}` : "/calculators/search";
     if (activeCalc) queueCalculatorFocusReturn(activeCalc.id, href);
     setOpenId(null);
     router.push(href);
-  }
+  }, [activeCalc, query, router, searchParams]);
 
   // WCAG 2.4.3: return focus to the calculator's tile once the URL change that
   // closed it has committed (no `?calculator=` in the route and no sheet open).
@@ -393,26 +416,6 @@ export function CalculatorsSearchPage({
     },
     [],
   );
-
-  useEffect(() => {
-    if (!activeCalc) return;
-    pushSheet(calculatorSheetId);
-    const onKey = (event: KeyboardEvent) => {
-      if (!isTopmostSheet(calculatorSheetId)) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        const href = calculatorSearchHref(query);
-        queueCalculatorFocusReturn(activeCalc.id, href);
-        setOpenId(null);
-        router.push(href);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      popSheet(calculatorSheetId);
-    };
-  }, [activeCalc, calculatorSheetId, query, router]);
 
   function toggleDomain(domain: CalculatorDomain) {
     setSelectedDomains((current) => {
@@ -611,6 +614,7 @@ export function CalculatorsSearchPage({
       {activeCalc ? (
         <CalculatorSheet
           calc={activeCalc}
+          sheetId={calculatorSheetId}
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
           onClose={closeCalculator}

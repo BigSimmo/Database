@@ -38,7 +38,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Statutory compliance"],
     "rung": 2,
@@ -47,7 +47,10 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "8133d863dbfd57f4fe0cc3dfd3f16f31dc81f6d2f06a0f8fdf335c0c25223b1f"
   },
   {
     "id": "ocp-wa-guideline-inpatient-and-community-treatment-orders",
@@ -63,7 +66,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Community treatment orders", "Involuntary treatment"],
     "rung": 2,
@@ -72,7 +75,10 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "20c82143db1fb74787f05df44b7e0b3f7e2fd2836416910a8b4dbd99bd58abae"
   },
   {
     "id": "ocp-wa-guideline-examination-locations",
@@ -88,7 +94,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Psychiatric examination"],
     "rung": 2,
@@ -97,7 +103,10 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "44874741dc50295fcf5d50730fb814864cb837f754954a07039f00fc01266f07"
   },
   {
     "id": "ocp-wa-guideline-treatment-support-and-discharge-plans",
@@ -113,7 +122,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Treatment support and discharge plans"],
     "rung": 2,
@@ -122,7 +131,10 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "dbdf946c6419946d013170c9b949c5b882060be6795a35186f95a6daee903b28"
   },
   {
     "id": "ocp-wa-guideline-further-opinions",
@@ -138,7 +150,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Further opinions"],
     "rung": 2,
@@ -147,7 +159,10 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "a2fd370e4a71147cdea997a59bbed01ed25c17813bc4aafe054205a58bacf1ef"
   },
   {
     "id": "ocp-wa-standards-for-clinical-care",
@@ -188,7 +203,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "outdated",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Mood disorders", "Major depressive disorder", "Bipolar disorder"],
     "rung": 3,
@@ -197,7 +212,10 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "The College states on this guideline's own page, read 2026-09-16, that it is 'more than five years old and no longer considered current guidance' and 'remains accessible for reference use only'. The record previously said current. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. This moves the entry from band A to band B (currency 15 to 0), which is the intended effect of recording a retired guideline honestly."
+    "notes": "The College states on this guideline's own page, read 2026-09-16, that it is 'more than five years old and no longer considered current guidance' and 'remains accessible for reference use only'. The record previously said current. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. This moves the entry from band A to band B (currency 15 to 0), which is the intended effect of recording a retired guideline honestly.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "4eacdc8f50ce00aeb546a4c4ea305e11f37d9cc706976fba62ab8aa3efbd6f05"
   },
   {
     "id": "dictionary-australian-prescriber-movement-2019",
@@ -213,7 +231,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Medicines", "Adverse effects", "Movement disorders", "Dictionary"],
     "rung": 3,
@@ -222,7 +240,10 @@
     "disposition": "candidate",
     "dispositionReason": "Publication date, volume, pages and DOI read from the article page on 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "An earlier attempt recorded publisherCode 'Aust Prescr', which is not one of the register's codes for this publisher. An unrecognised code overrides the publisher-name match, so the catalogue returned unknown_jurisdiction and the gate read it as an unregistered publisher. The register's own code AUSPRES resolves it to australian_national. Shares identity with the existing dictionary source `australian-prescriber-movement`, which carries no date; that id is left unchanged."
+    "notes": "An earlier attempt recorded publisherCode 'Aust Prescr', which is not one of the register's codes for this publisher. An unrecognised code overrides the publisher-name match, so the catalogue returned unknown_jurisdiction and the gate read it as an unregistered publisher. The register's own code AUSPRES resolves it to australian_national. Shares identity with the existing dictionary source `australian-prescriber-movement`, which carries no date; that id is left unchanged.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "b908e263343f744d86463e4576af4d85ba81de790658918200375ba0f41b24ea"
   },
   {
     "id": "dictionary-healthdirect-antipsychotic-medicines",
@@ -239,7 +260,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Consumer information"],
     "rung": 3,
@@ -248,7 +269,10 @@
     "disposition": "candidate",
     "dispositionReason": "Healthdirect's own page states 'Last reviewed: November 2025' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "7c2dd570caff9440a4525a60ea8ac3fd28d7f0fb41e7594dbe9d909874c2aa17"
   },
   {
     "id": "dictionary-healthdirect-borderline-personality-disorder-bpd",
@@ -265,7 +289,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Consumer information"],
     "rung": 3,
@@ -274,7 +298,10 @@
     "disposition": "candidate",
     "dispositionReason": "Healthdirect's own page states 'Last reviewed: February 2024' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "b5ac804eb772ad211ebefb773134fe9f8adc50d7c054db7c72425c9413be4a88"
   },
   {
     "id": "dictionary-healthdirect-cognitive-behaviour-therapy-cbt",
@@ -291,7 +318,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Consumer information"],
     "rung": 3,
@@ -300,7 +327,10 @@
     "disposition": "candidate",
     "dispositionReason": "Healthdirect's own page states 'Last reviewed: October 2024' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "c370510ee7979b93509c1c111d3ca99c2edd17512ddc9fa7142ad8da131189c2"
   },
   {
     "id": "dictionary-healthdirect-dialectical-behaviour-therapy-dbt",
@@ -317,7 +347,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Consumer information"],
     "rung": 3,
@@ -326,7 +356,10 @@
     "disposition": "candidate",
     "dispositionReason": "Healthdirect's own page states 'Last reviewed: July 2024' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "2fe45d1621cb4b2b30df69b2ef52fd5e734c377095319350da06486077d05819"
   },
   {
     "id": "dictionary-healthdirect-post-traumatic-stress-disorder-ptsd",
@@ -343,7 +376,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Consumer information"],
     "rung": 3,
@@ -352,7 +385,10 @@
     "disposition": "candidate",
     "dispositionReason": "Healthdirect's own page states 'Last reviewed: February 2024' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "2f750ee5ef6bb4b17451fd7b890b2cc521b548091190bb2f28648ed911fb7cd0"
   },
   {
     "id": "dictionary-healthdirect-psychosis",
@@ -369,7 +405,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Consumer information"],
     "rung": 3,
@@ -378,7 +414,10 @@
     "disposition": "candidate",
     "dispositionReason": "Healthdirect's own page states 'Last reviewed: March 2025' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "5a2f8d1ee315d3a682ea295b3925cb44e70ff03b7889eaa647e6bd021f09ea97"
   },
   {
     "id": "dictionary-healthdirect-psychotherapy",
@@ -395,7 +434,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Consumer information"],
     "rung": 3,
@@ -404,7 +443,10 @@
     "disposition": "candidate",
     "dispositionReason": "Healthdirect's own page states 'Last reviewed: November 2025' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "Healthdirect maintains this page rather than issuing it, so the review month is the only date the publisher gives. It is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "cdabd6af84ec8f0d4344ebc797e49421ac744b9edf9c63a0d144544478422aff"
   },
   {
     "id": "dictionary-nice-delirium-cg103",
@@ -420,7 +462,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Delirium", "Dictionary"],
     "rung": 5,
@@ -429,7 +471,10 @@
     "disposition": "candidate",
     "dispositionReason": "Published 28 July 2010, updated 18 January 2023, read from NICE's own guidance metadata on 2026-09-16. Candidate only pending clinical sign-off and a check that UK guidance is appropriate to quote in a WA context.",
     "supersededBy": [],
-    "notes": "Resolves the apparent `nice-delirium` identity conflict: the dictionary's /chapter/context URL and the handover's /chapter/Recommendations URL are two chapters of this one guideline, not two sources. The canonical URL recorded here is the guideline itself; the chapter URLs remain precise locators for what each citation supports. NICE returned HTTP 403 to a direct fetch, so dates came from NICE's own site index."
+    "notes": "Resolves the apparent `nice-delirium` identity conflict: the dictionary's /chapter/context URL and the handover's /chapter/Recommendations URL are two chapters of this one guideline, not two sources. The canonical URL recorded here is the guideline itself; the chapter URLs remain precise locators for what each citation supports. NICE returned HTTP 403 to a direct fetch, so dates came from NICE's own site index.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "d2eb786f635f8530f3af2debf63629bf9b9e466b76d0a09d6733a2f7d635c685"
   },
   {
     "id": "dictionary-nice-selfharm-ng225",
@@ -445,7 +490,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Self-harm", "Risk assessment", "Dictionary"],
     "rung": 5,
@@ -454,7 +499,10 @@
     "disposition": "candidate",
     "dispositionReason": "Dates read from NICE's own guidance listing metadata on 2026-09-16. Candidate only pending clinical sign-off and a check that the UK recommendations are appropriate to quote in a WA context.",
     "supersededBy": [],
-    "notes": "NICE returned HTTP 403 to a direct fetch from this session; the published and last-updated dates were read from NICE's own site index rather than the guidance page itself. Confirm against the page in a browser before this record is relied on. The canonical URL is the guidance landing page, not the Recommendations chapter the handover recorded."
+    "notes": "NICE returned HTTP 403 to a direct fetch from this session; the published and last-updated dates were read from NICE's own site index rather than the guidance page itself. Confirm against the page in a browser before this record is relied on. The canonical URL is the guidance landing page, not the Recommendations chapter the handover recorded.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "9fd24d3aa2af1f6d1b4df1cd14e01d4d2473bf1c8959d689e0b7c79e80246182"
   },
   {
     "id": "dictionary-ranzcp-clp-ps116",
@@ -470,7 +518,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Services and workforce", "Dictionary"],
     "rung": 3,
@@ -479,7 +527,10 @@
     "disposition": "candidate",
     "dispositionReason": "Identifier and date read from the College's publication page on 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "RANZCP states 'Last updated Jul 2026' and gives no separate first-publication date. Recorded at month precision as the release month of this version of PS #116. The handover's inherited identifier is confirmed by the page."
+    "notes": "RANZCP states 'Last updated Jul 2026' and gives no separate first-publication date. Recorded at month precision as the release month of this version of PS #116. The handover's inherited identifier is confirmed by the page.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "cf7d3215eb748cab5be2aac8b6bc77ff280f3fe687779e255e2b451967a69c73"
   },
   {
     "id": "dictionary-ranzcp-ect-ps74",
@@ -495,7 +546,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Neurostimulation", "Dictionary"],
     "rung": 3,
@@ -504,7 +555,10 @@
     "disposition": "candidate",
     "dispositionReason": "Identifier and date read from the College's publication page on 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "RANZCP states 'Last updated Oct 2019' and gives no separate first-publication date. Recorded at month precision as the release month of this version of PS #74, not as an independently established first publication."
+    "notes": "RANZCP states 'Last updated Oct 2019' and gives no separate first-publication date. Recorded at month precision as the release month of this version of PS #74, not as an independently established first publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "61004cc588dbdecb1b05e7c26304ca5523b8b51f12194a4d1099fcf66ad82acb"
   },
   {
     "id": "dictionary-ranzcp-rtms-ppg16",
@@ -520,7 +574,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Neurostimulation", "Dictionary"],
     "rung": 3,
@@ -529,7 +583,10 @@
     "disposition": "candidate",
     "dispositionReason": "Identifier and last-updated month read from RANZCP's own site on 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "The guideline page returned HTTP 403 to a direct fetch from this session; the identifier and 'last updated May 2024' were read from RANZCP's own site index. Recorded at month precision, matching how the College dates PS #74 and PS #116. Confirm against the page in a browser before this record is relied on."
+    "notes": "The guideline page returned HTTP 403 to a direct fetch from this session; the identifier and 'last updated May 2024' were read from RANZCP's own site index. Recorded at month precision, matching how the College dates PS #74 and PS #116. Confirm against the page in a browser before this record is relied on.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "d605307ed5ed6d5f5e7b5c9c34129b22767716f736f74484456dc5fa3f2f09a8"
   },
   {
     "id": "dictionary-wa-health-consent-to-treatment",
@@ -546,7 +603,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Consent", "Dictionary"],
     "rung": 2,
@@ -555,7 +612,10 @@
     "disposition": "candidate",
     "dispositionReason": "The WA Health page states 'Last reviewed: 22-05-2026' and gives no publication date. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "WA Health maintains this article rather than issuing it. The review day is recorded in reviewDate and publicationDate is left null, because a review is not a publication."
+    "notes": "WA Health maintains this article rather than issuing it. The review day is recorded in reviewDate and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "902e270ebe35397f04e12860583f90a03a10e962e6aa9e1ef4c70930ad6bdd95"
   },
   {
     "id": "dictionary-wa-sscd-2021",
@@ -571,7 +631,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Clinical documentation", "Dictionary"],
     "rung": 2,
@@ -580,7 +640,10 @@
     "disposition": "candidate",
     "dispositionReason": "Policy number and date of effect read from the WA Health mandatory-requirements page on 2026-09-16. Candidate only: not yet cited by clinical content and not clinically signed off.",
     "supersededBy": [],
-    "notes": "The date recorded is the policy's stated date of effect (09 August 2021), which is how WA Health publishes the issue date for a mandatory policy. No separate first-publication date is given. Version 1.3 appears in the handover metadata but is not stated on the policy landing page, so only the policy number is recorded here."
+    "notes": "The date recorded is the policy's stated date of effect (09 August 2021), which is how WA Health publishes the issue date for a mandatory policy. No separate first-publication date is given. Version 1.3 appears in the handover metadata but is not stated on the policy landing page, so only the policy number is recorded here.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "dc315dc12956b3baec3cabcf1583f690a505ccb69d2e6fd3b46505a829178f0e"
   },
   {
     "id": "dictionary-who-assist-2010",
@@ -596,7 +659,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Instrument terminology"],
     "rung": 5,
@@ -605,7 +668,10 @@
     "disposition": "candidate",
     "dispositionReason": "Publisher, edition and URL checked against the WHO publication record during the 2026-09 dictionary handover. Candidate only: rights for reproduction or indexing are not established and no clinical content cites it yet.",
     "supersededBy": [],
-    "notes": "Original international instrument/version evidence retained because a local summary does not establish the originating manual identity. Foundational naming source, not a current treatment protocol. Full-text rights not established. Publication date recorded at year precision: the publisher's listing gives 2010 only, and 2010-01-01 is the ledger's year-precision representation, not an established day."
+    "notes": "Original international instrument/version evidence retained because a local summary does not establish the originating manual identity. Foundational naming source, not a current treatment protocol. Full-text rights not established. Publication date recorded at year precision: the publisher's listing gives 2010 only, and 2010-01-01 is the ledger's year-precision representation, not an established day.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "9cba36ad6e405444b7a791082fbb4d367d940f03b9e3858bf45484ad8b4fd28b"
   },
   {
     "id": "dictionary-who-audit-2001",
@@ -621,7 +687,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Instrument terminology"],
     "rung": 5,
@@ -630,7 +696,10 @@
     "disposition": "candidate",
     "dispositionReason": "Publisher, edition and URL checked against the WHO publication record during the 2026-09 dictionary handover. Candidate only: rights for reproduction or indexing are not established and no clinical content cites it yet.",
     "supersededBy": [],
-    "notes": "Original international instrument/version evidence retained because a local summary does not establish the originating manual identity. Foundational naming source, not a current treatment protocol. Full-text rights not established."
+    "notes": "Original international instrument/version evidence retained because a local summary does not establish the originating manual identity. Foundational naming source, not a current treatment protocol. Full-text rights not established.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "89424744283ac43d33e11d2d2f515756473083c6492abe929c5dc4a86de05dde"
   },
   {
     "id": "therapy-wa-aboriginal-hw-framework",
@@ -846,7 +915,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Adult depression therapy selection/delivery."],
     "rung": 5,
@@ -855,7 +924,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (29 June 2022); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "7dacad1883c364a7483030cb1e62eed8b94ff6083172701e8e3fa663d5f1960b"
   },
   {
     "id": "therapy-nice-ng134",
@@ -871,7 +943,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Youth depression."],
     "rung": 5,
@@ -880,7 +952,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (25 June 2019); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "b4d2ef149199ee8a75754319cc22a5adbf97578ab72b8834d0e6e86cb85aae1c"
   },
   {
     "id": "therapy-nice-cg113",
@@ -896,7 +971,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "GAD/panic CBT/applied relaxation."],
     "rung": 5,
@@ -905,7 +980,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (updated 15 June 2020); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "68d51946a3988b68551c243b23d95a04c11bb3cbd1beeaa8213243bebae1ad7f"
   },
   {
     "id": "therapy-nice-cg159",
@@ -921,7 +999,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Disorder-specific CBT."],
     "rung": 5,
@@ -930,7 +1008,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (22 May 2013); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "150c23a12bf5c643ff015c66d4b791a024392525f484d95ac194dd5913fd68ff"
   },
   {
     "id": "therapy-nice-cg31",
@@ -946,7 +1027,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "CBT/ERP."],
     "rung": 5,
@@ -955,7 +1036,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (29 November 2005); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "c703cb8f21e24badb7e8d4f487c2e16bbb545971f8a7c0cd683a9d906fdb4056"
   },
   {
     "id": "therapy-nice-ng116",
@@ -971,7 +1055,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Detailed corroboration for PTSD; Phoenix first for Australia."],
     "rung": 5,
@@ -980,7 +1064,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (5 December 2018); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "e202bdbde2a67e6e2304dac82c5167a3cccc077293fd5030ff5a3987aba27d3e"
   },
   {
     "id": "therapy-nice-cg178",
@@ -996,7 +1083,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": [
       "Therapy",
@@ -1008,7 +1095,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (updated 4 September 2026); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "b2c7a93c3e5ca022df2f3b050efe47325435decfda1266d73ed5a142be0b494f"
   },
   {
     "id": "therapy-nice-cg185",
@@ -1024,7 +1114,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Phase-specific bipolar psychotherapy."],
     "rung": 5,
@@ -1033,7 +1123,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (updated 2 September 2025); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "db4912cdbc5b4daa4e1feb840444123d59907b0d5fb41e21df00c89b38863559"
   },
   {
     "id": "therapy-nice-ng225",
@@ -1049,7 +1142,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Adult CBT-informed intervention and DBT-A subgroup."],
     "rung": 5,
@@ -1058,7 +1151,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (7 September 2022); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "189374660dfbca5e9c2f5c47c4dc7a1437bd6ff3ddf910addebc1c29278602c0"
   },
   {
     "id": "therapy-nice-cg78",
@@ -1074,7 +1170,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Structured therapy/comprehensive DBT in defined subgroup."],
     "rung": 5,
@@ -1083,7 +1179,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (28 January 2009); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "fa6a4d1be62fcb5e9c828b92031e01958ad7ae8144fe299cf2eaabcf17eaa8e2"
   },
   {
     "id": "therapy-nice-ng69",
@@ -1099,7 +1198,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "AN/BN/BED diagnosis-age specific treatment."],
     "rung": 5,
@@ -1108,7 +1207,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (updated 16 December 2020); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "347098e2cd2ca0ccb8a71850b6f40ea80407bb966d3eef955a74c34a45446001"
   },
   {
     "id": "therapy-nice-ng193",
@@ -1124,7 +1226,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "ACT/CBT for chronic primary pain."],
     "rung": 5,
@@ -1133,7 +1235,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (7 April 2021); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "a92e9e6805c534307ece62e67e678a41d57c8e46118ff473af0de59378060400"
   },
   {
     "id": "therapy-nice-cg115",
@@ -1149,7 +1254,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Motivational and alcohol-focused psychological interventions."],
     "rung": 5,
@@ -1158,7 +1263,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (updated 21 October 2014); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "bd3e4724ce083d10e0961b787fbebb259f3f8d8159004b156e50b5d21f85a24e"
   },
   {
     "id": "therapy-nice-ng87",
@@ -1174,7 +1282,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Therapy", "Adult ADHD structured psychological interventions."],
     "rung": 5,
@@ -1183,7 +1291,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (updated 13 September 2019); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 5 was used because the documented WA, WA-state and Australian-national searches did not find an equivalent source for these psychotherapy selection and delivery recommendations. That is a recorded search gap, not proof no Australian equivalent exists. Filed review_due: the publisher's most recent date for this guideline is more than five years old. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "bba237467ea5583f7c017a1fac4eb91be7097d6db0d46f32a04520599f8d4f38"
   },
   {
     "id": "therapy-au-ranzcp-ltpp-clarification-2026",
@@ -1199,7 +1310,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": [
       "Therapy",
@@ -1211,7 +1322,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured metadata only. Publication date and current status re-read from the publisher's own page on 2026-09-16 (27 August 2026); the clinical recommendations themselves are not verified and no content cites this source yet.",
     "supersededBy": [],
-    "notes": "Rung 3 Australian source. Retained to clarify the status of the RANZCP long-term psychodynamic psychotherapy evidence review, not as treatment-efficacy evidence. Reproduction, redistribution and AI-processing rights are not assessed."
+    "notes": "Rung 3 Australian source. Retained to clarify the status of the RANZCP long-term psychodynamic psychotherapy evidence review, not as treatment-efficacy evidence. Reproduction, redistribution and AI-processing rights are not assessed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "8da8adeb6fcffbbd2869b53308b1e31b5355c92ab991222e98a065223287d937"
   },
   {
     "id": "apa-dsm5tr-manual",
@@ -1227,7 +1341,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "metadata_only",
     "topics": ["DSM-5-TR", "Diagnostic criteria"],
     "rung": 5,
@@ -1236,7 +1350,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
     "supersededBy": [],
-    "notes": "Registered as an identity only. The APA dates the manual to 2022 without a day, hence year precision. The manual itself was not inspected and its text is not held here."
+    "notes": "Registered as an identity only. The APA dates the manual to 2022 without a day, hence year precision. The manual itself was not inspected and its text is not held here.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "03690d224e3185152c7fa9275a6c9f480d6d824151a852e0bb6d3b17142426cc"
   },
   {
     "id": "apa-dsm5tr-supplement-2022-09",
@@ -1252,7 +1369,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "outdated",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["DSM-5-TR", "Approved updates"],
     "rung": 5,
@@ -1261,7 +1378,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
     "supersededBy": ["apa-dsm5tr-supplement-2023-09"],
-    "notes": "An amendment to the manual, not an independent complete manual. Dated September 2022 without a day, hence month precision."
+    "notes": "An amendment to the manual, not an independent complete manual. Dated September 2022 without a day, hence month precision.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "0dd46e24de4318f7a4b65b5327d2751c13dbd4b0c1dd46e84e2914e73193f130"
   },
   {
     "id": "apa-dsm5tr-supplement-2023-09",
@@ -1277,7 +1397,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "outdated",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "metadata_only",
     "topics": ["DSM-5-TR", "Approved updates"],
     "rung": 5,
@@ -1286,7 +1406,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
     "supersededBy": ["apa-dsm5tr-supplement-2024-09"],
-    "notes": "An amendment to the manual. No canonical URL was established for this edition, so it is held as metadata only. Dated September 2023 without a day."
+    "notes": "An amendment to the manual. No canonical URL was established for this edition, so it is held as metadata only. Dated September 2023 without a day.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "a771ab07654e7e7002d035c03733722bc9d87c6b2a6f8099c0999ff68bfa2748"
   },
   {
     "id": "apa-dsm5tr-supplement-2024-09",
@@ -1302,7 +1425,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "outdated",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["DSM-5-TR", "Approved updates"],
     "rung": 5,
@@ -1311,7 +1434,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
     "supersededBy": ["apa-dsm5tr-supplement-2025-09"],
-    "notes": "An amendment to the manual. Dated September 2024 without a day, hence month precision."
+    "notes": "An amendment to the manual. Dated September 2024 without a day, hence month precision.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "c8dd75f450c4d6185a963345ef16e3d3ba6e81563d7682696d709b9e5e6bd96d"
   },
   {
     "id": "apa-dsm5tr-supplement-2025-09",
@@ -1327,7 +1453,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["DSM-5-TR", "Approved updates", "Other specified bipolar and related disorder"],
     "rung": 5,
@@ -1336,7 +1462,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
     "supersededBy": [],
-    "notes": "The current supplement as at the 2026-09-14 check. Supplements are cumulative amendments; this one does not replace the manual. Dated September 2025 without a day."
+    "notes": "The current supplement as at the 2026-09-14 check. Supplements are cumulative amendments; this one does not replace the manual. Dated September 2025 without a day.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "52c2709fae676b5c12b4ea8aaef745a5cfa6750f71b07d220d95a67ae9ad2326"
   },
   {
     "id": "ihacpa-icd10am-achi-acs-13",
@@ -1352,7 +1481,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["ICD-10-AM", "ACHI", "Australian Coding Standards", "Admitted care coding"],
     "rung": 3,
@@ -1361,7 +1490,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
     "supersededBy": [],
-    "notes": "Published 14 March 2025, applicable from 1 July 2025. ICD-10-AM is the Australian admitted-care classification and is a separate system from the ICD-10-CM codes DSM-5-TR carries."
+    "notes": "Published 14 March 2025, applicable from 1 July 2025. ICD-10-AM is the Australian admitted-care classification and is a separate system from the ICD-10-CM codes DSM-5-TR carries.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "569e55916052bcb59dbfc28368ebebb2b0968c4cbc2cf5a49a1ca8c5d0224c68"
   },
   {
     "id": "sydney-alcohol-problems-guidelines-4",
@@ -1377,7 +1509,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Alcohol use disorder", "Alcohol withdrawal", "Thiamine"],
     "rung": 3,
@@ -1386,7 +1518,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
     "supersededBy": [],
-    "notes": "Fourth edition, dated 2021 by the publisher without a day, hence year precision. The publisher states the guidelines should be updated in 2025, so the document status is review_due rather than current."
+    "notes": "Fourth edition, dated 2021 by the publisher without a day, hence year precision. The publisher states the guidelines should be updated in 2025, so the document status is review_due rather than current.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "d9cf1c25f2eaa0e8f75390c0e418319d6df0de27c0113fd931170c20ed2014bb"
   },
   {
     "id": "nice-cg113-anxiety-panic-adults",
@@ -1402,7 +1537,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Generalised anxiety disorder", "Panic disorder"],
     "rung": 5,
@@ -1411,7 +1546,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured unverified. Overview metadata was read from the publisher's own page; the recommendation text was not retrievable, so this is not a guideline appraisal and no clinical content cites it yet.",
     "supersededBy": [],
-    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again."
+    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "e9c3bb220e86fd080eb6aaf2426e1a49b1e114cbc8b9216c45d018d12606fa3c"
   },
   {
     "id": "nice-cg185-bipolar-disorder",
@@ -1427,7 +1565,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Bipolar disorder"],
     "rung": 5,
@@ -1436,7 +1574,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured unverified. Overview metadata was read from the publisher's own page; the recommendation text was not retrievable, so this is not a guideline appraisal and no clinical content cites it yet.",
     "supersededBy": [],
-    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again."
+    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "e68824671be76e91c21faf645090fee9412d8f07634175d9ce72e2e16434f2ae"
   },
   {
     "id": "nice-ng215-dependence-and-withdrawal",
@@ -1452,7 +1593,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Withdrawal", "Dependence", "Antidepressants"],
     "rung": 5,
@@ -1461,7 +1602,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured unverified. Overview metadata was read from the publisher's own page; the recommendation text was not retrievable, so this is not a guideline appraisal and no clinical content cites it yet.",
     "supersededBy": [],
-    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again."
+    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "c7cf4db44b38f1fde084b3011e8ed095cbef71ae11191aa00388cee31b0af841"
   },
   {
     "id": "nice-ng222-depression-in-adults",
@@ -1477,7 +1621,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Depression"],
     "rung": 5,
@@ -1486,7 +1630,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured unverified. Overview metadata was read from the publisher's own page; the recommendation text was not retrievable, so this is not a guideline appraisal and no clinical content cites it yet.",
     "supersededBy": [],
-    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again."
+    "notes": "International rung 5. Held below the Australian sources for the same topics; captured so the same ground is not searched again.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "8043ccc0fb27fe6babbde949f6bced74c89741b1b2ae2821f3a9a84f55d0822f"
   },
   {
     "id": "australian-prescriber-lithium-therapy-and-its-interactions",
@@ -1502,7 +1649,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Lithium", "Monitoring", "Drug interactions"],
     "rung": 3,
@@ -1511,7 +1658,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured unverified. It is the source behind the lithium sheet's steady-state interval, monitoring panel and interacting classes, and the Factsheets draft cites it as STAGED DRAFT EVIDENCE. It is not adopted: a 2020 journal article is not a local monitoring protocol, and the citation carries no claim of review. Adoption needs the owner's sign-off.",
     "supersededBy": [],
-    "notes": "doi:10.18773/austprescr.2020.024. Must be read together with its 2020 correction (australian-prescriber-lithium-therapy-interactions-correction), which changes the non-thiazide diuretic statement. Australian Prescriber is registered as a catalogue-identity-only authority; this record reconfirms that identity rather than adding a second one."
+    "notes": "doi:10.18773/austprescr.2020.024. Must be read together with its 2020 correction (australian-prescriber-lithium-therapy-interactions-correction), which changes the non-thiazide diuretic statement. Australian Prescriber is registered as a catalogue-identity-only authority; this record reconfirms that identity rather than adding a second one.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "e987e5d5f49b280d2a8fe96dfdc836e74f92c8056e73ca82520d15b2213d93bc"
   },
   {
     "id": "australian-prescriber-lithium-therapy-interactions-correction",
@@ -1527,7 +1677,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Lithium", "Drug interactions"],
     "rung": 3,
@@ -1536,7 +1686,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured unverified and cited by the Factsheets draft as STAGED DRAFT EVIDENCE alongside the article it corrects. Registered separately because a correction is a distinct work and is what changes the diuretic statement; folding it into the parent would lose that. Not adopted.",
     "supersededBy": [],
-    "notes": "doi:10.18773/austprescr.2020.041. Corrects the parent article: non-thiazide diuretics may alter lithium concentrations, not necessarily increase them."
+    "notes": "doi:10.18773/austprescr.2020.041. Corrects the parent article: non-thiazide diuretics may alter lithium concentrations, not necessarily increase them.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "02788116ca65762a7796be72ec92a74c64f9860f914cf1ea783488d454251e39"
   },
   {
     "id": "dictionary-aihw-prisons-health-2025",
@@ -1552,7 +1705,7 @@
     "expiryDate": null,
     "evidenceType": "dataset",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Alcohol and other drugs", "Opioid agonist therapy", "Dictionary"],
     "rung": 3,
@@ -1561,7 +1714,10 @@
     "disposition": "candidate",
     "dispositionReason": "AIHW's own topic listing dates this web report 27 Aug 2026 and the report page carries the same date as its last-updated stamp. Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "An AIHW report edition is dated, unlike AIHW's continuously updated monitoring hubs. The release date and the last-updated stamp coincide here, which is what a first edition looks like; if they later diverge the record needs re-reading. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so both dates were read from AIHW's own site index."
+    "notes": "An AIHW report edition is dated, unlike AIHW's continuously updated monitoring hubs. The release date and the last-updated stamp coincide here, which is what a first edition looks like; if they later diverge the record needs re-reading. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so both dates were read from AIHW's own site index.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "e689490f44beb24afa569b9fb351509607c873bf5fd7e60b6e488c0d5a1d10e7"
   },
   {
     "id": "sarc-kemh-service-directory-page",
@@ -1577,7 +1733,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Sexual assault", "Crisis response", "Counselling"],
     "rung": 1,
@@ -1586,7 +1742,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for the SVC-SV-001 record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "Page states crisis line 1800 199 888 or (08) 6458 1828, crisis service for assault in the last two weeks, and eligibility from age 13. It does not state the face-to-face catchment or a referral pathway."
+    "notes": "Page states crisis line 1800 199 888 or (08) 6458 1828, crisis service for assault in the last two weeks, and eligibility from age 13. It does not state the face-to-face catchment or a referral pathway.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "9c259b513640a3efb0792aa9be0bf976c9065fc7bed2c906dae9723e64364cec"
   },
   {
     "id": "mhc-wa-suicide-support-after-suicide-page",
@@ -1632,7 +1791,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Family and domestic violence", "Sexual violence", "Crisis counselling"],
     "rung": 3,
@@ -1641,7 +1800,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for the SVC-FDV-003 record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "Rung 3 was used deliberately. The rung 2 WA page (Department of Communities family and domestic violence helplines, last updated 28 August 2026) carries the same number and 24/7 hours but its publisher is not in the source authority register, and the HealthyWA family and domestic violence page was last reviewed in 2022 and states no number."
+    "notes": "Rung 3 was used deliberately. The rung 2 WA page (Department of Communities family and domestic violence helplines, last updated 28 August 2026) carries the same number and 24/7 hours but its publisher is not in the source authority register, and the HealthyWA family and domestic violence page was last reviewed in 2022 and states no number.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "442e3ce87143a231cae8a12ddd09e3c22d8c2774196e681f4bb003f21a58b06a"
   },
   {
     "id": "wachs-south-west-icamhs-service-page",
@@ -1657,7 +1819,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Child and adolescent mental health", "Regional WA", "Specialist consultation"],
     "rung": 2,
@@ -1666,7 +1828,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for the SVC-YTH-004 record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States 'Referrals to WISH are through the local ICAMHS team only. To be referred to WISH, you must be a current ICAMHS client.' Also gives South West ICAMHS as 0 to 17 years on (08) 9722 4300. This contradicts the looser wording in the WACHS news item of 10 August 2026, which says referral may be through the local hospital or ICAMHS. The service page is the more recent and more operationally specific of the two."
+    "notes": "States 'Referrals to WISH are through the local ICAMHS team only. To be referred to WISH, you must be a current ICAMHS client.' Also gives South West ICAMHS as 0 to 17 years on (08) 9722 4300. This contradicts the looser wording in the WACHS news item of 10 August 2026, which says referral may be through the local hospital or ICAMHS. The service page is the more recent and more operationally specific of the two.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "96e257a35667e8c7fbc6adcc737f612fc1fa5dd481d7bd332c4086175c7171ab"
   },
   {
     "id": "mhc-wa-soar-program-page",
@@ -1682,7 +1847,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Youth psychosocial support", "Mental health", "Alcohol and other drugs"],
     "rung": 2,
@@ -1691,7 +1856,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for the SVC-YTH-014 record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States ages 16 to 24, delivery by Anglicare WA and Mind Australia in the metropolitan area, and referral through Hope Community Services at PCS@hopeCS.org.au. States no phone number, no hours and no program duration."
+    "notes": "States ages 16 to 24, delivery by Anglicare WA and Mind Australia in the metropolitan area, and referral through Hope Community Services at PCS@hopeCS.org.au. States no phone number, no hours and no program duration.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "58911eac7dc9a3835276bec48201f2038084dd2aa333f0c329c3469c90f56dc2"
   },
   {
     "id": "mhc-wa-soar-plus-program-page",
@@ -1707,7 +1875,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Youth psychosocial support", "Transitional accommodation", "Mental health"],
     "rung": 2,
@@ -1716,7 +1884,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for the SVC-YTH-015 record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States ages 16 to 24, transitional accommodation, up to three years or until the young person turns 25, clinical case management through a public mental health team, and referral through Hope Community Services. States no phone number, no hours and no catchment."
+    "notes": "States ages 16 to 24, transitional accommodation, up to three years or until the young person turns 25, clinical case management through a public mental health team, and referral through Hope Community Services. States no phone number, no hours and no catchment.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "9293e4749471fe7d38fbdc2bf48f018fc176285bf177538a5c41aad9fdc8765f"
   },
   {
     "id": "cahs-child-development-service-page",
@@ -1732,7 +1903,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Child development", "Neurodevelopment", "Paediatric assessment"],
     "rung": 1,
@@ -1741,7 +1912,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for the SVC-DEV-001 record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States referrals for children up to 16 years living in the Perth metropolitan area, accepted from professionals and from parents or carers, and that wait times vary with some services in high demand. States no phone number or hours; contacts are per centre."
+    "notes": "States referrals for children up to 16 years living in the Perth metropolitan area, accepted from professionals and from parents or carers, and that wait times vary with some services in high demand. States no phone number or hours; contacts are per centre.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "4d4797935b4f7f1e8aeaf4be1e540c7d599d845ac17a5246912e7332e389f9b2"
   },
   {
     "id": "kemh-mother-baby-unit-page",
@@ -1757,7 +1931,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Perinatal mental health", "Inpatient care", "Mother and baby"],
     "rung": 1,
@@ -1766,7 +1940,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for a canonical service record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States admission of women with one or more babies aged 12 months or younger, babies up to 12 months who are not walking staying on the unit, (08) 6458 1799, and catchment of KEMH births, North Metropolitan Health Service, and rural and remote WA with external referrals considered. States no bed number."
+    "notes": "States admission of women with one or more babies aged 12 months or younger, babies up to 12 months who are not walking staying on the unit, (08) 6458 1799, and catchment of KEMH births, North Metropolitan Health Service, and rural and remote WA with external referrals considered. States no bed number.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "72b019cbc297c29d2bbe716104b46958f1c14e91b234abe35becf5e2bb8b98da"
   },
   {
     "id": "cahs-camhs-hospital-services-page",
@@ -1782,7 +1959,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Eating disorders", "Gender diversity", "Child and adolescent mental health"],
     "rung": 1,
@@ -1791,7 +1968,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for a canonical service record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States the Eating Disorders Service accepts young people up to 18 with referral from a treating therapist, specialist, GP, school or community organisation, and the Gender Diversity Service takes any child or young person up to 18 living in WA for consultation. States no phone numbers or hours. The Perth Children's Hospital service page carries a phone number but shows no publication or review date, so it was not registered."
+    "notes": "States the Eating Disorders Service accepts young people up to 18 with referral from a treating therapist, specialist, GP, school or community organisation, and the Gender Diversity Service takes any child or young person up to 18 living in WA for consultation. States no phone numbers or hours. The Perth Children's Hospital service page carries a phone number but shows no publication or review date, so it was not registered.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "7f2bda78cfc689eec99ed3b32be7313fbeb4faaeb4ee4b3fec7cdb8625613811"
   },
   {
     "id": "mhc-wa-my-services-directory-page",
@@ -1807,7 +1987,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Service navigation", "Mental health", "Alcohol and other drugs"],
     "rung": 2,
@@ -1816,7 +1996,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for a canonical service record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States more than 1500 mental health and alcohol and other drug services, funded by the State Government through the Commission plus eligible unfunded organisations that choose to list. Entries are self-listed and not verified by this knowledge base."
+    "notes": "States more than 1500 mental health and alcohol and other drug services, funded by the State Government through the Commission plus eligible unfunded organisations that choose to list. Entries are self-listed and not verified by this knowledge base.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "5d796b1f9f809f222bab46503c9ccc62c39b2408a7a564e2ab213cd33f396b14"
   },
   {
     "id": "wachs-bunbury-mhoa-completion-news",
@@ -1832,7 +2015,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["South West", "Mental health observation", "Emergency alternative"],
     "rung": 2,
@@ -1841,7 +2024,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and used for a canonical service record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "A construction milestone news item, not a service page. States primarily ages 18 to 65, six bedrooms with private ensuites including two fully accessible, described as operating 24 hours with admissions up to 72 hours. It confirms the build is complete but does NOT state the area is open to patients, so the record it supports is held as planned rather than active."
+    "notes": "A construction milestone news item, not a service page. States primarily ages 18 to 65, six bedrooms with private ensuites including two fully accessible, described as operating 24 hours with admissions up to 72 hours. It confirms the build is complete but does NOT state the area is open to patients, so the record it supports is held as planned rather than active.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "1b4bfa1f912baa55efb0b65a39a2c323c1ca35303a3158a6a65fa6f0cc847eaf"
   },
   {
     "id": "wachs-south-west-adult-mental-health-page",
@@ -1857,7 +2043,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Adult community mental health", "Regional WA", "South West"],
     "rung": 2,
@@ -1866,7 +2052,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the service's own page and used to supersede an unverified legacy record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States ages 18 to 65, clinics at Bunbury (08) 9722 1300 and Busselton (08) 9753 6400, outreach at Bridgetown, Harvey and Collie, and 8.30am to 4.30pm weekdays. It does NOT list the Margaret River (08) 9757 3547 or Bridgetown (08) 9782 1444 numbers the legacy record carried, so those are flagged for confirmation rather than carried forward."
+    "notes": "States ages 18 to 65, clinics at Bunbury (08) 9722 1300 and Busselton (08) 9753 6400, outreach at Bridgetown, Harvey and Collie, and 8.30am to 4.30pm weekdays. It does NOT list the Margaret River (08) 9757 3547 or Bridgetown (08) 9782 1444 numbers the legacy record carried, so those are flagged for confirmation rather than carried forward.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "c6dc461150cecf36e49823345ba06a28a98b20993f480069a556121a5812f99e"
   },
   {
     "id": "wachs-kimberley-adult-mental-health-page",
@@ -1932,7 +2121,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Adult community mental health", "Regional WA", "Great Southern", "GP psychiatry advice"],
     "rung": 2,
@@ -1941,7 +2130,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the service's own page and used to supersede an unverified legacy record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States ages 18 to 65, Albany and Katanning with visiting services, (08) 9892 2440, gs.cmh@health.wa.gov.au, 8.30am to 4.30pm weekdays, and a GP Psychiatry Phone Line from 8.30am to 1.30pm giving free psychiatric advice to primary care providers."
+    "notes": "States ages 18 to 65, Albany and Katanning with visiting services, (08) 9892 2440, gs.cmh@health.wa.gov.au, 8.30am to 4.30pm weekdays, and a GP Psychiatry Phone Line from 8.30am to 1.30pm giving free psychiatric advice to primary care providers.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "395b949c0d3b0d9604b1bcc4a9c4960ce2fa0550b47969c35ea8fa75671611a9"
   },
   {
     "id": "ps-diff-src-who-icd11-cddr-2024",
@@ -1957,7 +2149,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric differential diagnosis"],
     "rung": 5,
@@ -1966,7 +2158,10 @@
     "disposition": "candidate",
     "dispositionReason": "Prepared metadata only. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "The book identity and scope are checked. The 852-page diagnostic text was not retrieved: no detailed criterion set is certified from the landing page."
+    "notes": "The book identity and scope are checked. The 852-page diagnostic text was not retrieved: no detailed criterion set is certified from the landing page.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "5c627c47cc0ad0c9711a5f8a1b25c7eae6972e05ee907c8bba0365b983a32f26"
   },
   {
     "id": "ps-diff-src-au-ausprescr-movement-2019",
@@ -1982,7 +2177,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric differential diagnosis"],
     "rung": 3,
@@ -1991,7 +2186,10 @@
     "disposition": "candidate",
     "dispositionReason": "Prepared metadata only. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Narrow phenomenology support. Older narrative clinical review, not a current comprehensive prescribing protocol. AUSPRES catalogue-only identity now exists and its host is allowed."
+    "notes": "Narrow phenomenology support. Older narrative clinical review, not a current comprehensive prescribing protocol. AUSPRES catalogue-only identity now exists and its host is allowed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "56f4b393a9a146efca060b73b81b90296f774d35b760090c69e1b27ac8b981d8"
   },
   {
     "id": "ps-diff-src-au-ausprescr-lithium-2020",
@@ -2007,7 +2205,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric differential diagnosis"],
     "rung": 3,
@@ -2016,7 +2214,10 @@
     "disposition": "candidate",
     "dispositionReason": "Prepared metadata only. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Corrects the earlier 3 August correction-date claim. Routine 12-hour trough monitoring is not a reason to defer an urgent level in suspected toxicity. Do not export the review as a full acute-toxicology protocol."
+    "notes": "Corrects the earlier 3 August correction-date claim. Routine 12-hour trough monitoring is not a reason to defer an urgent level in suspected toxicity. Do not export the review as a full acute-toxicology protocol.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "2287bd6ce5601ecea825aed246a85c9dae2e6e4c696b3cf5227fd5cb16533791"
   },
   {
     "id": "formulation-wa-ocp-risk",
@@ -2032,7 +2233,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric formulation"],
     "rung": 2,
@@ -2041,7 +2242,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata candidate only. No clinical approval, indexing or activation authorised.",
     "supersededBy": [],
-    "notes": "Raw source date: 2015-11-30; role: publication_listing; precision: day. Access is not clinical review. Source authority matched to existing registry, not changed."
+    "notes": "Raw source date: 2015-11-30; role: publication_listing; precision: day. Access is not clinical review. Source authority matched to existing registry, not changed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "a25148a1cd7ef1955a06aa0a3f5fde57db4e0f3e77c8925e6386ea4501feac26"
   },
   {
     "id": "formulation-ranzcp-cult",
@@ -2057,7 +2261,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric formulation"],
     "rung": 3,
@@ -2066,7 +2270,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata candidate only. No clinical approval, indexing or activation authorised.",
     "supersededBy": [],
-    "notes": "Raw source date: 2021-12; role: edition_update; precision: month. Access is not clinical review. Source authority matched to existing registry, not changed."
+    "notes": "Raw source date: 2021-12; role: edition_update; precision: month. Access is not clinical review. Source authority matched to existing registry, not changed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "4111bff8290686a2ed57b1c20faeb1ae2a42b8593e67f6288ae6587b5558536e"
   },
   {
     "id": "formulation-ranzcp-oca",
@@ -2082,7 +2289,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric formulation"],
     "rung": 3,
@@ -2091,7 +2298,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata candidate only. No clinical approval, indexing or activation authorised.",
     "supersededBy": [],
-    "notes": "Raw source date: 2025-07; role: edition_update; precision: month. Access is not clinical review. Source authority matched to existing registry, not changed."
+    "notes": "Raw source date: 2025-07; role: edition_update; precision: month. Access is not clinical review. Source authority matched to existing registry, not changed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "49c62839cfb1c0c312a3b368bec7a7ed3eada37e8ce78cfffb515629fc3ed4a4"
   },
   {
     "id": "formulation-ranzcp-suicide",
@@ -2107,7 +2317,7 @@
     "expiryDate": null,
     "evidenceType": "professional_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric formulation"],
     "rung": 3,
@@ -2116,7 +2326,10 @@
     "disposition": "candidate",
     "dispositionReason": "Metadata candidate only. No clinical approval, indexing or activation authorised.",
     "supersededBy": [],
-    "notes": "Raw source date: 2026-05; role: edition_update; precision: month. Access is not clinical review. Source authority matched to existing registry, not changed."
+    "notes": "Raw source date: 2026-05; role: edition_update; precision: month. Access is not clinical review. Source authority matched to existing registry, not changed.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "cc709b1533b04c21c61a5176737109630dd126bfac50fa71fb09819827215097"
   },
   {
     "id": "mental-health-act-2014-wa",
@@ -2132,7 +2345,7 @@
     "expiryDate": null,
     "evidenceType": "legislation",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": [
       "Mental Health Act 2014",
@@ -2149,7 +2362,10 @@
     "disposition": "candidate",
     "dispositionReason": "Fetched 2026-09-25 from the publisher's filestore; document SHA-256 921a5174712405a8298ec350e1be275e0664c62092519d87ae3886a135dd2d0c matches the pinned 02-b0-02 extraction, so no existing section text changed. Candidate only: every summary drawn from it is drafted and awaiting the owner's clinical review.",
     "supersededBy": [],
-    "notes": "The consolidated HTML carries no as-at line of its own. The version (02-b0-02) and the date (currency start 25 Sep 2025, listed as Current with no later consolidation) were read from the publisher's All Versions page on 2026-09-25 — see mental-health-act-2014-wa-all-versions. The id matches the sourceId the Forms provider already emits for this Act (src/lib/sources/repository-providers.ts)."
+    "notes": "The consolidated HTML carries no as-at line of its own. The version (02-b0-02) and the date (currency start 25 Sep 2025, listed as Current with no later consolidation) were read from the publisher's All Versions page on 2026-09-25 — see mental-health-act-2014-wa-all-versions. The id matches the sourceId the Forms provider already emits for this Act (src/lib/sources/repository-providers.ts).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "9ff340b78a33fcd7cf5f8fc048eed59d136893c6c6552f99b3a7948bfb2431e5"
   },
   {
     "id": "mental-health-act-2014-wa-all-versions",
@@ -2215,7 +2431,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Psychiatric assessment", "Mental Health Act 2014"],
     "rung": 2,
@@ -2224,7 +2440,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Assessment.pdf)."
+    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Assessment.pdf).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "c645a760c5c126db6d3763d8cbfcafee5a95a525e8b4eb5b9cd2e8be70eb0546"
   },
   {
     "id": "ocp-wa-standard-care-planning",
@@ -2240,7 +2459,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Care planning", "Mental Health Act 2014"],
     "rung": 2,
@@ -2249,7 +2468,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Care-Planning.pdf)."
+    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Care-Planning.pdf).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "da5eccaa7c857aa9a309e9f999201c24c11c1e89ab5bfeb5a46f2732b9c3dcc1"
   },
   {
     "id": "ocp-wa-standard-consumer-carer-involvement",
@@ -2265,7 +2487,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Consumer and carer involvement", "Mental Health Act 2014"],
     "rung": 2,
@@ -2274,7 +2496,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Consumer-and-Carer-Involvement-in-Individual-Care.pdf)."
+    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Consumer-and-Carer-Involvement-in-Individual-Care.pdf).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "9f41ed52eb5dc5d5b18deaf143e57ddaf31526e1b2ea577d12d39f3202cf7f10"
   },
   {
     "id": "ocp-wa-standard-physical-healthcare",
@@ -2290,7 +2515,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Physical healthcare of mental health consumers", "Mental Health Act 2014"],
     "rung": 2,
@@ -2299,7 +2524,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Physical-Health-Care-of-Mental-Health-Consumers.pdf)."
+    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Physical-Health-Care-of-Mental-Health-Consumers.pdf).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "baa36900bf1276279945f2e3a101e5d65bb97d454d69ab35317f678589ab4f09"
   },
   {
     "id": "ocp-wa-standard-seclusion-restraint",
@@ -2315,7 +2543,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Seclusion and restraint reduction", "Mental Health Act 2014"],
     "rung": 2,
@@ -2324,7 +2552,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Standards-for-Clinical-Care-Seclusion-and-Bodily-Restraint-Reduction.pdf)."
+    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Standards-for-Clinical-Care-Seclusion-and-Bodily-Restraint-Reduction.pdf).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "b29b7cc816198adc34896c4d1db8a3096b2ae6d39a95d1c386c95f7e8d383be2"
   },
   {
     "id": "ocp-wa-standard-transfer-of-care",
@@ -2340,7 +2571,7 @@
     "expiryDate": null,
     "evidenceType": "standard",
     "documentStatus": "review_due",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Transfer of care", "Mental Health Act 2014"],
     "rung": 2,
@@ -2349,7 +2580,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Transfer-of-Care.pdf)."
+    "notes": "Publisher's page prints 'Effective Date: 30 November 2015' and states the full set of Chief Psychiatrist's Standards for Clinical Care is currently under review, with updated versions to be published from 2026, hence review_due. Full text read from the linked PDF (CP-Clinical-Care-Standards-Transfer-of-Care.pdf).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "28bb094a27cbd73e2ec7670a0e41761bc10e2cdcf55da953c8eca099857dcc91"
   },
   {
     "id": "wa-monitored-medicines-prescribing-code",
@@ -2365,7 +2599,7 @@
     "expiryDate": null,
     "evidenceType": "regulatory",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": [
       "Schedule 8 prescribing",
@@ -2382,7 +2616,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page and linked PDF. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Full text (51 pages) fetched from the official health.wa.gov.au PDF on 2026-09-25 and read in full via PyMuPDF extraction before drafting any clinical claim (the direct WebFetch summarisation tool could not parse this PDF's binary stream, so the file was extracted and read as plain text instead). The cover page and table of contents date the document December 2024. Every WA-prescribing row cites a section of this Code that was read directly: Part 3 (S8 stimulant medicines, Sections 3.4–3.5.4), Part 6 (S8 benzodiazepines, Sections 6.2 and 6.5–6.5.2.1), Part 7 (opioid pharmacotherapy/CPOP, Sections 7.4–7.4.3.1), Part 8 (S4 Monitored Medicines, Sections 8.5), and Section 1.2.1 (ScriptCheckWA registration is mandatory under Regulation 22A of the Medicines and Poisons Regulations 2016)."
+    "notes": "Full text (51 pages) fetched from the official health.wa.gov.au PDF on 2026-09-25 and read in full via PyMuPDF extraction before drafting any clinical claim (the direct WebFetch summarisation tool could not parse this PDF's binary stream, so the file was extracted and read as plain text instead). The cover page and table of contents date the document December 2024. Every WA-prescribing row cites a section of this Code that was read directly: Part 3 (S8 stimulant medicines, Sections 3.4–3.5.4), Part 6 (S8 benzodiazepines, Sections 6.2 and 6.5–6.5.2.1), Part 7 (opioid pharmacotherapy/CPOP, Sections 7.4–7.4.3.1), Part 8 (S4 Monitored Medicines, Sections 8.5), and Section 1.2.1 (ScriptCheckWA registration is mandatory under Regulation 22A of the Medicines and Poisons Regulations 2016).",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "b09e5759fc3e0eb19d1ddbb6bc85ec950bc8a39b0775e76620fee1dbcecd24e3"
   },
   {
     "id": "wa-health-scriptcheckwa",
@@ -2399,7 +2636,7 @@
     "expiryDate": null,
     "evidenceType": "regulatory",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": [
       "ScriptCheckWA",
@@ -2413,7 +2650,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Fetched directly from health.wa.gov.au on 2026-09-25. The page carries a 'Last reviewed' stamp of 06-09-2023 (DD-MM-YYYY, i.e. 6 September 2023), recorded here as a review date rather than a publication date because this is a continuously maintained WA Health article, not a discrete publication."
+    "notes": "Fetched directly from health.wa.gov.au on 2026-09-25. The page carries a 'Last reviewed' stamp of 06-09-2023 (DD-MM-YYYY, i.e. 6 September 2023), recorded here as a review date rather than a publication date because this is a continuously maintained WA Health article, not a discrete publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "48264f984617b668f0745efa915331e9abbd064281f1edecf2d58ac395639f71"
   },
   {
     "id": "wa-statewide-medicines-formulary",
@@ -2454,7 +2694,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": [
       "Clozapine",
@@ -2469,7 +2709,10 @@
     "disposition": "candidate",
     "dispositionReason": "Fetched and read in full this session (all 46 pages, including Appendices 4 and 5). Rung-2 WA Department of Health statewide clozapine guideline, published by the Medicines and Technology Unit, Patient Safety and Clinical Quality Division. No clinical owner sign-off, activation or full-text ingestion authorised.",
     "supersededBy": [],
-    "notes": "Cover states 'Version 2, June 2024'; approval page records approval by the Executive Director, Patient Safety and Clinical Quality on 9 July 2024, effective from July 2024, next review due 3 years from the effective date. publicationDate recorded at month precision because only 'June 2024' is printed on the cover; no exact day is given for the version itself. The document's own Appendix 5 (community titration table) states it is '*Adapted from The Maudsley Prescribing Guidelines in Psychiatry 14th Edition (2021)' — quoted content sourced from this WA guideline still carries that attribution verbatim in the clozapine record. The separate 'WA Clozapine Initiation and Titration Chart' (Appendix 1.1, a graphic/table PDF referenced by this guideline) was also fetched this session but could not be extracted as reliable text, so it was not used as a quote source; only the fully text-extractable Appendix 5 community titration table, Table 1 (re-titration after discontinuation) and Appendix 4 (myocarditis commencement-phase monitoring protocol) were quoted."
+    "notes": "Cover states 'Version 2, June 2024'; approval page records approval by the Executive Director, Patient Safety and Clinical Quality on 9 July 2024, effective from July 2024, next review due 3 years from the effective date. publicationDate recorded at month precision because only 'June 2024' is printed on the cover; no exact day is given for the version itself. The document's own Appendix 5 (community titration table) states it is '*Adapted from The Maudsley Prescribing Guidelines in Psychiatry 14th Edition (2021)' — quoted content sourced from this WA guideline still carries that attribution verbatim in the clozapine record. The separate 'WA Clozapine Initiation and Titration Chart' (Appendix 1.1, a graphic/table PDF referenced by this guideline) was also fetched this session but could not be extracted as reliable text, so it was not used as a quote source; only the fully text-extractable Appendix 5 community titration table, Table 1 (re-titration after discontinuation) and Appendix 4 (myocarditis commencement-phase monitoring protocol) were quoted.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "6270fb13ce07214807fd2ff7d48885dfc58c00e40ccd3d881f4fdc80a8117f0e"
   },
   {
     "id": "rkpg-clozapine-policy-rejected-anc-wbc-mislabel",
@@ -2535,7 +2778,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Interpreters", "Language services", "Mandatory WA Health policy"],
     "rung": 2,
@@ -2544,7 +2787,10 @@
     "disposition": "candidate",
     "dispositionReason": "Fetched and read verbatim this session (7-page PDF) from the current WA Health Policy Frameworks site. A mandatory policy under s 26(2)(c) of the Health Services Act 2016. Not directly quoted in data/forms-cultural-notes.json (its own text has no mental-health-specific interpreter guidance beyond what the Guidelines say more concretely), but is the parent policy the Guidelines implement, and is registered here for completeness. Held as a candidate until an owner reviews and adopts it.",
     "supersededBy": [],
-    "notes": "'Effective from: 3 April 2017. Amended on: 17 March 2025.' Document control table: original version approved 24 March 2017 by Dr David Russell-Weisz, Director General; v.2.0 (the version read) dated 17 March 2025, amending the policy to include interpreter health, safety and wellbeing provisions and briefing/debriefing requirements. s 3.1 requires WA health entities to 'engage tertiary qualified and/or National Accreditation Authority for Translators and Interpreters (NAATI) credentialed interpreters and translators'. Lists 'Language Services Guidelines' among its (non-mandatory) supporting information."
+    "notes": "'Effective from: 3 April 2017. Amended on: 17 March 2025.' Document control table: original version approved 24 March 2017 by Dr David Russell-Weisz, Director General; v.2.0 (the version read) dated 17 March 2025, amending the policy to include interpreter health, safety and wellbeing provisions and briefing/debriefing requirements. s 3.1 requires WA health entities to 'engage tertiary qualified and/or National Accreditation Authority for Translators and Interpreters (NAATI) credentialed interpreters and translators'. Lists 'Language Services Guidelines' among its (non-mandatory) supporting information.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "157f3755b6340d21c8eca9dde2640e9ea65ffb9f4bf8a99d5a73585a9b5c7e5a"
   },
   {
     "id": "wa-health-language-services-guidelines-2025",
@@ -2613,7 +2859,7 @@
     "reviewDate": null,
     "expiryDate": null,
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "capturedAt": "2026-09-26",
     "disposition": "candidate",
@@ -2623,7 +2869,10 @@
     "rung": 4,
     "capturedFor": "Dictionary sense drafts cite this page for the SCI expansion. Captured for terminology provenance only.",
     "dispositionReason": "The publisher's page states 'Publication date 2021-08-30' and 'Version: 1'. Read 2026-09-26 Candidate only pending clinical sign-off.",
-    "notes": "Other Australian state (rung 4): used for a name and expansion only, which no WA or national source in the register covers. Jurisdiction written in register form rather than the handover's 'New South Wales; spinal cord injury'."
+    "notes": "Other Australian state (rung 4): used for a name and expansion only, which no WA or national source in the register covers. Jurisdiction written in register form rather than the handover's 'New South Wales; spinal cord injury'.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "b33849c6b78bd18cff2e6a3b95379480304fc3c06460f4cd1cda65dd1069144b"
   },
   {
     "id": "dictionary-nsw-aci-ecat-mental-health-assessment-2023",
@@ -2638,7 +2887,7 @@
     "reviewDate": null,
     "expiryDate": null,
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "capturedAt": "2026-09-26",
     "disposition": "candidate",
@@ -2648,7 +2897,10 @@
     "rung": 4,
     "capturedFor": "Dictionary sense drafts cite this page for adult emergency mental-health assessment terms. Captured for terminology provenance only.",
     "dispositionReason": "The publisher's page states 'Published: December 2023.' and gives no version, so the version field carries that statement. Read 2026-09-26. Candidate only pending clinical sign-off.",
-    "notes": "Other Australian state (rung 4): the ECAT page is cited for terminology only. Month precision is recorded as the first of the month. Jurisdiction written in register form rather than the handover's 'New South Wales; adult emergency care'."
+    "notes": "Other Australian state (rung 4): the ECAT page is cited for terminology only. Month precision is recorded as the first of the month. Jurisdiction written in register form rather than the handover's 'New South Wales; adult emergency care'.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "33825f6feb6f358fc4ebd9efad18f50b6bd35f34fed5a0fc9c414353ed3bfa21"
   },
   {
     "id": "dictionary-apa-what-are-bipolar-disorders",
@@ -2664,7 +2916,7 @@
     "reviewDate": "2024-04-01",
     "expiryDate": null,
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "capturedAt": "2026-09-26",
     "disposition": "candidate",
@@ -2674,7 +2926,10 @@
     "rung": 5,
     "capturedFor": "Dictionary sense drafts cite this page to correct the implication that bipolar I requires a depressive episode. Captured for terminology provenance only; consumer information is not clinical guidance.",
     "dispositionReason": "The APA's own page carries a physician review dated 'April 2024' and gives no publication date, which is why this record is dateModel continuously_updated. Read 2026-09-26. Candidate only pending clinical sign-off.",
-    "notes": "International (rung 5): the diagnostic publisher's own statement of the DSM definition, which no WA or Australian source in the register states. It does not replace Australian management guidance. The review month is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication."
+    "notes": "International (rung 5): the diagnostic publisher's own statement of the DSM definition, which no WA or Australian source in the register states. It does not replace Australian management guidance. The review month is recorded in reviewDate at month precision and publicationDate is left null, because a review is not a publication.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "bc1ef9fce459d6f2c90a2f6156f61a85011d15a77e3e9f414d1468bc0b0432da"
   },
   {
     "id": "nmhs-state-forensic-mental-health-services-page",
@@ -2690,7 +2945,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Forensic mental health", "Youth justice", "Court liaison"],
     "rung": 1,
@@ -2699,7 +2954,10 @@
     "disposition": "candidate",
     "dispositionReason": "Captured from the publisher's own page (owner-approved page read, 2026-09-26) and used for a canonical service record. Awaiting owner review before adoption",
     "supersededBy": [],
-    "notes": "States that Links Court is at the Perth Children's Court for young people aged 10 to 18 appearing before the court with a suspected mental illness, is a partnership of the Department of Justice, the State Forensic Mental Health Service and Outcare, and gives (08) 9218 4819 and a Department of Justice email. States no hours or referral process. 'Page Last Updated: 04/08/2026' is recorded as the publication date, as for the other service pages in this register."
+    "notes": "States that Links Court is at the Perth Children's Court for young people aged 10 to 18 appearing before the court with a suspected mental illness, is a partnership of the Department of Justice, the State Forensic Mental Health Service and Outcare, and gives (08) 9218 4819 and a Department of Justice email. States no hours or referral process. 'Page Last Updated: 04/08/2026' is recorded as the publication date, as for the other service pages in this register.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "9285c1866b8c6e12ab74e6591e30fdbcd33754fcbe5f552e0e948ef9b415742d"
   },
   {
     "id": "doc-wa-child-safety-concerns-page",
@@ -2715,7 +2973,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "rung": 2,
     "capturedAt": "2026-09-26",
@@ -2724,7 +2982,10 @@
     "topics": ["Child protection", "Reporting concerns"],
     "capturedFor": "The legacy Child Protection Central Intake record carried no source URL yet was marked high confidence (ledger #KVYHWZ)",
     "dispositionReason": "Captured from the publisher's own page (owner-approved page read, 2026-09-26) and used for a canonical service record. Awaiting owner review before adoption",
-    "notes": "States the Central Intake Team on 1800 273 889 for concerns about a child's wellbeing, Crisis Care as the after-hours response, police on 000 for life-threatening concerns, and the Professional Referral form. States no hours for the Central Intake Team."
+    "notes": "States the Central Intake Team on 1800 273 889 for concerns about a child's wellbeing, Crisis Care as the after-hours response, police on 000 for life-threatening concerns, and the Professional Referral form. States no hours for the Central Intake Team.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "6b06a7eec19ea21137751de2bd9c70aff4075c2535fff2fc533815314d2ea898"
   },
   {
     "id": "doc-wa-womens-domestic-violence-helpline-page",
@@ -2740,7 +3001,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "rung": 2,
     "capturedAt": "2026-09-26",
@@ -2749,7 +3010,10 @@
     "topics": ["Family and domestic violence", "Helplines"],
     "capturedFor": "The legacy Women's Domestic Violence Helpline record carried no source URL yet was marked high confidence (ledger #KVYHWZ)",
     "dispositionReason": "Captured from the publisher's own page (owner-approved page read, 2026-09-26). Used for canonical record SVC-FDV-004. On the owner's 2026-09-26 decision the helpline is the first family-violence route, with 1800RESPECT listed straight after it. The record stays pending the owner's clinical sign-off",
-    "notes": "States a free 24-hour line, 1800 007 339, for women with or without children experiencing family and domestic violence in Western Australia, offering information, advice, referral to advocacy and safe accommodation, and police liaison."
+    "notes": "States a free 24-hour line, 1800 007 339, for women with or without children experiencing family and domestic violence in Western Australia, offering information, advice, referral to advocacy and safe accommodation, and police liaison.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "2049cab75d99b31b533837ff0d23cdf65cb09deb3f99038ff9c086d16963a4a3"
   },
   {
     "id": "dictionary-aihw-ambulance-attendances-suicidality-self-harm",
@@ -2767,7 +3031,7 @@
     "expiryDate": null,
     "evidenceType": "dataset",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Self-harm"],
     "rung": 3,
@@ -2776,7 +3040,10 @@
     "disposition": "candidate",
     "dispositionReason": "AIHW's own page states 'Updated 14 Aug 2026 (National Suicide and Self-harm Monitoring, of which this page is a section)' and gives no publication or review date, which is why this record is dateModel last_updated (owner decision 2026-09-26). Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "AIHW maintains its monitoring hubs rather than issuing them; the stamp dates the National Suicide and Self-harm Monitoring hub of which this page is a section. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review."
+    "notes": "AIHW maintains its monitoring hubs rather than issuing them; the stamp dates the National Suicide and Self-harm Monitoring hub of which this page is a section. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "af469544796cf0b14099463a936f8459c888acb1feac4571af01c4e3dee28e53"
   },
   {
     "id": "dictionary-aihw-suicide-self-harm-monitoring-glossary",
@@ -2794,7 +3061,7 @@
     "expiryDate": null,
     "evidenceType": "dataset",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Self-harm"],
     "rung": 3,
@@ -2803,7 +3070,10 @@
     "disposition": "candidate",
     "dispositionReason": "AIHW's own page states 'Updated 14 Aug 2026' and gives no publication or review date, which is why this record is dateModel last_updated (owner decision 2026-09-26). Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "AIHW maintains this glossary rather than issuing it. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review."
+    "notes": "AIHW maintains this glossary rather than issuing it. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "e811f90848e82b07d9cf3ab7d6d91235e89c26742a020ecf532623c422876f0a"
   },
   {
     "id": "dictionary-wa-mental-health-advocacy-service",
@@ -2821,7 +3091,7 @@
     "expiryDate": null,
     "evidenceType": "regulatory",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Mental Health Act 2014"],
     "rung": 2,
@@ -2830,7 +3100,10 @@
     "disposition": "candidate",
     "dispositionReason": "The wa.gov.au page names its organisation as the Mental Health Advocacy Service, states 'Last updated: 7 November 2025' and gives no publication or review date, which is why this record is dateModel last_updated (owner decision 2026-09-26). Read 2026-09-26 (automated page read, owner-approved). Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "The version is the publisher's own update statement, because the page carries no edition or version identifier. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review."
+    "notes": "The version is the publisher's own update statement, because the page carries no edition or version identifier. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "3342ee6232805f5dd8e6d6716fc6ac316f455860c3f7d5cb84d25042c9f7027e"
   },
   {
     "id": "dictionary-wa-mental-health-emergency-response-line",
@@ -2848,7 +3121,7 @@
     "expiryDate": null,
     "evidenceType": "consumer_reference",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Helplines"],
     "rung": 2,
@@ -2857,7 +3130,10 @@
     "disposition": "candidate",
     "dispositionReason": "The Mental Health Commission's own page states 'Page last updated 1 May 2025' and gives no publication or review date, which is why this record is dateModel last_updated (owner decision 2026-09-26). Read 2026-09-26 (automated page read, owner-approved). Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "The page does not name who operates the line. The version is the publisher's own update statement, because the page carries no edition or version identifier. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review."
+    "notes": "The page does not name who operates the line. The version is the publisher's own update statement, because the page carries no edition or version identifier. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "69f85f4013a14279e3f3b7cbb5d3517c96041b30af0537bed36710735cc6abe3"
   },
   {
     "id": "dictionary-wa-ocp-mental-health-act-2014",
@@ -2875,7 +3151,7 @@
     "expiryDate": null,
     "evidenceType": "regulatory",
     "documentStatus": "current",
-    "validationStatus": "unverified",
+    "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
     "topics": ["Dictionary", "Mental Health Act 2014"],
     "rung": 2,
@@ -2884,6 +3160,9 @@
     "disposition": "candidate",
     "dispositionReason": "The Chief Psychiatrist's own page states 'Last updated: 5 December 2025' and gives no publication or review date, which is why this record is dateModel last_updated (owner decision 2026-09-26). Read 2026-09-16. Candidate only pending clinical sign-off.",
     "supersededBy": [],
-    "notes": "The version is the publisher's own update statement, because the page carries no edition or version identifier. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review."
+    "notes": "The version is the publisher's own update statement, because the page carries no edition or version identifier. The update day is recorded in lastUpdatedDate under dateModel last_updated and shown only as \"last updated\"; publicationDate and reviewDate are left null, because an update is neither a publication nor a review.",
+    "attestedBy": "PsychSift",
+    "attestedAt": "2026-09-26T17:29:43.184Z",
+    "attestedAgainstSha256": "44fbbd2087762623a8204fa222de118a73adf270d88c89ef0c9728ee77c67fec"
   }
 ]

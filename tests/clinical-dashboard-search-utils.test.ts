@@ -80,8 +80,8 @@ describe("clinical dashboard search utilities", () => {
   });
 
   it("formats retry progress without exposing impossible counts", () => {
-    expect(progressForRetry(1)).toBe("Retrying...");
-    expect(progressForRetry(10)).toBe("Retrying... (2/2)");
+    expect(progressForRetry(1)).toBe("Retrying…");
+    expect(progressForRetry(10)).toBe("Retrying… (2/2)");
   });
 
   it("classifies a 404 as a calm no-results outcome and everything else as a retryable failure", () => {

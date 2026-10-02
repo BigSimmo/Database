@@ -52,6 +52,12 @@
         "lineStart": 6625,
         "lineEnd": 6640,
         "rawBlockSha256": "b2d1c201e943373271ad121504f1469751519a019e8d7f5cab86f285405c261f"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "37bb24a914075230694166ab23b8712f8162c33b1ff5310114a35ff72d303ab1"
       }
     },
     {
@@ -78,6 +84,12 @@
         "lineStart": 6641,
         "lineEnd": 6656,
         "rawBlockSha256": "4faecd8e55d3184cea479bba627fbf856cd9669a2cecca77cb1ea5211afba804"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "fefef3aa7a0ff9212604e5889273053596d9084f9c81c3b9feb5b7b02a8f0a32"
       }
     },
     {
@@ -156,6 +168,12 @@
         "lineStart": 6689,
         "lineEnd": 6704,
         "rawBlockSha256": "76c299cdfd3c86f805ddf930b4fc034dbc1c70f34b7305253d1552d7fe822b48"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "0184330f55e6b6ed2a87ac4c63388e6dba3cad093362ccc93ae7569e195dca95"
       }
     },
     {
@@ -182,6 +200,12 @@
         "lineStart": 6705,
         "lineEnd": 6720,
         "rawBlockSha256": "1ee7c723d6516eb8de95d5d2217e8e8838c7ec6fe27eaf80d669842a67d31b48"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "b3c82a3b3bf4c20b0c7a229c943fdf0e1af7a41c8481e6ad29efa9b1b657bb7f"
       }
     },
     {
@@ -650,6 +674,12 @@
         "lineStart": 6993,
         "lineEnd": 7008,
         "rawBlockSha256": "6aba89184ac15340922f73fc9ca3ac75bef20657d35af6f565ed0c98ef034f61"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "1e8f8c0a2112ce45ff02441d22e79d62e71af36c0da3c802839815182390d48c"
       }
     },
     {
@@ -676,6 +706,12 @@
         "lineStart": 7009,
         "lineEnd": 7024,
         "rawBlockSha256": "92251113fb54939b8de70b2b257eb6709885c54da0adda2183979511766e5cf5"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "fefe73ae914b7aeb0afd1b7b537556ba003e3a0487d93a3f4a48b10d3fb58764"
       }
     },
     {
@@ -728,6 +764,12 @@
         "lineStart": 7041,
         "lineEnd": 7056,
         "rawBlockSha256": "5387f3e3ac44ff212d863718ff494543af4dd017fde9328570ade1e6a11d70a6"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "1f3155d7e59bb48f5cb7a4ce119adb3d06a9cff3baed269c8aa9aa35820c6655"
       }
     },
     {
@@ -1014,6 +1056,12 @@
         "lineStart": 7217,
         "lineEnd": 7232,
         "rawBlockSha256": "8a47713c8f931faabd749f39fce2dc2e4af5309335d68d86c25d3649877df671"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "06d45517923329f7beacaddd8e7653c763d19838ac4479a4e119a2cbcce210b5"
       }
     },
     {
@@ -1040,6 +1088,12 @@
         "lineStart": 7233,
         "lineEnd": 7248,
         "rawBlockSha256": "290fa903ecc11d6ed671139e1230e74e08e224bd02cba244431cacfb339973d8"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "335140df49ba80caec85b1d63ef363bf3ee423cf9e9276bb0f402d141035e792"
       }
     },
     {
@@ -1092,6 +1146,12 @@
         "lineStart": 7265,
         "lineEnd": 7280,
         "rawBlockSha256": "c419b0c891efb96d6adf225754827a81cab1684168d17700986474315cb64893"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "829e0ef444758f1a6a88fca0bacebab135eb56a6ea4547895239919f0f631b8b"
       }
     },
     {
@@ -1196,6 +1256,12 @@
         "lineStart": 7329,
         "lineEnd": 7344,
         "rawBlockSha256": "c344a31b1414b804efd254c15678dc571ebdc0d9a7a35ff3b8e10810b7c8d405"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "a9cc60a4062e5aa93cf3e7dcf74d0b808bbfe136142da504800f5ed0994db590"
       }
     },
     {
@@ -1222,6 +1288,12 @@
         "lineStart": 7345,
         "lineEnd": 7360,
         "rawBlockSha256": "9e1888247ebea6a5540a0ea3c0e49e136732f703fa6f9e13090782ddfd7b43b9"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "7e3ad9609b0df9b9119ec5d69cf545c43106e567795d8a5a0df9c60ab6abff04"
       }
     },
     {
@@ -1248,6 +1320,12 @@
         "lineStart": 7361,
         "lineEnd": 7376,
         "rawBlockSha256": "cdb0620ac053d12d64c9edd37b35059b68487ab9de2253d026f48cde0c8d2835"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "91f3f95aa57dfd81cb777ae2c46b7fdfb34735c421b2eb1f59523dd13cb255cc"
       }
     },
     {
@@ -1560,6 +1638,12 @@
         "lineStart": 7553,
         "lineEnd": 7568,
         "rawBlockSha256": "136e9b07b94c56d99734c7ea0bebf50eac0d0484dcb87431a30339d7fe693c24"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "8d22db4df8fe678004979a02eba95944ce750923048be1c40f04d9eb3b0c1029"
       }
     },
     {
@@ -1742,6 +1826,12 @@
         "lineStart": 7665,
         "lineEnd": 7680,
         "rawBlockSha256": "b8f3e4aa805bd5a3256c860549f3457cf41fab1eed8a7bd81d1e9b2124ef349c"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "974277ee59055b7f3e7b2a6f9aa532a3575cb8dbf9f28ceaec057962e35b0faf"
       }
     },
     {
@@ -1794,6 +1884,12 @@
         "lineStart": 7697,
         "lineEnd": 7712,
         "rawBlockSha256": "4e20fda1847627e7885742ca33a14299c050d153519674c666a7a673529c40ea"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "a58d64176a1c25d35339efb123d9d54229b0bc20643b43a9048edc4cd4d428dc"
       }
     },
     {
@@ -1820,6 +1916,12 @@
         "lineStart": 7713,
         "lineEnd": 7728,
         "rawBlockSha256": "4a490032e578983b38965091faa1b242e4af5c43d1d79c775a6e8d8ffecaf94c"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "1e7ccfd8867c1c9a00cd3044e2f6d6f29a59bb50602a627cc242c169eccbb793"
       }
     },
     {
@@ -1872,6 +1974,12 @@
         "lineStart": 7745,
         "lineEnd": 7760,
         "rawBlockSha256": "1b2e4a77de4d4d7779c5e30a14c5a7bb651a85f98ea10b6ca33a52833062dd12"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "b64468e9f36c940ac59c103b947dcb4fee70a47bf73e0e52c95673f48901c07e"
       }
     },
     {
@@ -1924,6 +2032,12 @@
         "lineStart": 7777,
         "lineEnd": 7792,
         "rawBlockSha256": "0a6d406dc7b4a2b4629401a7bd719c44020bd02428735631bd90415bfc9a94c8"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "fbc2d1e1a539dc3dd213ea640406e1fa4db2cbca30de728196742f75f3595955"
       }
     },
     {
@@ -1976,6 +2090,12 @@
         "lineStart": 7809,
         "lineEnd": 7824,
         "rawBlockSha256": "e7176b3e9e7f3d287c666f93070696222877a23e0c2399b8791ab1762d4cdebb"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "9adcda7382a55f47679e483e31ddd76c3f870ec9ceb62d9215f6b869da91b5cf"
       }
     },
     {
@@ -2028,6 +2148,12 @@
         "lineStart": 7841,
         "lineEnd": 7856,
         "rawBlockSha256": "28ead26860a7c5fe4cde684e2ca97266a3f0a6220f5c074017ab09a4c4e16902"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "921a276a3e44419614ce3844a409d99e023f703434621445da8613f5a8cb1226"
       }
     },
     {
@@ -2314,6 +2440,12 @@
         "lineStart": 8017,
         "lineEnd": 8032,
         "rawBlockSha256": "6cf9758e85b6afa2a494edc3153e15e7de25ce0e249ff5cca5e78c25f3fd4aaa"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "b322758fa5a74d818c0107d116d71d59dac6e38c5d87076a101b5c59ef53de50"
       }
     },
     {
@@ -2340,6 +2472,12 @@
         "lineStart": 8033,
         "lineEnd": 8048,
         "rawBlockSha256": "f3539da9746dc3b978452e2b2a26454793a4b8338e7f157ad8a468538b3a18ab"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "5bdbdb1bb99bcf064fa627aa6a4255b4c710d41d2a74f78f35217d894fa8d32e"
       }
     },
     {
@@ -2366,6 +2504,12 @@
         "lineStart": 8049,
         "lineEnd": 8064,
         "rawBlockSha256": "bf4ef77c0e7f32ce55a3d3250c8ffe30daafae3b3a88e473a9df979fa7391aea"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "d6d720d0eb1cbc7211f5da5b30e618a036716cf7ce210c9b40dd92c96ee5b7fd"
       }
     },
     {
@@ -2392,6 +2536,12 @@
         "lineStart": 8065,
         "lineEnd": 8080,
         "rawBlockSha256": "af44646285d4c929ed27170d18eb881203b4417bfbc79a2b73bfb1314530f7d5"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "086d63d34c7761e89eb2cfaa6f1afc7f4a9c821d7ba92153a06b682767268040"
       }
     },
     {
@@ -2418,6 +2568,12 @@
         "lineStart": 8081,
         "lineEnd": 8096,
         "rawBlockSha256": "a6b1e51329da1fe6450c365d6f38d02a3a36f06c620b17aed01ab7f827edecb3"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "a683c71e78f3d1ba17d496d349aed894dcbb8acc4e7633ef89f6a0110042bb9b"
       }
     },
     {
@@ -2444,6 +2600,12 @@
         "lineStart": 8097,
         "lineEnd": 8112,
         "rawBlockSha256": "2e8c730b7770e6e4bf507cb4ad1febb04bf69a9530475c5511ee0e78df37aa68"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "eff080188e24fd9ff001d5d60b798901b88b7ba1cb42642a876f2ff6c4e0b7f0"
       }
     },
     {
@@ -2496,6 +2658,12 @@
         "lineStart": 8129,
         "lineEnd": 8144,
         "rawBlockSha256": "1969b4bf1240dc47fdad0ccf37a755384df67abe02f7ccbb75d34cf4feb2cd84"
+      },
+      "clinicalApproval": {
+        "status": "approved",
+        "reviewer": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:44.889Z",
+        "reviewedContentSha256": "267de452038923dc1937d03fdf5eabfd47d7291f00e828d6106c12d32a68cce4"
       }
     }
   ]

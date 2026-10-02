@@ -130,7 +130,8 @@ describe("differentials interpretation rail", () => {
     expect(items).toEqual([
       "ECG / QT assessmentShared by 2 differentials",
       "Urea, electrolytes, creatinineShared by 2 differentials",
-      "Thyroid function testsFrom Acute dystonia",
+      "Airway and stridor assessmentFrom Acute dystonia",
+      "Medication history and timeline (dopamine receptor antagonist exposure)From Acute dystonia",
     ]);
   });
 
@@ -149,7 +150,7 @@ describe("differentials interpretation rail", () => {
     renderWith(["lithium-adverse-effects-toxicity", "acute-dystonia"]);
 
     const card = await screen.findByTestId("differentials-shared-next-steps");
-    expect(within(card).getByText("Thyroid function tests")).toBeVisible();
+    expect(within(card).getByText("Airway and stridor assessment")).toBeVisible();
     expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
     expect(screen.getByTestId("differentials-highest-urgency")).toBeVisible();
     expect(screen.queryByTestId("differentials-urgency-hidden-by-filters")).not.toBeInTheDocument();
@@ -173,7 +174,7 @@ describe("differentials interpretation rail", () => {
       "1 emergent differential is hidden by the active filters.",
     );
     expect(within(urgency).queryByRole("link")).not.toBeInTheDocument();
-    expect(within(card).getByText("Thyroid function tests")).toBeVisible();
+    expect(within(card).getByText("Airway and stridor assessment")).toBeVisible();
     expect(within(card).queryByText("ECG / QT assessment")).not.toBeInTheDocument();
 
     await act(async () => {

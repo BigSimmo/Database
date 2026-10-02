@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { startTransition, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
@@ -41,6 +42,14 @@ export function isChunkLoadError(error: unknown): boolean {
   return error.name === "ChunkLoadError" || CHUNK_LOAD_MESSAGE.test(error.message);
 }
 
+function useOptionalRouter() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Shared recovery panel for App Router `error.tsx` boundaries. Centralising the
  * markup keeps every segment boundary visually and behaviourally consistent and
@@ -58,6 +67,7 @@ export function RouteErrorBoundary({
   minHeightClass = "min-h-[50vh]",
   landmark = false,
 }: RouteErrorBoundaryProps) {
+  const router = useOptionalRouter();
   const Container = landmark ? "main" : "div";
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { copied, copyFailed, copyDiagnostics } = useCopyDiagnostics(error);
@@ -119,7 +129,12 @@ export function RouteErrorBoundary({
           ) : (
             <button
               type="button"
-              onClick={() => reset()}
+              onClick={() => {
+                startTransition(() => {
+                  router?.refresh();
+                  reset();
+                });
+              }}
               className={cn(
                 primaryControl,
                 "flex min-h-12 items-center justify-center gap-2 px-4 py-2 text-sm font-medium",

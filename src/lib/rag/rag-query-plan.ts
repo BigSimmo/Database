@@ -100,7 +100,7 @@ function materialAmbiguity(query: string, analysis: ClinicalQueryAnalysis): Clin
     analysis.medications.length > 0 ||
     analysis.documentTitleIntent ||
     analysis.documentTitleTerms.length > 0 ||
-    /\b(?:adolescent|child|adult|older|pregnan|WA|Western Australia|inpatient|outpatient|community|hospital|ward|ED)\b/i.test(
+    /\b(?:adolescent|child|adult|older|pregnan(?:t|cy|cies)|WA|Western Australia|inpatient|outpatient|community|hospital|ward|ED)\b/i.test(
       query,
     );
   const requiredObject = query.match(

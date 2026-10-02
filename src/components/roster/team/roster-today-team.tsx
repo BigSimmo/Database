@@ -9,6 +9,7 @@ import type { RosterTeam } from "@/lib/roster/team/model";
 import type { RosterDisplayShift } from "@/lib/roster/team/team-view";
 import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
 import { formatShiftRange } from "@/components/roster/roster-format";
+import { RosterSampleNotice } from "./roster-sample-notice";
 
 function TeamSummary({
   team,
@@ -92,11 +93,7 @@ function TeamSummary({
       {needsYou.length > 0 || waiting > 0 ? (
         <ModeGroupedList eyebrow="Needs you" mode="roster">
           {needsYou.map((swap) => (
-            <ModeRow
-              key={swap.id}
-              title={`${swap.requesterName ?? "A colleague"} asks to swap`}
-              href="/roster/requests"
-            />
+            <ModeRow key={swap.id} title={`${swap.requesterName ?? "A colleague"} asks to swap`} href="/roster/swaps" />
           ))}
           {waiting > 0 ? <ModeRow title={`${waiting} waiting in Manage`} href="/roster/manage" /> : null}
         </ModeGroupedList>
@@ -158,7 +155,16 @@ function TeamSummary({
     </>
   );
 }
-export function RosterTodayTeam({ now, myShifts = [] }: { now: Date; myShifts?: readonly RosterDisplayShift[] }) {
+export function RosterTodayTeam({
+  now,
+  myShifts = [],
+  sampleNoticeShown = false,
+}: {
+  now: Date;
+  myShifts?: readonly RosterDisplayShift[];
+  /** Today already says the whole page is an example, so the team strip need not say it again. */
+  sampleNoticeShown?: boolean;
+}) {
   const teams = useRosterTeams();
   if (teams.status !== "ready") return null;
   const enabled = (Array.isArray(teams.data?.teams) ? teams.data.teams : []).filter((team) => team.enabled);
@@ -172,14 +178,19 @@ export function RosterTodayTeam({ now, myShifts = [] }: { now: Date; myShifts?: 
     return (
       <ModeNotice tone="warning">Your team identity could not be loaded. Refresh before using team shifts.</ModeNotice>
     );
-  return enabled.map((team) => (
-    <TeamSummary
-      key={team.serviceId}
-      team={team}
-      actorId={teams.data!.actorId!}
-      now={now}
-      enabledTeams={enabled}
-      myShifts={myShifts}
-    />
-  ));
+  return (
+    <>
+      <RosterSampleNotice sample={teams.data.sample && !sampleNoticeShown} />
+      {enabled.map((team) => (
+        <TeamSummary
+          key={team.serviceId}
+          team={team}
+          actorId={teams.data!.actorId!}
+          now={now}
+          enabledTeams={enabled}
+          myShifts={myShifts}
+        />
+      ))}
+    </>
+  );
 }

@@ -108,7 +108,7 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
   const now = useTeachingNow();
   const today = now ? perthDateKey(now) : null;
   const range = useMemo(() => (today ? { from: today, to: addDays(today, 6) } : null), [today]);
-  const view = useTeachingWeek(range, { demoMode, signedOutDemo: false }, now);
+  const view = useTeachingWeek(range, { demoMode }, now);
   const teams = useMemo(() => (view.week?.teams ?? []).filter(organises), [view.week]);
   const [chosen, setChosen] = useState<string | null>(null);
   const serviceId = teams.some((t) => t.id === chosen) ? chosen : (teams[0]?.id ?? null);

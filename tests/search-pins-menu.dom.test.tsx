@@ -130,17 +130,27 @@ describe("SearchPinsMenu", () => {
     );
   });
 
-  it("closes the pin editor on Escape without dismissing the surrounding menu", async () => {
+  it("closes the pin editor on Escape without dismissing the surrounding menu and restores focus to the trigger", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderMenu({ onClose });
 
-    await user.click(screen.getByRole("button", { name: "New pin" }));
+    const newPinButton = screen.getByRole("button", { name: "New pin" });
+    await user.click(newPinButton);
     expect(screen.getByRole("heading", { name: "Create a new pin" })).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
     expect(screen.getByRole("heading", { name: "Your pins" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "New pin" })).toHaveFocus();
+
+    const editButton = screen.getByRole("button", { name: "Edit Ward essentials" });
+    await user.click(editButton);
+    expect(screen.getByRole("heading", { name: "Edit pin" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("heading", { name: "Your pins" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Ward essentials" })).toHaveFocus();
   });
 
   it("requires a second click before deleting a pin", async () => {

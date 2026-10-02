@@ -397,7 +397,7 @@ describe("Now: the footer group", () => {
       "/on-call/find#on-call-group-downtime",
     );
     expect(within(footer).getByTestId("on-call-home-first-night")).toHaveAttribute("href", "/on-call/first-night");
-    expect(screen.getByTestId("on-call-now-on-site")).toHaveAttribute("href", "/on-call/logistics");
+    expect(screen.getByTestId("on-call-now-on-site")).toHaveAttribute("href", "/admin/help");
     expect(screen.getByTestId("on-call-now-on-site")).toHaveTextContent("On site: access, food, taxi");
   });
 });

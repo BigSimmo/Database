@@ -52,7 +52,14 @@ async function resolveAbortableQuery<T>(query: AbortableQuery<T>, signal?: Abort
   return result;
 }
 
-export const ragDeepMemoryVersion = "rag-deep-memory-v1" as const;
+/**
+ * v2: embedding-field predicates match escalation and contraindication word forms,
+ * so v1 documents are stale and are picked up by the governed reindex/backfill.
+ */
+export const ragDeepMemoryVersion = "rag-deep-memory-v2" as const;
+/** Earlier versions whose local-worker artifacts stay valid until they are reindexed. */
+export const legacyRagDeepMemoryVersions: readonly string[] = ["rag-deep-memory-v1"];
+
 export const localDeepMemoryProducer = "local-worker" as const;
 
 export class DeepMemoryOwnershipConflictError extends Error {
@@ -636,7 +643,13 @@ function artifactOwnership(
   if (record.generated_by === localDeepMemoryProducer) return "local";
   if (record.generated_by === "indexing-v3-agent") return "agent";
   if (Object.hasOwn(record, "generated_by")) return "ambiguous";
-  if (table === "document_sections" && record.rag_indexing_version === ragDeepMemoryVersion) return "local";
+  if (
+    table === "document_sections" &&
+    typeof record.rag_indexing_version === "string" &&
+    (record.rag_indexing_version === ragDeepMemoryVersion ||
+      legacyRagDeepMemoryVersions.includes(record.rag_indexing_version))
+  )
+    return "local";
   if (table !== "document_sections" && artifact.artifact_generation_id == null) return "local";
   return "ambiguous";
 }
