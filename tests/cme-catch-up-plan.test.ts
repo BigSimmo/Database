@@ -236,4 +236,41 @@ describe("rankRequirementsByGap", () => {
     ]);
     expect(furthestFromMet(SET, unmet)?.requirementId).toBe("reviewing");
   });
+
+  it("ranks a combined requirement by its per-category floor once the combined total is reached", () => {
+    const set: CmeRequirementSet = {
+      ...SET,
+      requirements: [
+        {
+          id: "educational",
+          label: "Educational activities",
+          source: "national",
+          spec: { shape: "hours-in-category", category: "educational", minimumHours: 11 },
+          completedOn: null,
+        },
+        {
+          id: "performance-outcomes",
+          label: "Reviewing performance and measuring outcomes",
+          source: "national",
+          spec: {
+            shape: "hours-across-categories",
+            categories: ["reviewing", "measuring"],
+            minimumHours: 25,
+            minimumEachHours: 5,
+          },
+          completedOn: null,
+        },
+      ],
+    };
+    // Combined 25 of 25 is reached, but measuring is 5 h short of its own floor.
+    const entries = [entry("e", "2026-03-01", 10), entry("r", "2026-03-02", 25, "reviewing")];
+    const { statuses, unmet } = evaluateYear({ set, entries });
+    expect(rankRequirementsByGap(set, statuses).map((status) => status.requirementId)).toEqual([
+      "performance-outcomes",
+      "educational",
+    ]);
+    expect(furthestFromMet(set, unmet)?.requirementId).toBe("performance-outcomes");
+    const plan = buildCmeCatchUpPlan({ set, entries, routines: [], today: "2026-06-01" });
+    expect(plan.biggestGap).toMatchObject({ requirementId: "performance-outcomes", hoursToGo: 5 });
+  });
 });

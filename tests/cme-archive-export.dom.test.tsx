@@ -84,6 +84,10 @@ describe("Archive, annual record and learning journeys", () => {
     );
     const restore = (await openActivityActions(user)).getByRole("button", { name: "Restore entry" });
     expect(restore).toHaveAttribute("aria-disabled", "true");
+    expect(restore).not.toHaveAttribute("disabled");
+    expect(restore).toHaveAccessibleDescription(
+      "This CPD year is closed, so its activities can't be archived or restored.",
+    );
     expect(screen.getByText("Evidence view only")).toBeInTheDocument();
   });
   it("log defaults active and filters actual uploaded evidence separately from sources", async () => {

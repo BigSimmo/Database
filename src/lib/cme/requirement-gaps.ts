@@ -11,7 +11,8 @@ import type { CmeRequirementSet, CmeRequirementSpec, CmeRequirementStatus } from
  *
  *   0. Hours requirements (`hours-in-category`, `hours-across-categories`,
  *      `credited-hours`), by hours remaining (`progress.target -
- *      progress.value`), largest first. Hours accrue gradually across the
+ *      progress.value`, or `hoursShort` when a per-category floor leaves
+ *      more to do), largest first. Hours accrue gradually across the
  *      whole year, so a large hours gap needs the most lead time to close and
  *      is the most consequential thing to surface.
  *   1. `activity-count` requirements, by buckets still empty, most empty
@@ -33,10 +34,15 @@ export function isHoursRequirementShape(shape: CmeRequirementSpec["shape"] | und
   return shortfallTier(shape) === 0;
 }
 
-/** `progress.target - progress.value`, never below zero; zero for a requirement with no progress (a task). */
+/**
+ * `progress.target - progress.value`, never below zero, or `hoursShort` when
+ * that is larger (a per-category floor still short after the combined total is
+ * reached); zero for a requirement with no progress (a task).
+ */
 export function requirementGap(status: CmeRequirementStatus): number {
   if (!status.progress) return 0;
-  return Math.max(0, Math.round((status.progress.target - status.progress.value) * 100) / 100);
+  const aggregate = Math.max(0, Math.round((status.progress.target - status.progress.value) * 100) / 100);
+  return Math.max(aggregate, status.hoursShort ?? 0);
 }
 
 /**

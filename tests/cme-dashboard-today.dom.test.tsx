@@ -115,6 +115,15 @@ describe("Today", () => {
     expect(next[0]).toHaveAttribute("data-met", "false");
   });
 
+  it("keeps the next step as its own row when What's left is hidden in Customise", () => {
+    window.localStorage.setItem(cmeModuleOrderStorageKey, JSON.stringify(["routines-due"]));
+    render(<CmeDashboard set={SET} entries={ENTRIES} now={NOW} />);
+    expect(screen.queryByTestId("cme-requirements")).toBeNull();
+    const next = screen.getAllByTestId("cme-next-action");
+    expect(next).toHaveLength(1);
+    expect(next[0]).toHaveTextContent(/Big gap requirement/);
+  });
+
   it("opens a task row on the setup screen", () => {
     render(<CmeDashboard set={SET} entries={ENTRIES} now={NOW} />);
     expect(screen.getByRole("link", { name: /Professional development plan/ })).toHaveAttribute(
@@ -159,6 +168,7 @@ describe("the catch-up planner card", () => {
   it("sits right after the hero", () => {
     render(<CmeDashboard set={SET} entries={ENTRIES} now={NOW} />);
     expect(screen.getByTestId("cme-hero-summary").nextElementSibling).toBe(screen.getByTestId("cme-catch-up"));
+    expect(screen.getByTestId("cme-hero-summary").parentElement?.className).toMatch(/md:grid-cols-2/);
   });
 
   it("gives no weekly figure in the first four weeks, as the hero does not", () => {
@@ -171,7 +181,10 @@ describe("the catch-up planner card", () => {
       <CmeDashboard set={{ ...SET, totalHours: 10 }} entries={ENTRIES} now={NOW} routines={[ROUTINE]} />,
     );
     expect(screen.queryByTestId("cme-catch-up")).toBeNull();
+    // With no second card the hero spans the row instead of leaving a blank column.
+    expect(screen.getByTestId("cme-hero-summary").parentElement?.className).not.toMatch(/md:grid-cols-2/);
     view.rerender(<CmeDashboard set={SET} entries={ENTRIES} now={new Date("2027-01-10T02:00:00Z")} />);
     expect(screen.queryByTestId("cme-catch-up")).toBeNull();
+    expect(screen.getByTestId("cme-hero-summary").parentElement?.className).not.toMatch(/md:grid-cols-2/);
   });
 });

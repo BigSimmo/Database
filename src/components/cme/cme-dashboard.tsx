@@ -247,7 +247,9 @@ export function CmeDashboard({
   const nextStep = computeCmeNextStep({ set, unmet, now, totalHours });
   // The year-end checklist (copying, self-evaluation, goal carry, next year, summary) opens from Today.
   const offerYearEnd = canOfferCmeYearEnd(set, now);
-  const nextStepInList = nextStep.inList && !offerYearEnd;
+  // The step only rides inside "What's left" while that module is shown;
+  // hidden in Customise, the standalone row carries it instead.
+  const nextStepInList = nextStep.inList && !offerYearEnd && moduleIds.includes("requirements");
   const { toFinish } = buildCmeTodo({
     set,
     entries,
@@ -386,7 +388,7 @@ export function CmeDashboard({
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className={cn("mt-4 grid gap-3", catchUp.status === "plan" && "md:grid-cols-2")}>
         <CmeHeroSummary
           year={set.year}
           today={today}

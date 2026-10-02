@@ -112,8 +112,10 @@ export function computeCmeNextStep(args: {
 
 /**
  * The next step as its own row, for every season whose step is not already
- * the first row of "What's left". In the year-end window (and for an earlier
- * year not yet closed) the row is the year-end checklist itself.
+ * the first row of "What's left" — the dashboard decides, because a step that
+ * would sit in that list still needs this row when the owner has hidden the
+ * module. In the year-end window (and for an earlier year not yet closed) the
+ * row is the year-end checklist itself.
  */
 export function CmeNextStepRow({
   step,
@@ -148,7 +150,6 @@ export function CmeNextStepRow({
       </div>
     );
   }
-  if (step.inList) return null;
   return (
     <Link
       data-testid="cme-next-action"

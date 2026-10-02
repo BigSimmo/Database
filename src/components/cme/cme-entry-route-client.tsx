@@ -12,7 +12,13 @@ import { CmeEntryGoalPicker } from "@/components/cme/cme-entry-goal-picker";
 import type { CmePlanGoal } from "@/lib/cme/plan-goals";
 import { cmeEntryActionRow, CmeEntryPage } from "@/components/cme/cme-entry-page";
 import { FormField } from "@/components/ui/form-field";
-import { cn, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  fieldControlPlain,
+  ignoreUnavailableActivation,
+  InlineNotice,
+  textMuted,
+} from "@/components/ui-primitives";
 import { CME_AMENDMENT_REASON_MAX, CME_AMENDMENT_REASON_MIN } from "@/lib/cme/year-close";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
@@ -189,19 +195,16 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
         // takes the activity out of this year's totals, so it is never a
         // control sitting loose on the page where a stray tap reaches it.
         menuActions={(close) => {
-          const unavailable = demoMode || Boolean(set.closedAt) || archivePending;
-          return (
-            <button
-              type="button"
-              aria-disabled={unavailable || undefined}
-              onClick={() => {
-                if (unavailable) return;
-                close();
-                if (archived) void setArchived(false);
-                else setConfirmArchiveOpen(true);
-              }}
-              className={cmeEntryActionRow}
-            >
+          // Demo mode and a closed year are stated reasons, so the row stays
+          // focusable with the reason wired to it; a save in flight is
+          // transient, so that alone uses native `disabled`.
+          const unavailableReason = demoMode
+            ? "Sign in to archive or restore activities."
+            : set.closedAt
+              ? "This CPD year is closed, so its activities can't be archived or restored."
+              : null;
+          const label = (
+            <>
               {archived ? (
                 <ArchiveRestore
                   aria-hidden="true"
@@ -211,6 +214,39 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
                 <Archive aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--clinical-accent)]" />
               )}
               {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
+            </>
+          );
+          if (unavailableReason) {
+            return (
+              <>
+                <button
+                  type="button"
+                  aria-disabled="true"
+                  aria-describedby="cme-entry-archive-unavailable"
+                  title={unavailableReason}
+                  onClick={ignoreUnavailableActivation}
+                  className={cmeEntryActionRow}
+                >
+                  {label}
+                </button>
+                <span id="cme-entry-archive-unavailable" className="sr-only">
+                  {unavailableReason}
+                </span>
+              </>
+            );
+          }
+          return (
+            <button
+              type="button"
+              disabled={archivePending}
+              onClick={() => {
+                close();
+                if (archived) void setArchived(false);
+                else setConfirmArchiveOpen(true);
+              }}
+              className={cmeEntryActionRow}
+            >
+              {label}
             </button>
           );
         }}
