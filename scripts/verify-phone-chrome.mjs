@@ -2,7 +2,8 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { childProcessExitCode } from "./child-process-result.mjs";
 import { phoneChromePlan, renderPhoneChromeCommand } from "./phone-chrome-plan.mjs";
 
@@ -139,7 +140,7 @@ export function runPhoneChromeStages(
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectEntrypoint(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2));
   const plan = phoneChromePlan(changedFiles(options.files), { fullMode: options.fullMode });
   console.log(`Phone chrome inputs: ${plan.files.length ? plan.files.join(", ") : "(none detected)"}`);

@@ -120,7 +120,7 @@ async function performHealthCheck(): Promise<HealthResponse> {
   };
 }
 
-export function createHealthCheckServer(port: number = 3001) {
+export function createHealthCheckServer() {
   const server = createServer(async (req, res) => {
     if (req.method !== "GET" || !req.url?.startsWith("/health")) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -157,7 +157,7 @@ export function startWorkerHealthServerIfConfigured() {
   const port = parseInt(portStr, 10);
   if (isNaN(port) || port <= 0) return null;
 
-  const server = createHealthCheckServer(port);
+  const server = createHealthCheckServer();
   server.listen(port, "0.0.0.0", () => {
     console.log(`Worker health check server listening on http://0.0.0.0:${port}/health`);
   });

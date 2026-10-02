@@ -25,7 +25,9 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const evidencePath = resolve(root, "data/calculators/evidence.json");
@@ -255,4 +257,4 @@ function main() {
   console.log(`CALCULATOR_CONTENT_PASS sources=ok golden-vectors=ok rights=ok`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (isDirectEntrypoint(import.meta.url)) main();

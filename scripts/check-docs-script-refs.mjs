@@ -20,7 +20,9 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const scanAll = process.argv.includes("--all");
@@ -113,5 +115,5 @@ function main() {
   console.log(`docs script-ref check passed: ${checked} npm-run reference(s) resolve to real scripts.`);
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly = isDirectEntrypoint(import.meta.url);
 if (invokedDirectly) main();

@@ -18,8 +18,8 @@
  * - `.mjs` output: the repo's package.json has no `"type": "module"`, so the
  *   extension is what marks the bundle as ESM.
  */
-import { realpathSync, writeFileSync } from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeFileSync } from "node:fs";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { build } from "esbuild";
 
 /**
@@ -62,19 +62,7 @@ function extractExternals(metafile) {
   return [...externals].sort();
 }
 
-const isEntrypoint = Boolean(
-  process.argv[1] &&
-  (import.meta.url === pathToFileURL(process.argv[1]).href ||
-    (() => {
-      try {
-        return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
-      } catch {
-        return false;
-      }
-    })()),
-);
-
-if (isEntrypoint) {
+if (isDirectEntrypoint(import.meta.url)) {
   const indexResult = await build({ ...workerBuildOptions, metafile: true });
   const externals = extractExternals(indexResult.metafile ?? {});
   writeFileSync("dist/worker/externals.json", `${JSON.stringify(externals, null, 2)}\n`);

@@ -24,6 +24,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
+
 import { indexSectionDrift } from "./organisation/codebase-index-section.mjs";
 import { pinStatus } from "./organisation/pins.mjs";
 import { coverageLossFindings, deadEntryFindings } from "./organisation/path-lists.mjs";
@@ -1156,7 +1158,7 @@ function printConsole(report, args, ci) {
   if (report.reportPath) out(`  report: ${report.reportPath}`);
 }
 
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
+if (isDirectEntrypoint(import.meta.url)) {
   try {
     process.exitCode = main();
   } catch (error) {
