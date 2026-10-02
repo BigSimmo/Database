@@ -290,6 +290,11 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   expect(geometry?.dropdownBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual((geometry?.pillTop ?? 0) + 2);
 }
 
+/** A tool row's own launch link. The title is the link, and the whole row opens it. */
+function toolRowLink(scope: Locator, id: string) {
+  return scope.getByTestId(`tool-row-${id}`).getByRole("link");
+}
+
 async function gotoLauncher(page: Page, path = "/tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
@@ -467,7 +472,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       await Promise.all([page.waitForURL(/\/tools$/), toolsOption.click()]);
 
       await expect(visibleByTestId(page, "tools-search-results-page")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
@@ -481,40 +486,38 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     /**
      * This case used to load `/?mode=tools`, the hub that was one of two Tools
      * surfaces. That alias now redirects to the directory, so the same contract is
-     * asserted here on the single surface: the verb shortcut row ported over from
-     * the hub, the category filter, the detail sheet with a real launch link, and no
-     * shared search chrome on a route that owns its own filtering.
+     * asserted here on the single surface: the pinned row, the safety band ahead of
+     * the task groups, the About sheet with a real launch link, and no shared search
+     * chrome on a route that owns its own search box.
      */
     test(`the tools directory is usable at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await gotoLauncher(page, "/tools");
 
       const results = visibleByTestId(page, "tools-search-results-page");
-      await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Quick tool shortcuts" }).first()).toBeVisible();
-      await expect(results.getByRole("region", { name: "Tool results" })).toBeVisible();
+      await expect(results.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
+      await expect(results.getByRole("region", { name: "Pinned", exact: true })).toBeVisible();
+      // Safety has its own band ahead of the task groups, so nothing can filter it away.
+      const safety = results.getByRole("region", { name: "Safety", exact: true });
+      await expect(toolRowLink(safety, "risk-safety")).toBeVisible();
+      await expect(toolRowLink(safety, "safety-plan")).toHaveAttribute("href", "/safety-plan");
+      for (const group of ["Look it up", "Assess", "Treat and plan", "Coordinate"]) {
+        await expect(results.getByRole("region", { name: group, exact: true })).toBeVisible();
+      }
       if (viewport.name === "mobile") {
-        const categoryTrigger = results.getByTestId("tools-search-filter-trigger-phone");
-        await expect(categoryTrigger).toBeVisible();
-        await categoryTrigger.click();
-        const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
-        await filterSheet.getByRole("radio", { name: /Assess/ }).click();
-        await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
-        await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" })).toHaveCount(0);
-        await categoryTrigger.click();
-        await filterSheet.getByRole("radio", { name: /All tools/ }).click();
-        await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
-
-        await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+        await results.getByRole("button", { name: "About Medication Prescribing" }).click();
         const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
         await expect(detailSheet.getByRole("heading", { name: "Medication Prescribing" })).toBeVisible();
+        // Check first is shown in full, not folded behind an accordion.
+        await expect(detailSheet.getByRole("heading", { name: "Check first" })).toBeVisible();
+        await expect(detailSheet.getByText("Contraindications", { exact: true })).toBeVisible();
         const mobileLaunchLink = detailSheet.locator('a[href="/medications"]').first();
         await expect(mobileLaunchLink).toBeVisible();
         await expect(mobileLaunchLink).not.toHaveAttribute("target", "_blank");
         await detailSheet.getByRole("button", { name: "Close Medication Prescribing" }).click();
         await expect(detailSheet).toHaveCount(0);
       } else {
-        await expect(results.getByRole("button", { name: "View details for PsychSift Search" })).toBeVisible();
+        await expect(results.getByRole("button", { name: "About PsychSift Search" })).toBeVisible();
       }
       await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
@@ -529,14 +532,11 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
 
     const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
-    await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "PsychSift Search" }).first()).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    await expect(results.getByRole("link", { name: "Open PsychSift Search" })).toHaveAttribute("href", "/?mode=answer");
-    await expect(results.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
-      "href",
-      "/medications",
-    );
+    await expect(results.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 3, name: "PsychSift Search" })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 3, name: "Medication Prescribing" })).toBeVisible();
+    await expect(toolRowLink(results, "clinical-kb-search")).toHaveAttribute("href", "/?mode=answer");
+    await expect(toolRowLink(results, "medication-prescribing")).toHaveAttribute("href", "/medications");
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
     // The route owns its filtering, so it has its own in-flow box and no shared
@@ -544,19 +544,16 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     // the only place a tools search could be typed until that alias redirected.
     await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
 
-    const categories = results.getByRole("radiogroup", { name: "Tool category" });
-    await categories.getByRole("radio", { name: /Treat/ }).click();
-    await expect(results.getByRole("heading", { level: 2, name: "PsychSift Search" })).toHaveCount(0);
-    await categories.getByRole("radio", { name: /All tools/ }).click();
+    // An entry that only opens another mode says so on its row.
+    await expect(results.getByTestId("tool-row-risk-safety")).toContainText("Opens Ask with a starter question");
 
     // Below the fold at 1280x900: see clickWhenSettled for why this click must not scroll.
-    await clickWhenSettled(results.getByRole("button", { name: "View details for Medication Prescribing" }));
-    await expect(results.getByRole("complementary", { name: "Medication Prescribing" })).toBeVisible();
-    await expect(
-      results.getByRole("complementary", { name: "Medication Prescribing" }).getByRole("link", {
-        name: "Prescribe Medication Prescribing",
-      }),
-    ).toHaveAttribute("href", "/medications");
+    await clickWhenSettled(results.getByRole("button", { name: "About Medication Prescribing" }));
+    const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+    await expect(detailSheet.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
+      "href",
+      "/medications",
+    );
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -570,19 +567,15 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(page.getByTestId("tools-home")).toHaveCount(0);
     await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(results.getByText("2 tools", { exact: true })).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
-    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute(
-      "href",
-      "/?mode=differentials",
-    );
-    await expect(results.getByRole("heading", { level: 2, name: "Clinical Dictionary" }).first()).toBeVisible();
-    await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 3, name: "Differentials" })).toBeVisible();
+    await expect(toolRowLink(results, "differentials")).toHaveAttribute("href", "/?mode=differentials");
+    await expect(results.getByRole("heading", { level: 3, name: "Clinical Dictionary" })).toBeVisible();
 
-    const categories = results.getByRole("radiogroup", { name: "Tool category" });
-    await expect(categories.getByRole("radio", { name: "All tools (2)" })).toHaveAttribute("aria-checked", "true");
-    await expect(categories.getByRole("radio", { name: "Assess (1)" })).toBeEnabled();
-    await expect(categories.getByRole("radio", { name: "Evidence (1)" })).toBeEnabled();
-    await expect(categories.getByRole("radio", { name: "Treat (0)" })).toBeDisabled();
+    // Safety stays one tap away while searching, whatever the query matched.
+    const safety = results.getByRole("navigation", { name: "Safety tools" });
+    await expect(safety.getByRole("link", { name: "Risk & Safety" })).toBeVisible();
+    await expect(safety.getByRole("link", { name: "Safety plan" })).toHaveAttribute("href", "/safety-plan");
+    await expect(results.getByRole("region", { name: "Pinned", exact: true })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -596,12 +589,12 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     const showAll = results.getByRole("link", { name: "Show all tools" });
     await expect(showAll).toHaveAttribute("href", "/tools");
     await Promise.all([page.waitForURL(/\/tools$/), showAll.click()]);
-    await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("submitted Tools results use the shared phone filter and approved detail sheet", async ({ page }) => {
+  test("submitted Tools results open the About sheet on a phone and return focus", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/tools?q=Compare&run=1");
 
@@ -610,26 +603,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
 
-    const filterTrigger = results.getByTestId("tools-search-filter-trigger-phone");
-    await filterTrigger.click();
-    const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
-    await expect(filterSheet).toBeVisible();
-    await expect(filterSheet.getByRole("radio", { name: /Assess/ })).toHaveAttribute("aria-checked", "false");
-    await expect(filterSheet.getByRole("radio", { name: /Treat/ })).toHaveAttribute("aria-disabled", "true");
-    await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 2 tools/);
-    await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
-
-    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute(
-      "href",
-      "/?mode=differentials",
-    );
-    const details = results.getByRole("button", { name: "View details for Differentials" });
+    await expect(toolRowLink(results, "differentials")).toHaveAttribute("href", "/?mode=differentials");
+    const details = results.getByRole("button", { name: "About Differentials" });
     await details.click();
     const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
     await expect(detailSheet).toBeVisible();
     await expect(detailSheet.getByRole("heading", { name: "Differentials" })).toBeVisible();
-    await expect(detailSheet.getByRole("heading", { name: "Best for" })).toBeVisible();
-    await expect(detailSheet.getByRole("link", { name: "Compare Differentials" })).toHaveAttribute(
+    await expect(detailSheet.getByRole("heading", { name: "Check first" })).toBeVisible();
+    await expect(detailSheet.getByRole("link", { name: "Open Differentials" })).toHaveAttribute(
       "href",
       "/?mode=differentials",
     );
@@ -641,17 +622,17 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
   test("phone Tools launches every shared-home mode without a redirect hop or stale layout", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const launches = [
-      { link: "Open Differentials", mode: "differentials", heading: "Differential Diagnosis" },
-      { link: "Open Clinical Dictionary", mode: "dictionary", heading: "Clinical Dictionary" },
-      { link: "Open Services", mode: "services", heading: "Clinical Services" },
-      { link: "Open Forms", mode: "forms", heading: "Clinical Forms" },
-      { link: "Open Calculators", mode: "calculators", heading: "Clinical Calculators" },
+      { tool: "differentials", mode: "differentials", heading: "Differential Diagnosis" },
+      { tool: "clinical-dictionary", mode: "dictionary", heading: "Clinical Dictionary" },
+      { tool: "services", mode: "services", heading: "Clinical Services" },
+      { tool: "forms", mode: "forms", heading: "Clinical Forms" },
+      { tool: "calculators", mode: "calculators", heading: "Clinical Calculators" },
     ] as const;
 
     for (const launch of launches) {
       await mockAnswerDashboardApi(page);
       await gotoLauncher(page, "/tools");
-      const link = visibleByTestId(page, "tools-search-results-page").getByRole("link", { name: launch.link });
+      const link = toolRowLink(visibleByTestId(page, "tools-search-results-page"), launch.tool);
       await expect(link).toHaveAttribute("href", `/?mode=${launch.mode}`);
       await Promise.all([page.waitForURL(`**/?mode=${launch.mode}`), link.click()]);
 
@@ -666,16 +647,16 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Tool results" })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 2, name: "PsychSift Search" }).first()).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Safety", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 3, name: "PsychSift Search" })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     }
 
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -688,26 +669,22 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/tools");
 
     const results = visibleByTestId(page, "tools-search-results-page");
-    for (const [title, href] of [
-      ["Medication Prescribing", "/medications"],
-      ["Documents", "/documents"],
-      ["Services", "/?mode=services"],
-      ["Forms", "/?mode=forms"],
-      ["Saved workflows", "/favourites"],
-      ["PsychSift Search", "/?mode=answer"],
+    for (const [id, title, href] of [
+      ["medication-prescribing", "Medication Prescribing", "/medications"],
+      ["documents", "Documents", "/documents"],
+      ["services", "Services", "/?mode=services"],
+      ["forms", "Forms", "/?mode=forms"],
+      ["favourites", "Saved workflows", "/favourites"],
+      ["clinical-kb-search", "PsychSift Search", "/?mode=answer"],
     ] as const) {
-      await expect(results.getByRole("link", { name: `Open ${title}` })).toHaveAttribute("href", href);
+      await expect(toolRowLink(results, id)).toHaveAttribute("href", href);
       // Most rows sit below the fold, and the header's scroll-hide moves them mid-click.
-      await clickWhenSettled(results.getByRole("button", { name: `View details for ${title}` }));
-      const detail = results.getByRole("complementary", { name: title });
-      await expect(detail.locator(`a[href="${href}"]`).first()).toBeVisible();
+      await clickWhenSettled(results.getByRole("button", { name: `About ${title}` }));
+      const detail = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+      await expect(detail.getByRole("link", { name: `Open ${title}` })).toHaveAttribute("href", href);
+      await detail.getByRole("button", { name: `Close ${title}` }).click();
+      await expect(detail).toHaveCount(0);
     }
-    // The desktop details panel is sticky: scrolling to the end of the list must leave it on
-    // screen. An overflow-x-hidden page wrapper once made the wrapper the sticky scroll
-    // container, so the panel scrolled away and opening details jumped the page to the top.
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
-    await expect(results.getByRole("complementary", { name: "PsychSift Search" })).toBeInViewport();
     // External companion-app launchers were removed; no localhost links should remain.
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
@@ -719,8 +696,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
+    await expect(results.getByRole("heading", { level: 3, name: "Medication Prescribing" })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 3, name: "Documents" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -734,15 +711,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 1, name: "medication" })).toBeVisible();
-    await expect(results.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    const medicationDetails = results.getByRole("button", { name: "View details for Medication Prescribing" });
-    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
+    const medicationDetails = results.getByRole("button", { name: "About Medication Prescribing" });
+    await expect(results.getByRole("heading", { level: 3, name: "Documents" })).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
 
     await medicationDetails.click();
-    const medicationPanel = results.getByRole("complementary", { name: "Medication Prescribing" });
+    const medicationPanel = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
     await expect(medicationPanel).toBeVisible();
-    await expect(medicationPanel.getByRole("link", { name: "Prescribe Medication Prescribing" })).toHaveAttribute(
+    await expect(medicationPanel.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
       "href",
       "/medications",
     );
@@ -1146,8 +1122,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       expect(metrics?.position, home.path).not.toBe("fixed");
       expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-      // The APP-5 privacy notice rides the hero pill on phones too (as on desktop).
-      await expect(page.getByTestId("answer-composer-privacy-warning"), home.path).toBeVisible();
+      // The APP-5 privacy notice rides the hero pill on phones too (as on desktop),
+      // except on Favourites, which omits it by owner decision 2026-09-30.
+      await expect(page.getByTestId("answer-composer-privacy-warning"), home.path).toHaveCount(
+        home.path === "/favourites" ? 0 : 1,
+      );
+      if (home.path !== "/favourites") {
+        await expect(page.getByTestId("answer-composer-privacy-warning"), home.path).toBeVisible();
+      }
 
       // The in-flow composer must not cover the page with the universal sheet.
       const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
@@ -1343,10 +1325,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/?mode=tools");
 
     await page.waitForURL(/\/tools$/);
-    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-    await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
+    await expect(page.getByTestId("tools-search-results-page").getByTestId("tools-local-search-input")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3094,7 +3076,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/tools");
 
     const results = visibleByTestId(page, "tools-search-results-page");
-    const detailsButton = results.getByRole("button", { name: "View details for Medication Prescribing" });
+    const detailsButton = results.getByRole("button", { name: "About Medication Prescribing" });
     await detailsButton.click();
     const detailSheet = page.getByTestId("tools-search-detail-sheet");
     await expect(detailSheet).toBeVisible();

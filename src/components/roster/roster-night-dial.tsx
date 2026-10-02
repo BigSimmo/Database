@@ -1,8 +1,13 @@
+"use client";
+
+import { useRosterRead } from "@/components/roster/use-roster-team";
 import { modeSummaryMutedText, modeSummarySurface } from "@/components/mode-kit/recipes";
 import { modeDisplayNumberText, modeNumberText } from "@/components/mode-kit/type";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import type { OnCallShift } from "@/lib/roster/shifts/model";
+import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
+import { handover } from "@/lib/roster/team/team-view";
 
 import { formatDuration, formatShiftRange, shiftTimes } from "./roster-format";
 
@@ -34,13 +39,22 @@ export function RosterNightDial({
   shift,
   now,
   workplace,
+  teamShift,
   testId = "roster-night-dial",
 }: {
   readonly shift: Pick<OnCallShift, "startsAt" | "endsAt">;
   readonly now: Date;
   readonly workplace: string | null;
+  readonly teamShift?: { readonly serviceId: string; readonly assignmentId: string } | null;
   readonly testId?: string;
 }) {
+  const day = perthDateOf(now);
+  const teamRead = useRosterRead(teamShift?.serviceId ?? null, "assignments", {
+    from: addDaysToDate(day, -1),
+    to: addDaysToDate(day, 1),
+  });
+  const assignment = teamRead.data?.assignments.find((row) => row.id === teamShift?.assignmentId);
+  const handoverTo = assignment ? handover(teamRead.data?.assignments ?? [], assignment).to : null;
   const start = Date.parse(shift.startsAt);
   const end = Date.parse(shift.endsAt);
   const at = now.getTime();
@@ -48,7 +62,15 @@ export function RosterNightDial({
   const done = arc(dayFraction(start), dayFraction(at));
   const { end: endTime } = shiftTimes(shift);
   return (
-    <section className={cn(modeSummarySurface, "grid gap-3 p-4")} data-testid={testId} aria-label="Night shift">
+    <section
+      data-mode-identity="roster"
+      className={cn(
+        modeSummarySurface,
+        "grid gap-3 p-5 bg-[image:radial-gradient(circle_at_0%_0%,color-mix(in_oklab,var(--mode-identity)_45%,transparent),transparent_65%)] forced-colors:bg-none",
+      )}
+      data-testid={testId}
+      aria-label="Night shift"
+    >
       <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3">
         <h2 className={cn(eyebrowText, modeSummaryMutedText)}>
           {SHIFT_KIND_LABEL.night}
@@ -85,6 +107,7 @@ export function RosterNightDial({
             {formatDuration(end - at)}
           </span>
           <span className={cn(modeSummaryMutedText, "text-sm")}>left · ends {endTime}</span>
+          {handoverTo ? <span className={cn(modeSummaryMutedText, "text-sm")}>Hand over to {handoverTo}</span> : null}
         </div>
       </div>
       <dl className="grid grid-cols-2 gap-3 border-t border-[color:var(--surface-summary-line)] pt-3">

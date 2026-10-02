@@ -29,11 +29,12 @@ const ROW_CLICK_SURFACES = [
   "src/components/clinical-dashboard/differentials-home.tsx",
   "src/components/clinical-dashboard/document-results.tsx",
   "src/components/clinical-dashboard/document-search-results.tsx",
-  "src/components/clinical-dashboard/favourites-command-library-page.tsx",
   "src/components/clinical-dashboard/favourites-hub.tsx",
   "src/components/dictionary/dictionary-result-row.tsx",
   "src/components/differentials/differential-stream-workspace.tsx",
   "src/components/dsm/dsm-search-page.tsx",
+  // The Favourites page rows moved out of the page file in the 2026-09-29 phone redesign.
+  "src/components/favourites/favourite-row.tsx",
   "src/components/formulation/formulation-home-page.tsx",
   "src/components/forms/forms-search-results-page.tsx",
   "src/components/services/services-navigator-page.tsx",

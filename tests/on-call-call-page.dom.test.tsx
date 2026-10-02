@@ -255,6 +255,29 @@ describe("Call page", () => {
     expect(screen.getByText("1 result")).toBeInTheDocument();
   });
 
+  it("gives a cover extension the hospital-phone switch and filters cover with the Call search", async () => {
+    const cover = items([{ id: "cov", title: "Cover", phone: "4457", section: "cover", kind: "clinical" }]).map(
+      (item) => ({
+        ...item,
+        cover: { grade: "registrar" as const, team: "Psychiatry", window: { start: "00:00", end: "23:59" } },
+      }),
+    );
+    handbook.state = ready([...cover, ...items([{ id: "i", title: "ICU: Registrar", phone: "4456" }])]);
+    render(<OnCallCallPage />);
+    const row = () => screen.getByTestId("on-call-call-cover-cov");
+    expect(within(row()).queryByRole("link", { name: /^call/i })).toBeNull();
+    await userEvent.click(screen.getByRole("switch", { name: "I'm on a hospital phone" }));
+    expect(within(row()).getByRole("link", { name: /^call/i })).toHaveAttribute("href", "tel:4457");
+
+    await userEvent.type(screen.getByRole("searchbox"), "icu");
+    expect(screen.queryByTestId("on-call-call-cover")).toBeNull();
+    expect(screen.getByText("1 result")).toBeInTheDocument();
+    await userEvent.clear(screen.getByRole("searchbox"));
+    await userEvent.type(screen.getByRole("searchbox"), "psychiatry");
+    expect(row()).toBeInTheDocument();
+    expect(screen.getByText("1 result")).toBeInTheDocument();
+  });
+
   it("shows the crisis lines, and no hospital numbers, while signed out", () => {
     handbook.state = ready([], { status: "signed-out" });
     entries.signedOut = true;

@@ -26,14 +26,23 @@ import { assertUploadStructure } from "@/lib/upload-structure";
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const uuidSchema = z.string().uuid();
 const maximumAcquisitionBytes = MAX_UPLOAD_MB_CEILING * 1024 * 1024;
-const { JSDOM } = createRequire(import.meta.url)("jsdom") as {
-  JSDOM: new (
-    html: string,
-    options: { contentType: string },
-  ) => {
-    window: { document: Document; close(): void };
-  };
+type JsdomConstructor = new (
+  html: string,
+  options: { contentType: string },
+) => {
+  window: { document: Document; close(): void };
 };
+
+/**
+ * jsdom is a dev dependency, absent from the production image. Load it only
+ * when HTML is actually extracted (the source-acquisition scripts), never at
+ * import: Roster's calendar-link code imports this module for
+ * `isGlobalPublicAddress`, and a top-level require crashed every Roster route
+ * that reached it in production.
+ */
+function loadJsdom(): JsdomConstructor {
+  return (createRequire(import.meta.url)("jsdom") as { JSDOM: JsdomConstructor }).JSDOM;
+}
 
 const acquisitionPlanSchema = z
   .object({
@@ -491,6 +500,7 @@ export function extractTrustedHtmlContent(html: string): {
   mime: "text/plain";
   disposition: "shadow" | "quarantined";
 } {
+  const JSDOM = loadJsdom();
   const dom = new JSDOM(html, { contentType: "text/html" });
   try {
     const directlyHidden = (element: Element) => {

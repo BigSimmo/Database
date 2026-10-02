@@ -82,12 +82,13 @@ function wasInstallRecentlyDismissed(key: string = INSTALL_DISMISSAL_KEY) {
   return false;
 }
 
-function wasUpdateRecentlyDismissed() {
+function wasUpdateRecentlyDismissed(token?: string | null) {
   try {
-    const dismissedAt = Number(window.localStorage.getItem(UPDATE_DISMISSAL_KEY));
+    const key = token ? `${UPDATE_DISMISSAL_KEY}:${token}` : UPDATE_DISMISSAL_KEY;
+    const dismissedAt = Number(window.localStorage.getItem(key));
     if (!Number.isFinite(dismissedAt) || dismissedAt <= 0) return false;
     if (Date.now() - dismissedAt < UPDATE_DISMISSAL_MS) return true;
-    window.localStorage.removeItem(UPDATE_DISMISSAL_KEY);
+    window.localStorage.removeItem(key);
   } catch {
     // Storage can be unavailable in private/restricted contexts. Re-offering the update is the
     // safe failure: the notice is an offer, and showing it twice costs less than never showing it.
@@ -95,9 +96,10 @@ function wasUpdateRecentlyDismissed() {
   return false;
 }
 
-function rememberUpdateDismissal() {
+function rememberUpdateDismissal(token?: string | null) {
   try {
-    window.localStorage.setItem(UPDATE_DISMISSAL_KEY, String(Date.now()));
+    const key = token ? `${UPDATE_DISMISSAL_KEY}:${token}` : UPDATE_DISMISSAL_KEY;
+    window.localStorage.setItem(key, String(Date.now()));
   } catch {
     // See above: the in-session ref still suppresses it for this page view.
   }
@@ -489,7 +491,9 @@ export function PwaLifecycle() {
     }
 
     const exposeWaitingWorker = (worker: ServiceWorker | null) => {
-      if (!cancelled && worker && !updateDismissedRef.current) setWaitingWorker(worker);
+      if (!cancelled && worker && !updateDismissedRef.current && !wasUpdateRecentlyDismissed(worker.scriptURL)) {
+        setWaitingWorker(worker);
+      }
     };
 
     const watchInstallingWorker = (registration: ServiceWorkerRegistration) => {
@@ -628,8 +632,9 @@ export function PwaLifecycle() {
   };
 
   const dismissUpdate = () => {
+    refreshRequestedRef.current = false;
     updateDismissedRef.current = true;
-    rememberUpdateDismissal();
+    rememberUpdateDismissal(waitingWorker?.scriptURL);
     setWaitingWorker(null);
     setActivatedUpdateReady(false);
   };

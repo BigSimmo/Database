@@ -22,6 +22,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { cn, controlDisabled, floatingControl, textMuted } from "@/components/ui-primitives";
 import { downloadTextFile } from "@/lib/admin/download-file";
 import {
+  buildIssuerCheckStampBody,
   buildNotForThisJobCreateBody,
   buildNotForThisJobToggleBody,
   buildRestoreEntryBody,
@@ -125,11 +126,30 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   function upsert(entry: OnCallEntry) {
     cacheOnCallEntries([...state.entries.filter((existing) => existing.id !== entry.id), entry]);
     setEntryVersion((version) => version + 1);
+    setDetailSubject((current) => {
+      if (!current || !current.entry || current.entry.id !== entry.id) return current;
+      return current.kind === "catalogue"
+        ? { kind: "catalogue", item: current.item, entry }
+        : { kind: "personal", entry };
+    });
   }
 
   function removeEntry(id: string) {
     cacheOnCallEntries(state.entries.filter((existing) => existing.id !== id));
     setEntryVersion((version) => version + 1);
+  }
+
+  async function setIssuerCheck(entry: OnCallEntry, checkedOn: string | null) {
+    const result = buildIssuerCheckStampBody(entry, checkedOn);
+    if (!result.ok) throw new Error("Use the date as YYYY-MM-DD.");
+    const saved = await parsedEntry(
+      await fetch(`/api/on-call/entries/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(result.body),
+      }),
+    );
+    upsert(saved);
   }
 
   // A link to one entry (`/admin/renewals#on-call-entry-<id>`: Today's
@@ -429,6 +449,7 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
             ? (item, entry, flag) => (entry ? setNotForThisJob(entry, flag) : markItemNotForThisJob(item))
             : undefined
         }
+        onIssuerCheck={canEdit ? setIssuerCheck : undefined}
       />
 
       <AdminRenewedSheet

@@ -5,7 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { FileText } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
-import { RowActionsMenu, type FavouriteItem } from "@/components/clinical-dashboard/favourites-command-library-page";
+import { type FavouriteItem } from "@/components/clinical-dashboard/favourites-command-library-page";
+import { FavouriteActionsSheet } from "@/components/favourites/favourite-sheets";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }) }));
 
@@ -18,6 +19,7 @@ const item: FavouriteItem = {
   set: "Unsorted",
   evidence: "Source-backed",
   lastUsed: "Never",
+  openedAt: null,
   action: "Open",
   href: "/services/adult-community-mental-health",
   icon: FileText,
@@ -27,34 +29,32 @@ const item: FavouriteItem = {
   sortOrder: 10,
 };
 
-describe("favourite row actions popover", () => {
+describe("favourite row actions sheet", () => {
   it("uses dialog semantics and reaches Move in the natural tab sequence", async () => {
     const user = userEvent.setup();
+    const onMove = vi.fn();
     render(
-      <RowActionsMenu
+      <FavouriteActionsSheet
         item={item}
-        sets={[
-          {
-            id: "4f8a3d2e-c1b0-4a9e-8d7c-6b5a4f3e2d1c",
-            name: "Ward round",
-            sortOrder: 0,
-            createdAt: "2026-08-23T00:00:00.000Z",
-            updatedAt: "2026-08-23T00:00:00.000Z",
-          },
-        ]}
-        onMove={vi.fn(async () => true)}
-        onRemove={vi.fn(async () => true)}
+        open
+        onClose={vi.fn()}
+        canMutate
         onOpen={vi.fn()}
+        onTogglePin={vi.fn()}
+        onCopyCitation={vi.fn(async () => true)}
+        onMove={onMove}
+        onRemove={vi.fn()}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /More actions/ }));
     const dialog = screen.getByRole("dialog", { name: /Actions for/ });
     expect(within(dialog).queryByRole("menu")).toBeNull();
-    expect(within(dialog).getByRole("combobox", { name: /Move .* to set/ })).toBeVisible();
+    const copy = within(dialog).getByRole("button", { name: "Copy citation" });
+    const move = within(dialog).getByRole("button", { name: /Move to set/ });
+    copy.focus();
     await user.tab();
-    expect(within(dialog).getByRole("button", { name: "Copy citation" })).toHaveFocus();
-    await user.tab();
-    expect(within(dialog).getByRole("combobox", { name: /Move .* to set/ })).toHaveFocus();
+    expect(move).toHaveFocus();
+    await user.click(move);
+    expect(onMove).toHaveBeenCalledWith(item);
   });
 });

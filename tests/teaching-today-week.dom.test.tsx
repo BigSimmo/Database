@@ -325,7 +325,7 @@ describe("Today", () => {
     await waitFor(() => expect(screen.getByTestId("roles")).toBeEmptyDOMElement());
   });
 
-  it("signed out: the sign-in module, then the demo only after Open the demo", async () => {
+  it("signed out: the sign-in module, and Open the demo enters the whole-mode Teaching sample", async () => {
     authState.status = "signed_out";
     serveFetch((url) => (url.startsWith("/api/teaching?view=week") ? apiError(401, "teaching_signed_out") : null));
     render(<TeachingToday demoMode={false} />);
@@ -333,8 +333,18 @@ describe("Today", () => {
     expect(screen.queryByText("Demo · made-up people")).toBeNull();
     fireEvent.click(within(moduleEl).getByRole("button", { name: "Sign in" }));
     expect(screen.getByTestId("sign-in-dialog")).toBeInTheDocument();
-    fireEvent.click(within(moduleEl).getByRole("button", { name: "Open the demo" }));
+    // A real link, not an in-page toggle: the sample is a cookie set by a route, so it survives moving between pages.
+    expect(within(moduleEl).getByRole("link", { name: "Open the demo" })).toHaveAttribute(
+      "href",
+      "/teaching/sample?next=%2Fteaching",
+    );
+  });
+
+  it("the sample is the same switch as demo mode: made-up people, no API call", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    render(<TeachingToday demoMode />);
     expect(await screen.findByText("Demo · made-up people")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("demo mode never calls the API, and a loading page shows a static skeleton", async () => {

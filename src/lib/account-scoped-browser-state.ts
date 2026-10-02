@@ -43,6 +43,12 @@ export const DATABASE_FAVOURITES_PINNED_STORAGE_KEY = "database:favourites:pinne
  * sessionStorage survives a sign-out and the next sign-in in the same tab.
  */
 export const PLAN_DRAFT_STORAGE_KEY = "caring-contacts:plan-draft";
+/**
+ * sessionStorage — unsaved new CME entry draft, which contains reflections,
+ * dates, allocations and notes. Cleared on account transitions so reflections
+ * are never left on a shared terminal for the next clinician.
+ */
+export const CME_NEW_ENTRY_DRAFT_KEY = "cme-entry-draft:new";
 /** localStorage — the chosen hospital on the First Nations mode home. Describes no patient. */
 export const FIRST_NATIONS_HOSPITAL_STORAGE_KEY = "first-nations:hospital-v1";
 
@@ -63,6 +69,27 @@ export function clearAccountScopedBrowserStorage(): void {
   removeQuietly(() => window.localStorage, DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY);
   removeQuietly(() => window.localStorage, DATABASE_FAVOURITES_PINNED_STORAGE_KEY);
   removeQuietly(() => window.sessionStorage, PLAN_DRAFT_STORAGE_KEY);
+  removeQuietly(() => window.sessionStorage, CME_NEW_ENTRY_DRAFT_KEY);
+
+  // Sweep any session/local keys with cme-entry-draft prefix
+  for (const getStorage of [() => window.sessionStorage, () => window.localStorage]) {
+    try {
+      const storage = getStorage();
+      const toRemove: string[] = [];
+      for (let i = 0; i < storage.length; i++) {
+        const key = storage.key(i);
+        if (key && key.startsWith("cme-entry-draft:")) {
+          toRemove.push(key);
+        }
+      }
+      for (const key of toRemove) {
+        storage.removeItem(key);
+      }
+    } catch {
+      // Storage access may be blocked or restricted; nothing to clear.
+    }
+  }
+
   removeQuietly(() => window.localStorage, FIRST_NATIONS_HOSPITAL_STORAGE_KEY);
   window.dispatchEvent(new Event(ACCOUNT_TRANSITION_EVENT));
 }

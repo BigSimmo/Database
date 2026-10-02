@@ -33,6 +33,7 @@
     "src/lib/cme/**",
     "src/lib/favourites-client-contract.ts",
     "src/lib/favourites-contract.ts",
+    "src/lib/favourites-order.ts",
     "src/lib/favourites-reference.ts",
     "src/lib/on-call/**",
     "src/lib/reminders/**",

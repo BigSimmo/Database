@@ -96,20 +96,18 @@ export function ChecklistRowActionButton({
   readonly testId?: string;
 }) {
   return (
-    <span className="inline-flex min-h-12 items-center">
-      <button
-        type="button"
-        onClick={onClick}
-        data-testid={testId}
-        className={cn(
-          focusRing,
-          "inline-flex h-8.5 shrink-0 items-center whitespace-nowrap rounded-md border border-[color:var(--border)]",
-          "bg-[color:var(--surface-raised)] px-3 text-sm font-medium text-[color:var(--text)]",
-          "transition-colors duration-[var(--duration-instant)] hover:border-[color:var(--border-strong)]",
-        )}
-      >
-        {label}
-      </button>
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className={cn(
+        focusRing,
+        "inline-flex min-h-tap shrink-0 items-center whitespace-nowrap rounded-md border border-[color:var(--border)]",
+        "bg-[color:var(--surface-raised)] px-3 text-sm font-medium text-[color:var(--text)]",
+        "transition-colors duration-[var(--duration-instant)] hover:border-[color:var(--border-strong)]",
+      )}
+    >
+      {label}
+    </button>
   );
 }

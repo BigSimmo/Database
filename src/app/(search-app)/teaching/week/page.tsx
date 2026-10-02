@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { TeachingWeekWithPanel } from "@/components/teaching/teaching-week-panel";
-import { isDemoMode } from "@/lib/env";
+import { teachingDemoMode } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = {
   title: "Week | Teaching | PsychSift",
@@ -9,6 +9,6 @@ export const metadata: Metadata = {
 };
 
 /* Demo mode is read on the server. On a wide screen a tapped session opens beside the list (U4 Step 9). */
-export default function TeachingWeekRoute() {
-  return <TeachingWeekWithPanel demoMode={isDemoMode()} />;
+export default async function TeachingWeekRoute() {
+  return <TeachingWeekWithPanel demoMode={await teachingDemoMode()} />;
 }

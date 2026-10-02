@@ -33,6 +33,8 @@ type Filter = (typeof FILTERS)[number];
 const ROWS_SHOWN = 9;
 
 const SECTION_LABELS: Readonly<Record<ServiceContent["section"], string>> = {
+  playbook: "Playbook",
+  cover: "Role cover",
   contacts: "Contacts",
   referrals: "Referrals",
   resources: "Find",

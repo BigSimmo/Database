@@ -54,8 +54,17 @@ export function CmeEntryGoalPicker({
       }
       setStatus("Saved.");
     } catch (error) {
+      const isOffline =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (error instanceof TypeError && (error.message.includes("fetch") || error.message.includes("network")));
       setGoalId(previous);
-      setStatus(error instanceof Error ? error.message : "Could not save the goal.");
+      setStatus(
+        isOffline
+          ? "You are offline. Connect to save this goal selection."
+          : error instanceof Error
+            ? error.message
+            : "Could not save the goal.",
+      );
     }
   }
 

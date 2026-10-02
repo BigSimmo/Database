@@ -101,7 +101,8 @@ and do not alias the two files at each other) · `text-base-minus` 15px · (`tex
 - Arbitrary `text-[Npx]` is **banned**; `npm run check:type-scale` counts offenders.
   **Ratchet:** the count must never rise (baseline recorded in
   `docs/process-hardening.md`). When it reaches 0, wire `check:type-scale --strict` into
-  `verify:cheap`.
+  `verify:full` (done — the gate lives in `verify:full:internal` / CI, not in
+  `verify:cheap`).
 - Tailwind's own `text-xs`/`text-sm`/… carry a baked line-height. When retiring a raw px value
   onto one of them, check the call site for `leading-*` and pin the current effective leading
   explicitly if absent, so nothing shifts.
@@ -117,7 +118,7 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
 `--spacing-tap` → `size-tap`.
 
 - Prefer `size-icon-md` over raw `h-4 w-4` for an icon glyph. `npm run check:icon-scale --strict`
-  (in `verify:cheap`) blocks the retired `4.5` (18px) half-step — icon glyphs resolve to
+  (in `verify:full` / CI) blocks the retired `4.5` (18px) half-step — icon glyphs resolve to
   `size-icon-lg`, non-icon 18px boxes to `h-5`. It does **not** touch raw `h-4 w-4` (which also
   sizes non-icons), so migrating the long tail onto `size-icon-*` is opportunistic, not enforced.
 - **Responsive** icons add a breakpoint variant — `size-icon-md sm:size-icon-lg`. Reserve it for
@@ -227,12 +228,14 @@ image"}` — never a possibly-empty variable alone.
 
 ## 9. Verification gates — Definition of Done for UI PRs
 
-1. `npm run verify:cheap` — lint, typecheck, unit tests, runtime + sitemap checks (offline-safe).
+1. `npm run verify:cheap` — ordinary offline gate: lock parity + lint + typecheck + unit tests.
 2. `npm run ensure` then `npm run verify:ui` — Chromium Playwright (smoke, stress,
    accessibility, tools, overlap). Required for any UI/styling/routing change.
 3. `npm run check:design-system-contract` — production-only raw colours, literal shadows,
-   Therapy inline-parser/style debt, and tap-token drift must not exceed the recorded baseline.
-4. `node scripts/check-type-scale.mjs` — the count must not exceed the recorded baseline.
+   Therapy inline-parser/style debt, and tap-token drift must not exceed the recorded baseline
+   (also in `verify:full` / CI).
+4. `node scripts/check-type-scale.mjs` — the count must not exceed the recorded baseline
+   (also in `verify:full` / CI; not in `verify:cheap`).
 5. Manual dark-mode pass on every screen you touched (theme toggle in the sidebar).
 6. Reduced-motion + forced-colors spot check on touched surfaces
    (`ui-accessibility.spec.ts` covers the automated slice; emulate in devtools for the rest).
@@ -253,7 +256,7 @@ image"}` — never a possibly-empty variable alone.
   builders). `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
   `app/apple-icon`, the PWA maskable icons, `app/opengraph-image`, and the inlined mark in
   `public/offline.html` all derive from it. To change the mark, edit `brand-mark.ts` then
-  `npm run brand:update`; `brand:check` (in `verify:cheap`) guards `app/icon.svg` and the
+  `npm run brand:update`; `brand:check` (in `verify:full` / CI) guards `app/icon.svg` and the
   sentinel-delimited region of `public/offline.html` from drift. That offline page is static and
   script-free — precached by the service worker, with no bundler and no access to `globals.css` —
   so it cannot import `BrandMark` and its mark is inlined from `brandBareMarkInner()` instead; its

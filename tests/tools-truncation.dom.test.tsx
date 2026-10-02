@@ -52,7 +52,7 @@ describe("Tools copy is never truncated (#8FXXVE)", () => {
   it("shows each tool description in full on the all-tools directory", () => {
     render(<ToolsSearchResultsPage canAccessFavourites={false} />);
 
-    const heading = screen.getAllByRole("heading", { level: 2, name: "PsychSift Search" })[0];
+    const heading = screen.getAllByRole("heading", { level: 3, name: "PsychSift Search" })[0];
     const card = heading.parentElement;
     expect(card).not.toBeNull();
     const description = heading.nextElementSibling;
@@ -61,15 +61,14 @@ describe("Tools copy is never truncated (#8FXXVE)", () => {
     expect(card?.querySelector("[class*='line-clamp']")).toBeNull();
   });
 
-  it("never packs the directory's shortcut row into six columns", () => {
+  it("never packs the directory's pinned row into six columns or clips its labels", () => {
     render(<ToolsSearchResultsPage canAccessFavourites={false} />);
 
-    const shortcuts = screen.getByTestId("tools-shortcuts");
-    const rows = within(shortcuts).getAllByRole("region", { name: "Quick tool shortcuts" });
-    for (const row of rows) {
-      expect(hasClass(row, "xl:grid-cols-6")).toBe(false);
-    }
-    expect(rows.some((row) => hasClass(row, "md:grid-cols-3"))).toBe(true);
+    const pinned = screen.getByTestId("tools-pinned");
+    const row = within(pinned).getByRole("list");
+    expect(hasClass(row, "grid-cols-4")).toBe(true);
+    expect(row.className).not.toMatch(/grid-cols-6/);
+    expect(pinned.querySelector("[class*='truncate'], [class*='line-clamp']")).toBeNull();
   });
 
   it("never packs the launcher's shortcut row into six columns", () => {

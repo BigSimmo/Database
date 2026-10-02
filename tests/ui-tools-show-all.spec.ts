@@ -28,10 +28,13 @@ test("the legacy tools alias lands on the single tools directory", async ({ page
   // "lands on the single tools directory", so this asserts it rather than working around it.
   await expect(results).toHaveCount(1);
   await expect(results).toBeVisible();
-  await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-  await expect(page.getByTestId("tools-shortcuts")).toBeVisible();
-  await expect(results.getByRole("link", { name: "Open PsychSift Search" })).toHaveAttribute("href", "/?mode=answer");
-  await expect(results.getByRole("button", { name: "View details for PsychSift Search" })).toBeVisible();
+  await expect(results.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
+  await expect(page.getByTestId("tools-pinned")).toBeVisible();
+  await expect(results.getByTestId("tool-row-clinical-kb-search").getByRole("link")).toHaveAttribute(
+    "href",
+    "/?mode=answer",
+  );
+  await expect(results.getByRole("button", { name: "About PsychSift Search" })).toBeVisible();
   await expect(page.getByTestId("global-search-input")).toHaveCount(0);
   await expectNoPageHorizontalOverflow(page);
 });

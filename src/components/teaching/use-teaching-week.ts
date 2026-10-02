@@ -9,11 +9,12 @@ import { setTeachingRoles } from "@/lib/teaching/page-visibility";
 
 /*
  * One stretch of the programme. Demo mode never calls the API. A signed-out
- * reader sees the demo only after "Open the demo" (`signedOutDemo`). A real
+ * reader sees the demo only after "Open the demo", which turns on the Teaching
+ * sample (`src/lib/teaching/sample.ts`) and arrives here as `demoMode`. A real
  * read also publishes the reader's roles for the pages sheet (U2), and a
  * signed-out read clears them.
  */
-export type TeachingDemo = "off" | "demo-mode" | "signed-out";
+export type TeachingDemo = "off" | "demo-mode";
 export type TeachingWeekState = {
   status: TeachingResourceStatus;
   week: TeachingWeekResponse | null;
@@ -23,14 +24,14 @@ export type TeachingWeekState = {
 
 export function useTeachingWeek(
   range: { from: string; to: string } | null,
-  options: { demoMode: boolean; signedOutDemo: boolean },
+  options: { demoMode: boolean },
   now: Date | null,
 ): TeachingWeekState {
   const { from, to } = range ?? { from: null, to: null };
   const url =
     from && to && !options.demoMode ? `/api/teaching?${new URLSearchParams({ view: "week", from, to })}` : null;
   const resource = useTeachingResource<TeachingWeekResponse>(url);
-  const wantsDemo = options.demoMode || (resource.status === "signed-out" && options.signedOutDemo);
+  const wantsDemo = options.demoMode;
   const demoWeek = useMemo<TeachingWeekResponse | null>(
     () =>
       wantsDemo && from && to && now
@@ -50,7 +51,7 @@ export function useTeachingWeek(
     return {
       status: demoWeek ? "ready" : "loading",
       week: demoWeek,
-      demo: options.demoMode ? "demo-mode" : "signed-out",
+      demo: "demo-mode",
       retry: resource.retry,
     };
   }

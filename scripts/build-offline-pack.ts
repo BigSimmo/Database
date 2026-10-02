@@ -181,7 +181,7 @@ function renderCrisisContact(contact: PublicCrisisContact): string {
           <p class="crisis-availability">${escapeHtml(contact.availability)}</p>${caveat}
           <p class="crisis-checked">
             Checked ${formatCheckedDate(contact.verifiedOn)} &middot;
-            <a href="${escapeHtml(contact.sourceUrl)}">Source</a>
+            <a href="${escapeHtml(contact.sourceUrl)}" target="_blank" rel="noopener noreferrer">Source</a>
           </p>
         </li>`;
 }

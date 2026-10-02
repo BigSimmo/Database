@@ -2051,7 +2051,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const toolsTrigger = page.getByRole("button", { name: "Mode Tools" });
     await expect(toolsTrigger).toBeVisible();
     await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
 
     // Reopening on a mode in a lower group must position that selected row in
@@ -2269,7 +2269,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const safetyFindingsSheet = page.getByRole("dialog", { name: "Key points" });
     await expect(safetyFindingsSheet).toBeVisible();
     await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
-    expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
+    await expect.poll(() => safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
     // Severity order inside the sheet: a stop-tier row never follows a know-tier
     // one, so the list always reads in the same direction.
     const sheetTones = await safetyFindingsSheet
@@ -3216,8 +3216,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
     const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
     const compactCrossModeActions = compactCrossModeRail.getByRole("button");
-    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
-    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
+    await expect.poll(() => compactCrossModeLinks.count()).toBeGreaterThan(0);
+    await expect.poll(() => compactCrossModeActions.count()).toBeGreaterThan(0);
     for (const control of await compactCrossModeLinks.all()) {
       await expectMinTouchTarget(control, 48);
     }
@@ -4429,6 +4429,40 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
   });
 
+  test("favourites search bar stands alone: no privacy line or example ticker (owner decision 2026-09-30)", async ({
+    page,
+  }) => {
+    await mockDemoApi(page);
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1280, height: 900 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await gotoApp(page, "/favourites");
+      await expect(page.getByRole("combobox", { name: /Search saved favourites/ })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
+      await expect(page.getByRole("group", { name: "Search privacy notice" })).toHaveCount(0);
+      await expect(page.getByText("Do not enter patient-identifiable information.")).toHaveCount(0);
+      await expect(page.getByTestId("smart-search-phone-ticker")).toHaveCount(0);
+      await expect(page.getByTestId("search-example-ticker")).toHaveCount(0);
+      await expect(page.getByTestId("smart-search-prompt-row")).toHaveCount(0);
+      // With the pill alone, the set chips sit close under the search bar.
+      const gap = await page.evaluate(() => {
+        const form = document
+          .querySelector('.mode-home-composer-slot [data-testid="global-search-input"]')
+          ?.closest("form");
+        const chips = document.querySelector('[data-testid="favourites-set-chips"]');
+        if (!form || !chips) return null;
+        return chips.getBoundingClientRect().top - form.getBoundingClientRect().bottom;
+      });
+      expect(gap, `gap under the search bar at ${viewport.width}px`).not.toBeNull();
+      expect(gap!).toBeLessThanOrEqual(24);
+    }
+    // Every other mode home keeps the line.
+    await gotoApp(page, "/documents");
+    await expect(page.getByRole("group", { name: "Search privacy notice" })).toBeVisible({ timeout: 30_000 });
+  });
+
   test("favourites hub hydrates saved services from the registry", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -4475,16 +4509,20 @@ test.describe("PsychSift UI smoke coverage", () => {
     await workspace.getByRole("button", { name: "Notes" }).click();
     await expect(workspace).toContainText("No personal note is saved for this item.");
 
-    const moreActions = page.getByRole("button", { name: "More actions for Lithium monitoring guideline" });
+    // The row menu is a named actions sheet (a centred dialog at this width).
+    const moreActions = visibleByTestId(page, "favourite-row-lithium-monitoring-guideline").getByRole("button", {
+      name: "More actions for Lithium monitoring guideline",
+    });
     await moreActions.focus();
-    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Actions for Lithium monitoring guideline" });
-    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(dialog.getByRole("button", { name: "Copy citation" })).toBeFocused();
+    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeVisible();
+    const copyCitation = dialog.getByRole("button", { name: "Copy citation" });
+    await copyCitation.focus();
     await page.keyboard.press("Enter");
     await expect(dialog.getByRole("button", { name: "Copied" })).toBeFocused();
     await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
     await expect(moreActions).toBeFocused();
   });
 
@@ -4497,12 +4535,14 @@ test.describe("PsychSift UI smoke coverage", () => {
       message: "favourites hub owner",
     });
     await expect(hub.locator('article[role="button"]')).toHaveCount(0);
-    const card = hub.locator("article").filter({ hasText: "Acamprosate renal screen" });
+    // One row at every width: below xl it is a plain link that opens the item,
+    // and the xl-only select button beside it is not rendered visibly.
+    const card = hub.getByTestId("favourite-row-acamprosate-renal-screen");
     const openItem = card.getByRole("link", { name: "Open Acamprosate renal screen" });
     const moreActions = card.getByRole("button", { name: "More actions for Acamprosate renal screen" });
 
     await expect(card).toBeVisible();
-    await expect(card.locator("button[aria-pressed]")).toHaveCount(0);
+    await expect(card.locator("button[aria-pressed]")).toBeHidden();
     await expectMinTouchTarget(openItem);
     await expectMinTouchTarget(moreActions);
     await expectNoPageHorizontalOverflow(page);
@@ -4511,7 +4551,6 @@ test.describe("PsychSift UI smoke coverage", () => {
     const row = page.getByTestId("favourite-row-acamprosate-renal-screen");
     await expect(row).toBeVisible();
     await expect(row.locator("button[aria-pressed]")).toBeHidden();
-    await expect(row.locator("td").first().getByRole("link")).toBeVisible();
     await expect(row.getByRole("link", { name: "Open Acamprosate renal screen" })).toBeVisible();
     await expect(row.getByRole("button", { name: "More actions for Acamprosate renal screen" })).toBeVisible();
 
@@ -5255,13 +5294,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(results).toBeVisible();
     const queryRibbon = results.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "medications" })).toBeVisible();
-    await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    // The verb shortcut row is for an unqueried catalogue, so a running query hides it.
-    await expect(page.getByTestId("tools-shortcuts")).toHaveCount(0);
-    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+    await expect(results.getByRole("heading", { level: 3, name: "Medication Prescribing" })).toBeVisible();
+    // The pinned row is for an unqueried catalogue, so a running query hides it.
+    await expect(page.getByTestId("tools-pinned")).toHaveCount(0);
+    await results.getByRole("button", { name: "About Medication Prescribing" }).click();
     await expect(
-      results.getByRole("complementary", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
+      page.locator('[data-testid="tools-search-detail-sheet"]:visible').locator('a[href="/medications"]').first(),
     ).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });

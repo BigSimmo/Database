@@ -15,13 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 669
-- Distinct ref cells: 426
-- Distinct reviewed heads: 651
-- Date range: `2026-08-12` to `2026-09-22`
+- Records: 671
+- Distinct ref cells: 428
+- Distinct reviewed heads: 653
+- Date range: `2026-08-12` to `2026-09-27`
 
 Records per date, newest first:
 
+- `2026-09-27` — 2 records
 - `2026-09-22` — 2 records
 - `2026-09-21` — 1 record
 - `2026-09-19` — 1 record
@@ -66,6 +67,8 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-27 | PR #3120 | PR #3120 plans | Changes recommended: publishing race, privacy wording and stale handof… | [17f4ce4b](branch-review-records/17f4ce4b45a80f78fa92b41a866af200c1d1de1b07fe33fb85408afa91f94a6d.record.md) |
+| 2026-09-27 | codex/chat-first-nations-completion-first-nations-completion | PR3155 CI and three existing review findings | Validated all three existing findings; prepared account-transition res… | [a6386915](branch-review-records/a6386915015dc02cdb07cd1ab0aa2857ff20c8d04401ba54bbb9ac3a05a6c640.record.md) |
 | 2026-09-22 | codex/chat-selective-railway-previews-b95c | Railway selective previews and safe iteration policy (supersedes 2026-09-22) | Correction: automatic PR environments disabled and four preview deploy… | [285ec2e4](branch-review-records/285ec2e41ed6da36d001e71db724f91c1b65a9bfae987b5deff765154760122d.record.md) |
 | 2026-09-22 | codex/chat-selective-railway-previews-b95c | Railway selective previews and safe iteration policy | P1: production-connected PR previews; contained by disabling automatic… | [383a4235](branch-review-records/383a4235f5ed25e18d6e9a1f50dc6cadfb08ec6283831517962201f77b0fb1ec.record.md) |
 | 2026-09-21 | claude/on-call-review-redesign-1yyqh0 | prlanded | PR #2900 merged 2026-09-20 18:06 UTC as merge commit a25c45437 (2 pare… | [9fc9b53a](branch-review-records/9fc9b53a3eebb51933c0efffc8ffb6a7a743db008b9310c96655883d20695870.record.md) |

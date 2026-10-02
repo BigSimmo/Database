@@ -981,8 +981,11 @@ rotating `Try "…" in <Mode>.` example ticker line above the pill, the pill, th
 made a Forms home taller than the Documents or Answer home; it now carries no
 Smart wording, so the dormant modes can share it without a Smart promise. Both
 helpers are gated by placement rather than by mode: `MasterSearchHeader` passes
-`showHomeSuggestions={isDesktopHomeComposer}`, so only the mode-home hero
-composer renders them. Every submitted result view and page slot renders the
+`showHomeSuggestions={isDesktopHomeComposer && searchMode !== "favourites"}`, so only the mode-home hero
+composer renders them. Favourites is the one exception (owner decisions
+2026-09-30): its home shows the pill alone, with no ticker, prompt rail or
+privacy line at any width, and `.favourites-composer-slot` sizes its reserve to
+the bare pill (52px on phones, 56px from 640px up). Every submitted result view and page slot renders the
 compact pill alone at every width (no ticker, prompt rail, or privacy line),
 matching the phone result dock; the answer dock is its own composer type and
 keeps its privacy line. Phones already had this shape: every result view is the
