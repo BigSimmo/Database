@@ -197,13 +197,25 @@ describe("timelineFor", () => {
     expect(allowed).toEqual(expect.objectContaining({ quoteOnly: false, deadline: perth("2026-09-26T10:00:00") }));
   });
 
-  it("calculates no time for any entry in the shipped file, because none is signed off", () => {
+  it("keeps unsigned shipped timeframes quote-only and gates default calculations on sign-off", () => {
     const file = mhaTimeframes as MhaTimeframesFile;
     const codes = [...new Set(file.entries.flatMap((candidate) => candidate.formCodes))];
     expect(codes.length).toBeGreaterThan(0);
     for (const code of codes) {
       expect(hasMhaTimeline(code)).toBe(true);
-      for (const item of timelineFor(code, start)) expect(item.quoteOnly).toBe(true);
+      const unsigned = file.entries.map((candidate) => ({
+        ...candidate,
+        status: "drafted" as const,
+        reviewedBy: null,
+        reviewedAt: null,
+        reviewedContentSha256: null,
+      }));
+      for (const item of timelineFor(code, start, unsigned)) expect(item.quoteOnly).toBe(true);
+      for (const item of timelineFor(code, start)) {
+        const mayCalculate = isReviewedTimeframe(item.entry) && item.entry.computeAllowed !== false;
+        expect(item.quoteOnly, item.entry.id).toBe(!mayCalculate);
+        if (!item.quoteOnly) expect(item.deadline, item.entry.id).toBeInstanceOf(Date);
+      }
     }
     expect(hasMhaTimeline("not-a-form")).toBe(false);
   });
