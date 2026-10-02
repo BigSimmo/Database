@@ -9354,6 +9354,14 @@
         "checks": "focused vitest 20/20 + repo-hygiene 57/57; verify:pr-local (lint, typecheck, test, build) failed:(none); live-ledger fingerprint spot-check 3/3"
       },
       {
+        "date": "2026-10-02",
+        "ref": "codex/pr3143-scoped-repair",
+        "head": "3962ace8f75869eebb15e70854d85ad630c2e19a",
+        "scope": "PR 3143 scoped CI fixture repair",
+        "outcome": "Independent review: no high-confidence P0-P2 findings; unsigned fixtures and clinical/source safety contracts retained; clinical data unchanged",
+        "checks": "261 tests across 9 files; typecheck; whole-tree format; awareness freshness; source ledger 113; hazard controls; independent read-only delta review"
+      },
+      {
         "date": "2026-08-18",
         "ref": "claude/docling-gate-b-eval-5czgln",
         "head": "397f40d96c4c08c5da61b8fcf07e166a93cf7aba",
