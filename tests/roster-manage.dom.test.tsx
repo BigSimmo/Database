@@ -1,14 +1,20 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { RosterManagePage } from "@/components/roster/manage/roster-manage-page";
 import { RosterApproveTab } from "@/components/roster/manage/roster-approve-tab";
 import { RosterTeamSettings } from "@/components/roster/manage/roster-team-settings";
 import type { RosterOverview } from "@/lib/roster/team/model";
-vi.mock("next/navigation", () => ({ usePathname: () => "/roster/manage", useRouter: () => ({ push: vi.fn() }) }));
+const search = vi.hoisted(() => ({ value: "" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/roster/manage",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(search.value),
+}));
 vi.mock("@/components/roster/manage/roster-manage-nav-header", () => ({ RosterManageNavHeader: () => null }));
 afterEach(() => {
   cleanup();
+  search.value = "";
   vi.unstubAllGlobals();
 });
 it("never fetches manager data or renders controls for an ordinary member", async () => {
@@ -111,4 +117,89 @@ it("saves all settings fields together when only one changes", async () => {
       },
     ]),
   );
+});
+
+function stubManagerTeam() {
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const what = new URL(String(input), "http://localhost").searchParams.get("what");
+    if (!what)
+      return Response.json({
+        actorId: "alex",
+        teams: [{ serviceId: "team", name: "Example team", enabled: true, role: "manager", grade: null }],
+      });
+    if (what === "overview") return Response.json(overview);
+    if (what === "assignments") return Response.json({ assignments: [] });
+    if (what === "requests") return Response.json({ swaps: [], openShifts: [] });
+    return Response.json({ swaps: [], openShifts: [], seen: null, people: [], leave: [] });
+  });
+  vi.stubGlobal("fetch", fetcher);
+}
+
+it("shows the team calendar beside the manage tabs, marked for printing", async () => {
+  stubManagerTeam();
+  render(<RosterManagePage />);
+  const calendar = await screen.findByTestId("roster-manage-calendar");
+  expect(calendar.hasAttribute("data-roster-print")).toBe(true);
+  expect(calendar.className).toContain("lg:");
+  expect(await within(calendar).findByRole("radiogroup", { name: "View" })).toBeTruthy();
+});
+
+it("offers Print in Month view only, and it prints the page", async () => {
+  const print = vi.fn();
+  vi.stubGlobal("print", print);
+  stubManagerTeam();
+  search.value = "view=week";
+  const { unmount } = render(<RosterManagePage />);
+  await screen.findByTestId("roster-manage-calendar");
+  await screen.findByRole("radiogroup", { name: "View" });
+  expect(screen.queryByRole("button", { name: "Print" })).toBeNull();
+  unmount();
+  search.value = "view=month";
+  render(<RosterManagePage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Print" }));
+  expect(print).toHaveBeenCalledTimes(1);
+});
+
+it("a decision in the calendar strip also refreshes the Approve tab, from one shared reload", async () => {
+  const waiting = {
+    id: "swap",
+    status: "accepted",
+    requesterId: "sam",
+    counterpartyId: "noor",
+    needsManagerBecause: "within_7_days",
+    autoApproved: false,
+    give: null,
+    take: null,
+    decidedAt: null,
+    requesterName: "Sam",
+    counterpartyName: "Noor",
+  };
+  const reads: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") return Response.json({ result: { swapId: "swap", status: "approved" } });
+      const what = new URL(String(input), "http://localhost").searchParams.get("what");
+      if (!what)
+        return Response.json({
+          actorId: "alex",
+          teams: [{ serviceId: "team", name: "Example team", enabled: true, role: "manager", grade: null }],
+        });
+      reads.push(what);
+      if (what === "overview") return Response.json(overview);
+      if (what === "assignments") return Response.json({ assignments: [] });
+      if (what === "requests") return Response.json({ swaps: [], openShifts: [] });
+      if (what === "maker") return Response.json({ codes: [], needs: [], drafts: [] });
+      if (what === "manage") return Response.json({ swaps: [waiting], openShifts: [], seen: null });
+      return Response.json({ people: [], leave: [] });
+    }),
+  );
+  render(<RosterManagePage />);
+  const strip = await screen.findByRole("region", { name: "Needs you" });
+  await screen.findByRole("region", { name: "Approve" });
+  const manageReads = () => reads.filter((what) => what === "manage").length;
+  const before = manageReads();
+  fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+  // The calendar reads again for itself, and the Approve tab reads again with it.
+  await waitFor(() => expect(manageReads()).toBeGreaterThanOrEqual(before + 2));
 });

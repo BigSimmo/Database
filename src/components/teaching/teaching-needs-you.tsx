@@ -11,8 +11,8 @@ import { useTeachingResource } from "@/components/teaching/use-teaching-resource
  * Today's "Needs you": one row per thing the reader owes, and nothing at all
  * when they owe nothing (no empty module). Only a count crosses the wire. A
  * failed count shows nothing rather than an error: the module is a nudge, and
- * the Logbook carries the same fact. `extraRows` is where the supervision
- * tasks add their rows.
+ * weekly review / logbook carry the same fact. `extraRows` is where the
+ * supervision tasks add their rows.
  */
 export function NeedsYou({ live, extraRows }: { live: boolean; extraRows?: ReactNode }) {
   const unlogged = useTeachingResource<{ count: number }>(live ? "/api/teaching?view=unlogged-count" : null);
@@ -21,11 +21,14 @@ export function NeedsYou({ live, extraRows }: { live: boolean; extraRows?: React
   return (
     <ModeGroupedList eyebrow="Needs you" headerIcon={NotebookText} mode="teaching" testId="teaching-needs-you">
       {count > 0 ? (
-        <ModeRow
-          href="/teaching/logbook"
-          title={`Log ${withUnit(count, count === 1 ? "session" : "sessions")} to CPD`}
-          subtitle="Attended, not yet in your CPD log"
-        />
+        <>
+          <ModeRow
+            href="/teaching/review"
+            title={`Review & log ${withUnit(count, count === 1 ? "session" : "sessions")}`}
+            subtitle="Attended, not yet in your CPD log"
+          />
+          <ModeRow href="/teaching/logbook" title="Open logbook" subtitle="All attendance and CPD status" />
+        </>
       ) : null}
       {extraRows}
     </ModeGroupedList>

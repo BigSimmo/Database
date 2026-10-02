@@ -606,7 +606,7 @@ create table if not exists public.rag_response_cache (
   cache_kind text not null check (cache_kind in ('search', 'answer')),
   scope_key text not null,
   normalized_query text not null,
-  indexing_version text not null default 'rag-deep-memory-v1',
+  indexing_version text not null default 'rag-deep-memory-v2',
   dependency_version text not null default 'rag-cache-v1',
   payload jsonb not null,
   expires_at timestamptz not null,
@@ -1700,7 +1700,7 @@ begin
           and not (
             p_producer = 'local-worker'
             and artifact_generation_id is null
-            and metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+            and metadata->>'rag_indexing_version' in ('rag-deep-memory-v1', 'rag-deep-memory-v2')
           )
         )
       )
@@ -1836,7 +1836,7 @@ begin
             or (
               p_producer = 'local-worker'
               and nullif(section.metadata->>'generated_by', '') is null
-              and section.metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+              and section.metadata->>'rag_indexing_version' in ('rag-deep-memory-v1', 'rag-deep-memory-v2')
             )
           )
         )
@@ -1934,7 +1934,7 @@ begin
           or (
             p_producer = 'local-worker'
             and nullif(metadata->>'generated_by', '') is null
-            and metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+            and metadata->>'rag_indexing_version' in ('rag-deep-memory-v1', 'rag-deep-memory-v2')
           )
         )
       )

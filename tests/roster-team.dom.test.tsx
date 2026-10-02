@@ -1,21 +1,53 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useSyncExternalStore } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RosterTeamPage } from "@/components/roster/team/roster-team-page";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/roster/team", useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
+// The calendar keeps its view and date in the URL, so the mock URL is live:
+// router.replace updates it and useSearchParams reads it back.
+const url = vi.hoisted(() => {
+  const listeners = new Set<() => void>();
+  const state = { params: new URLSearchParams() };
+  return {
+    state,
+    set(search: string) {
+      state.params = new URLSearchParams(search);
+      listeners.forEach((listener) => listener());
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+});
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/roster/team",
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: (target: string) => act(() => url.set(target.split("?")[1] ?? "")),
+  }),
+  useSearchParams: () =>
+    useSyncExternalStore(
+      url.subscribe,
+      () => url.state.params,
+      () => url.state.params,
+    ),
+}));
+vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskButton: () => null }));
+beforeEach(() => url.set("view=day"));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
 const team = { serviceId: "example", name: "Example team", enabled: true, role: "member", grade: "registrar" };
-function mockTeam(enabled = true) {
+function mockTeam(enabled = true, sample = false) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
-      if (url === "/api/roster/team") return Response.json({ actorId: "alex", teams: [{ ...team, enabled }] });
+      if (url === "/api/roster/team")
+        return Response.json({ actorId: "alex", teams: [{ ...team, enabled }], ...(sample ? { sample: true } : {}) });
       if (url.includes("what=overview"))
         return Response.json({
           service: { id: "example", name: "Example team" },
@@ -55,6 +87,17 @@ describe("Roster team journey", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Previous day" }));
     expect(await screen.findByText("from 21:30")).toBeTruthy();
+  });
+  it("labels the sample team served while team rosters are held", async () => {
+    mockTeam(true, true);
+    render(<RosterTeamPage now={new Date("2026-10-16T00:00:00Z")} />);
+    expect((await screen.findByTestId("roster-sample-notice")).textContent).toMatch(/Example team/);
+  });
+  it("shows no sample label for a real team", async () => {
+    mockTeam();
+    render(<RosterTeamPage now={new Date("2026-10-16T00:00:00Z")} />);
+    expect(await screen.findByRole("heading", { name: "Registrars" })).toBeTruthy();
+    expect(screen.queryByTestId("roster-sample-notice")).toBeNull();
   });
   it("makes no detail reads for an unconfirmed team", async () => {
     mockTeam(false);

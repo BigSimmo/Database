@@ -23,14 +23,21 @@ export type RosterAdminClient = ReturnType<typeof createAdminClient>;
  *
  * In synthetic demo mode a route may pass `demo` to answer a read from the
  * invented team; anything without it (every write) is refused with 400.
+ *
+ * While the real-staff release is held, a signed-in reader gets the same
+ * invented team from `sample` (falling back to `demo`) so the screens can be
+ * used as an example. No real team row is read or written: a write with a
+ * `sample` answer returns an example receipt and saves nothing, and a route
+ * with neither is refused with 503.
  */
 export async function withRosterApi(
   request: Request,
   operation: (client: RosterAdminClient, actorId: string) => Promise<unknown>,
-  options: { demo?: () => unknown } = {},
+  options: { demo?: () => unknown; sample?: () => unknown } = {},
 ): Promise<Response> {
   let response: Response;
   try {
+    const sample = options.sample ?? options.demo;
     if (isDemoMode()) {
       response = options.demo
         ? NextResponse.json(options.demo())
@@ -38,9 +45,15 @@ export async function withRosterApi(
             code: "demo_mode_unavailable",
           });
     } else if (!rosterTeamReleaseEnabled()) {
-      response = publicErrorResponse("Team roster is not available for real staff yet.", 503, {
-        code: "roster_release_held",
-      });
+      if (sample) {
+        await requireAuthenticatedUser(request, createAdminClient());
+        const answer = await sample();
+        response = answer instanceof Response ? answer : NextResponse.json(answer);
+      } else {
+        response = publicErrorResponse("Team roster is not available for real staff yet.", 503, {
+          code: "roster_release_held",
+        });
+      }
     } else {
       const client = createAdminClient();
       const user = await requireAuthenticatedUser(request, client);

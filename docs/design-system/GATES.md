@@ -1,7 +1,7 @@
 # PsychSift design system — GATES
 
 **Every rule paired with the check that enforces it.** Labels: **implemented-blocking**
-(runs in `verify:cheap`/CI and fails the build) · **implemented-partial** (a real check
+(runs in `verify:full`/CI and fails the build) · **implemented-partial** (a real check
 exists but covers less than the rule) · **planned** (rule stated, no check) · **manual**
 (deliberately human). A prohibition with no row here is a suggestion — that is the failure
 mode this document exists to prevent. Three defects last cycle were caught by review rather
@@ -31,17 +31,17 @@ than CI, two of them by the second reader; review does not scale past two carefu
 | `arbitraryTracking`               | **0** (hard floor) | 0            |
 | `colourOnlyStatusIndicators`      | **0** (hard floor) | 0            |
 | `darkColorOverrides`              | **0** (hard floor) | 0            |
-| `disabledOpacityUses`             | 39                 | 24           |
+| `disabledOpacityUses`             | 36                 | 24           |
 | `edgeOwnershipConflicts`          | 5                  | 2            |
 | `elevationInversions`             | 6                  | 5            |
 | `errorStateCountProps`            | **0** (hard floor) | 0            |
 | `failedStateResultCounts`         | **0** (hard floor) | 0            |
 | `handRolledCommandButtons`        | 8                  | 7            |
 | `hardcodedCssMotionDurations`     | 25                 | 1            |
-| `interactiveTapFloorDeclarations` | 5                  | 4            |
+| `interactiveTapFloorDeclarations` | 4                  | 3            |
 | `layoutTransitionExceptions`      | 9                  | 3            |
 | `legacyPaletteUtilities`          | **0** (hard floor) | 0            |
-| `legacyShadowAliases`             | 34                 | 28           |
+| `legacyShadowAliases`             | 33                 | 27           |
 | `legacyTapClasses`                | **0** (hard floor) | 0            |
 | `literalShadowClasses`            | **0** (hard floor) | 0            |
 | `onePixelShadowSpreads`           | **0** (hard floor) | 0            |
@@ -55,7 +55,7 @@ than CI, two of them by the second reader; review does not scale past two carefu
 | `sameFileTextSmMinusMix`          | 25                 | 25           |
 | `statusColouredNumerals`          | **0** (hard floor) | 0            |
 | `textSoftConsumers`               | **0** (hard floor) | 0            |
-| `visibleLiveRegions`              | 21                 | 19           |
+| `visibleLiveRegions`              | 20                 | 19           |
 
 28 metrics, 13 of them pinned at zero. A metric at zero is a hard floor:
 the check asserts `value <= baseline`, so any reintroduction fails. A non-zero pin is
@@ -87,8 +87,9 @@ recorded debt with per-path pins, so a new occurrence fails even while the total
 here ("no such rule files exist in `eslint-rules/`… currently **unenforced**") was true about
 ESLint and wrong about enforcement, which is the more expensive error of the two.
 `npm run check:type-scale` and `npm run check:icon-scale` (`scripts/check-type-scale.mjs`,
-`scripts/check-icon-scale.mjs`, both `--strict`) have run inside `verify:cheap` since
-30 July **[verified: package.json]**. They are hard-zero gates with no baseline, unlike the
+`scripts/check-icon-scale.mjs`, both `--strict`) have run inside `verify:full` (and CI
+`static-pr`) since the 2026-09-17 cheap/full split — they previously lived in the pre-split
+`verify:cheap` chain **[verified: package.json]**. They are hard-zero gates with no baseline, unlike the
 ratcheting design-system contract.
 
 **Enforced:** arbitrary font-size and icon-size utilities (`text-[12px]`, `text-[1.45rem]`)

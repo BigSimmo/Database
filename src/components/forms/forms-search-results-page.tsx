@@ -840,6 +840,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             all and pushed the whole burden of reporting onto a separate notice. */}
         <SearchResultsHeaderBand
           modeId="forms"
+          headingLevel={1}
           query={query}
           matchCount={displayedMatches.length}
           status={

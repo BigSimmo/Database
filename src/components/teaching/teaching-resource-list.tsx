@@ -39,7 +39,9 @@ export function ResourceRows({
   id,
   meta,
   onRemove,
+  sampleMode = false,
 }: {
+  sampleMode?: boolean;
   items: readonly ResourceRow[];
   label: string;
   id: string;
@@ -50,6 +52,10 @@ export function ResourceRows({
   const [error, setError] = useState<string | null>(null);
 
   async function toggle(item: ResourceRow) {
+    if (sampleMode) {
+      setError("The sample doesn’t save changes.");
+      return;
+    }
     const next = !(saved[item.resourceId] ?? item.saved);
     setError(null);
     setSaved((current) => ({ ...current, [item.resourceId]: next }));

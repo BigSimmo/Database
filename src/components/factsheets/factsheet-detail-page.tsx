@@ -847,7 +847,7 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
           border: "1.5px solid #a3190f",
           background: "#fef3f2",
           color: "#a3190f",
-          fontSize: "11px",
+          fontSize: "12px",
           fontWeight: 700,
           textTransform: "uppercase",
           letterSpacing: "0.04em",
@@ -871,7 +871,7 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
           >
             {factsheet.category} · Patient information
           </span>
-          <span style={{ fontSize: "11px", color: "#555" }}>
+          <span style={{ fontSize: "12px", color: "#555" }}>
             Updated {factsheet.reviewedOn} · {factsheet.readTime}
           </span>
         </div>
@@ -956,7 +956,7 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
           marginTop: "18px",
           paddingTop: "10px",
           borderTop: "1px solid #ddd",
-          fontSize: "11px",
+          fontSize: "12px",
           color: "#666",
           lineHeight: 1.5,
         }}

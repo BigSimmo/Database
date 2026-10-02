@@ -11,6 +11,9 @@ export async function GET(request: Request) {
     async (client, actorId) => ({ teams: await rosterReadTeams(client, actorId), actorId }),
     {
       demo: () => ({ teams: demoRosterTeams(), actorId: DEMO_ME_ID }),
+      // Release held: the invented team, marked so screens label it and keep
+      // its shifts out of the reader's own roster.
+      sample: () => ({ teams: demoRosterTeams(), actorId: DEMO_ME_ID, sample: true }),
     },
   );
 }

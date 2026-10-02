@@ -1404,12 +1404,12 @@ export function DocumentViewer({
               // whole page past the viewport and get clipped by `overflow-x: clip`.
               "mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-start lg:px-8",
               // The visible fixed composer needs endpoint clearance. Once hidden,
-              // release the composer-height clearance so Safari can paint document
-              // content beneath its translucent toolbar instead of showing a blank
-              // band — but keep a small 0.75rem resting pad (see comment above).
+              // release the composer-height clearance to 0rem in accordance with
+              // Invariant 4 ("Hidden means zero reserve") so Safari can paint document
+              // content beneath its translucent toolbar without an artificial band.
               composerVisible
                 ? "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] sm:pb-40"
-                : "max-sm:pb-3",
+                : "max-sm:pb-0",
             )}
           >
             {downloadError ? (

@@ -264,7 +264,7 @@ function sectionBodyMatchesKind(kind: AnswerSectionKind | undefined, body: strin
   if (kind === "monitoring_timing")
     return /\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|blood|level|review interval)\b/.test(text);
   if (kind === "escalation_risk")
-    return /\b(?:risk|escalat|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text);
+    return /\b(?:risk|escalat(?:e|es|ed|ing|ion|ions)|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text);
   if (kind === "documentation") return /\b(?:document|form|record|audit|consent|register|completion)\b/.test(text);
   if (kind === "required_actions")
     return /\b(?:action|required|must|arrange|contact|notify|assess|complete|follow up|report)\b/.test(text);

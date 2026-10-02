@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 interface MobileKeyboardContextState {
   isKeyboardOpen: boolean;
@@ -272,9 +272,7 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return (
-    <MobileKeyboardContext.Provider value={{ isKeyboardOpen, keyboardHeight }}>
-      {children}
-    </MobileKeyboardContext.Provider>
-  );
+  const contextValue = useMemo(() => ({ isKeyboardOpen, keyboardHeight }), [isKeyboardOpen, keyboardHeight]);
+
+  return <MobileKeyboardContext.Provider value={contextValue}>{children}</MobileKeyboardContext.Provider>;
 }

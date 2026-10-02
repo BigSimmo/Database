@@ -173,7 +173,7 @@ artifact before release; see
 - **Operating procedure:** AGENTS.md "Anti-conflict and CI-speed operating procedure".
   Future-process only — do not mutate unrelated active PRs unless explicitly asked.
 - **Outstanding-issues concurrency (`#112`):** the structural gate landed in PR #1410
-  (`npm run check:outstanding-issues` in `verify:cheap` / CI `static-pr` — duplicate IDs,
+  (`npm run check:outstanding-issues` in `verify:full` / CI `static-pr` — duplicate IDs,
   both-tables, stale `issues:next-id`, malformed rows). PR #1416 added `merge=union` in
   `.gitattributes`; it is now **removed** and the runtime attribute check inverted to require
   no driver at all. Union could not allocate unique IDs either, and it concatenated
@@ -347,7 +347,7 @@ Read from the Actions API for PR runs `36110977826`, `36113010077`, `36107996148
 
 - `npm run verify:cheap` is the ordinary pre-PR local gate: `check:installed-lock-parity`, then lint, typecheck, and the full offline unit suite. Nothing else. Run it freely — it is meant to be cheap enough not to think about. The parity step stays because it is sub-second and, without it, the other three would happily report green against a stale `node_modules`.
 - `npm run verify:full` is the broad offline local gate for cross-module risk: the 41 static/consistency gates (`check:runtime` through `check:instructions`; `npm run check:gate-manifest` lists them and pins the count), then lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
-  - **Split on 2026-09-17 (owner decision).** `verify:cheap` had grown to 41 chained commands — including `check:pr-mergeability` (an offline self-test and workflow contract; an earlier version of this note wrongly said it calls GitHub) — so the gate advertised as the fast iteration loop was in practice the slowest thing in it, and agents ran it reflexively. The 38 static gates did not stop running: they moved to `verify:full`, and every one of them still runs in CI, which `check:gate-manifest` continues to enforce one-way (CI may run more than the local chain, never less — it now reads `verify:full:internal`, and pointing it back at the cheap chain would silently drop 38 gates from that invariant while still passing).
+  - **Split on 2026-09-17 (owner decision).** `verify:cheap` had grown to 41 chained commands — including `check:pr-mergeability` (an offline self-test and workflow contract; an earlier version of this note wrongly said it calls GitHub) — so the gate advertised as the fast iteration loop was in practice the slowest thing in it, and agents ran it reflexively. The static gates did not stop running: they moved to `verify:full` (38 at the split; live count is whatever `check:gate-manifest` reports against `verify:full:internal`, 41 as of 2026-09-30), and every one of them still runs in CI, which `check:gate-manifest` continues to enforce one-way (CI may run more than the local chain, never less — it now reads `verify:full:internal`, and pointing it back at the cheap chain would silently drop those gates from that invariant while still passing).
 - `npm run verify:pr-local` is the risk-routed local mirror of the normal PR gate: runtime, installed-lock parity, changed-file format, conditional `npm ci --dry-run --ignore-scripts` for package/lockfile edits, then focused docs/workflow contracts or the fail-closed executable plan with lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
 - `npm run verify:ui` is the complete required production Chromium gate: `check:runtime` plus all non-quarantined production journeys (`test:e2e:pr`).
 - `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
@@ -427,7 +427,7 @@ the readiness repair does not clear those separate requirements.
   serving identity and actual answer quality separately. This readiness repair
   does not establish provider quality or close the remaining RAG programme.
 
-- `npm run check:runtime` is the strict runtime gate and is now part of `npm run verify:cheap`, `npm run verify:ui`, and `npm run verify:release`; it fails outside Node 24.x or npm 11.x when run through npm.
+- `npm run check:runtime` is the strict runtime gate and is part of `npm run verify:full`, `npm run verify:ui`, and `npm run verify:release` (not `verify:cheap`); it fails outside Node 24.x or npm 11.x when run through npm.
 - CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift away from Node 24.
 - `npm run check:edge:functions` is the Deno type gate for the Supabase `indexing-v3-agent` Edge Function.
 - `npm run check:document-label-coverage` is the live Supabase generated-label coverage gate. Run it after ingestion batches, document reclassification, or generated-label migrations; zero indexed documents may be missing generated `site` or `document_type` labels.
@@ -519,7 +519,7 @@ Three gates added for the "mature repo" verification pass. Full usage is in
 ## Route sitemap guard (2026-07-03)
 
 - Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run docs:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
-- `npm run verify:cheap` now includes `npm run sitemap:check`; a stale sitemap is treated as process drift, not a documentation nicety.
+- `npm run verify:full` includes `npm run sitemap:check`; a stale sitemap is treated as process drift, not a documentation nicety. (`verify:cheap` does not run it.)
 - Keep `docs/site-map.md` as the human-readable route map for now. If it becomes too large for review, split into a concise `docs/site-map.md` summary plus a generated `docs/site-map.generated.md` inventory, and update `scripts/generate-site-map.ts` / `tests/site-map.test.ts` in the same change.
 
 ## Automatic documentation synchronization (2026-07-30)
@@ -533,7 +533,7 @@ Three gates added for the "mature repo" verification pass. Full usage is in
   or commits files. It also refuses mixed staged/unstaged generator inputs so the generated docs
   cannot accidentally describe work outside the commit. Use `SKIP_DOCS_SYNC_HOOK=1` only as an
   explicit one-commit bypass.
-- `docs:check-inventory` is blocking in `verify:cheap` and CI, alongside `sitemap:check` and
+- `docs:check-inventory` is blocking in `verify:full` and CI, alongside `sitemap:check` and
   `docs:check-index`, so bypassing the local hook cannot merge stale generated facts.
 - Semantic descriptions in `docs/codebase-index.md` and curated script grouping still require human
   judgment. The hook detects top-level module/route/schema gaps but does not invent architecture
@@ -659,7 +659,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 ## Design convergence & type-scale ratchet (2026-07-06)
 
 - **`docs/design-system/README.md` is now the front door** for all UI work: token contract, type-scale rules, z-index ladder, Sheet-only modals, a11y requirements, and the UI Definition of Done. [`docs/design-system.md`](./design-system.md) remains live-layer notes during the v1→v2 transition. The `docs/redesign/*` documents remain the deep references they link to.
-- **Type-scale ratchet — backlog cleared, gate now strict:** `node scripts/check-type-scale.mjs --strict` reports **0 hits / 0 files** (this pass retires the last 8 hits in 1 file; the prior recorded baseline was 20/9, originally 168/22). The compact mode-home hero now uses the shared fluid `--text-hero` scale; the temporary mode-home-only aliases were removed after confirming no consumers remained. `check:type-scale --strict` is wired into `verify:cheap` (package.json), so any newly introduced arbitrary `text-[<n>px|rem|em]` size now fails the gate — UI PRs must keep the count at zero. Colour utilities (`text-[color:var(--…)]`) are the sanctioned token form and are not counted.
+- **Type-scale ratchet — backlog cleared, gate now strict:** `node scripts/check-type-scale.mjs --strict` reports **0 hits / 0 files** (this pass retires the last 8 hits in 1 file; the prior recorded baseline was 20/9, originally 168/22). The compact mode-home hero now uses the shared fluid `--text-hero` scale; the temporary mode-home-only aliases were removed after confirming no consumers remained. `check:type-scale --strict` is wired into `verify:full` (package.json `verify:full:internal`; not in `verify:cheap` after the 2026-09-17 split), so any newly introduced arbitrary `text-[<n>px|rem|em]` size now fails the broad static gate — UI PRs must keep the count at zero. Colour utilities (`text-[color:var(--…)]`) are the sanctioned token form and are not counted.
 - **Cleared this pass:** dead launcher mobile detail rows now expand (aria-expanded disclosures); launcher detail dialog migrated to the `Sheet` primitive (focus trap/return-focus restored); launcher filter tablists gained `aria-controls` + a `role="tabpanel"` results region; styled `src/app/not-found.tsx` added (the `notFound()` calls in differentials no longer fall through to the unstyled default); `?page=abc` NaN leak in the document viewer clamped; `/services` off-palette preview deleted (dead export) and the live navigator's residual hardcodes tokenized; launcher icon tones moved from raw Tailwind palette classes to categorical `--type-*` / semantic danger triads (dark-mode + forced-colors correct); mockups layout emits `robots: noindex`.
 
 ## Repository hygiene + production surface pass (2026-07-06)

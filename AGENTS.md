@@ -108,11 +108,16 @@ seconds, with no deploy step in between), `# RAG ranking protection`, `# Railway
 | Repository skills, the `/issues` outstanding-work memory                                                                  | [`docs/agents/repository-skills-and-issues.md`](docs/agents/repository-skills-and-issues.md) |
 | Codex dependency, review throttling, desktop worktree, reasoning effort, productivity, GitHub review, Cloud; Cursor Cloud | the `docs/agents/codex-*.md` and `docs/agents/cursor-cloud.md` pointers below                |
 
-Five sections stay here in full because a committed test or script reads their exact text:
-`## Bare PR publication is not readiness work`, the format-before-push rule,
-`# Search chrome behaviour`, `## Anti-conflict and CI-speed operating procedure`, and
-`## Codex Cloud environment`. Their wording is code, not prose — moving or rewording it fails
-`verify:full` (and CI).
+Five always-loaded sections stay here in full. Exact-text gate protection is narrower than
+that list: `# Search chrome behaviour` is pinned by `tests/ui-overlay-css-contract.test.ts`
+(marker + “Hidden means zero reserve”); `## Codex Cloud environment` is pinned as a
+**pointer heading** by `scripts/check-codex-cloud-setup.mjs` (body lives in
+`docs/agents/codex-cloud-environment.md`); `## Bare PR publication is not readiness work`
+and the format-before-push rule stay here and are enforced operationally via skills,
+hooks, and `scripts/guard-push.mjs` rather than a body-text parser; `## Anti-conflict and
+CI-speed operating procedure` stays here by convention and is **not** exact-text pinned —
+silent reword would still pass `verify:full`. Do not treat every always-loaded block as
+gate-locked.
 
 <!-- BEGIN:dependency-shortcut -->
 

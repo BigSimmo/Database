@@ -152,11 +152,13 @@ export const modeSecondaryNavigationRegistry = {
     // Moving out: each sibling mode's build removes its own row with a redirect.
     // Compliance is a VIEW over the `logistics` section, discriminated by
     // `details.kind` (src/lib/on-call/compliance.ts). "Admin" and "Teaching" are
-    // labels only: the stored section ids, route segments and database check
-    // constraints stay `logistics` and `education`.
-    { id: "compliance", label: "Compliance", href: "/on-call/compliance", group: "more" },
+    // labels only: the stored section ids and database check constraints stay
+    // `logistics` and `education`. More goes straight to Admin / Teaching homes;
+    // `/on-call/compliance`, `/on-call/logistics` and `/on-call/education` stay
+    // as bookmarks (compliance/logistics redirect; education page is retained).
+    { id: "compliance", label: "Compliance", href: "/admin/renewals", group: "more" },
     { id: "logistics", label: "Admin", href: ON_CALL_ADMIN_ROWS_HREF, group: "more" },
-    { id: "teaching", label: "Teaching", href: "/on-call/education", group: "more" },
+    { id: "teaching", label: "Teaching", href: "/teaching", group: "more" },
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who", group: "more" },
     { id: "orientation", label: "Orientation checklists", href: "/on-call/orientation", group: "more" },
   ],
@@ -212,6 +214,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "today", label: "Today", href: "/roster" },
     { id: "shifts", label: "Shifts", href: "/roster/shifts" },
     { id: "team", label: "Team", href: "/roster/team" },
+    { id: "swaps", label: "Swaps", href: "/roster/swaps" },
     { id: "requests", label: "Requests", href: "/roster/requests" },
     { id: "settings", label: "Settings", href: "/roster/settings" },
   ],
@@ -297,9 +300,14 @@ const ON_CALL_ACTIVE_IDS: Readonly<Record<string, string>> = {
   "/on-call/find": "find",
   "/on-call/card": "card",
   "/on-call/service": "service",
+  // Bookmark paths (proxy/page redirects still serve these) plus the direct
+  // Admin/Teaching homes More now opens.
   "/on-call/compliance": "compliance",
+  "/admin/renewals": "compliance",
   "/on-call/logistics": "logistics",
+  "/admin/help": "logistics",
   "/on-call/education": "teaching",
+  "/teaching": "teaching",
   "/on-call/who-is-who": "whoswho",
   "/on-call/orientation": "orientation",
 };
@@ -456,6 +464,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   if (modeId === "roster") {
     if (pathname === "/roster/shifts") return "shifts";
     if (pathname === "/roster/team") return "team";
+    if (pathname === "/roster/swaps") return "swaps";
     if (pathname === "/roster/requests") return "requests";
     if (pathname === "/roster/settings") return "settings";
     // Exact match only, for the same reason On Call's and CME's homes are: a
@@ -523,7 +532,9 @@ export function isModeSecondaryNavigationRoute(params: {
     return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
   if (modeId === "roster") {
-    return ["/roster/shifts", "/roster/team", "/roster/requests", "/roster/settings"].includes(pathname);
+    return ["/roster/shifts", "/roster/team", "/roster/swaps", "/roster/requests", "/roster/settings"].includes(
+      pathname,
+    );
   }
   return false;
 }
