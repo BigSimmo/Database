@@ -21,6 +21,8 @@ export function AdminNewJobStart({
   startsOn,
   now,
   canEdit,
+  readOnlyReason = null,
+  onSignIn,
   onSave,
   onClear,
 }: {
@@ -29,6 +31,14 @@ export function AdminNewJobStart({
   now: Date;
   /** False when there is no own row to attach the date to. */
   canEdit: boolean;
+  /**
+   * Why the date cannot be set, said beneath the start line: signed out (with
+   * a sign-in control) or example records. Null says nothing — while loading,
+   * after a failed load, or when there is no own row to hold the date.
+   */
+  readOnlyReason?: "signed-out" | "demo" | null;
+  /** Opens the app's sign-in dialog; the signed-out reason offers it. */
+  onSignIn?: () => void;
   onSave: (date: string) => Promise<boolean>;
   onClear: () => void;
 }) {
@@ -49,6 +59,18 @@ export function AdminNewJobStart({
           <span className={textMuted}>No start date set</span>
         )}
       </p>
+      {!canEdit && readOnlyReason === "signed-out" && onSignIn ? (
+        <div className="flex flex-wrap items-center gap-2" data-testid="admin-new-job-start-signed-out">
+          <Button variant="secondary" size="sm" onClick={onSignIn} testId="admin-new-job-start-sign-in">
+            Sign in to set your start date
+          </Button>
+        </div>
+      ) : null}
+      {!canEdit && readOnlyReason === "demo" ? (
+        <p className={cn(textMuted, "text-xs")} data-testid="admin-new-job-start-demo">
+          Example records are read-only
+        </p>
+      ) : null}
       {canEdit ? (
         <div className="flex flex-wrap items-end gap-2">
           <div data-testid="admin-new-job-start-input">

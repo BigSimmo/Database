@@ -14,6 +14,7 @@ import { formatDateEcho, formatRecordedDate } from "@/lib/admin/renewal-dates";
 import {
   buildRenewedEntryBody,
   buildRestoreEntryBody,
+  catalogueItemDraftEntry,
   renewalCalendarEvent,
   type RenewedInput,
 } from "@/lib/admin/renewals";
@@ -28,29 +29,6 @@ const REASON_MESSAGE: Record<Exclude<ReturnType<typeof buildRenewedEntryBody>, {
   unchanged: "That is the date already recorded.",
   "too-long": "Keep the note to 120 characters.",
 };
-
-/** A never-recorded catalogue item, shaped as the entry `buildRenewedEntryBody`
- *  expects, so "Add date" reuses the exact same validation and body-building
- *  as "Renewed" instead of a second copy of it. `id`/`isOwn` are dropped by the
- *  create route's own schema, so leaving them blank here is harmless. */
-function syntheticEntryFor(item: AdminRequirementCatalogueItem): OnCallEntry {
-  return {
-    id: "",
-    section: "logistics",
-    slug: `${item.id}-${Math.random().toString(36).slice(2, 8)}`,
-    title: item.title,
-    subtitle: null,
-    body: null,
-    details: { kind: "compliance", category: item.group, requirementId: item.id },
-    linkedDocumentIds: [],
-    tags: [],
-    isPersonal: true,
-    includeOnCard: false,
-    sortOrder: 0,
-    lastVerifiedAt: null,
-    isOwn: true,
-  };
-}
 
 /**
  * The new-expiry-date sheet (final design, screens-v3): date blank, Save grey
@@ -111,7 +89,7 @@ export function AdminRenewedSheet({
   const previousExpiresOn = entry ? complianceExpiresOn(entry) : undefined;
 
   async function save() {
-    const subject = entry ?? (createItem ? syntheticEntryFor(createItem) : null);
+    const subject = entry ?? (createItem ? catalogueItemDraftEntry(createItem) : null);
     if (!subject) return;
     const result = buildRenewedEntryBody(subject, { newExpiresOn: date, proofNote: note } satisfies RenewedInput);
     if (!result.ok) {

@@ -89,6 +89,32 @@ export function buildRenewedEntryBody(
   };
 }
 
+/**
+ * A never-recorded catalogue item, shaped as the entry `buildRenewedEntryBody`
+ * expects, so a first date ("Add date", "Record missing dates") reuses the
+ * exact same validation and body-building as "Renewed" instead of a second
+ * copy of it. `id`/`isOwn` are dropped by the create route's own schema, so
+ * leaving them blank here is harmless. A fresh slug suffix per call.
+ */
+export function catalogueItemDraftEntry(item: AdminRequirementCatalogueItem): OnCallEntry {
+  return {
+    id: "",
+    section: "logistics",
+    slug: `${item.id}-${Math.random().toString(36).slice(2, 8)}`,
+    title: item.title,
+    subtitle: null,
+    body: null,
+    details: { kind: "compliance", category: item.group, requirementId: item.id },
+    linkedDocumentIds: [],
+    tags: [],
+    isPersonal: true,
+    includeOnCard: false,
+    sortOrder: 0,
+    lastVerifiedAt: null,
+    isOwn: true,
+  };
+}
+
 /** Undo ("Marked renewed. Undo"): the row exactly as it was before the save. Also the undo
  *  path for the "Not for this job" toggle below (same pattern: restore the original row). */
 export function buildRestoreEntryBody(original: OnCallEntry): UpdateBody {

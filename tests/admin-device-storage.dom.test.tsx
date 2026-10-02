@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-// Spec review 5: Admin keeps nothing on the device, and the privacy assessment
-// says so ("Admin keeps nothing in browser storage"). The static scan in
+// Spec review 5: Admin keeps no record content on the device, and the privacy assessment
+// says so (pinned row ids, owner decision 2026-10-01, are the one exception). The static scan in
 // tests/admin-design-contract.test.ts reads only Admin's own folders, but
 // Renewals shares On Call's underlying entry-cache code, whose paths can
 // reach `localStorage`. This drives those paths through the real Admin pages

@@ -6,8 +6,10 @@ import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-sectio
 
 /**
  * Admin's left-aligned underlined tabs: the in-page section rail On Call's pages
- * use, in Admin's brown. The pill above names the page, so the title is hidden
- * (same choice as `OnCallSectionNavHeader`), and there is no back control.
+ * use, in Admin's brown. The rail is the whole header: its title is not drawn
+ * (same choice as `OnCallSectionNavHeader`), because every Admin page carries
+ * the same compact visible `<h1>` in its body (owner decision), and there is no
+ * back control.
  */
 export function AdminNavHeader({ title, sections }: { title: string; sections: readonly PageSection[] }) {
   const { sections: resolved, activeId, selectSection } = useInPageSectionNav(sections);

@@ -8,6 +8,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { selectAdminOwnEntries } from "@/lib/admin/own-entries";
+import { renewalsShowCounts } from "@/lib/admin/renewals-filters";
+import { ADMIN_REQUIREMENTS_CATALOGUE } from "@/lib/admin/requirements";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
@@ -232,5 +235,186 @@ describe("AdminTodayPage", () => {
     expect(screen.queryByText("Pay")).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByTestId("admin-today-help")).toBeNull();
+  });
+});
+
+/** The label reads `--today-at` for both its position and its own-width shift, so it stays inside the bar. */
+function expectLabelAt(at: string) {
+  expect(screen.getByTestId("admin-today-renew-next-window-track").style.getPropertyValue("--today-at")).toBe(at);
+  const label = screen.getByTestId("admin-today-renew-next-window-today");
+  expect(label.className).toContain("left-[var(--today-at)]");
+  expect(label.className).toContain("-translate-x-[var(--today-at)]");
+}
+
+describe("AdminTodayPage redesign (Admin proposal)", () => {
+  it("keeps the window bar's 'Today' label inside the bar when today is past the end", () => {
+    // wwc's date passed, so the marker sits at 100%: the label must end at the
+    // bar's right edge, not centre on it and spill past the card.
+    state.entries = [wwc];
+    render(<AdminTodayPage now={NOW} />);
+    expectLabelAt("100%");
+  });
+
+  it("anchors the label to the left edge when today is at the start of the window", () => {
+    // Opens 26 Sep (30 days before 26 Oct): today is the first day of the window.
+    const opensToday = complianceFixture("Opens today", { category: "Training", expiresOn: "2026-10-26" });
+    state.entries = [opensToday];
+    render(<AdminTodayPage now={NOW} />);
+    expectLabelAt("0%");
+  });
+
+  it("makes Needs you actionable: rows open the item or the filtered list, and 'Record dates' opens the record sheet", () => {
+    state.entries = [registration, wwc, police];
+    render(<AdminTodayPage now={NOW} />);
+    const needsYou = screen.getByTestId("admin-today-needs-you");
+    expect(within(needsYou).getByTestId("admin-today-needs-you-featured").getAttribute("href")).toBe(
+      `/admin/renewals?item=${wwc.id}`,
+    );
+    const grouped = within(screen.getByTestId("admin-today-needs-you-rows")).getByRole("link");
+    expect(grouped.getAttribute("href")).toBe("/admin/renewals?show=not-recorded");
+    const record = within(needsYou).getByRole("link", { name: "Record dates" });
+    expect(record.getAttribute("href")).toBe("/admin/renewals?record=missing");
+  });
+
+  it("offers 'Record dates' only while something is unrecorded", () => {
+    state.entries = ADMIN_REQUIREMENTS_CATALOGUE.map((item) =>
+      complianceFixture(item.title, { category: "Registration", requirementId: item.id, expiresOn: "2026-09-01" }),
+    );
+    render(<AdminTodayPage now={NOW} />);
+    expect(screen.getByTestId("admin-today-needs-you")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Record dates" })).toBeNull();
+  });
+
+  it("makes the whole Requirements card the link to Renewals, keeping its honest wording", () => {
+    state.entries = [registration];
+    render(<AdminTodayPage now={NOW} />);
+    const requirements = screen.getByTestId("admin-today-requirements");
+    const link = within(requirements).getByRole("link");
+    expect(link.getAttribute("href")).toBe("/admin/renewals");
+    expect(link.textContent).toMatch(/\d+ of \d+ recorded/);
+    expect(link.textContent).toContain("Dates you entered, not a check");
+    expect(within(requirements).getAllByRole("link")).toHaveLength(1);
+    expect(screen.queryByTestId("admin-today-requirements-open")).toBeNull();
+  });
+
+  it("shows three At a glance counts that open Renewals filtered, zero tiles included", () => {
+    state.entries = [registration, wwc, police];
+    render(<AdminTodayPage now={NOW} />);
+    const glance = screen.getByTestId("admin-today-at-a-glance");
+    const counts = renewalsShowCounts(selectAdminOwnEntries(state as never), NOW);
+    const passed = within(glance).getByRole("link", { name: `Date passed: ${counts["date-passed"]}` });
+    expect(passed.getAttribute("href")).toBe("/admin/renewals?show=date-passed");
+    const due = within(glance).getByRole("link", { name: `Due in 90 days: ${counts["due-90"]}` });
+    expect(due.getAttribute("href")).toBe("/admin/renewals?show=due-90");
+    const missing = within(glance).getByRole("link", { name: `Not recorded: ${counts["not-recorded"]}` });
+    expect(missing.getAttribute("href")).toBe("/admin/renewals?show=not-recorded");
+    expect(counts["due-90"]).toBe(1);
+    // No status colour on a numeral: every number is neutral heading or muted text.
+    expect(glance.innerHTML).not.toMatch(/--(danger|warning|success|clinical-accent)/);
+  });
+
+  it("still shows a zero count, quietly", () => {
+    state.entries = [indemnity];
+    render(<AdminTodayPage now={NOW} />);
+    const zero = screen.getByRole("link", { name: "Date passed: 0" });
+    expect(zero.hasAttribute("data-zero")).toBe(true);
+  });
+
+  it("shows At a glance and Coming up only in the ready state", () => {
+    state.loading = true;
+    const { unmount } = render(<AdminTodayPage now={NOW} />);
+    expect(screen.queryByTestId("admin-today-at-a-glance")).toBeNull();
+    expect(screen.queryByTestId("admin-today-coming-up")).toBeNull();
+    unmount();
+    state.loading = false;
+    state.signedOut = true;
+    render(<AdminTodayPage now={NOW} />);
+    expect(screen.queryByTestId("admin-today-at-a-glance")).toBeNull();
+    expect(screen.queryByTestId("admin-today-coming-up")).toBeNull();
+  });
+
+  it("lists Coming up by month with passed dates first under a word and an icon, each row opening its item", () => {
+    state.entries = [indemnity, registration, wwc, police];
+    render(<AdminTodayPage now={NOW} />);
+    const comingUp = screen.getByTestId("admin-today-coming-up");
+    const headings = within(comingUp)
+      .getAllByRole("heading", { level: 3 })
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual(["Date passed", "Oct 2026", "Jun 2027"]);
+    expect(within(comingUp).getByTestId("admin-today-coming-up-group-passed").querySelector("svg")).not.toBeNull();
+    const rows = within(comingUp).getAllByTestId("admin-today-coming-up-row");
+    expect(rows.map((row) => row.getAttribute("href"))).toEqual([
+      `/admin/renewals?item=${wwc.id}`,
+      `/admin/renewals?item=${registration.id}`,
+      `/admin/renewals?item=${indemnity.id}`,
+    ]);
+    expect(rows[1].textContent).toContain("15 Oct 2026 · in 2 weeks");
+    expect(within(comingUp).queryByTestId("admin-today-coming-up-see-all")).toBeNull();
+  });
+
+  it("caps Coming up and offers 'See all in Renewals'", () => {
+    state.entries = Array.from({ length: 8 }, (_, index) =>
+      complianceFixture(`Item ${index}`, { category: "Training", expiresOn: `2026-11-0${index + 1}` }),
+    );
+    render(<AdminTodayPage now={NOW} />);
+    const comingUp = screen.getByTestId("admin-today-coming-up");
+    expect(within(comingUp).getAllByTestId("admin-today-coming-up-row")).toHaveLength(6);
+    expect(within(comingUp).getByRole("link", { name: "See all in Renewals" }).getAttribute("href")).toBe(
+      "/admin/renewals",
+    );
+  });
+
+  it("says plainly when nothing is dated in the next 12 months, with a way to Renewals", () => {
+    state.entries = [police];
+    render(<AdminTodayPage now={NOW} />);
+    const empty = screen.getByTestId("admin-today-coming-up-empty");
+    expect(empty.textContent).toContain("No recorded dates in the next 12 months");
+    expect(within(empty).getByRole("link").getAttribute("href")).toBe("/admin/renewals");
+  });
+
+  it("orders the page Renew next, At a glance, Needs you, Coming up, Requirements, New job", () => {
+    const step = onCallEntryFixture({
+      section: "logistics",
+      title: "Sign and return your contract",
+      details: { category: "Logins", jobStartsOn: "2026-11-02" },
+    });
+    state.entries = [registration, wwc, police, step];
+    render(<AdminTodayPage now={NOW} />);
+    const ready = screen.getByTestId("admin-today-ready");
+    const order = Array.from(ready.querySelectorAll("[data-testid]"))
+      .map((node) => node.getAttribute("data-testid"))
+      .filter((id) =>
+        [
+          "admin-today-renew-next",
+          "admin-today-at-a-glance",
+          "admin-today-needs-you",
+          "admin-today-coming-up",
+          "admin-today-requirements",
+          "admin-today-new-job",
+        ].includes(id ?? ""),
+      );
+    expect(order).toEqual([
+      "admin-today-renew-next",
+      "admin-today-at-a-glance",
+      "admin-today-needs-you",
+      "admin-today-coming-up",
+      "admin-today-requirements",
+      "admin-today-new-job",
+    ]);
+    // Two columns from lg: act-on on the left, what is ahead on the right.
+    expect(ready.className).toContain("lg:grid-cols-2");
+    expect(within(screen.getByTestId("admin-today-column-act")).getByTestId("admin-today-needs-you")).toBeTruthy();
+    expect(within(screen.getByTestId("admin-today-column-ahead")).getByTestId("admin-today-coming-up")).toBeTruthy();
+    // The greeting stays the page's only h1.
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("shapes the loading skeleton like the page: the renew card, the count row, and two modules", () => {
+    state.loading = true;
+    render(<AdminTodayPage now={NOW} />);
+    expect(screen.getByTestId("admin-today-loading-renew-next")).toBeTruthy();
+    expect(screen.getByTestId("admin-today-loading-at-a-glance").children).toHaveLength(3);
+    expect(screen.getByTestId("admin-today-loading-needs-you")).toBeTruthy();
+    expect(screen.getByTestId("admin-today-loading-coming-up")).toBeTruthy();
   });
 });
