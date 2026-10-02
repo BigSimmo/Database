@@ -115,7 +115,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
               {topic ? (
                 <Link
                   href={`/dictionary/topics/${topic.slug}`}
-                  className="inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)]"
+                  className="inline-flex min-h-tap items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
                 >
                   Topic: {topic.title}
                 </Link>

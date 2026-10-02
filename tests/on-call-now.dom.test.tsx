@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
-import { handbookItems, OTHER_SITE, readyHandbook } from "./helpers/on-call-handbook-fixtures";
+import { coverItems, handbookItems, OTHER_SITE, readyHandbook } from "./helpers/on-call-handbook-fixtures";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call",
@@ -305,7 +305,7 @@ describe("Now: Your team", () => {
   it("shows three roles from the reader's team", () => {
     saveOnCallMyTeam("Medicine");
     handbook.state = readyHandbook(
-      handbookItems([
+      coverItems([
         { id: "m1", title: "Medicine: Registrar", phone: "9000 0001" },
         { id: "m2", title: "Medicine: Consultant", phone: "9000 0002" },
         { id: "m3", title: "Medicine: Intern", phone: "9000 0003" },
@@ -397,7 +397,7 @@ describe("Now: the footer group", () => {
       "/on-call/find#on-call-group-downtime",
     );
     expect(within(footer).getByTestId("on-call-home-first-night")).toHaveAttribute("href", "/on-call/first-night");
-    expect(screen.getByTestId("on-call-now-on-site")).toHaveAttribute("href", "/on-call/logistics");
+    expect(screen.getByTestId("on-call-now-on-site")).toHaveAttribute("href", "/admin/help");
     expect(screen.getByTestId("on-call-now-on-site")).toHaveTextContent("On site: access, food, taxi");
   });
 });

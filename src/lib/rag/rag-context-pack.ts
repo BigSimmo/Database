@@ -94,7 +94,8 @@ const knownSiteDomains = new Set([
   "calculators",
   "tools",
 ]);
-const exceptionPattern = /\b(?:except|unless|however|but|instead|contraindicat|do not|must not|avoid|withhold)\b/i;
+const exceptionPattern =
+  /\b(?:except|unless|however|but|instead|contraindicat(?:e|es|ed|ion|ions)|do not|must not|avoid|withhold)\b/i;
 const unitOrQualifierPattern =
   /\b(?:\d+(?:\.\d+)?\s*(?:mg|mcg|microg|g|kg|mL|L|IU|units?|mmol|%|x10\^?\d+\/L)|daily|nightly|weekly|hourly|maximum|minimum|above|below|at least|no more than)\b/i;
 const packedGroupsByResultSet = new WeakMap<SearchResult[], PackedEvidenceGroup[]>();

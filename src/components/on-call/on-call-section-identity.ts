@@ -212,7 +212,7 @@ export const ON_CALL_FIND_DOWNTIME_HREF = "/on-call/find#on-call-group-downtime"
  * On-site help (access, food, taxi, security, forms) lives in Admin (owner
  * 16:06Z). This is `ON_CALL_ADMIN_ROWS_HREF` from `src/lib/on-call/feature-flags.ts`
  * written out as a literal, because the route-reachability guard reads literal
- * hrefs only; a test pins the two together. Admin's build re-points both.
+ * hrefs only; a test pins the two together.
  */
-export const ON_CALL_ON_SITE_HREF = "/on-call/logistics";
+export const ON_CALL_ON_SITE_HREF = "/admin/help";
 export const ON_CALL_ON_SITE_LABEL = "On site: access, food, taxi";

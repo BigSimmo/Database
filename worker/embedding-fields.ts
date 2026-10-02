@@ -20,9 +20,9 @@ export type EmbeddingFieldInput = {
 };
 
 const highYieldPattern =
-  /\b(?:dose|dosing|dosage|mg|mcg|mmol|threshold|withhold|cease|stop|monitor|fbc|anc|risk|urgent|escalat|review|repeat|baseline|titrate|contraindicat|toxicity|required|criteria|management|action|intervention)\b/i;
+  /\b(?:dose|dosing|dosage|mg|mcg|mmol|threshold|withhold|cease|stop|monitor|fbc|anc|risk|urgent|escalat(?:e|es|ed|ing|ion|ions)|review|repeat|baseline|titrate|contraindicat(?:e|es|ed|ion|ions)|toxicity|required|criteria|management|action|intervention)\b/i;
 const actionPattern =
-  /\b(?:withhold|cease|stop|escalat|urgent|review|repeat|monitor|commence|increase|decrease|reduce|avoid|refer|document|required|must|should)\b/i;
+  /\b(?:withhold|cease|stop|escalat(?:e|es|ed|ing|ion|ions)|urgent|review|repeat|monitor|commence(?:s|d|ment)?|increase|decrease|reduce|avoid|refer|document|required|must|should)\b/i;
 const thresholdPattern =
   /\b(?:threshold|cut[\s-]?off|level|range|score|scale|criteria|criterion|maximum|minimum|baseline|anc|fbc|neutrophil|\d+(?:\.\d+)?\s*(?:mg|mcg|mmol|x\s*10\^?9\/l|%))\b/i;
 const clinicalImageTypes = new Set([

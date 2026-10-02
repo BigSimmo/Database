@@ -102,7 +102,7 @@ type InteractionIndex = {
 };
 
 const DOSAGE_FORM_TOKEN =
-  /^(ir|sr|xr|mr|cr|odt|lai|im|iv|sl|po|pr|depot|patch|wafer|nasal|mouth|spray|inhaler|topical|cream|gel|drops|syrup|liquid|injection|infusion|oral|buccal|sublingual|transdermal|suppository|tablet|capsule|lozenge|pamoate)$/i;
+  /^(ir|sr|xr|mr|cr|odt|lai|im|iv|sl|po|pr|depot|patch|wafer|nasal|mouth|spray|inhaler|topical|cream|gel|drops|syrup|liquid|injection|infusion|oral|buccal|sublingual|transdermal|suppository|tablet|capsule|lozenge|pamoate|decanoate|acetate)$/i;
 
 /**
  * Drop a trailing parenthesised qualifier: "Morphine (IR/IV)" -> "Morphine".

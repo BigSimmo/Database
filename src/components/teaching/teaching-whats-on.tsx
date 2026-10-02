@@ -43,11 +43,14 @@ import type { HealthServiceCode } from "@/lib/teaching/model";
 type WhatsOnRead = { healthServices: HealthServiceCode[]; sessions: WhatsOnRowRead[] };
 const CONTEXT = { teams: [], attendance: [], showTeam: false } as const;
 
-export function TeachingWhatsOn({ demoMode }: { demoMode: boolean }) {
+export function TeachingWhatsOn({ demoMode, sampleData }: { demoMode: boolean; sampleData?: WhatsOnRead }) {
   const now = useTeachingNow();
   const today = now ? perthDateKey(now) : null;
   const monday = today ? mondayOf(today) : null;
-  const read = useTeachingResource<WhatsOnRead>(monday ? `/api/teaching/whats-on?weekStart=${monday}` : null);
+  const read = useTeachingResource<WhatsOnRead>(
+    monday ? `/api/teaching/whats-on?weekStart=${monday}` : null,
+    sampleData,
+  );
   const [day, setDay] = useState<string | null>(null);
   const [filter, setFilter] = useState<WhatsOnFilter>("all");
   const [inWeek, setInWeek] = useState<Record<string, boolean>>({});
@@ -55,6 +58,10 @@ export function TeachingWhatsOn({ demoMode }: { demoMode: boolean }) {
   const rows = useMemo(() => filterWhatsOn(read.data?.sessions ?? [], filter), [read.data, filter]);
 
   async function toggle(row: WhatsOnRowRead) {
+    if (sampleData) {
+      setNotice("The sample doesn’t save changes.");
+      return;
+    }
     const id = row.occurrenceId;
     const next = !(inWeek[id] ?? row.inMyWeek);
     setInWeek((current) => ({ ...current, [id]: next }));

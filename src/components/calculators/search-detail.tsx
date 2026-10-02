@@ -89,7 +89,7 @@ function CalculatorResultCard({
               {domainLabels[calc.domain]}
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
+          <span className="mt-0.5 block text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
             {calc.name}
           </span>
         </span>

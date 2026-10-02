@@ -91,7 +91,7 @@ function DocumentTagChip({
   // JSX attributes and this one is an identifier (`tagClassName`), which it
   // cannot resolve. Verified, not assumed.
   const tagClassName = cn(
-    "relative inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
+    "relative inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)] before:absolute before:-inset-y-0.5 before:-inset-x-1 before:content-['']",
     compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
     groupToneClass(tag.group),
     tag.queryMatched && "ring-2 ring-[color:var(--focus)]/25",
@@ -206,7 +206,7 @@ export function DocumentTagCloud({
               // target in a wrapped row at this gap. The coherent remedy is real height —
               // `min-h-compact-meta` (40px, the owner's compact-role floor) with the
               // `::before` dropped entirely — which costs row pitch and is a design call.
-              "relative w-fit rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
+              "relative w-fit rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-0.5 before:-inset-x-1 before:content-['']",
               compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
             )}
             aria-label={`Show ${hiddenCount} more document tags`}
@@ -264,7 +264,7 @@ export function DocumentTagCloud({
             // target in a wrapped row at this gap. The coherent remedy is real height —
             // `min-h-compact-meta` (40px, the owner's compact-role floor) with the
             // `::before` dropped entirely — which costs row pitch and is a design call.
-            "relative inline-flex items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
+            "relative inline-flex items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-0.5 before:-inset-x-1 before:content-['']",
             compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
           )}
           aria-label={`Show ${hiddenCount} more document tags`}

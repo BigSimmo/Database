@@ -291,8 +291,8 @@ export function answerPayloadIsUsable(payload: AnswerPayload) {
 }
 
 export function progressForRetry(attempt: number) {
-  if (attempt <= 1) return "Retrying...";
-  return `Retrying... (${Math.min(attempt, searchRetryCount)}/${searchRetryCount})`;
+  if (attempt <= 1) return "Retrying…";
+  return `Retrying… (${Math.min(attempt, searchRetryCount)}/${searchRetryCount})`;
 }
 
 // Inactivity window for an in-flight search/answer request. The answer stream

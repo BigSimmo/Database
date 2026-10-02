@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, ChevronRight, FileUp, Link2, type LucideIcon } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronRight, FileUp, Link2, type LucideIcon } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -286,6 +286,8 @@ export function RosterAddSheet({
   onImportFile,
   onAddShift,
   onAddLink,
+  hasTeam = false,
+  onDates,
 }: {
   readonly open: boolean;
   readonly view: RosterAddView;
@@ -297,6 +299,8 @@ export function RosterAddSheet({
   readonly onImportFile: () => void;
   readonly onAddShift: (request: OnCallManualShiftRequest) => Promise<string | null>;
   readonly onAddLink: (url: string, workplace: string | null) => Promise<string | null>;
+  readonly hasTeam?: boolean;
+  readonly onDates?: () => void;
 }) {
   const title = view === "shift" ? "Add a shift" : view === "link" ? "Add a calendar link" : "Add to Roster";
   return (
@@ -321,6 +325,14 @@ export function RosterAddSheet({
             subtitle="Keeps itself up to date"
             onClick={() => onViewChange("link")}
           />
+          {hasTeam && onDates ? (
+            <MenuButton
+              icon={CalendarDays}
+              title="Dates I can't work"
+              subtitle="For the next roster"
+              onClick={onDates}
+            />
+          ) : null}
         </ul>
       ) : view === "shift" ? (
         <ShiftForm today={today} onSubmit={onAddShift} />

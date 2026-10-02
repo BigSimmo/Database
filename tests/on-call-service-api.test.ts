@@ -114,3 +114,49 @@ describe("service routes", () => {
     expect(mocks.rpc.mock.calls.at(-1)?.[1].p_payload.invitedEmail).toBe("dr.ivy@example.org");
   });
 });
+
+describe("Stage C mocked API", () => {
+  it("passes an explicit staff name to the authorised command and rejects malformed names before RPC", async () => {
+    const payload = {
+      action: "entry.save",
+      siteId: actor,
+      section: "cover",
+      kind: "clinical",
+      title: "Synthetic cover",
+      body: "",
+      sources: [{ label: "Rota", url: "https://example.org/rota" }],
+      publish: true,
+      cover: { grade: "registrar", staffName: " Dr Alex Example ", window: { start: "20:00", end: "08:00" } },
+    };
+    expect((await mutate(request(payload), context)).status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "on_call_service_command",
+      expect.objectContaining({
+        p_actor_id: actor,
+        p_service_id: serviceId,
+        p_payload: expect.objectContaining({ cover: expect.objectContaining({ staffName: "Dr Alex Example" }) }),
+      }),
+    );
+    mocks.rpc.mockClear();
+    for (const staffName of [" ", null, "A".repeat(81)]) {
+      expect((await mutate(request({ ...payload, cover: { ...payload.cover, staffName } }), context)).status).toBe(400);
+    }
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("passes the published revision to confirmation and preserves database permission refusals", async () => {
+    const payload = { action: "entry.confirm", entryId: actor, publishedRevision: 3 };
+    expect((await mutate(request(payload), context)).status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "on_call_service_command",
+      expect.objectContaining({ p_actor_id: actor, p_payload: payload }),
+    );
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "service_review_denied" } });
+    expect((await mutate(request(payload), context)).status).toBe(403);
+  });
+  it("rejects partial site times before any RPC", async () => {
+    expect(
+      (await mutate(request({ action: "site.update", siteId: actor, afterHoursStart: "17:00" }), context)).status,
+    ).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+});

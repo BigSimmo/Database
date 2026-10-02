@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 531,
   "stats": {
-    "resolvedRows": 395,
-    "unresolvedRows": 136,
-    "rowsWithCatalogueTarget": 444,
-    "medicationsWithUnresolvedRows": 120
+    "resolvedRows": 400,
+    "unresolvedRows": 131,
+    "rowsWithCatalogueTarget": 449,
+    "medicationsWithUnresolvedRows": 116
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -1409,7 +1409,6 @@
           "severity": "critical",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "candesartan",
             "celecoxib",
             "diclofenac",
@@ -1526,7 +1525,6 @@
           "severity": "critical",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "candesartan",
             "celecoxib",
             "diclofenac",
@@ -1592,7 +1590,6 @@
           "severity": "critical",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "candesartan",
             "celecoxib",
             "diclofenac",
@@ -2039,7 +2036,6 @@
           "severity": "critical",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "eplerenone",
@@ -2058,7 +2054,7 @@
           "note": "CRITICAL — ARB + Diuretic + NSAID (Guaranteed AKI).",
           "requiredGroups": [
             ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"],
-            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
+            ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
           ]
         },
         {
@@ -2158,7 +2154,6 @@
           "severity": "critical",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "eplerenone",
@@ -2178,7 +2173,7 @@
           "note": "CRITICAL — ACEi + Diuretic + NSAID (Ibuprofen/Naproxen). This combination guarantees acute renal failure by destroying both afferent and efferent glomerular blood flow.",
           "requiredGroups": [
             ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"],
-            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
+            ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
           ]
         },
         {
@@ -2352,16 +2347,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [
-            "aspirin",
-            "celecoxib",
-            "diclofenac",
-            "ibuprofen",
-            "ketorolac",
-            "meloxicam",
-            "naproxen",
-            "parecoxib"
-          ],
+          "counterparties": ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — NSAIDs (exacerbate renal failure and hyperkalemia)."
@@ -2399,7 +2385,6 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [
-            "aspirin",
             "candesartan",
             "celecoxib",
             "diclofenac",
@@ -2415,7 +2400,7 @@
           "resolved": true,
           "note": "CRITICAL — NSAIDs + ACEi/ARB + Frusemide = High risk of renal failure.",
           "requiredGroups": [
-            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
+            ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
             ["candesartan", "perindopril", "ramipril"]
           ]
         },
@@ -2447,7 +2432,6 @@
           "rowIndex": 1,
           "severity": "critical",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "ibuprofen",
@@ -2463,7 +2447,7 @@
           "resolved": true,
           "note": "CRITICAL — NSAIDs + ACEi + Thiazide.",
           "requiredGroups": [
-            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
+            ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
             ["perindopril", "ramipril"]
           ]
         }
@@ -2486,7 +2470,6 @@
           "rowIndex": 1,
           "severity": "critical",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "ibuprofen",
@@ -2501,7 +2484,7 @@
           "resolved": true,
           "note": "CRITICAL — NSAIDs + ACEi + Indapamide.",
           "requiredGroups": [
-            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
+            ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
             ["perindopril", "ramipril"]
           ]
         }
@@ -3380,16 +3363,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [
-            "aspirin",
-            "celecoxib",
-            "diclofenac",
-            "ibuprofen",
-            "ketorolac",
-            "meloxicam",
-            "naproxen",
-            "parecoxib"
-          ],
+          "counterparties": ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "CRITICAL — NSAIDs (Massive risk of bleeding gastric ulcers)."
@@ -3434,7 +3408,6 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "hydrochlorothiazide",
@@ -3473,7 +3446,6 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "esomeprazole",
@@ -3507,7 +3479,6 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "esomeprazole",
@@ -3983,6 +3954,7 @@
             "escitalopram",
             "fluoxetine",
             "fluvoxamine",
+            "haloperidol-decanoate",
             "paroxetine",
             "roxithromycin",
             "sertraline"
@@ -4009,7 +3981,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["metoclopramide"],
+          "counterparties": ["haloperidol-decanoate", "metoclopramide"],
           "termIds": [],
           "resolved": true,
           "note": "CRITICAL — Other D2 antagonists (Haloperidol, Metoclopramide) vastly increase risk of Neuroleptic Malignant Syndrome (NMS) and severe EPSE."
@@ -4124,16 +4096,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "caution",
-          "counterparties": [
-            "aspirin",
-            "celecoxib",
-            "diclofenac",
-            "ibuprofen",
-            "ketorolac",
-            "meloxicam",
-            "naproxen",
-            "parecoxib"
-          ],
+          "counterparties": ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "CAUTION — Concurrent use with other nephrotoxic drugs (NSAIDs) increases the risk of renal failure."
@@ -4357,7 +4320,6 @@
           "counterparties": [
             "amiloride",
             "amlodipine",
-            "aspirin",
             "candesartan",
             "celecoxib",
             "diclofenac",
@@ -4450,7 +4412,6 @@
           "rowIndex": 1,
           "severity": "high",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "citalopram",
             "diclofenac",
@@ -4881,7 +4842,6 @@
           "severity": "high",
           "counterparties": [
             "apixaban",
-            "aspirin",
             "celecoxib",
             "citalopram",
             "dabigatran",
@@ -4987,7 +4947,6 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "frusemide",
@@ -5067,7 +5026,6 @@
           "severity": "high",
           "counterparties": [
             "amikacin",
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "gentamicin",
@@ -5106,7 +5064,6 @@
           "severity": "high",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "eplerenone",
@@ -5229,7 +5186,6 @@
           "rowIndex": 1,
           "severity": "high",
           "counterparties": [
-            "aspirin",
             "beclometasone",
             "budesonide",
             "celecoxib",
@@ -5264,7 +5220,6 @@
           "severity": "critical",
           "counterparties": [
             "amikacin",
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "frusemide",
@@ -5285,7 +5240,6 @@
           "severity": "high",
           "counterparties": [
             "amikacin",
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "frusemide",
@@ -5336,7 +5290,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": ["amiodarone", "ondansetron", "sotalol"],
+          "counterparties": ["amiodarone", "haloperidol-decanoate", "ondansetron", "sotalol"],
           "termIds": [],
           "resolved": true,
           "note": "CRITICAL — Additive QTc prolongation with Amiodarone, Haloperidol, Sotalol, Ondansetron."
@@ -5359,7 +5313,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": ["amiodarone", "sotalol"],
+          "counterparties": ["amiodarone", "haloperidol-decanoate", "sotalol"],
           "termIds": [],
           "resolved": true,
           "note": "CRITICAL — Synergistic QTc prolongation with Amiodarone, Haloperidol, Sotalol."
@@ -5525,7 +5479,6 @@
           "rowIndex": 1,
           "severity": "high",
           "counterparties": [
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "ibuprofen",
@@ -5549,7 +5502,7 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": ["sodium-valproate-oral-iv"],
-          "termIds": [],
+          "termIds": ["valproate"],
           "resolved": true,
           "note": "CRITICAL — Sodium Valproate. Ertapenem rapidly destroys valproate blood levels, dropping them to sub-therapeutic levels within 24 hours, guaranteeing breakthrough seizures in epileptics. AVOID."
         }
@@ -5598,7 +5551,7 @@
             "trimethoprim",
             "vancomycin"
           ],
-          "termIds": ["antibiotics"],
+          "termIds": ["antibiotics", "valproate"],
           "resolved": true,
           "note": "CRITICAL — Sodium Valproate (Epilim). Meropenem rapidly accelerates the hepatic breakdown of Valproate. Blood levels drop to zero within 24 hours. The interaction cannot be overcome by increasing Valproate dose. Use alternative antibiotic or antiepileptic."
         }
@@ -6080,7 +6033,6 @@
           "counterparties": [
             "amoxicillin",
             "amoxicillin-clavulanate",
-            "aspirin",
             "benzathine-benzylpenicillin",
             "celecoxib",
             "diclofenac",
@@ -6399,13 +6351,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["sodium-valproate-oral-iv"],
+          "termIds": ["valproate"],
+          "resolved": true,
           "note": "CRITICAL — Valproate pushes Carbamazepine off proteins and inhibits its breakdown, causing a massive spike in the toxic active metabolite (carbamazepine-10,11-epoxide)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "gabapentin": {
       "rows": [
@@ -6450,9 +6402,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["sodium-valproate-oral-iv"],
+          "termIds": ["valproate"],
+          "resolved": true,
           "note": "CRITICAL — Valproate heavily inhibits glucuronidation, doubling Lamotrigine levels and guaranteeing SJS. Must use the specialized 'Blue' titration pack."
         },
         {
@@ -6474,7 +6426,7 @@
           "note": "HIGH — The combined oral contraceptive pill (COCP) halves lamotrigine blood levels. If the woman stops the pill for the placebo week, lamotrigine levels spike, causing acute neurotoxicity (ataxia/double vision)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "levetiracetam": {
       "rows": [
@@ -6536,13 +6488,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["sodium-valproate-oral-iv"],
+          "termIds": ["valproate"],
+          "resolved": true,
           "note": "HIGH — Highly protein bound. Valproate will knock Phenytoin off albumin, causing 'free' (active) Phenytoin levels to spike and cause toxicity, even while total Phenytoin lab levels look normal."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "pregabalin": {
       "rows": [
@@ -6587,7 +6539,7 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": ["lamotrigine"],
-          "termIds": [],
+          "termIds": ["valproate"],
           "resolved": true,
           "note": "CRITICAL — Lamotrigine. Valproate completely blocks the clearance of Lamotrigine, doubling its levels and causing fatal SJS/TEN. If combining, Lamotrigine dose must be halved and titrated glacially."
         },
@@ -6596,7 +6548,7 @@
           "rowIndex": 1,
           "severity": "critical",
           "counterparties": ["meropenem"],
-          "termIds": [],
+          "termIds": ["valproate"],
           "resolved": true,
           "note": "CRITICAL — Meropenem/Carbapenems. Within 24 hours of starting Meropenem, Valproate levels drop to ZERO. The patient will seize. Avoid combination."
         }
@@ -7639,7 +7591,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amiodarone", "sotalol"],
+          "counterparties": ["amiodarone", "haloperidol-decanoate", "sotalol"],
           "termIds": ["qtc-prolonging"],
           "resolved": false,
           "note": "CRITICAL — Avoid mixing with other QTc prolonging drugs (e.g., Amiodarone, Haloperidol, Sotalol)."
@@ -7810,7 +7762,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amiodarone", "sotalol"],
+          "counterparties": ["amiodarone", "haloperidol-decanoate", "sotalol"],
           "termIds": ["qtc-prolonging"],
           "resolved": false,
           "note": "CRITICAL — Avoid mixing with other QTc prolonging drugs (e.g., Amiodarone, Haloperidol, Sotalol)."
@@ -7828,16 +7780,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": [
-            "aspirin",
-            "celecoxib",
-            "diclofenac",
-            "ibuprofen",
-            "ketorolac",
-            "meloxicam",
-            "naproxen",
-            "parecoxib"
-          ],
+          "counterparties": ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — NSAIDs (Bleeding risk)."
@@ -8188,16 +8131,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [
-            "aspirin",
-            "celecoxib",
-            "diclofenac",
-            "ibuprofen",
-            "ketorolac",
-            "meloxicam",
-            "naproxen",
-            "parecoxib"
-          ],
+          "counterparties": ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
           "termIds": ["nsaids"],
           "resolved": true,
           "note": "HIGH — NSAIDs (Bleeding risk)."
@@ -8676,7 +8610,6 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [
-            "aspirin",
             "candesartan",
             "celecoxib",
             "diclofenac",
@@ -9035,7 +8968,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["bupropion-sr", "fluoxetine", "paroxetine"],
+          "counterparties": [
+            "bupropion-sr",
+            "fluoxetine",
+            "paroxetine",
+            "zuclopenthixol-acetate",
+            "zuclopenthixol-decanoate"
+          ],
           "termIds": ["cyp-inhibitors"],
           "resolved": false,
           "note": "HIGH — **CYP2D6** inhibitors (Fluoxetine, Paroxetine, Bupropion) massively increase zuclopenthixol levels, triggering severe EPS."
@@ -9463,9 +9402,9 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["glyceryl-trinitrate-gtn"],
+          "termIds": ["nitrates"],
+          "resolved": true,
           "note": "CRITICAL — Nitrates, nitric oxide donors, amyl nitrite/poppers, or riociguat can cause profound hypotension. Do not give nitrates within 24 hours of sildenafil."
         },
         {
@@ -9487,7 +9426,7 @@
           "note": "HIGH — **CYP3A4** inhibitors (Clarithromycin, Grapefruit juice) drastically increase Sildenafil levels. Max dose 25mg."
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 1
     },
     "solifenacin": {
       "rows": [
@@ -9556,9 +9495,9 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["glyceryl-trinitrate-gtn"],
+          "termIds": ["nitrates"],
+          "resolved": true,
           "note": "CRITICAL — Nitrates, nitric oxide donors, amyl nitrite/poppers, or riociguat can cause profound hypotension. Avoid nitrates for at least 48 hours after tadalafil."
         },
         {
@@ -9571,7 +9510,7 @@
           "note": "HIGH — Alpha-blockers (Tamsulosin). Tadalafil 5mg daily is approved for BPH, but if the patient is already on Tamsulosin, the combo can cause severe orthostatic drops."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "tamsulosin": {
       "rows": [
@@ -9839,7 +9778,6 @@
           "severity": "critical",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "candesartan",
             "celecoxib",
             "diclofenac",
@@ -10091,7 +10029,6 @@
           "severity": "critical",
           "counterparties": [
             "amiloride",
-            "aspirin",
             "celecoxib",
             "diclofenac",
             "eplerenone",
@@ -10111,7 +10048,7 @@
           "note": "CRITICAL — ACEi + Diuretic + NSAID (Ibuprofen/Naproxen). This combination guarantees acute renal failure by destroying both afferent and efferent glomerular blood flow.",
           "requiredGroups": [
             ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"],
-            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
+            ["celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
           ]
         },
         {

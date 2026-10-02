@@ -8,6 +8,7 @@ const librarySource = readFileSync(
   new URL("../src/components/clinical-dashboard/favourites-command-library-page.tsx", import.meta.url),
   "utf8",
 );
+const rowSource = readFileSync(new URL("../src/components/favourites/favourite-row.tsx", import.meta.url), "utf8");
 const hubSource = readFileSync(
   new URL("../src/components/clinical-dashboard/favourites-hub.tsx", import.meta.url),
   "utf8",
@@ -21,15 +22,12 @@ const universalSearchSource = readFileSync(
   new URL("../src/components/clinical-dashboard/universal-search-command-surface.tsx", import.meta.url),
   "utf8",
 );
-// End the slice at FavouriteMobileCard's own closing brace rather than at
-// whichever function happened to be declared next. The old form ran to
-// `function FavouritesTable`, so any component added between the two was
-// silently pulled into this window and failed the aria-pressed assertion below
-// for code that is not the mobile card at all (hit while retiring the library
-// nav for ledger #164).
-const mobileCardStart = librarySource.indexOf("function FavouriteMobileCard");
-const mobileCardEnd = librarySource.indexOf("\n}\n", mobileCardStart);
-const mobileCardSource = librarySource.slice(mobileCardStart, mobileCardEnd);
+// The 2026-09-29 phone redesign replaced the mobile card with one row used at
+// every width. Below xl the row is a plain link; slice exactly that element so
+// the assertions below cannot be satisfied by the xl-only select button beside it.
+const phoneLinkStart = rowSource.indexOf("<Link");
+const phoneLinkEnd = rowSource.indexOf("</Link>", phoneLinkStart);
+const phoneRowLinkSource = rowSource.slice(phoneLinkStart, phoneLinkEnd);
 
 describe("favourites demo-data boundary", () => {
   it("passes trusted server demo state and never merges prototype favourites into live mode unconditionally", () => {
@@ -81,18 +79,15 @@ describe("favourites demo-data boundary", () => {
     ).toBe(true);
   });
 
-  it("limits item selection to xl tables and keeps mobile cards action-only", () => {
-    expect(mobileCardSource).toContain("function FavouriteMobileCard({");
-    expect(mobileCardSource).not.toContain("aria-pressed");
-    expect(mobileCardSource).not.toContain("onSelect");
-    expect(mobileCardSource).toContain(
-      "<RowActionsMenu item={item} sets={sets} onMove={onMove} onRemove={onRemove} onOpen={onOpen} />",
-    );
-    expect(librarySource).toContain('"hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex"');
-    expect(librarySource).toContain('"block min-w-0 max-w-full rounded-md text-left xl:hidden"');
-    expect(librarySource).toContain(
-      '"xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[var(--shadow-rail-active)]"',
-    );
+  it("limits item selection to xl rows and keeps phone rows open-only", () => {
+    expect(phoneRowLinkSource).toContain("<Link");
+    expect(phoneRowLinkSource).toContain('"block min-w-0 max-w-full rounded-md text-left xl:hidden"');
+    expect(phoneRowLinkSource).not.toContain("aria-pressed");
+    expect(phoneRowLinkSource).not.toContain("onSelect");
+    expect(phoneRowLinkSource).toContain("onClick={() => onOpen(item)}");
+    expect(rowSource).toContain('"hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex"');
+    expect(rowSource).toContain('workspaceSelected && "xl:bg-[color:var(--clinical-accent-soft)]"');
+    expect(rowSource).toContain("aria-label={`More actions for ${item.title}`}");
   });
 
   it("keeps local no-auth within the non-production demo boundary", () => {

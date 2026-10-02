@@ -954,7 +954,7 @@ export type ClinicalDocumentSummaryProfile = {
   source_quality_notes: DocumentSummaryProfileItem[];
 };
 
-export type RagIndexingVersion = "rag-universal-v1" | "rag-deep-memory-v1";
+export type RagIndexingVersion = "rag-universal-v1" | "rag-deep-memory-v1" | "rag-deep-memory-v2";
 
 export type DocumentIndexQuality = {
   indexingVersion?: RagIndexingVersion | null;

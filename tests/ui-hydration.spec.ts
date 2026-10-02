@@ -1,5 +1,7 @@
 import { test, expect } from "playwright/test";
 
+import { expectHydrated } from "./playwright-settlement";
+
 test.describe("React Hydration Safety", () => {
   const scenarios = [
     { name: "dashboard defaults", route: "/", storage: {} },
@@ -57,8 +59,9 @@ test.describe("React Hydration Safety", () => {
       const response = await page.goto(scenario.route);
       expect(response?.ok()).toBe(true);
 
-      // Wait for the hydration and initial load to finish
-      await page.waitForLoadState("networkidle");
+      // Wait until React has hydrated the page's main landmark. networkidle is
+      // unreliable on routes that keep a connection open (ledger #PVVAPA).
+      await expectHydrated(page.locator("main").first());
 
       // Fail the test if any hydration errors were captured
       expect(hydrationErrors, "Expected no React hydration mismatch warnings or errors in the console").toEqual([]);

@@ -42,7 +42,7 @@ import { conceptReviewState, mechanismReviewState } from "@/lib/formulation-revi
  * else.
  */
 
-const NOW = new Date("2026-09-26T06:00:00.000Z");
+const NOW = new Date("2026-10-02T06:00:00.000Z");
 const REVIEWED_AT = "2026-09-25T05:00:00.000Z";
 const REVIEWER = "Dr Clinical Owner";
 const context = { curated: curatedDifferentials, sourceLibrary: formulationContent.sourceLibrary };
@@ -310,7 +310,24 @@ describe("specifier sign-off", () => {
 
   it("writes the sign-off into the item's review, recounts pending items, and touches nothing else", () => {
     const document = clone(specifiersContent);
-    const view = records().find((record: Json) => record.kind === "item" && record.status === "drafted");
+    const target = collectionOf("specifier", document).find(
+      (record: Json) => record.kind === "item" && record.definitionStatus === "defined",
+    );
+    for (const category of document.categories)
+      for (const disorder of category.disorders)
+        for (const group of disorder.groups)
+          for (const item of group.items) {
+            if (item.review.rowKey === target.id)
+              Object.assign(item.review, {
+                clinicianReviewStatus: "clinician-review-pending",
+                reviewedBy: null,
+                reviewedAt: null,
+                reviewedContentSha256: null,
+              });
+          }
+    document.stats.itemsPendingClinicianReview += 1;
+    const beforeViews = collectionOf("specifier", document);
+    const view = beforeViews.find((record: Json) => record.id === target.id);
     expect(view).toBeTruthy();
     const signed = finalizeClinicalReview(view, "specifier", {
       reviewedBy: REVIEWER,
@@ -323,14 +340,20 @@ describe("specifier sign-off", () => {
     expect(signedView).toMatchObject({ status: "reviewed", reviewedBy: REVIEWER, reviewedAt: REVIEWED_AT });
     expect(recordPinState(signedView, "specifier")).toBe("current");
     const changed = after.filter(
-      (record: Json, index: number) => JSON.stringify(record) !== JSON.stringify(records()[index]),
+      (record: Json, index: number) => JSON.stringify(record) !== JSON.stringify(beforeViews[index]),
     );
     expect(changed.map((record: Json) => record.id)).toEqual([view.id]);
-    expect(next.stats.itemsPendingClinicianReview).toBe(specifiersContent.stats.itemsPendingClinicianReview - 1);
+    expect(next.stats.itemsPendingClinicianReview).toBe(document.stats.itemsPendingClinicianReview - 1);
   });
 
   it("sends a signed definition back for review when its text is edited", () => {
-    const view = records().find((record: Json) => record.kind === "item" && record.status === "drafted");
+    const view = {
+      ...records().find((record: Json) => record.kind === "item" && record.definitionStatus === "defined"),
+      status: "drafted",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewedContentSha256: null,
+    };
     const signed = finalizeClinicalReview(view, "specifier", {
       reviewedBy: REVIEWER,
       reviewedAt: REVIEWED_AT,
@@ -346,12 +369,24 @@ describe("dictionary rewrite approval", () => {
 
   it("offers only reviews that propose new wording", () => {
     for (const record of records()) {
-      expect(record.status).toBe(record.proposedWording ? "drafted" : "pending");
+      expect(record.status).toBe(
+        record.proposedWording
+          ? recordPinState(record, "dictionary-rewrite") === "current"
+            ? "reviewed"
+            : "drafted"
+          : "pending",
+      );
     }
   });
 
   it("records the approval beside the review and leaves the wording and publication flags alone", () => {
-    const view = records().find((record: Json) => record.status === "drafted");
+    const view = {
+      ...records().find((record: Json) => record.proposedWording),
+      status: "drafted",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewedContentSha256: null,
+    };
     const signed = finalizeClinicalReview(view, "dictionary-rewrite", {
       reviewedBy: REVIEWER,
       reviewedAt: REVIEWED_AT,
@@ -364,7 +399,9 @@ describe("dictionary rewrite approval", () => {
     const after = next.reviews.find((review) => review.id === view.id)!;
     expect(after.clinicalApproval).toMatchObject({ status: "approved", reviewer: REVIEWER, reviewedAt: REVIEWED_AT });
     const withoutApproval = Object.fromEntries(Object.entries(after).filter(([key]) => key !== "clinicalApproval"));
-    expect(withoutApproval).toEqual(before);
+    const beforeWithoutApproval: Json = { ...before };
+    delete beforeWithoutApproval.clinicalApproval;
+    expect(withoutApproval).toEqual(beforeWithoutApproval);
     const view2 = collectionOf("dictionary-rewrite", next).find((record: Json) => record.id === view.id);
     expect(recordPinState(view2, "dictionary-rewrite")).toBe("current");
     expect(recordPinState({ ...view2, proposedWording: "Changed." }, "dictionary-rewrite")).toBe("stale");

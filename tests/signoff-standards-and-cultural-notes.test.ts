@@ -38,7 +38,7 @@ import { isIndigenousContent } from "@/lib/forms-reference-sign-off";
 type Json = Record<string, unknown>;
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const NOW = new Date("2026-09-26T06:00:00.000Z");
+const NOW = new Date("2026-10-02T06:00:00.000Z");
 const REVIEWED_AT = "2026-09-25T05:00:00.000Z";
 const REVIEWER = "Dr Clinical Owner";
 
@@ -57,11 +57,9 @@ beforeAll(async () => {
 
 /** The first drafted record the owner may sign (Indigenous content is held), as the tool views it. */
 function firstSignable(kind: string, document: Json): Json {
-  const record = collectionOf(kind, document).find(
-    (entry: Json) => entry.status === "drafted" && !indigenousContentIn(entry, kind, context),
-  );
+  const record = collectionOf(kind, document).find((entry: Json) => !indigenousContentIn(entry, kind, context));
   expect(record, `${kind} has a drafted, non-Indigenous record`).toBeTruthy();
-  return record;
+  return { ...record, status: "drafted", reviewedBy: null, reviewedAt: null, reviewedContentSha256: null };
 }
 
 function sign(kind: string, document: Json, record: Json) {
@@ -197,7 +195,9 @@ describe("cultural-note: the pin covers what a form page shows", () => {
   it("stays current when the file is reordered, because the positional id is not pinned", () => {
     const notes = after.notes as Json[];
     const reordered = { notes: [...notes].reverse() };
-    const moved = collectionOf("cultural-note", reordered).find((entry: Json) => entry.status === "reviewed");
+    const moved = collectionOf("cultural-note", reordered).find(
+      (entry: Json) => entry.text === signed.text && entry.formCode === signed.formCode && entry.kind === signed.kind,
+    );
     expect(moved.text).toBe(target.text);
     expect(recordPinState(moved, "cultural-note", context)).toBe("current");
   });

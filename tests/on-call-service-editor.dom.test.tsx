@@ -123,12 +123,12 @@ describe("Service handbook edit preserves intentional empty fields", () => {
     const dotted = [...warnings.querySelectorAll("li")].filter((item) => item.querySelector("[data-warning-dot]"));
     expect(dotted.map((item) => item.getAttribute("data-warning"))).toEqual(["number-shared"]);
   });
-  it("tells the editor that saving sets the Updated date", () => {
+  it("distinguishes publishing from confirmation and draft saves", () => {
     render(
       <ServiceEntryEditor entry={entry} sites={[site]} defaultSiteId={site.id} onSave={vi.fn()} onCancel={() => {}} />,
     );
     expect(screen.getByTestId("service-entry-save-note")).toHaveTextContent(
-      "Save only when something changed. Saving sets the Updated date readers see.",
+      "Draft saves do not change the published date. Publishing sets Updated; Still correct records a separate confirmation.",
     );
   });
 });

@@ -81,6 +81,25 @@ describe("POST /api/roster/read-file", () => {
     expect((await POST(requestWithForm(form))).status).toBe(413);
   });
 
+  it("refuses an oversized chunked body with no Content-Length while streaming", async () => {
+    const chunk = new Uint8Array(512 * 1024);
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent++ < 16) controller.enqueue(chunk);
+        else controller.close();
+      },
+    });
+    const request = new Request("https://psychiatry.tools/api/roster/read-file", {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "multipart/form-data; boundary=x" },
+      duplex: "half",
+    } as RequestInit);
+    expect((await POST(request)).status).toBe(413);
+    expect(sent).toBeLessThan(16);
+  });
+
   it("refuses a file that isn't an Excel or PDF by its signature, whatever its name claims", async () => {
     const form = new FormData();
     form.set("file", new File([new TextEncoder().encode("not a roster")], "roster.xlsx"));
