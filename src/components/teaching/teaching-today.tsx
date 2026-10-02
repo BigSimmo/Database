@@ -8,7 +8,7 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { catchUpCount } from "@/components/teaching/teaching-catch-up";
 import { TeachingCalendarSheet } from "@/components/teaching/teaching-calendar-sheet";
-import { addDays, perthDateKey } from "@/components/teaching/teaching-dates";
+import { addDays, mondayOf, perthDateKey } from "@/components/teaching/teaching-dates";
 import { TeachingHero } from "@/components/teaching/teaching-hero";
 import { TeachingContextBar } from "@/components/teaching/teaching-modules";
 import { NeedsYou } from "@/components/teaching/teaching-needs-you";
@@ -38,7 +38,9 @@ import { teachingErrorMessage, teachingPost, teachingServiceUrl } from "@/lib/te
 export function TeachingToday({ demoMode }: { demoMode: boolean }) {
   const now = useTeachingNow();
   const today = now ? perthDateKey(now) : null;
-  const range = useMemo(() => (today ? { from: today, to: addDays(today, 6) } : null), [today]);
+  // From this Monday, so the catch-up count sees the whole calendar week (as Resources does); the hero
+  // and Rest of this week only look at sessions that have not ended, so the earlier days change nothing there.
+  const range = useMemo(() => (today ? { from: mondayOf(today), to: addDays(today, 6) } : null), [today]);
   const view = useTeachingWeek(range, { demoMode }, now);
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-today">
@@ -118,6 +120,8 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
           serviceName={chosen?.name}
           onSwitchService={teamValue !== ALL_TEAMS ? () => setTeam(ALL_TEAMS) : undefined}
         />
+        {/* No session ahead still leaves past ones to log, give feedback on or catch up on. */}
+        <NeedsYou live={live} today={today} catchUp={catchUpCount(week, now)} />
       </>
     );
   }

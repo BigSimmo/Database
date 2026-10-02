@@ -242,7 +242,7 @@ describe("Today", () => {
     expect(await within(hero).findByRole("link", { name: /^Join on Teams/ })).toHaveAttribute("href", JOIN);
     expect(rawText(screen.getByRole("link", { name: /Rest of this week/ }))).toContain(`1${NB}more session`);
     expect(screen.queryByTestId(/^teaching-row-/)).toBeNull();
-    expect(fetchCalls(fetchMock, "/api/teaching?view=week&from=2026-09-30&to=2026-10-06")).toBe(1);
+    expect(fetchCalls(fetchMock, "/api/teaching?view=week&from=2026-09-28&to=2026-10-06")).toBe(1);
 
     fireEvent.change(screen.getByRole("combobox", { name: "Service" }), { target: { value: TEAM_B } });
     expect(screen.getByTestId("teaching-hero")).toHaveTextContent("Journal club");
@@ -294,6 +294,61 @@ describe("Today", () => {
     fireEvent.click(within(hero).getByRole("button", { name: "Check in without code" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.queryByTestId("teaching-today-checked-in")).toBeNull();
+  });
+
+  it("counts catch-up from the whole calendar week, so a Wednesday still sees Monday's unmarked session", async () => {
+    // The week read answers only for the dates it is asked about, like the server.
+    const monday = session({
+      occurrenceId: PAST,
+      title: "Monday journal club",
+      startsAt: "2026-09-28T04:30:00.000Z",
+      endsAt: "2026-09-28T05:30:00.000Z",
+    });
+    serveFetch((url) => {
+      if (!url.startsWith("/api/teaching?view=week")) return null;
+      const params = new URL(url, "http://localhost").searchParams;
+      const from = params.get("from") ?? "";
+      const to = params.get("to") ?? "";
+      const inRange = [monday, session()].filter((s) => {
+        const key = s.startsAt.slice(0, 10);
+        return key >= from && key <= to;
+      });
+      return json(200, week({ sessions: inRange }));
+    });
+    render(<TeachingToday demoMode={false} />);
+    expect(await screen.findByTestId("teaching-hero")).toHaveTextContent("Registrar teaching");
+    const needsYou = await screen.findByTestId("teaching-needs-you");
+    expect(rawText(within(needsYou).getByRole("link", { name: /^Catch up on/ }))).toContain(
+      `Catch up on 1${NB}session`,
+    );
+  });
+
+  it("keeps Needs you on screen when there is no session ahead", async () => {
+    const monday = session({
+      occurrenceId: PAST,
+      startsAt: "2026-09-28T04:30:00.000Z",
+      endsAt: "2026-09-28T05:30:00.000Z",
+    });
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week")
+        ? json(200, week({ sessions: [monday] }))
+        : url === "/api/teaching?view=next-session"
+          ? json(200, { session: null })
+          : url === "/api/teaching?view=unlogged-count"
+            ? json(200, { count: 2 })
+            : null,
+    );
+    render(<TeachingToday demoMode={false} />);
+    expect(await screen.findByTestId("teaching-state-empty")).toBeInTheDocument();
+    const needsYou = await screen.findByTestId("teaching-needs-you");
+    expect(within(needsYou).getByRole("link", { name: /^Catch up on/ })).toHaveAttribute(
+      "href",
+      "/teaching/resources#catch-up",
+    );
+    expect(await within(needsYou).findByRole("link", { name: /^Review & log/ })).toHaveAttribute(
+      "href",
+      "/teaching/review",
+    );
   });
 
   it("says the next-session read failed rather than claiming there are no sessions", async () => {
@@ -484,6 +539,19 @@ describe("Week", () => {
     fireEvent.click(within(byId("teaching-week-nav")).getByRole("button", { name: "This week" }));
     expect(await screen.findByText("No more sessions this week.")).toBeInTheDocument();
     expect(byId("teaching-week-nav")).toHaveTextContent("Mon 28 Sep – Sun 4 Oct");
+  });
+
+  it("keeps a visitor's added sessions instead of the no-service state", async () => {
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week")
+        ? json(200, week({ teams: [], relocated: [], sessions: [session()] }))
+        : onCallRoutes(url),
+    );
+    render(<TeachingWeekScreen demoMode={false} />);
+    expect(
+      await within(await waitFor(() => byId("teaching-week-list"))).findByText("Registrar teaching"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("teaching-state-no-team")).toBeNull();
   });
 
   it("says when the reader is not in a teaching service yet", async () => {

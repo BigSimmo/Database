@@ -479,8 +479,14 @@ function RegisterSheet({
     setRemoving(null);
   }
 
+  // The Undo bar lives in the sheet, so closing it cancels a held removal rather than sending it unseen.
+  function close() {
+    if (delayed.pending) undo();
+    onClose();
+  }
+
   return (
-    <Sheet open={open} onClose={onClose} title="Register">
+    <Sheet open={open} onClose={close} title="Register">
       <div className="grid gap-3">
         {rows.length === 0 ? (
           <ModeNotice>No one has checked in yet.</ModeNotice>

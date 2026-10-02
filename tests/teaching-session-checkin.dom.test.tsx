@@ -230,6 +230,39 @@ describe("the session page", () => {
     await act(async () => vi.advanceTimersByTimeAsync(1_500));
     expect(removed).toEqual([{ action: "attendance.remove", occurrenceId: OCC, userId: "u1" }]);
   });
+
+  it("cancels a held removal when the register closes, since its Undo bar goes with the sheet", async () => {
+    const removed: unknown[] = [];
+    serveSession({ canShowCode: true, counts: { code: 18, self: 3, visitors: 0, expected: 26 } }, (url, body) => {
+      if (url.includes("action=register.read")) {
+        return json(200, {
+          rows: [{ userId: "u1", name: "Dr A", method: "self", recordedAt: DURING.toISOString() }],
+          visitors: 0,
+        });
+      }
+      if (url === TEAM_URL && body?.action === "attendance.remove") {
+        removed.push(body);
+        return json(200, {});
+      }
+      return null;
+    });
+    render(<TeachingSessionScreen occurrenceId={OCC} demoMode={false} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Register" }));
+    const sheet = await screen.findByRole("dialog", { name: "Register" });
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Remove Dr A" }));
+    expect(within(sheet).getByTestId("teaching-register-pending")).toHaveTextContent("Removing Dr A.");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+    await act(async () => vi.advanceTimersByTimeAsync(11_000));
+    expect(screen.queryByRole("dialog", { name: "Register" })).toBeNull();
+    expect(removed).toEqual([]);
+    vi.useRealTimers();
+    // Reopened, nothing is still held or stuck on Removing.
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+    const again = await screen.findByRole("dialog", { name: "Register" });
+    expect(within(again).queryByTestId("teaching-register-pending")).toBeNull();
+    expect(within(again).getByRole("button", { name: "Remove Dr A" })).toBeEnabled();
+  });
 });
 
 describe("the presenter's code", () => {

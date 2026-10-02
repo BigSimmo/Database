@@ -144,7 +144,13 @@ function WeekBody({
       </>
     );
   const week = view.week;
-  if (view.status === "ready" && week && week.teams.length === 0 && week.relocated.length === 0)
+  if (
+    view.status === "ready" &&
+    week &&
+    week.teams.length === 0 &&
+    week.relocated.length === 0 &&
+    week.sessions.length === 0
+  )
     return <TeachingStateNotice state="no-team" />;
   if (view.status !== "ready" || !week)
     return (
