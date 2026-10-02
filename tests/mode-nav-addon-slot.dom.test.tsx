@@ -99,6 +99,13 @@ describe("header addon slot ownership", () => {
     }
     expect(isHeaderAddonSlotOwnedRoute("/cme/new")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/cme/summary")).toBe(false);
+    // One activity and Customise mount the breadcrumb `CmeDetailNavHeader`.
+    // The activity matcher is exactly one segment under `/cme/log/`.
+    expect(isHeaderAddonSlotOwnedRoute("/cme/log/cme-2026-001")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/customise")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/log/cme-2026-001/evidence")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/log/")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/logbook")).toBe(false);
     // Every First Nations route claims the slot: the mode home and every
     // section mount `FirstNationsNavHeader` themselves.
     expect(isHeaderAddonSlotOwnedRoute("/first-nations")).toBe(true);
@@ -197,6 +204,8 @@ describe("header addon slot ownership", () => {
       "/cme/calendar",
       "/cme/training",
       "/cme/learning",
+      "/cme/log/cme-2026-001",
+      "/cme/customise",
       "/first-nations",
       "/first-nations/contacts",
       "/first-nations/talking",
@@ -360,7 +369,9 @@ describe("header addon slot ownership", () => {
       "src/components/clinical-dashboard/medication-nav-header.tsx",
       // CME's Programme and Setup pages share one `*-nav-header.tsx` sibling
       // (`cmeSections` is a superset the header narrows per render), so the
-      // whole mode's claim is registered in this one file.
+      // whole mode's claim is registered in this one file. The breadcrumb
+      // header for one activity and Customise (`CmeDetailNavHeader`) lives
+      // there too.
       "src/components/cme/cme-nav-header.tsx",
       "src/components/cme/cme-page-tabs.tsx",
       "src/components/developer-area/developer-hub-nav-header.tsx",

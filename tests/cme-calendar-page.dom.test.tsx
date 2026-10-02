@@ -30,6 +30,26 @@ describe("the CPD calendar page", () => {
     expect(screen.getByTestId("cme-calendar-view-grid").innerHTML).not.toContain("--tone-");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
+  it("folds the subscription card, wording unchanged, behind one How this works disclosure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ subscribed: false, available: true }), { status: 200 }),
+    );
+    render(
+      <CmeCalendarPage
+        set={DEMO_CME_YEAR}
+        entries={DEMO_CME_ENTRIES}
+        routines={[]}
+        nowIso={DEMO_CME_INSTANT.toISOString()}
+      />,
+    );
+    const fold = screen.getByTestId("cme-calendar-subscribe-fold");
+    expect(fold.tagName).toBe("DETAILS");
+    expect(fold).not.toHaveAttribute("open");
+    expect(fold.querySelector("summary")).toHaveTextContent("How this works");
+    const card = await screen.findByTestId("cme-calendar-subscribe-create");
+    expect(fold).toContainElement(card);
+    expect(fold).toHaveTextContent(/One private link keeps Google, Outlook or Apple Calendar up to date/);
+  });
   it("names the CPD month feed as coming up", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ subscribed: false, available: false }), { status: 200 }),

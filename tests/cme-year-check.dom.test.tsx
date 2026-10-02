@@ -1,4 +1,5 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CmeDashboard } from "@/components/cme/cme-dashboard";
@@ -38,21 +39,56 @@ const ENTRIES = [
 ];
 
 describe("year check page", () => {
-  it("says how many rows are done and states each status in words", () => {
+  it("says how many rows are done and states each status in words", async () => {
+    const user = userEvent.setup();
     render(<CmeYearCheckPage set={SET} entries={ENTRIES} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^\d+ of 10 done$/);
     expect(screen.getByText(/It records what you checked and is not certification\./)).toBeInTheDocument();
     const evidence = screen.getByTestId("cme-check-row-evidence");
     expect(evidence).toHaveAttribute("data-ready", "false");
     expect(evidence).toHaveTextContent("Evidence kept for each activity — to do");
-    expect(within(evidence).getByRole("link", { name: /^Peer review group/, hidden: true })).toHaveAttribute(
-      "href",
-      "/cme/log/b",
-    );
-    expect(within(evidence).getByRole("link", { name: "Show them" })).toHaveAttribute(
+    // What counts and the fix now open in a named sheet from the row.
+    expect(within(evidence).queryByRole("link")).toBeNull();
+    await user.click(within(evidence).getByRole("button", { name: /Evidence kept for each activity/ }));
+    const sheet = screen.getByTestId("cme-check-sheet");
+    expect(screen.getByRole("dialog", { name: "Evidence kept for each activity" })).toBeInTheDocument();
+    expect(within(sheet).getByText("Which activities")).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: /^Peer review group/ })).toHaveAttribute("href", "/cme/log/b");
+    expect(within(sheet).getByRole("link", { name: "Show them" })).toHaveAttribute(
       "href",
       "/cme/log?year=2026&fix=evidence",
     );
+  });
+
+  it("puts what needs the owner first and folds what is done, with a progress bar beside the count", async () => {
+    const user = userEvent.setup();
+    // Every activity reflected on and copied, so those two rows are done.
+    const finished = ENTRIES.map((item) => ({ ...item, reflection: "Useful.", transcribed: true }));
+    render(<CmeYearCheckPage set={SET} entries={finished} />);
+    const needs = screen.getByTestId("cme-check-needs-you");
+    const done = screen.getByTestId("cme-check-done");
+    expect(
+      within(needs)
+        .getAllByRole("listitem")
+        .every((row) => row.getAttribute("data-ready") === "false"),
+    ).toBe(true);
+    expect(
+      within(done)
+        .getAllByRole("listitem", { hidden: true })
+        .every((row) => row.dataset.ready === "true"),
+    ).toBe(true);
+    expect(screen.getByRole("heading", { name: /^Needs you \(\d+\)$/ })).toBeInTheDocument();
+    expect(done).not.toHaveAttribute("open");
+    expect(done.querySelector("summary")).toHaveTextContent(/^Done \(\d+\)$/);
+    expect(done.querySelector("summary")?.className).toMatch(/\bflex\b.*\bitems-center\b/);
+    expect(screen.getByTestId("cme-check-progress")).toHaveAttribute("aria-hidden", "true");
+    // A target lists what counts, with its own fix in the sheet footer.
+    await user.click(within(screen.getByTestId("cme-check-row-total")).getByRole("button"));
+    const sheet = screen.getByTestId("cme-check-sheet");
+    expect(within(sheet).getByText(/^What counts \(2\)$/)).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: "Log an activity" })).toHaveAttribute("href", "/cme/new?year=2026");
+    // The hand-over line stays.
+    expect(screen.getByRole("link", { name: "annual summary" })).toHaveAttribute("href", "/cme/summary?year=2026");
   });
 });
 

@@ -32,6 +32,7 @@ import {
   type CmeRequirementSet,
   type CmeRequirementSpec,
 } from "@/lib/cme/types";
+import { cmePageTitle } from "@/components/cme/cme-page-frame";
 
 function replaceRequirement(
   set: CmeRequirementSet,
@@ -199,7 +200,7 @@ export function CmeSetupPage({
     <>
       <CmeNavHeader title="Set up" />
       <InformationPageShell testId="cme-setup-page">
-        <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">Your CPD home for {targetYear}</h1>
+        <h1 className={cmePageTitle}>Your CPD home for {targetYear}</h1>
         <p className={cn(textMuted, "text-sm leading-relaxed")}>
           Choose the programme you use, then check and confirm its targets against your current guide. These are your
           own confirmed numbers, not targets looked up by the app.

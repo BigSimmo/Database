@@ -1,7 +1,8 @@
 "use client";
 
 import { CmeEvidencePanel } from "@/components/cme/cme-evidence-panel";
-import { Button } from "@/components/ui/button";
+import { Archive, ArchiveRestore } from "lucide-react";
+
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,10 +10,15 @@ import { useEffect, useState } from "react";
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
 import { CmeEntryGoalPicker } from "@/components/cme/cme-entry-goal-picker";
 import type { CmePlanGoal } from "@/lib/cme/plan-goals";
-import { CmeQuickLog } from "@/components/cme/cme-quick-log";
-import { CmeEntryPage } from "@/components/cme/cme-entry-page";
+import { cmeEntryActionRow, CmeEntryPage } from "@/components/cme/cme-entry-page";
 import { FormField } from "@/components/ui/form-field";
-import { cn, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  fieldControlPlain,
+  ignoreUnavailableActivation,
+  InlineNotice,
+  textMuted,
+} from "@/components/ui-primitives";
 import { CME_AMENDMENT_REASON_MAX, CME_AMENDMENT_REASON_MIN } from "@/lib/cme/year-close";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
@@ -184,35 +190,78 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
         editHref={!readOnly || amendable ? `/cme/log/${loadedEntry.id}?edit=1` : undefined}
         editLabel={amendable ? "Amend entry" : undefined}
         readOnly={readOnly}
-        actions={
-          <>
-            <section className="mt-4" aria-label="Plan goal">
-              <CmeEntryGoalPicker
-                entryId={loadedEntry.id}
-                goals={goals}
-                initialGoalId={loadedEntry.goalId ?? null}
-                readOnly={demoMode || readOnly}
-              />
-            </section>
-            <section className="mt-4" aria-label="Archive activity">
+        // Archive and restore live in the header's actions sheet. Archiving
+        // asks first; restoring does not. Both are reversible, but archiving
+        // takes the activity out of this year's totals, so it is never a
+        // control sitting loose on the page where a stray tap reaches it.
+        menuActions={(close) => {
+          // Demo mode and a closed year are stated reasons, so the row stays
+          // focusable with the reason wired to it; a save in flight is
+          // transient, so that alone uses native `disabled`.
+          const unavailableReason = demoMode
+            ? "Sign in to archive or restore activities."
+            : set.closedAt
+              ? "This CPD year is closed, so its activities can't be archived or restored."
+              : null;
+          const label = (
+            <>
+              {archived ? (
+                <ArchiveRestore
+                  aria-hidden="true"
+                  className="size-icon-sm shrink-0 text-[color:var(--clinical-accent)]"
+                />
+              ) : (
+                <Archive aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--clinical-accent)]" />
+              )}
+              {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
+            </>
+          );
+          if (unavailableReason) {
+            return (
+              <>
+                <button
+                  type="button"
+                  aria-disabled="true"
+                  aria-describedby="cme-entry-archive-unavailable"
+                  title={unavailableReason}
+                  onClick={ignoreUnavailableActivation}
+                  className={cmeEntryActionRow}
+                >
+                  {label}
+                </button>
+                <span id="cme-entry-archive-unavailable" className="sr-only">
+                  {unavailableReason}
+                </span>
+              </>
+            );
+          }
+          return (
+            <button
+              type="button"
+              disabled={archivePending}
+              onClick={() => {
+                close();
+                if (archived) void setArchived(false);
+                else setConfirmArchiveOpen(true);
+              }}
+              className={cmeEntryActionRow}
+            >
+              {label}
+            </button>
+          );
+        }}
+        notice={
+          readOnly || (archived && archiveUndoOpen) || archiveError ? (
+            <section aria-label="Archive activity" className="flex flex-col gap-2">
               {readOnly ? (
-                <p className={cn(textMuted, "mb-2 text-sm")}>
+                <p className={cn(textMuted, "text-sm")}>
                   {set.closedAt
                     ? "This CPD year is closed. Correct an activity with Amend entry: the change is recorded, dated and with your reason, beside the original. Evidence is view-only."
                     : "Archived: excluded from totals, copies, exports and annual summaries. Sources and evidence are retained."}
                 </p>
               ) : null}
-              <Button
-                disabled={demoMode || Boolean(set.closedAt) || archivePending}
-                // Archiving asks first; restoring does not. Both are reversible,
-                // but archiving takes the activity out of this year's totals and
-                // was one stray tap away from the top of the page.
-                onClick={() => (archived ? void setArchived(false) : setConfirmArchiveOpen(true))}
-              >
-                {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
-              </Button>
               {archived && archiveUndoOpen ? (
-                <p role="status" className="mt-2 text-sm text-[color:var(--text)]">
+                <p role="status" className="text-sm text-[color:var(--text)]">
                   Activity archived.{" "}
                   <button
                     type="button"
@@ -224,24 +273,36 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
                   </button>
                 </p>
               ) : null}
-              <ConfirmDialog
-                open={confirmArchiveOpen}
-                onCancel={() => setConfirmArchiveOpen(false)}
-                onConfirm={() => {
-                  setConfirmArchiveOpen(false);
-                  void setArchived(true);
-                }}
-                title="Archive this activity?"
-                description="It stops counting toward this year's hours and is left out of copies, exports and the annual summary. Its sources and evidence are kept, and you can restore it at any time."
-                confirmLabel="Archive activity"
-                tone="primary"
-              />
               {archiveError ? (
-                <p role="alert" className="mt-2 text-sm">
+                <p role="alert" className="text-sm">
                   {archiveError}
                 </p>
               ) : null}
             </section>
+          ) : null
+        }
+        actions={
+          <>
+            <section className="mt-4" aria-label="Plan goal">
+              <CmeEntryGoalPicker
+                entryId={loadedEntry.id}
+                goals={goals}
+                initialGoalId={loadedEntry.goalId ?? null}
+                readOnly={demoMode || readOnly}
+              />
+            </section>
+            <ConfirmDialog
+              open={confirmArchiveOpen}
+              onCancel={() => setConfirmArchiveOpen(false)}
+              onConfirm={() => {
+                setConfirmArchiveOpen(false);
+                void setArchived(true);
+              }}
+              title="Archive this activity?"
+              description="It stops counting toward this year's hours and is left out of copies, exports and the annual summary. Its sources and evidence are kept, and you can restore it at any time."
+              confirmLabel="Archive activity"
+              tone="primary"
+            />
           </>
         }
         onCopied={async () => {
@@ -261,7 +322,6 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode, goals = [] }: 
           demoMode={demoMode}
         />
       </CmeEntryPage>
-      {!set.closedAt ? <CmeQuickLog set={set} demoMode={demoMode} /> : null}
     </>
   );
 }
