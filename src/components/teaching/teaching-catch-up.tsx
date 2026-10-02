@@ -101,7 +101,7 @@ export function TeachingCatchUp({
               : [
                   <ModeRow
                     key={`${session.occurrenceId}:none`}
-                    title={<span className={modeSecondaryText}>No slides or recording shared yet.</span>}
+                    title={<span className={modeSecondaryText}>No catch-up recording or slides yet.</span>}
                   />,
                 ]),
           ])}
