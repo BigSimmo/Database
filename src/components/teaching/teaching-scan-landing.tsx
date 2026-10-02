@@ -8,6 +8,7 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeModuleSurface } from "@/components/mode-kit/recipes";
 import { perthDateKey, perthTime, shortDayLabel } from "@/components/teaching/teaching-dates";
+import { TeachingCpdBridgeSheet } from "@/components/teaching/teaching-cpd-bridge-sheet";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
@@ -69,6 +70,7 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [cpdBridgeOpen, setCpdBridgeOpen] = useState(false);
   const started = useRef(false);
 
   const run = useCallback(
@@ -160,6 +162,14 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
         {state.kind === "done" ? (
           <>
             <p className="text-sm text-[color:var(--text-heading)]">{attendanceLabels[state.mark.method]}</p>
+            <Button
+              variant="primary"
+              block
+              onClick={() => setCpdBridgeOpen(true)}
+              data-testid="teaching-scan-cpd-bridge-open"
+            >
+              Log 1.0 h to CPD
+            </Button>
             <Link
               href={`/teaching/session/${state.mark.occurrenceId}`}
               className={cn(buttonFaceClass({ variant: "secondary", block: true }), "no-underline")}
@@ -167,6 +177,13 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
               Open the session
             </Link>
             {todayLink}
+            <TeachingCpdBridgeSheet
+              open={cpdBridgeOpen}
+              onClose={() => setCpdBridgeOpen(false)}
+              occurrenceId={state.mark.occurrenceId}
+              title={opened?.title ?? "Teaching Session"}
+              hours={1.0}
+            />
           </>
         ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 import { Clipboard, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ContactActions } from "@/components/first-nations/number-button";
 import {
   FnButton,
@@ -61,19 +61,77 @@ function DialRow({ contact }: { contact: ContactView }) {
   );
 }
 
-function WaLineMap({ map, selectedId }: { map: WaMap; selectedId: string | null }) {
+const REGION_CULTURAL_TIPS: Record<string, { readonly country: string; readonly tip: string }> = {
+  kimberley: {
+    country: "Yawuru, Bunuba, Gooniyandi, Bardi & neighboring Countries",
+    tip: "Involve family and Elders early. Many patients are bilingual or speak Kriol; call AIWA for an interpreter for clinical consent.",
+  },
+  pilbara: {
+    country: "Yindjibarndi, Ngarluma, Kariyarra, Martu & neighboring Countries",
+    tip: "Extended family decision-making is customary. Be mindful of avoidances and gender considerations in health discussions.",
+  },
+  midwest: {
+    country: "Yamatji, Badimia & neighboring Countries",
+    tip: "Respectful yarning and relationship before clinical questioning. Silence is often used for reflection.",
+  },
+  goldfields: {
+    country: "Wangkatha, Pitjantjatjara & neighboring Western Desert Countries",
+    tip: "Patients may travel long distances from remote communities. Ensure travel (PATS) and accommodation are planned with family.",
+  },
+  perth: {
+    country: "Whadjuk Noongar Boodjar",
+    tip: "Derbarl Yerrigan Health Service provides local community care. Clarify whether patient lives in metro or is visiting from regional Country.",
+  },
+  "south-west": {
+    country: "Wardandi, Bibbulmun & Noongar Boodjar",
+    tip: "SWAMS provides community health support. Involve family supports and acknowledge connection to Boodjar (Country).",
+  },
+  "great-southern": {
+    country: "Menang Noongar Boodjar",
+    tip: "Strong family networks. Confirm preferred contact person within the family group.",
+  },
+  wheatbelt: {
+    country: "Ballardong, Njaki Njaki Noongar Boodjar",
+    tip: "Patients often require transport coordination between regional health centres and Perth hospitals.",
+  },
+};
+
+function WaLineMap({
+  map,
+  selectedId,
+  onSelect,
+  regionLabels,
+}: {
+  map: WaMap;
+  selectedId: string | null;
+  onSelect?: (id: string) => void;
+  regionLabels?: Record<string, string>;
+}) {
   return (
-    <svg viewBox={map.viewBox} aria-hidden="true" className="mx-auto h-48 w-full">
+    <svg viewBox={map.viewBox} aria-label="Western Australia regions map" className="mx-auto h-48 w-full">
       {map.regions.map((r: WaMap["regions"][number]) => (
         <path
           key={r.id}
           d={r.path}
           vectorEffect="non-scaling-stroke"
           strokeWidth={1}
+          role="button"
+          tabIndex={0}
+          aria-label={regionLabels?.[r.id] ?? r.id}
+          aria-pressed={r.id === selectedId}
+          data-testid={`fn-map-region-${r.id}`}
+          onClick={() => onSelect?.(r.id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelect?.(r.id);
+            }
+          }}
           className={cn(
+            "cursor-pointer transition-colors duration-150 outline-none focus-visible:stroke-[color:var(--clinical-accent)] focus-visible:stroke-2",
             r.id === selectedId
               ? "fill-[color:var(--clinical-accent-soft)] stroke-[color:var(--clinical-accent)]"
-              : "fill-[color:var(--surface-subtle)] stroke-[color:var(--border-strong)]",
+              : "fill-[color:var(--surface-subtle)] stroke-[color:var(--border-strong)] hover:fill-[color:var(--clinical-accent-soft)]/50",
           )}
         />
       ))}
@@ -102,6 +160,7 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
       () => setNote("Copied"),
       () => setNote("Copying isn't available on this phone"),
     );
+  const regionLabels = useMemo(() => Object.fromEntries(regions.map((r) => [r.id, r.label])), [regions]);
   return (
     <div className="grid gap-3">
       <section
@@ -117,7 +176,7 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
             Never saved or sent
           </p>
         </div>
-        <WaLineMap map={map} selectedId={regionId} />
+        <WaLineMap map={map} selectedId={regionId} onSelect={setRegionId} regionLabels={regionLabels} />
         <div role="group" aria-label="Home region" className="grid grid-cols-2 gap-x-2 gap-y-3">
           {regions.map((r) => (
             <button
@@ -147,6 +206,20 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
       </section>
       {region ? (
         <>
+          {REGION_CULTURAL_TIPS[region.id] ? (
+            <section
+              data-testid={`fn-cultural-briefing-${region.id}`}
+              className="grid gap-1.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3"
+            >
+              <h4 className="text-2xs font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
+                Traditional Country & Customs
+              </h4>
+              <p className="text-sm-minus font-medium text-[color:var(--text-heading)]">
+                {REGION_CULTURAL_TIPS[region.id].country}
+              </p>
+              <p className="text-sm-minus text-[color:var(--text-muted)]">{REGION_CULTURAL_TIPS[region.id].tip}</p>
+            </section>
+          ) : null}
           <ModeGroupedList eyebrow={`Near home · ${region.label}`} headerIcon={MapPin} mode={MODE}>
             {region.services.map((c) => (
               <DialRow key={c.id} contact={c} />
