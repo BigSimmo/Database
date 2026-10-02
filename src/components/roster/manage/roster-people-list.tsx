@@ -117,7 +117,10 @@ export function RosterPeopleList({ team }: { team: RosterTeam }) {
   const people = useRosterRead(team.serviceId, "people");
   const [invite, setInvite] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const person = people.data?.people.find((item) => item.userId === editing) ?? null;
+  // The person stays chosen while the sheet closes, so it animates out and returns focus to the row.
+  const shown = person;
   return (
     <>
       <section className="grid gap-2">
@@ -129,7 +132,10 @@ export function RosterPeopleList({ team }: { team: RosterTeam }) {
               <li key={item.userId}>
                 <button
                   type="button"
-                  onClick={() => setEditing(item.userId)}
+                  onClick={() => {
+                    setEditing(item.userId);
+                    setSheetOpen(true);
+                  }}
                   className={cn(focusRing, "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-left")}
                 >
                   <span className="grid min-w-0 flex-1">
@@ -147,11 +153,14 @@ export function RosterPeopleList({ team }: { team: RosterTeam }) {
       </section>
       {people.message ? <p role="alert">{people.message}</p> : null}
       <Button onClick={() => setInvite(true)}>Invite by email</Button>
-      {person ? (
-        <Sheet open onClose={() => setEditing(null)} title={personTitle(person)} description={team.name}>
-          <PersonEditor key={person.userId} person={person} team={team} refresh={people.reload} />
-        </Sheet>
-      ) : null}
+      <Sheet
+        open={sheetOpen && person !== null}
+        onClose={() => setSheetOpen(false)}
+        title={shown ? personTitle(shown) : "Person"}
+        description={team.name}
+      >
+        {shown ? <PersonEditor key={shown.userId} person={shown} team={team} refresh={people.reload} /> : null}
+      </Sheet>
       {invite ? (
         <RosterInviteSheet serviceId={team.serviceId} teamName={team.name} onClose={() => setInvite(false)} />
       ) : null}

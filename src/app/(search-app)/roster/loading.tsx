@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui-primitives";
  * modules. The loading state keeps that shape so nothing jumps when the page
  * arrives (the centred mode-home skeleton did).
  */
-export default function Loading() {
+function RosterLoadingSkeleton() {
   return (
     <InformationPageShell as="div" width="narrow" testId="roster-route-loading">
       <div role="status" aria-label="Loading" className="grid min-w-0 gap-5">
@@ -25,4 +25,8 @@ export default function Loading() {
       </div>
     </InformationPageShell>
   );
+}
+
+export default function Loading() {
+  return <RosterLoadingSkeleton />;
 }

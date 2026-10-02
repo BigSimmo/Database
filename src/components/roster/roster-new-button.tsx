@@ -142,6 +142,7 @@ export function RosterNewButton({
         <div
           data-testid={`${testId}-layer`}
           data-scroll-hidden={hidden ? "true" : undefined}
+          inert={hidden || undefined}
           className={cn(
             // Phones: a fixed box in the footer layer, bottom right. Its own
             // padding clears the safe area or a visible search dock (whichever is

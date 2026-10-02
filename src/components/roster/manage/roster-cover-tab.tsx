@@ -162,28 +162,26 @@ function Gap({
         {message ? <span className="text-sm text-[color:var(--text-muted)]">{message}</span> : null}
         <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
       </button>
-      {opened ? (
-        <Sheet open onClose={() => setOpened(false)} title="Post gap" description={summary}>
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <TextField label="Starts (Perth)" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-              <TextField label="Ends (Perth)" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-            </div>
-            <TextField label="Shift code" maxLength={12} value={code} onChange={(e) => setCode(e.target.value)} />
-            {start && end ? (
-              <p className="text-sm">
-                {candidates.length
-                  ? `${candidates.map((person) => person.name ?? "Team member").join(", ")} may be able to take it. Team rules are checked again on acceptance.`
-                  : "No eligible colleague found in the loaded team roster."}
-              </p>
-            ) : null}
-            {message ? <p role="status">{message}</p> : null}
-            <Button variant="primary" disabled={busy || !start || !end || !code.trim()} onClick={() => void post()}>
-              Post gap
-            </Button>
+      <Sheet open={opened} onClose={() => setOpened(false)} title="Post gap" description={summary}>
+        <div className="grid gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            <TextField label="Starts (Perth)" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            <TextField label="Ends (Perth)" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
           </div>
-        </Sheet>
-      ) : null}
+          <TextField label="Shift code" maxLength={12} value={code} onChange={(e) => setCode(e.target.value)} />
+          {start && end ? (
+            <p className="text-sm">
+              {candidates.length
+                ? `${candidates.map((person) => person.name ?? "Team member").join(", ")} may be able to take it. Team rules are checked again on acceptance.`
+                : "No eligible colleague found in the loaded team roster."}
+            </p>
+          ) : null}
+          {message ? <p role="status">{message}</p> : null}
+          <Button variant="primary" disabled={busy || !start || !end || !code.trim()} onClick={() => void post()}>
+            Post gap
+          </Button>
+        </div>
+      </Sheet>
     </>
   );
 }
