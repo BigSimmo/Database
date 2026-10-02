@@ -103,7 +103,9 @@ describe("Roster publication preparation", () => {
     await screen.findByText("Locum 1");
     expect(screen.getByText(/Rows matched 0 of 1/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
-    await screen.findByText("Publishing needs a small database update first.");
+    expect((await screen.findAllByText("Publishing isn't available yet — ask the app owner.")).length).toBeGreaterThan(
+      0,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Keep as named" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Keep as named" })).toBeNull());
     expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
@@ -137,6 +139,25 @@ describe("Roster publication preparation", () => {
     expect(body.openShifts).toEqual([]);
     expect(body.overrideChanges).toEqual([]);
     expect(body).not.toHaveProperty("actorId");
+  });
+
+  it("names an invalid period as the blocker instead of waiting on a comparison that never starts", async () => {
+    fetchMock.mockImplementation(async (input: string) => {
+      if (input === "/api/roster/read-file") return Response.json({ grid });
+      return Response.json(preview);
+    });
+    render(<RosterPublishTab serviceId={SERVICE} overview={overview} />);
+    chooseFile();
+    await screen.findByText(/Compared with the live roster, including 0 swaps/);
+    fireEvent.change(screen.getByLabelText("Period ends"), { target: { value: `${futureYear}-09-01` } });
+    expect(await screen.findByText("The roster period ends before it starts. Fix the dates first.")).toHaveAttribute(
+      "id",
+      "roster-publish-blocked",
+    );
+    fireEvent.change(screen.getByLabelText("Period ends"), { target: { value: "" } });
+    expect(screen.getByText("Choose valid roster dates first.")).toHaveAttribute("id", "roster-publish-blocked");
+    expect(screen.queryByText("Comparing with the live roster…")).toBeNull();
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
   });
 
   it("invalidates the preview on a stale token and requires a fresh comparison", async () => {

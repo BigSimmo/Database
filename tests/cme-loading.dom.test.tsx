@@ -7,6 +7,11 @@ import Loading from "@/app/(search-app)/cme/loading";
 import LogLoading from "@/app/(search-app)/cme/log/loading";
 import CalendarLoading from "@/app/(search-app)/cme/calendar/loading";
 import TrainingLoading from "@/app/(search-app)/cme/training/loading";
+import LearningLoading from "@/app/(search-app)/cme/learning/loading";
+import RoutinesLoading from "@/app/(search-app)/cme/routines/loading";
+import NewLoading from "@/app/(search-app)/cme/new/loading";
+import CustomiseLoading from "@/app/(search-app)/cme/customise/loading";
+import EntryLoading from "@/app/(search-app)/cme/log/[id]/loading";
 
 const CLEARANCE = "pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)]";
 
@@ -55,8 +60,35 @@ describe("CPD loading state", () => {
     training.unmount();
   });
 
+  it("gives the pages that used to inherit Today's skeleton their own shapes", () => {
+    const pages = [
+      [LearningLoading, "Loading your CPD learning"],
+      [RoutinesLoading, "Loading your CPD routines"],
+      [NewLoading, "Loading the activity form"],
+      [CustomiseLoading, "Loading your dashboard choices"],
+      [EntryLoading, "Loading this activity"],
+    ] as const;
+    for (const [Page, name] of pages) {
+      const { container, unmount } = render(<Page />);
+      expect(screen.getByRole("status", { name })).toBeInTheDocument();
+      expect(screen.queryByTestId("cme-loading-hero")).toBeNull();
+      expect(container.firstElementChild?.className).toContain(CLEARANCE);
+      unmount();
+    }
+    render(<NewLoading />);
+    expect(screen.getByTestId("cme-new-loading-fields")).toBeInTheDocument();
+  });
+
   it("is static: no shimmer, no animation, no transition", () => {
-    for (const Page of [Loading, LogLoading]) {
+    for (const Page of [
+      Loading,
+      LogLoading,
+      LearningLoading,
+      RoutinesLoading,
+      NewLoading,
+      CustomiseLoading,
+      EntryLoading,
+    ]) {
       const { container, unmount } = render(<Page />);
       const moving = [...container.querySelectorAll<HTMLElement>("[class]")].filter((node) =>
         /animate-|shimmer|\btransition\b/.test(node.getAttribute("class") ?? ""),

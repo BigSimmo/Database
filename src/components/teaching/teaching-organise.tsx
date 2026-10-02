@@ -35,7 +35,7 @@ import {
 import { addDays, perthDateKey, perthTime } from "@/components/teaching/teaching-dates";
 import { SessionTimeline } from "@/components/teaching/teaching-modules";
 import { withUnit } from "@/components/teaching/teaching-number";
-import { TeachingRow } from "@/components/teaching/teaching-row";
+import { TeachingRow, TeachingUndoBar } from "@/components/teaching/teaching-row";
 import { TeachingSignInNotice } from "@/components/teaching/teaching-sign-in";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
 import { sessionRow } from "@/components/teaching/teaching-view-model";
@@ -117,6 +117,7 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
   );
   const [open, setOpen] = useState<Open>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const delayed = useDelayedPost();
   // R9: the change reaches the session's series' groups, and the occurrence read names its series.
   const changing = open?.kind === "change" ? open.session : null;
@@ -205,9 +206,11 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
         : data.members.length;
 
     async function download() {
+      if (downloading) return;
       const to = perthDateKey(now!);
       const from = addDays(to, -83);
       setNotice(null);
+      setDownloading(true);
       try {
         const result = await teachingGet<{ rows: ExportRow[] }>(
           teachingServiceUrl(service, { action: "export.attendance", from, to }),
@@ -229,6 +232,8 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
         link.click();
       } catch (cause) {
         setNotice(teachingErrorMessage(cause));
+      } finally {
+        setDownloading(false);
       }
     }
 
@@ -301,7 +306,8 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
           />
           <TeachingRow
             title="Download attendance"
-            subtitle={`Last ${withUnit(12, "weeks")}, as a spreadsheet`}
+            subtitle={downloading ? "Preparing the spreadsheet…" : `Last ${withUnit(12, "weeks")}, as a spreadsheet`}
+            busy={downloading}
             onClick={() => void download()}
           />
         </ModeGroupedList>
@@ -363,31 +369,26 @@ function TeachingOrganiseContent({ demoMode }: { demoMode: boolean }) {
     <InformationPageShell width="narrow" gap={false} testId="teaching-organise">
       <div className="grid gap-3">
         <h1 className="sr-only">Organise</h1>
-        <Link href="/teaching/import" className="inline-flex min-h-12 items-center underline">
-          Import a timetable
-        </Link>
+        {teams.length > 0 && !demoMode ? (
+          <Link
+            href="/teaching/import"
+            className={cn(
+              "inline-flex min-h-tap items-center self-start px-1 text-sm font-medium text-[color:var(--primary)]",
+              focusRing,
+            )}
+          >
+            Import a timetable
+          </Link>
+        ) : null}
         {teams.length > 0 && serviceId && !demoMode ? (
           <ServicePicker teams={teams} value={serviceId} onChange={setChosen} />
         ) : null}
         {body}
       </div>
       {delayed.pending ? (
-        <div
-          role="status"
-          data-testid="teaching-organise-pending"
-          className="fixed inset-x-4 bottom-4 z-[var(--z-toast)] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-1 pr-1 pl-3 shadow-[var(--e4)]"
-        >
-          <span className="text-sm text-[color:var(--text-heading)]">
-            {delayed.pending}. Leaving this page cancels the unsent change.
-          </span>
-          <button
-            type="button"
-            onClick={delayed.undo}
-            className={cn("min-h-12 min-w-12 px-3 text-sm font-medium text-[color:var(--primary)]", focusRing)}
-          >
-            Undo
-          </button>
-        </div>
+        <TeachingUndoBar testId="teaching-organise-pending" onUndo={delayed.undo}>
+          {delayed.pending}. Leaving this page cancels the unsent change.
+        </TeachingUndoBar>
       ) : null}
     </InformationPageShell>
   );

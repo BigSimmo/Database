@@ -6,8 +6,9 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
+import { catchUpCount } from "@/components/teaching/teaching-catch-up";
 import { TeachingCalendarSheet } from "@/components/teaching/teaching-calendar-sheet";
-import { addDays, perthDateKey } from "@/components/teaching/teaching-dates";
+import { addDays, mondayOf, perthDateKey } from "@/components/teaching/teaching-dates";
 import { TeachingHero } from "@/components/teaching/teaching-hero";
 import { TeachingContextBar } from "@/components/teaching/teaching-modules";
 import { NeedsYou } from "@/components/teaching/teaching-needs-you";
@@ -37,7 +38,9 @@ import { teachingErrorMessage, teachingPost, teachingServiceUrl } from "@/lib/te
 export function TeachingToday({ demoMode }: { demoMode: boolean }) {
   const now = useTeachingNow();
   const today = now ? perthDateKey(now) : null;
-  const range = useMemo(() => (today ? { from: today, to: addDays(today, 6) } : null), [today]);
+  // From this Monday, so the catch-up count sees the whole calendar week (as Resources does); the hero
+  // and Rest of this week only look at sessions that have not ended, so the earlier days change nothing there.
+  const range = useMemo(() => (today ? { from: mondayOf(today), to: addDays(today, 6) } : null), [today]);
   const view = useTeachingWeek(range, { demoMode }, now);
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-today">
@@ -58,6 +61,7 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [checkedIn, setCheckedIn] = useState(false);
   const live = view.demo === "off";
   const week = view.status === "ready" ? view.week : null;
   const teamValue = week && (team === ALL_TEAMS || week.teams.some((t) => t.id === team)) ? team : ALL_TEAMS;
@@ -78,6 +82,13 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
     return <TeachingStateNotice state={view.status} onRetry={view.retry} />;
   if (!week || (!inRange && later.status === "loading")) return <ModeModuleSkeleton rows={2} twoLine eyebrow />;
   if (week.teams.length === 0 && week.relocated.length === 0) return <TeachingStateNotice state="no-team" />;
+  // A failed `view=next-session` read is not "No sessions yet": say what went wrong.
+  const laterStatus = later.status;
+  const laterFailure =
+    !inRange &&
+    (laterStatus === "offline" || laterStatus === "error" || laterStatus === "setup" || laterStatus === "signed-out")
+      ? laterStatus
+      : null;
 
   const bar = (
     <TeachingContextBar
@@ -87,6 +98,18 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
       demoTag={!live || week.teams.some((t) => t.isDemo)}
     />
   );
+  if (laterFailure) {
+    return (
+      <>
+        {bar}
+        {laterFailure === "signed-out" ? (
+          <TeachingSignInNotice />
+        ) : (
+          <TeachingStateNotice state={laterFailure} onRetry={later.retry} />
+        )}
+      </>
+    );
+  }
   if (!next) {
     const chosen = week.teams.find((t) => t.id === teamValue) ?? (week.teams.length === 1 ? week.teams[0] : undefined);
     return (
@@ -97,6 +120,8 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
           serviceName={chosen?.name}
           onSwitchService={teamValue !== ALL_TEAMS ? () => setTeam(ALL_TEAMS) : undefined}
         />
+        {/* No session ahead still leaves past ones to log, give feedback on or catch up on. */}
+        <NeedsYou live={live} today={today} catchUp={catchUpCount(week, now)} />
       </>
     );
   }
@@ -120,11 +145,13 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
     }
     setSaving(true);
     setSaveError(null);
+    setCheckedIn(false);
     try {
       await teachingPost(teachingServiceUrl(next.serviceId), {
         action: "attendance.self",
         occurrenceId: next.occurrenceId,
       });
+      setCheckedIn(true);
       view.retry();
     } catch (cause) {
       setSaveError(teachingErrorMessage(cause));
@@ -145,8 +172,13 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
     <>
       {bar}
       <TeachingHero {...hero} actions={actions} />
-      {saveError ? <ModeNotice tone="warning">{saveError}</ModeNotice> : null}
-      <NeedsYou live={live} />
+      {checkedIn ? <ModeNotice testId="teaching-today-checked-in">Checked in.</ModeNotice> : null}
+      {saveError ? (
+        <div role="alert">
+          <ModeNotice tone="warning">{saveError}</ModeNotice>
+        </div>
+      ) : null}
+      <NeedsYou live={live} today={today} catchUp={catchUpCount(week, now)} />
       <ModeGroupedList testId="teaching-rest-of-week">
         <ModeRow
           href="/teaching/week"

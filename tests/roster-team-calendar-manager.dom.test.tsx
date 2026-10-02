@@ -35,7 +35,8 @@ vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskButton: () =
 vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "authenticated", authEpoch: 1 }) }));
 
 import { UNDO_MS } from "@/components/roster/swaps/use-delayed-roster-action";
-import { approveAllWithoutWarnings } from "@/components/roster/team/calendar/needs-you-strip";
+import { approveAllWithoutWarnings, SwapDecisionRow } from "@/components/roster/team/calendar/needs-you-strip";
+import { recheckDecision } from "@/components/roster/manage/roster-decision-sheet";
 import { RosterTeamPage } from "@/components/roster/team/roster-team-page";
 import type { RosterAction, RosterManageSwap } from "@/lib/roster/team/model";
 import type { RuleFlag } from "@/lib/roster/team/rule-flags";
@@ -106,6 +107,7 @@ const swap = (id: string, give: unknown, take: unknown, over: Record<string, unk
 });
 
 type Options = {
+  onPost?: () => void;
   role?: "manager" | "member";
   rules?: Record<string, unknown>;
   assignments?: unknown[];
@@ -128,6 +130,7 @@ function mockFetch(options: Options = {}) {
     if (init?.method === "POST") {
       const body = JSON.parse(String(init.body)) as { swapId?: string };
       posts.push(body);
+      options.onPost?.();
       if (body.swapId && options.refuse?.has(body.swapId))
         return Response.json({ code: "roster_conflict", message: "That shift has already changed." }, { status: 409 });
       if (body.swapId && options.answers?.[body.swapId]) return Response.json({ result: options.answers[body.swapId] });
@@ -688,7 +691,193 @@ describe("Team calendar, manager layer", () => {
     expect(all.disabled).toBe(true);
     // A single decision is still the manager's to make.
     fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+    const review = await screen.findByRole("dialog", { name: "Review fresh roster checks" });
+    expect(posts).toEqual([]);
+    expect(within(review).getByText(/Team rules could not be fully checked/)).toBeTruthy();
+    fireEvent.click(within(review).getByRole("button", { name: "Approve after review" }));
     await waitFor(() => expect(posts).toEqual([{ action: "swap.approve", swapId: ID(57) }]));
+  });
+
+  it("requires explicit review of a rest warning introduced after the calendar loaded", async () => {
+    const waiting = swap(ID(50), samThursdayNight, null);
+    const options: Options = { rules: { minBreakHours: 10 }, assignments: [mine, samThursdayNight], swaps: [waiting] };
+    const { posts } = mockFetch(options);
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    await waitFor(() => expect(within(strip).queryByText("Not checked, open it to review")).toBeNull());
+    options.assignments = [mine, samThursdayNight, { ...mine, id: ID(20), userId: PAT, name: "Dr Pat Example" }];
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+    const review = await screen.findByRole("dialog", { name: "Review fresh roster checks" });
+    expect(within(review).getByText("After this swap: Less than 10 hours' rest before this shift")).toBeTruthy();
+    expect(posts).toEqual([]);
+    // A rule changed again while the manager was reading. The old review is not reusable.
+    options.rules = { minBreakHours: 12 };
+    fireEvent.click(within(review).getByRole("button", { name: "Approve after review" }));
+    await within(review).findByText("After this swap: Less than 12 hours' rest before this shift");
+    expect(posts).toEqual([]);
+    fireEvent.click(within(review).getByRole("button", { name: "Approve after review" }));
+    await waitFor(() => expect(posts).toEqual([{ action: "swap.approve", swapId: ID(50) }]));
+  });
+
+  it("bulk approval leaves a freshly unsafe swap unapproved", async () => {
+    const options: Options = {
+      rules: { minBreakHours: 10 },
+      assignments: [mine, samThursdayNight],
+      swaps: [swap(ID(50), samThursdayNight, null)],
+    };
+    const { posts } = mockFetch(options);
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    const all = within(strip).getByRole("button", { name: "Approve all without warnings" }) as HTMLButtonElement;
+    await waitFor(() => expect(all.disabled).toBe(false));
+    options.assignments = [mine, samThursdayNight, { ...mine, id: ID(20), userId: PAT, name: "Dr Pat Example" }];
+    fireEvent.click(all);
+    await within(strip).findByText("Approved 0. 1 left for you to read because a shift has a rule warning.");
+    expect(posts).toEqual([]);
+  });
+
+  it("rechecks the full rule window around both fresh swap sides", async () => {
+    const take = { ...samFridayNight, id: ID(21), userId: PAT };
+    const waiting = swap(ID(50), samThursdayNight, take) as unknown as RosterManageSwap;
+    const { reads } = mockFetch({
+      rules: { maxHours14d: 24 },
+      assignments: [samThursdayNight, take],
+      swaps: [waiting],
+    });
+    const result = await recheckDecision(TEAM, { kind: "swap", item: waiting });
+    expect(result.ok && result.rules?.checkable).toBe(true);
+    const read = new URL(
+      reads.find((address) => address.includes("what=assignments"))!,
+      "http://localhost",
+    );
+    expect(read.searchParams.get("from")).toBe("2026-09-30");
+    expect(read.searchParams.get("to")).toBe("2026-10-31");
+  });
+
+  it("bulk approval does not use old checkability when fresh rules fail", async () => {
+    const options: Options = { assignments: [mine, samThursdayNight], swaps: [swap(ID(50), samThursdayNight, null)] };
+    const { posts } = mockFetch(options);
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    const all = within(strip).getByRole("button", { name: "Approve all without warnings" }) as HTMLButtonElement;
+    await waitFor(() => expect(all.disabled).toBe(false));
+    options.overviewFails = true;
+    fireEvent.click(all);
+    await within(strip).findByText("Approved 0. 1 not checked, open it to review.");
+    expect(posts).toEqual([]);
+  });
+
+  it("bulk approval rechecks the second swap after the first changes the roster", async () => {
+    const noor = "99999999-9999-4999-8999-999999999999";
+    const friday = { ...samFridayNight, id: ID(22), userId: noor, name: "Dr Noor Example" };
+    const first = swap(ID(50), samThursdayNight, null);
+    const second = swap(ID(51), friday, null, { requesterId: noor, requesterName: "Dr Noor Example" });
+    const options: Options = {
+      rules: { maxNightsInRow: 1 },
+      assignments: [samThursdayNight, friday],
+      swaps: [first, second],
+    };
+    options.onPost = () => {
+      options.assignments = [{ ...samThursdayNight, userId: PAT }, friday];
+      options.swaps = [second];
+    };
+    const { posts } = mockFetch(options);
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    const all = within(strip).getByRole("button", { name: "Approve all without warnings" }) as HTMLButtonElement;
+    await waitFor(() => expect(all.disabled).toBe(false));
+    fireEvent.click(all);
+    await within(strip).findByText("Approved 1. 1 left for you to read because a shift has a rule warning.");
+    expect(posts).toEqual([{ action: "swap.approve", swapId: ID(50) }]);
+  });
+
+  it("rechecks the live roster before an Approve in the strip, and sends nothing for a swap that has changed", async () => {
+    const options: Options = { swaps: [swap(ID(50), samThursdayNight, null)] };
+    const { posts, reads } = mockFetch(options);
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    const manageReads = () => reads.filter((address) => address.includes("what=manage")).length;
+    const before = manageReads();
+    // Someone else decided it after the list loaded.
+    options.swaps = [];
+    fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+    expect((await within(strip).findByRole("alert")).textContent).toBe(
+      "This decision wasn't sent because it has changed. The list has been refreshed.",
+    );
+    expect(manageReads()).toBeGreaterThan(before);
+    expect(posts).toEqual([]);
+  });
+
+  it("rechecks before an Approve in the shift sheet, and sends nothing for a swap that has changed", async () => {
+    const options: Options = { swaps: [swap(ID(50), samThursdayNight, null)] };
+    const { posts } = mockFetch(options);
+    render(<RosterTeamPage now={NOW} />);
+    await screen.findByRole("region", { name: "Needs you" });
+    fireEvent.click(screen.getByRole("button", { name: /Dr Sam Example, Night/ }));
+    const sheet = await screen.findByRole("dialog");
+    options.swaps = [swap(ID(50), samThursdayNight, null, { status: "approved" })];
+    fireEvent.click(within(sheet).getByRole("button", { name: "Approve" }));
+    expect((await within(sheet).findByRole("alert")).textContent).toContain("it has changed");
+    expect(posts).toEqual([]);
+  });
+
+  it("'Approve all' rechecks each swap, skipping and reporting one that has changed", async () => {
+    const saturday = shift(
+      ID(5),
+      SAM,
+      "Dr Sam Example",
+      "day",
+      "D",
+      "2026-10-17T09:00:00+08:00",
+      "2026-10-17T17:00:00+08:00",
+    );
+    const patFriday = { ...meFriday, id: ID(10), userId: PAT, name: "Dr Pat Example" };
+    const stays = swap(ID(81), saturday, null);
+    const goes = swap(ID(82), patFriday, null, {
+      requesterId: PAT,
+      counterpartyId: SAM,
+      requesterName: "Dr Pat Example",
+      counterpartyName: "Dr Sam Example",
+    });
+    const options: Options = { assignments: [mine, samThursdayNight, saturday, patFriday], swaps: [stays, goes] };
+    const { posts } = mockFetch(options);
+    render(<RosterTeamPage now={NOW} />);
+    const strip = await screen.findByRole("region", { name: "Needs you" });
+    const all = within(strip).getByRole("button", { name: "Approve all without warnings" }) as HTMLButtonElement;
+    await waitFor(() => expect(all.disabled).toBe(false));
+    options.swaps = [stays];
+    fireEvent.click(all);
+    expect(await within(strip).findByText("Approved 1.")).toBeTruthy();
+    expect(within(strip).getByRole("alert").textContent).toContain(
+      "The swap between Dr Pat Example and Dr Sam Example wasn't sent because it has changed.",
+    );
+    expect(posts).toEqual([{ action: "swap.approve", swapId: ID(81) }]);
+  });
+
+  it("says an identical rule warning once for one swap", () => {
+    const waiting = swap(ID(89), samThursdayNight, null) as unknown as RosterManageSwap;
+    const words = "Less than 10 hours' rest before this shift";
+    render(
+      <SwapDecisionRow
+        swap={waiting}
+        checks={{
+          flags: new Map(),
+          afterSwap: new Map([
+            [
+              ID(89),
+              [
+                { assignmentId: ID(2), rule: "minBreakHours", words, userId: SAM },
+                { assignmentId: ID(3), rule: "minBreakHours", words, userId: SAM },
+              ],
+            ],
+          ]),
+          checkable: new Set([ID(89)]),
+        }}
+        busy={false}
+        onDecide={() => {}}
+      />,
+    );
+    expect(screen.getAllByText(`After this swap, Dr Sam Example: ${words}`)).toHaveLength(1);
   });
 
   it("lists short days from today onward only", async () => {

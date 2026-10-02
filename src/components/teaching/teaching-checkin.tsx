@@ -1,29 +1,29 @@
 "use client";
 
+import { Copy, ExternalLink, MonitorUp, MonitorX, Share2 } from "lucide-react";
 import { useState } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
-import { ModeFactTile, ModeFactTiles } from "@/components/mode-kit/fact-tile";
-import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { CheckinQr } from "@/components/teaching/checkin-qr";
 import { checkinCloses, checkinOpens, formatTypedCode, isOccurrenceId } from "@/components/teaching/session-view-model";
 import { perthTime } from "@/components/teaching/teaching-dates";
-import { DrainingHairline, TeachingSwitch } from "@/components/teaching/teaching-modules";
+import { AttendanceTileRow, DrainingHairline, TeachingSwitch } from "@/components/teaching/teaching-modules";
 import { TeachingNavHeader } from "@/components/teaching/teaching-nav-header";
 import type { SessionDetailRead } from "@/components/teaching/teaching-reads";
-import { TeachingRow } from "@/components/teaching/teaching-row";
 import { TeachingSignInNotice } from "@/components/teaching/teaching-sign-in";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
 import {
   attendanceTiles,
   CHECKIN_WINDOW_MS,
+  useCheckinClock,
   useCheckinCode,
   useRegisterCounts,
 } from "@/components/teaching/use-checkin-code";
 import { useSessionDetail } from "@/components/teaching/use-session-detail";
-import { useTeachingNow } from "@/components/teaching/use-teaching-now";
+import { useWakeLock } from "@/components/teaching/use-wake-lock";
+import { Button, buttonFaceClass } from "@/components/ui/button";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { checkinScanPath } from "@/lib/teaching/checkin-token";
 import { teachingErrorMessage, teachingPost, teachingServiceUrl } from "@/lib/teaching/client";
@@ -41,7 +41,7 @@ const MINUTE = 60_000;
 type SharedScreen = { token: string; path: string; expiresAt: string };
 
 export function TeachingCheckinScreen({ occurrenceId, demoMode }: { occurrenceId: string; demoMode: boolean }) {
-  const now = useTeachingNow(1000);
+  const now = useCheckinClock();
   const valid = isOccurrenceId(occurrenceId);
   const resource = useSessionDetail(valid && !demoMode ? occurrenceId : null, false, now);
   const detail = resource.data;
@@ -66,14 +66,18 @@ export function TeachingCheckinScreen({ occurrenceId, demoMode }: { occurrenceId
 
   return (
     <>
+      {/* The header's title is the page's h1; the session's name sits under it in the body. */}
       <TeachingNavHeader
         title="Check-in code"
+        titleAs="h1"
         testIdPrefix="teaching-checkin"
         back={{ href: `/teaching/session/${occurrenceId}`, label: "Session" }}
       />
       <InformationPageShell width="narrow" gap={false} testId="teaching-checkin">
         <div className="grid gap-3">
-          <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">{detail?.title ?? "Check-in code"}</h1>
+          {detail ? (
+            <p className="text-base-minus font-medium text-[color:var(--text-heading)]">{detail.title}</p>
+          ) : null}
           {body}
         </div>
       </InformationPageShell>
@@ -86,6 +90,7 @@ function CodePanel({ detail, nowMs }: { detail: SessionDetailRead; nowMs: number
   const [shared, setShared] = useState<SharedScreen | null>(null);
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<"copied" | "failed" | null>(null);
   const serviceUrl = teachingServiceUrl(detail.serviceId);
   const code = useCheckinCode<CheckinCode>(
     teachingServiceUrl(detail.serviceId, { action: "checkin.code", occurrenceId: detail.occurrenceId, stream }),
@@ -95,6 +100,29 @@ function CodePanel({ detail, nowMs }: { detail: SessionDetailRead; nowMs: number
     teachingServiceUrl(detail.serviceId, { action: "register.read", occurrenceId: detail.occurrenceId }),
   );
   const expected = detail.counts?.expected ?? null;
+  // Keep the phone awake while the code is on show; the screen sleeps as normal otherwise.
+  useWakeLock(code.phase === "live");
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const sharedUrl = shared ? new URL(shared.path, window.location.origin).toString() : null;
+
+  async function copyLink() {
+    if (!sharedUrl) return;
+    try {
+      await navigator.clipboard.writeText(sharedUrl);
+      setCopied("copied");
+    } catch {
+      setCopied("failed");
+    }
+  }
+
+  async function shareLink() {
+    if (!sharedUrl) return;
+    try {
+      await navigator.share({ title: detail.title, url: sharedUrl });
+    } catch {
+      // Dismissing the share sheet is not an error worth showing.
+    }
+  }
   const closes = checkinCloses(detail);
 
   async function toggleShared() {
@@ -106,6 +134,7 @@ function CodePanel({ detail, nowMs }: { detail: SessionDetailRead; nowMs: number
       if (shared) {
         await teachingPost(serviceUrl, { action: "display.revoke", token: shared.token });
         setShared(null);
+        setCopied(null);
       } else {
         // Master plan R2: `display.create` answers `{ token, path, expiresAt }`; the path shows codes only.
         setShared(
@@ -169,31 +198,67 @@ function CodePanel({ detail, nowMs }: { detail: SessionDetailRead; nowMs: number
           <ModeModuleSkeleton rows={2} twoLine eyebrow />
         )}
       </section>
-      {counts ? (
-        <div role="group" aria-label="Attendance so far">
-          <ModeFactTiles>
-            {attendanceTiles(counts, expected).map((tile) => (
-              <ModeFactTile key={tile.id} label={tile.label} value={tile.value} />
-            ))}
-          </ModeFactTiles>
-        </div>
-      ) : null}
-      <ModeGroupedList mode="teaching">
-        <TeachingRow
-          title={shared ? "Stop sharing" : "Show on a shared screen"}
-          subtitle={shared ? "The shared screen's link stops working" : "No sign-in needed. It shows the code only."}
+      {counts ? <AttendanceTileRow label="Attendance so far" tiles={attendanceTiles(counts, expected)} /> : null}
+      <section aria-label="Shared screen" className="grid gap-2" data-testid="teaching-checkin-shared">
+        <Button
+          variant="secondary"
+          block
+          icon={shared ? MonitorX : MonitorUp}
+          busy={sharing}
+          busyLabel={shared ? "Stopping" : "Creating link"}
           onClick={() => void toggleShared()}
           testId="teaching-checkin-share"
-        />
+        >
+          {shared ? "Stop sharing" : "Show on a shared screen"}
+        </Button>
+        <p className={cn("text-sm", textMuted)}>
+          {shared
+            ? `Link works until ${perthTime(shared.expiresAt)}. Stopping makes it stop working.`
+            : "No sign-in needed. It shows the code only."}
+        </p>
         {shared ? (
-          <TeachingRow
-            title="Open the shared screen"
-            subtitle={`Link works until ${perthTime(shared.expiresAt)}`}
-            externalHref={shared.path}
-          />
+          <div className="grid gap-2 @container">
+            <a
+              href={shared.path}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(buttonFaceClass({ variant: "secondary", block: true }), "no-underline")}
+            >
+              <ExternalLink aria-hidden="true" className="size-icon-md shrink-0" />
+              <span>Open the shared screen</span>
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            <div className="grid gap-2 @min-[17rem]:auto-cols-fr @min-[17rem]:grid-flow-col">
+              <Button variant="ghost" block icon={Copy} onClick={() => void copyLink()}>
+                Copy link
+              </Button>
+              {canShare ? (
+                <Button variant="ghost" block icon={Share2} onClick={() => void shareLink()}>
+                  Share…
+                </Button>
+              ) : null}
+            </div>
+            {copied === "copied" ? (
+              <p role="status" className={cn("text-sm", textMuted)} data-testid="teaching-checkin-copied">
+                Link copied.
+              </p>
+            ) : copied === "failed" ? (
+              <p
+                role="alert"
+                className="text-sm text-[color:var(--text-heading)]"
+                data-testid="teaching-checkin-copied"
+              >
+                Couldn&apos;t copy the link. Open the shared screen and copy it from there.
+              </p>
+            ) : null}
+          </div>
         ) : null}
-      </ModeGroupedList>
-      {error ? <ModeNotice tone="warning">{error}</ModeNotice> : null}
+      </section>
+      {error ? (
+        <div role="alert">
+          <ModeNotice tone="warning">{error}</ModeNotice>
+        </div>
+      ) : null}
       <p className={cn("text-sm", textMuted)}>Presenters see counts only. Organisers see the named register.</p>
     </>
   );

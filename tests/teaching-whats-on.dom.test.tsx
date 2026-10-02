@@ -105,6 +105,13 @@ describe("TeachingWhatsOn", () => {
     ]);
   });
 
+  it("still opens a session from a row that carries the plus", async () => {
+    serve([later]);
+    render(<TeachingWhatsOn demoMode={false} />);
+    await screen.findByRole("button", { name: "Add Journal club to my week" });
+    expect(screen.getByRole("link", { name: "Journal club" })).toHaveAttribute("href", `/teaching/session/${LATER}`);
+  });
+
   it("puts the plus back and says why when the add fails", async () => {
     serve([later], () => apiError(403, "teaching_role_denied"));
     render(<TeachingWhatsOn demoMode={false} />);

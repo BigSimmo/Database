@@ -2,15 +2,29 @@
 
 import { useState } from "react";
 
-import { managerReason } from "@/components/roster/manage/roster-decision-sheet";
+import {
+  decisionAction,
+  decisionReviewWords,
+  managerReason,
+  recheckDecision,
+  type ManagerDecision,
+  type FreshDecisionRules,
+} from "@/components/roster/manage/roster-decision-sheet";
 import { postRosterAction } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import type { RosterAction, RosterManageOpenShift, RosterManageSwap } from "@/lib/roster/team/model";
 import type { RuleFlag, SwapRuleFlag } from "@/lib/roster/team/rule-flags";
 
 type Post = (action: RosterAction) => ReturnType<typeof postRosterAction>;
+/** The live recheck of one waiting swap: the swap as it stands now, or why it cannot be decided. */
+export type SwapRecheck = (
+  swap: RosterManageSwap,
+) => Promise<
+  { ok: true; swap: RosterManageSwap; rules?: FreshDecisionRules } | { ok: false; reason: "unreachable" | "changed" }
+>;
 type Flags = ReadonlyMap<string, readonly RuleFlag[]>;
 
 /**
@@ -30,7 +44,11 @@ export type SwapChecks = {
 export type ApproveAllResult = {
   approved: number;
   refused: { id: string; message: string }[];
-  /** Swaps the server answered but did not approve (expired or cancelled), in plain words. */
+  /**
+   * Swaps not approved, in plain words: the server answered expired or
+   * cancelled, or the live recheck found the swap changed or could not reach
+   * the roster, so nothing was sent for it.
+   */
   notApproved: { id: string; words: string }[];
   /** Swaps with a rule warning, left for the manager to read. */
   warned: string[];
@@ -39,6 +57,16 @@ export type ApproveAllResult = {
 };
 
 const SHORT_DAYS_SHOWN = 6;
+
+/** The strip's id, so the Manage page's Approve tab can take the manager straight to it. */
+export const NEEDS_YOU_ID = "roster-needs-you";
+
+/** Scrolls to the Needs you strip and moves focus to its heading. */
+export function goToNeedsYou() {
+  const heading = document.getElementById(`${NEEDS_YOU_ID}-heading`);
+  heading?.scrollIntoView({ block: "start" });
+  heading?.focus({ preventScroll: true });
+}
 
 /**
  * A swap carries a warning when the server said it breaks a team rule, when
@@ -71,6 +99,13 @@ function notApprovedWords(subject: string, result: { status?: string; cancelReas
   return `${subject} wasn't confirmed as approved. Check the list again.`;
 }
 
+/** Plain words for a decision the live recheck stopped before anything was sent. */
+function recheckWords(subject: string, reason: "unreachable" | "changed"): string {
+  return reason === "unreachable"
+    ? `${subject} wasn't sent because the roster could not be rechecked. Try again.`
+    : `${subject} wasn't sent because it has changed. The list has been refreshed.`;
+}
+
 /**
  * Approves the waiting swaps that could be checked and carry no rule warning,
  * one at a time so each is rechecked by the server on its own. `checkable`
@@ -79,11 +114,17 @@ function notApprovedWords(subject: string, result: { status?: string; cancelReas
  * with a warning is left for the manager to read; a swap the server refuses
  * is reported with the server's own words, and one it answers as expired or
  * cancelled is reported in plain words. Only an answer of "approved" counts.
+ *
+ * With `recheck`, each swap is rechecked live just before it is sent, the same
+ * recheck the Review sheet runs: one that has changed, or could not be
+ * rechecked, is skipped and reported, and one the server now says breaks a
+ * team rule is left for the manager to read.
  */
 export async function approveAllWithoutWarnings(
   pending: readonly RosterManageSwap[],
   checks: SwapChecks,
   post: Post,
+  recheck?: SwapRecheck,
 ): Promise<ApproveAllResult> {
   const result: ApproveAllResult = { approved: 0, refused: [], notApproved: [], warned: [], notChecked: [] };
   for (const swap of pending) {
@@ -94,6 +135,24 @@ export async function approveAllWithoutWarnings(
     if (swapHasWarning(swap, checks)) {
       result.warned.push(swap.id);
       continue;
+    }
+    if (recheck) {
+      const fresh = await recheck(swap);
+      if (!fresh.ok) {
+        result.notApproved.push({
+          id: swap.id,
+          words: recheckWords(`The swap between ${swapPeople(swap)}`, fresh.reason),
+        });
+        continue;
+      }
+      if (fresh.rules && !fresh.rules.checkable) {
+        result.notChecked.push(swap.id);
+        continue;
+      }
+      if (fresh.rules ? fresh.rules.warnings.length > 0 : swapHasWarning(fresh.swap, checks)) {
+        result.warned.push(swap.id);
+        continue;
+      }
     }
     const sent = await post({ action: "swap.approve", swapId: swap.id });
     if (!sent.ok) result.refused.push({ id: swap.id, message: sent.message });
@@ -111,21 +170,54 @@ export async function approveAllWithoutWarnings(
  * Sends a manager's decisions for one team and keeps the answer to show: one
  * decision at a time, the server's words when it refuses. The strip and the
  * shift sheet both decide through this, so a swap is approved the same way
- * from either place.
+ * from either place, and every decision is first rechecked live with the same
+ * recheck the Review sheet runs (`recheckDecision`). The action sent is worked
+ * out from the rechecked request; one that has changed since the list loaded
+ * is not sent at all.
  */
 export function useRosterDecision(serviceId: string, onChanged: () => void) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [review, setReview] = useState<{
+    decision: ManagerDecision;
+    rules: FreshDecisionRules;
+    words: string[];
+  } | null>(null);
   const post: Post = (action) => postRosterAction(serviceId, action);
+  const recheck: SwapRecheck = async (swap) => {
+    const outcome = await recheckDecision(serviceId, { kind: "swap", item: swap });
+    return outcome.ok && outcome.current.kind === "swap"
+      ? { ok: true, swap: outcome.current.item, rules: outcome.rules ?? undefined }
+      : { ok: false, reason: outcome.ok ? "changed" : outcome.reason };
+  };
 
-  async function decide(action: RosterAction) {
+  async function decide(decision: ManagerDecision, approve: boolean, reviewedFingerprint?: string) {
     if (busy) return;
     setBusy(true);
-    setMessage(null);
+    setMessage("Rechecking the live roster…");
     setErrors([]);
+    const fresh = await recheckDecision(serviceId, decision);
+    // A taken shift that is no longer taken (or the reverse) is a different decision.
+    if (!fresh.ok || fresh.current.item.status !== decision.item.status) {
+      setBusy(false);
+      setMessage(null);
+      setErrors([recheckWords("This decision", fresh.ok ? "changed" : fresh.reason)]);
+      onChanged();
+      return;
+    }
+    const words = decisionReviewWords(fresh.rules);
+    if (approve && words.length && reviewedFingerprint !== fresh.rules?.fingerprint) {
+      setBusy(false);
+      setMessage(null);
+      setReview({ decision: fresh.current, rules: fresh.rules!, words });
+      return;
+    }
+    setReview(null);
+    const action = decisionAction(fresh.current, approve);
     const sent = await post(action);
     setBusy(false);
+    setMessage(null);
     if (!sent.ok) setErrors([sent.message]);
     else if (action.action === "swap.approve" && sent.result.status !== "approved")
       setErrors([notApprovedWords("This swap", sent.result)]);
@@ -135,9 +227,9 @@ export function useRosterDecision(serviceId: string, onChanged: () => void) {
   async function approveAll(pending: readonly RosterManageSwap[], checks: SwapChecks) {
     if (busy) return;
     setBusy(true);
-    setMessage(null);
+    setMessage("Rechecking and approving…");
     setErrors([]);
-    const outcome = await approveAllWithoutWarnings(pending, checks, post);
+    const outcome = await approveAllWithoutWarnings(pending, checks, post, recheck);
     setBusy(false);
     setMessage(
       [
@@ -156,7 +248,23 @@ export function useRosterDecision(serviceId: string, onChanged: () => void) {
     onChanged();
   }
 
-  return { busy, message, errors, decide, approveAll };
+  const reviewDialog = (
+    <ConfirmDialog
+      open={review !== null}
+      tone="primary"
+      title="Review fresh roster checks"
+      description={review?.words.map((words) => (
+        <p key={words}>{words}</p>
+      ))}
+      confirmLabel="Approve after review"
+      onCancel={() => setReview(null)}
+      onConfirm={() => {
+        if (review) void decide(review.decision, true, review.rules.fingerprint);
+      }}
+      busy={busy}
+    />
+  );
+  return { busy, message, errors, decide, approveAll, reviewDialog };
 }
 
 const who = (name: string | null | undefined, fallback: string | null | undefined) =>
@@ -197,8 +305,18 @@ export function SwapDecisionRow({
   checks: SwapChecks;
   showNotChecked?: boolean;
   busy: boolean;
-  onDecide: (action: RosterAction) => void;
+  onDecide: (decision: ManagerDecision, approve: boolean) => void;
 }) {
+  const decision: ManagerDecision = { kind: "swap", item: swap };
+  // Two flags can read the same for one person (one rest rule broken by two
+  // shifts); the manager needs to read each warning once.
+  const afterLines = [
+    ...new Set(
+      (checks.afterSwap.get(swap.id) ?? []).map(
+        (flag) => `After this swap, ${personName(swap, flag.userId)}: ${flag.words}`,
+      ),
+    ),
+  ];
   const sidesFlagged = [swap.give, swap.take].some(
     (side) => side !== null && (checks.flags.get(side.id)?.length ?? 0) > 0,
   );
@@ -211,12 +329,9 @@ export function SwapDecisionRow({
       {sidesFlagged ? (
         <span className="text-sm text-[color:var(--warning-text)]">A shift in this swap has a rule warning</span>
       ) : null}
-      {(checks.afterSwap.get(swap.id) ?? []).map((flag) => (
-        <span
-          key={`${flag.userId}-${flag.assignmentId}-${flag.rule}`}
-          className="text-sm text-[color:var(--warning-text)]"
-        >
-          {`After this swap, ${personName(swap, flag.userId)}: ${flag.words}`}
+      {afterLines.map((line) => (
+        <span key={line} className="text-sm text-[color:var(--warning-text)]">
+          {line}
         </span>
       ))}
       {showNotChecked && !checks.checkable.has(swap.id) ? (
@@ -228,15 +343,16 @@ export function SwapDecisionRow({
           className="min-h-12"
           disabled={busy}
           aria-describedby={`needs-${swap.id}`}
-          onClick={() => onDecide({ action: "swap.approve", swapId: swap.id })}
+          onClick={() => onDecide(decision, true)}
         >
           Approve
         </Button>
         <Button
+          variant="ghost"
           className="min-h-12"
           disabled={busy}
           aria-describedby={`needs-${swap.id}`}
-          onClick={() => onDecide({ action: "swap.decline", swapId: swap.id })}
+          onClick={() => onDecide(decision, false)}
         >
           Decline
         </Button>
@@ -282,19 +398,25 @@ export function NeedsYouStrip({
   onChanged: () => void;
   onPickDay: (date: string) => void;
 }) {
-  const { busy, message, errors, decide, approveAll } = useRosterDecision(serviceId, onChanged);
+  const { busy, message, errors, decide, approveAll, reviewDialog } = useRosterDecision(serviceId, onChanged);
   if (!pending.length && !claimed.length && !shortDays.length) return null;
 
   const approvable = pending.filter((swap) => checks.checkable.has(swap.id) && !swapHasWarning(swap, checks)).length;
 
   return (
     <section
+      id={NEEDS_YOU_ID}
       aria-label="Needs you"
       data-print-hide
       data-mode-identity="roster"
       className="grid gap-3 rounded-lg border border-[color:var(--mode-identity-border)] bg-[color:var(--mode-identity-soft)] p-3 shadow-[var(--e1)]"
     >
-      <h2 className="flex items-center gap-2 text-base-minus font-semibold text-[color:var(--text-heading)]">
+      {reviewDialog}
+      <h2
+        id={`${NEEDS_YOU_ID}-heading`}
+        tabIndex={-1}
+        className="flex items-center gap-2 rounded text-base-minus focus-visible:outline-2 focus-visible:outline-[color:var(--focus)] font-semibold text-[color:var(--text-heading)]"
+      >
         <span aria-hidden="true" className="size-2 rounded-full bg-[color:var(--mode-identity)]" />
         Needs you
       </h2>
@@ -307,7 +429,7 @@ export function NeedsYouStrip({
                 checks={checks}
                 showNotChecked
                 busy={busy}
-                onDecide={(action) => void decide(action)}
+                onDecide={(decision, approve) => void decide(decision, approve)}
               />
             </li>
           ))}
@@ -320,15 +442,16 @@ export function NeedsYouStrip({
                   className="min-h-12"
                   disabled={busy}
                   aria-describedby={`needs-${shift.id}`}
-                  onClick={() => void decide({ action: "open.approve", openShiftId: shift.id })}
+                  onClick={() => void decide({ kind: "open", item: shift }, true)}
                 >
                   Approve
                 </Button>
                 <Button
+                  variant="ghost"
                   className="min-h-12"
                   disabled={busy}
                   aria-describedby={`needs-${shift.id}`}
-                  onClick={() => void decide({ action: "open.decline", openShiftId: shift.id })}
+                  onClick={() => void decide({ kind: "open", item: shift }, false)}
                 >
                   Decline
                 </Button>

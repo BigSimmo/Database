@@ -35,9 +35,79 @@ describe("development plan page", () => {
 
   it("is view-only in a closed year", () => {
     render(<CmePlanPage set={{ ...SET, closedAt: "2027-01-02T00:00:00Z" }} goals={[GOAL]} entries={[]} />);
-    expect(screen.getByLabelText("Goal 1")).toHaveAttribute("readonly");
+    // Read as text, with no way into the editor: no textbox, no Edit, no Save.
+    expect(screen.getByTestId("cme-plan-goals-read")).toHaveTextContent("Document capacity well");
+    expect(screen.queryByLabelText("Goal 1")).toBeNull();
+    expect(screen.queryByTestId("cme-plan-edit")).toBeNull();
     expect(screen.queryByTestId("cme-plan-save")).toBeNull();
     expect(screen.getByTestId("cme-plan-tally")).toHaveTextContent("Document capacity well");
+  });
+
+  it("reads saved goals as text until Edit, then saves and goes back to reading", async () => {
+    const user = userEvent.setup();
+    const edited = { ...GOAL, goal: "Document capacity well, every time" };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ goals: [edited] }), { status: 200 }));
+    render(<CmePlanPage set={SET} goals={[GOAL]} entries={[]} />);
+    expect(screen.getByTestId("cme-plan-goals-read")).toHaveTextContent("Document capacity well");
+    expect(screen.queryByLabelText("Goal 1")).toBeNull();
+    expect(screen.queryByTestId("cme-plan-save")).toBeNull();
+
+    await user.click(screen.getByTestId("cme-plan-edit"));
+    await user.type(screen.getByLabelText("Goal 1"), ", every time");
+    await user.click(screen.getByTestId("cme-plan-save"));
+    await waitFor(() => expect(screen.getByTestId("cme-plan-message")).toHaveTextContent("Plan saved."));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).goals).toEqual([
+      { id: GOAL.id, goal: "Document capacity well, every time" },
+    ]);
+    expect(screen.queryByLabelText("Goal 1")).toBeNull();
+    expect(screen.getByTestId("cme-plan-goals-read")).toHaveTextContent("Document capacity well, every time");
+  });
+
+  it("Cancel leaves the editor without saving and puts the saved goals back", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    render(<CmePlanPage set={SET} goals={[GOAL]} entries={[]} />);
+    await user.click(screen.getByTestId("cme-plan-edit"));
+    await user.clear(screen.getByLabelText("Goal 1"));
+    await user.type(screen.getByLabelText("Goal 1"), "Something else entirely");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("cme-plan-goals-read")).toHaveTextContent("Document capacity well");
+  });
+
+  it("is read-only in demo mode: goals as text, no Edit", () => {
+    render(<CmePlanPage set={SET} goals={[GOAL]} entries={[]} demoMode />);
+    expect(screen.getByTestId("cme-plan-goals-read")).toHaveTextContent("Document capacity well");
+    expect(screen.queryByTestId("cme-plan-edit")).toBeNull();
+  });
+
+  it("states hours by goal in words, with the activity count named and pluralised", () => {
+    const linked = (id: string, hours: number, goalId: string | null) => ({
+      id,
+      date: "2026-03-01",
+      title: id,
+      allocations: [{ category: "educational" as const, hours }],
+      reflection: "",
+      costCents: null,
+      transcribed: false,
+      routineId: null,
+      documentId: null,
+      buckets: [],
+      goalId,
+    });
+    render(
+      <CmePlanPage
+        set={SET}
+        goals={[GOAL]}
+        entries={[linked("a", 1.5, GOAL.id), linked("b", 2, null), linked("c", 1, null)]}
+      />,
+    );
+    const tally = screen.getByTestId("cme-plan-tally");
+    expect(tally).toHaveTextContent("1.5 h from 1 activity");
+    expect(tally).toHaveTextContent("3 h from 2 activities");
+    expect(screen.getAllByTestId("cme-plan-tally-bar")).toHaveLength(2);
   });
 
   it("says when the plan is not yet marked written", () => {
@@ -88,6 +158,7 @@ describe("development plan page", () => {
         new Response(JSON.stringify({ message: "Plan changed", code: "cme_plan_conflict" }), { status: 409 }),
       );
     render(<CmePlanPage set={SET} goals={[GOAL]} entries={[]} />);
+    await user.click(screen.getByTestId("cme-plan-edit"));
     await user.click(screen.getByTestId("cme-plan-save"));
     await waitFor(() => expect(screen.getByTestId("cme-plan-message")).toHaveTextContent("changed elsewhere"));
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).expectedGoals).toEqual([

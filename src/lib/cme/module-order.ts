@@ -25,7 +25,7 @@ export const cmeDashboardModuleIds = [
 export type CmeDashboardModuleId = (typeof cmeDashboardModuleIds)[number];
 
 export const cmeDashboardModuleLabels: Record<CmeDashboardModuleId, string> = {
-  requirements: "Requirement progress",
+  requirements: "What's left",
   "routines-due": "Routines due",
   "audited-today": "Logged today",
   "year-dates": "Year dates",

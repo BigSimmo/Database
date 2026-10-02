@@ -8,11 +8,13 @@ const sections: readonly PageSection[] = [
   { id: "cover", label: "Cover", icon: Users, weight: 1 },
   { id: "roster", label: "Roster", icon: CalendarRange, weight: 1 },
 ];
+// The header title stays a <span> (its default): the page header above it
+// carries the page's one <h1>. InPageNavHeader has no subtitle slot, so the
+// team's name is shown in that page header instead.
 export function RosterManageNavHeader({ activeId, onSelect }: { activeId: string; onSelect: (id: string) => void }) {
   return (
     <InPageNavHeader
       title="Manage"
-      titleAs="h1"
       back={{ href: "/roster", label: "Roster" }}
       sections={sections}
       activeId={activeId}

@@ -39,6 +39,8 @@ import { RosterPublishPreview } from "./roster-publish-preview";
 import { RosterRowSorter, type RowChoice } from "./roster-row-sorter";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
+/** The server cannot publish yet (it is missing an update); said without the jargon. */
+const PUBLISH_UNAVAILABLE = "Publishing isn't available yet — ask the app owner.";
 const EMPTY_PEOPLE: RosterPerson[] = [];
 type LiveState =
   | { status: "idle" | "loading" }
@@ -278,7 +280,39 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
       return caught instanceof Error ? caught.message : "Check the roster before publishing.";
     }
   }, [canBuild, period, sourceName, comparison, read.rows, read.openShifts]);
+  // An unset or invalid period never starts a comparison (`snapshotKey` is
+  // null), so it has to be named before "Comparing…" or the manager is sent
+  // to wait instead of to the date fields.
+  const periodProblem = useMemo(() => {
+    if (!period) return "Set the roster period first.";
+    if (period.start && period.end && period.end < period.start)
+      return "The roster period ends before it starts. Fix the dates first.";
+    try {
+      validatePublishPeriod(period);
+      return null;
+    } catch (caught) {
+      return caught instanceof Error ? `${caught.message.replace(/\.$/, "")} first.` : "Fix the roster dates first.";
+    }
+  }, [period]);
   const canPublish = live.status === "ready" && Boolean(comparison) && !publishing && canBuild && !previewError;
+  // Why Publish is off, in the same order as the checks above, shown beside the button.
+  const publishBlocked = publishing
+    ? null
+    : live.status === "missing-g1"
+      ? PUBLISH_UNAVAILABLE
+      : live.status === "error"
+        ? "The live roster couldn't be compared, so publishing is paused. Try again later."
+        : periodProblem
+          ? periodProblem
+          : live.status !== "ready" || !comparison
+            ? "Comparing with the live roster…"
+            : read.unresolved > 0
+              ? `Sort the ${read.unresolved} unmatched ${read.unresolved === 1 ? "row" : "rows"} above first.`
+              : read.unknown.length
+                ? `Choose what ${read.unknown.length === 1 ? "1 code means" : `${read.unknown.length} codes mean`} above first.`
+                : previewError
+                  ? "Fix the problem above first."
+                  : null;
 
   async function publish() {
     if (!canPublish || !period || !grid || !comparison || live.status !== "ready") return;
@@ -338,7 +372,7 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
         }
         if (answer?.code === "roster_publish_requires_update") {
           setLive({ status: "missing-g1", key: requestKey! });
-          throw new Error("Publishing needs a database safety update first.");
+          throw new Error(PUBLISH_UNAVAILABLE);
         }
         throw new Error(
           typeof answer?.message === "string" ? answer.message : "The roster could not be published. Try again.",
@@ -420,9 +454,7 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
               Compared with the live roster, including {live.changes.swaps.length} swaps.
             </p>
           ) : null}
-          {live.status === "missing-g1" ? (
-            <ModeNotice tone="warning">Publishing needs a small database update first.</ModeNotice>
-          ) : null}
+          {live.status === "missing-g1" ? <ModeNotice tone="warning">{PUBLISH_UNAVAILABLE}</ModeNotice> : null}
           {live.status === "error" ? (
             <ModeNotice tone="warning">The live roster could not be compared. Try again later.</ModeNotice>
           ) : null}
@@ -458,9 +490,21 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
             />
           ) : null}
           {previewError ? <ModeNotice tone="warning">{previewError}</ModeNotice> : null}
-          <Button variant="primary" disabled={!canPublish} onClick={() => void publish()}>
-            {publishing ? "Publishing…" : "Publish"}
-          </Button>
+          <div className="grid gap-2">
+            <Button
+              variant="primary"
+              disabled={!canPublish}
+              aria-describedby={publishBlocked ? "roster-publish-blocked" : undefined}
+              onClick={() => void publish()}
+            >
+              {publishing ? "Publishing…" : "Publish"}
+            </Button>
+            {publishBlocked ? (
+              <p id="roster-publish-blocked" className="text-sm text-[color:var(--text-muted)]">
+                {publishBlocked}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
       <RosterCodeChooser

@@ -84,7 +84,7 @@ describe("Routines", () => {
     await user.type(screen.getByLabelText(/routine name/i), "Supervision");
     await user.click(screen.getByRole("button", { name: /save routine/i }));
     expect(globalThis.fetch).toHaveBeenCalledWith("/api/cme/routines", expect.objectContaining({ method: "POST" }));
-    await user.click(screen.getByRole("button", { name: /log now for supervision/i }));
+    await user.click(screen.getByRole("button", { name: /^log 1\.0 h for supervision$/i }));
     expect(navigation.push).toHaveBeenCalledWith("/cme/new?routine=r1");
   });
 
@@ -114,7 +114,7 @@ describe("Routines", () => {
     await user.type(screen.getByLabelText(/routine name/i), "Supervision");
     await user.click(screen.getByRole("button", { name: /save routine/i }));
     expect(globalThis.fetch).toHaveBeenCalledWith("/api/cme/routines", expect.objectContaining({ method: "POST" }));
-    expect(await screen.findByRole("button", { name: /log now for supervision/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^log 1\.0 h for supervision$/i })).toBeInTheDocument();
   });
 
   it("takes the next due day as dd/mm/yyyy, with no browser date box", async () => {
@@ -148,11 +148,21 @@ describe("Routines", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
-  it("puts a due routine at the top with a one-tap log button as the visual focus", () => {
+  it("puts a due routine at the top of the one list, with a Due chip and a one-tap log button", () => {
     renderPage();
-    const due = screen.getByTestId("cme-routines-due");
+    const list = screen.getByTestId("cme-routines-list");
+    const rows = within(list).getAllByRole("listitem");
+    const due = screen.getByTestId("cme-routines-due-row");
+    expect(rows[0]).toBe(due);
     expect(within(due).getByText("Supervision")).toBeInTheDocument();
+    expect(within(due).getByText("Due")).toBeInTheDocument();
     expect(within(due).getByRole("button", { name: "Log 1.0 h for Supervision" })).toBeInTheDocument();
+  });
+
+  it("shows a due routine once, not again under a second heading", () => {
+    renderPage();
+    expect(screen.getAllByText("Supervision")).toHaveLength(1);
+    expect(screen.queryByRole("heading", { level: 2, name: "Due now" })).toBeNull();
   });
 
   it("never logs on its own — tapping Log only hands the owner a pre-filled draft to confirm", async () => {
@@ -169,11 +179,15 @@ describe("Routines", () => {
     });
   });
 
-  it("says in plain words that a routine never logs itself", () => {
+  it("says in plain words that a routine never logs itself, behind How this works", () => {
     renderPage();
     expect(screen.getByTestId("cme-routines-confirmation-note")).toHaveTextContent(
       /never|nothing is recorded until you confirm/i,
     );
+    const how = screen.getByTestId("cme-routines-how");
+    expect(how.tagName).toBe("DETAILS");
+    expect(how).toContainElement(screen.getByTestId("cme-routines-confirmation-note"));
+    expect(within(how).getByText("How this works")).toBeInTheDocument();
   });
 
   it("lists every active routine with its next-due date", () => {
@@ -207,9 +221,10 @@ describe("Routines", () => {
       archivedAt: null,
     };
     renderPage({ routines: [dueRoutine, otherDueRoutine] });
-    const due = screen.getByTestId("cme-routines-due");
-    expect(within(due).getByRole("button", { name: "Log 1.0 h for Supervision" })).toBeInTheDocument();
-    expect(within(due).getByRole("button", { name: "Log 1.0 h for Peer review group" })).toBeInTheDocument();
+    const due = screen.getAllByTestId("cme-routines-due-row");
+    expect(due).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Log 1.0 h for Supervision" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log 1.0 h for Peer review group" })).toBeInTheDocument();
   });
 
   it("never shows an archived routine, due or not", () => {
@@ -227,7 +242,7 @@ describe("Routines", () => {
   it("shows a plain empty state when there are no routines yet", () => {
     renderPage({ routines: [] });
     expect(screen.getByTestId("cme-routines-empty")).toBeInTheDocument();
-    expect(screen.queryByTestId("cme-routines-due")).toBeNull();
+    expect(screen.queryByTestId("cme-routines-due-row")).toBeNull();
     expect(screen.queryByTestId("cme-routines-list")).toBeNull();
     // Still offered — a routine with no data yet is still not a reason to hide the control.
     expect(screen.getByRole("button", { name: /new routine/i })).toBeInTheDocument();
@@ -235,7 +250,7 @@ describe("Routines", () => {
 
   it("says nothing is due, in words, when nothing is", () => {
     renderPage({ routines: [notYetDueRoutine] });
-    expect(screen.queryByTestId("cme-routines-due")).toBeNull();
+    expect(screen.queryByTestId("cme-routines-due-row")).toBeNull();
     expect(screen.getByTestId("cme-routines-due-empty")).toHaveTextContent(/nothing is due/i);
   });
 
@@ -265,17 +280,14 @@ describe("Routines", () => {
     expect(screen.getByRole("button", { name: /new routine/i })).toBeInTheDocument();
   });
 
-  it("draws each list as one hairline card of rows, not a card per routine", () => {
+  it("draws the routines as one hairline card of rows, not a card per routine", () => {
     renderPage();
-    const due = screen.getByTestId("cme-routines-due");
-    expect(within(due).getByRole("heading", { level: 2, name: "Due now" })).toBeInTheDocument();
-    expect(within(due).getAllByRole("list")).toHaveLength(1);
-    expect(within(due).getAllByRole("listitem")).toHaveLength(1);
     const list = screen.getByTestId("cme-routines-list");
     expect(within(list).getByRole("heading", { level: 2, name: "Your routines" })).toBeInTheDocument();
     expect(within(list).getAllByRole("list")).toHaveLength(1);
-    // The archived routine is still left out.
+    // The due routine and the not-yet-due one, once each; the archived routine is still left out.
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(list).getAllByTestId("cme-routines-due-row")).toHaveLength(1);
   });
 
   it("keeps Save routine as the one dark button while the routine form is open", async () => {

@@ -37,8 +37,40 @@ export type TeachingAction = {
   testId?: string;
 };
 
-function QuietAction({ action }: { action: TeachingAction }) {
-  const className = cn(modeTapArea, focusRing, "justify-center text-sm font-medium text-[color:var(--primary)]");
+type ActionSurface = "card" | "summary";
+
+/*
+ * On the summary surface (Today's hero) the app's filled face is the same
+ * graphite as the surface in light mode, so the button vanished. There the
+ * faces invert onto the summary ink pair instead; on a card they are unchanged.
+ */
+const SUMMARY_FACE: Record<ButtonVariant | "text", string> = {
+  primary:
+    "bg-[color:var(--surface-summary-ink)] text-[color:var(--surface-summary)] hover:bg-[color:var(--surface-summary-ink)] active:bg-[color:var(--surface-summary-ink)]",
+  secondary:
+    "border-[color:var(--surface-summary-line)] bg-transparent text-[color:var(--surface-summary-ink)] shadow-none hover:border-[color:var(--surface-summary-muted)] hover:bg-transparent",
+  toolbar: "",
+  ghost: "",
+  danger: "",
+  text: "text-[color:var(--surface-summary-ink)] underline underline-offset-4",
+};
+
+function surfaceFace(surface: ActionSurface, variant: ButtonVariant | "text"): string | undefined {
+  return surface === "summary" ? SUMMARY_FACE[variant] : undefined;
+}
+
+/** Screen-reader note for a link that opens in a new tab. */
+function NewTabNote({ external }: { external?: boolean }) {
+  return external ? <span className="sr-only"> (opens in a new tab)</span> : null;
+}
+
+function QuietAction({ action, surface }: { action: TeachingAction; surface: ActionSurface }) {
+  const className = cn(
+    modeTapArea,
+    focusRing,
+    "justify-center text-sm font-medium text-[color:var(--primary)]",
+    surfaceFace(surface, "text"),
+  );
   const label = action.busy ? (action.busyLabel ?? action.label) : action.label;
   if (action.href) {
     return (
@@ -49,6 +81,7 @@ function QuietAction({ action }: { action: TeachingAction }) {
         {...(action.external ? { target: "_blank", rel: "noreferrer" } : {})}
       >
         {label}
+        <NewTabNote external={action.external} />
       </a>
     );
   }
@@ -69,17 +102,26 @@ function QuietAction({ action }: { action: TeachingAction }) {
 const EMPHASIS_VARIANT: Record<"primary" | "secondary", ButtonVariant> = { primary: "primary", secondary: "secondary" };
 
 /** A whole-surface link needs a real `<a>` (cmd-click, middle-click, long-press): `buttonFaceClass` borrows the Button face for it. */
-function LinkAction({ action, variant }: { action: TeachingAction & { href: string }; variant: ButtonVariant }) {
+function LinkAction({
+  action,
+  variant,
+  surface,
+}: {
+  action: TeachingAction & { href: string };
+  variant: ButtonVariant;
+  surface: ActionSurface;
+}) {
   const Icon = action.icon;
   return (
     <a
       href={action.href}
       data-testid={action.testId}
-      className={cn(buttonFaceClass({ variant, block: true }), "no-underline")}
+      className={cn(buttonFaceClass({ variant, block: true }), "no-underline", surfaceFace(surface, variant))}
       {...(action.external ? { target: "_blank", rel: "noreferrer" } : {})}
     >
       {Icon ? <Icon aria-hidden="true" className="size-icon-md shrink-0" /> : null}
       <span>{action.label}</span>
+      <NewTabNote external={action.external} />
     </a>
   );
 }
@@ -91,7 +133,7 @@ export function ActionStrip({
   className,
 }: {
   actions: readonly TeachingAction[];
-  surface?: "card" | "summary";
+  surface?: ActionSurface;
   layout?: "row" | "stack";
   className?: string;
 }) {
@@ -101,16 +143,22 @@ export function ActionStrip({
       <div
         className={cn(
           "grid gap-x-2",
+          layout === "stack" && "gap-y-2",
           layout === "row" ? "@min-[17rem]:auto-cols-fr @min-[17rem]:grid-flow-col" : "grid-cols-1",
         )}
       >
         {actions.map((action, index) => {
           const emphasis = action.emphasis ?? (index === 0 ? "primary" : "secondary");
-          if (emphasis === "text") return <QuietAction key={action.id} action={action} />;
+          if (emphasis === "text") return <QuietAction key={action.id} action={action} surface={surface} />;
           const variant = EMPHASIS_VARIANT[emphasis];
           if (action.href)
             return (
-              <LinkAction key={action.id} action={action as TeachingAction & { href: string }} variant={variant} />
+              <LinkAction
+                key={action.id}
+                action={action as TeachingAction & { href: string }}
+                variant={variant}
+                surface={surface}
+              />
             );
           return (
             <Button
@@ -122,6 +170,7 @@ export function ActionStrip({
               busy={action.busy}
               busyLabel={action.busyLabel}
               block
+              className={surfaceFace(surface, variant)}
               testId={action.testId}
             >
               {action.label}

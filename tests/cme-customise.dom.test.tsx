@@ -2,13 +2,19 @@
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CmeCustomisePage } from "@/components/cme/cme-customise-page";
 import { cmeDashboardModuleLabels } from "@/lib/cme/module-order";
 import { cmeModuleOrderStorageKey } from "@/lib/cme/module-order-keys";
 
-afterEach(cleanup);
+const navigation = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation, usePathname: () => "/cme/customise" }));
+
+afterEach(() => {
+  cleanup();
+  navigation.push.mockReset();
+});
 
 /** Design decision §12 — see `tests/cme-visual-contract.dom.test.tsx` for the full rationale. */
 const CLINICAL_STATUS_CLASS = /\b(?:bg|text|border|ring)-(?:red|amber|green|orange|rose|emerald|yellow)-[0-9]/;
@@ -33,6 +39,26 @@ describe("Customise", () => {
     // alive across tests in this file. Reset it so every test starts from
     // the product default order, regardless of what an earlier test left.
     window.localStorage.removeItem(cmeModuleOrderStorageKey);
+  });
+
+  it("has a way back: a back link to Today and a Done control that returns there", async () => {
+    const user = userEvent.setup();
+    render(<CmeCustomisePage />);
+    expect(screen.getByRole("link", { name: "Back to today" })).toHaveAttribute("href", "/cme");
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(navigation.push).toHaveBeenCalledWith("/cme");
+  });
+
+  it("wraps a long module label instead of cutting it off", () => {
+    render(<CmeCustomisePage />);
+    const labels = within(screen.getByTestId("cme-module-order"))
+      .getAllByRole("listitem")
+      .map((item) => item.querySelector("span"));
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label?.className).not.toMatch(/\btruncate\b/);
+      expect(label?.className).toMatch(/\bbreak-words\b/);
+    }
   });
 
   it("moves a module up and down the shown list from a pointer click", async () => {
