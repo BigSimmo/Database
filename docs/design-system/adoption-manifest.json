@@ -384,8 +384,10 @@
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-actions.tsx",
+        "src/components/teaching/teaching-checkin.tsx",
         "src/components/teaching/teaching-collection.tsx",
         "src/components/teaching/teaching-cpd-review.tsx",
+        "src/components/teaching/teaching-display.tsx",
         "src/components/teaching/teaching-feedback.tsx",
         "src/components/teaching/teaching-import.tsx",
         "src/components/teaching/teaching-resource-list.tsx",
@@ -508,8 +510,10 @@
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-actions.tsx",
+        "src/components/teaching/teaching-checkin.tsx",
         "src/components/teaching/teaching-collection.tsx",
         "src/components/teaching/teaching-cpd-review.tsx",
+        "src/components/teaching/teaching-display.tsx",
         "src/components/teaching/teaching-feedback.tsx",
         "src/components/teaching/teaching-import.tsx",
         "src/components/teaching/teaching-resource-list.tsx",
@@ -590,7 +594,9 @@
         "src/components/on-call/service-import-panel.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
-        "src/components/teaching/teaching-resource-list.tsx"
+        "src/components/teaching/teaching-cpd-review.tsx",
+        "src/components/teaching/teaching-resource-list.tsx",
+        "src/components/teaching/teaching-teach.tsx"
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-view.tsx",
@@ -603,7 +609,9 @@
         "src/components/on-call/service-import-panel.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-calendar-sheet.tsx",
-        "src/components/teaching/teaching-resource-list.tsx"
+        "src/components/teaching/teaching-cpd-review.tsx",
+        "src/components/teaching/teaching-resource-list.tsx",
+        "src/components/teaching/teaching-teach.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -696,6 +704,7 @@
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/favourites/favourites-set-chips.tsx",
+        "src/components/teaching/teaching-supervision.tsx",
         "src/components/therapy-compass/recommend-scenario-fields.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
@@ -703,6 +712,7 @@
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/favourites/favourites-set-chips.tsx",
+        "src/components/teaching/teaching-supervision.tsx",
         "src/components/therapy-compass/recommend-scenario-fields.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
@@ -2051,6 +2061,7 @@
         "src/components/roster/roster-shifts-page.tsx",
         "src/components/roster/team/calendar/calendar-filters.tsx",
         "src/components/roster/team/calendar/team-calendar.tsx",
+        "src/components/teaching/teaching-feedback.tsx",
         "src/components/teaching/teaching-modules.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
@@ -2073,6 +2084,7 @@
         "src/components/roster/roster-shifts-page.tsx",
         "src/components/roster/team/calendar/calendar-filters.tsx",
         "src/components/roster/team/calendar/team-calendar.tsx",
+        "src/components/teaching/teaching-feedback.tsx",
         "src/components/teaching/teaching-modules.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
@@ -2118,10 +2130,12 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/whos-on/whos-on-page.tsx",
         "src/components/teaching/organise-sheets.tsx",
+        "src/components/teaching/teaching-import.tsx",
         "src/components/teaching/teaching-modules.tsx",
         "src/components/teaching/teaching-organise.tsx",
         "src/components/teaching/teaching-resource-list.tsx",
         "src/components/teaching/teaching-resources.tsx",
+        "src/components/teaching/teaching-supervision.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -2133,10 +2147,12 @@
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/whos-on/whos-on-page.tsx",
         "src/components/teaching/organise-sheets.tsx",
+        "src/components/teaching/teaching-import.tsx",
         "src/components/teaching/teaching-modules.tsx",
         "src/components/teaching/teaching-organise.tsx",
         "src/components/teaching/teaching-resource-list.tsx",
         "src/components/teaching/teaching-resources.tsx",
+        "src/components/teaching/teaching-supervision.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -2714,10 +2730,12 @@
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-collection.tsx",
+        "src/components/teaching/teaching-cpd-review.tsx",
         "src/components/teaching/teaching-resource-list.tsx",
         "src/components/teaching/teaching-resources.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
+        "src/components/teaching/teaching-supervision.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -2752,10 +2770,12 @@
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
         "src/components/teaching/teaching-collection.tsx",
+        "src/components/teaching/teaching-cpd-review.tsx",
         "src/components/teaching/teaching-resource-list.tsx",
         "src/components/teaching/teaching-resources.tsx",
         "src/components/teaching/teaching-scan-landing.tsx",
         "src/components/teaching/teaching-session.tsx",
+        "src/components/teaching/teaching-supervision.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {

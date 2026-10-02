@@ -20,15 +20,16 @@ import { addDays, mondayOf, perthDateKey, shortDayLabel, timeRange } from "@/com
 import { TeachingSwitch } from "@/components/teaching/teaching-modules";
 import { withUnit } from "@/components/teaching/teaching-number";
 import { AddResourceSheet, ResourceRows } from "@/components/teaching/teaching-resource-list";
+import { TeachingUndoBar } from "@/components/teaching/teaching-row";
 import { TeachingSignInNotice } from "@/components/teaching/teaching-sign-in";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
+import { useDelayedPost } from "@/components/teaching/use-delayed-post";
 import { useTeachingNow } from "@/components/teaching/use-teaching-now";
 import { useTeachingResource } from "@/components/teaching/use-teaching-resource";
 import { useTeachingWeek } from "@/components/teaching/use-teaching-week";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { cn, textMuted } from "@/components/ui-primitives";
-import { teachingPost } from "@/lib/teaching/client";
 import type { CollectionRead, ResourceRow } from "@/lib/teaching/model";
 
 const TYPES = [
@@ -73,7 +74,12 @@ export function TeachingCollection({
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const shown = useMemo(() => filterResources(read.data?.items ?? [], type, filter), [read.data, type, filter]);
+  const [hidden, setHidden] = useState<string | null>(null);
+  const delayed = useDelayedPost();
+  const shown = useMemo(
+    () => filterResources(read.data?.items ?? [], type, filter).filter((item) => item.resourceId !== hidden),
+    [read.data, type, filter, hidden],
+  );
 
   const owner = read.data?.collection?.serviceId ?? null;
   const ownerTeam = (week.week?.teams ?? []).find((team) => team.id === owner) ?? null;
@@ -92,18 +98,31 @@ export function TeachingCollection({
     [week.week, owner],
   );
 
-  async function remove(item: ResourceRow) {
+  // A removal waits 10 seconds under Undo (the same bar as Organise), hidden from the list meanwhile.
+  // The demo refuses every write, so it says so at once instead of holding a change it cannot send.
+  function remove(item: ResourceRow) {
     setError(null);
-    try {
-      await teachingPost(`/api/teaching/resources/services/${encodeURIComponent(item.serviceId)}`, {
-        action: "resource.remove",
-        resourceId: item.resourceId,
-      });
-      read.retry();
-    } catch (cause) {
-      setError(resourceWriteError(cause));
+    if (demoMode) {
+      setError("The demo doesn't save changes.");
+      return;
     }
+    if (delayed.pending) return;
+    setHidden(item.resourceId);
+    delayed.schedule({
+      label: `Removing ${item.title}`,
+      url: `/api/teaching/resources/services/${encodeURIComponent(item.serviceId)}`,
+      body: { action: "resource.remove", resourceId: item.resourceId },
+      onPosted: read.retry,
+      onFailed: (cause) => {
+        setHidden(null);
+        setError(resourceWriteError(cause));
+      },
+    });
   }
+  const undoRemove = () => {
+    delayed.undo();
+    setHidden(null);
+  };
 
   const name = read.data?.collection?.name ?? BUILT_IN_NAMES[collection] ?? "Collection";
   let body;
@@ -139,7 +158,7 @@ export function TeachingCollection({
               items={section.items}
               label={section.label}
               id={`teaching-collection-${section.id}`}
-              onRemove={removing ? (item) => void remove(item) : undefined}
+              onRemove={removing && !delayed.pending ? remove : undefined}
             />
           ))
         )}
@@ -186,12 +205,17 @@ export function TeachingCollection({
           <ChevronLeft aria-hidden="true" className="size-icon-md" />
           Resources
         </Link>
-        <div className="grid gap-0.5">
+        <div className="grid gap-0.5 px-3">
           <h1 className={cn(modeHeadingText, "text-base-minus text-[color:var(--text-heading)]")}>{name}</h1>
           {context ? <p className={cn("nums text-sm font-normal", textMuted)}>{context}</p> : null}
         </div>
         {body}
       </div>
+      {delayed.pending ? (
+        <TeachingUndoBar testId="teaching-collection-pending" onUndo={undoRemove}>
+          {delayed.pending}. Leaving this page cancels it.
+        </TeachingUndoBar>
+      ) : null}
     </InformationPageShell>
   );
 }
