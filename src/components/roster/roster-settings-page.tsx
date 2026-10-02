@@ -31,7 +31,8 @@ import { RosterPageHeader } from "./roster-ui";
  * Delete asks no "Are you sure?". Everything is hidden at once and Undo shows
  * for 30 seconds; the delete request is sent only when those 30 seconds end
  * with the page still open. Leaving first, by closing the page or navigating
- * away inside the app, cancels it just as Undo does: nothing is deleted. A
+ * away inside the app, cancels it just as Undo does: nothing is deleted. Once
+ * sent, the request carries `keepalive`, so leaving then does not cut it off. A
  * whole-account delete is the one Roster action that cannot be reversed, so
  * it keeps a longer window than the 10-second `ROSTER_UNDO_MS` used elsewhere.
  *
@@ -75,7 +76,9 @@ export function RosterSettingsPage() {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
     setDeleteState("deleting");
-    void deleteAll().then((failure) => {
+    // Committed once the undo window ends: `keepalive` lets the request outlive
+    // the page if it is closed or left now. Only the pending window cancels.
+    void deleteAll({ keepalive: true }).then((failure) => {
       if (failure) {
         setDeleteState("idle");
         setNotice({ tone: "warning", text: failure });

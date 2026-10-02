@@ -141,6 +141,25 @@ describe("Roster publication preparation", () => {
     expect(body).not.toHaveProperty("actorId");
   });
 
+  it("names an invalid period as the blocker instead of waiting on a comparison that never starts", async () => {
+    fetchMock.mockImplementation(async (input: string) => {
+      if (input === "/api/roster/read-file") return Response.json({ grid });
+      return Response.json(preview);
+    });
+    render(<RosterPublishTab serviceId={SERVICE} overview={overview} />);
+    chooseFile();
+    await screen.findByText(/Compared with the live roster, including 0 swaps/);
+    fireEvent.change(screen.getByLabelText("Period ends"), { target: { value: `${futureYear}-09-01` } });
+    expect(await screen.findByText("The roster period ends before it starts. Fix the dates first.")).toHaveAttribute(
+      "id",
+      "roster-publish-blocked",
+    );
+    fireEvent.change(screen.getByLabelText("Period ends"), { target: { value: "" } });
+    expect(screen.getByText("Choose valid roster dates first.")).toHaveAttribute("id", "roster-publish-blocked");
+    expect(screen.queryByText("Comparing with the live roster…")).toBeNull();
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+  });
+
   it("invalidates the preview on a stale token and requires a fresh comparison", async () => {
     let previews = 0;
     fetchMock.mockImplementation(async (input: string, init?: RequestInit) => {

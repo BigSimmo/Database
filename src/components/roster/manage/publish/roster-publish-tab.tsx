@@ -280,6 +280,20 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
       return caught instanceof Error ? caught.message : "Check the roster before publishing.";
     }
   }, [canBuild, period, sourceName, comparison, read.rows, read.openShifts]);
+  // An unset or invalid period never starts a comparison (`snapshotKey` is
+  // null), so it has to be named before "Comparing…" or the manager is sent
+  // to wait instead of to the date fields.
+  const periodProblem = useMemo(() => {
+    if (!period) return "Set the roster period first.";
+    if (period.start && period.end && period.end < period.start)
+      return "The roster period ends before it starts. Fix the dates first.";
+    try {
+      validatePublishPeriod(period);
+      return null;
+    } catch (caught) {
+      return caught instanceof Error ? `${caught.message.replace(/\.$/, "")} first.` : "Fix the roster dates first.";
+    }
+  }, [period]);
   const canPublish = live.status === "ready" && Boolean(comparison) && !publishing && canBuild && !previewError;
   // Why Publish is off, in the same order as the checks above, shown beside the button.
   const publishBlocked = publishing
@@ -288,14 +302,14 @@ export function RosterPublishTab({ serviceId, overview }: { serviceId: string; o
       ? PUBLISH_UNAVAILABLE
       : live.status === "error"
         ? "The live roster couldn't be compared, so publishing is paused. Try again later."
-        : live.status !== "ready" || !comparison
-          ? "Comparing with the live roster…"
-          : read.unresolved > 0
-            ? `Sort the ${read.unresolved} unmatched ${read.unresolved === 1 ? "row" : "rows"} above first.`
-            : read.unknown.length
-              ? `Choose what ${read.unknown.length === 1 ? "1 code means" : `${read.unknown.length} codes mean`} above first.`
-              : !period
-                ? "Set the roster period first."
+        : periodProblem
+          ? periodProblem
+          : live.status !== "ready" || !comparison
+            ? "Comparing with the live roster…"
+            : read.unresolved > 0
+              ? `Sort the ${read.unresolved} unmatched ${read.unresolved === 1 ? "row" : "rows"} above first.`
+              : read.unknown.length
+                ? `Choose what ${read.unknown.length === 1 ? "1 code means" : `${read.unknown.length} codes mean`} above first.`
                 : previewError
                   ? "Fix the problem above first."
                   : null;

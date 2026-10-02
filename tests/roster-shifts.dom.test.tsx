@@ -106,8 +106,10 @@ afterEach(() => {
 describe("Roster Shifts", () => {
   it("loads the newly selected week before saying it has no team shifts", async () => {
     mockShifts([]);
-    mockTeamWindow("2026-10-12", "2026-10-18", []);
-    const nextUrl = mockTeamWindow("2026-10-19", "2026-10-25", ["2026-10-20"]);
+    // Each week is read 21 days back (team rule lookback) and through the
+    // 14-day share window from today (13 Oct), not just its own seven days.
+    mockTeamWindow("2026-09-21", "2026-10-27", []);
+    const nextUrl = mockTeamWindow("2026-09-22", "2026-10-27", ["2026-10-20"]);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     await screen.findByText("No shifts this week");
     fireEvent.click(screen.getByRole("button", { name: "Next week" }));
@@ -118,7 +120,7 @@ describe("Roster Shifts", () => {
 
   it("never puts a sample team's invented shifts into the doctor's own roster", async () => {
     mockShifts([]);
-    const url = mockTeamWindow("2026-10-12", "2026-10-18", ["2026-10-13"], true);
+    const url = mockTeamWindow("2026-09-21", "2026-10-27", ["2026-10-13"], true);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     await screen.findByText("No shifts this week");
     expect(fetchCalls(url, "GET")).toHaveLength(0);
@@ -128,10 +130,10 @@ describe("Roster Shifts", () => {
   it("stops going back once the previous week is outside the loaded history", async () => {
     mockShifts([]);
     for (const [from, to] of [
-      ["2026-10-12", "2026-10-18"],
-      ["2026-10-05", "2026-10-11"],
-      ["2026-09-28", "2026-10-04"],
-      ["2026-09-21", "2026-09-27"],
+      ["2026-09-21", "2026-10-27"],
+      ["2026-09-14", "2026-10-27"],
+      ["2026-09-07", "2026-10-27"],
+      ["2026-08-31", "2026-10-27"],
     ])
       mockTeamWindow(from, to, []);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
@@ -147,11 +149,12 @@ describe("Roster Shifts", () => {
 
   it("loads the newly selected month before displaying its team shifts", async () => {
     mockShifts([]);
-    mockTeamWindow("2026-10-12", "2026-10-18", []);
+    mockTeamWindow("2026-09-21", "2026-10-27", []);
     const october = monthGridRange("2026-10");
-    const octoberUrl = mockTeamWindow(october.start, october.end, []);
+    const octoberUrl = mockTeamWindow(addDaysToDate(october.start, -21), october.end, []);
     const november = monthGridRange("2026-11");
-    const nextUrl = mockTeamWindow(november.start, november.end, ["2026-11-10"]);
+    // November's grid starts after today, so its read starts 21 days before today.
+    const nextUrl = mockTeamWindow("2026-09-22", november.end, ["2026-11-10"]);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     await screen.findByText("No shifts this week");
     fireEvent.click(screen.getByRole("radio", { name: "Month" }));

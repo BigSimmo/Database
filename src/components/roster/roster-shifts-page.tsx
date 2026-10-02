@@ -243,6 +243,18 @@ function WeekView({
   );
 }
 
+/**
+ * The furthest back a team rule can look from one shift: `maxDaysInRow` allows
+ * up to 21 days (`rosterRulesSchema`), beyond `maxHours14d`'s 14.
+ */
+const TEAM_RULE_LOOKBACK_DAYS = 21;
+/** The longest span "Share my shifts" offers, counted from today. */
+const ROSTER_SHARE_MAX_DAYS = 14;
+
+function maxDate(a: string, b: string): string {
+  return a > b ? a : b;
+}
+
 export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {}) {
   const router = useRouter();
   const now = useRosterNow(pinnedNow);
@@ -251,12 +263,21 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const [monday, setMonday] = useState(() => mondayOf(today));
   const [month, setMonth] = useState(() => monthKeyOf(today));
   const monthRange = monthGridRange(month);
-  const teamRange =
+  const shownRange =
     view === "month"
       ? { from: monthRange.start, to: monthRange.end }
       : view === "week"
         ? { from: monday, to: addDaysToDate(monday, 6) }
         : { from: addDaysToDate(today, -21), to: addDaysToDate(today, 40) };
+  // Team shifts are read wider than the screen shows, so nothing on it is
+  // judged from a partial roster: back far enough for the rest, run and
+  // rolling-hours rule cues on the first shown day, and always through the 14-day
+  // share window from today, which would otherwise copy a missing team shift
+  // as "Off".
+  const teamRange = {
+    from: addDaysToDate(shownRange.from < today ? shownRange.from : today, -TEAM_RULE_LOOKBACK_DAYS),
+    to: maxDate(shownRange.to, addDaysToDate(today, ROSTER_SHARE_MAX_DAYS)),
+  };
   const shifts = useRosterShifts(teamRange);
   const teams = useRosterTeams();
   const enabledTeams = (Array.isArray(teams.data?.teams) ? teams.data.teams : []).filter((team) => team.enabled);

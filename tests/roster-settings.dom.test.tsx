@@ -108,6 +108,8 @@ describe("Roster Settings", () => {
       vi.advanceTimersByTime(2_000);
     });
     expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(1);
+    // Committed: the request must outlive the page if it is left now.
+    expect(fetchCalls("/api/roster/shifts", "DELETE")[0]![1]).toEqual(expect.objectContaining({ keepalive: true }));
   });
 
   it("deletes nothing if the page closes during the 30 seconds", async () => {
