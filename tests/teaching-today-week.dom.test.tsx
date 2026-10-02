@@ -587,6 +587,27 @@ describe("Week", () => {
     expect(within(handbook).queryByText("Switchboard")).toBeNull();
   });
 
+  it("says so when the handbook read fails, but not when the reader has no On Call access", async () => {
+    serveFetch((url) => {
+      if (url.startsWith("/api/teaching?view=week"))
+        return json(200, week({ sessions: [monday, session(), mine, journal], teams: [teamA, teamB] }));
+      if (url === "/api/on-call/services") return json(500, {});
+      return onCallRoutes(url);
+    });
+    const { unmount } = render(<TeachingWeekScreen demoMode={false} />);
+    expect(await screen.findByText("Your service handbook's teaching entries couldn't load.")).toBeInTheDocument();
+    unmount();
+    serveFetch((url) => {
+      if (url.startsWith("/api/teaching?view=week"))
+        return json(200, week({ sessions: [monday, session(), mine, journal], teams: [teamA, teamB] }));
+      if (url === "/api/on-call/services") return json(403, {});
+      return onCallRoutes(url);
+    });
+    render(<TeachingWeekScreen demoMode={false} />);
+    await screen.findByTestId(`teaching-row-${JOURNAL}`);
+    expect(screen.queryByText("Your service handbook's teaching entries couldn't load.")).toBeNull();
+  });
+
   it("says so when the On Call list could not load", async () => {
     serveWeek({ relocated: [], relocatedUnavailable: true });
     render(<TeachingWeekScreen demoMode={false} />);
