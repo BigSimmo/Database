@@ -98,10 +98,16 @@ export function AdminRecordsPage({ now: nowProp }: { now?: Date } = {}) {
   const sections = useMemo(() => adminRecordsSections(own), [own]);
 
   // The browser's own Print (Ctrl+P) gets every row too, not just the first batch.
+  // Once printing ends, or the print dialog is cancelled, the groups fold again.
   useEffect(() => {
     const openAll = () => flushSync(() => setPrintAll(true));
+    const foldAgain = () => setPrintAll(false);
     window.addEventListener("beforeprint", openAll);
-    return () => window.removeEventListener("beforeprint", openAll);
+    window.addEventListener("afterprint", foldAgain);
+    return () => {
+      window.removeEventListener("beforeprint", openAll);
+      window.removeEventListener("afterprint", foldAgain);
+    };
   }, []);
 
   function copy() {

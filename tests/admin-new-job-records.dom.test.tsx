@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ADMIN_RECORDS_SECTIONS } from "@/components/admin/admin-page-sections";
@@ -107,7 +107,7 @@ describe("AdminRecordsPage", () => {
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toContain("Renewals · 1");
   });
 
-  it("folds a group of more than six rows behind Show all N, and opens every group before printing", () => {
+  it("folds a group of more than six rows behind Show all N, opens every group for printing, and folds again afterwards", () => {
     const print = vi.fn();
     vi.stubGlobal("print", print);
     render(<AdminRecordsPage now={NOW} />);
@@ -122,6 +122,23 @@ describe("AdminRecordsPage", () => {
     expect(print).toHaveBeenCalled();
     expect(screen.getByTestId("admin-records-not-recorded-list").querySelectorAll("li")).toHaveLength(total);
     expect(screen.queryByTestId("admin-records-not-recorded-list-show-all")).toBeNull();
+
+    // Printing finished (or the dialog was cancelled): the fold comes back.
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    expect(screen.getByTestId("admin-records-not-recorded-list").querySelectorAll("li")).toHaveLength(6);
+    expect(screen.getByTestId("admin-records-not-recorded-list-show-all")).toBeInTheDocument();
+
+    // The browser's own Print (Ctrl+P) opens and refolds the same way.
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+    expect(screen.getByTestId("admin-records-not-recorded-list").querySelectorAll("li")).toHaveLength(total);
+    act(() => {
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    expect(screen.getByTestId("admin-records-not-recorded-list").querySelectorAll("li")).toHaveLength(6);
     vi.unstubAllGlobals();
   });
 
