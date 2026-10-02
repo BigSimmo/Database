@@ -40,7 +40,9 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 /**
  * Bumping this invalidates every stored receipt. Change it whenever the signature
@@ -601,7 +603,7 @@ function selfTest(projectRoot) {
   console.log("gate-receipts self-test OK: scope matching, CI refusal, keying, capping, and declared scopes all hold.");
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly = isDirectEntrypoint(import.meta.url);
 if (invokedDirectly) {
   const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const command = process.argv[2] ?? "status";
