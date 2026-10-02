@@ -11,6 +11,7 @@ import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { formatEntryForCpdHome } from "@/lib/cme/clipboard";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { CmeFractionBar } from "@/components/cme/cme-progress-visuals";
 
 export type CmeLogCopySheetProps = {
   readonly open: boolean;
@@ -171,12 +172,7 @@ export function CmeLogCopySheet({
     >
       <div className="grid gap-4 text-sm">
         {queue.length > 0 ? (
-          <div aria-hidden="true" className="h-1 overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
-            <div
-              className="h-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-[var(--duration-base)] ease-[var(--ease-standard)] motion-reduce:transition-none"
-              style={{ transform: `scaleX(${Math.min(index, queue.length) / queue.length})` }}
-            />
-          </div>
+          <CmeFractionBar fraction={Math.min(index, queue.length) / queue.length} className="h-1" />
         ) : null}
 
         {demoMode ? (

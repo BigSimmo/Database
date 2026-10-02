@@ -14,6 +14,7 @@ import { formatCalendarDateShort } from "@/lib/cme/cpd-year";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { buildCmeYearCheck, type CmeYearCheckRow } from "@/lib/cme/year-check";
 import { cmePageTitle } from "@/components/cme/cme-page-frame";
+import { CmeFractionBar } from "@/components/cme/cme-progress-visuals";
 
 /** How many proving activities a row names before "and N more". */
 const PROOF_LIMIT = 4;
@@ -59,16 +60,7 @@ export function CmeYearCheckPage({ set, entries }: { set: CmeRequirementSet; ent
       <h1 className={cn(cmePageTitle, "mt-1")}>
         {check.readyCount} of {check.rows.length} done
       </h1>
-      <div
-        aria-hidden="true"
-        data-testid="cme-check-progress"
-        className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--surface-inset)] forced-colors:border"
-      >
-        <div
-          className="h-full origin-left rounded-full bg-[color:var(--clinical-accent)]"
-          style={{ transform: `scaleX(${share})` }}
-        />
-      </div>
+      <CmeFractionBar testId="cme-check-progress" fraction={share} className="mt-3 h-2" />
       <p className={cn(textMuted, "mt-3 text-sm")}>
         Everything an audit of this year would ask for, and what each one rests on. Targets are the ones you confirmed
         for {set.year}

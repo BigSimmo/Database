@@ -29,6 +29,7 @@ import {
 } from "@/lib/cme/plan-goals";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { canCarryCmeGoals, carryableCmeGoals } from "@/lib/cme/year-close-actions";
+import { CmeFractionBar } from "@/components/cme/cme-progress-visuals";
 
 /**
  * DEVELOPMENT PLAN — the year's goals, written once near the start of the
@@ -412,16 +413,11 @@ export function CmePlanPage({
                 {/* A thin share-of-the-year bar: each goal's hours against the
                     largest goal's, so the rows compare at a glance. Decorative —
                     the sentence above carries the figure. */}
-                <span
-                  aria-hidden="true"
-                  className="block h-1 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
-                >
-                  <span
-                    data-testid="cme-plan-tally-bar"
-                    className="block h-full rounded-full bg-[color:var(--clinical-accent)]"
-                    style={{ width: `${tallyMax > 0 ? Math.round((row.hours / tallyMax) * 100) : 0}%` }}
-                  />
-                </span>
+                <CmeFractionBar
+                  testId="cme-plan-tally-bar"
+                  fraction={tallyMax > 0 ? row.hours / tallyMax : 0}
+                  className="h-1"
+                />
               </li>
             ))}
           </ul>
