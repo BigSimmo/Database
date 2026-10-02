@@ -27,16 +27,16 @@ trivy image psychsift:dev
 
 ## 📋 Files at a Glance
 
-| File | Purpose | Key Feature |
-|------|---------|------------|
-| `Dockerfile` | App tier | Security hardening + labels |
-| `Dockerfile.worker` | Worker tier | Enhanced validation |
-| `.github/workflows/docker-build-cache.yml` | CI/CD | 70% faster rebuilds |
-| `scripts/build-multiplatform.sh` | Local builds | amd64+arm64 support |
-| `.docker/buildx.toml` | BuildKit config | Cache management |
-| `railway.app.json` | Deployment | Canary rollout (5 min, 25% traffic) |
-| `railway.worker.json` | Deployment | 2x replicas, higher resources |
-| `.dockerignore` | Build context | Secret leak prevention |
+| File                                       | Purpose         | Key Feature                         |
+| ------------------------------------------ | --------------- | ----------------------------------- |
+| `Dockerfile`                               | App tier        | Security hardening + labels         |
+| `Dockerfile.worker`                        | Worker tier     | Enhanced validation                 |
+| `.github/workflows/docker-build-cache.yml` | CI/CD           | 70% faster rebuilds                 |
+| `scripts/build-multiplatform.sh`           | Local builds    | amd64+arm64 support                 |
+| `.docker/buildx.toml`                      | BuildKit config | Cache management                    |
+| `railway.app.json`                         | Deployment      | Canary rollout (5 min, 25% traffic) |
+| `railway.worker.json`                      | Deployment      | 2x replicas, higher resources       |
+| `.dockerignore`                            | Build context   | Secret leak prevention              |
 
 ---
 
@@ -104,38 +104,41 @@ Phase 3: Done    → 100% new instances
 
 ## 🐛 Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Build cache slow | `docker buildx prune -a` |
-| arm64 build hangs | Increase Docker memory to 8GB+ |
-| Worker won't start | `docker run psychsift-worker:latest python -c "from docling import __version__"` |
-| Healthcheck failing | `curl http://localhost:3000/api/health/ready` |
+| Issue               | Solution                                                                         |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Build cache slow    | `docker buildx prune -a`                                                         |
+| arm64 build hangs   | Increase Docker memory to 8GB+                                                   |
+| Worker won't start  | `docker run psychsift-worker:latest python -c "from docling import __version__"` |
+| Healthcheck failing | `curl http://localhost:3000/api/health/ready`                                    |
 
 ---
 
 ## 📚 Documentation
 
-| Doc | Focus |
-|-----|-------|
-| `DOCKERFILE_OPTIMIZATIONS.md` | Layer caching & speed |
-| `PRODUCTION_DEPLOYMENT_GUIDE.md` | Full operations guide |
-| `IMPLEMENTATION_COMPLETE.md` | Summary of all changes |
+| Doc                              | Focus                  |
+| -------------------------------- | ---------------------- |
+| `DOCKERFILE_OPTIMIZATIONS.md`    | Layer caching & speed  |
+| `PRODUCTION_DEPLOYMENT_GUIDE.md` | Full operations guide  |
+| `IMPLEMENTATION_COMPLETE.md`     | Summary of all changes |
 
 ---
 
 ## ✅ Next Steps
 
 1. **Test locally:**
+
    ```bash
    ./scripts/build-multiplatform.sh app
    ```
 
 2. **Deploy to Railway:**
+
    ```bash
    git push origin main  # Triggers CI
    ```
 
 3. **Monitor canary:**
+
    ```bash
    railway logs
    ```
@@ -149,15 +152,15 @@ Phase 3: Done    → 100% new instances
 
 ## 📊 Expected Results
 
-| Metric | Value |
-|--------|-------|
-| App image size | ~450MB |
-| Worker image size | ~2.1GB |
-| Build cache hit rate | 70–80% |
-| First build time | 8–10 min |
-| Cached rebuild | 2–3 min |
-| Deployment canary window | 5 min |
-| Production replicas | 2 per region |
+| Metric                   | Value        |
+| ------------------------ | ------------ |
+| App image size           | ~450MB       |
+| Worker image size        | ~2.1GB       |
+| Build cache hit rate     | 70–80%       |
+| First build time         | 8–10 min     |
+| Cached rebuild           | 2–3 min      |
+| Deployment canary window | 5 min        |
+| Production replicas      | 2 per region |
 
 ---
 
@@ -167,7 +170,7 @@ Phase 3: Done    → 100% new instances
 ✅ **Security:** CIS Docker Benchmark compliant  
 ✅ **Reliability:** Safe staged deployments  
 ✅ **Scale:** Multi-platform (amd64+arm64)  
-✅ **Compliance:** OCI labels + SBOM ready  
+✅ **Compliance:** OCI labels + SBOM ready
 
 ---
 

@@ -4,10 +4,7 @@
   "kind": "area",
   "name": "App experience",
   "owns": "Every page, the shared shell, navigation, search chrome, client-side search and filtering, demo mode and offline behaviour.",
-  "canonicalDocs": [
-    "docs/frontend-architecture.md",
-    "docs/search-chrome-behaviour.md"
-  ],
+  "canonicalDocs": ["docs/frontend-architecture.md", "docs/search-chrome-behaviour.md"],
   "paths": [
     "docs/answer-page-redesign-handover.md",
     "docs/app-modes-decision-brief.md",

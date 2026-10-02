@@ -3,6 +3,7 @@
 ## PART 1: CRITICAL & HIGH PRIORITY (IMMEDIATE ACTION)
 
 ### Issue #1: CRITICAL - HMAC Signature Verification Encoding Bug
+
 **Status:** ✅ FIXED  
 **Severity:** 🔴 CRITICAL  
 **Category:** Security / Authentication  
@@ -10,12 +11,14 @@
 
 **Problem Description:**
 The `verifyProxyAuthHeader()` function converts base64url-encoded HMAC signatures to UTF-8 buffers before comparison. Base64url can produce non-UTF-8 byte sequences, causing:
+
 - Encoding errors during buffer conversion
 - Failed HMAC verification even with valid signatures
 - Users logged out after deployment
 - Authentication pipeline broken
 
 **Code Location:** Lines 39-40
+
 ```typescript
 // BROKEN:
 const a = Buffer.from(signature, "utf8");
@@ -25,6 +28,7 @@ const b = Buffer.from(expectedSignature, "utf8");
 **Root Cause:** Misunderstanding of base64url encoding format (uses `-` and `_` instead of `+` and `/`, no padding)
 
 **Solution Applied:**
+
 ```typescript
 // FIXED:
 const a = Buffer.from(signature, "base64url");
@@ -32,6 +36,7 @@ const b = Buffer.from(expectedSignature, "base64url");
 ```
 
 **Verification:**
+
 - ✅ TypeScript compiles
 - ✅ Type-safe
 - ✅ Backward compatible with existing tokens
@@ -42,6 +47,7 @@ const b = Buffer.from(expectedSignature, "base64url");
 **Rollback:** Revert to `"utf8"` if needed (1 line fix)
 
 **Test Coverage Needed:**
+
 - Edge case: Base64url with `-` and `_` characters
 - Edge case: Empty signature
 - Edge case: Padding differences
@@ -51,6 +57,7 @@ const b = Buffer.from(expectedSignature, "base64url");
 ---
 
 ### Issue #2: HIGH - Cache Race Condition in RAG Alias Fetching
+
 **Status:** ✅ FIXED  
 **Severity:** 🟠 HIGH  
 **Category:** Concurrency / Data Consistency  
@@ -58,6 +65,7 @@ const b = Buffer.from(expectedSignature, "base64url");
 
 **Problem Description:**
 The `fetchEnabledRagAliases()` function has no protection against concurrent requests for the same cache key. This causes:
+
 - 2+ concurrent requests → 2+ identical DB queries
 - Redundant network latency
 - Potential data inconsistency if writes race
@@ -67,6 +75,7 @@ The `fetchEnabledRagAliases()` function has no protection against concurrent req
 **Code Location:** Lines 50-156 (original), 50-180 (after fix)
 
 **Scenario:**
+
 ```
 Time 0ms: Request A arrives, cache miss for scope "owner-123"
 Time 1ms: Request B arrives, cache miss for same scope
@@ -78,6 +87,7 @@ Time 11ms: Request B gets results, overwrites cache (redundant)
 **Root Cause:** No synchronization primitive to track in-flight requests
 
 **Solution Applied:**
+
 ```typescript
 const ragAliasCacheRequests = new Map<string, Promise<RagAliasInput[]>>();
 
@@ -96,12 +106,14 @@ try {
 ```
 
 **Impact:**
+
 - Eliminates redundant concurrent DB queries
 - Improves latency for concurrent requests (all share single fetch)
 - Reduces database connection pool pressure
 - Better cache effectiveness under load
 
 **Verification:**
+
 - ✅ TypeScript compiles
 - ✅ Type-safe
 - ✅ No breaking changes
@@ -110,6 +122,7 @@ try {
 **Risk Level:** 🟢 LOW (conservative fix, only improves performance)
 
 **Test Coverage Needed:**
+
 - Load test: 100 concurrent requests to same cache key
 - Verify: All return same data
 - Verify: Only 1 database query fired
@@ -119,6 +132,7 @@ try {
 ---
 
 ### Issue #3: HIGH - Unhandled Promise Rejection at Boot
+
 **Status:** ✅ FIXED  
 **Severity:** 🟠 HIGH  
 **Category:** Error Handling / Boot  
@@ -126,6 +140,7 @@ try {
 
 **Problem Description:**
 The cache warmup promise is invoked with `void` operator but has no error handler. If the function throws before returning, the error is silently swallowed:
+
 - No logs of boot failures
 - Silent degradation
 - Cache never warmed
@@ -135,11 +150,13 @@ The cache warmup promise is invoked with `void` operator but has no error handle
 **Code Location:** Lines 72-78
 
 **Original Code:**
+
 ```typescript
 void warmEnabledRagAliasCache(); // Error silently fails
 ```
 
 **Failure Scenario:**
+
 ```
 1. Boot starts
 2. warmEnabledRagAliasCache() called
@@ -155,6 +172,7 @@ void warmEnabledRagAliasCache(); // Error silently fails
 **Root Cause:** Promise fire-and-forget without error handling
 
 **Solution Applied:**
+
 ```typescript
 warmEnabledRagAliasCache().catch((error) => {
   console.warn("rag_aliases cache warmup failed; first request will retry.", {
@@ -164,12 +182,14 @@ warmEnabledRagAliasCache().catch((error) => {
 ```
 
 **Impact:**
+
 - Cache warmup errors now visible in logs
 - Application still boots (non-blocking)
 - First request can retry cache fetch
 - Errors captured for monitoring
 
 **Verification:**
+
 - ✅ TypeScript compiles
 - ✅ No breaking changes
 - ❌ NOT tested with simulated DB failure
@@ -177,6 +197,7 @@ warmEnabledRagAliasCache().catch((error) => {
 **Risk Level:** 🟢 LOW (only adds logging, no behavior change)
 
 **Test Coverage Needed:**
+
 - Mock DB connection failure
 - Verify: Promise rejects
 - Verify: .catch() handler fires
@@ -187,6 +208,7 @@ warmEnabledRagAliasCache().catch((error) => {
 ---
 
 ### Issue #4: MEDIUM - Missing Null Check on Zone Color
+
 **Status:** ✅ FIXED  
 **Severity:** 🟡 MEDIUM  
 **Category:** String Handling / Query Safety  
@@ -194,6 +216,7 @@ warmEnabledRagAliasCache().catch((error) => {
 
 **Problem Description:**
 The `queriedZoneColour(query)` function could return empty string, resulting in malformed query variants:
+
 - Empty string in `${zoneColour} zone` → ` zone`
 - Malformed variant added to query pool
 - Search results affected (empty zone query matches everything)
@@ -202,14 +225,17 @@ The `queriedZoneColour(query)` function could return empty string, resulting in 
 **Code Location:** Line 284
 
 **Original Code:**
+
 ```typescript
 const zoneColour = queriedZoneColour(query);
-if (zoneColour) {  // Only checks truthy, not empty string
+if (zoneColour) {
+  // Only checks truthy, not empty string
   addVariant(`${zoneColour} zone`);
 }
 ```
 
 **Failure Scenario:**
+
 ```
 1. queriedZoneColour() returns "" (empty string)
 2. if ("") evaluates to false (good)
@@ -222,19 +248,23 @@ if (zoneColour) {  // Only checks truthy, not empty string
 **Root Cause:** Insufficient null check (truthy check vs. length check)
 
 **Solution Applied:**
+
 ```typescript
 const zoneColour = queriedZoneColour(query);
-if (zoneColour?.trim()) {  // Check for empty string after trim
+if (zoneColour?.trim()) {
+  // Check for empty string after trim
   addVariant(`${zoneColour} zone`);
 }
 ```
 
 **Impact:**
+
 - Prevents malformed query variants
 - Only adds meaningful zone queries
 - Improves search result quality
 
 **Verification:**
+
 - ✅ TypeScript compiles
 - ✅ Covered by existing search tests
 - ✅ No breaking changes
@@ -246,6 +276,7 @@ if (zoneColour?.trim()) {  // Check for empty string after trim
 ---
 
 ### Issue #5: MEDIUM - Double Assignment Dead Code in Proxy
+
 **Status:** ✅ FIXED  
 **Severity:** 🟡 MEDIUM  
 **Category:** Logic Error / Null Safety  
@@ -253,6 +284,7 @@ if (zoneColour?.trim()) {  // Check for empty string after trim
 
 **Problem Description:**
 The `response` variable is initialized twice with different values, creating:
+
 - Dead code path (first assignment never used)
 - Potential null reference if `setAll()` never fires
 - Confusing code flow
@@ -261,6 +293,7 @@ The `response` variable is initialized twice with different values, creating:
 **Code Location:** Lines 212-258
 
 **Original Code:**
+
 ```typescript
 let response = NextResponse.next({ request: { headers: requestHeadersWithNonce() } }); // Assignment 1
 const supabase = createServerClient(url, key, {
@@ -270,6 +303,7 @@ const supabase = createServerClient(url, key, {
 ```
 
 **Problem Scenario:**
+
 ```
 1. response = NextResponse.next(...) // Dead code
 2. createServerClient called
@@ -283,6 +317,7 @@ const supabase = createServerClient(url, key, {
 **Root Cause:** Unclear logic flow, initialization before callback definition
 
 **Solution Applied:**
+
 ```typescript
 let response: NextResponse | null = null;  // Initialize as null
 const supabase = createServerClient(url, key, {
@@ -292,17 +327,20 @@ const supabase = createServerClient(url, key, {
 ```
 
 And at return:
+
 ```typescript
 return withCsp(response ?? NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
 ```
 
 **Impact:**
+
 - Eliminates dead code
 - Clarifies intent (null until callbacks set it)
 - Type-safe null handling
 - Prevents potential null reference errors
 
 **Verification:**
+
 - ✅ TypeScript compiles
 - ✅ Covered by existing proxy tests
 - ✅ No breaking changes
@@ -314,6 +352,7 @@ return withCsp(response ?? NextResponse.next({ request: { headers: requestHeader
 ---
 
 ### Issue #6: MEDIUM - Missing Abort Timeout on Boot Cache Warmup
+
 **Status:** ✅ FIXED  
 **Severity:** 🟡 MEDIUM  
 **Category:** Reliability / Boot  
@@ -321,6 +360,7 @@ return withCsp(response ?? NextResponse.next({ request: { headers: requestHeader
 
 **Problem Description:**
 The cache warmup at server boot has no timeout. If database is unresponsive, the boot process can hang indefinitely:
+
 - Deploy hangs
 - Container orchestration times out (usually 5-10 minutes)
 - Deployment failure
@@ -330,6 +370,7 @@ The cache warmup at server boot has no timeout. If database is unresponsive, the
 **Code Location:** Lines 118-136
 
 **Original Code:**
+
 ```typescript
 export async function warmEnabledRagAliasCache(
   supabase: ReturnType<typeof createAdminClient> = createAdminClient(),
@@ -340,6 +381,7 @@ export async function warmEnabledRagAliasCache(
 ```
 
 **Failure Scenario:**
+
 ```
 1. Boot starts, warmEnabledRagAliasCache() called
 2. fetchEnabledRagAliases() fires DB query
@@ -353,6 +395,7 @@ export async function warmEnabledRagAliasCache(
 **Root Cause:** No timeout protection on async DB operation
 
 **Solution Applied:**
+
 ```typescript
 export async function warmEnabledRagAliasCache(
   supabase: ReturnType<typeof createAdminClient> = createAdminClient(),
@@ -368,12 +411,14 @@ export async function warmEnabledRagAliasCache(
 ```
 
 **Impact:**
+
 - Boot never hangs longer than ~5 seconds
 - Warmup failures don't block deployment
 - First request retries cache population
 - Clear timeout logs for debugging
 
 **Verification:**
+
 - ✅ TypeScript compiles
 - ✅ No breaking changes
 - ❌ NOT tested with hanging database
@@ -381,6 +426,7 @@ export async function warmEnabledRagAliasCache(
 **Risk Level:** 🟢 LOW (only adds timeout, doesn't change behavior)
 
 **Test Coverage Needed:**
+
 - Mock DB that hangs for 30 seconds
 - Verify: Warmup aborts after ~5 seconds
 - Verify: Error logged
@@ -392,12 +438,14 @@ export async function warmEnabledRagAliasCache(
 ## PART 2: RECOMMENDED IMPROVEMENTS (NOT CRITICAL)
 
 ### Issue #7: Webhook Rate Limiting Missing
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟡 MEDIUM - Security  
 **Category:** DoS Protection  
 **Files Affected:** `src/app/api/webhooks/*` (all webhook routes)
 
 **Problem:** No rate limiting on webhook endpoints; attackers could trigger:
+
 - Database connection exhaustion
 - Ingestion job queue overflow
 - Log spam
@@ -410,6 +458,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #8: Missing Auth Request Timeout
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟡 MEDIUM - Reliability  
 **Category:** Performance/Stability  
@@ -424,6 +473,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #9: No Cache Telemetry
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Observability  
 **Category:** Monitoring  
@@ -438,6 +488,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #10: Missing Graceful Cache Degradation
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Resilience  
 **Category:** Error Handling  
@@ -452,6 +503,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #11: Missing CORS Headers
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟡 MEDIUM - Security  
 **Category:** API Security  
@@ -466,6 +518,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #12: No Proxy Auth Payload Validation
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Robustness  
 **Category:** Input Validation  
@@ -480,6 +533,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #13: Missing Environment Variable Validation Tests
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Configuration  
 **Category:** Testing  
@@ -494,6 +548,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #14: No Query Pagination for Large Fetches
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Performance  
 **Category:** Scalability  
@@ -508,6 +563,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #15: Missing Additional Cache Warmup
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Performance  
 **Category:** Boot Optimization  
@@ -522,6 +578,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #16: No Normalization Memoization
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Performance  
 **Category:** Optimization  
@@ -536,6 +593,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #17: Missing HMAC Signature Tests
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟠 HIGH - Testing  
 **Category:** Test Coverage  
@@ -550,6 +608,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #18: Missing Concurrent Request Tests
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟠 HIGH - Testing  
 **Category:** Test Coverage  
@@ -564,6 +623,7 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #19: Missing Boot Timeout Tests
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🠗 HIGH - Testing  
 **Category:** Test Coverage  
@@ -578,12 +638,14 @@ export async function warmEnabledRagAliasCache(
 ---
 
 ### Issue #20-22: Missing Documentation
+
 **Status:** 🔜 RECOMMENDED  
 **Severity:** 🟢 LOW - Maintenance  
 **Category:** Documentation  
 **Files Affected:** `docs/*` (new/updated files)
 
 **Issues:**
+
 - #20: Webhook rotation schedule
 - #21: Cache warmup strategy
 - #22: Error budgets
@@ -594,28 +656,28 @@ export async function warmEnabledRagAliasCache(
 
 ## SUMMARY TABLE
 
-| # | Issue | Status | Severity | Category | Est. Hours | Priority |
-|---|-------|--------|----------|----------|-----------|----------|
-| 1 | HMAC encoding | ✅ FIXED | CRITICAL | Security | — | Deploy now |
-| 2 | Cache race | ✅ FIXED | HIGH | Concurrency | — | Deploy now |
-| 3 | Promise error | ✅ FIXED | HIGH | Error handling | — | Deploy now |
-| 4 | Null check | ✅ FIXED | MEDIUM | Logic | — | Deploy now |
-| 5 | Dead code | ✅ FIXED | MEDIUM | Logic | — | Deploy now |
-| 6 | Boot timeout | ✅ FIXED | MEDIUM | Reliability | — | Deploy now |
-| 7 | Rate limiting | 🔜 TODO | MEDIUM | Security | 3 | This month |
-| 8 | Auth timeout | 🔜 TODO | MEDIUM | Reliability | 1 | This month |
-| 9 | Cache telemetry | 🔜 TODO | LOW | Observability | 1 | This month |
-| 10 | Degradation | 🔜 TODO | LOW | Resilience | 2 | 1-2 weeks |
-| 11 | CORS headers | 🔜 TODO | MEDIUM | Security | 1 | This month |
-| 12 | Payload validation | 🔜 TODO | LOW | Robustness | 1 | This month |
-| 13 | Env tests | 🔜 TODO | LOW | Testing | 2 | This month |
-| 14 | Pagination | 🔜 TODO | LOW | Scalability | 2 | Future |
-| 15 | Cache warming | 🔜 TODO | LOW | Performance | 2 | Future |
-| 16 | Memoization | 🔜 TODO | LOW | Performance | 1 | Future |
-| 17 | Crypto tests | 🔜 TODO | HIGH | Testing | 2 | This week |
-| 18 | Concurrent tests | 🔜 TODO | HIGH | Testing | 2 | This week |
-| 19 | Timeout tests | 🔜 TODO | HIGH | Testing | 2 | This week |
-| 20-22 | Documentation | 🔜 TODO | LOW | Maintenance | 3 | This quarter |
+| #     | Issue              | Status   | Severity | Category       | Est. Hours | Priority     |
+| ----- | ------------------ | -------- | -------- | -------------- | ---------- | ------------ |
+| 1     | HMAC encoding      | ✅ FIXED | CRITICAL | Security       | —          | Deploy now   |
+| 2     | Cache race         | ✅ FIXED | HIGH     | Concurrency    | —          | Deploy now   |
+| 3     | Promise error      | ✅ FIXED | HIGH     | Error handling | —          | Deploy now   |
+| 4     | Null check         | ✅ FIXED | MEDIUM   | Logic          | —          | Deploy now   |
+| 5     | Dead code          | ✅ FIXED | MEDIUM   | Logic          | —          | Deploy now   |
+| 6     | Boot timeout       | ✅ FIXED | MEDIUM   | Reliability    | —          | Deploy now   |
+| 7     | Rate limiting      | 🔜 TODO  | MEDIUM   | Security       | 3          | This month   |
+| 8     | Auth timeout       | 🔜 TODO  | MEDIUM   | Reliability    | 1          | This month   |
+| 9     | Cache telemetry    | 🔜 TODO  | LOW      | Observability  | 1          | This month   |
+| 10    | Degradation        | 🔜 TODO  | LOW      | Resilience     | 2          | 1-2 weeks    |
+| 11    | CORS headers       | 🔜 TODO  | MEDIUM   | Security       | 1          | This month   |
+| 12    | Payload validation | 🔜 TODO  | LOW      | Robustness     | 1          | This month   |
+| 13    | Env tests          | 🔜 TODO  | LOW      | Testing        | 2          | This month   |
+| 14    | Pagination         | 🔜 TODO  | LOW      | Scalability    | 2          | Future       |
+| 15    | Cache warming      | 🔜 TODO  | LOW      | Performance    | 2          | Future       |
+| 16    | Memoization        | 🔜 TODO  | LOW      | Performance    | 1          | Future       |
+| 17    | Crypto tests       | 🔜 TODO  | HIGH     | Testing        | 2          | This week    |
+| 18    | Concurrent tests   | 🔜 TODO  | HIGH     | Testing        | 2          | This week    |
+| 19    | Timeout tests      | 🔜 TODO  | HIGH     | Testing        | 2          | This week    |
+| 20-22 | Documentation      | 🔜 TODO  | LOW      | Maintenance    | 3          | This quarter |
 
 ---
 
@@ -624,9 +686,11 @@ export async function warmEnabledRagAliasCache(
 **Already Done (Deploy Now):** 0 hours (all 6 bugs fixed in code)
 
 **This Week (Must Have):** 6 hours
+
 - Add 3 critical test files (2 + 2 + 2)
 
 **This Month (Should Have):** 11 hours
+
 - Rate limiting (3h)
 - Auth timeout (1h)
 - Cache telemetry (1h)
@@ -636,10 +700,11 @@ export async function warmEnabledRagAliasCache(
 - Graceful degradation (2h)
 
 **This Quarter (Nice to Have):** 3 hours
+
 - Documentation (3h)
 
 **Future (Optional):** 6 hours
+
 - Pagination, warming, memoization
 
 **Grand Total:** 26 hours over next 3 months
-

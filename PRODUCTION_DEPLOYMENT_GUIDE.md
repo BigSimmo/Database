@@ -9,7 +9,9 @@ This guide documents all production-ready enhancements applied to PsychSift's Do
 ## 1. Security Hardening ✅
 
 ### Dockerfile (App Tier)
+
 **Changes:**
+
 - File permissions locked: `chmod -R a+rX /app/.next /app/public` (read-only for node user)
 - Ownership set: `chown -R node:node /app` (all files owned by node)
 - Directory traversal hardened: specific `chmod 755` on key directories
@@ -18,12 +20,15 @@ This guide documents all production-ready enhancements applied to PsychSift's Do
 **Location:** `Dockerfile` lines 161–164
 
 **Impact:**
+
 - Prevents container breakout via file permission escalation
 - Read-only filesystem compliance for production environments
 - Meets CIS Docker Benchmark Level 1 recommendations
 
 ### Dockerfile.worker
+
 **Changes:**
+
 - Enhanced Python validation: docling version check, tesseract binary verification
 - File permissions hardened on all venvs and models
 - Read-only access to distributed OCR and docling environments
@@ -31,6 +36,7 @@ This guide documents all production-ready enhancements applied to PsychSift's Do
 **Location:** `Dockerfile.worker` lines 141–157
 
 **Impact:**
+
 - Build-time detection of broken OCR pipeline components
 - Venv isolation protected with restricted permissions
 
@@ -39,7 +45,9 @@ This guide documents all production-ready enhancements applied to PsychSift's Do
 ## 2. Comprehensive Image Labels ✅
 
 ### Metadata Added
+
 Both Dockerfiles now include OCI-compliant labels for:
+
 - **org.opencontainers.image.source** — GitHub repository link
 - **org.opencontainers.image.title** — Human-readable service name
 - **org.opencontainers.image.description** — Purpose & tech stack
@@ -50,11 +58,13 @@ Both Dockerfiles now include OCI-compliant labels for:
 - **com.example.python.venv.*** — Python environment paths (worker only)
 
 **Usage:**
+
 ```bash
 docker inspect psychsift:latest | grep -A 50 Labels
 ```
 
 **Integration:**
+
 - Snyk/Trivy scans read these labels to contextualize findings
 - OCI registries display in UI: Docker Hub, GHCR, Artifact Registry
 - Compliance tools (Bridgepoint, Lacework) auto-parse for audits
@@ -64,7 +74,9 @@ docker inspect psychsift:latest | grep -A 50 Labels
 ## 3. Multi-Platform Build Support ✅
 
 ### Setup
+
 **Prerequisites:**
+
 ```bash
 # Enable buildx (modern Docker Desktop includes this)
 docker buildx version
@@ -74,9 +86,11 @@ docker run --rm --privileged docker/binfmt_handlers_qemu:latest
 ```
 
 ### Local Multi-Platform Builds
+
 **Script:** `scripts/build-multiplatform.sh`
 
 **Usage:**
+
 ```bash
 # Build app tier only
 ./scripts/build-multiplatform.sh app
@@ -89,12 +103,14 @@ BUILD_TAG=v1.2.3 ./scripts/build-multiplatform.sh all
 ```
 
 **What it does:**
+
 - Detects supported platforms (amd64, arm64)
 - Uses buildx for simultaneous cross-platform builds
 - Applies registry cache for layer reuse
 - Supports local load or remote push
 
 **Output:**
+
 ```
 🐳 Docker Multi-Platform Build
   Platforms: linux/amd64,linux/arm64
@@ -107,6 +123,7 @@ BUILD_TAG=v1.2.3 ./scripts/build-multiplatform.sh all
 ```
 
 ### Railway Deployment (Native)
+
 Railway auto-detects platform from deployment region. No additional config needed.
 
 ---
@@ -114,9 +131,11 @@ Railway auto-detects platform from deployment region. No additional config neede
 ## 4. Registry Cache Export (CI/CD) ✅
 
 ### GitHub Actions Workflow
+
 **File:** `.github/workflows/docker-build-cache.yml`
 
 **Features:**
+
 - **Cache layer persistence:** Stores in GHCR as `:buildcache` tag
 - **Jobs:**
   - `build-app` — Standard amd64 builds for PR/branch
@@ -124,17 +143,20 @@ Railway auto-detects platform from deployment region. No additional config neede
   - `build-multi-platform` — Runs on `main` only; publishes amd64 + arm64
 
 **Configuration:**
+
 ```yaml
 cache-from: type=registry,ref=ghcr.io/owner/psychsift-app:buildcache
 cache-to: type=registry,ref=ghcr.io/owner/psychsift-app:buildcache,mode=max
 ```
 
 **Performance Impact:**
+
 - First build: ~8–10 min (full)
 - Subsequent builds: ~2–3 min (70–80% cache hit on code changes)
 - Multi-platform: ~5–6 min per platform (parallel)
 
 **Activation:**
+
 ```bash
 # Trigger manually
 git push  # Pushes to main → triggers multi-platform build
@@ -144,14 +166,17 @@ git push origin feature/my-feature  # Triggers amd64-only build
 ```
 
 ### Buildx Configuration
+
 **File:** `.docker/buildx.toml`
 
 **Contains:**
+
 - Multiplatform builder instance (`multiplatform`)
 - Registry-cache builder with 240h GC policy
 - Inline cache for BuildKit layer reuse
 
 **Usage (local):**
+
 ```bash
 # Optional: Load custom builder config
 docker buildx create --config .docker/buildx.toml
@@ -168,9 +193,11 @@ docker buildx build --builder registry-cache \
 ## 5. Staged Rollout Configuration ✅
 
 ### Railway App Tier
+
 **File:** `railway.app.json`
 
 **Deployment Strategy:**
+
 ```json
 {
   "deploymentStrategy": {
@@ -188,16 +215,19 @@ docker buildx build --builder registry-cache \
 ```
 
 **What this means:**
+
 - **Canary:** 25% of traffic → new version for 5 min
 - **Rolling:** Max 50% new instances, min 75% healthy at all times
 - **Graceful:** Old instances drain connections before termination
 
 **Health Checks:**
+
 - **Path:** `/api/health/ready` (enhanced from `/api/health`)
 - **Timeout:** 300 sec (5 min for migrations)
 - **Grace period:** 30 sec startup buffer
 
 **Resource Limits (container):**
+
 ```
 cpuRequest: 500m (0.5 core)
 cpuLimit: 2000m (2 cores)
@@ -208,9 +238,11 @@ memoryLimit: 2Gi
 **Replicas:** 2 per region (was 1)
 
 ### Railway Worker Tier
+
 **File:** `railway.worker.json`
 
 **Configuration:**
+
 ```json
 {
   "restartPolicyType": "ALWAYS",
@@ -224,6 +256,7 @@ memoryLimit: 2Gi
 ```
 
 **Rationale:**
+
 - Worker is long-polling (not request-driven)
 - Higher memory for Python (OCR + docling models)
 - No canary strategy (workers are batch processors)
@@ -234,6 +267,7 @@ memoryLimit: 2Gi
 ## 6. Docker Build Commands Reference
 
 ### Local Development
+
 ```bash
 # Standard build (amd64)
 docker build -t psychsift:dev .
@@ -246,6 +280,7 @@ docker build -f Dockerfile.worker -t psychsift-worker:dev .
 ```
 
 ### Multi-Platform (with script)
+
 ```bash
 # Setup buildx (once)
 docker buildx create --name multiplatform
@@ -258,6 +293,7 @@ PUSH=true BUILD_TAG=latest ./scripts/build-multiplatform.sh app
 ```
 
 ### CI/CD (manual trigger)
+
 ```bash
 # Mimic GitHub Actions workflow locally
 REGISTRY=ghcr.io REPO_OWNER=myorg docker buildx build \
@@ -270,6 +306,7 @@ REGISTRY=ghcr.io REPO_OWNER=myorg docker buildx build \
 ```
 
 ### Image Inspection
+
 ```bash
 # View labels
 docker inspect psychsift:latest | jq .[0].Config.Labels
@@ -289,6 +326,7 @@ trivy image --format cyclonedx -o sbom.json psychsift:latest
 ## 7. .dockerignore Enhancements ✅
 
 ### Added Security Artifacts
+
 ```
 # Security scanning & artifact files
 .trivyignore
@@ -307,11 +345,13 @@ secrets/
 ```
 
 ### Benefits
+
 - Excludes security scan outputs from build context
 - Blocks AWS/GCP/Azure credentials from being baked in
 - Prevents buildx cache from containing secrets
 
 ### File Size Impact
+
 - **Before:** ~1.6GB build context
 - **After:** ~1.55GB (minimal impact; files were already dev-only)
 
@@ -320,13 +360,16 @@ secrets/
 ## 8. Healthcheck Enhancement
 
 ### App Tier
+
 **Before:**
+
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch(...).then(...).catch(...)"
 ```
 
 **After:**
+
 ```dockerfile
 # /api/health checks HTTP responsiveness
 # /api/health/ready checks app readiness (enhanced)
@@ -335,6 +378,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 ```
 
 **Expected behavior:**
+
 - `GET /api/health` returns `200 OK` if app is running
 - `GET /api/health/ready` returns `200 OK` if database + Supabase are connected
 - Railway uses `/api/health/ready` for deployment health checks (see `railway.app.json`)
@@ -344,6 +388,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 ## 9. Node Cache Mount for npm (Buildkit)
 
 ### Implementation
+
 Both Dockerfiles now use BuildKit cache mounts for npm:
 
 ```dockerfile
@@ -352,11 +397,13 @@ RUN --mount=type=cache,target=/root/.npm \
 ```
 
 **Benefits:**
+
 - npm package cache persists across builds
 - Reduces redundant downloads on rebuild
 - Requires: `DOCKER_BUILDKIT=1` (enabled by default in modern Docker)
 
 **Verification:**
+
 ```bash
 docker buildx du  # View cache usage
 docker buildx prune  # Clean old cache
@@ -367,6 +414,7 @@ docker buildx prune  # Clean old cache
 ## 10. Worker Validation Expansion ✅
 
 ### Enhanced Runtime Checks
+
 Before image is marked ready, worker validates:
 
 ```bash
@@ -378,6 +426,7 @@ Before image is marked ready, worker validates:
 ```
 
 **Output on success:**
+
 ```
 ✓ docling: 2.124.0
 tesseract 5.3.2
@@ -394,18 +443,21 @@ tesseract 5.3.2
 ## 11. Deployment Checklist
 
 ### Pre-Deployment
+
 - [ ] All Dockerfiles pass security checks: `trivy image`
 - [ ] Healthcheck passes: `docker run -p 3000:3000 psychsift:latest`
 - [ ] Worker validates: `docker run psychsift-worker:latest` (exits 0)
 - [ ] Multi-platform test: `docker manifest inspect docker.io/myorg/app`
 
 ### Deployment to Railway
+
 - [ ] Ensure `railway.app.json` staged rollout is configured
 - [ ] Set `ALLOW_LOW_RAM_BUILD=1` in Railway environment
 - [ ] Pre-deploy command runs: `node /app/scripts/deploy/await-migrations.mjs`
 - [ ] Healthcheck endpoint returns 200 OK
 
 ### Post-Deployment
+
 - [ ] Monitor canary traffic (first 5 min at 25%)
 - [ ] Check logs: `railway logs`
 - [ ] Verify worker is claiming jobs (if applicable)
@@ -416,6 +468,7 @@ tesseract 5.3.2
 ## 12. Troubleshooting
 
 ### Build Cache Issues
+
 ```bash
 # Clear all buildx cache
 docker buildx prune -a
@@ -428,6 +481,7 @@ docker buildx du
 ```
 
 ### Multi-Platform Build Fails
+
 ```bash
 # Check if QEMU is installed
 docker run --rm --privileged docker/binfmt_handlers_qemu:latest
@@ -440,6 +494,7 @@ docker build --platform linux/arm64 -t test:arm64 .
 ```
 
 ### Healthcheck Failing
+
 ```bash
 # Test locally
 docker run -p 3000:3000 psychsift:latest &
@@ -452,6 +507,7 @@ docker logs <container-id>
 ```
 
 ### Worker Not Starting
+
 ```bash
 # Check Python environment
 docker run --rm psychsift-worker:latest \
@@ -468,27 +524,29 @@ docker run -e DEBUG=1 psychsift-worker:latest
 
 ## 13. Performance Metrics (Before & After)
 
-| Metric | Before | After | Delta |
-|--------|--------|-------|-------|
-| **Local rebuild (code change)** | 2–3 min | 30–45 sec | **~80% faster** |
-| **CI first build** | 8–10 min | 8–10 min | Same |
-| **CI rebuild (cache hit)** | 6–8 min | 2–3 min | **~70% faster** |
-| **Multi-platform build** | N/A | 5–6 min per platform | New capability |
-| **Image size (app)** | ~450MB | ~450MB | Same (no bloat) |
-| **Prod deployment time** | 3–5 min | 2–4 min | ~20% faster |
-| **Canary safety window** | Immediate | 5 min @ 25% traffic | New safety |
+| Metric                          | Before    | After                | Delta           |
+| ------------------------------- | --------- | -------------------- | --------------- |
+| **Local rebuild (code change)** | 2–3 min   | 30–45 sec            | **~80% faster** |
+| **CI first build**              | 8–10 min  | 8–10 min             | Same            |
+| **CI rebuild (cache hit)**      | 6–8 min   | 2–3 min              | **~70% faster** |
+| **Multi-platform build**        | N/A       | 5–6 min per platform | New capability  |
+| **Image size (app)**            | ~450MB    | ~450MB               | Same (no bloat) |
+| **Prod deployment time**        | 3–5 min   | 2–4 min              | ~20% faster     |
+| **Canary safety window**        | Immediate | 5 min @ 25% traffic  | New safety      |
 
 ---
 
 ## 14. Next Steps (Future Enhancements)
 
 ### Recommended
+
 - [ ] Enable Cosign image signing: `docker buildx build --attest type=provenance,type=sbom`
 - [ ] Add SARIF upload to GitHub: `trivy image --format sarif -o trivy.sarif`
 - [ ] Implement SLSA Level 2 provenance: GitHub OIDC + Cosign keyless signing
 - [ ] Add CVE scanning in CI: `trivy image --severity HIGH,CRITICAL`
 
 ### Optional
+
 - [ ] Private PyPI mirror for Python deps (air-gapped environments)
 - [ ] Signed base image from Docker (DHI with Notary)
 - [ ] Binary cache distribution via `nix` or `guix` (advanced)
@@ -498,6 +556,7 @@ docker run -e DEBUG=1 psychsift-worker:latest
 ## Summary
 
 **What's improved:**
+
 1. ✅ Security: File permissions, read-only FS compliance, secret leak prevention
 2. ✅ Speed: Registry cache + layer reuse → 70–80% faster rebuilds
 3. ✅ Resilience: Multi-platform support + staged rollout for safe deployments
@@ -505,6 +564,7 @@ docker run -e DEBUG=1 psychsift-worker:latest
 5. ✅ Observability: Comprehensive logging, metrics, healthcheck paths
 
 **Key files changed:**
+
 - `Dockerfile` — Security hardening, labels, cache mount
 - `Dockerfile.worker` — Enhanced validation, security hardening
 - `.dockerignore` — Secret leak prevention

@@ -3,21 +3,25 @@
 ## Completed Optimizations
 
 ### 1. Multi-Architecture Support ✓
+
 **Status:** Already enabled in CI  
 **File:** `.github/workflows/docker-image.yml`  
 **Platforms:** `linux/amd64,linux/arm64`
 
 Both app and worker images now build for ARM64 and AMD64. This enables:
+
 - Deployment to ARM-based infrastructure (Apple Silicon CI/CD, Raspberry Pi edge, AWS Graviton)
 - Zero binary compatibility issues on mixed architectures
 - Future-proof for Railway's infrastructure changes
 
 ### 2. Container Vulnerability Scanning ✓
+
 **Status:** Already implemented  
 **File:** `.github/workflows/docker-image.yml`  
 **Tool:** Trivy (via `trivy-image-scan.mjs`)
 
 **What it does:**
+
 - Scans both images for HIGH/CRITICAL CVEs
 - Generates SBOM (Software Bill of Materials) for audit trails
 - **Advisory on PRs** (non-blocking)
@@ -25,21 +29,25 @@ Both app and worker images now build for ARM64 and AMD64. This enables:
 - Runs after build completes, stores SBOMs as artifacts
 
 **Output:**
+
 ```
 HIGH=X CRITICAL=Y
 ```
 
 ### 3. Worker Health Endpoint ✓
+
 **File:** `worker/health.ts` (NEW)  
 **Port:** 3001 (configurable via `WORKER_HEALTH_PORT`)  
 **Endpoint:** `GET http://worker:3001/health`
 
 **Checks performed:**
+
 - ✓ Supabase connectivity (RPC probe)
 - ✓ Python venv availability (version check)
 - ✓ Last successful claim processed (staleness detector, 5-min threshold)
 
 **Response format:**
+
 ```json
 {
   "status": "ok|degraded|error",
@@ -53,11 +61,13 @@ HIGH=X CRITICAL=Y
 ```
 
 **HTTP Status Codes:**
+
 - `200 OK` — status is "ok" or "degraded"
 - `503 Service Unavailable` — status is "error"
 
 **Integration with Railway:**
 Add to `railway.worker.json`:
+
 ```json
 "healthcheck": {
   "path": "/health",
@@ -70,6 +80,7 @@ Add to `railway.worker.json`:
 ```
 
 **Integration with Kubernetes:**
+
 ```yaml
 livenessProbe:
   httpGet:
@@ -82,15 +93,18 @@ livenessProbe:
 ```
 
 ### 4. Resource Limit Labels ✓
+
 **Files:** `Dockerfile`, `Dockerfile.worker`
 
 **App tier labels:**
+
 ```dockerfile
 org.opencontainers.image.cpu="1"
 org.opencontainers.image.memory="512m"
 ```
 
 **Worker tier labels:**
+
 ```dockerfile
 org.opencontainers.image.cpu="2"
 org.opencontainers.image.memory="2048m"
@@ -99,20 +113,24 @@ org.opencontainers.image.memory="2048m"
 These labels document expected resource allocation for Railway and Kubernetes orchestrators. Not enforced at container runtime but guide deployment decisions.
 
 ### 5. Build Context Optimization ✓
+
 **File:** `.dockerignore`
 
 **Optimizations:**
+
 - Consolidated duplicate entries
 - Removed unnecessary cruft (`.impeccable`, `.qa-smoke`, etc.)
 - Clarified section order (version control → tests → artifacts → local dev → Python)
 - Result: Reduced build context ~15-20% (from ~42MB estimated)
 
 **Impact:**
+
 - Faster docker push/pull in CI
 - Cleaner Buildx cache operations
 - More predictable rebuild times
 
 ### 6. Explicit File Ownership ✓
+
 **Files:** `Dockerfile`, `Dockerfile.worker`
 
 **Change:** All `COPY --from` commands now use `--chown=node:node`
@@ -122,6 +140,7 @@ COPY --chown=node:node --from=prod-deps /app/node_modules ./node_modules
 ```
 
 **Benefits:**
+
 - No layer bloat from ownership changes
 - Explicit security posture (files owned by unprivileged user)
 - Prevents accidental future COPY mistakes landing as root
@@ -133,16 +152,19 @@ COPY --chown=node:node --from=prod-deps /app/node_modules ./node_modules
 ### Local Testing
 
 **Start worker with health endpoint:**
+
 ```bash
 WORKER_HEALTH_PORT=3001 npm run worker
 ```
 
 **Check health:**
+
 ```bash
 curl http://localhost:3001/health | jq
 ```
 
 **Expect degraded on first request (no claims processed yet):**
+
 ```json
 {
   "status": "degraded",
@@ -157,6 +179,7 @@ curl http://localhost:3001/health | jq
 ### Railway Deployment
 
 Update `railway.worker.json` to include:
+
 ```json
 {
   "services": {
@@ -175,6 +198,7 @@ Update `railway.worker.json` to include:
 ```
 
 Then Railway will:
+
 1. Start worker with `NODE_ENV=production`
 2. Probe `/health` every 30s after 30s startup grace period
 3. Mark unhealthy after 3 consecutive failed probes (90s total)
@@ -183,11 +207,13 @@ Then Railway will:
 ### Inspect Image Labels
 
 **App tier:**
+
 ```bash
 docker inspect clinical-kb-app:latest | jq '.[] | .Config.Labels' | grep cpu
 ```
 
 **Worker tier:**
+
 ```bash
 docker inspect clinical-kb-worker:latest | jq '.[] | .Config.Labels' | grep memory
 ```
@@ -242,12 +268,12 @@ worker_last_claim_processed_seconds_ago{instance="worker-1"} 45
 
 ## Summary of Changes
 
-| Component | Change | Impact |
-|-----------|--------|--------|
-| **CI/CD** | Multi-arch (`amd64,arm64`) already enabled | ARM deployment ready |
-| **Scanning** | Trivy CVE scanning (advisory on PR, required on main) | Supply-chain security |
-| **Worker** | `/health` endpoint on port 3001 | Proactive failure detection |
-| **Labels** | Resource hints (CPU, memory) | Better orchestration |
-| **Build** | Optimized .dockerignore, explicit --chown | Faster builds, explicit ownership |
+| Component    | Change                                                | Impact                            |
+| ------------ | ----------------------------------------------------- | --------------------------------- |
+| **CI/CD**    | Multi-arch (`amd64,arm64`) already enabled            | ARM deployment ready              |
+| **Scanning** | Trivy CVE scanning (advisory on PR, required on main) | Supply-chain security             |
+| **Worker**   | `/health` endpoint on port 3001                       | Proactive failure detection       |
+| **Labels**   | Resource hints (CPU, memory)                          | Better orchestration              |
+| **Build**    | Optimized .dockerignore, explicit --chown             | Faster builds, explicit ownership |
 
 All changes are **backward compatible**—no breaking changes to APIs or existing deployments.

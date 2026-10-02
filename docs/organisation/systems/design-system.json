@@ -4,9 +4,7 @@
   "kind": "workstream",
   "name": "Design system",
   "owns": "Visual tokens, primitives, brand and the lint rules that enforce them; serves every screen.",
-  "canonicalDocs": [
-    "docs/design-system/README.md"
-  ],
+  "canonicalDocs": ["docs/design-system/README.md"],
   "paths": [
     ".design-sync/**",
     "docs/brand/**",

@@ -1,11 +1,11 @@
 /**
  * Worker health check endpoint for Railway/container orchestration probes.
- * 
+ *
  * Validates:
  * - Supabase connectivity
  * - Last successful claim processing timestamp (stale-claim detection)
  * - Python venv availability
- * 
+ *
  * Used by Railway healthcheck and Kubernetes liveness/readiness probes.
  * Intended to run on http://0.0.0.0:3001/health (see run-loop.ts for binding).
  */

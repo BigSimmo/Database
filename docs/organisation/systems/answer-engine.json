@@ -4,10 +4,7 @@
   "kind": "area",
   "name": "Answer engine",
   "owns": "Turning a question into a cited answer: retrieval, ranking, answer building, citation checks, the clinical-ask pipeline and the eval harness.",
-  "canonicalDocs": [
-    "docs/rag-behaviour/README.md",
-    "docs/rag-behaviour/safeguards.md"
-  ],
+  "canonicalDocs": ["docs/rag-behaviour/README.md", "docs/rag-behaviour/safeguards.md"],
   "paths": [
     ".github/workflows/eval-canary.yml",
     "docs/governance/rag-adaptive-continuation-2026-09-13.md",

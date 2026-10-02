@@ -3,6 +3,7 @@
 ## 🔴 CRITICAL ISSUES (Fixes Applied ✅)
 
 ### 1. HMAC Signature Verification Using Wrong Encoding
+
 **Status:** ✅ FIXED  
 **File:** `src/lib/supabase/proxy-auth-crypto.ts` (lines 39-40)  
 **Severity:** CRITICAL - Authentication  
@@ -16,6 +17,7 @@
 ## 🟠 HIGH PRIORITY ISSUES
 
 ### 2. Cache Race Condition in RAG Alias Fetching
+
 **Status:** ✅ FIXED  
 **File:** `src/lib/rag/rag-retrieval-variants.ts` (lines 50-156)  
 **Severity:** HIGH - Data Consistency/Concurrency  
@@ -25,6 +27,7 @@
 **Test Coverage:** Not yet tested (recommended: add concurrent request tests)
 
 ### 3. Unhandled Promise Rejection During Boot
+
 **Status:** ✅ FIXED  
 **File:** `src/instrumentation.ts` (lines 72-78)  
 **Severity:** HIGH - Error Handling  
@@ -38,6 +41,7 @@
 ## 🟡 MEDIUM PRIORITY ISSUES
 
 ### 4. Missing Null Check on Zone Color
+
 **Status:** ✅ FIXED  
 **File:** `src/lib/rag/rag-retrieval-variants.ts` (line 284)  
 **Severity:** MEDIUM - String Handling  
@@ -47,6 +51,7 @@
 **Test Coverage:** Covered by existing tests
 
 ### 5. Double Assignment Dead Code in Proxy Response
+
 **Status:** ✅ FIXED  
 **File:** `src/proxy.ts` (lines 212-258)  
 **Severity:** MEDIUM - Logic Error/Null Safety  
@@ -56,6 +61,7 @@
 **Test Coverage:** Covered by existing tests
 
 ### 6. Missing Abort Timeout on Boot Cache Warmup
+
 **Status:** ✅ FIXED  
 **File:** `src/lib/rag/rag-retrieval-variants.ts` (lines 118-136)  
 **Severity:** MEDIUM - Reliability  
@@ -69,6 +75,7 @@
 ## 🟢 LOW PRIORITY ISSUES (Not Yet Fixed - Recommended Only)
 
 ### 7. Missing Rate Limiting on Webhook Endpoints
+
 **Severity:** LOW-MEDIUM - Security/DoS  
 **File:** `src/app/api/webhooks/*` (all webhook routes)  
 **Issue:** No rate limiting on `/api/webhooks/*` endpoints; malicious actors could trigger DoS  
@@ -77,6 +84,7 @@
 **Priority:** Implement this month
 
 ### 8. Missing Auth Request Timeout
+
 **Severity:** LOW-MEDIUM - Reliability  
 **File:** `src/proxy.ts` (line 227)  
 **Issue:** `supabase.auth.getClaims()` has no timeout; stuck auth service stalls every request  
@@ -85,6 +93,7 @@
 **Priority:** Implement this month
 
 ### 9. No Cache Hit/Miss Telemetry
+
 **Severity:** LOW - Observability  
 **File:** `src/lib/rag/rag-retrieval-variants.ts`  
 **Issue:** Cache effectiveness invisible; bugs causing all misses go undetected  
@@ -93,6 +102,7 @@
 **Priority:** Implement this month
 
 ### 10. Missing Graceful Cache Degradation
+
 **Severity:** LOW - Resilience  
 **File:** `src/lib/rag/rag-retrieval-variants.ts`  
 **Issue:** If `fetchEnabledRagAliases()` fails, entire search expansion skipped; partial data better than none  
@@ -101,6 +111,7 @@
 **Priority:** Implement in 1-2 weeks
 
 ### 11. Missing CORS Headers on API Routes
+
 **Severity:** LOW - Security  
 **File:** `next.config.ts`  
 **Issue:** No explicit CORS configuration; could allow unintended cross-origin requests  
@@ -109,6 +120,7 @@
 **Priority:** Implement this month
 
 ### 12. No Proxy Auth Payload Validation
+
 **Severity:** LOW - Robustness  
 **File:** `src/lib/supabase/proxy-auth-crypto.ts`  
 **Issue:** No validation that payload is well-formed JSON before parsing  
@@ -117,6 +129,7 @@
 **Priority:** Implement this month
 
 ### 13. Missing Environment Variable Validation Tests
+
 **Severity:** LOW - Configuration Safety  
 **File:** `tests/` (needs new file)  
 **Issue:** No tests validate environment variables are properly coerced at startup  
@@ -125,6 +138,7 @@
 **Priority:** Implement this month
 
 ### 14. No Pagination for Large Alias Fetches
+
 **Severity:** LOW - Performance  
 **File:** `src/lib/rag/rag-retrieval-variants.ts` (line 180)  
 **Issue:** Fetches up to 200 aliases per scope; could scale poorly  
@@ -133,6 +147,7 @@
 **Priority:** Implement when scaling concerns arise
 
 ### 15. Missing Additional Cache Warmup
+
 **Severity:** LOW - Performance  
 **File:** `src/instrumentation.ts`  
 **Issue:** Only `rag_aliases` warmed at boot; other lookups cold on first request  
@@ -141,6 +156,7 @@
 **Priority:** Implement when cold-start latency becomes issue
 
 ### 16. No Memoization of Repeated Normalization
+
 **Severity:** LOW - Performance  
 **File:** `src/lib/rag/rag-retrieval-variants.ts` (line 161)  
 **Issue:** `normalizeAliasLookup()` called twice per alias; 400 regex ops for 200 aliases  
@@ -149,6 +165,7 @@
 **Priority:** Implement if profiling shows CPU bottleneck
 
 ### 17. Missing HMAC Signature Edge Case Tests
+
 **Severity:** MEDIUM - Testing Coverage  
 **File:** `tests/proxy-auth-crypto.test.ts` (needs new file)  
 **Issue:** Fix #1 (HMAC encoding) has no test coverage for edge cases (empty strings, non-UTF-8, etc.)  
@@ -157,6 +174,7 @@
 **Priority:** HIGH - Add this week
 
 ### 18. Missing Concurrent Request Tests (Fix #2)
+
 **Severity:** MEDIUM - Testing Coverage  
 **File:** `tests/rag-alias-cache-dedup.test.ts` (needs new file)  
 **Issue:** Cache deduplication logic (Fix #2) is untested under real concurrency  
@@ -165,6 +183,7 @@
 **Priority:** HIGH - Add this week
 
 ### 19. Missing Boot Timeout Tests (Fix #6)
+
 **Severity:** MEDIUM - Testing Coverage  
 **File:** `tests/boot-warmup-timeout.test.ts` (needs new file)  
 **Issue:** 5-second timeout logic (Fix #6) is untested  
@@ -173,6 +192,7 @@
 **Priority:** HIGH - Add this week
 
 ### 20. Missing Webhook Rotation Documentation
+
 **Severity:** LOW - Maintenance  
 **File:** `docs/webhooks.md` (needs creation/update)  
 **Issue:** No documented schedule for rotating webhook secrets  
@@ -181,6 +201,7 @@
 **Priority:** Implement this quarter
 
 ### 21. Missing Cache Warmup Documentation
+
 **Severity:** LOW - Maintenance  
 **File:** `docs/cache-warmup.md` (needs creation)  
 **Issue:** Cache warmup strategy not documented; hard to maintain or extend  
@@ -189,6 +210,7 @@
 **Priority:** Implement this quarter
 
 ### 22. Missing Error Budget Definition
+
 **Severity:** LOW - Maintenance  
 **File:** `docs/error-budgets.md` (needs creation)  
 **Issue:** No documented acceptable failure rates for startup/warmup  
@@ -201,6 +223,7 @@
 ## 📊 ISSUE SUMMARY BY STATUS
 
 ### ✅ FIXED (6 Issues)
+
 1. HMAC encoding mismatch
 2. Cache race condition
 3. Unhandled promise rejection
@@ -209,6 +232,7 @@
 6. Missing boot timeout
 
 ### 🔜 RECOMMENDED (16 Issues)
+
 All documented with implementation guides in ADDITIONAL_RECOMMENDATIONS.md
 
 ---
@@ -216,14 +240,17 @@ All documented with implementation guides in ADDITIONAL_RECOMMENDATIONS.md
 ## 📈 PRIORITY BREAKDOWN
 
 ### Immediate (Deploy Today)
+
 - ✅ All 6 fixed bugs are ready
 
 ### This Week (1-2 Days)
+
 - 🔜 Add HMAC signature tests (security)
 - 🔜 Add concurrent request tests (verify Fix #2)
 - 🔜 Add timeout tests (verify Fix #6)
 
 ### This Month (1-4 Weeks)
+
 - 🔜 Implement auth timeout (prevents hangs)
 - 🔜 Add webhook rate limiting (DoS protection)
 - 🔜 Add cache telemetry (observability)
@@ -233,12 +260,14 @@ All documented with implementation guides in ADDITIONAL_RECOMMENDATIONS.md
 - 🔜 Add graceful degradation (resilience)
 
 ### This Quarter (1-3 Months)
+
 - 🔜 Query pagination (scalability)
 - 🔜 Additional cache warmup (performance)
 - 🔜 Cache memoization (optimization)
 - 🔜 Documentation updates (maintenance)
 
 ### As-Needed (Future)
+
 - 🔜 Memoization (if CPU bottleneck identified)
 - 🔜 Pagination (if data volume grows)
 
@@ -247,6 +276,7 @@ All documented with implementation guides in ADDITIONAL_RECOMMENDATIONS.md
 ## 🎯 ACTIONABLE NEXT STEPS
 
 ### TODAY
+
 ```bash
 # 1. All 6 bugs are fixed - just deploy
 npm run typecheck && npm run lint && npm run test
@@ -255,6 +285,7 @@ git push && deploy
 ```
 
 ### THIS WEEK
+
 ```
 Add 3 critical test files:
 - tests/proxy-auth-crypto.test.ts (HMAC edge cases)
@@ -265,6 +296,7 @@ Time: ~6 hours total
 ```
 
 ### THIS MONTH
+
 ```
 Implement 7 security/reliability recommendations:
 - Auth timeout (1h)
@@ -283,6 +315,7 @@ Time: ~11 hours total
 ## 📋 COMPLETE CHECKLIST
 
 ### Fixed Issues (Done ✅)
+
 - [x] HMAC encoding
 - [x] Cache race condition
 - [x] Promise rejection
@@ -291,11 +324,13 @@ Time: ~11 hours total
 - [x] Boot timeout
 
 ### Priority Tests (Do This Week)
+
 - [ ] HMAC signature tests
 - [ ] Concurrent cache tests
 - [ ] Boot timeout tests
 
 ### Priority Features (Do This Month)
+
 - [ ] Auth timeout
 - [ ] Webhook rate limiting
 - [ ] Cache telemetry
@@ -305,11 +340,13 @@ Time: ~11 hours total
 - [ ] Graceful degradation
 
 ### Documentation (Do This Quarter)
+
 - [ ] Cache warmup docs
 - [ ] Webhook rotation docs
 - [ ] Error budgets doc
 
 ### Optional Optimizations (Future)
+
 - [ ] Query pagination
 - [ ] Additional cache warming
 - [ ] Normalization memoization
@@ -319,8 +356,8 @@ Time: ~11 hours total
 ## 📞 REFERENCE
 
 For details on any issue:
+
 - **Fixed bugs:** See BUG_FIXES_APPLIED.md
 - **Recommended improvements:** See ADDITIONAL_RECOMMENDATIONS.md
 - **Testing strategy:** See POST_FIX_CHECKLIST.md
 - **Deployment plan:** See QUICK_REFERENCE.md
-

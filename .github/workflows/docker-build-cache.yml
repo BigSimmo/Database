@@ -6,20 +6,20 @@ on:
       - main
       - develop
     paths:
-      - 'Dockerfile'
-      - 'Dockerfile.worker'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.dockerignore'
-      - '.github/workflows/docker-build-cache.yml'
+      - "Dockerfile"
+      - "Dockerfile.worker"
+      - "package.json"
+      - "package-lock.json"
+      - ".dockerignore"
+      - ".github/workflows/docker-build-cache.yml"
   pull_request:
     branches:
       - main
     paths:
-      - 'Dockerfile'
-      - 'Dockerfile.worker'
-      - 'package.json'
-      - 'package-lock.json'
+      - "Dockerfile"
+      - "Dockerfile.worker"
+      - "package.json"
+      - "package-lock.json"
 
 env:
   REGISTRY: ghcr.io
