@@ -11,6 +11,12 @@ import { visibleByTestId } from "./playwright-settlement";
  */
 test.use({ viewport: { width: 390, height: 844 } });
 
+test.beforeEach(async ({ page }) => {
+  // Week hides past days. Pin a Wednesday in Perth so the demo has upcoming
+  // sessions even when CI runs at the weekend; keep timers and animation live.
+  await page.clock.setFixedTime(new Date("2026-10-07T02:00:00Z"));
+});
+
 async function largeText(page: Page) {
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
 }
