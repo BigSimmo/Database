@@ -211,7 +211,9 @@ async function fetchEnabledRagAliasesUnshared(
       .order("weight", { ascending: false })
       .limit(maxRagAliasesPerScope);
     query = scopeOwnerId ? query.eq("owner_id", scopeOwnerId) : query.is("owner_id", null);
-    if (signal) query = query.abortSignal(signal);
+    if (signal && typeof (query as { abortSignal?: unknown }).abortSignal === "function") {
+      query = (query as { abortSignal: (s: AbortSignal) => typeof query }).abortSignal(signal);
+    }
     const { data, error } = await query;
     throwIfAborted(signal);
     if (error) throw error;

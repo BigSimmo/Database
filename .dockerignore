@@ -59,9 +59,7 @@ ds-bundle
 # Large optional assets excluded from Docker context
 mockups/
 docs/archive/
-eval/
 worktrees/
-scripts/archive/
 # Security scanning & artifact files
 .trivyignore
 sbom.json
