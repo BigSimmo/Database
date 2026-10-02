@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { TeachingSessionScreen } from "@/components/teaching/teaching-session";
-import { isDemoMode } from "@/lib/env";
+import { teachingDemoMode } from "@/lib/teaching/sample";
 
 export const metadata: Metadata = { title: "Session | Teaching | PsychSift", robots: { index: false, follow: false } };
 
@@ -16,7 +16,7 @@ export default async function TeachingSessionRoute({ params, searchParams }: Tea
   return (
     <TeachingSessionScreen
       occurrenceId={id}
-      demoMode={isDemoMode()}
+      demoMode={await teachingDemoMode()}
       initialSheet={query["check-in"] === "scan" ? "scan" : undefined}
     />
   );
