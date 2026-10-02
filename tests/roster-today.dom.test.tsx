@@ -124,6 +124,15 @@ describe("Roster Today", () => {
     expect(screen.getByTestId("roster-today-next-night")).toHaveTextContent("Thu 15 Oct");
   });
 
+  it("shows the rest before the next shift on the hero, the same cue as Shifts", async () => {
+    mockShifts([day("2026-10-12"), day("2026-10-13")]);
+    renderToday("2026-10-12T23:05:00Z"); // 07:05 Tuesday in Perth; Monday's shift ended 16:30
+    const rest = await screen.findByTestId("roster-today-rest");
+    expect(rest).toHaveTextContent("15 h 30 min rest");
+    // A shift with no team carries no team rule, so the cue is never a warning.
+    expect(rest).not.toHaveAttribute("data-warning");
+  });
+
   it("turns into the night dial between midnight and 06:00 on a night", async () => {
     mockShifts([night("2026-10-15")]);
     renderToday("2026-10-15T19:12:00Z"); // 03:12 Friday in Perth

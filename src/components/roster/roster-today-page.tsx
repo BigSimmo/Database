@@ -46,6 +46,9 @@ import { RosterWeekStrip } from "./roster-week-strip";
 import { hasFreshLink, refreshDueRosterLinks, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
+import { useRosterTeamRules } from "./use-roster-team";
+import { RosterRestChip } from "./roster-rest-chip";
+import { restCuesByTeam, type RestCue } from "@/lib/roster/rest-cues";
 
 /**
  * Roster Today: where am I working, when, answered with no taps. The lead
@@ -142,7 +145,9 @@ function Hero({
   canEdit,
   onImport,
   onAddShift,
+  cues,
 }: {
+  readonly cues: ReadonlyMap<string, RestCue>;
   readonly summary: TodaySummary;
   readonly canEdit: boolean;
   readonly byId: ReadonlyMap<string, OnCallShift>;
@@ -249,6 +254,7 @@ function Hero({
             </span>
           ) : null}
           <ShiftTimes shift={leadShift} />
+          <RosterRestChip cue={cues.get(leadShift.id)} testId="roster-today-rest" />
           {when || place ? (
             <span className={cn(modeSummaryMutedText, "text-sm")}>{[when, place].filter(Boolean).join(" · ")}</span>
           ) : null}
@@ -302,6 +308,13 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
 
   const today = perthDateOf(now);
   const byId = useMemo(() => new Map(shifts.shifts.map((shift) => [shift.id, shift])), [shifts.shifts]);
+  // Each team's own rules judge its own shifts, the same cues the Shifts page shows. The default
+  // shift read already reaches 21 days back, the longest any team rule looks.
+  const rulesByTeam = useRosterTeamRules(shifts.shifts.flatMap((shift) => (shift.serviceId ? [shift.serviceId] : [])));
+  const cues = useMemo(
+    () => new Map(restCuesByTeam(shifts.shifts, rulesByTeam).map((cue) => [cue.shiftId, cue])),
+    [shifts.shifts, rulesByTeam],
+  );
   const summary = useMemo(
     () =>
       summariseToday(
@@ -411,6 +424,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 canEdit={canEdit}
                 onImport={() => setImporting(true)}
                 onAddShift={() => setAddView("shift")}
+                cues={cues}
               />
               <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
               {summary.lead.state !== "empty" ? (
