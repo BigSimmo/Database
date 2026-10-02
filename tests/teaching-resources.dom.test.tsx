@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/client", () => import("./helpers/teaching-auth"));
@@ -18,6 +18,7 @@ import { TeachingResources } from "@/components/teaching/teaching-resources";
 import type { ResourceRow } from "@/lib/teaching/model";
 
 import {
+  NB,
   NOW,
   OCC,
   TEAM_A,
@@ -115,7 +116,9 @@ describe("Resources", () => {
     const thisWeek = await waitFor(() => byId("teaching-resources-week"));
     expect(within(thisWeek).getByText("Recording · catch-up")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Exam prep/ })).toHaveAttribute("href", `/teaching/resources/${EXAM}`);
-    expect(screen.queryByRole("link", { name: /Recordings/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Recordings/ })).toHaveAttribute("href", "/teaching/resources/recordings");
+    expect(screen.getByRole("link", { name: /^Recordings/ }).textContent).toContain(`3${NB}items`);
+    expect(screen.getByRole("link", { name: /^Saved/ })).toHaveAttribute("href", "/teaching/resources/saved");
     expect(screen.getByRole("link", { name: /Learning directory/ })).toHaveAttribute("href", "/cme/learning");
     expect(screen.queryByRole("button", { name: "New collection" })).toBeNull(); // a doctor, not an organiser
   });
@@ -187,6 +190,42 @@ describe("a collection page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Grand round recording" }));
     expect(await screen.findByRole("button", { name: "Unsave Grand round recording" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add a resource" })).toBeNull();
+  });
+
+  it("holds a removal for 10 seconds under Undo, hiding the item, then sends it with keepalive", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(NOW);
+    const removals: Array<{ body: Record<string, unknown>; keepalive?: boolean }> = [];
+    serveFetch((url, body, init) => {
+      if (url === COLLECTION_URL)
+        return json(200, {
+          collection: { collectionId: EXAM, serviceId: TEAM_A, name: "Exam prep" },
+          sections: [{ sectionId: WRITTEN, name: "Written exam", sortOrder: 0 }],
+          items: [item(), recording],
+        });
+      if (url === WEEK_URL) return json(200, week({ teams: [{ ...teamA, role: "organiser" }] }));
+      if (url === `/api/teaching/resources/services/${TEAM_A}` && body) {
+        removals.push({ body, keepalive: init?.keepalive });
+        return json(200, {});
+      }
+      return null;
+    });
+    render(<TeachingCollection collection={EXAM} demoMode={false} />);
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+    fireEvent.click(screen.getByRole("button", { name: "Remove items" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove MCQ practice paper" }));
+    expect(screen.queryByText("MCQ practice paper")).toBeNull();
+    expect(screen.getByTestId("teaching-collection-pending")).toHaveTextContent("Removing MCQ practice paper");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(screen.getByText("MCQ practice paper")).toBeInTheDocument();
+    await act(async () => vi.advanceTimersByTimeAsync(11_000));
+    expect(removals).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove MCQ practice paper" }));
+    await act(async () => vi.advanceTimersByTimeAsync(9_000));
+    expect(removals).toEqual([]);
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+    expect(removals).toEqual([{ body: { action: "resource.remove", resourceId: item().resourceId }, keepalive: true }]);
   });
 
   it("offers Add a resource to an organiser of the collection's service", async () => {

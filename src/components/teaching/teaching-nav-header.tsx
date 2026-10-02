@@ -10,17 +10,21 @@ export function TeachingNavHeader({
   testIdPrefix,
   back,
   actions,
+  titleAs,
 }: {
   title: string;
+  /** `"h1"` when the header's title is the page's only heading (the code screen). */
+  titleAs?: "span" | "h1";
   testIdPrefix: string;
   back: { href: string; label: string };
   actions?: ReactNode;
 }) {
-  if (!actions) return <InPageNavHeader back={back} title={title} testIdPrefix={testIdPrefix} />;
+  if (!actions) return <InPageNavHeader back={back} title={title} titleAs={titleAs} testIdPrefix={testIdPrefix} />;
   return (
     <InPageNavHeader
       back={back}
       title={title}
+      titleAs={titleAs}
       testIdPrefix={testIdPrefix}
       actions={actions}
       actionsTitle="This session"
