@@ -140,13 +140,60 @@ describe("AdminRenewalsPage — the checklist", () => {
     expect(list.queryByText("ALS course certification")).toBeNull();
   });
 
-  it("shows the confirmed rule, the source link, and never the word 'checked'", () => {
+  it("shows the confirmed rule and the source link", () => {
     renderPage();
     fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-working-with-children-check"));
     const sheet = screen.getByTestId("admin-renewals-item-sheet");
     expect(within(sheet).getByText(/A WWC Card lasts three years/)).toBeInTheDocument();
     expect(within(sheet).getByText(/Source: WA Department of Communities/)).toBeInTheDocument();
-    expect(sheet.textContent ?? "").not.toMatch(/\bchecked\b/i);
+    expect(within(sheet).getByTestId("admin-renewals-item-sheet-issuer-check-label")).toHaveTextContent(
+      "No issuer check recorded",
+    );
+    expect(sheet.textContent ?? "").not.toMatch(/\bverified\b/i);
+    expect(sheet.textContent ?? "").not.toMatch(/\bcompliant\b/i);
+  });
+
+  it("records and clears the issuer-check stamp without Renewed setting it", async () => {
+    const stamped = {
+      ...WWC,
+      details: { ...(WWC.details as object), issuerCheckedOn: "2026-09-26" },
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entry: stamped })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entry: WWC })));
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-working-with-children-check"));
+    fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-issuer-check-record"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(firstBody.details.issuerCheckedOn).toBe("2026-09-26");
+    expect(firstBody.lastVerifiedAt).toBe(WWC.lastVerifiedAt);
+    expect(await screen.findByText(/Last checked with issuer · 26 Sep 2026 · by you/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-issuer-check-clear"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const clearBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(clearBody.details).not.toHaveProperty("issuerCheckedOn");
+  });
+
+  it("does not stamp issuerCheckedOn when Renewed saves alone", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ entry: { ...ALS, details: { ...(ALS.details as object), expiresOn: "2030-10-14" } } }),
+        ),
+      );
+    renderPage();
+    fireEvent.click(screen.getByTestId("admin-renewals-checklist-row-als-course-certification"));
+    fireEvent.click(screen.getByTestId("admin-renewals-item-sheet-renew"));
+    fireEvent.change(screen.getByLabelText("New expiry date"), { target: { value: "2030-10-14" } });
+    fireEvent.click(screen.getByTestId("admin-renewed-save"));
+    await screen.findByText("Marked renewed.");
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.details).not.toHaveProperty("issuerCheckedOn");
+    expect(body.lastVerifiedAt).toBe(ALS.lastVerifiedAt);
   });
 
   it("shows the unconfirmed line, not a rule, for a needs-checking item", () => {
@@ -312,7 +359,7 @@ describe("AdminRenewalsPage — Personal tab", () => {
 });
 
 describe("AdminRenewalsPage — Copy for workforce and Add all to my calendar", () => {
-  it("copies the workforce text with its heading", async () => {
+  it("copies cover-sheet text that names gaps and never says verified", async () => {
     const writeText = vi.fn(async (text: string) => {
       void text;
     });
@@ -320,7 +367,11 @@ describe("AdminRenewalsPage — Copy for workforce and Add all to my calendar", 
     renderPage();
     fireEvent.click(screen.getByTestId("admin-renewals-copy"));
     await waitFor(() => expect(writeText).toHaveBeenCalled());
-    expect(writeText.mock.calls[0]?.[0]).toMatch(/^Dates as I recorded them, copied .+; not checked with issuers\n/);
+    const text = String(writeText.mock.calls[0]?.[0]);
+    expect(text).toMatch(/^Dates as I recorded them, copied .+; not checked with issuers\n/);
+    expect(text).toContain("Not recorded yet · missing proof");
+    expect(text).not.toMatch(/\bverified\b/i);
+    expect(text).not.toMatch(/\bcompliant\b/i);
     expect(await screen.findByText("Copied")).toBeInTheDocument();
   });
 

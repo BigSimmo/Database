@@ -152,7 +152,7 @@ begin
 end
 $clash$;
 
--- 8. Open shifts: first eligible member to claim gets it; the second is told it's taken.
+-- 8. Open shifts: the first eligible claim reserves it; a different grade needs manager approval.
 do $open$
 declare day uuid; r jsonb; oid uuid;
 begin
@@ -160,9 +160,14 @@ begin
   r := pg_temp.cmd('ivy', 'open.post', jsonb_build_object('assignmentId', day));
   oid := (r ->> 'openShiftId')::uuid;
   r := pg_temp.cmd('lee', 'open.claim', jsonb_build_object('openShiftId', oid));
-  if r ->> 'status' not in ('approved', 'claimed') then raise exception 'open: claim failed %', r; end if;
+  if r ->> 'status' is distinct from 'claimed' then raise exception 'open: expected different-grade claim pending approval, got %', r; end if;
   perform pg_temp.expect_error(format($f$select pg_temp.cmd('mei', 'open.claim', %L)$f$, jsonb_build_object('openShiftId', oid)),
-    case when r ->> 'status' = 'approved' then 'roster_open_shift_taken' else 'roster_open_shift_taken' end);
+    'roster_open_shift_taken');
+  r := pg_temp.cmd('mgr', 'open.approve', jsonb_build_object('openShiftId', oid));
+  if r ->> 'status' is distinct from 'approved' then raise exception 'open: manager approval failed %', r; end if;
+  if (select user_id from public.roster_assignments where id = day) is distinct from pg_temp.id('lee') then
+    raise exception 'open: approved assignment did not move to claimant';
+  end if;
 end
 $open$;
 
@@ -179,6 +184,19 @@ begin
 end
 $seen$;
 
+-- G1/G3: approved changes are visible only to managers; manager identities and swap names
+-- are available to members without exposing the manager-only people list.
+select pg_temp.expect_error($$select public.roster_read(pg_temp.id('lee'), pg_temp.id('svc'), 'changes', '{"from":"2026-11-02","to":"2026-11-15"}')$$, 'roster_role_denied');
+do $g1_g3$
+declare r jsonb;
+begin
+  r := public.roster_read(pg_temp.id('mgr'), pg_temp.id('svc'), 'changes', '{"from":"2026-11-02","to":"2026-11-15"}');
+  if jsonb_array_length(r -> 'openShifts') < 1 then raise exception 'G1: approved open shift missing'; end if;
+  r := public.roster_read(pg_temp.id('lee'), pg_temp.id('svc'), 'overview', '{}');
+  if not (r -> 'managers') @> jsonb_build_array(jsonb_build_object('userId', pg_temp.id('mgr'))) then raise exception 'G3: manager missing'; end if;
+  r := public.roster_read(pg_temp.id('lee'), pg_temp.id('svc'), 'requests', '{}');
+  if exists (select 1 from jsonb_array_elements(r -> 'swaps') x where not (x ? 'requesterName' and x ? 'counterpartyName')) then raise exception 'G3: swap names missing'; end if;
+end $g1_g3$;
 -- 10. A new full publish replaces the period and cancels pending requests on replaced shifts.
 do $republish$
 declare give uuid; r jsonb;
@@ -247,6 +265,217 @@ select public.roster_retention_purge();
 select pg_temp.cmd('mgr', 'member.remove', jsonb_build_object('userId', pg_temp.id('ivy')));
 select pg_temp.expect_error($$select pg_temp.cmd('ivy', 'seen.mark', '{}')$$, 'roster_access_denied');
 select pg_temp.expect_error($$select pg_temp.cmd('mgr', 'member.remove', jsonb_build_object('userId', pg_temp.id('adm')))$$, 'roster_not_found');
+
+-- G2/G4/G5: history stays actor-only; named leave is active-team manager-only; cutoff is bounded.
+select pg_temp.expect_error($$select public.roster_read(pg_temp.id('lee'), pg_temp.id('svc'), 'team_leave', '{"from":"2026-11-02","to":"2026-11-15"}')$$, 'roster_role_denied');
+select pg_temp.expect_error($$select public.roster_set_cutoff(pg_temp.id('lee'), pg_temp.id('svc'), current_date)$$, 'roster_role_denied');
+select pg_temp.expect_error($$select public.roster_set_cutoff(pg_temp.id('mgr'), pg_temp.id('svc'), (now() at time zone 'Australia/Perth')::date + 181)$$, 'roster_invalid_request');
+select pg_temp.expect_error($$select public.roster_read(pg_temp.id('mgr'), pg_temp.id('svc'), 'team_leave', '{"from":"2026-01-01","to":"2026-12-31"}')$$, 'roster_invalid_request');
+do $g2_g4_g5$
+declare r jsonb;
+begin
+  r := public.roster_read(pg_temp.id('lee'), pg_temp.id('svc'), 'my_changes', '{}');
+  if jsonb_array_length(r -> 'before') = 0 or jsonb_array_length(r -> 'after') = 0 then raise exception 'G2: history missing'; end if;
+  if exists (select 1 from jsonb_array_elements((r -> 'before') || (r -> 'after')) x where (x ->> 'userId')::uuid <> pg_temp.id('lee')) then raise exception 'G2: another doctor leaked'; end if;
+  insert into public.roster_leave(owner_id, service_id, kind, starts_on, ends_on, status)
+    values (pg_temp.id('lee'), pg_temp.id('svc'), 'annual', '2026-11-04', '2026-11-06', 'approved'),
+           (pg_temp.id('ivy'), pg_temp.id('svc'), 'pd_leave', '2026-11-04', '2026-11-06', 'planned');
+  r := public.roster_read(pg_temp.id('mgr'), pg_temp.id('svc'), 'team_leave', '{"from":"2026-11-02","to":"2026-11-15"}');
+  if jsonb_array_length(r -> 'leave') <> 1 or r #>> '{leave,0,userId}' <> pg_temp.id('lee')::text then raise exception 'G4: wrong active leave scope'; end if;
+  perform public.roster_set_cutoff(pg_temp.id('mgr'), pg_temp.id('svc'), (now() at time zone 'Australia/Perth')::date + 180);
+  r := public.roster_read(pg_temp.id('lee'), pg_temp.id('svc'), 'overview', '{}');
+  if (r ->> 'nextCutoffOn')::date <> (now() at time zone 'Australia/Perth')::date + 180 then raise exception 'G5: cutoff missing'; end if;
+  perform public.roster_set_cutoff(pg_temp.id('mgr'), pg_temp.id('svc'), null);
+end $g2_g4_g5$;
+
+-- Safety: a decision made after preview invalidates it. Failed publication rolls back
+-- role/codes writes, and success reports only users whose meaningful shifts changed.
+do $atomic_publish$
+declare
+  d date := (now() at time zone 'Australia/Perth')::date + 90;
+  preview jsonb; payload jsonb; result jsonb; give_id uuid; take_id uuid; swap_id uuid;
+  before_name text; before_codes jsonb; fingerprint text;
+begin
+  perform pg_temp.cmd('mgr', 'settings.set', '{"swapApproval":"auto_same_grade","rules":{},"rulesSource":null,"payFortnightAnchor":null}');
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d + 7);
+  payload := jsonb_build_object('roles', '[]'::jsonb, 'codes', '[]'::jsonb, 'publication', jsonb_build_object(
+    'kind', 'full', 'periodStart', d, 'periodEnd', d + 7, 'assignments', jsonb_build_array(
+      jsonb_build_object('userId', pg_temp.id('lee'), 'startsAt', d::timestamptz, 'endsAt', d::timestamptz + interval '8 hours', 'shiftCode', 'C', 'kind', 'on_call'),
+      jsonb_build_object('userId', pg_temp.id('mei'), 'startsAt', (d + 7)::timestamptz, 'endsAt', (d + 7)::timestamptz + interval '8 hours', 'shiftCode', 'C', 'kind', 'on_call'))));
+  result := public.roster_publish(pg_temp.id('mgr'), pg_temp.id('svc'), preview ->> 'freshnessToken', payload);
+  if jsonb_array_length(result -> 'changedUserIds') <> 2 then raise exception 'publish: initial recipients wrong'; end if;
+  -- A semantically identical upload must not alert everyone because IDs changed.
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d + 7);
+  result := public.roster_publish(pg_temp.id('mgr'), pg_temp.id('svc'), preview ->> 'freshnessToken', payload);
+  if result -> 'changedUserIds' <> '[]'::jsonb then raise exception 'publish: unchanged shifts alerted'; end if;
+  select id into give_id from public.roster_assignments where publication_id = (result ->> 'publicationId')::uuid and user_id = pg_temp.id('lee');
+  select id into take_id from public.roster_assignments where publication_id = (result ->> 'publicationId')::uuid and user_id = pg_temp.id('mei');
+  result := pg_temp.cmd('lee', 'swap.create', jsonb_build_object('giveAssignmentId', give_id, 'takeAssignmentId', take_id, 'counterpartyId', pg_temp.id('mei')));
+  swap_id := (result ->> 'swapId')::uuid;
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d + 7);
+  result := pg_temp.cmd('mei', 'swap.accept', jsonb_build_object('swapId', swap_id));
+  if result ->> 'status' <> 'approved' then raise exception 'publish test: swap failed to approve'; end if;
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)', pg_temp.id('mgr'), pg_temp.id('svc'), preview ->> 'freshnessToken', payload), 'roster_conflict');
+  if (select user_id from public.roster_assignments where id = give_id) <> pg_temp.id('mei') then raise exception 'publish: stale preview undid swap'; end if;
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d + 7);
+  fingerprint := preview ->> 'freshnessToken';
+  select roster_name into before_name from public.roster_member_roles where service_id = pg_temp.id('svc') and user_id = pg_temp.id('lee');
+  before_codes := preview -> 'codes';
+  payload := jsonb_set(payload, '{roles}', jsonb_build_array(jsonb_build_object('userId', pg_temp.id('lee'), 'rosterName', 'Rollback Example')));
+  payload := jsonb_set(payload, '{codes}', '[{"code":"ROLL","kind":"day","starts":"08:00","ends":"16:00","label":null}]');
+  payload := jsonb_set(payload, '{publication,assignments,0,userId}', to_jsonb(pg_temp.id('out')));
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)', pg_temp.id('mgr'), pg_temp.id('svc'), fingerprint, payload), 'roster_invalid_request');
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d + 7);
+  if preview ->> 'freshnessToken' <> fingerprint or preview -> 'codes' <> before_codes
+    or (select roster_name from public.roster_member_roles where service_id = pg_temp.id('svc') and user_id = pg_temp.id('lee')) is distinct from before_name then
+    raise exception 'publish: failed publication leaked metadata writes'; end if;
+  perform pg_temp.expect_error(format('select public.roster_publish_preview(%L,%L,%L,%L)', pg_temp.id('lee'), pg_temp.id('svc'), d, d+7), 'roster_role_denied');
+  payload := jsonb_set(payload, '{publication,periodEnd}', to_jsonb(d+8));
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)', pg_temp.id('mgr'), pg_temp.id('svc'), fingerprint, payload), 'roster_conflict');
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d + 186);
+  if jsonb_array_length(preview -> 'assignments') < 2 then raise exception 'publish: full period snapshot truncated'; end if;
+end $atomic_publish$;
+-- P1 regression: keeping a swap in one full publication must not erase its protection
+-- on the next stale upload. A deliberate file override retires only the named protection.
+do $publication_lineage$
+declare
+  d date := (now() at time zone 'Australia/Perth')::date + 90;
+  preview jsonb; payload jsonb; rows jsonb; result jsonb; protection jsonb; original_give text;
+  partial_payload jsonb; duplicate_payload jsonb; outside_take text; fingerprint text;
+begin
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d+7);
+  protection := preview #> '{changes,swaps,0}';
+  if protection is null then raise exception 'lineage fixture: approved swap missing'; end if;
+  original_give := protection ->> 'giveAssignmentId';
+  outside_take := protection ->> 'takeAssignmentId';
+  select jsonb_agg(jsonb_build_object('userId', x -> 'userId', 'rosterName', null, 'siteId', x -> 'siteId',
+    'startsAt', x -> 'startsAt', 'endsAt', x -> 'endsAt', 'shiftCode', x -> 'shiftCode', 'kind', x -> 'kind') order by x ->> 'startsAt')
+    into rows from jsonb_array_elements(preview -> 'assignments') x;
+  payload := jsonb_build_object('roles', '[]'::jsonb, 'codes', '[]'::jsonb, 'publication',
+    jsonb_build_object('kind','full','periodStart',d,'periodEnd',d+7,'assignments',rows));
+  -- Publish only the in-range half of a two-way swap; the outside assignment stays live.
+  partial_payload := jsonb_set(payload,'{publication,periodEnd}',to_jsonb(d));
+  partial_payload := jsonb_set(partial_payload,'{publication,assignments}',
+    (select jsonb_agg(x) from jsonb_array_elements(rows) x
+      where ((x ->> 'startsAt')::timestamptz at time zone 'Australia/Perth')::date = d));
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  perform public.roster_publish(pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',partial_payload);
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d+7);
+  if preview #>> '{changes,swaps,0,takeAssignmentId}' <> outside_take
+    or not exists (select 1 from public.roster_assignments where id=outside_take::uuid and superseded_at is null) then
+    raise exception 'lineage: cross-period swap changed the outside assignment'; end if;
+  -- Two indistinguishable replacements cannot identify one protected shift safely.
+  fingerprint := preview ->> 'freshnessToken';
+  duplicate_payload := jsonb_set(payload,'{publication,assignments}',rows || jsonb_build_array(rows -> 0));
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,duplicate_payload),'roster_conflict');
+  if public.roster_publish_fingerprint(pg_temp.id('svc'),d,d+7) <> fingerprint then
+    raise exception 'lineage: ambiguous duplicate partially wrote'; end if;
+  result := public.roster_publish(pg_temp.id('mgr'), pg_temp.id('svc'), preview ->> 'freshnessToken', payload);
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d+7);
+  if jsonb_array_length(preview #> '{changes,swaps}') <> 1
+    or preview #>> '{changes,swaps,0,swapId}' <> protection ->> 'swapId'
+    or preview #>> '{changes,swaps,0,giveAssignmentId}' = original_give then raise exception 'lineage: kept swap lost its replacement IDs'; end if;
+  -- Upload the original pre-swap ownership with a FRESH token: lineage, not staleness, must stop it.
+  payload := jsonb_set(payload, '{publication,assignments,0,userId}', to_jsonb(pg_temp.id('lee')));
+  payload := jsonb_set(payload, '{publication,assignments,1,userId}', to_jsonb(pg_temp.id('mei')));
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)', pg_temp.id('mgr'), pg_temp.id('svc'), preview ->> 'freshnessToken', payload), 'roster_conflict');
+  if public.roster_publish_fingerprint(pg_temp.id('svc'),d,d+7) <> preview ->> 'freshnessToken' then raise exception 'lineage: rejected upload partially wrote'; end if;
+  payload := payload || jsonb_build_object('overrideChanges',jsonb_build_array(jsonb_build_object('kind','swap','id',protection ->> 'swapId')));
+  result := public.roster_publish(pg_temp.id('mgr'), pg_temp.id('svc'), preview ->> 'freshnessToken', payload);
+  if result -> 'overridesRecorded' <> payload -> 'overrideChanges' then raise exception 'lineage: override receipt missing'; end if;
+  preview := public.roster_publish_preview(pg_temp.id('mgr'), pg_temp.id('svc'), d, d+7);
+  if preview #> '{changes,swaps}' <> '[]'::jsonb then raise exception 'lineage: explicit override resurrected'; end if;
+  perform public.roster_publish(pg_temp.id('mgr'), pg_temp.id('svc'), preview ->> 'freshnessToken', payload - 'overrideChanges');
+end $publication_lineage$;
+
+-- TBA rows are real vacancies, never fake named assignments. Identical repeated vacancies
+-- keep their multiplicity without accumulating on every upload; late failures roll back all.
+do $publication_open_rows$
+declare
+  d date := (now() at time zone 'Australia/Perth')::date + 120;
+  preview jsonb; payload jsonb; bad jsonb; gap jsonb; result jsonb; first_ids jsonb; fingerprint text; claimed uuid;
+begin
+  gap := jsonb_build_object('startsAt',d::timestamptz,'endsAt',d::timestamptz + interval '8 hours',
+    'shiftCode','D','kind','day','siteId',pg_temp.id('site'),'minGrade',null,'urgent',false);
+  payload := jsonb_build_object('roles','[]'::jsonb,'codes','[]'::jsonb,'openShifts',jsonb_build_array(gap,gap),
+    'publication',jsonb_build_object('kind','full','periodStart',d,'periodEnd',d,'assignments','[]'::jsonb));
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  result := public.roster_publish(pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',payload);
+  first_ids := result -> 'openShiftIds';
+  if jsonb_array_length(first_ids) <> 2 or first_ids ->> 0 = first_ids ->> 1 then raise exception 'open rows: lost vacancy multiplicity'; end if;
+  if exists(select 1 from public.roster_assignments where publication_id=(result ->> 'publicationId')::uuid) then raise exception 'open rows: fake assignments created'; end if;
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  result := public.roster_publish(pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',payload);
+  if jsonb_array_length(result -> 'openShiftIds') <> 2 or not (result -> 'openShiftIds') @> first_ids then raise exception 'open rows: re-upload duplicated gaps'; end if;
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  fingerprint := preview ->> 'freshnessToken';
+  bad := jsonb_set(payload,'{openShifts,0,urgent}','true');
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,bad),'roster_conflict');
+  bad := jsonb_set(payload,'{openShifts,0,minGrade}','"resident"');
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,bad),'roster_conflict');
+  bad := jsonb_set(payload,'{openShifts,0,kind}','"leave"');
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,bad),'roster_invalid_request');
+  bad := jsonb_set(payload,'{openShifts,0,startsAt}',to_jsonb((d-1)::timestamptz));
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,bad),'roster_invalid_request');
+  bad := jsonb_set(payload,'{roles}',jsonb_build_array(jsonb_build_object('userId',pg_temp.id('lee'),'rosterName','Rollback vacancy')));
+  bad := jsonb_set(bad,'{openShifts,0,siteId}',to_jsonb(gen_random_uuid()));
+  begin
+    perform public.roster_publish(pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,bad);
+    raise exception 'open rows: nonexistent site accepted';
+  exception when foreign_key_violation then null;
+  end;
+  if public.roster_publish_fingerprint(pg_temp.id('svc'),d,d) <> fingerprint then raise exception 'open rows: late failure leaked publication or metadata'; end if;
+  claimed := (first_ids ->> 0)::uuid;
+  result := pg_temp.cmd('lee','open.claim',jsonb_build_object('openShiftId',claimed));
+  if result ->> 'status' <> 'claimed' then raise exception 'open rows fixture: expected pending claim'; end if;
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',payload),'roster_conflict');
+  bad := jsonb_set(payload,'{openShifts,0,minGrade}','"registrar"');
+  bad := jsonb_set(bad,'{openShifts,0,urgent}','true');
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',bad),'roster_conflict');
+  -- Approving a gap creates an assignment through the base command's audit-only link.
+  perform pg_temp.cmd('mgr','open.approve',jsonb_build_object('openShiftId',claimed));
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  if preview #>> '{changes,openShifts,0,openShiftId}' <> claimed::text then raise exception 'open rows: approved gap protection missing'; end if;
+  select jsonb_agg(jsonb_build_object('userId',x -> 'userId','siteId',x -> 'siteId','startsAt',x -> 'startsAt',
+    'endsAt',x -> 'endsAt','shiftCode',x -> 'shiftCode','kind',x -> 'kind')) into bad from jsonb_array_elements(preview -> 'assignments') x;
+  payload := jsonb_set(payload,'{publication,assignments}',bad) || jsonb_build_object('openShifts',jsonb_build_array(gap));
+  perform public.roster_publish(pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',payload);
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  if preview #>> '{changes,openShifts,0,openShiftId}' <> claimed::text then raise exception 'open rows: kept claim lost after publication'; end if;
+  bad := jsonb_set(payload,'{publication,assignments}','[]');
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',bad),'roster_conflict');
+end $publication_open_rows$;
+-- Remembered off codes survive uploads, but cannot carry times or become assignments.
+do $off_codes$
+declare
+  d date := (now() at time zone 'Australia/Perth')::date + 160;
+  preview jsonb; payload jsonb; bad jsonb; fingerprint text;
+begin
+  payload := jsonb_build_object('roles','[]'::jsonb,'codes',
+    '[{"code":"OFFX","kind":"off","starts":null,"ends":null,"label":"Off"}]'::jsonb,
+    'publication',jsonb_build_object('kind','full','periodStart',d,'periodEnd',d,'assignments','[]'::jsonb));
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  perform public.roster_publish(pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',payload);
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  if not (preview -> 'codes') @> (payload -> 'codes') then raise exception 'off code was not remembered'; end if;
+  perform public.roster_publish(pg_temp.id('mgr'),pg_temp.id('svc'),preview ->> 'freshnessToken',payload);
+  preview := public.roster_publish_preview(pg_temp.id('mgr'),pg_temp.id('svc'),d,d);
+  fingerprint := preview ->> 'freshnessToken';
+  if not (preview -> 'codes') @> (payload -> 'codes') then raise exception 'off code lost on next upload'; end if;
+  bad := jsonb_set(payload,'{codes,0,starts}','"08:00"');
+  bad := jsonb_set(bad,'{codes,0,ends}','"16:00"');
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,bad),'roster_invalid_request');
+  begin
+    perform pg_temp.cmd('mgr','codes.set',jsonb_build_object('codes',bad -> 'codes'));
+    raise exception 'off code with working hours accepted by base writer';
+  exception when check_violation then null;
+  end;
+  bad := jsonb_set(payload,'{publication,assignments}',jsonb_build_array(jsonb_build_object('userId',pg_temp.id('lee'),
+    'startsAt',d::timestamptz,'endsAt',d::timestamptz + interval '8 hours','shiftCode','OFFX','kind','off')));
+  perform pg_temp.expect_error(format('select public.roster_publish(%L,%L,%L,%L)',pg_temp.id('mgr'),pg_temp.id('svc'),fingerprint,bad),'roster_invalid_request');
+  if public.roster_publish_fingerprint(pg_temp.id('svc'),d,d) <> fingerprint then raise exception 'invalid off code partially wrote'; end if;
+end $off_codes$;
 
 -- 14. Deleting a doctor's account is never blocked by a Roster table.
 reset role;

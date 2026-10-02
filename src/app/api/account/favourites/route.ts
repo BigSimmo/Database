@@ -15,6 +15,7 @@ import {
   favouritesSnapshotSchema,
 } from "@/lib/favourites-contract";
 import { PublicApiError, jsonError } from "@/lib/http";
+import { planFavouriteItemOrder } from "@/lib/favourites-order";
 import { requireCanonicalFavouriteReference } from "@/lib/favourites-reference";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -48,6 +49,8 @@ const postSchema = z.discriminatedUnion("action", [
       name: setNameSchema,
     })
     .strict(),
+  // Deleting a set never deletes its favourites: they move to Unsorted first.
+  z.object({ version: z.literal(contractVersion), action: z.literal("deleteSet"), setId: setIdSchema }).strict(),
 ]);
 
 const patchSchema = z.discriminatedUnion("action", [
@@ -74,6 +77,14 @@ const patchSchema = z.discriminatedUnion("action", [
       action: z.literal("setPinned"),
       ...itemReferenceShape,
       pinned: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      version: z.literal(contractVersion),
+      action: z.literal("setItemOrder"),
+      setId: setIdSchema.nullable(),
+      items: z.array(z.object(itemReferenceShape).strict()).max(maxFavouritesPerAccount),
     })
     .strict(),
   z
@@ -242,6 +253,25 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const input = await parseJsonBody(request, postSchema, "Favourite-set request is invalid.");
+    if (input.action === "deleteSet") {
+      await requireOwnedSet(supabase, user.id, input.setId);
+      const { error: unsetError } = await supabase
+        .from("user_favourites")
+        .update({ set_id: null })
+        .eq("user_id", user.id)
+        .eq("set_id", input.setId);
+      if (unsetError) throw new Error(unsetError.message);
+      const { data, error } = await supabase
+        .from("user_favourite_sets")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("id", input.setId)
+        .select("id")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) throw new PublicApiError("Favourite set was not found.", 404, { code: "favourite_set_not_found" });
+      return Response.json(favouriteUpdateResponseSchema.parse({ version: contractVersion, updated: true }));
+    }
     if (input.action === "createSet") {
       const { data: lastSet, error: orderError } = await supabase
         .from("user_favourite_sets")
@@ -320,6 +350,40 @@ export async function PATCH(request: Request) {
         .maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) throw new PublicApiError("Favourite set was not found.", 404, { code: "favourite_set_not_found" });
+      return Response.json(favouriteUpdateResponseSchema.parse({ version: contractVersion, updated: true }));
+    }
+    if (input.action === "setItemOrder") {
+      if (input.setId) await requireOwnedSet(supabase, user.id, input.setId);
+      const membersQuery = supabase
+        .from("user_favourites")
+        .select("content_type,content_key,sort_order")
+        .eq("user_id", user.id);
+      const { data: members, error: membersError } = await (input.setId
+        ? membersQuery.eq("set_id", input.setId)
+        : membersQuery.is("set_id", null));
+      if (membersError) throw new Error(membersError.message);
+      const plan = planFavouriteItemOrder(
+        (members ?? []).map((row) => ({
+          contentType: row.content_type,
+          contentKey: row.content_key,
+          sortOrder: row.sort_order,
+        })),
+        input.items,
+      );
+      if (!plan.ok) {
+        throw new PublicApiError("The set changed before the new order was saved.", 409, {
+          code: "favourite_order_stale",
+        });
+      }
+      for (const row of plan.updates) {
+        const { error } = await supabase
+          .from("user_favourites")
+          .update({ sort_order: row.sortOrder })
+          .eq("user_id", user.id)
+          .eq("content_type", row.contentType as (typeof input.items)[number]["contentType"])
+          .eq("content_key", row.contentKey);
+        if (error) throw new Error(error.message);
+      }
       return Response.json(favouriteUpdateResponseSchema.parse({ version: contractVersion, updated: true }));
     }
     if (input.action === "reorderItem") {

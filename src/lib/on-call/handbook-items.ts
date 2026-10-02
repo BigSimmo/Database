@@ -30,11 +30,13 @@ export type HandbookItem = {
   readonly orientationPhase: ServiceContent["orientationPhase"];
   readonly siteId: string | null;
   /**
-   * When the published text last changed. Null while a newer draft sits over
-   * it: the entry's own time then dates the draft, not what readers see, so no
-   * "Updated" date is shown rather than a false one.
+   * When the published revision was published. Older payloads fall back to the
+   * entry time only when there is no newer draft; an explicit unknown date stays null.
    */
   readonly updatedAt: string | null;
+  readonly lastConfirmedAt?: string | null;
+  readonly steps?: ServiceContent["steps"];
+  readonly cover?: ServiceContent["cover"];
 };
 
 export function publishedHandbookItems(detail: Pick<ServiceDetail, "entries">): HandbookItem[] {
@@ -58,7 +60,15 @@ export function publishedHandbookItems(detail: Pick<ServiceDetail, "entries">): 
       sources: content.sources,
       orientationPhase: content.orientationPhase,
       siteId: content.siteId,
-      updatedAt: entry.publishedRevision === entry.revision ? entry.updatedAt : null,
+      updatedAt:
+        entry.publishedAt === undefined
+          ? entry.publishedRevision === entry.revision
+            ? entry.updatedAt
+            : null
+          : entry.publishedAt,
+      lastConfirmedAt: entry.lastConfirmedAt ?? null,
+      steps: content.steps,
+      cover: content.cover,
     });
   }
   return items.sort((a, b) => a.parsed.label.localeCompare(b.parsed.label) || a.id.localeCompare(b.id));

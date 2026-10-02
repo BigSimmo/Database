@@ -26,7 +26,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // Focus the already-open app window on launch instead of spawning a second
     // instance; "auto" lets platforms without the capability use their default.
     launch_handler: { client_mode: ["navigate-existing", "auto"] },
-    categories: ["medical", "productivity", "utilities"],
+    categories: ["medical", "productivity", "utilities", "education"],
     prefer_related_applications: false,
     // Splash / install canvas only — not the dynamic browser chrome colour.
     background_color: APP_THEME_COLORS.light,
@@ -66,6 +66,20 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "Differentials",
         description: "Compare causes and clinical clues",
         url: "/differentials?focus=1",
+        icons: [{ src: "/icons/icon-192", type: "image/png", sizes: "192x192" }],
+      },
+      {
+        name: "On-Call Handbook",
+        short_name: "On Call",
+        description: "Open on-call contacts, rosters, and quick handbooks",
+        url: "/on-call?focus=1",
+        icons: [{ src: "/icons/icon-192", type: "image/png", sizes: "192x192" }],
+      },
+      {
+        name: "CME Tracking",
+        short_name: "CME",
+        description: "Track continuing medical education credits and activities",
+        url: "/cme?focus=1",
         icons: [{ src: "/icons/icon-192", type: "image/png", sizes: "192x192" }],
       },
     ],

@@ -21,64 +21,42 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test.describe("Perfected Tools results mode mockup @mockup", () => {
-  test("desktop uses universal search and keeps results beside the selected-tool panel", async ({ page }) => {
+  test("desktop uses universal search, task-grouped rows and the About sheet", async ({ page }) => {
     const mockup = await gotoMockup(page, 1440);
+    const sheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
 
     await expect(mockup.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(mockup.getByText("2 tools", { exact: true })).toBeVisible();
-    await expect(mockup.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
-    const selectedResult = mockup.getByRole("article").filter({ hasText: "Differentials" });
-    await expect(selectedResult).toHaveAttribute("data-selected", "true");
-    await expect(selectedResult.getByText("Source-backed")).toBeVisible();
-    await expect(selectedResult.getByText("High yield")).toBeVisible();
-    await expect(selectedResult.getByText("Broad or complex presentations")).toBeVisible();
-    await expect(mockup.locator("aside").getByRole("heading", { name: "Best for" })).toBeVisible();
-    await expect(mockup.locator("aside").getByText("Selected tool")).toBeVisible();
+    await expect(mockup.getByRole("heading", { level: 3, name: "Differentials" })).toBeVisible();
+    // The near-universal chips were removed: they labelled 13 of 15 tools and told nothing apart.
+    await expect(mockup.getByText("Source-backed")).toHaveCount(0);
+    await expect(mockup.getByText("High yield")).toHaveCount(0);
+    await expect(mockup.getByRole("radiogroup", { name: "Tool category" })).toHaveCount(0);
     await expect(mockup.getByTestId("tools-search-mode-hero")).toHaveCount(0);
     await expect(mockup.getByTestId("universal-also-matches")).toBeVisible();
     await expect(mockup.getByText("Dose converter")).toHaveCount(0);
 
-    const categoryRail = mockup.getByRole("radiogroup", { name: "Tool category" });
-    const allToolsFilter = categoryRail.getByRole("radio", { name: "All tools (2)" });
-    await allToolsFilter.focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(categoryRail.getByRole("radio", { name: "Assess (1)" })).toHaveAttribute("aria-checked", "true");
-    await expect(categoryRail.getByRole("radio", { name: "Treat (0)" })).toBeDisabled();
-
     const searchInput = page.locator('[data-testid="global-search-input"]:visible');
     await searchInput.fill("Safety");
     await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
-    // Filling the universal composer opens its suggestions over the category
-    // rail. Dismiss that owned surface and wait for its explicit state change
-    // before asking Playwright to click a control behind it.
     await searchInput.press("Escape");
-    await expect(searchInput).toHaveValue("Safety");
     await expect(searchInput).toHaveAttribute("aria-expanded", "false");
-    const treatmentFilter = categoryRail.getByRole("radio", { name: "Treat (2)" });
-    await treatmentFilter.click();
-    await expect(treatmentFilter).toHaveAttribute("aria-checked", "true");
-    await page.locator('[data-testid="global-search-input"]:visible').fill("Compare");
-    await expect(mockup.getByText("0 tools", { exact: true })).toBeVisible();
-    await expect(mockup.getByRole("heading", { name: "No tools match" })).toBeVisible();
-    await expect(mockup.locator("aside")).toHaveCount(0);
-    await allToolsFilter.click();
-    await expect(mockup.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
-    await expect(mockup.locator("aside").getByRole("heading", { name: "Differentials" })).toBeVisible();
+    await expect(mockup.getByRole("heading", { level: 3, name: "Risk & Safety" })).toBeVisible();
 
-    const output = mockup.locator("aside").getByRole("button", { name: "Output" });
-    await output.click();
-    await expect(output).toHaveAttribute("aria-expanded", "true");
-    await expect(mockup.locator("#desktop-tool-detail-output")).toContainText("Ranked differentials");
+    await searchInput.fill("Compare");
+    await searchInput.press("Escape");
+    await mockup.getByRole("button", { name: "About Differentials" }).click();
+    await expect(sheet.getByRole("heading", { name: "Differentials" })).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Check first" })).toBeVisible();
+    await expect(sheet).toContainText("Ranked differentials");
+    await sheet.getByRole("button", { name: "Close Differentials" }).click();
+    await expect(sheet).toHaveCount(0);
 
-    await page.locator('[data-testid="global-search-input"]:visible').fill("Safety");
-    await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
-    await expect(mockup.locator("aside").getByRole("heading", { name: "Risk & Safety" })).toBeVisible();
-
-    await page.locator('[data-testid="global-search-input"]:visible').fill("");
-    await expect(mockup.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    const renderedResultCount = await mockup.getByRole("article").count();
-    expect(renderedResultCount).toBeGreaterThan(4);
-    await expect(mockup.getByText(`${renderedResultCount} tools`, { exact: true })).toBeVisible();
+    await searchInput.fill("");
+    await expect(mockup.getByRole("heading", { level: 1, name: "Tools", exact: true })).toBeVisible();
+    for (const group of ["Safety", "Look it up", "Assess", "Treat and plan", "Coordinate"]) {
+      await expect(mockup.getByRole("region", { name: group, exact: true })).toBeVisible();
+    }
     await expectNoHorizontalOverflow(page);
   });
 
@@ -99,24 +77,20 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     expect(inlineBorderColor).toBe("rgb(1, 2, 3)");
   });
 
-  test("desktop details use inline semantics and preserve visible programmatic focus", async ({ page }) => {
+  test("desktop About opens a labelled dialog and returns focus to its button", async ({ page }) => {
     const mockup = await gotoMockup(page, 1440);
-    const details = mockup.getByRole("button", { name: "View details for Differentials" });
+    const about = mockup.getByRole("button", { name: "About Differentials" });
 
-    expect(await details.getAttribute("aria-haspopup")).toBeNull();
-    await details.click();
-
-    const panel = mockup.locator("aside");
-    await expect(panel).toBeFocused();
-    const outline = await panel.evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      return {
-        style: style.outlineStyle,
-        width: Number.parseFloat(style.outlineWidth),
-      };
-    });
-    expect(outline.style).not.toBe("none");
-    expect(outline.width).toBeGreaterThanOrEqual(2);
+    await about.click();
+    const sheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+    await expect(sheet.getByRole("heading", { name: "Differentials" })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Open Differentials" })).toHaveAttribute(
+      "href",
+      "/?mode=differentials",
+    );
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(about).toBeFocused();
   });
 
   test("matches the exact displayed tool title after normalising punctuation", async ({ page }) => {
@@ -128,108 +102,93 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     // "Differentials" on their own terms, so the "1 tool" this line used to carry was the
     // same rot the count assertion below was already rewritten to avoid: it went red the
     // moment the catalogue grew into it. Assert the ranking instead, which is the claim.
-    const results = mockup.locator('section[aria-label="Tool results"] article');
-    await expect(results.first().getByRole("heading", { level: 2, name: "Risk & Safety" })).toBeVisible();
+    const results = mockup.locator('section[aria-label="Tool results"] li');
+    await expect(results.first().getByRole("heading", { level: 3, name: "Risk & Safety" })).toBeVisible();
   });
 
   test("renders every result included in the reported count", async ({ page }) => {
     const mockup = await gotoMockup(page, 1440);
-    await page.locator('[data-testid="global-search-input"]:visible').fill("");
 
     // The claim is self-consistency — the headline count matches the rows actually
     // rendered — so it reads the rendered count rather than pinning an absolute.
     // A hard-coded total silently rots the moment the catalogue gains a tool, which
     // is what "Add Ward Flow" (#2140, since retired) did to the 14 this line used to carry.
-    const results = mockup.locator('section[aria-label="Tool results"] article');
+    const results = mockup.locator('section[aria-label="Tool results"] li');
     const rendered = await results.count();
-    expect(rendered, "the unfiltered mockup must render at least one tool").toBeGreaterThan(0);
-    await expect(mockup.getByText(`${rendered} tools`, { exact: true })).toBeVisible();
+    expect(rendered, "the Compare mockup must render at least one tool").toBeGreaterThan(0);
+    await expect(mockup.getByText(`${rendered} ${rendered === 1 ? "tool" : "tools"}`, { exact: true })).toBeVisible();
   });
 
-  test("phone keeps results visible until Details opens the preferred bottom sheet", async ({ page }) => {
+  test("phone keeps results visible until About opens the bottom sheet", async ({ page }) => {
     const mockup = await gotoMockup(page, 390, 844);
 
     const sheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
     await expect(sheet).toHaveCount(0);
     await expect(mockup.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
-    await expect(mockup.getByRole("heading", { level: 2, name: "Differentials" })).toBeVisible();
+    await expect(mockup.getByRole("heading", { level: 3, name: "Differentials" })).toBeVisible();
 
-    const details = mockup.getByRole("button", { name: "View details for Differentials" });
-    await details.click();
+    const about = mockup.getByRole("button", { name: "About Differentials" });
+    await about.click();
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole("heading", { name: "Differentials" })).toBeVisible();
-    await expect(sheet.getByRole("heading", { name: "Best for" })).toBeVisible();
-
-    const neededInput = sheet.getByRole("button", { name: "Needed input" });
-    await neededInput.click();
-    await expect(neededInput).toHaveAttribute("aria-expanded", "true");
+    // Check first is shown in full, not folded behind an accordion.
+    await expect(sheet.getByRole("heading", { name: "Check first" })).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "You will need" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
 
-    await details.click();
+    await about.click();
     await expect(sheet).toBeVisible();
     await sheet.getByRole("button", { name: "Close Differentials" }).click();
-    await expect(details).toBeFocused();
+    await expect(about).toBeFocused();
     await expectNoHorizontalOverflow(page);
   });
 
-  test("closes the phone detail sheet when the viewport enters desktop layout", async ({ page }) => {
+  test("keeps the About sheet usable when the viewport enters desktop layout", async ({ page }) => {
     const mockup = await gotoMockup(page, 390, 844);
     const sheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
 
-    await mockup.getByRole("button", { name: "View details for Differentials" }).click();
+    await mockup.getByRole("button", { name: "About Differentials" }).click();
     await expect(sheet).toBeVisible();
 
     await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(sheet.getByRole("link", { name: "Open Differentials" })).toBeVisible();
+    await sheet.getByRole("button", { name: "Close Differentials" }).click();
     await expect(sheet).toHaveCount(0);
-    await expect(mockup.locator("aside")).toBeVisible();
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(sheet).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
   });
 
-  test("closes the phone filter sheet when the viewport enters desktop layout", async ({ page }) => {
+  test("keeps the safety tools one tap away while searching on a phone", async ({ page }) => {
     const mockup = await gotoMockup(page, 390, 844);
-    const trigger = mockup.getByTestId("tools-search-filter-trigger-phone");
 
-    await trigger.click();
-    const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
-    await expect(filterSheet).toBeVisible();
-
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await expect(filterSheet).toHaveCount(0);
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(filterSheet).toHaveCount(0);
+    const safety = mockup.getByRole("navigation", { name: "Safety tools" });
+    await expect(safety.getByRole("link", { name: "Risk & Safety" })).toBeVisible();
+    await expect(safety.getByRole("link", { name: "Safety plan" })).toHaveAttribute("href", "/safety-plan");
+    // Grouping replaced the category filter, so no filter can hide the safety tools.
+    await expect(mockup.getByTestId("tools-search-filter-trigger-phone")).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
   });
 
-  test("phone filter sheet follows the shared local-filter behavior", async ({ page }) => {
+  test("phone pins follow the About sheet and drop the oldest when full", async ({ page }) => {
     const mockup = await gotoMockup(page, 390, 844);
-    const trigger = mockup.getByTestId("tools-search-filter-trigger-phone");
 
-    await page.locator('[data-testid="global-search-input"]:visible').fill("Safety");
-    await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
+    await page.locator('[data-testid="global-search-input"]:visible').fill("");
+    const pinned = mockup.getByTestId("tools-pinned");
+    await expect(pinned).toBeVisible();
+    await expect(pinned.getByTestId("tool-pin-medication-prescribing")).toBeVisible();
+    await expect(pinned.getByTestId("tool-pin-differentials")).toHaveCount(0);
 
-    await trigger.click();
-    const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
-    await expect(filterSheet).toBeVisible();
-    await expect(filterSheet.getByText("2 tools", { exact: true })).toBeVisible();
-    await expect(filterSheet.getByRole("radio", { name: /Evidence/ })).toHaveAttribute("aria-disabled", "true");
+    await mockup.getByRole("button", { name: "About Differentials" }).click();
+    const sheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+    const pin = sheet.getByRole("button", { name: "Pin" });
+    await expect(pin).toHaveAttribute("aria-pressed", "false");
+    await pin.click();
+    await expect(sheet.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await sheet.getByRole("button", { name: "Close Differentials" }).click();
 
-    const treatment = filterSheet.getByRole("radio", { name: /Treat/ });
-    await treatment.click();
-    await expect(treatment).toHaveAttribute("aria-checked", "true");
-    await expect(filterSheet).toBeVisible();
-    await expect(filterSheet.getByText("2 tools", { exact: true })).toBeVisible();
-    await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
-    await expect(filterSheet).toHaveCount(0);
-    await expect(trigger).toContainText("1");
-
-    await trigger.click();
-    await filterSheet.getByRole("button", { name: "Clear filters" }).click();
-    await expect(filterSheet).toBeVisible();
-    await expect(filterSheet.getByRole("radio", { name: /All tools/ })).toHaveAttribute("aria-checked", "true");
-    await expect(filterSheet.getByText("2 tools", { exact: true })).toBeVisible();
+    await expect(pinned.getByTestId("tool-pin-differentials")).toBeVisible();
+    await expect(pinned.getByTestId("tool-pin-medication-prescribing")).toHaveCount(0);
+    await expect(pinned.getByRole("listitem")).toHaveCount(4);
     await expectNoHorizontalOverflow(page);
   });
 
@@ -237,10 +196,10 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     const mockup = await gotoMockup(page, 390, 844);
 
-    await mockup.getByRole("button", { name: "View details for Differentials" }).click();
+    await mockup.getByRole("button", { name: "About Differentials" }).click();
     const sheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
-    await expect(sheet.getByText("Source-backed")).toBeVisible();
-    await expect(sheet.getByRole("link", { name: "Compare Differentials" })).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Check first" })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Open Differentials" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 

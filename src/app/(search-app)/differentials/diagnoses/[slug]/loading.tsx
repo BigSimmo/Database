@@ -1,32 +1,19 @@
-import {
-  Skeleton,
-  searchPageShell,
-  searchPageContainer,
-  searchResultsBodyGrid,
-  searchResultsMainColumn,
-  searchResultsSidebar,
-} from "@/components/ui-primitives";
+import { Skeleton, searchPageShell, searchPageContainer } from "@/components/ui-primitives";
 
 export default function Loading() {
   return (
     <div className={searchPageShell} role="status" aria-label="Loading differentials">
       <div className={searchPageContainer}>
-        <div className="mb-6 flex items-center justify-between">
-          <Skeleton className="h-10 w-1/3 max-w-sm" />
-          <Skeleton className="h-10 w-24" />
+        <Skeleton className="mb-4 h-8 w-48 rounded-lg" />
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <Skeleton className="h-10 w-80 max-w-sm rounded-lg" />
+          <Skeleton className="h-7 w-24 rounded-md" />
         </div>
-
-        <div className={searchResultsBodyGrid}>
-          <div className={searchResultsMainColumn}>
-            <div className="grid gap-4">
-              <Skeleton className="h-32 w-full rounded-xl" animationDelay="50ms" />
-              <Skeleton className="h-32 w-full rounded-xl" animationDelay="100ms" />
-              <Skeleton className="h-32 w-full rounded-xl" animationDelay="150ms" />
-            </div>
-          </div>
-          <div className={searchResultsSidebar}>
-            <Skeleton className="h-[400px] w-full rounded-xl" />
-          </div>
+        <Skeleton className="mb-6 h-12 w-full rounded-xl" animationDelay="50ms" />
+        <div className="grid gap-4">
+          <Skeleton className="h-28 w-full rounded-2xl" animationDelay="100ms" />
+          <Skeleton className="h-64 w-full rounded-2xl" animationDelay="150ms" />
+          <Skeleton className="h-36 w-full rounded-2xl" animationDelay="200ms" />
         </div>
       </div>
       <span className="sr-only">Loading differentials</span>

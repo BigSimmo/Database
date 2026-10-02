@@ -357,7 +357,7 @@ function EntryChip({ entry, kind, onRemove }: { entry: Entry; kind: StepKind; on
         onClick={onRemove}
         aria-label={`Remove “${entry.primary}”`}
         className={cn(
-          "grid size-7 place-items-center rounded-md text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
+          "relative grid size-7 place-items-center rounded-md text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)] before:absolute before:-inset-2.5 before:content-['']",
           focusRing,
         )}
       >
@@ -871,7 +871,7 @@ export function PatientSafetyPlan() {
               <span className={cn(metadataPill, "shrink-0 tabular-nums")}>{reasons.length}</span>
             </header>
             {reasons.length ? (
-              <ul className="flex flex-wrap gap-1.5">
+              <ul className="flex flex-wrap gap-x-2.5 gap-y-2">
                 {reasons.map((reason) => (
                   <li
                     key={reason.id}
@@ -886,7 +886,7 @@ export function PatientSafetyPlan() {
                       }}
                       aria-label={`Remove “${reason.primary}”`}
                       className={cn(
-                        "grid size-5 place-items-center rounded-full text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
+                        "relative grid size-5 place-items-center rounded-full text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)] before:absolute before:-inset-y-3.5 before:-inset-x-3 before:content-['']",
                         focusRing,
                       )}
                     >
@@ -965,7 +965,7 @@ export function PatientSafetyPlan() {
           ) : null}
 
           {/* The plan document */}
-          <article className="grid content-start gap-5 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-lux)] sm:p-6">
+          <article className="grid content-start gap-5 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--e4)] sm:p-6">
             {exampleActive ? (
               <p
                 role="note"

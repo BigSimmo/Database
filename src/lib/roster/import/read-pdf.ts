@@ -162,6 +162,8 @@ export async function readRosterPdf(buffer: Buffer, today: string): Promise<Rost
     throw new RosterReadError("unreadable");
   }
   try {
+    // A longer PDF is refused rather than read as a prefix: later pages could continue the roster.
+    if (pdf.numPages > MAX_PAGES) throw new RosterReadError("too_big");
     let sawText = false;
     let lastError = new RosterReadError("no_dates");
     // The first page that reads as a roster, and every later page that continues it.

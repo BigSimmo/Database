@@ -18,6 +18,7 @@ import type { CodeMeaning } from "@/lib/roster/import/grid";
  */
 export type RosterSettings = {
   readonly calendarShifts: boolean;
+  readonly alerts: { readonly changes: boolean; readonly requests: boolean };
   readonly rowName: string | null;
   /** Workplace ("" for none) to code to meaning. */
   readonly codes: Readonly<Record<string, Readonly<Record<string, CodeMeaning>>>>;
@@ -51,7 +52,12 @@ export type RosterSettingsState = {
   readonly update: (patch: RosterSettingsPatch) => Promise<string | null>;
 };
 
-export const EMPTY_ROSTER_SETTINGS: RosterSettings = { calendarShifts: false, rowName: null, codes: {} };
+export const EMPTY_ROSTER_SETTINGS: RosterSettings = {
+  calendarShifts: false,
+  alerts: { changes: true, requests: true },
+  rowName: null,
+  codes: {},
+};
 
 const SETTINGS_URL = "/api/roster/settings";
 
@@ -66,6 +72,12 @@ export function readRosterSettings(payload: unknown): RosterSettings | null {
   if (!("calendarShifts" in source) && !("rowName" in source) && !("codes" in source)) return null;
   return {
     calendarShifts: source.calendarShifts === true,
+    alerts: isRecord(source.alerts)
+      ? {
+          changes: typeof source.alerts.changes === "boolean" ? source.alerts.changes : true,
+          requests: typeof source.alerts.requests === "boolean" ? source.alerts.requests : true,
+        }
+      : { changes: true, requests: true },
     rowName: typeof source.rowName === "string" && source.rowName ? source.rowName : null,
     codes: isRecord(source.codes) ? (source.codes as RosterSettings["codes"]) : {},
   };
@@ -100,7 +112,10 @@ export function useRosterSettings(): RosterSettingsState {
     return () => controller.abort();
   }, [accept]);
 
-  const update = useCallback(
+  // Writes run one at a time so an older completion (or its rollback) can never overwrite a newer state.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+
+  const write = useCallback(
     async (patch: RosterSettingsPatch) => {
       const before = current.current;
       accept(applyRosterSettingsPatch(before, patch));
@@ -123,6 +138,15 @@ export function useRosterSettings(): RosterSettingsState {
       }
     },
     [accept],
+  );
+
+  const update = useCallback(
+    (patch: RosterSettingsPatch) => {
+      const next = queue.current.then(() => write(patch));
+      queue.current = next.catch(() => undefined);
+      return next;
+    },
+    [write],
   );
 
   return { status, settings, update };

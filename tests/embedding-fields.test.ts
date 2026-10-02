@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildAdditionalEmbeddingFieldInputs } from "../worker/embedding-fields";
+import { legacyRagDeepMemoryVersions, ragDeepMemoryVersion } from "../src/lib/deep-memory";
 import type { TableFactChunkRow, TableFactImageRow, TableFactInsert } from "../worker/table-facts";
 
 const job = {
@@ -68,6 +69,26 @@ describe("additional embedding fields", () => {
     );
     expect(fields.every((field) => field.source_chunk_id === "chunk-1")).toBe(true);
     expect(fields.length).toBeLessThanOrEqual(8);
+  });
+
+  // Offline canary for the rag-deep-memory-v2 bump: whole word forms such as "escalation" and
+  // "contraindicated" must produce fields (the v1 bare stems inside \b...\b never matched them).
+  it("builds fields from escalation and contraindication word forms under the v2 indexing version", () => {
+    const fields = buildAdditionalEmbeddingFieldInputs({
+      job,
+      chunkRows: [
+        chunk({
+          content: "Follow the local escalation pathway. The medicine is contraindicated in this synthetic example.",
+        }),
+      ],
+      insertedImages: [],
+      tableFacts: [],
+    });
+    const contents = fields.map((field) => field.content.toLowerCase()).join("\n");
+    expect(contents).toContain("escalation pathway");
+    expect(contents).toContain("contraindicated");
+    expect(ragDeepMemoryVersion).toBe("rag-deep-memory-v2");
+    expect(legacyRagDeepMemoryVersions).toEqual(["rag-deep-memory-v1"]);
   });
 
   it("dedupes extra fields by lowercased content", () => {

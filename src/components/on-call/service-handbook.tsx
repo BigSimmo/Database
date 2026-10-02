@@ -1,9 +1,13 @@
 "use client";
 
+import { ServiceStructuredPreview } from "@/components/on-call/service-structured-preview";
+
 import { Clipboard, ExternalLink, Flag, NotebookPen, Pencil, Phone, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { ServiceSiteHours } from "@/components/on-call/service-site-hours";
+import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import { HandbookResourceCatalogue } from "@/components/on-call/handbook-resource-catalogue";
 import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
 import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
@@ -18,7 +22,16 @@ import { formatOnCallDate } from "@/components/on-call/on-call-dates";
 
 type ReportAction = Extract<ServiceAction, { action: "report.create" }>;
 
-const handbookGroups = ["contacts", "referrals", "resources", "documentation", "teaching", "admin"] as const;
+const handbookGroups = [
+  "contacts",
+  "referrals",
+  "resources",
+  "documentation",
+  "teaching",
+  "admin",
+  "playbook",
+  "cover",
+] as const;
 const groupLabels: Record<(typeof handbookGroups)[number], string> = {
   contacts: "Local contacts",
   referrals: "Local referrals",
@@ -26,6 +39,8 @@ const groupLabels: Record<(typeof handbookGroups)[number], string> = {
   documentation: "Documentation",
   teaching: "Teaching",
   admin: "Service administration",
+  playbook: "Hospital playbook",
+  cover: "Role cover",
 };
 
 function humanStatus(status: ServiceEntry["status"]): string {
@@ -35,7 +50,7 @@ function humanStatus(status: ServiceEntry["status"]): string {
 
 function updateLabel(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "Review date unavailable" : `Updated ${formatOnCallDate(date)}`;
+  return Number.isNaN(date.getTime()) ? "Review date unavailable" : `Draft saved ${formatOnCallDate(date)}`;
 }
 
 function learningHref(entry: ServiceEntry): string | null {
@@ -50,12 +65,14 @@ function ServiceEntryCard({
   canEdit,
   onEdit,
   onReport,
+  onConfirm,
 }: {
   readonly entry: ServiceEntry;
   readonly siteName: string;
   readonly canEdit: boolean;
   readonly onEdit: () => void;
   readonly onReport: (action: ReportAction) => Promise<void>;
+  readonly onConfirm?: () => Promise<unknown>;
 }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -73,7 +90,27 @@ function ServiceEntryCard({
       setReason("");
       setReportOpen(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "This correction could not be reported.");
+      if (
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (cause instanceof TypeError && cause.message.includes("fetch"))
+      ) {
+        setError("You are offline. Connect to send a correction.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "This correction could not be reported.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm() {
+    if (!onConfirm || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onConfirm();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not confirm this entry.");
     } finally {
       setBusy(false);
     }
@@ -103,7 +140,8 @@ function ServiceEntryCard({
               </a>
             </h4>
             <p className={cn(textMuted, "mt-0.5 break-words text-xs")}>
-              {siteName} · {humanStatus(entry.status)} · {updateLabel(entry.updatedAt)}
+              {siteName} · {humanStatus(entry.status)}
+              {entry.revision !== entry.publishedRevision ? ` · ${updateLabel(entry.updatedAt)}` : ""}
             </p>
           </div>
           {canEdit ? (
@@ -113,6 +151,14 @@ function ServiceEntryCard({
           ) : null}
         </div>
 
+        <ServiceStructuredPreview content={entry.content} />
+        <OnCallUpdatedLine updatedAt={entry.publishedAt ?? null} lastConfirmedAt={entry.lastConfirmedAt} />
+        {onConfirm ? (
+          <Button variant="secondary" busy={busy} onClick={() => void confirm()}>
+            Still correct
+          </Button>
+        ) : null}
+        {error && !reportOpen ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
         {entry.content.body ? (
           <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[color:var(--text)]">
             {entry.content.body}
@@ -326,6 +372,17 @@ export function ServiceHandbook({
         ) : null}
       </div>
 
+      {canEdit && selectedSiteId
+        ? detail.sites
+            .filter((site) => site.id === selectedSiteId)
+            .map((site) => (
+              <ServiceSiteHours
+                key={`${site.id}:${site.afterHoursStart}:${site.afterHoursEnd}`}
+                site={site}
+                onAction={onAction}
+              />
+            ))
+        : null}
       <form
         role="search"
         className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
@@ -370,6 +427,19 @@ export function ServiceHandbook({
                     }
                     canEdit={canEdit}
                     onEdit={() => onEdit(entry)}
+                    onConfirm={
+                      entry.status !== "withdrawn" &&
+                      entry.publishedContent &&
+                      entry.publishedRevision === entry.revision &&
+                      (entry.publishedContent.kind === "operational" ? canEdit : detail.membership.clinicalReviewer)
+                        ? () =>
+                            onAction({
+                              action: "entry.confirm",
+                              entryId: entry.id,
+                              publishedRevision: entry.publishedRevision!,
+                            })
+                        : undefined
+                    }
                     onReport={async (action) => {
                       await onAction(action);
                     }}

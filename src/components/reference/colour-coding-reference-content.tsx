@@ -42,8 +42,8 @@ function DomainCatalogue({ variant }: { variant: "page" | "guide" }) {
         const body = (
           <ul className="mt-3 divide-y divide-[color:var(--border)]">
             {flags.map((flag) => (
-              <li key={flag.id} className="flex items-start gap-3 py-2.5">
-                <div className="w-40 shrink-0 pt-0.5">
+              <li key={flag.id} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-start sm:gap-3">
+                <div className="w-auto shrink-0 pt-0.5 sm:w-40">
                   <ClinicalBadge tone={flag.tone} label={flag.label} iconKey={flag.iconKey} />
                 </div>
                 <p className="min-w-0 text-xs leading-5 text-[color:var(--text-muted)]">{flag.meaning}</p>

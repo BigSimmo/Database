@@ -26,8 +26,8 @@ export function OnCallSignedOut({ icon, testId }: OnCallSignedOutProps) {
     <>
       <EmptyState
         icon={icon}
-        title="Sign in to see your hospital's On Call numbers"
-        body="On Call entries are shared with signed-in users only."
+        title="Sign in to see shared On Call entries"
+        body="Signed-in users can see entries shared across services. Check the service before using a number."
         actions={
           <Button variant="primary" onClick={() => setSignInOpen(true)}>
             Sign in

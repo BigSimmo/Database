@@ -1,5 +1,7 @@
 "use client";
 
+import { currentCover } from "@/lib/on-call/service-availability";
+import { useHospitalClock } from "@/components/on-call/use-hospital-clock";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -74,6 +76,7 @@ function HandbookCallRow({
       mobileDial={item.mobileDial}
       state={didntConnectAt ? { kind: "didnt-connect", at: didntConnectAt } : null}
       updatedAt={item.updatedAt}
+      lastConfirmedAt={item.lastConfirmedAt}
       sources={item.sources}
       tone={pinned ? "emergency" : "default"}
       hospitalName={name}
@@ -215,6 +218,7 @@ function MineCallRow({
  */
 export function OnCallCallPage() {
   const handbook = useHospitalHandbook();
+  const hospitalNow = useHospitalClock();
   const entries = useOnCallEntries();
   const hospitalPhone = useOnCallHospitalPhone();
   const [query, setQuery] = useState("");
@@ -261,6 +265,12 @@ export function OnCallCallPage() {
     return personal.filter((entry) => matched.has(entry.id));
   }, [personal, query, searching]);
 
+  const cover = useMemo(() => {
+    if (!ready) return [];
+    const active = currentCover(handbook.items, hospitalNow);
+    return searching ? searchHandbookItems(active, query) : active;
+  }, [handbook.items, hospitalNow, query, ready, searching]);
+
   const hospitalCount = groups.reduce((sum, group) => sum + group.items.length, 0);
   const externalCount = ready ? external.length : 0;
   const sections = onCallHubPageSections(
@@ -270,7 +280,7 @@ export function OnCallCallPage() {
       ["external", externalCount],
     ]),
   );
-  const resultCount = hospitalCount + externalCount + mine.length;
+  const resultCount = cover.length + hospitalCount + externalCount + mine.length;
   const hasDeskOnly = contacts.some((item) => item.dial.kind === "extension");
   const signedOut = entries.signedOut || handbook.status === "signed-out";
 
@@ -278,6 +288,30 @@ export function OnCallCallPage() {
     <OnCallHubPageFrame page="call" sections={sections} lead={<OnCallHospitalLine handbook={handbook} />}>
       <OnCallHandbookState handbook={handbook} page="call" />
       {ready ? null : <OnCallCrisisLines />}
+      {cover.length > 0 ? (
+        <OnCallGroupedList eyebrow="Cover at this time" testId="on-call-call-cover">
+          {cover.map((item) => (
+            <OnCallDialRow
+              key={item.id}
+              id={item.id}
+              source="handbook"
+              title={item.parsed.label}
+              subtitle={`${item.cover?.team ?? ""} · ${item.cover?.window.start}–${item.cover?.window.end}`}
+              dial={item.dial}
+              hospitalPhone={hospitalPhone}
+              hospitalPhoneSwitch={
+                <OnCallHospitalPhoneSwitch on={hospitalPhone} testId="on-call-hospital-phone-sheet" />
+              }
+              mobileDial={item.mobileDial}
+              updatedAt={item.updatedAt}
+              lastConfirmedAt={item.lastConfirmedAt}
+              sources={item.sources}
+              now={hospitalNow}
+              testId={`on-call-call-cover-${item.id}`}
+            />
+          ))}
+        </OnCallGroupedList>
+      ) : null}
 
       {ready ? (
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">

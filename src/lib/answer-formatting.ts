@@ -263,7 +263,7 @@ function groupFromLabel(label: string | null): AnswerDisplayGroup | null {
   if (/\bbottom line\b/.test(labelKey)) return "bottom_line";
   if (/\b(?:source gaps?|gap|unsupported)\b/.test(labelKey)) return "gap";
   if (/\b(?:risk|escalation|red flag|safety)\b/.test(labelKey)) return "escalation";
-  if (/\b(?:medication|dose|titration|prescrib)\b/.test(labelKey)) return "medication";
+  if (/\b(?:medication|dose|titration|prescrib(?:e|es|ed|er|ers|ing))\b/.test(labelKey)) return "medication";
   if (/\b(?:monitoring|timing|threshold|table evidence)\b/.test(labelKey)) return "monitoring";
   if (/\b(?:required actions?|workflow|action)\b/.test(labelKey)) return "action";
   if (/\b(?:documentation|forms?|record|audit)\b/.test(labelKey)) return "documentation";
@@ -279,7 +279,9 @@ function groupFromText(text: string): AnswerDisplayGroup {
     return "gap";
   }
   if (
-    /\b(?:risk|escalat|urgent|immediate|red flag|cease|withhold|stop|contraindicat|avoid|emergency)\b/.test(combined)
+    /\b(?:risk|escalat(?:e|es|ed|ing|ion|ions)|urgent|immediate|red flag|cease|withhold|stop|contraindicat(?:e|es|ed|ion|ions)|avoid|emergency)\b/.test(
+      combined,
+    )
   ) {
     return "escalation";
   }

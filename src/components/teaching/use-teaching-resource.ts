@@ -21,11 +21,11 @@ export type TeachingResource<T> = {
 
 type Settled<T> = { key: string; status: "ready" | TeachingLoadFailure; data: T | null; code: string | null };
 
-export function useTeachingResource<T>(url: string | null): TeachingResource<T> {
+export function useTeachingResource<T>(url: string | null, sampleData?: T): TeachingResource<T> {
   const auth = useAuthSession();
   const [attempt, setAttempt] = useState(0);
   const [settled, setSettled] = useState<Settled<T> | null>(null);
-  const key = url && auth.status !== "loading" ? `${auth.authEpoch}|${attempt}|${url}` : null;
+  const key = !sampleData && url && auth.status !== "loading" ? `${auth.authEpoch}|${attempt}|${url}` : null;
 
   useEffect(() => {
     if (!key || !url) return;
@@ -48,6 +48,7 @@ export function useTeachingResource<T>(url: string | null): TeachingResource<T> 
   }, [key, url]);
 
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
+  if (sampleData) return { status: "ready", data: sampleData, code: null, retry };
   if (!url) return { status: "idle", data: null, code: null, retry };
   if (!key || settled?.key !== key) return { status: "loading", data: null, code: null, retry };
   return { status: settled.status, data: settled.data, code: settled.code, retry };

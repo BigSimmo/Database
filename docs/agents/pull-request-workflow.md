@@ -21,8 +21,10 @@ The stages, in the order a pull request lives through them:
 Rules that live outside this file and are only pointed to here: the always-loaded boundaries in
 `AGENTS.md` (`# Supabase project safety`, `# RAG ranking protection`,
 `# API and provider confirmation boundary`), `## Bare PR publication is not readiness work` and
-`## Anti-conflict and CI-speed operating procedure` (both kept verbatim in `AGENTS.md` because
-tests read them), gate selection in [`verification-gates.md`](verification-gates.md), and the
+`## Anti-conflict and CI-speed operating procedure` (both kept verbatim in `AGENTS.md` — Bare PR /
+format-before-push are operational via skills/hooks/`guard-push`, Anti-conflict is convention-only
+and not exact-text pinned; see the AGENTS pin map), gate selection in
+[`verification-gates.md`](verification-gates.md), and the
 review protocol in [`../codex-review-protocol.md`](../codex-review-protocol.md).
 
 <!-- BEGIN:pull-request-workflow -->
